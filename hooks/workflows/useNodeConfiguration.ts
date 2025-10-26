@@ -21,6 +21,7 @@ interface ConfiguringNode {
   integration: any
   nodeComponent: NodeComponent
   config: Record<string, any>
+  focusField?: string
 }
 
 interface PendingNode {

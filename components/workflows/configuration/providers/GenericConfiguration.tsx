@@ -365,7 +365,7 @@ export function GenericConfiguration({
       const Component = shouldUseAIWrapper ? AIFieldWrapper : FieldRenderer;
 
       return (
-        <React.Fragment key={`field-${field.name}-${index}`}>
+        <div key={`field-${field.name}-${index}`} data-config-field={field.name}>
           <Component
             field={field}
             value={values[field.name]}
@@ -395,7 +395,7 @@ export function GenericConfiguration({
             isAIEnabled={isAIEnabled}
             onAIToggle={isConnectedToAIAgent ? handleAIToggle : undefined}
           />
-        </React.Fragment>
+        </div>
       );
     });
   };

@@ -1,0 +1,1897 @@
+[
+  {
+    "type": "ai_agent",
+    "title": "AI Agent",
+    "providerId": "ai",
+    "isTrigger": false,
+    "category": "AI & Automation",
+    "configSchemaLength": 15,
+    "outputSchemaLength": 10
+  },
+  {
+    "type": "airtable_action_create_record",
+    "title": "Create Record",
+    "providerId": "airtable",
+    "isTrigger": false,
+    "category": "Productivity",
+    "configSchemaLength": 3,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "airtable_action_list_records",
+    "title": "Get Records",
+    "providerId": "airtable",
+    "isTrigger": false,
+    "category": "Productivity",
+    "configSchemaLength": 11,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "airtable_action_update_record",
+    "title": "Update Record",
+    "providerId": "airtable",
+    "isTrigger": false,
+    "category": "Productivity",
+    "configSchemaLength": 4,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "airtable_trigger_new_record",
+    "title": "New Record",
+    "providerId": "airtable",
+    "isTrigger": true,
+    "category": "Productivity",
+    "configSchemaLength": 5,
+    "outputSchemaLength": 7
+  },
+  {
+    "type": "airtable_trigger_record_updated",
+    "title": "Record Updated",
+    "providerId": "airtable",
+    "isTrigger": true,
+    "category": "Productivity",
+    "configSchemaLength": 5,
+    "outputSchemaLength": 8
+  },
+  {
+    "type": "airtable_trigger_table_deleted",
+    "title": "Table Deleted",
+    "providerId": "airtable",
+    "isTrigger": true,
+    "category": "Productivity",
+    "configSchemaLength": 1,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "conditional_trigger",
+    "title": "Conditional Trigger",
+    "providerId": "utility",
+    "isTrigger": true,
+    "category": "Trigger",
+    "configSchemaLength": 8,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "custom_script",
+    "title": "Custom Script",
+    "providerId": "logic",
+    "isTrigger": false,
+    "category": "Logic",
+    "configSchemaLength": 1,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "delay",
+    "title": "Delay",
+    "providerId": "logic",
+    "isTrigger": false,
+    "category": "Productivity",
+    "configSchemaLength": 2,
+    "outputSchemaLength": 6
+  },
+  {
+    "type": "discord_action_assign_role",
+    "title": "Assign Role",
+    "providerId": "discord",
+    "isTrigger": false,
+    "category": "Communication",
+    "configSchemaLength": 3,
+    "outputSchemaLength": 5
+  },
+  {
+    "type": "discord_action_delete_message",
+    "title": "Delete Message(s)",
+    "providerId": "discord",
+    "isTrigger": false,
+    "category": "Communication",
+    "configSchemaLength": 6,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "discord_action_edit_message",
+    "title": "Edit Message",
+    "providerId": "discord",
+    "isTrigger": false,
+    "category": "Communication",
+    "configSchemaLength": 4,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "discord_action_fetch_messages",
+    "title": "Get Messages",
+    "providerId": "discord",
+    "isTrigger": false,
+    "category": "Communication",
+    "configSchemaLength": 7,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "discord_action_send_message",
+    "title": "Send Channel Message",
+    "providerId": "discord",
+    "isTrigger": false,
+    "category": "Communication",
+    "configSchemaLength": 3,
+    "outputSchemaLength": 5
+  },
+  {
+    "type": "discord_trigger_member_join",
+    "title": "User Joined Server",
+    "providerId": "discord",
+    "isTrigger": true,
+    "category": "Communication",
+    "configSchemaLength": 2,
+    "outputSchemaLength": 15
+  },
+  {
+    "type": "discord_trigger_new_message",
+    "title": "New Message in Channel",
+    "providerId": "discord",
+    "isTrigger": true,
+    "category": "Communication",
+    "configSchemaLength": 4,
+    "outputSchemaLength": 11
+  },
+  {
+    "type": "discord_trigger_slash_command",
+    "title": "Slash Command",
+    "providerId": "discord",
+    "isTrigger": true,
+    "category": "Communication",
+    "configSchemaLength": 4,
+    "outputSchemaLength": 9
+  },
+  {
+    "type": "dropbox_action_get_file",
+    "title": "Get File",
+    "providerId": "dropbox",
+    "isTrigger": false,
+    "category": "Storage",
+    "configSchemaLength": 3,
+    "outputSchemaLength": 7
+  },
+  {
+    "type": "dropbox_action_upload_file",
+    "title": "Upload File",
+    "providerId": "dropbox",
+    "isTrigger": false,
+    "category": "Storage",
+    "configSchemaLength": 7,
+    "outputSchemaLength": 5
+  },
+  {
+    "type": "dropbox_trigger_new_file",
+    "title": "New File",
+    "providerId": "dropbox",
+    "isTrigger": true,
+    "category": "Storage",
+    "configSchemaLength": 3,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "extract_website_data",
+    "title": "Extract Info from Website",
+    "providerId": "utility",
+    "isTrigger": false,
+    "category": "Data Enrichment",
+    "configSchemaLength": 8,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "facebook_action_comment_on_post",
+    "title": "Comment On Post",
+    "providerId": "facebook",
+    "isTrigger": false,
+    "category": "Social",
+    "configSchemaLength": 5,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "facebook_action_create_post",
+    "title": "Create Post",
+    "providerId": "facebook",
+    "isTrigger": false,
+    "category": "Social",
+    "configSchemaLength": 10,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "facebook_action_get_page_insights",
+    "title": "Fetch Page Insights",
+    "providerId": "facebook",
+    "isTrigger": false,
+    "category": "Social",
+    "configSchemaLength": 6,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "facebook_action_send_message",
+    "title": "Send Message",
+    "providerId": "facebook",
+    "isTrigger": false,
+    "category": "Social",
+    "configSchemaLength": 5,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "facebook_trigger_new_comment",
+    "title": "New comment on post",
+    "providerId": "facebook",
+    "isTrigger": true,
+    "category": "Social",
+    "configSchemaLength": 0,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "facebook_trigger_new_post",
+    "title": "New post published",
+    "providerId": "facebook",
+    "isTrigger": true,
+    "category": "Social",
+    "configSchemaLength": 0,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "file_upload",
+    "title": "File Upload",
+    "providerId": "utility",
+    "isTrigger": false,
+    "category": "Action",
+    "configSchemaLength": 8,
+    "outputSchemaLength": 7
+  },
+  {
+    "type": "filter",
+    "title": "Filter",
+    "providerId": "logic",
+    "isTrigger": false,
+    "category": "Logic",
+    "configSchemaLength": 2,
+    "outputSchemaLength": 2
+  },
+  {
+    "type": "github_action_add_comment",
+    "title": "Add Comment",
+    "providerId": "github",
+    "isTrigger": false,
+    "category": "Developer",
+    "configSchemaLength": 3,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "github_action_create_gist",
+    "title": "Create Gist",
+    "providerId": "github",
+    "isTrigger": false,
+    "category": "Developer",
+    "configSchemaLength": 4,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "github_action_create_issue",
+    "title": "Create Issue",
+    "providerId": "github",
+    "isTrigger": false,
+    "category": "Development",
+    "configSchemaLength": 7,
+    "outputSchemaLength": 6
+  },
+  {
+    "type": "github_action_create_pull_request",
+    "title": "Create Pull Request",
+    "providerId": "github",
+    "isTrigger": false,
+    "category": "Developer",
+    "configSchemaLength": 5,
+    "outputSchemaLength": 5
+  },
+  {
+    "type": "github_action_create_repository",
+    "title": "Create Repository",
+    "providerId": "github",
+    "isTrigger": false,
+    "category": "Developer",
+    "configSchemaLength": 5,
+    "outputSchemaLength": 5
+  },
+  {
+    "type": "github_trigger_new_commit",
+    "title": "New Commit",
+    "providerId": "github",
+    "isTrigger": true,
+    "category": "Development",
+    "configSchemaLength": 0,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "gmail_action_add_label",
+    "title": "Apply Gmail Labels",
+    "providerId": "gmail",
+    "isTrigger": false,
+    "category": "Communication",
+    "configSchemaLength": 2,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "gmail_action_search_email",
+    "title": "Get Email",
+    "providerId": "gmail",
+    "isTrigger": false,
+    "category": "Communication",
+    "configSchemaLength": 6,
+    "outputSchemaLength": 2
+  },
+  {
+    "type": "gmail_action_send_email",
+    "title": "Send Email",
+    "providerId": "gmail",
+    "isTrigger": false,
+    "category": "Communication",
+    "configSchemaLength": 7,
+    "outputSchemaLength": 5
+  },
+  {
+    "type": "gmail_trigger_new_email",
+    "title": "New Email",
+    "providerId": "gmail",
+    "isTrigger": true,
+    "category": "Communication",
+    "configSchemaLength": 5,
+    "outputSchemaLength": 9
+  },
+  {
+    "type": "google_analytics_action_get_realtime_data",
+    "title": "Get Real-Time Data",
+    "providerId": "google-analytics",
+    "isTrigger": false,
+    "category": "Analytics",
+    "configSchemaLength": 3,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "google_analytics_action_get_user_activity",
+    "title": "Get User Activity",
+    "providerId": "google-analytics",
+    "isTrigger": false,
+    "category": "Analytics",
+    "configSchemaLength": 3,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "google_analytics_action_run_report",
+    "title": "Run Report",
+    "providerId": "google-analytics",
+    "isTrigger": false,
+    "category": "Analytics",
+    "configSchemaLength": 7,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "google_analytics_action_send_event",
+    "title": "Send Event",
+    "providerId": "google-analytics",
+    "isTrigger": false,
+    "category": "Analytics",
+    "configSchemaLength": 6,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "google_analytics_trigger_goal_completion",
+    "title": "Goal Completion",
+    "providerId": "google-analytics",
+    "isTrigger": true,
+    "category": "Analytics",
+    "configSchemaLength": 2,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "google_analytics_trigger_new_event",
+    "title": "New Event",
+    "providerId": "google-analytics",
+    "isTrigger": true,
+    "category": "Analytics",
+    "configSchemaLength": 2,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "google_analytics_trigger_new_pageview",
+    "title": "New Page View",
+    "providerId": "google-analytics",
+    "isTrigger": true,
+    "category": "Analytics",
+    "configSchemaLength": 2,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "google_calendar_action_create_event",
+    "title": "Create Event",
+    "providerId": "google-calendar",
+    "isTrigger": false,
+    "category": "Productivity",
+    "configSchemaLength": 26,
+    "outputSchemaLength": 8
+  },
+  {
+    "type": "google_calendar_trigger_event_canceled",
+    "title": "Event Canceled",
+    "providerId": "google-calendar",
+    "isTrigger": true,
+    "category": "Productivity",
+    "configSchemaLength": 1,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "google_calendar_trigger_event_updated",
+    "title": "Event Updated",
+    "providerId": "google-calendar",
+    "isTrigger": true,
+    "category": "Productivity",
+    "configSchemaLength": 1,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "google_calendar_trigger_new_event",
+    "title": "New Event",
+    "providerId": "google-calendar",
+    "isTrigger": true,
+    "category": "Productivity",
+    "configSchemaLength": 1,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "google_docs_action_create_document",
+    "title": "Create Document",
+    "providerId": "google-docs",
+    "isTrigger": false,
+    "category": "Productivity",
+    "configSchemaLength": 11,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "google_docs_action_update_document",
+    "title": "Update Document",
+    "providerId": "google-docs",
+    "isTrigger": false,
+    "category": "Productivity",
+    "configSchemaLength": 5,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "google_docs_trigger_document_updated",
+    "title": "Document Updated",
+    "providerId": "google-docs",
+    "isTrigger": true,
+    "category": "Productivity",
+    "configSchemaLength": 3,
+    "outputSchemaLength": 7
+  },
+  {
+    "type": "google_docs_trigger_new_document",
+    "title": "New Document Created",
+    "providerId": "google-docs",
+    "isTrigger": true,
+    "category": "Productivity",
+    "configSchemaLength": 2,
+    "outputSchemaLength": 6
+  },
+  {
+    "type": "google_search",
+    "title": "Google Search",
+    "providerId": "utility",
+    "isTrigger": false,
+    "category": "Data Enrichment",
+    "configSchemaLength": 6,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "google_sheets_action_create_spreadsheet",
+    "title": "Create New Spreadsheet",
+    "providerId": "google-sheets",
+    "isTrigger": false,
+    "category": "Productivity",
+    "configSchemaLength": 5,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "google_sheets_trigger_new_row",
+    "title": "New Row",
+    "providerId": "google-sheets",
+    "isTrigger": true,
+    "category": "Productivity",
+    "configSchemaLength": 2,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "google_sheets_trigger_new_worksheet",
+    "title": "New Worksheet",
+    "providerId": "google-sheets",
+    "isTrigger": true,
+    "category": "Productivity",
+    "configSchemaLength": 1,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "google_sheets_trigger_updated_row",
+    "title": "Updated Row in Sheet",
+    "providerId": "google-sheets",
+    "isTrigger": true,
+    "category": "Productivity",
+    "configSchemaLength": 2,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "google_sheets_unified_action",
+    "title": "Manage Sheet Data",
+    "providerId": "google-sheets",
+    "isTrigger": false,
+    "category": "Productivity",
+    "configSchemaLength": 12,
+    "outputSchemaLength": 8
+  },
+  {
+    "type": "google-drive:create_file",
+    "title": "Upload File",
+    "providerId": "google-drive",
+    "isTrigger": false,
+    "category": "Google Drive",
+    "configSchemaLength": 6,
+    "outputSchemaLength": 6
+  },
+  {
+    "type": "google-drive:file_updated",
+    "title": "File Updated",
+    "providerId": "google-drive",
+    "isTrigger": true,
+    "category": "Google Drive",
+    "configSchemaLength": 1,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "google-drive:get_file",
+    "title": "Get File",
+    "providerId": "google-drive",
+    "isTrigger": false,
+    "category": "Google Drive",
+    "configSchemaLength": 3,
+    "outputSchemaLength": 2
+  },
+  {
+    "type": "google-drive:new_file_in_folder",
+    "title": "New File in Folder",
+    "providerId": "google-drive",
+    "isTrigger": true,
+    "category": "Google Drive",
+    "configSchemaLength": 1,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "google-drive:new_folder_in_folder",
+    "title": "New Folder in Folder",
+    "providerId": "google-drive",
+    "isTrigger": true,
+    "category": "Google Drive",
+    "configSchemaLength": 1,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "google-sheets_action_export_sheet",
+    "title": "Export Sheet",
+    "providerId": "google-sheets",
+    "isTrigger": false,
+    "category": "Productivity",
+    "configSchemaLength": 18,
+    "outputSchemaLength": 5
+  },
+  {
+    "type": "gumroad_action_create_product",
+    "title": "Create Product",
+    "providerId": "gumroad",
+    "isTrigger": false,
+    "category": "E-commerce",
+    "configSchemaLength": 5,
+    "outputSchemaLength": 5
+  },
+  {
+    "type": "gumroad_action_get_sales_analytics",
+    "title": "Get Sales Analytics",
+    "providerId": "gumroad",
+    "isTrigger": false,
+    "category": "E-commerce",
+    "configSchemaLength": 3,
+    "outputSchemaLength": 5
+  },
+  {
+    "type": "gumroad_trigger_new_sale",
+    "title": "New Sale",
+    "providerId": "gumroad",
+    "isTrigger": true,
+    "category": "E-commerce",
+    "configSchemaLength": 2,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "gumroad_trigger_new_subscriber",
+    "title": "New Subscriber",
+    "providerId": "gumroad",
+    "isTrigger": true,
+    "category": "E-commerce",
+    "configSchemaLength": 1,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "hitl_conversation",
+    "title": "Ask Human via Chat",
+    "isTrigger": false,
+    "category": "Automation",
+    "configSchemaLength": 20,
+    "outputSchemaLength": 6
+  },
+  {
+    "type": "http_request",
+    "title": "HTTP Request",
+    "providerId": "logic",
+    "isTrigger": false,
+    "category": "Logic",
+    "configSchemaLength": 10,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "hubspot_action_add_contact_to_list",
+    "title": "Add Contact to List",
+    "providerId": "hubspot",
+    "isTrigger": false,
+    "category": "CRM",
+    "configSchemaLength": 2,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "hubspot_action_create_company",
+    "title": "Create Company",
+    "providerId": "hubspot",
+    "isTrigger": false,
+    "category": "CRM",
+    "configSchemaLength": 13,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "hubspot_action_create_contact",
+    "title": "Create Contact",
+    "providerId": "hubspot",
+    "isTrigger": false,
+    "category": "CRM",
+    "configSchemaLength": 14,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "hubspot_action_create_contact_enhanced",
+    "title": "Create Contact (Dynamic Fields)",
+    "providerId": "hubspot",
+    "isTrigger": false,
+    "category": "CRM",
+    "configSchemaLength": 7,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "hubspot_action_create_contact_fully_dynamic",
+    "title": "Create Contact (All Fields)",
+    "providerId": "hubspot",
+    "isTrigger": false,
+    "category": "CRM",
+    "configSchemaLength": 2,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "hubspot_action_create_deal",
+    "title": "Create Deal",
+    "providerId": "hubspot",
+    "isTrigger": false,
+    "category": "CRM",
+    "configSchemaLength": 9,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "hubspot_action_create_object",
+    "title": "Create HubSpot Object",
+    "providerId": "hubspot",
+    "isTrigger": false,
+    "category": "CRM",
+    "configSchemaLength": 3,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "hubspot_action_get_companies",
+    "title": "Get Companies",
+    "providerId": "hubspot",
+    "isTrigger": false,
+    "category": "CRM",
+    "configSchemaLength": 4,
+    "outputSchemaLength": 2
+  },
+  {
+    "type": "hubspot_action_get_contacts",
+    "title": "Get Contacts",
+    "providerId": "hubspot",
+    "isTrigger": false,
+    "category": "CRM",
+    "configSchemaLength": 4,
+    "outputSchemaLength": 2
+  },
+  {
+    "type": "hubspot_action_get_deals",
+    "title": "Get Deals",
+    "providerId": "hubspot",
+    "isTrigger": false,
+    "category": "CRM",
+    "configSchemaLength": 4,
+    "outputSchemaLength": 2
+  },
+  {
+    "type": "hubspot_action_refresh_properties",
+    "title": "Refresh HubSpot Properties",
+    "providerId": "hubspot",
+    "isTrigger": false,
+    "category": "CRM",
+    "configSchemaLength": 1,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "hubspot_action_update_deal",
+    "title": "Update Deal",
+    "providerId": "hubspot",
+    "isTrigger": false,
+    "category": "CRM",
+    "configSchemaLength": 7,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "hubspot_action_update_object",
+    "title": "Update HubSpot Object",
+    "providerId": "hubspot",
+    "isTrigger": false,
+    "category": "CRM",
+    "configSchemaLength": 3,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "hubspot_action_upsert_object",
+    "title": "Upsert HubSpot Object",
+    "providerId": "hubspot",
+    "isTrigger": false,
+    "category": "CRM",
+    "configSchemaLength": 4,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "hubspot_trigger_company_created",
+    "title": "Company Created",
+    "providerId": "hubspot",
+    "isTrigger": true,
+    "category": "CRM",
+    "configSchemaLength": 0,
+    "outputSchemaLength": 12
+  },
+  {
+    "type": "hubspot_trigger_company_deleted",
+    "title": "Company Deleted",
+    "providerId": "hubspot",
+    "isTrigger": true,
+    "category": "CRM",
+    "configSchemaLength": 0,
+    "outputSchemaLength": 5
+  },
+  {
+    "type": "hubspot_trigger_company_updated",
+    "title": "Company Property Updated",
+    "providerId": "hubspot",
+    "isTrigger": true,
+    "category": "CRM",
+    "configSchemaLength": 1,
+    "outputSchemaLength": 8
+  },
+  {
+    "type": "hubspot_trigger_contact_created",
+    "title": "Contact Created",
+    "providerId": "hubspot",
+    "isTrigger": true,
+    "category": "CRM",
+    "configSchemaLength": 0,
+    "outputSchemaLength": 11
+  },
+  {
+    "type": "hubspot_trigger_contact_deleted",
+    "title": "Contact Deleted",
+    "providerId": "hubspot",
+    "isTrigger": true,
+    "category": "CRM",
+    "configSchemaLength": 0,
+    "outputSchemaLength": 6
+  },
+  {
+    "type": "hubspot_trigger_contact_updated",
+    "title": "Contact Property Updated",
+    "providerId": "hubspot",
+    "isTrigger": true,
+    "category": "CRM",
+    "configSchemaLength": 1,
+    "outputSchemaLength": 10
+  },
+  {
+    "type": "hubspot_trigger_deal_created",
+    "title": "Deal Created",
+    "providerId": "hubspot",
+    "isTrigger": true,
+    "category": "CRM",
+    "configSchemaLength": 0,
+    "outputSchemaLength": 12
+  },
+  {
+    "type": "hubspot_trigger_deal_deleted",
+    "title": "Deal Deleted",
+    "providerId": "hubspot",
+    "isTrigger": true,
+    "category": "CRM",
+    "configSchemaLength": 0,
+    "outputSchemaLength": 6
+  },
+  {
+    "type": "hubspot_trigger_deal_updated",
+    "title": "Deal Property Updated",
+    "providerId": "hubspot",
+    "isTrigger": true,
+    "category": "CRM",
+    "configSchemaLength": 1,
+    "outputSchemaLength": 10
+  },
+  {
+    "type": "if_then_condition",
+    "title": "If/Then",
+    "providerId": "logic",
+    "isTrigger": false,
+    "category": "Productivity",
+    "configSchemaLength": 9,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "loop",
+    "title": "Loop",
+    "providerId": "logic",
+    "isTrigger": false,
+    "category": "Logic",
+    "configSchemaLength": 1,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "mailchimp_action_add_subscriber",
+    "title": "Add Subscriber",
+    "providerId": "mailchimp",
+    "isTrigger": false,
+    "category": "Email",
+    "configSchemaLength": 12,
+    "outputSchemaLength": 5
+  },
+  {
+    "type": "mailchimp_action_add_tag",
+    "title": "Add Tag to Subscriber",
+    "providerId": "mailchimp",
+    "isTrigger": false,
+    "category": "Email",
+    "configSchemaLength": 3,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "mailchimp_action_create_campaign",
+    "title": "Create Campaign",
+    "providerId": "mailchimp",
+    "isTrigger": false,
+    "category": "Email",
+    "configSchemaLength": 8,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "mailchimp_action_get_subscribers",
+    "title": "Get Subscribers",
+    "providerId": "mailchimp",
+    "isTrigger": false,
+    "category": "Email",
+    "configSchemaLength": 4,
+    "outputSchemaLength": 2
+  },
+  {
+    "type": "mailchimp_action_remove_subscriber",
+    "title": "Remove Subscriber",
+    "providerId": "mailchimp",
+    "isTrigger": false,
+    "category": "Email",
+    "configSchemaLength": 3,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "mailchimp_action_remove_tag",
+    "title": "Remove Tag from Subscriber",
+    "providerId": "mailchimp",
+    "isTrigger": false,
+    "category": "Email",
+    "configSchemaLength": 3,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "mailchimp_action_send_campaign",
+    "title": "Send Campaign",
+    "providerId": "mailchimp",
+    "isTrigger": false,
+    "category": "Email",
+    "configSchemaLength": 1,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "mailchimp_action_update_subscriber",
+    "title": "Update Subscriber",
+    "providerId": "mailchimp",
+    "isTrigger": false,
+    "category": "Email",
+    "configSchemaLength": 12,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "mailchimp_trigger_email_opened",
+    "title": "Email campaign opened",
+    "providerId": "mailchimp",
+    "isTrigger": true,
+    "category": "Email",
+    "configSchemaLength": 0,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "mailchimp_trigger_new_subscriber",
+    "title": "New subscriber added",
+    "providerId": "mailchimp",
+    "isTrigger": true,
+    "category": "Email",
+    "configSchemaLength": 0,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "manual",
+    "title": "Manual",
+    "isTrigger": true,
+    "category": "Triggers",
+    "configSchemaLength": 0,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "manychat_action_send_message",
+    "title": "Send Message",
+    "providerId": "manychat",
+    "isTrigger": false,
+    "category": "Communication",
+    "configSchemaLength": 0,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "manychat_action_tag_subscriber",
+    "title": "Tag Subscriber",
+    "providerId": "manychat",
+    "isTrigger": false,
+    "category": "Communication",
+    "configSchemaLength": 0,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "manychat_trigger_new_subscriber",
+    "title": "New Subscriber",
+    "providerId": "manychat",
+    "isTrigger": true,
+    "category": "Communication",
+    "configSchemaLength": 0,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "microsoft_excel_action_create_workbook",
+    "title": "Create New Workbook",
+    "providerId": "microsoft-excel",
+    "isTrigger": false,
+    "category": "Productivity",
+    "configSchemaLength": 6,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "microsoft_excel_trigger_new_row",
+    "title": "New Row",
+    "providerId": "microsoft-excel",
+    "isTrigger": true,
+    "category": "Productivity",
+    "configSchemaLength": 2,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "microsoft_excel_trigger_new_worksheet",
+    "title": "New Worksheet",
+    "providerId": "microsoft-excel",
+    "isTrigger": true,
+    "category": "Productivity",
+    "configSchemaLength": 1,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "microsoft_excel_trigger_updated_row",
+    "title": "Updated Row in Worksheet",
+    "providerId": "microsoft-excel",
+    "isTrigger": true,
+    "category": "Productivity",
+    "configSchemaLength": 2,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "microsoft_excel_unified_action",
+    "title": "Manage Excel Data",
+    "providerId": "microsoft-excel",
+    "isTrigger": false,
+    "category": "Productivity",
+    "configSchemaLength": 12,
+    "outputSchemaLength": 8
+  },
+  {
+    "type": "microsoft-excel_action_export_sheet",
+    "title": "Get Rows",
+    "providerId": "microsoft-excel",
+    "isTrigger": false,
+    "category": "Productivity",
+    "configSchemaLength": 13,
+    "outputSchemaLength": 5
+  },
+  {
+    "type": "microsoft-onenote_action_copy_page",
+    "title": "Copy Page",
+    "providerId": "microsoft-onenote",
+    "isTrigger": false,
+    "category": "Productivity",
+    "configSchemaLength": 5,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "microsoft-onenote_action_create_notebook",
+    "title": "Create Notebook",
+    "providerId": "microsoft-onenote",
+    "isTrigger": false,
+    "category": "Productivity",
+    "configSchemaLength": 3,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "microsoft-onenote_action_create_page",
+    "title": "Create Page",
+    "providerId": "microsoft-onenote",
+    "isTrigger": false,
+    "category": "Productivity",
+    "configSchemaLength": 5,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "microsoft-onenote_action_create_section",
+    "title": "Create Section",
+    "providerId": "microsoft-onenote",
+    "isTrigger": false,
+    "category": "Productivity",
+    "configSchemaLength": 2,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "microsoft-onenote_action_delete_page",
+    "title": "Delete Page",
+    "providerId": "microsoft-onenote",
+    "isTrigger": false,
+    "category": "Productivity",
+    "configSchemaLength": 4,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "microsoft-onenote_action_get_page_content",
+    "title": "Get Page Content",
+    "providerId": "microsoft-onenote",
+    "isTrigger": false,
+    "category": "Productivity",
+    "configSchemaLength": 5,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "microsoft-onenote_action_get_pages",
+    "title": "Get Pages",
+    "providerId": "microsoft-onenote",
+    "isTrigger": false,
+    "category": "Productivity",
+    "configSchemaLength": 5,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "microsoft-onenote_action_search",
+    "title": "Search OneNote",
+    "providerId": "microsoft-onenote",
+    "isTrigger": false,
+    "category": "Productivity",
+    "configSchemaLength": 5,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "microsoft-onenote_action_update_page",
+    "title": "Update Page",
+    "providerId": "microsoft-onenote",
+    "isTrigger": false,
+    "category": "Productivity",
+    "configSchemaLength": 7,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "microsoft-outlook_action_create_calendar_event",
+    "title": "Create Calendar Event",
+    "providerId": "microsoft-outlook",
+    "isTrigger": false,
+    "category": "Communication",
+    "configSchemaLength": 24,
+    "outputSchemaLength": 5
+  },
+  {
+    "type": "microsoft-outlook_action_fetch_emails",
+    "title": "Get Emails",
+    "providerId": "microsoft-outlook",
+    "isTrigger": false,
+    "category": "Communication",
+    "configSchemaLength": 6,
+    "outputSchemaLength": 2
+  },
+  {
+    "type": "microsoft-outlook_trigger_email_sent",
+    "title": "Email sent",
+    "providerId": "microsoft-outlook",
+    "isTrigger": true,
+    "category": "Communication",
+    "configSchemaLength": 3,
+    "outputSchemaLength": 13
+  },
+  {
+    "type": "microsoft-outlook_trigger_new_email",
+    "title": "New Email",
+    "providerId": "microsoft-outlook",
+    "isTrigger": true,
+    "category": "Communication",
+    "configSchemaLength": 6,
+    "outputSchemaLength": 15
+  },
+  {
+    "type": "notion_action_manage_database",
+    "title": "Manage Database",
+    "providerId": "notion",
+    "isTrigger": false,
+    "category": "Productivity",
+    "configSchemaLength": 11,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "notion_action_manage_page",
+    "title": "Manage Page",
+    "providerId": "notion",
+    "isTrigger": false,
+    "category": "Productivity",
+    "configSchemaLength": 13,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "notion_action_manage_users",
+    "title": "Manage Users",
+    "providerId": "notion",
+    "isTrigger": false,
+    "category": "Productivity",
+    "configSchemaLength": 4,
+    "outputSchemaLength": 2
+  },
+  {
+    "type": "notion_trigger_new_page",
+    "title": "New Page in Database",
+    "providerId": "notion",
+    "isTrigger": true,
+    "category": "Productivity",
+    "configSchemaLength": 2,
+    "outputSchemaLength": 5
+  },
+  {
+    "type": "notion_trigger_page_updated",
+    "title": "Page Updated",
+    "providerId": "notion",
+    "isTrigger": true,
+    "category": "Productivity",
+    "configSchemaLength": 2,
+    "outputSchemaLength": 5
+  },
+  {
+    "type": "onedrive_action_get_file",
+    "title": "Get File",
+    "providerId": "onedrive",
+    "isTrigger": false,
+    "category": "Storage",
+    "configSchemaLength": 3,
+    "outputSchemaLength": 7
+  },
+  {
+    "type": "onedrive_action_upload_file",
+    "title": "Upload File",
+    "providerId": "onedrive",
+    "isTrigger": false,
+    "category": "Storage",
+    "configSchemaLength": 7,
+    "outputSchemaLength": 5
+  },
+  {
+    "type": "onedrive_trigger_file_modified",
+    "title": "File modified",
+    "providerId": "onedrive",
+    "isTrigger": true,
+    "category": "Storage",
+    "configSchemaLength": 5,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "onedrive_trigger_new_file",
+    "title": "New file or folder",
+    "providerId": "onedrive",
+    "isTrigger": true,
+    "category": "Storage",
+    "configSchemaLength": 5,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "path",
+    "title": "Path Router",
+    "providerId": "logic",
+    "isTrigger": false,
+    "category": "Logic",
+    "configSchemaLength": 1,
+    "outputSchemaLength": 2
+  },
+  {
+    "type": "schedule",
+    "title": "Schedule",
+    "isTrigger": true,
+    "category": "Triggers",
+    "configSchemaLength": 2,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "shopify_action_add_order_note",
+    "title": "Add Order Note",
+    "providerId": "shopify",
+    "isTrigger": false,
+    "category": "E-commerce",
+    "configSchemaLength": 3,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "shopify_action_create_customer",
+    "title": "Create Customer",
+    "providerId": "shopify",
+    "isTrigger": false,
+    "category": "E-commerce",
+    "configSchemaLength": 6,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "shopify_action_create_order",
+    "title": "Create Order",
+    "providerId": "shopify",
+    "isTrigger": false,
+    "category": "E-commerce",
+    "configSchemaLength": 5,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "shopify_action_create_product",
+    "title": "Create Product",
+    "providerId": "shopify",
+    "isTrigger": false,
+    "category": "E-commerce",
+    "configSchemaLength": 7,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "shopify_action_update_inventory",
+    "title": "Update Inventory",
+    "providerId": "shopify",
+    "isTrigger": false,
+    "category": "E-commerce",
+    "configSchemaLength": 4,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "shopify_action_update_order_status",
+    "title": "Update Order Status",
+    "providerId": "shopify",
+    "isTrigger": false,
+    "category": "E-commerce",
+    "configSchemaLength": 5,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "shopify_trigger_inventory_low",
+    "title": "Inventory Level Low",
+    "providerId": "shopify",
+    "isTrigger": true,
+    "category": "E-commerce",
+    "configSchemaLength": 2,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "shopify_trigger_new_customer",
+    "title": "New Customer",
+    "providerId": "shopify",
+    "isTrigger": true,
+    "category": "E-commerce",
+    "configSchemaLength": 0,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "shopify_trigger_new_order",
+    "title": "New Order",
+    "providerId": "shopify",
+    "isTrigger": true,
+    "category": "E-commerce",
+    "configSchemaLength": 2,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "shopify_trigger_order_updated",
+    "title": "Order Updated",
+    "providerId": "shopify",
+    "isTrigger": true,
+    "category": "E-commerce",
+    "configSchemaLength": 1,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "shopify_trigger_product_updated",
+    "title": "Product Updated",
+    "providerId": "shopify",
+    "isTrigger": true,
+    "category": "E-commerce",
+    "configSchemaLength": 1,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "slack_action_create_channel",
+    "title": "Create Channel",
+    "providerId": "slack",
+    "isTrigger": false,
+    "category": "Communication",
+    "configSchemaLength": 25,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "slack_action_get_messages",
+    "title": "Get Messages",
+    "providerId": "slack",
+    "isTrigger": false,
+    "category": "Communication",
+    "configSchemaLength": 5,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "slack_action_send_message",
+    "title": "Send Message",
+    "providerId": "slack",
+    "isTrigger": false,
+    "category": "Communication",
+    "configSchemaLength": 24,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "slack_trigger_message_channels",
+    "title": "New Message in Public Channel",
+    "providerId": "slack",
+    "isTrigger": true,
+    "category": "Communication",
+    "configSchemaLength": 1,
+    "outputSchemaLength": 8
+  },
+  {
+    "type": "slack_trigger_reaction_added",
+    "title": "Reaction Added",
+    "providerId": "slack",
+    "isTrigger": true,
+    "category": "Communication",
+    "configSchemaLength": 2,
+    "outputSchemaLength": 9
+  },
+  {
+    "type": "stripe_action_create_customer",
+    "title": "Create Customer",
+    "providerId": "stripe",
+    "isTrigger": false,
+    "category": "Finance",
+    "configSchemaLength": 0,
+    "outputSchemaLength": 5
+  },
+  {
+    "type": "stripe_action_create_invoice",
+    "title": "Create Invoice",
+    "providerId": "stripe",
+    "isTrigger": false,
+    "category": "E-commerce",
+    "configSchemaLength": 3,
+    "outputSchemaLength": 5
+  },
+  {
+    "type": "stripe_action_create_payment_intent",
+    "title": "Create Payment Intent",
+    "providerId": "stripe",
+    "isTrigger": false,
+    "category": "E-commerce",
+    "configSchemaLength": 4,
+    "outputSchemaLength": 5
+  },
+  {
+    "type": "stripe_action_create_subscription",
+    "title": "Create Subscription",
+    "providerId": "stripe",
+    "isTrigger": false,
+    "category": "E-commerce",
+    "configSchemaLength": 3,
+    "outputSchemaLength": 5
+  },
+  {
+    "type": "stripe_action_get_customers",
+    "title": "Get Customers",
+    "providerId": "stripe",
+    "isTrigger": false,
+    "category": "Finance",
+    "configSchemaLength": 3,
+    "outputSchemaLength": 2
+  },
+  {
+    "type": "stripe_action_get_payments",
+    "title": "Get Payments",
+    "providerId": "stripe",
+    "isTrigger": false,
+    "category": "Finance",
+    "configSchemaLength": 4,
+    "outputSchemaLength": 2
+  },
+  {
+    "type": "stripe_trigger_customer_created",
+    "title": "Customer Created",
+    "providerId": "stripe",
+    "isTrigger": true,
+    "category": "Finance",
+    "configSchemaLength": 0,
+    "outputSchemaLength": 6
+  },
+  {
+    "type": "stripe_trigger_invoice_payment_failed",
+    "title": "Invoice Payment Failed",
+    "providerId": "stripe",
+    "isTrigger": true,
+    "category": "Finance",
+    "configSchemaLength": 0,
+    "outputSchemaLength": 8
+  },
+  {
+    "type": "stripe_trigger_new_payment",
+    "title": "New Payment",
+    "providerId": "stripe",
+    "isTrigger": true,
+    "category": "Finance",
+    "configSchemaLength": 0,
+    "outputSchemaLength": 0
+  },
+  {
+    "type": "stripe_trigger_payment_succeeded",
+    "title": "Payment Succeeded",
+    "providerId": "stripe",
+    "isTrigger": true,
+    "category": "Finance",
+    "configSchemaLength": 0,
+    "outputSchemaLength": 7
+  },
+  {
+    "type": "stripe_trigger_subscription_created",
+    "title": "Subscription Created",
+    "providerId": "stripe",
+    "isTrigger": true,
+    "category": "Finance",
+    "configSchemaLength": 0,
+    "outputSchemaLength": 7
+  },
+  {
+    "type": "stripe_trigger_subscription_deleted",
+    "title": "Subscription Cancelled",
+    "providerId": "stripe",
+    "isTrigger": true,
+    "category": "Finance",
+    "configSchemaLength": 0,
+    "outputSchemaLength": 6
+  },
+  {
+    "type": "tavily_search",
+    "title": "Internet Search (Tavily)",
+    "providerId": "utility",
+    "isTrigger": false,
+    "category": "Data Enrichment",
+    "configSchemaLength": 7,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "teams_action_add_member_to_team",
+    "title": "Add Member to Team",
+    "providerId": "teams",
+    "isTrigger": false,
+    "category": "Communication",
+    "configSchemaLength": 3,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "teams_action_create_channel",
+    "title": "Create Channel",
+    "providerId": "teams",
+    "isTrigger": false,
+    "category": "Communication",
+    "configSchemaLength": 4,
+    "outputSchemaLength": 5
+  },
+  {
+    "type": "teams_action_create_meeting",
+    "title": "Create Meeting",
+    "providerId": "teams",
+    "isTrigger": false,
+    "category": "Communication",
+    "configSchemaLength": 8,
+    "outputSchemaLength": 6
+  },
+  {
+    "type": "teams_action_create_team",
+    "title": "Create Team",
+    "providerId": "teams",
+    "isTrigger": false,
+    "category": "Communication",
+    "configSchemaLength": 3,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "teams_action_get_team_members",
+    "title": "Get Team Members",
+    "providerId": "teams",
+    "isTrigger": false,
+    "category": "Communication",
+    "configSchemaLength": 1,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "teams_action_schedule_meeting",
+    "title": "Schedule Meeting",
+    "providerId": "teams",
+    "isTrigger": false,
+    "category": "Communication",
+    "configSchemaLength": 6,
+    "outputSchemaLength": 5
+  },
+  {
+    "type": "teams_action_send_adaptive_card",
+    "title": "Send Adaptive Card",
+    "providerId": "teams",
+    "isTrigger": false,
+    "category": "Communication",
+    "configSchemaLength": 5,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "teams_action_send_chat_message",
+    "title": "Send Chat Message",
+    "providerId": "teams",
+    "isTrigger": false,
+    "category": "Communication",
+    "configSchemaLength": 3,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "teams_action_send_message",
+    "title": "Send Channel Message",
+    "providerId": "teams",
+    "isTrigger": false,
+    "category": "Communication",
+    "configSchemaLength": 4,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "teams_trigger_new_message",
+    "title": "New Message in Channel",
+    "providerId": "teams",
+    "isTrigger": true,
+    "category": "Communication",
+    "configSchemaLength": 2,
+    "outputSchemaLength": 8
+  },
+  {
+    "type": "teams_trigger_user_joins_team",
+    "title": "User Joins Team",
+    "providerId": "teams",
+    "isTrigger": true,
+    "category": "Communication",
+    "configSchemaLength": 1,
+    "outputSchemaLength": 7
+  },
+  {
+    "type": "transformer",
+    "title": "Transformer",
+    "providerId": "utility",
+    "isTrigger": false,
+    "category": "Data Enrichment",
+    "configSchemaLength": 3,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "trello_action_create_board",
+    "title": "Create Board",
+    "providerId": "trello",
+    "isTrigger": false,
+    "category": "Productivity",
+    "configSchemaLength": 5,
+    "outputSchemaLength": 5
+  },
+  {
+    "type": "trello_action_create_card",
+    "title": "Create Card",
+    "providerId": "trello",
+    "isTrigger": false,
+    "category": "Productivity",
+    "configSchemaLength": 16,
+    "outputSchemaLength": 14
+  },
+  {
+    "type": "trello_action_create_list",
+    "title": "Create List",
+    "providerId": "trello",
+    "isTrigger": false,
+    "category": "Productivity",
+    "configSchemaLength": 4,
+    "outputSchemaLength": 5
+  },
+  {
+    "type": "trello_action_get_cards",
+    "title": "Get Cards",
+    "providerId": "trello",
+    "isTrigger": false,
+    "category": "Productivity",
+    "configSchemaLength": 4,
+    "outputSchemaLength": 2
+  },
+  {
+    "type": "trello_action_move_card",
+    "title": "Move Card",
+    "providerId": "trello",
+    "isTrigger": false,
+    "category": "Productivity",
+    "configSchemaLength": 4,
+    "outputSchemaLength": 5
+  },
+  {
+    "type": "trello_trigger_card_moved",
+    "title": "Card Moved",
+    "providerId": "trello",
+    "isTrigger": true,
+    "category": "Productivity",
+    "configSchemaLength": 1,
+    "outputSchemaLength": 5
+  },
+  {
+    "type": "trello_trigger_card_updated",
+    "title": "Card Updated",
+    "providerId": "trello",
+    "isTrigger": true,
+    "category": "Productivity",
+    "configSchemaLength": 2,
+    "outputSchemaLength": 6
+  },
+  {
+    "type": "trello_trigger_comment_added",
+    "title": "Comment Added",
+    "providerId": "trello",
+    "isTrigger": true,
+    "category": "Productivity",
+    "configSchemaLength": 1,
+    "outputSchemaLength": 7
+  },
+  {
+    "type": "trello_trigger_member_changed",
+    "title": "Card Members Changed",
+    "providerId": "trello",
+    "isTrigger": true,
+    "category": "Productivity",
+    "configSchemaLength": 1,
+    "outputSchemaLength": 6
+  },
+  {
+    "type": "trello_trigger_new_card",
+    "title": "New Card",
+    "providerId": "trello",
+    "isTrigger": true,
+    "category": "Productivity",
+    "configSchemaLength": 2,
+    "outputSchemaLength": 7
+  },
+  {
+    "type": "twitter_action_follow_user",
+    "title": "Follow User",
+    "providerId": "twitter",
+    "isTrigger": false,
+    "category": "Social",
+    "configSchemaLength": 1,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "twitter_action_get_mentions",
+    "title": "Get Mentions Timeline",
+    "providerId": "twitter",
+    "isTrigger": false,
+    "category": "Social",
+    "configSchemaLength": 3,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "twitter_action_get_user_timeline",
+    "title": "Get User Timeline",
+    "providerId": "twitter",
+    "isTrigger": false,
+    "category": "Social",
+    "configSchemaLength": 4,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "twitter_action_like_tweet",
+    "title": "Like Tweet",
+    "providerId": "twitter",
+    "isTrigger": false,
+    "category": "Social",
+    "configSchemaLength": 1,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "twitter_action_post_tweet",
+    "title": "Post Tweet",
+    "providerId": "twitter",
+    "isTrigger": false,
+    "category": "Social",
+    "configSchemaLength": 19,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "twitter_action_reply_tweet",
+    "title": "Reply to Tweet",
+    "providerId": "twitter",
+    "isTrigger": false,
+    "category": "Social",
+    "configSchemaLength": 4,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "twitter_action_retweet",
+    "title": "Retweet",
+    "providerId": "twitter",
+    "isTrigger": false,
+    "category": "Social",
+    "configSchemaLength": 1,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "twitter_action_search_tweets",
+    "title": "Search Tweets",
+    "providerId": "twitter",
+    "isTrigger": false,
+    "category": "Social",
+    "configSchemaLength": 5,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "twitter_action_send_dm",
+    "title": "Send Direct Message",
+    "providerId": "twitter",
+    "isTrigger": false,
+    "category": "Social",
+    "configSchemaLength": 3,
+    "outputSchemaLength": 4
+  },
+  {
+    "type": "twitter_action_unfollow_user",
+    "title": "Unfollow User",
+    "providerId": "twitter",
+    "isTrigger": false,
+    "category": "Social",
+    "configSchemaLength": 1,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "twitter_action_unlike_tweet",
+    "title": "Unlike Tweet",
+    "providerId": "twitter",
+    "isTrigger": false,
+    "category": "Social",
+    "configSchemaLength": 1,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "twitter_action_unretweet",
+    "title": "Undo Retweet",
+    "providerId": "twitter",
+    "isTrigger": false,
+    "category": "Social",
+    "configSchemaLength": 1,
+    "outputSchemaLength": 3
+  },
+  {
+    "type": "twitter_trigger_new_direct_message",
+    "title": "New Direct Message",
+    "providerId": "twitter",
+    "isTrigger": true,
+    "category": "Social",
+    "configSchemaLength": 0,
+    "outputSchemaLength": 7
+  },
+  {
+    "type": "twitter_trigger_new_follower",
+    "title": "New Follower",
+    "providerId": "twitter",
+    "isTrigger": true,
+    "category": "Social",
+    "configSchemaLength": 0,
+    "outputSchemaLength": 6
+  },
+  {
+    "type": "twitter_trigger_new_mention",
+    "title": "New Mention",
+    "providerId": "twitter",
+    "isTrigger": true,
+    "category": "Social",
+    "configSchemaLength": 0,
+    "outputSchemaLength": 9
+  },
+  {
+    "type": "twitter_trigger_search_match",
+    "title": "Tweet Matching Search",
+    "providerId": "twitter",
+    "isTrigger": true,
+    "category": "Social",
+    "configSchemaLength": 2,
+    "outputSchemaLength": 10
+  },
+  {
+    "type": "twitter_trigger_user_tweet",
+    "title": "User Tweet Posted",
+    "providerId": "twitter",
+    "isTrigger": true,
+    "category": "Social",
+    "configSchemaLength": 1,
+    "outputSchemaLength": 10
+  },
+  {
+    "type": "webhook",
+    "title": "Webhook",
+    "isTrigger": true,
+    "category": "Triggers",
+    "configSchemaLength": 2,
+    "outputSchemaLength": 0
+  }
+]

@@ -21,6 +21,7 @@ export interface ConfigurationModalProps {
   nodeTitle?: string | null;
   isTemplateEditing?: boolean;
   templateDefaults?: Record<string, any>;
+  focusField?: string;
 }
 
 /**

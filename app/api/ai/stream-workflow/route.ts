@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { logger } from '@/lib/utils/logger'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/availableNodes'
+import { computeAutoMappingEntries, extractNodeOutputs, sanitizeAlias, applyAutoMappingSuggestions, type AutoMappingEntry } from '@/lib/workflows/autoMapping'
 import OpenAI from 'openai'
 
 export const dynamic = 'force-dynamic'
@@ -127,15 +128,21 @@ export async function POST(request: NextRequest) {
 
           const connectedProviderIds = connectedIntegrations.map(normalizeProviderId)
 
-          console.log('[Prerequisite Check] Required apps:', prerequisiteCheck.requiredApps)
-          console.log('[Prerequisite Check] Connected integrations:', connectedIntegrations)
-          console.log('[Prerequisite Check] Normalized connected:', connectedProviderIds)
+          logger.debug('[Prerequisite Check] Input state', {
+            requiredApps: prerequisiteCheck.requiredApps,
+            connectedIntegrations,
+            normalizedConnected: connectedProviderIds
+          })
 
           // Check if all required apps are connected
           const missingApps = (prerequisiteCheck.requiredApps || []).filter((app: string) => {
             const normalizedRequired = normalizeProviderId(app)
             const isConnected = connectedProviderIds.includes(normalizedRequired)
-            console.log(`[Prerequisite Check] Checking ${app} (normalized: ${normalizedRequired}): ${isConnected ? 'CONNECTED' : 'MISSING'}`)
+            logger.debug('[Prerequisite Check] App connection status', {
+              app,
+              normalizedRequired,
+              isConnected
+            })
             return !isConnected
           })
 
@@ -224,15 +231,13 @@ export async function POST(request: NextRequest) {
           }
 
           // If autoApprove is true, send a non-blocking plan preview and continue building
-          console.log('[STREAM] Auto-approving plan, continuing to build immediately')
-          console.log('[STREAM] Plan structure:', {
-            hasNodes: !!plan.nodes,
-            nodeCount: plan.nodes?.length,
-            planKeys: Object.keys(plan)
+          logger.info('[STREAM] Auto-approving plan; continuing immediately', {
+            planKeys: Object.keys(plan),
+            nodeCount: plan.nodes?.length ?? 0
           })
 
           if (!plan.nodes || !Array.isArray(plan.nodes)) {
-            console.error('[STREAM] Invalid plan structure - missing nodes array:', plan)
+            logger.error('[STREAM] Invalid plan structure - missing nodes array', { plan })
             sendEvent('error', {
               message: 'Invalid workflow plan structure',
               details: 'Plan is missing nodes array'
@@ -257,7 +262,9 @@ export async function POST(request: NextRequest) {
         }
 
         // Phase 2: Create all nodes first with "pending" status
-          console.log('[STREAM] Phase 2: Starting node creation, plan:', plan)
+          logger.info('[STREAM] Phase 2: Starting node creation', {
+            nodeCount: plan.nodes.length
+          })
           const createdNodes = []
           const createdEdges = []
           const nodeComponents = []
@@ -267,7 +274,9 @@ export async function POST(request: NextRequest) {
             totalNodes: plan.nodes.length
           })
 
-          console.log('[STREAM] Plan nodes:', plan.nodes)
+          logger.debug('[STREAM] Plan nodes overview', {
+            nodes: plan.nodes.map((n: any) => ({ type: n.type, title: n.title }))
+          })
 
           // Step 1: Create all nodes with pending status
           for (let i = 0; i < plan.nodes.length; i++) {
@@ -295,9 +304,11 @@ export async function POST(request: NextRequest) {
               data: {
                 type: plannedNode.type,
                 title: plannedNode.title,
+                label: plannedNode.title,
                 description: nodeDescription,
                 providerId: nodeComponent.providerId,
                 isTrigger: nodeComponent.isTrigger,
+                outputSchema: nodeComponent.outputSchema || [],
                 config: {},
                 needsSetup: false,
                 aiStatus: 'pending',
@@ -373,7 +384,10 @@ export async function POST(request: NextRequest) {
             node.data.isPending = false
             node.data.autoExpand = true
 
-            console.log(`[STREAM] Preparing ${plannedNode.title} (${node.id})`)
+            logger.debug('[STREAM] Preparing node', {
+              nodeId: node.id,
+              title: plannedNode.title
+            })
             sendEvent('node_preparing', {
               message: `Preparing ${plannedNode.title}...`,
               nodeIndex: i,
@@ -382,13 +396,16 @@ export async function POST(request: NextRequest) {
               status: 'preparing'
             })
 
-            await sleep(800)  // Show preparing state
+            await sleep(800) // Show preparing state
 
             // Step 2: Configure node - change status to "Configuring"
             node.data.aiStatus = 'configuring'
             node.data.aiBadgeText = 'Configuring'
             node.data.aiBadgeVariant = 'info'
-            console.log(`[STREAM] Starting configuration for ${plannedNode.title} (${node.id})`)
+            logger.debug('[STREAM] Starting configuration', {
+              nodeId: node.id,
+              title: plannedNode.title
+            })
             sendEvent('node_configuring', {
               message: `Configuring ${plannedNode.title}...`,
               nodeIndex: i,
@@ -399,7 +416,7 @@ export async function POST(request: NextRequest) {
               badgeVariant: node.data.aiBadgeVariant
             })
 
-            await sleep(500)  // Wait for configuring state to show
+            await sleep(500) // Wait for configuring state to show
 
             // Determine which model to use for configuration
             const configModel = selectModelForTask({
@@ -410,19 +427,31 @@ export async function POST(request: NextRequest) {
             })
 
             // Generate configuration with timeout
-            console.log(`[STREAM] Calling generateNodeConfig for ${plannedNode.title}...`)
+            logger.debug('[STREAM] Calling generateNodeConfig', {
+              title: plannedNode.title,
+              nodeId: node.id,
+              model: configModel
+            })
             const configStartTime = Date.now()
             const configResult = await generateNodeConfig({
               node: plannedNode,
+              runtimeNode: node,
               nodeComponent,
               previousNodes: createdNodes.slice(0, i),
               prompt,
               model: configModel,
               userId: user.id,
-              clarifications // Pass clarifications to config generation
+              clarifications, // Pass clarifications to config generation
+              workflowData: {
+                nodes: createdNodes,
+                edges: createdEdges
+              }
             })
             const configDuration = Date.now() - configStartTime
-            console.log(`[STREAM] generateNodeConfig completed in ${configDuration}ms for ${plannedNode.title}`)
+            logger.debug('[STREAM] generateNodeConfig completed', {
+              title: plannedNode.title,
+              durationMs: configDuration
+            })
 
             const { finalConfig, fallbackFields, reasoning, usedFallback } = buildConfigWithFallback({
               nodeComponent,
@@ -431,7 +460,7 @@ export async function POST(request: NextRequest) {
               prompt
             })
 
-            console.log(`[STREAM] Config result:`, {
+            logger.debug('[STREAM] Config result summary', {
               success: configResult.success,
               hasConfig: !!configResult.config,
               configKeys: Object.keys(configResult.config || {}),
@@ -440,7 +469,10 @@ export async function POST(request: NextRequest) {
             })
 
             if (!configResult.success && fallbackFields.length === 0) {
-              console.log(`[STREAM] ERROR: Failed to configure ${plannedNode.title}`)
+              logger.error('[STREAM] Failed to configure node', {
+                title: plannedNode.title,
+                error: configResult.error
+              })
               sendEvent('error', {
                 message: `Failed to configure ${plannedNode.title}`,
                 error: configResult.error,
@@ -451,12 +483,37 @@ export async function POST(request: NextRequest) {
 
             // Update node with config field-by-field for visual effect
             const sanitizedFinalConfig = sanitizeConfigForNode(finalConfig, nodeComponent)
-            const configFields = Object.entries(sanitizedFinalConfig)
-            console.log(`[STREAM] Configuring ${configFields.length} fields for ${plannedNode.title}: ${Object.keys(sanitizedFinalConfig).join(', ')}`)
+            const eligibleAutoMappingEntries = filterAutoMappingEntriesForNode(nodeComponent, configResult.autoMappingEntries)
+            const configWithAutoMappings = applyAutoMappingSuggestions({
+              config: sanitizedFinalConfig,
+              entries: eligibleAutoMappingEntries
+            })
+            const finalConfigWithMappings = sanitizeConfigForNode(configWithAutoMappings, nodeComponent)
+            const autoMappingTelemetry = buildAutoMappingTelemetry({
+              entries: eligibleAutoMappingEntries,
+              finalConfig: finalConfigWithMappings
+            })
+            const configFields = Object.entries(finalConfigWithMappings)
+            logger.debug('[STREAM] Applying configuration fields', {
+              title: plannedNode.title,
+              fieldCount: configFields.length,
+              fieldKeys: Object.keys(finalConfigWithMappings)
+            })
+
+            if (autoMappingTelemetry) {
+              logger.info('[STREAM] Auto-mapping telemetry', {
+                nodeId: node.id,
+                title: plannedNode.title,
+                suggested: autoMappingTelemetry.suggested,
+                applied: autoMappingTelemetry.applied
+              })
+            }
 
             // If no config fields for trigger, add a default one to show something
             if (configFields.length === 0 && nodeComponent.isTrigger) {
-              console.log(`[STREAM] No config for trigger, adding default`)
+              logger.debug('[STREAM] No config for trigger; adding default message', {
+                title: plannedNode.title
+              })
               sendEvent('field_configured', {
                 message: `Trigger will activate on events`,
                 nodeId: node.id,
@@ -477,7 +534,11 @@ export async function POST(request: NextRequest) {
 
               // Add field to node config
               node.data.config[fieldKey] = fieldValue
-              console.log(`[STREAM] Setting field ${fieldKey} = ${fieldValue} for ${plannedNode.title}`)
+              logger.debug('[STREAM] Setting field value', {
+                title: plannedNode.title,
+                fieldKey,
+                fieldValue
+              })
 
               // Format display value for the field
               let displayValue = configResult.displayOverrides?.[fieldKey] || ''
@@ -521,18 +582,20 @@ export async function POST(request: NextRequest) {
               node.data.description = reasoning || configResult.reasoning || node.data.description
             }
             node.data.aiFallbackFields = fallbackFields
+            node.data.autoMappingTelemetry = autoMappingTelemetry
 
             sendEvent('node_configured', {
               message: `✓ ${plannedNode.title} configured`,
               nodeId: node.id,
-              config: finalConfig,
+              config: finalConfigWithMappings,
               nodeIndex: i,
               reasoning: reasoning || configResult.reasoning, // Why AI chose these values
               description: node.data.description,
               status: node.data.aiStatus,
               badgeText: node.data.aiBadgeText,
               badgeVariant: node.data.aiBadgeVariant,
-              fallbackFields
+              fallbackFields,
+              autoMappingTelemetry
             })
 
             // Add wait after configuration for all nodes
@@ -540,7 +603,9 @@ export async function POST(request: NextRequest) {
 
             // Step 3: Test node (skip for triggers)
             if (nodeComponent.isTrigger) {
-              console.log(`[STREAM] Skipping test for trigger ${plannedNode.title}`)
+              logger.debug('[STREAM] Skipping trigger test', {
+                title: plannedNode.title
+              })
 
               // Skip testing for trigger nodes - they activate on events
               node.data.aiStatus = 'ready'
@@ -566,19 +631,27 @@ export async function POST(request: NextRequest) {
               })
 
               // Wait before starting next node
-              console.log(`[STREAM] About to sleep 1500ms after trigger...`)
-              await sleep(1500)  // Changed to match non-trigger delay
-              console.log(`[STREAM] Finished sleeping, trigger complete. Loop iteration ${i} of ${plan.nodes.length - 1}`)
-              console.log(`[STREAM] About to check if client disconnected...`)
+              logger.trace('[STREAM] Sleeping after trigger node', {
+                durationMs: 1500,
+                title: plannedNode.title
+              })
+              await sleep(1500) // Changed to match non-trigger delay
+              logger.trace('[STREAM] Trigger sleep finished', {
+                iteration: i,
+                remaining: plan.nodes.length - (i + 1)
+              })
+              logger.trace('[STREAM] Checking connection after trigger')
 
               // Check if stream is still alive
               if (request.signal.aborted) {
-                console.log(`[STREAM] WARNING: Client disconnected after trigger, aborting workflow build`)
+                logger.warn('[STREAM] Client disconnected after trigger; aborting build')
                 controller.close()
                 return
               }
 
-              console.log(`[STREAM] Client still connected, trigger block ending for node ${i}`)
+              logger.debug('[STREAM] Trigger block complete; client still connected', {
+                nodeIndex: i
+              })
             } else {
               // Test action and logic nodes
               node.data.aiStatus = 'testing'
@@ -770,15 +843,22 @@ export async function POST(request: NextRequest) {
               }
             } // End of else block (testing for non-trigger nodes)
 
-            console.log(`[STREAM] Exited if/else block for node ${i}, about to sleep 300ms...`)
+            logger.trace('[STREAM] Node iteration complete, pausing before next', {
+              iteration: i,
+              totalNodes: plan.nodes.length
+            })
 
             // Brief pause before starting next node
             await sleep(300)
-            console.log(`[STREAM] Completed node ${i + 1} of ${plan.nodes.length}, moving to next iteration`)
-            console.log(`[STREAM] About to loop back to for statement, next i will be ${i + 1}`)
+            logger.trace('[STREAM] Continuing to next node', {
+              completed: i + 1,
+              remaining: plan.nodes.length - (i + 1)
+            })
           }
 
-          console.log(`[STREAM] All nodes configured and tested, sending workflow_complete event`)
+          logger.info('[STREAM] All nodes configured and tested, preparing workflow_complete event', {
+            nodeCount: createdNodes.length
+          })
 
           // Phase 3: Workflow Complete
           sendEvent('workflow_complete', {
@@ -790,6 +870,12 @@ export async function POST(request: NextRequest) {
           })
 
           // Close stream
+          logManualVerificationChecklist({
+            createdNodes,
+            workflowPrompt: prompt,
+            clarificationsSummary: Object.keys(clarifications || {}).length,
+            connectedIntegrations
+          })
           controller.close()
         } catch (error: any) {
           logger.error('Stream workflow error:', {
@@ -1107,22 +1193,24 @@ function extractNodeClarifications(clarifications: any, nodeComponent: any) {
 
     let fieldName = rawField
     if (fieldName === 'sender') fieldName = 'from'
-    if (fieldName === 'channel_id') fieldName = 'channel'
+    if (fieldName === 'channel_id' || fieldName === 'slack_channel') fieldName = 'channel'
 
     if (allowedFields.size > 0 && !allowedFields.has(fieldName)) {
       return
     }
 
-    if (Array.isArray(value) && value.length === 0) {
+    let processedValue = value
+
+    if (Array.isArray(processedValue) && processedValue.length === 0) {
       return
     }
-    if (typeof value === 'string') {
-      const trimmed = value.trim()
+    if (typeof processedValue === 'string') {
+      const trimmed = processedValue.trim()
       if (!trimmed) return
-      value = trimmed
+      processedValue = trimmed
     }
 
-    fieldValues[fieldName] = value
+    fieldValues[fieldName] = processedValue
     if (display && !displayOverrides[fieldName]) {
       displayOverrides[fieldName] = display
     }
@@ -1201,7 +1289,7 @@ function extractNodeClarifications(clarifications: any, nodeComponent: any) {
       if (!match) continue
       let fieldName = match[1]
       if (fieldName === 'sender') fieldName = 'from'
-      if (fieldName === 'channel_id') fieldName = 'channel'
+      if (fieldName === 'channel_id' || fieldName === 'slack_channel') fieldName = 'channel'
       if (allowedFields.size === 0 || allowedFields.has(fieldName)) {
         if (!displayOverrides[fieldName]) {
           displayOverrides[fieldName] = display
@@ -1304,11 +1392,24 @@ function sanitizeConfigForNode(config: Record<string, any> | undefined, nodeComp
   return sanitized
 }
 
-async function generateNodeConfig({ node, nodeComponent, previousNodes, prompt, model, userId, clarifications = {} }: any) {
+async function generateNodeConfig({
+  node,
+  runtimeNode,
+  nodeComponent,
+  previousNodes,
+  prompt,
+  model,
+  userId,
+  clarifications = {},
+  workflowData
+}: any) {
   try {
-    console.log('[generateNodeConfig] Starting for node:', node.title)
-    console.log('[generateNodeConfig] nodeComponent:', { type: nodeComponent.type, providerId: nodeComponent.providerId })
-    console.log('[generateNodeConfig] clarifications received:', JSON.stringify(clarifications, null, 2))
+    logger.debug('[generateNodeConfig] Starting configuration', {
+      nodeTitle: node.title,
+      nodeType: nodeComponent.type,
+      providerId: nodeComponent.providerId
+    })
+    logger.trace('[generateNodeConfig] Clarifications payload', clarifications)
 
     const {
       fieldValues: clarificationFieldValues,
@@ -1317,8 +1418,10 @@ async function generateNodeConfig({ node, nodeComponent, previousNodes, prompt, 
     } = extractNodeClarifications(clarifications, nodeComponent)
 
     const clarificationEntries = Object.entries(clarificationFieldValues)
-    console.log('[generateNodeConfig] Extracted clarificationEntries:', clarificationEntries)
-    console.log('[generateNodeConfig] messageTemplate:', messageTemplate)
+    logger.trace('[generateNodeConfig] Clarification entries extracted', {
+      clarificationEntries,
+      messageTemplate
+    })
 
     let clarificationContext = ''
     if (clarificationEntries.length > 0 || messageTemplate) {
@@ -1345,25 +1448,33 @@ async function generateNodeConfig({ node, nodeComponent, previousNodes, prompt, 
       }
 
       if (clarificationLines.length > 0) {
-        clarificationContext = '\n\nUSER PROVIDED CLARIFICATIONS (CRITICAL - USE EXACT VALUES):\n' +
-          clarificationLines.join('\n') +
-          '\n\nCRITICAL INSTRUCTIONS:\n' +
-          '1. Use the EXACT values above for the corresponding fields\n' +
-          '2. Do NOT use placeholders or example values\n' +
+        clarificationContext = [
+          '',
+          'USER PROVIDED CLARIFICATIONS (CRITICAL - USE EXACT VALUES):',
+          clarificationLines.join('\n'),
+          '',
+          'CRITICAL INSTRUCTIONS:',
+          '1. Use the EXACT values above for the corresponding fields',
+          '2. Do NOT use placeholders or example values',
           '3. Variable syntax like {{trigger.from}} should be preserved exactly as shown'
+        ].join('\n')
 
-        console.log('[generateNodeConfig] Built clarificationContext:', clarificationContext)
+        logger.debug('[generateNodeConfig] Built clarification context block')
       }
     }
 
-    console.log('[generateNodeConfig] Final clarificationContext:', clarificationContext || 'NONE')
+    logger.debug('[generateNodeConfig] Clarification context ready', {
+      hasContext: Boolean(clarificationContext)
+    })
 
     // Check if we can skip AI call - if we have all required fields from clarifications
     const hasAllRequiredFields = (() => {
       // For triggers, ALWAYS skip AI call - only use clarifications
       // This prevents AI from hallucinating filter conditions
       if (nodeComponent.isTrigger) {
-        console.log('[generateNodeConfig] Skipping AI call for trigger - will only use clarification values')
+        logger.info('[generateNodeConfig] Skipping AI call for trigger', {
+          triggerType: nodeComponent.type
+        })
         return true
       }
 
@@ -1372,12 +1483,22 @@ async function generateNodeConfig({ node, nodeComponent, previousNodes, prompt, 
         const hasChannel = clarificationFieldValues.channel || clarificationFieldValues.channelId || clarificationFieldValues.slack_channel
         const hasMessage = messageTemplate || clarificationFieldValues.message
         if (hasChannel && hasMessage) {
-          console.log('[generateNodeConfig] Skipping AI call for Slack - have all required fields from clarifications')
+          logger.info('[generateNodeConfig] Skipping AI call for Slack action - clarifications satisfied requirements')
           return true
         }
       }
       return false
     })()
+
+    const autoMappingEntries =
+      runtimeNode && workflowData
+        ? computeAutoMappingEntries({
+            workflowData,
+            currentNodeId: runtimeNode.id,
+            configSchema: Array.isArray(nodeComponent?.configSchema) ? nodeComponent.configSchema : [],
+            currentConfig: runtimeNode?.data?.config || {}
+          })
+        : []
 
     let result: any
 
@@ -1395,6 +1516,7 @@ async function generateNodeConfig({ node, nodeComponent, previousNodes, prompt, 
         type: n.data.type,
         outputs: getNodeOutputs(n)
       }))
+      const formattedContext = formatNodeContextForPrompt(context)
 
       // Simplify schema to reduce prompt size - only include essential field info
       const simplifiedSchema = nodeComponent.configSchema?.map((field: any) => ({
@@ -1406,6 +1528,8 @@ async function generateNodeConfig({ node, nodeComponent, previousNodes, prompt, 
         ...(field.defaultValue !== undefined ? { defaultValue: field.defaultValue } : {})
       })) || []
 
+      const autoMappingPromptSection = buildAutoMappingPrompt(autoMappingEntries)
+
       const configPrompt = `Generate configuration for a ${node.title} node in a workflow automation.
 
 Node Type: ${node.type}
@@ -1413,17 +1537,17 @@ Node Description: ${node.description}
 User's Original Goal: "${prompt}"
 
 Previous Nodes in Workflow:
-${context.map((n: any) => `- ${n.title} (outputs: ${n.outputs.join(', ')})`).join('\n')}
+${formattedContext}
 
 Configuration Fields: ${JSON.stringify(simplifiedSchema, null, 2)}
-${clarificationContext}
+${autoMappingPromptSection ? `${autoMappingPromptSection}\n` : ''}${clarificationContext}
 
 Generate a complete configuration that:
-1. Uses variables from previous nodes when appropriate (e.g., {{trigger.email}})
-2. Fills all required fields
-3. Uses sensible defaults for optional fields
-4. Matches the user's goal
-${clarificationContext ? '5. CRITICAL: Use the exact values from USER PROVIDED CLARIFICATIONS above - these are not suggestions, they are required values the user has specified' : ''}
+- Uses variables from previous nodes when appropriate (e.g., {{trigger.email}})
+- Fills all required fields
+- Uses sensible defaults for optional fields
+- Matches the user's goal
+${autoMappingEntries.length ? '- When a field is blank, prefer one of the AUTO-MAPPING SUGGESTIONS tokens shown above' : ''}${clarificationContext ? '\n- CRITICAL: Use the exact values from USER PROVIDED CLARIFICATIONS above - these are not suggestions, they are required values the user has specified' : ''}
 
 Return JSON:
 {
@@ -1431,7 +1555,7 @@ Return JSON:
   "reasoning": "Brief explanation of choices made"
 }`
 
-      console.log('[generateNodeConfig] Sending prompt to AI...')
+      logger.debug('[generateNodeConfig] Sending prompt to AI model', { model })
 
       result = await callAI({
         prompt: configPrompt,
@@ -1440,13 +1564,12 @@ Return JSON:
         responseFormat: 'json'
       })
 
-      console.log('[generateNodeConfig] AI returned result:', JSON.stringify(result, null, 2))
-      console.log('[generateNodeConfig] Config from AI:', JSON.stringify(result.config, null, 2))
+      logger.trace('[generateNodeConfig] AI raw response', result)
     }
 
     // Initialize config if it doesn't exist
     if (!result.config) {
-      console.log('[generateNodeConfig] No config from AI, initializing empty config')
+      logger.debug('[generateNodeConfig] No config from AI, initializing empty object')
       result.config = {}
     }
 
@@ -1458,11 +1581,16 @@ Return JSON:
 
     // CRITICAL: Force-apply clarification values to ensure they're used
     if (clarificationEntries.length > 0) {
-      console.log('[generateNodeConfig] Force-applying clarifications to config...')
+      logger.debug('[generateNodeConfig] Force-applying clarifications to config', {
+        clarificationCount: clarificationEntries.length
+      })
 
       clarificationEntries.forEach(([fieldName, value]) => {
         if (fieldName && value !== undefined && value !== null && !(Array.isArray(value) && value.length === 0)) {
-          console.log(`[generateNodeConfig] Force-setting field "${fieldName}" to:`, value)
+          logger.trace('[generateNodeConfig] Force-setting field from clarification', {
+            fieldName,
+            value
+          })
           result.config[fieldName] = value
         }
       })
@@ -1605,7 +1733,7 @@ Return JSON:
     // Force-apply message template for other messaging providers if needed
     if (messageTemplate && nodeComponent.providerId && ['discord'].includes(nodeComponent.providerId)) {
       if (!result.config.message || result.config.message === '' || result.config.message === 'Empty') {
-        console.log('[generateNodeConfig] Force-setting message template:', messageTemplate)
+        logger.debug('[generateNodeConfig] Force-setting message template for messaging provider')
         result.config.message = messageTemplate
       }
       if (!displayOverrides.message) {
@@ -1632,11 +1760,12 @@ Return JSON:
     // Sanitize config so we only keep known schema fields
     result.config = sanitizeConfigForNode(result.config, nodeComponent)
 
-    console.log('[generateNodeConfig] Final config after force-apply:', JSON.stringify(result.config, null, 2))
+    logger.trace('[generateNodeConfig] Final configuration output', result.config)
 
     return {
       ...result,
-      displayOverrides
+      displayOverrides,
+      autoMappingEntries
     }
   } catch (error: any) {
     return { success: false, error: error.message }
@@ -1700,15 +1829,198 @@ async function testNode({ node, previousNodes, userId, supabase, userPrompt, wor
   }
 }
 
-function getNodeOutputs(node: any): string[] {
-  // Get available output variables from this node
-  const baseOutputs = [`${node.id}.output`]
+type NodeOutputFieldSummary = {
+  name: string
+  label: string
+  type: string
+  token: string
+}
 
-  if (node.data.isTrigger) {
-    baseOutputs.push('trigger.data', 'trigger.timestamp')
+type NodeOutputSummary = {
+  alias: string
+  fields: NodeOutputFieldSummary[]
+  tokens: string[]
+}
+
+function getNodeOutputs(node: any): NodeOutputSummary {
+  const alias = sanitizeAlias(
+    (node?.data?.isTrigger && 'trigger') ||
+    node?.data?.label ||
+    node?.data?.title ||
+    node?.data?.type ||
+    node?.id
+  )
+
+  const schema = extractNodeOutputs(node)
+  if (!Array.isArray(schema) || schema.length === 0) {
+    const tokens = [`{{${alias}.output}}`]
+    if (node?.data?.isTrigger) {
+      tokens.push('{{trigger.data}}', '{{trigger.timestamp}}')
+    }
+    return {
+      alias,
+      fields: [],
+      tokens
+    }
   }
 
-  return baseOutputs
+  const fields: NodeOutputFieldSummary[] = schema
+    .filter((field: any) => field?.name)
+    .map((field: any) => ({
+      name: field.name,
+      label: field.label || field.name,
+      type: field.type || 'string',
+      token: `{{${alias}.${field.name}}}`
+    }))
+
+  const tokens = fields.map(field => field.token)
+  if (node?.data?.isTrigger) {
+    tokens.push('{{trigger.data}}', '{{trigger.timestamp}}')
+  }
+
+  return {
+    alias,
+    fields,
+    tokens
+  }
+}
+
+function formatNodeContextForPrompt(
+  contextEntries: { title: string; type: string; outputs: NodeOutputSummary }[]
+): string {
+  if (!contextEntries || contextEntries.length === 0) {
+    return '- None yet (this is the first node in the workflow)'
+  }
+
+  return contextEntries
+    .map((entry) => {
+      const lines = [`- ${entry.title} (${entry.type}) alias: ${entry.outputs.alias}`]
+      if (entry.outputs.fields.length > 0) {
+        lines.push('  Outputs:')
+        entry.outputs.fields.forEach((field) => {
+          const labelPart = field.label && field.label !== field.name ? `, label: ${field.label}` : ''
+          lines.push(`    - ${field.name} [type: ${field.type}${labelPart}] -> ${field.token}`)
+        })
+      } else {
+        lines.push(`  Outputs: ${entry.outputs.tokens.join(', ')}`)
+      }
+      return lines.join('\n')
+    })
+    .join('\n')
+}
+
+function buildAutoMappingPrompt(entries: AutoMappingEntry[]): string {
+  if (!entries || entries.length === 0) {
+    return ''
+  }
+
+  const lines = entries.map(
+    (entry) => `- ${entry.fieldLabel} (${entry.fieldKey}): ${entry.value}`
+  )
+
+  return ['AUTO-MAPPING SUGGESTIONS (prefer these upstream tokens for blank fields):', ...lines].join('\n')
+}
+
+type AutoMappingTelemetry = {
+  suggested: number
+  applied: number
+  ignored: number
+  fields: {
+    key: string
+    label: string
+    suggested: string
+    actual: any
+    applied: boolean
+  }[]
+} | null
+
+function buildAutoMappingTelemetry({
+  entries,
+  finalConfig
+}: {
+  entries?: AutoMappingEntry[]
+  finalConfig: Record<string, any> | undefined
+}): AutoMappingTelemetry {
+  if (!entries || entries.length === 0) {
+    return null
+  }
+
+  const config = finalConfig || {}
+  let appliedCount = 0
+  const fields = entries.map((entry) => {
+    const actualValue = config[entry.fieldKey]
+    const normalizedActual = actualValue === undefined || actualValue === null
+      ? ''
+      : String(actualValue).trim()
+    const isApplied = normalizedActual === entry.value
+    if (isApplied) {
+      appliedCount += 1
+    }
+    return {
+      key: entry.fieldKey,
+      label: entry.fieldLabel,
+      suggested: entry.value,
+      actual: actualValue ?? null,
+      applied: isApplied
+    }
+  })
+
+  return {
+    suggested: entries.length,
+    applied: appliedCount,
+    ignored: entries.length - appliedCount,
+    fields
+  }
+}
+
+function filterAutoMappingEntriesForNode(nodeComponent: any, entries?: AutoMappingEntry[]): AutoMappingEntry[] | undefined {
+  if (!entries || entries.length === 0) {
+    return entries
+  }
+
+  if (nodeComponent?.type !== 'slack_action_send_message') {
+    return entries
+  }
+
+  const allowed = new Set(['channel', 'message', 'attachments'])
+  return entries.filter(entry => allowed.has(entry.fieldKey))
+}
+
+function logManualVerificationChecklist({
+  createdNodes,
+  workflowPrompt,
+  clarificationsSummary,
+  connectedIntegrations
+}: {
+  createdNodes: any[]
+  workflowPrompt: string
+  clarificationsSummary: number
+  connectedIntegrations: string[]
+}) {
+  const nodes = createdNodes.map((node) => ({
+    id: node.id,
+    title: node.data?.title,
+    status: node.data?.aiStatus,
+    testStatus: node.data?.executionStatus || (node.data?.isTrigger ? 'skipped' : 'pending'),
+    autoMapping: node.data?.autoMappingTelemetry || null
+  }))
+
+  const checklist = [
+    'Confirm each node configuration shows the same suggested tokens as listed above (autoMapping.applied).',
+    'Verify the SSE `node_configured` events contained `autoMappingTelemetry` and that applied > 0 when suggestions existed.',
+    'Open the builder UI and ensure Data Inspector / auto-fill show identical tokens to the server summary.',
+    'If a node was tested, validate the test preview matches expectations; for triggers ensure skip messaging appears.',
+    'Report any nodes with `status !== "ready"` or tests that did not run.'
+  ]
+
+  logger.info('[MANUAL QA CHECKLIST] React agent verification summary', {
+    workflowPrompt,
+    connectedIntegrations,
+    clarificationsFields: clarificationsSummary,
+    nodeCount: nodes.length,
+    nodes,
+    checklist
+  })
 }
 
 function calculateNodePosition(index: number, existingNodes: any[], viewport: any = null) {
@@ -1721,7 +2033,7 @@ function calculateNodePosition(index: number, existingNodes: any[], viewport: an
 
   // If no viewport info provided, use legacy positioning
   if (!viewport || !viewport.width) {
-    console.log('[POSITION] No viewport info, using legacy positioning for node', index)
+    logger.debug('[POSITION] No viewport info, using legacy positioning', { index })
     return {
       x: PADDING + (index * HORIZONTAL_SPACING),
       y: PADDING
@@ -1766,7 +2078,8 @@ function calculateNodePosition(index: number, existingNodes: any[], viewport: an
   const x = centerOffset + (col * horizontalSpacing)
   const y = BASE_PADDING + (row * VERTICAL_SPACING)
 
-  console.log('[POSITION] Node', index, ':', {
+  logger.trace('[POSITION] Computed node placement', {
+    index,
     viewport: { width: viewport.width, height: viewport.height, zoom, chatPanelWidth },
     effectiveViewportWidth,
     builderViewportWidth,
