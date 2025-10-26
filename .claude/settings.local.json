@@ -18,7 +18,8 @@
       "Bash(cat:*)",
       "Bash(psql:*)",
       "Bash(npx supabase@latest projects list)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(ls -la \"c:\\Users\\marcu\\source\\repos\\nstoddard17\\chainreact-app-9e\\supabase\\migrations\"\" | grep -E \".sql$ \")"
     ],
     "deny": [],
     "ask": [],

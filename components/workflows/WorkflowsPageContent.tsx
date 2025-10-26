@@ -59,6 +59,7 @@ import {
   ArrowDown,
   RotateCcw,
   Share2,
+  Lock,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDistanceToNow } from 'date-fns'
@@ -102,6 +103,7 @@ interface WorkflowFolder {
   parent_folder_id: string | null
   color: string
   icon: string
+  is_default?: boolean
   created_at: string
   updated_at: string
   workflow_count?: number
@@ -292,6 +294,12 @@ function WorkflowsContent() {
 
   const fetchFolders = async () => {
     try {
+      // First ensure the user has a default folder
+      await fetch('/api/workflows/folders/ensure-default', { method: 'POST' }).catch(() => {
+        // Silently fail - folder creation is not critical
+      })
+
+      // Then fetch all folders
       const response = await fetch('/api/workflows/folders')
       const data = await response.json()
       if (data.success) {
@@ -1378,6 +1386,7 @@ function WorkflowsContent() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {folders.map((folder) => {
                     const workflowCount = workflows.filter(w => w.folder_id === folder.id).length
+                    const isDefaultFolder = folder.is_default === true
                     return (
                       <div
                         key={folder.id}
@@ -1390,19 +1399,56 @@ function WorkflowsContent() {
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex items-center gap-3">
                             <div
-                              className="w-10 h-10 rounded-lg flex items-center justify-center"
+                              className="w-10 h-10 rounded-lg flex items-center justify-center relative"
                               style={{ backgroundColor: `${folder.color}20` }}
                             >
                               <Folder
                                 className="w-5 h-5"
                                 style={{ color: folder.color }}
                               />
+                              {isDefaultFolder && (
+                                <div className="absolute -top-1 -right-1 bg-slate-700 rounded-full p-0.5">
+                                  <Lock className="w-2.5 h-2.5 text-white" />
+                                </div>
+                              )}
                             </div>
                             <div>
-                              <h3 className="font-semibold text-slate-900">{folder.name}</h3>
+                              <h3 className="font-semibold text-slate-900 flex items-center gap-2">
+                                {folder.name}
+                              </h3>
                               <p className="text-xs text-slate-600">{workflowCount} workflows</p>
                             </div>
                           </div>
+                          {!isDefaultFolder && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setDeleteFolderDialog({
+                                      open: true,
+                                      folderId: folder.id,
+                                      folderName: folder.name
+                                    })
+                                  }}
+                                  className="text-red-600 focus:text-red-600"
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  Delete Folder
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
                         </div>
                         {folder.description && (
                           <p className="text-sm text-slate-600 line-clamp-2">{folder.description}</p>
