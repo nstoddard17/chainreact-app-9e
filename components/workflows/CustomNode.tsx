@@ -1,9 +1,9 @@
 "use client"
 
-import React, { memo, useState, useRef, useEffect, useMemo } from "react"
+import React, { memo, useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { Handle, Position, type NodeProps, useUpdateNodeInternals, useReactFlow } from "@xyflow/react"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
-import { Trash2, TestTube, Plus, Edit2, Layers, Unplug, Sparkles, ChevronDown, ChevronUp, Loader2, CheckCircle2, AlertTriangle } from "lucide-react"
+import { Trash2, TestTube, Plus, Edit2, Layers, Unplug, Sparkles, ChevronDown, ChevronUp, Loader2, CheckCircle2, AlertTriangle, Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useWorkflowTestStore } from "@/stores/workflowTestStore"
@@ -15,6 +15,10 @@ import { getIntegrationLogoClasses } from "@/lib/integrations/logoStyles"
 import { cn } from "@/lib/utils"
 
 // The data object passed to the node will now contain these callbacks.
+type ConfigureOptions = {
+  focusField?: string
+}
+
 interface CustomNodeData {
   title: string
   description: string
@@ -31,7 +35,7 @@ interface CustomNodeData {
     lastUpdatedAt?: string
     isValid?: boolean
   }
-  onConfigure: (id: string) => void
+  onConfigure: (id: string, options?: ConfigureOptions) => void
   onDelete: (id: string) => void
   onAddChain?: (nodeId: string) => void
   onRename?: (id: string, newTitle: string) => void
@@ -67,6 +71,50 @@ interface CustomNodeData {
   }[]
 }
 
+type SlackConfigSection = {
+  key: string
+  title: string
+  tooltip: string
+  defaultOpen: boolean
+  fields: string[]
+}
+
+const SLACK_CONFIG_SECTIONS: SlackConfigSection[] = [
+  {
+    key: 'basics',
+    title: 'Message Basics',
+    tooltip: 'Channel, body, and attachments that make up the primary Slack message.',
+    defaultOpen: true,
+    fields: ['channel', 'message', 'attachments']
+  },
+  {
+    key: 'status',
+    title: 'Status Card (optional)',
+    tooltip: 'Add a colored status block for release or incident updates.',
+    defaultOpen: false,
+    fields: ['statusTitle', 'statusMessage', 'statusColor', 'statusFields']
+  },
+  {
+    key: 'approval',
+    title: 'Approval Card (optional)',
+    tooltip: 'Adds Approve/Deny buttons and routes decisions back into the workflow.',
+    defaultOpen: false,
+    fields: ['messageType', 'approvalTitle', 'approvalDescription', 'approvalApproveText', 'approvalDenyText']
+  },
+  {
+    key: 'advanced',
+    title: 'Delivery Options',
+    tooltip: 'Threading, link previews, username/icon overrides, polls, and custom blocks.',
+    defaultOpen: false,
+    fields: ['threadTimestamp', 'linkNames', 'unfurlLinks', 'unfurlMedia', 'asUser', 'username', 'icon', 'buttonConfig', 'pollQuestion', 'pollOptions', 'customBlocks']
+  }
+]
+
+const DEFAULT_SLACK_SECTION_STATE = SLACK_CONFIG_SECTIONS.reduce<Record<string, boolean>>((acc, section) => {
+  acc[section.key] = section.defaultOpen
+  return acc
+}, {})
+
 function CustomNode({ id, data, selected }: NodeProps) {
   const updateNodeInternalsHook = useUpdateNodeInternals?.()
   const reactFlowInstance = useReactFlow()
@@ -82,6 +130,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
     // Auto-expand when configuring or if autoExpand is set
     return Boolean(nodeData.autoExpand) || nodeData.aiStatus === 'configuring'
   }) // Track if config section is expanded
+  const [slackSectionsOpen, setSlackSectionsOpen] = useState<Record<string, boolean>>(DEFAULT_SLACK_SECTION_STATE)
   const titleInputRef = useRef<HTMLInputElement>(null)
 
   const {
@@ -127,6 +176,16 @@ function CustomNode({ id, data, selected }: NodeProps) {
   } = nodeData
 
   const component = ALL_NODE_COMPONENTS.find((c) => c.type === type)
+  const fieldMetadataMap = useMemo(() => {
+    const map = new Map<string, any>()
+    component?.configSchema?.forEach((field: any) => {
+      if (field?.name) {
+        map.set(field.name, field)
+      }
+    })
+    return map
+  }, [component])
+  const isSlackSendMessage = type === 'slack_action_send_message'
   const hasMultipleOutputs = ["if_condition", "switch_case", "try_catch"].includes(type)
 
   // Check if this node has test data available
@@ -230,6 +289,13 @@ function CustomNode({ id, data, selected }: NodeProps) {
       handleCancelEdit()
     }
   }
+
+  const handleToggleSlackSection = (sectionKey: string) => {
+    setSlackSectionsOpen(prev => ({
+      ...prev,
+      [sectionKey]: !prev[sectionKey]
+    }))
+  }
   
   // Get execution status styling with enhanced visual feedback
   const getExecutionStatusStyle = () => {
@@ -292,6 +358,13 @@ function CustomNode({ id, data, selected }: NodeProps) {
       onConfigure(id)
     }
   }
+
+  const handleFieldFocusRequest = useCallback((fieldKey: string) => {
+    if (!fieldKey) return
+    if (onConfigure) {
+      onConfigure(id, { focusField: fieldKey })
+    }
+  }, [id, onConfigure])
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -356,6 +429,30 @@ function CustomNode({ id, data, selected }: NodeProps) {
       .replace(/^./, str => str.toUpperCase()) // Capitalize first letter
       .trim()
   }
+
+  const renderLabelWithTooltip = useCallback((fieldName: string): React.ReactNode => {
+    const baseLabel = getFieldLabel(fieldName)
+    const fieldMeta = fieldMetadataMap.get(fieldName)
+    if (!fieldMeta?.tooltip) {
+      return baseLabel
+    }
+
+    return (
+      <div className="flex items-center gap-1">
+        <span>{baseLabel}</span>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Info className="h-3 w-3 text-muted-foreground" />
+            </TooltipTrigger>
+            <TooltipContent side="top" align="start" className="max-w-xs text-xs leading-relaxed">
+              {fieldMeta.tooltip}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+    )
+  }, [fieldMetadataMap])
 
   const hasRenderableValue = (value: any): boolean => {
     if (value === null || value === undefined) return false
@@ -522,6 +619,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
     }
     return [] as [string, any][]
   }, [configEntries, progressConfigEntries])
+  const configEntryMap = useMemo(() => Object.fromEntries(displayConfigEntries), [displayConfigEntries])
   const compactConfigEntries = useMemo(() => (
     isConfigExpanded ? displayConfigEntries : displayConfigEntries.slice(0, 4)
   ), [displayConfigEntries, isConfigExpanded])
@@ -910,63 +1008,102 @@ function CustomNode({ id, data, selected }: NodeProps) {
               </div>
             ) : (
               <div className="divide-y divide-border/60">
-                {compactConfigEntries.map(([key, value], index) => {
-                  const liveValue = (testData || {})[key]
-                  const hasLiveValue = hasRenderableValue(liveValue)
-                  const configuredDisplay = configDisplayOverrides.get(key)
-                  const formattedConfigValue = configuredDisplay ?? formatDisplayValue(value, key)
-                  const hasConfiguredValue = configuredDisplay !== undefined
-                    ? configuredDisplay.trim().length > 0
-                    : hasRenderableValue(value)
-                  const isFallback = fallbackFields.includes(key) || progressFallbackKeys.has(key)
-                  const isConfiguringPhase = ['preparing', 'creating', 'configuring'].includes(aiStatus || '')
-                  const animationDelay = `${index * 45}ms`
-                  const rowAnimationStyle: React.CSSProperties | undefined = isAIActive && isConfiguringPhase
-                    ? {
-                        animationName: 'fadeInUp',
-                        animationDuration: '0.3s',
-                        animationTimingFunction: 'ease-out',
-                        animationFillMode: 'forwards',
-                        animationDelay
-                      }
-                    : undefined
+                {isSlackSendMessage ? (
+                  <SlackAutoConfigSummary
+                    sections={SLACK_CONFIG_SECTIONS}
+                    sectionsState={slackSectionsOpen}
+                    onToggleSection={handleToggleSlackSection}
+                    configValues={config || {}}
+                    configEntryMap={configEntryMap}
+                    configDisplayOverrides={configDisplayOverrides}
+                    testData={testData || {}}
+                    fallbackFields={fallbackFields}
+                    progressFallbackKeys={progressFallbackKeys}
+                    formatDisplayValue={formatDisplayValue}
+                    hasRenderableValue={hasRenderableValue}
+                    renderLabel={renderLabelWithTooltip}
+                    onFieldClick={handleFieldFocusRequest}
+                  />
+                ) : (
+                  compactConfigEntries.map(([key, value], index) => {
+                    const liveValue = (testData || {})[key]
+                    const hasLiveValue = hasRenderableValue(liveValue)
+                    const configuredDisplay = configDisplayOverrides.get(key)
+                    const formattedConfigValue = configuredDisplay ?? formatDisplayValue(value, key)
+                    const hasConfiguredValue = configuredDisplay !== undefined
+                      ? configuredDisplay.trim().length > 0
+                      : hasRenderableValue(value)
+                    const isFallback = fallbackFields.includes(key) || progressFallbackKeys.has(key)
+                    const isConfiguringPhase = ['preparing', 'creating', 'configuring'].includes(aiStatus || '')
+                    const animationDelay = `${index * 45}ms`
+                    const rowAnimationStyle: React.CSSProperties | undefined = isAIActive && isConfiguringPhase
+                      ? {
+                          animationName: 'fadeInUp',
+                          animationDuration: '0.3s',
+                          animationTimingFunction: 'ease-out',
+                          animationFillMode: 'forwards',
+                          animationDelay
+                        }
+                      : undefined
 
-                  return (
-                    <div
-                      key={key}
-                      className="grid grid-cols-[120px_1fr] gap-3 px-3 py-3 text-xs transition-all duration-300"
-                      style={rowAnimationStyle}
-                    >
-                      <div className={`font-semibold uppercase tracking-wide ${isFallback ? 'text-amber-600' : 'text-muted-foreground'}`}>
-                        {getFieldLabel(key)}
-                      </div>
-                      <div className="space-y-1">
-                        <div
-                          className={cn(
-                            'rounded-md border px-3 py-1.5 bg-white/80 shadow-sm text-foreground min-h-[32px]',
-                            isFallback ? 'border-amber-300 bg-amber-50/40 text-amber-800' : 'border-border'
-                          )}
-                        >
-                          {formattedConfigValue ? (
-                            <span className="leading-relaxed break-words whitespace-pre-wrap block">{formattedConfigValue}</span>
-                          ) : (
-                            <span className="flex items-center gap-1 text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> Filling…</span>
+                    const labelContent = renderLabelWithTooltip(key)
+                    const rowClasses = cn(
+                      "grid grid-cols-[120px_1fr] gap-3 px-3 py-3 text-xs transition-all duration-300 rounded-lg",
+                      onConfigure && "cursor-pointer hover:bg-muted/60",
+                      isFallback && 'bg-amber-50/40'
+                    )
+
+                    return (
+                      <div
+                        key={key}
+                        className={rowClasses}
+                        style={rowAnimationStyle}
+                        data-node-field={key}
+                        role={onConfigure ? 'button' : undefined}
+                        tabIndex={onConfigure ? 0 : undefined}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          handleFieldFocusRequest(key)
+                        }}
+                        onKeyDown={(event) => {
+                          if (!onConfigure) return
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault()
+                            handleFieldFocusRequest(key)
+                          }
+                        }}
+                      >
+                        <div className={`font-semibold uppercase tracking-wide ${isFallback ? 'text-amber-600' : 'text-muted-foreground'}`}>
+                          {labelContent}
+                        </div>
+                        <div className="space-y-1">
+                          <div
+                            className={cn(
+                              'rounded-md border px-3 py-1.5 bg-white/80 shadow-sm text-foreground min-h-[32px]',
+                              isFallback ? 'border-amber-300 bg-amber-50/40 text-amber-800' : 'border-border'
+                            )}
+                          >
+                            {hasConfiguredValue ? (
+                              <span className="leading-relaxed break-words whitespace-pre-wrap block">{formattedConfigValue}</span>
+                            ) : (
+                              <span className="flex items-center gap-1 text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> Filling…</span>
+                            )}
+                          </div>
+                          {hasLiveValue && (
+                            <div className="flex items-center gap-1 text-[11px] font-medium text-emerald-600">
+                              <CheckCircle2 className="h-3 w-3" />
+                              <span className="break-words">{formatDisplayValue(liveValue, key)}</span>
+                            </div>
                           )}
                         </div>
-                        {hasLiveValue && (
-                          <div className="flex items-center gap-1 text-[11px] font-medium text-emerald-600">
-                            <CheckCircle2 className="h-3 w-3" />
-                            <span className="break-words">{formatDisplayValue(liveValue, key)}</span>
-                          </div>
-                        )}
                       </div>
-                    </div>
-                  )
-                })}
+                    )
+                  })
+                )}
               </div>
             )}
 
-            {extraConfigCount > 0 && (
+            {!isSlackSendMessage && extraConfigCount > 0 && (
               <div className="px-3 py-2 text-[11px] text-muted-foreground/80">
                 Showing {compactConfigEntries.length} of {displayConfigEntries.length} fields · <button className="underline" onClick={(e) => { e.stopPropagation(); setIsConfigExpanded(true) }} type="button">Show all</button>
               </div>
@@ -1142,3 +1279,140 @@ function CustomNode({ id, data, selected }: NodeProps) {
 }
 
 export default memo(CustomNode)
+
+type SlackAutoConfigSummaryProps = {
+  sections: SlackConfigSection[]
+  sectionsState: Record<string, boolean>
+  onToggleSection: (sectionKey: string) => void
+  configValues: Record<string, any>
+  configEntryMap: Record<string, any>
+  configDisplayOverrides: Map<string, string>
+  testData: Record<string, any>
+  fallbackFields: string[]
+  progressFallbackKeys: Set<string>
+  formatDisplayValue: (value: any, fieldKey?: string) => string
+  hasRenderableValue: (value: any) => boolean
+  renderLabel: (fieldName: string) => React.ReactNode
+  onFieldClick: (fieldKey: string) => void
+}
+
+function SlackAutoConfigSummary({
+  sections,
+  sectionsState,
+  onToggleSection,
+  configValues,
+  configEntryMap,
+  configDisplayOverrides,
+  testData,
+  fallbackFields,
+  progressFallbackKeys,
+  formatDisplayValue,
+  hasRenderableValue,
+  renderLabel,
+  onFieldClick
+}: SlackAutoConfigSummaryProps) {
+  const renderFieldRow = (fieldKey: string) => {
+    const configuredDisplay = configDisplayOverrides.get(fieldKey)
+    const resolvedValue = configuredDisplay ?? configEntryMap[fieldKey] ?? configValues[fieldKey]
+    const hasConfiguredValue = configuredDisplay !== undefined
+      ? configuredDisplay.trim().length > 0
+      : hasRenderableValue(resolvedValue)
+    const formattedConfigValue = configuredDisplay ?? formatDisplayValue(resolvedValue, fieldKey)
+    const liveValue = testData?.[fieldKey]
+    const hasLiveValue = hasRenderableValue(liveValue)
+    const isFallback = fallbackFields.includes(fieldKey) || progressFallbackKeys.has(fieldKey)
+
+    return (
+      <div
+        key={fieldKey}
+        className={cn(
+          "grid grid-cols-[140px_1fr] gap-3 px-3 py-3 text-xs rounded-lg",
+          "cursor-pointer hover:bg-muted/60",
+          isFallback && 'bg-amber-50/40'
+        )}
+        data-node-field={fieldKey}
+        role="button"
+        tabIndex={0}
+        onClick={(event) => {
+          event.stopPropagation()
+          onFieldClick(fieldKey)
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            onFieldClick(fieldKey)
+          }
+        }}
+      >
+        <div className={`font-semibold uppercase tracking-wide ${isFallback ? 'text-amber-600' : 'text-muted-foreground'}`}>
+          {renderLabel(fieldKey)}
+        </div>
+        <div className="space-y-1">
+          <div
+            className={cn(
+              'rounded-md border px-3 py-1.5 bg-white/80 shadow-sm text-foreground min-h-[32px]',
+              isFallback ? 'border-amber-300 bg-amber-50/40 text-amber-800' : 'border-border'
+            )}
+          >
+            {hasConfiguredValue ? (
+              <span className="leading-relaxed break-words whitespace-pre-wrap block">{formattedConfigValue}</span>
+            ) : (
+              <span className="text-muted-foreground">Not configured yet</span>
+            )}
+          </div>
+          {hasLiveValue && (
+            <div className="flex items-center gap-1 text-[11px] font-medium text-emerald-600">
+              <CheckCircle2 className="h-3 w-3" />
+              <span className="break-words">{formatDisplayValue(liveValue, fieldKey)}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="divide-y divide-border/60">
+      {sections.map((section) => {
+        const isOpen = sectionsState[section.key] ?? section.defaultOpen
+        return (
+          <div key={section.key}>
+            <div className="flex items-center justify-between gap-2 px-3 py-2 bg-muted/40">
+              <div className="flex items-center gap-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{section.title}</p>
+                {section.tooltip && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-xs text-[11px] leading-relaxed">
+                        {section.tooltip}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onToggleSection(section.key)
+                }}
+              >
+                {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
+            </div>
+            {isOpen && (
+              <div className="border-t border-border/60">
+                {section.fields.map(fieldKey => renderFieldRow(fieldKey))}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}

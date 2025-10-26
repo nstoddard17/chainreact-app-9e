@@ -28,7 +28,7 @@ interface AIRouterNodeData {
     model?: string
     [key: string]: any
   }
-  onConfigure: (id: string) => void
+  onConfigure: (id: string, options?: { focusField?: string }) => void
   onDelete: (id: string) => void
   onTest?: (id: string) => void
   executionStatus?: 'pending' | 'listening' | 'running' | 'completed' | 'error' | null

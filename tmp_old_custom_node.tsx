@@ -30,7 +30,7 @@ interface CustomNodeData {
     lastUpdatedAt?: string
     isValid?: boolean
   }
-  onConfigure: (id: string) => void
+  onConfigure: (id: string, options?: { focusField?: string }) => void
   onDelete: (id: string) => void
   onAddChain?: (nodeId: string) => void
   onRename?: (id: string, newTitle: string) => void

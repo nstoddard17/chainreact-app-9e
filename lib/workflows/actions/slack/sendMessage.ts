@@ -6,6 +6,7 @@
 import { ExecutionContext } from '../../executeNode';
 
 import { logger } from '@/lib/utils/logger'
+import { formatRichTextForTarget } from '@/lib/workflows/formatters/richText'
 
 export async function sendSlackMessage(context: ExecutionContext): Promise<any> {
   const {
@@ -35,9 +36,14 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
     legacyAttachments
   } = context.config;
 
+  const formattedMessage = formatRichTextForTarget(message, 'slack')
+  const formattedStatusMessage = formatRichTextForTarget(statusText, 'slack')
+  const formattedApprovalDescription = formatRichTextForTarget(approvalDescription, 'slack')
+  const slackTextContent = formattedMessage ?? message ?? ''
+
   logger.debug('[Slack] Preparing to send message:', {
     channel,
-    messageLength: message?.length,
+    messageLength: slackTextContent.length,
     messageType,
     hasButtons: !!buttonConfig,
     hasStatus: !!statusTitle,
@@ -54,7 +60,7 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
     throw new Error('Channel is required for sending Slack messages');
   }
 
-  if (!message && messageType === 'simple') {
+  if (!slackTextContent && messageType === 'simple') {
     throw new Error('Message text is required for simple messages');
   }
 
@@ -163,7 +169,7 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
     // Bot tokens can use channel names with #, user tokens work better with IDs
     const messagePayload: any = {
       channel: channel.startsWith('#') ? channel : (channel.startsWith('C') || channel.startsWith('U') || channel.startsWith('D') ? channel : `#${channel}`),
-      text: message || '',
+      text: slackTextContent,
       unfurl_links: unfurlLinks,
       unfurl_media: unfurlMedia,
       link_names: linkNames // Added link_names from schema
@@ -633,19 +639,17 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
       const blocks: any[] = [];
       
       switch (messageType) {
-        case 'buttons':
-          // Add message text as a section
-          if (message) {
+        case 'buttons': {
+          if (slackTextContent) {
             blocks.push({
               type: 'section',
               text: {
                 type: 'mrkdwn',
-                text: message
+                text: slackTextContent
               }
-            });
+            })
           }
-          
-          // Add buttons from buttonConfig array
+
           if (buttonConfig && Array.isArray(buttonConfig)) {
             const buttonElements = buttonConfig.map((btn: any) => {
               const button: any = {
@@ -656,42 +660,37 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
                   emoji: true
                 },
                 action_id: btn.actionId || `button_${Date.now()}`
-              };
-              
-              // Add style if specified
+              }
+
               if (btn.style && btn.style !== 'default') {
-                button.style = btn.style;
+                button.style = btn.style
               }
-              
-              // Add URL if specified
+
               if (btn.url) {
-                button.url = btn.url;
+                button.url = btn.url
               }
-              
-              // Add value for action handling
+
               if (btn.value) {
-                button.value = btn.value;
+                button.value = btn.value
               }
-              
-              return button;
-            });
-            
-            // Add action block with buttons
+
+              return button
+            })
+
             blocks.push({
               type: 'actions',
               elements: buttonElements
-            });
+            })
           }
-          break;
-          
-        case 'status':
-          // Create status attachment (using attachments for colored sidebar)
+          break
+        }
+
+        case 'status': {
           const statusAttachment: any = {
             color: statusColor || 'good',
             blocks: []
-          };
-          
-          // Add title if provided
+          }
+
           if (statusTitle) {
             statusAttachment.blocks.push({
               type: 'header',
@@ -700,44 +699,39 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
                 text: statusTitle,
                 emoji: true
               }
-            });
+            })
           }
-          
-          // Add message if provided
-          if (statusText) {
+
+          if (formattedStatusMessage ?? statusText) {
             statusAttachment.blocks.push({
               type: 'section',
               text: {
                 type: 'mrkdwn',
-                text: statusText
+                text: formattedStatusMessage ?? statusText
               }
-            });
+            })
           }
-          
-          // Add status fields if provided
+
           if (statusFields && Array.isArray(statusFields)) {
             const fields = statusFields.map((field: any) => ({
               type: 'mrkdwn',
               text: `*${field.fieldName || 'Field'}:*\n${field.fieldValue || 'Value'}`
-            }));
-            
+            }))
+
             if (fields.length > 0) {
               statusAttachment.blocks.push({
                 type: 'section',
                 fields: fields
-              });
+              })
             }
           }
-          
-          // Use attachments for status messages to get colored sidebar
-          messagePayload.attachments = [statusAttachment];
-          
-          // Clear blocks since we're using attachments
-          blocks.length = 0;
-          break;
-          
-        case 'approval':
-          // Add title
+
+          messagePayload.attachments = [statusAttachment]
+          blocks.length = 0
+          break
+        }
+
+        case 'approval': {
           if (approvalTitle) {
             blocks.push({
               type: 'header',
@@ -746,21 +740,19 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
                 text: approvalTitle,
                 emoji: true
               }
-            });
+            })
           }
-          
-          // Add description
-          if (approvalDescription) {
+
+          if (formattedApprovalDescription ?? approvalDescription) {
             blocks.push({
               type: 'section',
               text: {
                 type: 'mrkdwn',
-                text: approvalDescription
+                text: formattedApprovalDescription ?? approvalDescription
               }
-            });
+            })
           }
-          
-          // Add approval buttons
+
           blocks.push({
             type: 'actions',
             elements: [
@@ -787,11 +779,11 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
                 value: 'deny'
               }
             ]
-          });
-          break;
-          
-        case 'poll':
-          // Add poll question
+          })
+          break
+        }
+
+        case 'poll': {
           if (pollQuestion) {
             blocks.push({
               type: 'section',
@@ -799,10 +791,9 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
                 type: 'mrkdwn',
                 text: pollQuestion
               }
-            });
+            })
           }
-          
-          // Add poll options as buttons
+
           if (pollOptions && Array.isArray(pollOptions)) {
             const pollButtons = pollOptions.map((option: any, index: number) => ({
               type: 'button',
@@ -813,31 +804,34 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
               },
               action_id: `poll_option_${index}`,
               value: option.optionText || `option_${index}`
-            }));
-            
-            // Split into multiple action blocks if more than 5 options (Slack limit)
+            }))
+
             for (let i = 0; i < pollButtons.length; i += 5) {
               blocks.push({
                 type: 'actions',
                 elements: pollButtons.slice(i, i + 5)
-              });
+              })
             }
           }
-          break;
-          
-        case 'custom':
-          // Use custom blocks JSON
+          break
+        }
+
+        case 'custom': {
           if (customBlocks) {
             try {
-              const parsedBlocks = typeof customBlocks === 'string' ? JSON.parse(customBlocks) : customBlocks;
-              messagePayload.blocks = parsedBlocks;
-              blocks.length = 0; // Clear our blocks array since we're using custom
+              const parsedBlocks = typeof customBlocks === 'string' ? JSON.parse(customBlocks) : customBlocks
+              messagePayload.blocks = parsedBlocks
+              blocks.length = 0
             } catch (error) {
-              logger.warn('[Slack] Failed to parse custom blocks JSON:', error);
-              throw new Error('Invalid custom blocks JSON format. Please check your Block Kit configuration.');
+              logger.warn('[Slack] Failed to parse custom blocks JSON:', error)
+              throw new Error('Invalid custom blocks JSON format. Please check your Block Kit configuration.')
             }
           }
-          break;
+          break
+        }
+
+        default:
+          break
       }
       
       // Add blocks to payload if we have any
