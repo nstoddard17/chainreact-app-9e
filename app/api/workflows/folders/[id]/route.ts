@@ -93,6 +93,14 @@ export async function DELETE(
       )
     }
 
+    // Prevent deletion of default folder
+    if (existingFolder.is_default === true) {
+      return NextResponse.json(
+        { success: false, error: 'Cannot delete default folder' },
+        { status: 403 }
+      )
+    }
+
     // Delete folder (workflows will have folder_id set to null via ON DELETE SET NULL)
     const { error } = await supabase
       .from('workflow_folders')

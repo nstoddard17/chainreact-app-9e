@@ -305,7 +305,7 @@ export function useWorkflowSaveActions({
     } finally {
       setIsSaving(false)
     }
-  }, [serializeWorkflowState, saveTemplateDraft, setCurrentWorkflow, updateWorkflow, setHasUnsavedChanges, toast])
+  }, [serializeWorkflowState, saveTemplateDraft, toast])
 
   /**
    * Handle toggle live status - stable callback using refs
@@ -422,7 +422,7 @@ export function useWorkflowSaveActions({
     } finally {
       setIsUpdatingStatus(false)
     }
-  }, [setCurrentWorkflow, toast])
+  }, [toast])
 
   return {
     isSaving,
