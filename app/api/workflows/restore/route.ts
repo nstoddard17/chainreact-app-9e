@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { errorResponse, successResponse } from '@/lib/utils/api-response'
 
+// Only include columns that exist in the actual database schema
 const ALLOWED_WORKFLOW_KEYS = new Set([
   'id',
   'name',
@@ -11,12 +12,12 @@ const ALLOWED_WORKFLOW_KEYS = new Set([
   'folder_id',
   'nodes',
   'connections',
-  'workflow_json',
   'status',
-  'visibility',
   'source_template_id',
   'created_at',
   'updated_at',
+  'executions_count',
+  'created_by',
 ])
 
 export async function POST(request: Request) {

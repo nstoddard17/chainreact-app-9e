@@ -16,7 +16,9 @@
       "Bash(done)",
       "Bash(do sed -i 's|<AppLayout|<NewAppLayout|g; s|</AppLayout>|</NewAppLayout>|g' \"$file\")",
       "Bash(cat:*)",
-      "Bash(psql:*)"
+      "Bash(psql:*)",
+      "Bash(npx supabase@latest projects list)",
+      "Bash(npm run dev:*)"
     ],
     "deny": [],
     "ask": [],
