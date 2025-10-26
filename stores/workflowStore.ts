@@ -181,6 +181,7 @@ interface WorkflowActions {
   restoreWorkflowFromTrash: (id: string) => Promise<void>
   emptyTrash: () => Promise<void>
   moveWorkflowToOrganization: (workflowId: string, organizationId: string) => Promise<void>
+  invalidateCache: () => void
   setCurrentWorkflow: (workflow: Workflow | null) => void
   setSelectedNode: (node: WorkflowNode | null) => void
   addNode: (node: WorkflowNode) => void
@@ -890,6 +891,11 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       logger.error("Error moving workflow to organization:", error)
       throw error
     }
+  },
+
+  invalidateCache: () => {
+    logger.debug('🏪 [WorkflowStore] Invalidating cache')
+    set({ lastFetchTime: null })
   },
 
   setCurrentWorkflow: (workflow: Workflow | null) => {

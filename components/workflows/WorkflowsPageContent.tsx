@@ -135,7 +135,7 @@ const validateWorkflow = (workflow: any) => {
 
 function WorkflowsContent() {
   const router = useRouter()
-  const { workflows, loadingList, fetchWorkflows, updateWorkflow, deleteWorkflow, moveWorkflowToTrash, restoreWorkflowFromTrash, emptyTrash } = useWorkflowStore()
+  const { workflows, loadingList, fetchWorkflows, updateWorkflow, deleteWorkflow, moveWorkflowToTrash, restoreWorkflowFromTrash, emptyTrash, invalidateCache } = useWorkflowStore()
   const { user, profile } = useAuthStore()
   const { getConnectedProviders } = useIntegrationStore()
   const { checkActionLimit } = usePlanRestrictions()
@@ -192,6 +192,21 @@ function WorkflowsContent() {
     open: false,
     folderId: null,
     folderName: ''
+  })
+  const [deleteFolderWithWorkflows, setDeleteFolderWithWorkflows] = useState<{
+    open: boolean
+    folderId: string | null
+    folderName: string
+    workflowCount: number
+    action: 'delete' | 'move' | null
+    targetFolderId: string | null
+  }>({
+    open: false,
+    folderId: null,
+    folderName: '',
+    workflowCount: 0,
+    action: null,
+    targetFolderId: null
   })
   const [renameFolderDialog, setRenameFolderDialog] = useState<{ open: boolean; folderId: string | null; currentName: string }>({
     open: false,
@@ -1000,6 +1015,31 @@ function WorkflowsContent() {
     }
   }
 
+  const handleDeleteFolderClick = (folderId: string, folderName: string) => {
+    // Count workflows in this folder
+    const workflowsInFolder = workflows.filter(w => w.folder_id === folderId && !w.deleted_at)
+    const workflowCount = workflowsInFolder.length
+
+    if (workflowCount === 0) {
+      // No workflows, show simple delete dialog
+      setDeleteFolderDialog({
+        open: true,
+        folderId,
+        folderName
+      })
+    } else {
+      // Has workflows, show choice dialog
+      setDeleteFolderWithWorkflows({
+        open: true,
+        folderId,
+        folderName,
+        workflowCount,
+        action: null,
+        targetFolderId: null
+      })
+    }
+  }
+
   const handleDeleteFolder = async () => {
     if (!deleteFolderDialog.folderId) return
 
@@ -1007,11 +1047,6 @@ function WorkflowsContent() {
     const folderName = deleteFolderDialog.folderName
 
     setDeleteFolderDialog({ open: false, folderId: null, folderName: '' })
-
-    toast({
-      title: "Folder Deleted",
-      description: `"${folderName}" has been deleted.`,
-    })
 
     try {
       const response = await fetch(`/api/workflows/folders/${folderId}`, {
@@ -1024,8 +1059,71 @@ function WorkflowsContent() {
         throw new Error(data.error || 'Failed to delete folder')
       }
 
-      fetchFolders()
-      fetchWorkflows()
+      // Invalidate cache and refresh both folders and workflows to ensure counts are updated
+      invalidateCache()
+      await Promise.all([
+        fetchFolders(),
+        fetchWorkflows()
+      ])
+
+      toast({
+        title: "Folder Deleted",
+        description: `"${folderName}" has been deleted.`,
+      })
+    } catch (error: any) {
+      toast({
+        title: "Failed to Delete",
+        description: error.message || "Failed to delete folder.",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleDeleteFolderWithWorkflows = async () => {
+    const { folderId, folderName, action, targetFolderId } = deleteFolderWithWorkflows
+
+    if (!folderId || !action) return
+
+    setDeleteFolderWithWorkflows({
+      open: false,
+      folderId: null,
+      folderName: '',
+      workflowCount: 0,
+      action: null,
+      targetFolderId: null
+    })
+
+    try {
+      const response = await fetch(`/api/workflows/folders/${folderId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action,
+          targetFolderId
+        })
+      })
+
+      const data = await response.json()
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to delete folder')
+      }
+
+      // Invalidate cache and refresh both folders and workflows to ensure counts are updated
+      invalidateCache()
+      await Promise.all([
+        fetchFolders(),
+        fetchWorkflows()
+      ])
+
+      toast({
+        title: "Folder Deleted",
+        description: action === 'delete'
+          ? `"${folderName}" and all workflows inside have been deleted.`
+          : `"${folderName}" has been deleted. Workflows moved to selected folder.`,
+      })
     } catch (error: any) {
       toast({
         title: "Failed to Delete",
@@ -1916,11 +2014,7 @@ function WorkflowsContent() {
                                   <DropdownMenuItem
                                     onClick={(e) => {
                                       e.stopPropagation()
-                                      setDeleteFolderDialog({
-                                        open: true,
-                                        folderId: folder.id,
-                                        folderName: folder.name
-                                      })
+                                      handleDeleteFolderClick(folder.id, folder.name)
                                     }}
                                     className="text-red-600 focus:text-red-600"
                                   >
@@ -2091,11 +2185,7 @@ function WorkflowsContent() {
                                     <DropdownMenuItem
                                       onClick={(e) => {
                                         e.stopPropagation()
-                                        setDeleteFolderDialog({
-                                          open: true,
-                                          folderId: folder.id,
-                                          folderName: folder.name
-                                        })
+                                        handleDeleteFolderClick(folder.id, folder.name)
                                       }}
                                       className="text-red-600 focus:text-red-600"
                                     >
@@ -2511,6 +2601,180 @@ function WorkflowsContent() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Delete Folder with Workflows Dialog */}
+      <Dialog
+        open={deleteFolderWithWorkflows.open}
+        onOpenChange={(open) => !open && setDeleteFolderWithWorkflows({
+          open: false,
+          folderId: null,
+          folderName: '',
+          workflowCount: 0,
+          action: null,
+          targetFolderId: null
+        })}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete "{deleteFolderWithWorkflows.folderName}"?</DialogTitle>
+            <DialogDescription>
+              This folder contains {deleteFolderWithWorkflows.workflowCount} workflow{deleteFolderWithWorkflows.workflowCount !== 1 ? 's' : ''}. What would you like to do with them?
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Option 1: Delete all workflows */}
+            <div
+              className={cn(
+                "border-2 rounded-lg p-4 cursor-pointer transition-all",
+                deleteFolderWithWorkflows.action === 'delete'
+                  ? "border-red-500 bg-red-50 shadow-sm"
+                  : "border-slate-200 hover:bg-slate-50 hover:border-slate-300"
+              )}
+              onClick={(e) => {
+                e.stopPropagation()
+                setDeleteFolderWithWorkflows(prev => ({ ...prev, action: 'delete', targetFolderId: null }))
+              }}
+            >
+              <div className="flex items-start gap-3">
+                <div className={cn(
+                  "w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 transition-all",
+                  deleteFolderWithWorkflows.action === 'delete'
+                    ? "border-red-500 bg-red-500"
+                    : "border-slate-300 bg-white"
+                )}>
+                  {deleteFolderWithWorkflows.action === 'delete' && (
+                    <div className="w-2.5 h-2.5 rounded-full bg-white" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <h4 className={cn(
+                    "font-medium mb-1",
+                    deleteFolderWithWorkflows.action === 'delete' ? "text-red-900" : "text-slate-900"
+                  )}>
+                    Delete all workflows
+                  </h4>
+                  <p className="text-sm text-slate-600">
+                    Permanently delete the folder and all {deleteFolderWithWorkflows.workflowCount} workflow{deleteFolderWithWorkflows.workflowCount !== 1 ? 's' : ''} inside. This action cannot be undone.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Option 2: Move workflows to another folder */}
+            <div
+              className={cn(
+                "border-2 rounded-lg p-4 cursor-pointer transition-all",
+                deleteFolderWithWorkflows.action === 'move'
+                  ? "border-primary bg-primary/5 shadow-sm"
+                  : "border-slate-200 hover:bg-slate-50 hover:border-slate-300"
+              )}
+              onClick={(e) => {
+                e.stopPropagation()
+                setDeleteFolderWithWorkflows(prev => ({
+                  ...prev,
+                  action: 'move',
+                  targetFolderId: prev.targetFolderId || folders.find(f => f.is_default && f.id !== prev.folderId)?.id || folders.find(f => f.id !== prev.folderId && !f.is_trash)?.id || null
+                }))
+              }}
+            >
+              <div className="flex items-start gap-3">
+                <div className={cn(
+                  "w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 transition-all",
+                  deleteFolderWithWorkflows.action === 'move'
+                    ? "border-primary bg-primary"
+                    : "border-slate-300 bg-white"
+                )}>
+                  {deleteFolderWithWorkflows.action === 'move' && (
+                    <div className="w-2.5 h-2.5 rounded-full bg-white" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <h4 className={cn(
+                    "font-medium mb-1",
+                    deleteFolderWithWorkflows.action === 'move' ? "text-primary" : "text-slate-900"
+                  )}>
+                    Move workflows to another folder
+                  </h4>
+                  <p className="text-sm text-slate-600 mb-3">
+                    Keep the workflows and move them to a different folder before deleting this one.
+                  </p>
+
+                  {deleteFolderWithWorkflows.action === 'move' && (
+                    <div className="space-y-2 mt-3">
+                      <label className="text-sm font-medium text-slate-700">Select destination folder:</label>
+                      <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                        {folders
+                          .filter(f => f.id !== deleteFolderWithWorkflows.folderId && !f.is_trash)
+                          .map(folder => (
+                            <div
+                              key={folder.id}
+                              className={cn(
+                                "flex items-center gap-2 p-2 rounded-md border cursor-pointer transition-all",
+                                deleteFolderWithWorkflows.targetFolderId === folder.id
+                                  ? "border-primary bg-primary/10 shadow-sm"
+                                  : "border-slate-200 hover:bg-slate-50 hover:border-slate-300"
+                              )}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setDeleteFolderWithWorkflows(prev => ({ ...prev, targetFolderId: folder.id }))
+                              }}
+                            >
+                              <div className={cn(
+                                "w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0",
+                                deleteFolderWithWorkflows.targetFolderId === folder.id
+                                  ? "border-primary bg-primary"
+                                  : "border-slate-300 bg-white"
+                              )}>
+                                {deleteFolderWithWorkflows.targetFolderId === folder.id && (
+                                  <div className="w-2 h-2 rounded-full bg-white" />
+                                )}
+                              </div>
+                              <Folder className="w-4 h-4 flex-shrink-0" style={{ color: folder.color }} />
+                              <span className={cn(
+                                "text-sm flex-1",
+                                deleteFolderWithWorkflows.targetFolderId === folder.id ? "font-medium text-primary" : "text-slate-700"
+                              )}>
+                                {folder.name}
+                              </span>
+                              {folder.is_default && (
+                                <span className="text-xs text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">Default</span>
+                              )}
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteFolderWithWorkflows({
+                open: false,
+                folderId: null,
+                folderName: '',
+                workflowCount: 0,
+                action: null,
+                targetFolderId: null
+              })}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant={deleteFolderWithWorkflows.action === 'delete' ? 'destructive' : 'default'}
+              onClick={handleDeleteFolderWithWorkflows}
+              disabled={!deleteFolderWithWorkflows.action || (deleteFolderWithWorkflows.action === 'move' && !deleteFolderWithWorkflows.targetFolderId)}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete Folder
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Empty Trash Dialog */}
       <AlertDialog open={emptyTrashDialog} onOpenChange={setEmptyTrashDialog}>
