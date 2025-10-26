@@ -773,7 +773,8 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
         throw error
       }
 
-      // Refresh workflows to show updated state
+      // Clear cache and refresh workflows to show updated state
+      set({ lastFetchTime: null, fetchPromise: null })
       await get().fetchWorkflows()
 
       logger.info("Workflow moved to trash:", id)
@@ -798,7 +799,8 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
         throw error
       }
 
-      // Refresh workflows to show updated state
+      // Clear cache and refresh workflows to show updated state
+      set({ lastFetchTime: null, fetchPromise: null })
       await get().fetchWorkflows()
 
       logger.info("Workflow restored from trash:", id)
@@ -829,7 +831,8 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
         throw error
       }
 
-      // Refresh workflows to show updated state
+      // Clear cache and refresh workflows to show updated state
+      set({ lastFetchTime: null, fetchPromise: null })
       await get().fetchWorkflows()
 
       logger.info("User trash emptied successfully")
