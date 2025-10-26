@@ -12,169 +12,88 @@ export async function GET(
   try {
     const supabase = await createSupabaseRouteHandlerClient()
     const serviceClient = await createSupabaseServiceClient()
-    
+
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      return errorResponse("Unauthorized" , 401)
+      return errorResponse("Unauthorized", 401)
     }
 
-    // Check if user is a member of this organization
-    const { data: membership, error: membershipError } = await serviceClient
-      .from("organization_members")
-      .select("role")
+    // Check if user is a member of any team in this organization
+    const { data: userTeams } = await serviceClient
+      .from("teams")
+      .select("id")
       .eq("organization_id", organizationId)
-      .eq("user_id", user.id)
-      .single()
+      .in("id",
+        serviceClient
+          .from("team_members")
+          .select("team_id")
+          .eq("user_id", user.id)
+      )
 
-    if (membershipError || !membership) {
-      return errorResponse("Access denied" , 403)
+    if (!userTeams || userTeams.length === 0) {
+      return errorResponse("Access denied - not a member of this organization", 403)
     }
 
-    // Get all members of the organization
-    const { data: members, error } = await serviceClient
-      .from("organization_members")
-      .select("*")
+    // Get all teams in the organization with their members
+    const { data: teams, error: teamsError } = await serviceClient
+      .from("teams")
+      .select(`
+        id,
+        name,
+        slug,
+        team_members(
+          user_id,
+          role,
+          created_at,
+          user:users(id, email, username)
+        )
+      `)
       .eq("organization_id", organizationId)
-      .order("created_at", { ascending: true })
 
-    if (error) {
-      logger.error("Error fetching members:", error)
-      return errorResponse("Failed to fetch members" , 500)
+    if (teamsError) {
+      logger.error("Error fetching teams:", teamsError)
+      return errorResponse("Failed to fetch members", 500)
     }
 
-    // Get user details for each member
-    const membersWithUserInfo = await Promise.all(
-      members.map(async (member) => {
-        try {
-          const { data: userData, error: userError } = await serviceClient.auth.admin.getUserById(member.user_id)
-          if (userError || !userData.user) {
-            return {
-              ...member,
-              user: {
-                email: "Unknown",
-                full_name: "Unknown User",
-                username: "unknown"
-              }
-            }
-          }
-          return {
-            ...member,
-            user: {
-              email: userData.user.email || "No email",
-              full_name: userData.user.user_metadata?.full_name || "Unknown User",
-              username: userData.user.user_metadata?.username || "unknown"
-            }
-          }
-        } catch (error) {
-          logger.error("Error fetching user data for member:", member.user_id, error)
-          return {
-            ...member,
-            user: {
-              email: "Error loading user",
-              full_name: "Error loading user",
-              username: "error"
-            }
+    // Collect all unique members from all teams
+    const memberMap = new Map()
+    teams?.forEach((team: any) => {
+      team.team_members?.forEach((tm: any) => {
+        if (!memberMap.has(tm.user_id)) {
+          memberMap.set(tm.user_id, {
+            id: tm.user_id,
+            user_id: tm.user_id,
+            user: tm.user,
+            role: tm.role,
+            created_at: tm.created_at,
+            teams: [{ id: team.id, name: team.name, slug: team.slug, role: tm.role }]
+          })
+        } else {
+          const existing = memberMap.get(tm.user_id)
+          existing.teams.push({ id: team.id, name: team.name, slug: team.slug, role: tm.role })
+          // Keep the highest role (owner > admin > member > viewer)
+          const roleHierarchy = { owner: 4, admin: 3, member: 2, viewer: 1 }
+          if ((roleHierarchy[tm.role as keyof typeof roleHierarchy] || 0) > (roleHierarchy[existing.role as keyof typeof roleHierarchy] || 0)) {
+            existing.role = tm.role
           }
         }
       })
-    )
+    })
 
-    return jsonResponse(membersWithUserInfo)
+    const members = Array.from(memberMap.values())
+
+    return jsonResponse({ members })
   } catch (error) {
     logger.error("Unexpected error:", error)
-    return errorResponse("Internal server error" , 500)
+    return errorResponse("Internal server error", 500)
   }
 }
 
+// POST is deprecated - members should be added to teams, not directly to organizations
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id: organizationId } = await params
-  try {
-    const supabase = await createSupabaseRouteHandlerClient()
-    const serviceClient = await createSupabaseServiceClient()
-    
-    // Get current user
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    if (userError || !user) {
-      return errorResponse("Unauthorized" , 401)
-    }
-
-    const body = await request.json()
-    const { user_id, role = "viewer" } = body
-
-    if (!user_id) {
-      return errorResponse("User ID is required" , 400)
-    }
-
-    // Check if user is admin of the organization
-    const { data: membership, error: membershipError } = await serviceClient
-      .from("organization_members")
-      .select("role")
-      .eq("organization_id", organizationId)
-      .eq("user_id", user.id)
-      .single()
-
-    if (membershipError || !membership || membership.role !== 'admin') {
-      return errorResponse("Insufficient permissions" , 403)
-    }
-
-    // Check if user is already a member
-    const { data: existingMember, error: memberCheckError } = await serviceClient
-      .from("organization_members")
-      .select("id")
-      .eq("organization_id", organizationId)
-      .eq("user_id", user_id)
-      .single()
-
-    if (existingMember) {
-      return errorResponse("User is already a member" , 409)
-    }
-
-    // Add user to organization
-    const { data: newMember, error: addError } = await serviceClient
-      .from("organization_members")
-      .insert({
-        organization_id: organizationId,
-        user_id,
-        role
-      })
-      .select("*")
-      .single()
-
-    if (addError) {
-      logger.error("Error adding member:", addError)
-      return errorResponse("Failed to add member" , 500)
-    }
-
-    // Get user details for the new member
-    try {
-      const { data: userData, error: userError } = await serviceClient.auth.admin.getUserById(user_id)
-      const memberWithUserInfo = {
-        ...newMember,
-        user: {
-          email: userData?.user?.email || "No email",
-          full_name: userData?.user?.user_metadata?.full_name || "Unknown User",
-          username: userData?.user?.user_metadata?.username || "unknown"
-        }
-      }
-      return jsonResponse(memberWithUserInfo, { status: 201 })
-    } catch (error) {
-      logger.error("Error fetching user data for new member:", error)
-      const memberWithUserInfo = {
-        ...newMember,
-        user: {
-          email: "Error loading user",
-          full_name: "Error loading user",
-          username: "error"
-        }
-      }
-      return jsonResponse(memberWithUserInfo, { status: 201 })
-    }
-  } catch (error) {
-    logger.error("Unexpected error:", error)
-    return errorResponse("Internal server error" , 500)
-  }
+  return errorResponse("Members must be added to teams. Use /api/teams/[id]/members instead.", 400)
 }

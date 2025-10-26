@@ -35,7 +35,22 @@ interface Organization {
   user_role: string
   member_count: number
   team_count: number
-  is_personal?: boolean
+}
+
+interface Workspace {
+  id: string
+  name: string
+  slug: string
+  description?: string
+}
+
+interface Team {
+  id: string
+  name: string
+  slug: string
+  description?: string
+  workspace_id?: string
+  organization_id?: string
 }
 
 export function OrganizationSwitcher() {
@@ -84,7 +99,7 @@ export function OrganizationSwitcher() {
       setOrganizations(organizations)
 
       // Set current org from localStorage or default to first
-      const storedOrgId = localStorage.getItem('current_organization_id')
+      const storedOrgId = localStorage.getItem('current_workspace_id')
       if (storedOrgId && organizations.length > 0) {
         const org = organizations.find((o: Organization) => o.id === storedOrgId)
         setCurrentOrg(org || organizations[0] || null)
@@ -110,7 +125,7 @@ export function OrganizationSwitcher() {
   // Save current org to localStorage when it changes
   useEffect(() => {
     if (currentOrg) {
-      localStorage.setItem('current_organization_id', currentOrg.id)
+      localStorage.setItem('current_workspace_id', currentOrg.id)
       // Dispatch event so other components can react
       window.dispatchEvent(new CustomEvent('organization-changed', { detail: currentOrg }))
     }
@@ -185,10 +200,6 @@ export function OrganizationSwitcher() {
     )
   }
 
-  // Split organizations into personal and team
-  const personalWorkspace = organizations.find(org => org.is_personal)
-  const teamOrganizations = organizations.filter(org => !org.is_personal)
-
   return (
     <>
       <DropdownMenu>
@@ -196,48 +207,21 @@ export function OrganizationSwitcher() {
           <Button
             variant="ghost"
             size="sm"
-            className={`gap-2 ${currentOrg.is_personal ? '' : 'max-w-[200px]'}`}
+            className="gap-2 max-w-[200px]"
           >
-            {currentOrg.is_personal ? (
-              <RoleIcon className={`w-4 h-4 flex-shrink-0 ${userRole === 'admin' ? 'text-red-500' : ''}`} />
-            ) : (
-              <Building2 className="w-4 h-4 flex-shrink-0" />
-            )}
-            <span className={`hidden sm:inline ${currentOrg.is_personal ? '' : 'truncate'}`}>{currentOrg.name}</span>
+            <Building2 className="w-4 h-4 flex-shrink-0" />
+            <span className="hidden sm:inline truncate">{currentOrg.name}</span>
             <ChevronsUpDown className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-[280px]">
-          {/* Personal Workspace Section */}
-          {personalWorkspace && (
-            <>
-              <DropdownMenuItem
-                onClick={() => handleSwitchOrganization(personalWorkspace)}
-                className="flex items-center justify-between cursor-pointer"
-              >
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <User className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{personalWorkspace.name}</p>
-                    <p className="text-xs text-muted-foreground">Personal workspace</p>
-                  </div>
-                </div>
-                {currentOrg.id === personalWorkspace.id && (
-                  <Check className="w-4 h-4 flex-shrink-0 text-primary" />
-                )}
-              </DropdownMenuItem>
-
-              {teamOrganizations.length > 0 && <DropdownMenuSeparator />}
-            </>
-          )}
-
-          {/* Team Organizations Section */}
-          {teamOrganizations.length > 0 && (
+          {/* Organizations Section */}
+          {organizations.length > 0 && (
             <>
               <DropdownMenuLabel className="text-xs text-muted-foreground">
-                ORGANIZATIONS
+                WORKSPACES & ORGANIZATIONS
               </DropdownMenuLabel>
-              {teamOrganizations.map((org) => (
+              {organizations.map((org) => (
                 <DropdownMenuItem
                   key={org.id}
                   onClick={() => handleSwitchOrganization(org)}

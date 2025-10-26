@@ -90,7 +90,7 @@ export function TeamContent() {
   useEffect(() => {
     if (user) {
       // Get current organization from localStorage
-      const orgId = localStorage.getItem('current_organization_id')
+      const orgId = localStorage.getItem('current_workspace_id')
       setCurrentOrgId(orgId)
       fetchTeams(orgId)
     }

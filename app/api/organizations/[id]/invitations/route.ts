@@ -24,25 +24,22 @@ export async function GET(
 
     logger.debug('Invitations API: User authenticated:', user.id)
 
-    // Check if user is a member of this organization
-    const { data: membership, error: membershipError } = await serviceClient
-      .from("organization_members")
-      .select("role")
+    // Check if user is an admin of any team in this organization
+    const { data: adminTeams } = await serviceClient
+      .from("teams")
+      .select(`
+        id,
+        team_members!inner(role)
+      `)
       .eq("organization_id", organizationId)
-      .eq("user_id", user.id)
-      .single()
+      .eq("team_members.user_id", user.id)
+      .eq("team_members.role", "admin")
 
-    logger.debug('Invitations API: Membership check result:', { membership, membershipError })
+    logger.debug('Invitations API: Admin teams check result:', { adminTeams })
 
-    if (membershipError || !membership) {
-      logger.debug('Invitations API: Access denied - user not a member')
-      return errorResponse("Access denied" , 403)
-    }
-
-    // Only admins can view invitations
-    if (membership.role !== 'admin') {
-      logger.debug('Invitations API: Insufficient permissions - user role:', membership.role)
-      return errorResponse("Insufficient permissions" , 403)
+    if (!adminTeams || adminTeams.length === 0) {
+      logger.debug('Invitations API: Access denied - user is not an admin')
+      return errorResponse("Insufficient permissions - only team admins can view invitations", 403)
     }
 
     logger.debug('Invitations API: User is admin, fetching invitations')
@@ -91,16 +88,19 @@ export async function DELETE(
       return errorResponse("Invitation ID is required" , 400)
     }
 
-    // Check if user is admin of the organization
-    const { data: membership, error: membershipError } = await serviceClient
-      .from("organization_members")
-      .select("role")
+    // Check if user is an admin of any team in this organization
+    const { data: adminTeams } = await serviceClient
+      .from("teams")
+      .select(`
+        id,
+        team_members!inner(role)
+      `)
       .eq("organization_id", organizationId)
-      .eq("user_id", user.id)
-      .single()
+      .eq("team_members.user_id", user.id)
+      .eq("team_members.role", "admin")
 
-    if (membershipError || !membership || membership.role !== 'admin') {
-      return errorResponse("Insufficient permissions" , 403)
+    if (!adminTeams || adminTeams.length === 0) {
+      return errorResponse("Insufficient permissions - only team admins can delete invitations", 403)
     }
 
     // Delete the invitation

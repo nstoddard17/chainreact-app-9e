@@ -99,27 +99,19 @@ export async function POST(
       return errorResponse("User is already a member of this team" , 409)
     }
 
-    // Check if user is a member of the organization
-    const { data: team } = await serviceClient
+    // Verify team exists
+    const { data: team, error: teamError } = await serviceClient
       .from("teams")
-      .select("organization_id")
+      .select("id, name, organization_id")
       .eq("id", teamId)
       .single()
 
-    if (!team) {
-      return errorResponse("Team not found" , 404)
+    if (teamError || !team) {
+      return errorResponse("Team not found", 404)
     }
 
-    const { data: orgMember } = await serviceClient
-      .from("organization_members")
-      .select("id")
-      .eq("organization_id", team.organization_id)
-      .eq("user_id", user_id)
-      .single()
-
-    if (!orgMember) {
-      return errorResponse("User must be a member of the organization first" , 403)
-    }
+    // Note: In the new schema, users can be added directly to teams
+    // No need to check organization membership first
 
     // Add user to team
     const { data: newMember, error: addError } = await serviceClient

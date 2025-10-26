@@ -162,7 +162,7 @@ export function HomeContent() {
     window.addEventListener('organization-changed', handleOrgChange as EventListener)
 
     // Get initial organization from localStorage
-    const storedOrgId = localStorage.getItem('current_organization_id')
+    const storedOrgId = localStorage.getItem('current_workspace_id')
     if (storedOrgId && organizations.length > 0) {
       const org = organizations.find(o => o.id === storedOrgId)
       if (org) {
@@ -208,7 +208,7 @@ export function HomeContent() {
         setOrganizations(data)
 
         // Set current org from localStorage or default to first
-        const storedOrgId = localStorage.getItem('current_organization_id')
+        const storedOrgId = localStorage.getItem('current_workspace_id')
         if (storedOrgId) {
           const org = data.find((o: Organization) => o.id === storedOrgId)
           if (org) {
