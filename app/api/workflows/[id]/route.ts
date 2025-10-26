@@ -303,10 +303,18 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         before: nodes.length,
         after: sanitizedNodes.length
       })
-      // Persist the sanitized graph
+      // Persist the sanitized graph - include connections to avoid losing them
+      const sanitizePayload: any = {
+        nodes: sanitizedNodes,
+        updated_at: new Date().toISOString()
+      }
+      // If connections were provided in the original request, include them
+      if (Array.isArray((body as any).connections)) {
+        sanitizePayload.connections = (body as any).connections
+      }
       await serviceClient
         .from('workflows')
-        .update({ nodes: sanitizedNodes, updated_at: new Date().toISOString() })
+        .update(sanitizePayload)
         .eq('id', resolvedParams.id)
     }
 

@@ -1602,10 +1602,63 @@ function WorkflowsContent() {
                             </DropdownMenu>
                           </div>
 
-                          {/* Workflow Icon */}
-                          <div className="flex items-center justify-center mb-4 mt-6">
-                            <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
-                              <Workflow className="w-6 h-6 text-blue-600" />
+                          {/* Workflow Preview */}
+                          <div className="flex items-center justify-center mb-4 mt-6 px-2">
+                            <div className="w-full h-20 bg-slate-50 rounded-lg border border-slate-200 overflow-hidden relative">
+                              {(() => {
+                                // Parse workflow nodes
+                                let nodes: WorkflowNode[] = []
+                                try {
+                                  const workflowData = typeof workflow.workflow_json === 'string'
+                                    ? JSON.parse(workflow.workflow_json)
+                                    : workflow.workflow_json
+                                  nodes = workflowData?.nodes || workflow.nodes || []
+                                } catch (e) {
+                                  nodes = workflow.nodes || []
+                                }
+
+                                if (nodes.length === 0) {
+                                  return (
+                                    <div className="flex items-center justify-center h-full text-slate-400 text-xs">
+                                      Empty workflow
+                                    </div>
+                                  )
+                                }
+
+                                // Get trigger and action nodes
+                                const triggerNodes = nodes.filter(n => n.data?.isTrigger)
+                                const actionNodes = nodes.filter(n => !n.data?.isTrigger && n.type === 'custom')
+                                const displayNodes = [...triggerNodes.slice(0, 1), ...actionNodes.slice(0, 3)]
+
+                                return (
+                                  <div className="flex items-center justify-center gap-1.5 h-full px-2">
+                                    {displayNodes.map((node, idx) => (
+                                      <React.Fragment key={node.id}>
+                                        {/* Node representation */}
+                                        <div
+                                          className={cn(
+                                            "w-10 h-10 rounded-md flex items-center justify-center text-xs font-medium flex-shrink-0",
+                                            node.data?.isTrigger
+                                              ? "bg-green-100 text-green-700 border border-green-300"
+                                              : "bg-blue-100 text-blue-700 border border-blue-300"
+                                          )}
+                                          title={node.data?.title || node.data?.type || 'Node'}
+                                        >
+                                          {node.data?.providerId?.slice(0, 2).toUpperCase() ||
+                                           node.data?.type?.slice(0, 2).toUpperCase() || '?'}
+                                        </div>
+                                        {/* Connection arrow */}
+                                        {idx < displayNodes.length - 1 && (
+                                          <div className="text-slate-400">→</div>
+                                        )}
+                                      </React.Fragment>
+                                    ))}
+                                    {nodes.length > 4 && (
+                                      <div className="text-xs text-slate-400 ml-1">+{nodes.length - 4}</div>
+                                    )}
+                                  </div>
+                                )
+                              })()}
                             </div>
                           </div>
 
