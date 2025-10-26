@@ -39,7 +39,8 @@ IMPORTANT RULES:
 - Only ask about CRITICAL information you cannot infer or use reasonable defaults for
 - If the user has only ONE integration of a type (e.g., only Gmail for email), DON'T ask which email service - infer it
 - For destination fields like "send to Slack channel", you MUST ask which specific channel
-- For filter fields like "from specific sender", make it optional (don't ask unless the user mentioned filtering)
+- For email triggers, ALWAYS ask about optional filters: sender email, subject keywords, etc.
+- For message/notification actions, the message content should use variables from previous nodes (e.g., {{trigger.from}}, {{trigger.subject}}, {{trigger.body}})
 
 Return a JSON response with this structure:
 {
@@ -53,11 +54,33 @@ Return a JSON response with this structure:
       "nodeType": "slack_action_send_message",
       "configField": "channel",
       "required": true
+    },
+    {
+      "id": "email_sender_filter",
+      "question": "Would you like to filter emails by sender? (Optional)",
+      "fieldType": "dropdown",
+      "dataEndpoint": "/api/integrations/gmail/senders",
+      "nodeType": "gmail_trigger_new_email",
+      "configField": "from",
+      "required": false,
+      "allowCustom": true,
+      "isMultiSelect": true,
+      "tooltip": "Select one or more recent senders, or type custom email addresses. The workflow will trigger for emails from any of the selected senders."
+    },
+    {
+      "id": "email_keywords_filter",
+      "question": "Would you like to filter emails by keywords? (Optional)",
+      "fieldType": "text",
+      "nodeType": "gmail_trigger_new_email",
+      "configField": "keywords",
+      "required": false,
+      "tooltip": "Enter keywords to search for in both the subject and body of emails. Examples: 'invoice', 'urgent report', 'meeting'. Separate multiple keywords with commas to match any of them. The workflow will trigger when an email contains any of these keywords in either the subject or body."
     }
   ],
   "inferredData": {
     "email_source": "gmail",
-    "reasoning": "User has only Gmail connected"
+    "reasoning": "User has only Gmail connected",
+    "message_template": "New email from {{trigger.from}}\\n\\nSubject: {{trigger.subject}}\\n\\nBody:\\n{{trigger.body}}"
   }
 }
 

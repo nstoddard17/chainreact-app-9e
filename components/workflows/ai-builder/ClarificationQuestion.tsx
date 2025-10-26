@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { Loader2, CheckCircle2 } from "lucide-react"
+import { Loader2, CheckCircle2, HelpCircle, X, Check } from "lucide-react"
 
 interface ClarificationQuestionProps {
   question: {
@@ -13,6 +13,9 @@ interface ClarificationQuestionProps {
     nodeType: string
     configField: string
     required: boolean
+    tooltip?: string
+    allowCustom?: boolean
+    isMultiSelect?: boolean
   }
   onAnswer: (questionId: string, answer: any) => void
   answer?: any
@@ -22,8 +25,16 @@ export function ClarificationQuestion({ question, onAnswer, answer }: Clarificat
   const [options, setOptions] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedValue, setSelectedValue] = useState<string | null>(answer || null)
+  const [selectedValues, setSelectedValues] = useState<string[]>(
+    Array.isArray(answer) ? answer : answer ? [answer] : []
+  )
   const [textValue, setTextValue] = useState<string>(answer || '')
+  const [searchQuery, setSearchQuery] = useState<string>('')
+  const [displayValue, setDisplayValue] = useState<string>('')
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [showTooltip, setShowTooltip] = useState(false)
+
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   // Fetch options for dropdown fields
   useEffect(() => {
@@ -37,7 +48,7 @@ export function ClarificationQuestion({ question, onAnswer, answer }: Clarificat
           const data = await response.json()
 
           // Handle different response formats
-          const optionsList = data.channels || data.options || data.items || []
+          const optionsList = data.channels || data.senders || data.options || data.items || []
           setOptions(optionsList)
         } catch (error) {
           console.error('[CLARIFICATION] Failed to load options:', error)
@@ -51,10 +62,110 @@ export function ClarificationQuestion({ question, onAnswer, answer }: Clarificat
     }
   }, [question.fieldType, question.dataEndpoint, question.id])
 
+  // Update display value when selection changes (prevents infinite loop)
+  useEffect(() => {
+    if (question.isMultiSelect) {
+      if (selectedValues.length === 0) {
+        setDisplayValue('')
+      } else if (selectedValues.length === 1) {
+        const opt = options.find(o => o.value === selectedValues[0] || o.id === selectedValues[0])
+        setDisplayValue(opt ? opt.label || opt.name : selectedValues[0])
+      } else {
+        setDisplayValue(`${selectedValues.length} selected`)
+      }
+    } else if (selectedValue) {
+      const opt = options.find(o => o.value === selectedValue || o.id === selectedValue)
+      setDisplayValue(opt ? opt.label || opt.name : selectedValue)
+    } else {
+      setDisplayValue('')
+    }
+  }, [selectedValue, selectedValues, options, question.isMultiSelect])
+
+  // Sync answer prop with internal state (only when answer prop changes from parent)
+  useEffect(() => {
+    if (question.fieldType === 'text') {
+      const newValue = answer || ''
+      if (newValue !== textValue) {
+        setTextValue(newValue)
+      }
+    } else if (question.isMultiSelect) {
+      const newValues = Array.isArray(answer) ? answer : answer ? [answer] : []
+      if (JSON.stringify(newValues.sort()) !== JSON.stringify([...selectedValues].sort())) {
+        setSelectedValues(newValues)
+      }
+    } else {
+      const newValue = answer || null
+      if (newValue !== selectedValue) {
+        setSelectedValue(newValue)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answer, question.isMultiSelect, question.fieldType])
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false)
+        setSearchQuery('')
+      }
+    }
+
+    if (isDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isDropdownOpen])
+
   const handleDropdownSelect = (value: string) => {
-    setSelectedValue(value)
-    onAnswer(question.id, value)
-    setIsDropdownOpen(false)
+    if (question.isMultiSelect) {
+      // Toggle value in multi-select
+      const newValues = selectedValues.includes(value)
+        ? selectedValues.filter(v => v !== value)
+        : [...selectedValues, value]
+      setSelectedValues(newValues)
+      onAnswer(question.id, newValues)
+      setSearchQuery('')
+      // Don't close dropdown for multi-select
+    } else {
+      setSelectedValue(value)
+      onAnswer(question.id, value)
+      setIsDropdownOpen(false)
+      setSearchQuery('')
+    }
+  }
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value)
+    if (!isDropdownOpen) {
+      setIsDropdownOpen(true)
+    }
+  }
+
+  const handleSearchSubmit = () => {
+    // If user presses Enter with a search query, use it as custom value
+    if (searchQuery.trim()) {
+      if (question.isMultiSelect) {
+        const newValues = [...selectedValues, searchQuery.trim()]
+        setSelectedValues(newValues)
+        onAnswer(question.id, newValues)
+        setSearchQuery('')
+      } else {
+        setSelectedValue(searchQuery.trim())
+        onAnswer(question.id, searchQuery.trim())
+        setIsDropdownOpen(false)
+        setSearchQuery('')
+      }
+    }
+  }
+
+  const handleRemoveValue = (valueToRemove: string) => {
+    const newValues = selectedValues.filter(v => v !== valueToRemove)
+    setSelectedValues(newValues)
+    onAnswer(question.id, newValues)
   }
 
   const handleTextSubmit = () => {
@@ -63,18 +174,51 @@ export function ClarificationQuestion({ question, onAnswer, answer }: Clarificat
     }
   }
 
-  const selectedOption = options.find(opt => opt.value === selectedValue || opt.id === selectedValue)
-  const isAnswered = !!answer
+  // Filter options based on search query
+  const filteredOptions = searchQuery.trim()
+    ? options.filter(opt => {
+        const label = (opt.label || opt.name || '').toLowerCase()
+        const email = (opt.email || opt.value || '').toLowerCase()
+        const query = searchQuery.toLowerCase()
+        return label.includes(query) || email.includes(query)
+      })
+    : options
+
+  // Check if search query is a custom value (not in options)
+  const isCustomValue = searchQuery.trim() && !options.some(opt =>
+    opt.value === searchQuery.trim() || opt.email === searchQuery.trim()
+  ) && !selectedValues.includes(searchQuery.trim())
+
+  const isAnswered = question.isMultiSelect ? selectedValues.length > 0 : !!selectedValue
 
   return (
     <div className="bg-accent/50 border border-border rounded-lg p-4 space-y-3">
       {/* Question text */}
       <div className="flex items-start gap-2">
         <div className="flex-1">
-          <p className="text-sm font-medium text-foreground">
-            {question.question}
-            {question.required && <span className="text-red-500 ml-1">*</span>}
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium text-foreground">
+              {question.question}
+              {question.required && <span className="text-red-500 ml-1">*</span>}
+            </p>
+            {question.tooltip && (
+              <div className="relative">
+                <button
+                  onMouseEnter={() => setShowTooltip(true)}
+                  onMouseLeave={() => setShowTooltip(false)}
+                  onClick={() => setShowTooltip(!showTooltip)}
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <HelpCircle className="w-4 h-4" />
+                </button>
+                {showTooltip && (
+                  <div className="absolute left-0 top-6 z-50 w-64 bg-popover border border-border rounded-md shadow-lg p-3">
+                    <p className="text-xs text-popover-foreground">{question.tooltip}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
         {isAnswered && (
           <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
@@ -90,35 +234,107 @@ export function ClarificationQuestion({ question, onAnswer, answer }: Clarificat
               <span>Loading options...</span>
             </div>
           ) : (
-            <div className="relative">
-              <button
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="w-full text-left px-3 py-2 text-sm border border-border rounded-md bg-background hover:bg-accent transition-colors flex items-center justify-between"
-              >
-                <span className={selectedOption ? 'text-foreground' : 'text-muted-foreground'}>
-                  {selectedOption ? selectedOption.label || selectedOption.name : 'Select an option...'}
-                </span>
-                <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="relative" ref={dropdownRef}>
+              {/* Selected values as tags (for multi-select) */}
+              {question.isMultiSelect && selectedValues.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {selectedValues.map((val) => {
+                    const opt = options.find(o => o.value === val || o.id === val)
+                    return (
+                      <div
+                        key={val}
+                        className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-primary/10 text-primary rounded-md"
+                      >
+                        <span>{opt ? opt.label || opt.name : val}</span>
+                        <button
+                          onClick={() => handleRemoveValue(val)}
+                          className="hover:bg-primary/20 rounded-sm p-0.5"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Searchable combobox input */}
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchQuery || (question.isMultiSelect ? '' : displayValue)}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  onFocus={() => setIsDropdownOpen(true)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      handleSearchSubmit()
+                    } else if (e.key === 'Escape') {
+                      setIsDropdownOpen(false)
+                      setSearchQuery('')
+                    } else if (e.key === 'Backspace' && !searchQuery && question.isMultiSelect && selectedValues.length > 0) {
+                      // Backspace on empty search removes last selected value
+                      handleRemoveValue(selectedValues[selectedValues.length - 1])
+                    }
+                  }}
+                  placeholder={question.isMultiSelect ? "Search or type to add..." : (question.allowCustom ? "Search or type custom value..." : "Search...")}
+                  className="w-full px-3 py-2 pr-8 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <svg
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
-              </button>
+              </div>
 
+              {/* Dropdown options */}
               {isDropdownOpen && (
                 <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
-                  {options.length === 0 ? (
+                  {filteredOptions.length === 0 && !isCustomValue ? (
                     <div className="px-3 py-2 text-sm text-muted-foreground">
-                      No options available
+                      No options found
                     </div>
                   ) : (
-                    options.map((option) => (
-                      <button
-                        key={option.id || option.value}
-                        onClick={() => handleDropdownSelect(option.value || option.id)}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors"
-                      >
-                        {option.label || option.name}
-                      </button>
-                    ))
+                    <>
+                      {/* Filtered options */}
+                      {filteredOptions.map((option) => {
+                        const optValue = option.value || option.id
+                        const isSelected = question.isMultiSelect
+                          ? selectedValues.includes(optValue)
+                          : selectedValue === optValue
+
+                        return (
+                          <button
+                            key={option.id || option.value}
+                            onClick={() => handleDropdownSelect(optValue)}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center gap-2"
+                          >
+                            {question.isMultiSelect && (
+                              <div className={`w-4 h-4 border border-border rounded flex items-center justify-center ${isSelected ? 'bg-primary border-primary' : 'bg-background'}`}>
+                                {isSelected && <Check className="w-3 h-3 text-primary-foreground" />}
+                              </div>
+                            )}
+                            <span>{option.label || option.name}</span>
+                          </button>
+                        )
+                      })}
+
+                      {/* Custom value option */}
+                      {question.allowCustom && isCustomValue && (
+                        <button
+                          onClick={() => handleDropdownSelect(searchQuery.trim())}
+                          className="w-full text-left px-3 py-2 text-sm bg-primary/10 hover:bg-primary/20 transition-colors border-t border-border flex items-center gap-2"
+                        >
+                          {question.isMultiSelect && (
+                            <div className="w-4 h-4 border border-primary rounded flex items-center justify-center bg-background"></div>
+                          )}
+                          <span className="text-primary font-medium">+ Use "{searchQuery.trim()}"</span>
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               )}
