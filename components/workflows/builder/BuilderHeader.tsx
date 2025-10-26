@@ -134,8 +134,10 @@ const BuilderHeaderComponent = ({
   const [isGeneratingLink, setIsGeneratingLink] = useState(false)
   const [importJson, setImportJson] = useState("")
   const [isImporting, setIsImporting] = useState(false)
+  const [pendingNavigation, setPendingNavigation] = useState(false)
 
   const isSavingRef = useRef(false)
+  const isNavigatingRef = useRef(false)
 
   const isLiveTestingDisabled = isExecuting || isSaving
 
@@ -345,6 +347,16 @@ const BuilderHeaderComponent = ({
     }
   }
 
+  // Watch for save completion when navigation is pending
+  useEffect(() => {
+    if (pendingNavigation && !isSaving && !isNavigatingRef.current) {
+      // Save completed, navigate now
+      isNavigatingRef.current = true
+      setPendingNavigation(false)
+      router.push('/workflows')
+    }
+  }, [pendingNavigation, isSaving, router])
+
   return (
     <>
       <div className="h-14 border-b bg-background flex items-center justify-between px-6 shrink-0">
@@ -352,10 +364,24 @@ const BuilderHeaderComponent = ({
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => router.push('/workflows')}
+            onClick={() => {
+              // If currently saving, set pending navigation flag and wait
+              if (isSaving) {
+                setPendingNavigation(true)
+                return
+              }
+              // Not saving, navigate immediately
+              router.push('/workflows')
+            }}
+            disabled={isSaving || pendingNavigation}
             className="shrink-0"
+            title={isSaving || pendingNavigation ? "Saving..." : "Back to workflows"}
           >
-            <ArrowLeft className="w-4 h-4" />
+            {isSaving || pendingNavigation ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <ArrowLeft className="w-4 h-4" />
+            )}
           </Button>
 
           {isEditingName ? (
