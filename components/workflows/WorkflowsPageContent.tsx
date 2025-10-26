@@ -1210,7 +1210,7 @@ function WorkflowsContent() {
                         key={workflow.id}
                         className={cn(
                           'group hover:bg-slate-50 transition-colors',
-                          selectedIds.includes(workflow.id) && 'bg-indigo-50 hover:bg-indigo-50'
+                          selectedIds.includes(workflow.id) && 'bg-indigo-50 hover:bg-indigo-100 [&>td]:!text-slate-900 [&>td>*]:!text-slate-900 [&>td>div]:!text-slate-700 [&>td>span]:!text-slate-900'
                         )}
                       >
                         <td className="px-6 py-4">
@@ -1222,7 +1222,7 @@ function WorkflowsContent() {
                         <td className="px-3 py-4">
                           <span
                             onClick={() => router.push(`/workflows/builder/${workflow.id}`)}
-                            className="font-medium text-slate-900 text-sm cursor-pointer hover:underline"
+                            className="font-medium text-sm cursor-pointer hover:underline"
                           >
                             {workflow.name}
                           </span>
@@ -1230,14 +1230,14 @@ function WorkflowsContent() {
                         <td className="px-3 py-4">
                           <div
                             onClick={(e) => handleFolderClick(workflow.folder_id, e)}
-                            className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer hover:underline w-fit"
+                            className="flex items-center gap-1.5 text-xs cursor-pointer hover:underline w-fit"
                           >
                             <Folder className="w-3.5 h-3.5" />
                             {folderName}
                           </div>
                         </td>
                         <td className="px-3 py-4">
-                          <span className="text-sm text-slate-600">
+                          <span className="text-sm">
                             {formatDistanceToNow(new Date(workflow.updated_at || workflow.created_at), { addSuffix: true })}
                           </span>
                         </td>
@@ -1295,7 +1295,7 @@ function WorkflowsContent() {
                             </Tooltip>
                           </TooltipProvider>
                         </td>
-                        <td className="px-3 py-4 text-right text-sm font-medium text-slate-900">
+                        <td className="px-3 py-4 text-right text-sm font-medium">
                           {stats.total.toLocaleString()}
                         </td>
                         <td className="px-3 py-4 text-right">
