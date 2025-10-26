@@ -37,13 +37,15 @@ export function Toaster() {
 function ToastWithProgress({ id, title, description, action, duration = 5000, ...props }: any) {
   const [progress, setProgress] = useState(100)
   const [isPaused, setIsPaused] = useState(false)
+  const [elapsedTime, setElapsedTime] = useState(0)
 
   useEffect(() => {
     if (isPaused) return
 
-    const startTime = Date.now()
+    const startTime = Date.now() - elapsedTime
     const interval = setInterval(() => {
       const elapsed = Date.now() - startTime
+      setElapsedTime(elapsed)
       const remaining = Math.max(0, 100 - (elapsed / duration) * 100)
       setProgress(remaining)
 
@@ -53,7 +55,7 @@ function ToastWithProgress({ id, title, description, action, duration = 5000, ..
     }, 16) // ~60fps
 
     return () => clearInterval(interval)
-  }, [duration, isPaused])
+  }, [duration, isPaused, elapsedTime])
 
   return (
     <Toast
