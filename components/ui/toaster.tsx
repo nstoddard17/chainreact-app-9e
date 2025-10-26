@@ -38,6 +38,7 @@ function ToastWithProgress({ id, title, description, action, duration = 5000, ..
   const [progress, setProgress] = useState(100)
   const [isPaused, setIsPaused] = useState(false)
   const [elapsedTime, setElapsedTime] = useState(0)
+  const { dismiss } = useToast()
 
   useEffect(() => {
     if (isPaused) return
@@ -51,11 +52,13 @@ function ToastWithProgress({ id, title, description, action, duration = 5000, ..
 
       if (remaining <= 0) {
         clearInterval(interval)
+        // Dismiss the toast when progress completes
+        dismiss(id)
       }
     }, 16) // ~60fps
 
     return () => clearInterval(interval)
-  }, [duration, isPaused, elapsedTime])
+  }, [duration, isPaused, elapsedTime, dismiss, id])
 
   return (
     <Toast
