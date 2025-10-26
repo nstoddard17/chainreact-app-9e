@@ -54,13 +54,16 @@ import { Dialog, DialogHeader, DialogTitle, DialogDescription } from "@/componen
 import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { ConfigurationModalProps } from "./utils/types"
 import ConfigurationForm from "./ConfigurationForm"
+import { ConfigurationDataInspector } from "./ConfigurationDataInspector"
 import { VariablePickerSidePanel } from "./VariablePickerSidePanel"
 import { VariableDragProvider } from "./VariableDragContext"
-import { Settings, Zap, Bot, MessageSquare, Mail, Calendar, FileText, Database, Globe, Shield, Bell, ChevronLeft, ChevronRight, ArrowLeft } from "lucide-react"
+import { Settings, Zap, Bot, MessageSquare, Mail, Calendar, FileText, Database, Globe, Shield, Bell, ChevronLeft, ChevronRight, ArrowLeft, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { computeAutoMappingEntries } from "./autoMapping"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -176,6 +179,7 @@ export function ConfigurationModal({
   nodeTitle,
   isTemplateEditing = false,
   templateDefaults,
+  focusField,
 }: ConfigurationModalProps) {
   // Debug: Log initialData when modal opens
   useEffect(() => {
@@ -224,8 +228,75 @@ export function ConfigurationModal({
     return false;
   }, [workflowData, currentNodeId]);
 
-  const { toast} = useToast();
+  const { toast } = useToast();
   const [isVariablePanelOpen, setIsVariablePanelOpen] = useState(false);
+  const [initialOverride, setInitialOverride] = useState<Record<string, any> | null>(null)
+  const [formSeedVersion, setFormSeedVersion] = useState(0)
+
+  useEffect(() => {
+    setInitialOverride(null)
+    setFormSeedVersion(0)
+  }, [initialData, currentNodeId])
+
+  const effectiveInitialData = React.useMemo(
+    () => initialOverride ?? initialData ?? {},
+    [initialOverride, initialData]
+  )
+
+  const autoMappingEntries = React.useMemo(
+    () =>
+      computeAutoMappingEntries({
+        workflowData,
+        currentNodeId,
+        configSchema: nodeInfo?.configSchema || [],
+        currentConfig: effectiveInitialData,
+      }),
+    [workflowData, currentNodeId, nodeInfo?.configSchema, effectiveInitialData]
+  )
+
+  const validationState = effectiveInitialData?.__validationState
+  const showValidationAlert = React.useMemo(() => {
+    if (!validationState) return false
+    if (validationState.isValid === false) return true
+    return Boolean(validationState.missingRequired && validationState.missingRequired.length > 0)
+  }, [validationState])
+
+  const handleApplyAutoMappings = useCallback(() => {
+    if (!autoMappingEntries.length) {
+      toast({
+        title: "Nothing to apply",
+        description: "All suggested fields already have values.",
+      })
+      return
+    }
+
+    const nextConfig = { ...effectiveInitialData }
+    let changed = false
+
+    autoMappingEntries.forEach(({ fieldKey, value }) => {
+      const existing = nextConfig[fieldKey]
+      const hasValue =
+        existing !== undefined && existing !== null && String(existing).trim() !== ""
+      if (hasValue) return
+      nextConfig[fieldKey] = value
+      changed = true
+    })
+
+    if (!changed) {
+      toast({
+        title: "Nothing to apply",
+        description: "All suggested fields already have values.",
+      })
+      return
+    }
+
+    setInitialOverride(nextConfig)
+    setFormSeedVersion((prev) => prev + 1)
+    toast({
+      title: "Configuration updated",
+      description: "Suggested field mappings were added to the form.",
+    })
+  }, [autoMappingEntries, effectiveInitialData, toast])
 
   const getRouterChainHints = useCallback(() => {
     if (!workflowData || !currentNodeId) return [] as string[];
@@ -351,10 +422,30 @@ export function ConfigurationModal({
     return title;
   };
 
+  const dialogContentRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!isOpen || !focusField) return
+
+    const timer = setTimeout(() => {
+      const root = dialogContentRef.current
+      if (!root) return
+      const fieldElement = root.querySelector(`[data-config-field="${focusField}"]`)
+      if (fieldElement) {
+        fieldElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        const focusable = fieldElement.querySelector<HTMLElement>('input, textarea, select, [contenteditable="true"]')
+        focusable?.focus()
+      }
+    }, 200)
+
+    return () => clearTimeout(timer)
+  }, [isOpen, focusField])
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <VariableDragProvider>
         <CustomDialogContent
+          ref={dialogContentRef}
           className="bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl"
           onPointerDownOutside={(e) => {
             // Prevent dialog from closing when clicking outside if there are form elements
@@ -402,10 +493,61 @@ export function ConfigurationModal({
 
             {nodeInfo && (
               <div className="flex-1 flex flex-col min-h-0 overflow-hidden max-w-full">
+                {(showValidationAlert || autoMappingEntries.length > 0) && (
+                  <div className="px-4 pt-4 space-y-3">
+                    {showValidationAlert && (
+                      <Alert variant="destructive">
+                        <AlertTitle>Configuration needs attention</AlertTitle>
+                        <AlertDescription>
+                          Please review the required fields highlighted in the form below.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    {autoMappingEntries.length > 0 && (
+                      <Alert>
+                        <AlertTitle>Suggested field mappings</AlertTitle>
+                        <AlertDescription className="space-y-2">
+                          <p className="text-sm text-slate-600">
+                            We found matching data from earlier steps for the following empty fields.
+                          </p>
+                          <ul className="space-y-1 text-sm text-slate-600">
+                            {autoMappingEntries.map((entry) => (
+                              <li key={entry.fieldKey} className="flex flex-wrap items-center gap-2">
+                                <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700">
+                                  {entry.fieldKey}
+                                </code>
+                                <span className="text-xs text-slate-400">←</span>
+                                <span className="font-mono text-xs text-slate-700">
+                                  {entry.value}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            className="inline-flex items-center gap-2"
+                            onClick={handleApplyAutoMappings}
+                          >
+                            <Sparkles className="h-3.5 w-3.5" />
+                            Fill fields automatically
+                          </Button>
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </div>
+                )}
+
+                <ConfigurationDataInspector
+                  workflowData={workflowData}
+                  currentNodeId={currentNodeId}
+                />
+
                 <ConfigurationForm
-                  key={`${currentNodeId}-${nodeInfo?.type}-${nodeInfo?.id}`}
+                  key={`${currentNodeId}-${nodeInfo?.type}-${formSeedVersion}`}
                   nodeInfo={nodeInfo}
-                  initialData={initialData}
+                  initialData={effectiveInitialData}
                   onSave={handleSubmit}
                   onCancel={handleClose}
                   onBack={onBack}

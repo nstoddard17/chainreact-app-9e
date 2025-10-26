@@ -770,7 +770,7 @@ export function useWorkflowBuilder() {
     }, 100)
   }, [dialogsHook])
 
-  const handleNodeConfigure = useCallback((id: string) => {
+  const handleNodeConfigure = useCallback((id: string, options?: { focusField?: string }) => {
     console.log('🔍 [handleNodeConfigure] Called with id:', id)
     const nodeToConfig = nodesRef.current.find(n => n.id === id)
     console.log('🔍 [handleNodeConfigure] Found node:', !!nodeToConfig, nodeToConfig?.data?.type)
@@ -791,7 +791,8 @@ export function useWorkflowBuilder() {
         id: nodeToConfig.id,
         nodeComponent: nodeComponent,
         integration: null,
-        config: nodeToConfig.data?.config || {}
+        config: nodeToConfig.data?.config || {},
+        focusField: options?.focusField
       })
     } else {
       console.log('🔍 [handleNodeConfigure] Node NOT found')
