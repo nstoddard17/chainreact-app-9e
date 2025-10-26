@@ -205,6 +205,12 @@ function WorkflowsContent() {
     folderId: null,
     folderName: ''
   })
+  const [renameFolderDialog, setRenameFolderDialog] = useState<{ open: boolean; folderId: string | null; currentName: string }>({
+    open: false,
+    folderId: null,
+    currentName: ''
+  })
+  const [renameFolderValue, setRenameFolderValue] = useState('')
 
   // Sorting state
   const [sortField, setSortField] = useState<SortField>('updated_at')
@@ -938,6 +944,45 @@ function WorkflowsContent() {
     }
   }
 
+  const handleRenameFolder = async () => {
+    if (!renameFolderDialog.folderId || !renameFolderValue.trim()) return
+
+    const folderId = renameFolderDialog.folderId
+
+    setLoading(prev => ({ ...prev, [`rename-folder-${folderId}`]: true }))
+
+    try {
+      const response = await fetch(`/api/workflows/folders/${folderId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: renameFolderValue.trim() })
+      })
+
+      const data = await response.json()
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to rename folder')
+      }
+
+      toast({
+        title: "Folder Renamed",
+        description: `Folder renamed to "${renameFolderValue}".`,
+      })
+
+      setRenameFolderDialog({ open: false, folderId: null, currentName: '' })
+      setRenameFolderValue('')
+      fetchFolders()
+    } catch (error: any) {
+      toast({
+        title: "Failed to Rename",
+        description: error.message || "Failed to rename folder.",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(prev => ({ ...prev, [`rename-folder-${folderId}`]: false }))
+    }
+  }
+
   const handleDeleteFolder = async () => {
     if (!deleteFolderDialog.folderId) return
 
@@ -1435,6 +1480,21 @@ function WorkflowsContent() {
                                 <DropdownMenuItem
                                   onClick={(e) => {
                                     e.stopPropagation()
+                                    setRenameFolderDialog({
+                                      open: true,
+                                      folderId: folder.id,
+                                      currentName: folder.name
+                                    })
+                                    setRenameFolderValue(folder.name)
+                                  }}
+                                >
+                                  <Edit className="w-4 h-4 mr-2" />
+                                  Rename
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation()
                                     setDeleteFolderDialog({
                                       open: true,
                                       folderId: folder.id,
@@ -1859,6 +1919,61 @@ function WorkflowsContent() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Rename Folder Dialog */}
+      <Dialog
+        open={renameFolderDialog.open}
+        onOpenChange={(open) => {
+          setRenameFolderDialog({ open, folderId: null, currentName: '' })
+          if (!open) {
+            setRenameFolderValue('')
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename Folder</DialogTitle>
+            <DialogDescription>
+              Enter a new name for your folder.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="rename-folder">Folder Name *</Label>
+              <Input
+                id="rename-folder"
+                placeholder="Enter folder name"
+                value={renameFolderValue}
+                onChange={(e) => setRenameFolderValue(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleRenameFolder()}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setRenameFolderDialog({ open: false, folderId: null, currentName: '' })
+                setRenameFolderValue('')
+              }}
+              disabled={loading[`rename-folder-${renameFolderDialog.folderId}`]}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleRenameFolder}
+              disabled={loading[`rename-folder-${renameFolderDialog.folderId}`] || !renameFolderValue.trim()}
+            >
+              {loading[`rename-folder-${renameFolderDialog.folderId}`] ? (
+                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Edit className="w-4 h-4 mr-2" />
+              )}
+              Rename
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Folder Dialog */}
       <AlertDialog open={deleteFolderDialog.open} onOpenChange={(open) => setDeleteFolderDialog({ open, folderId: null, folderName: '' })}>
