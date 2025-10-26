@@ -504,21 +504,18 @@ function CustomNode({ id, data, selected }: NodeProps) {
 
 
   const aiOutline = useMemo(() => {
-    if (selected) {
-      return { borderClass: 'border-primary', shadowClass: '', backgroundClass: 'bg-white', ringClass: 'ring-4 ring-primary/20 ring-offset-2' }
-    }
-
+    // Check for error/validation states first (highest priority)
     if (isIntegrationDisconnected) {
       return {
         borderClass: 'border-red-500',
         shadowClass: 'shadow-[0_0_0_3px_rgba(239,68,68,0.4)]',
         backgroundClass: 'bg-white',
-        ringClass: 'ring-4 ring-red-200 ring-offset-2'
+        ringClass: selected ? 'ring-4 ring-red-200' : 'ring-4 ring-red-200'
       }
     }
 
     if (error) {
-      return { borderClass: 'border-destructive', shadowClass: '', backgroundClass: 'bg-card', ringClass: '' }
+      return { borderClass: 'border-destructive', shadowClass: '', backgroundClass: 'bg-card', ringClass: selected ? 'ring-4 ring-destructive/20' : '' }
     }
 
     if (hasValidationIssues) {
@@ -526,10 +523,11 @@ function CustomNode({ id, data, selected }: NodeProps) {
         borderClass: 'border-red-400',
         shadowClass: 'shadow-[0_0_0_2px_rgba(248,113,113,0.35)]',
         backgroundClass: 'bg-card',
-        ringClass: ''
+        ringClass: selected ? 'ring-4 ring-red-200' : ''
       }
     }
 
+    // Check AI status for active states (preparing, configuring, testing, ready, etc.)
     switch (aiStatus) {
       case 'preparing':
       case 'creating':
@@ -539,7 +537,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
           borderClass: 'border-sky-500',
           shadowClass: 'shadow-[0_0_0_3px_rgba(56,189,248,0.25)]',
           backgroundClass: 'bg-white',
-          ringClass: 'ring-4 ring-sky-100 ring-offset-2'
+          ringClass: selected ? 'ring-4 ring-sky-100' : 'ring-4 ring-sky-100'
         }
       case 'testing':
       case 'retesting':
@@ -547,23 +545,28 @@ function CustomNode({ id, data, selected }: NodeProps) {
           borderClass: 'border-amber-500',
           shadowClass: 'shadow-[0_0_0_3px_rgba(251,191,36,0.28)]',
           backgroundClass: 'bg-white',
-          ringClass: 'ring-4 ring-amber-100 ring-offset-2'
+          ringClass: selected ? 'ring-4 ring-amber-100' : 'ring-4 ring-amber-100'
         }
       case 'ready':
+        // Show green border for successful/ready nodes, even when selected
         return {
           borderClass: 'border-emerald-500',
           shadowClass: 'shadow-[0_0_0_3px_rgba(16,185,129,0.28)]',
           backgroundClass: 'bg-white',
-          ringClass: 'ring-4 ring-emerald-100 ring-offset-2'
+          ringClass: selected ? 'ring-4 ring-emerald-100' : 'ring-4 ring-emerald-100'
         }
       case 'error':
         return {
           borderClass: 'border-red-500',
           shadowClass: 'shadow-[0_0_0_3px_rgba(239,68,68,0.28)]',
           backgroundClass: 'bg-white',
-          ringClass: 'ring-4 ring-red-100 ring-offset-2'
+          ringClass: selected ? 'ring-4 ring-red-100' : 'ring-4 ring-red-100'
         }
       default:
+        // Default state - use primary border when selected, border when not
+        if (selected) {
+          return { borderClass: 'border-primary', shadowClass: '', backgroundClass: 'bg-white', ringClass: 'ring-4 ring-primary/20' }
+        }
         return {
           borderClass: 'border-border',
           shadowClass: '',

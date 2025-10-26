@@ -4,6 +4,11 @@ import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Loader2, CheckCircle2, HelpCircle, X, Check } from "lucide-react"
 
+export interface ClarificationAnswer {
+  value: string | string[]
+  displayValue?: string
+}
+
 interface ClarificationQuestionProps {
   question: {
     id: string
@@ -17,20 +22,26 @@ interface ClarificationQuestionProps {
     allowCustom?: boolean
     isMultiSelect?: boolean
   }
-  onAnswer: (questionId: string, answer: any) => void
-  answer?: any
+  onAnswer: (questionId: string, answer: ClarificationAnswer) => void
+  answer?: ClarificationAnswer
 }
+
+const normalizeString = (value: unknown): string =>
+  typeof value === 'string' ? value : ''
+
+const ensureArray = (value: unknown): string[] =>
+  Array.isArray(value) ? value : typeof value === 'string' && value ? [value] : []
 
 export function ClarificationQuestion({ question, onAnswer, answer }: ClarificationQuestionProps) {
   const [options, setOptions] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
-  const [selectedValue, setSelectedValue] = useState<string | null>(answer || null)
-  const [selectedValues, setSelectedValues] = useState<string[]>(
-    Array.isArray(answer) ? answer : answer ? [answer] : []
+  const [selectedValue, setSelectedValue] = useState<string | null>(
+    typeof answer?.value === 'string' ? answer.value : null
   )
-  const [textValue, setTextValue] = useState<string>(answer || '')
+  const [selectedValues, setSelectedValues] = useState<string[]>(ensureArray(answer?.value))
+  const [textValue, setTextValue] = useState<string>(normalizeString(answer?.value))
   const [searchQuery, setSearchQuery] = useState<string>('')
-  const [displayValue, setDisplayValue] = useState<string>('')
+  const [displayValue, setDisplayValue] = useState<string>(normalizeString(answer?.displayValue))
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [showTooltip, setShowTooltip] = useState(false)
 
@@ -62,7 +73,40 @@ export function ClarificationQuestion({ question, onAnswer, answer }: Clarificat
     }
   }, [question.fieldType, question.dataEndpoint, question.id])
 
-  // Update display value when selection changes (prevents infinite loop)
+  // Keep selection state in sync with answer prop
+  useEffect(() => {
+    if (question.fieldType === 'text') {
+      const newValue = normalizeString(answer?.value)
+      if (newValue !== textValue) {
+        setTextValue(newValue)
+      }
+      if (answer?.displayValue) {
+        setDisplayValue(answer.displayValue)
+      }
+      return
+    }
+
+    if (question.isMultiSelect) {
+      const newValues = ensureArray(answer?.value)
+      const current = selectedValues.slice().sort()
+      const incoming = newValues.slice().sort()
+      if (JSON.stringify(current) !== JSON.stringify(incoming)) {
+        setSelectedValues(newValues)
+      }
+      return
+    }
+
+    const newValue = typeof answer?.value === 'string' ? answer.value : null
+    if (newValue !== selectedValue) {
+      setSelectedValue(newValue)
+    }
+    if (answer?.displayValue) {
+      setDisplayValue(answer.displayValue)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answer, question.fieldType, question.isMultiSelect])
+
+  // Update display value when selection changes
   useEffect(() => {
     if (question.isMultiSelect) {
       if (selectedValues.length === 0) {
@@ -73,34 +117,21 @@ export function ClarificationQuestion({ question, onAnswer, answer }: Clarificat
       } else {
         setDisplayValue(`${selectedValues.length} selected`)
       }
-    } else if (selectedValue) {
+      return
+    }
+
+    if (selectedValue) {
       const opt = options.find(o => o.value === selectedValue || o.id === selectedValue)
       setDisplayValue(opt ? opt.label || opt.name : selectedValue)
+      return
+    }
+
+    if (!question.isMultiSelect && !selectedValue && answer?.displayValue) {
+      setDisplayValue(answer.displayValue)
     } else {
       setDisplayValue('')
     }
-  }, [selectedValue, selectedValues, options, question.isMultiSelect])
-
-  // Sync answer prop with internal state (only when answer prop changes from parent)
-  useEffect(() => {
-    if (question.fieldType === 'text') {
-      const newValue = answer || ''
-      if (newValue !== textValue) {
-        setTextValue(newValue)
-      }
-    } else if (question.isMultiSelect) {
-      const newValues = Array.isArray(answer) ? answer : answer ? [answer] : []
-      if (JSON.stringify(newValues.sort()) !== JSON.stringify([...selectedValues].sort())) {
-        setSelectedValues(newValues)
-      }
-    } else {
-      const newValue = answer || null
-      if (newValue !== selectedValue) {
-        setSelectedValue(newValue)
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [answer, question.isMultiSelect, question.fieldType])
+  }, [selectedValue, selectedValues, options, question.isMultiSelect, answer?.displayValue])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -121,21 +152,32 @@ export function ClarificationQuestion({ question, onAnswer, answer }: Clarificat
   }, [isDropdownOpen])
 
   const handleDropdownSelect = (value: string) => {
+    const option = options.find(o => o.value === value || o.id === value)
+    const optionLabel = option ? option.label || option.name : value
+
     if (question.isMultiSelect) {
-      // Toggle value in multi-select
       const newValues = selectedValues.includes(value)
         ? selectedValues.filter(v => v !== value)
         : [...selectedValues, value]
+
       setSelectedValues(newValues)
-      onAnswer(question.id, newValues)
+      onAnswer(question.id, {
+        value: newValues,
+        displayValue: newValues
+          .map(val => {
+            const opt = options.find(o => o.value === val || o.id === val)
+            return opt ? opt.label || opt.name : val
+          })
+          .join(', ')
+      })
       setSearchQuery('')
-      // Don't close dropdown for multi-select
-    } else {
-      setSelectedValue(value)
-      onAnswer(question.id, value)
-      setIsDropdownOpen(false)
-      setSearchQuery('')
+      return
     }
+
+    setSelectedValue(value)
+    onAnswer(question.id, { value, displayValue: optionLabel })
+    setIsDropdownOpen(false)
+    setSearchQuery('')
   }
 
   const handleSearchChange = (value: string) => {
@@ -146,35 +188,41 @@ export function ClarificationQuestion({ question, onAnswer, answer }: Clarificat
   }
 
   const handleSearchSubmit = () => {
-    // If user presses Enter with a search query, use it as custom value
-    if (searchQuery.trim()) {
-      if (question.isMultiSelect) {
-        const newValues = [...selectedValues, searchQuery.trim()]
-        setSelectedValues(newValues)
-        onAnswer(question.id, newValues)
-        setSearchQuery('')
-      } else {
-        setSelectedValue(searchQuery.trim())
-        onAnswer(question.id, searchQuery.trim())
-        setIsDropdownOpen(false)
-        setSearchQuery('')
-      }
+    const trimmed = searchQuery.trim()
+    if (!trimmed) return
+
+    if (question.isMultiSelect) {
+      const newValues = [...selectedValues, trimmed]
+      setSelectedValues(newValues)
+      onAnswer(question.id, {
+        value: newValues,
+        displayValue: newValues.join(', ')
+      })
+      setSearchQuery('')
+      return
     }
+
+    setSelectedValue(trimmed)
+    onAnswer(question.id, { value: trimmed, displayValue: trimmed })
+    setIsDropdownOpen(false)
+    setSearchQuery('')
   }
 
   const handleRemoveValue = (valueToRemove: string) => {
     const newValues = selectedValues.filter(v => v !== valueToRemove)
     setSelectedValues(newValues)
-    onAnswer(question.id, newValues)
+    onAnswer(question.id, {
+      value: newValues,
+      displayValue: newValues.join(', ')
+    })
   }
 
   const handleTextSubmit = () => {
-    if (textValue.trim()) {
-      onAnswer(question.id, textValue.trim())
-    }
+    const trimmed = textValue.trim()
+    if (!trimmed) return
+    onAnswer(question.id, { value: trimmed, displayValue: trimmed })
   }
 
-  // Filter options based on search query
   const filteredOptions = searchQuery.trim()
     ? options.filter(opt => {
         const label = (opt.label || opt.name || '').toLowerCase()
@@ -184,12 +232,16 @@ export function ClarificationQuestion({ question, onAnswer, answer }: Clarificat
       })
     : options
 
-  // Check if search query is a custom value (not in options)
-  const isCustomValue = searchQuery.trim() && !options.some(opt =>
-    opt.value === searchQuery.trim() || opt.email === searchQuery.trim()
-  ) && !selectedValues.includes(searchQuery.trim())
+  const isCustomValue =
+    !!searchQuery.trim() &&
+    !options.some(opt =>
+      opt.value === searchQuery.trim() || opt.email === searchQuery.trim()
+    ) &&
+    !selectedValues.includes(searchQuery.trim())
 
-  const isAnswered = question.isMultiSelect ? selectedValues.length > 0 : !!selectedValue
+  const isAnswered = question.isMultiSelect
+    ? selectedValues.length > 0
+    : !!(typeof selectedValue === 'string' && selectedValue.trim().length > 0)
 
   return (
     <div className="bg-accent/50 border border-border rounded-lg p-4 space-y-3">
@@ -273,7 +325,6 @@ export function ClarificationQuestion({ question, onAnswer, answer }: Clarificat
                       setIsDropdownOpen(false)
                       setSearchQuery('')
                     } else if (e.key === 'Backspace' && !searchQuery && question.isMultiSelect && selectedValues.length > 0) {
-                      // Backspace on empty search removes last selected value
                       handleRemoveValue(selectedValues[selectedValues.length - 1])
                     }
                   }}
@@ -299,7 +350,6 @@ export function ClarificationQuestion({ question, onAnswer, answer }: Clarificat
                     </div>
                   ) : (
                     <>
-                      {/* Filtered options */}
                       {filteredOptions.map((option) => {
                         const optValue = option.value || option.id
                         const isSelected = question.isMultiSelect

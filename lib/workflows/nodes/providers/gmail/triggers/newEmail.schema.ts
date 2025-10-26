@@ -15,10 +15,10 @@ export const newEmailTriggerSchema: NodeComponent = {
       label: "From",
       type: "email-autocomplete",
       dynamic: "gmail-recent-recipients",
-      required: true,
+      required: false,
       loadOnMount: true, // Load recipients immediately when modal opens
       placeholder: "Enter sender email address",
-      description: "Filter emails by sender address"
+      description: "Filter emails by sender address. Leave blank to trigger on emails from any sender."
     },
     {
       name: "subjectExactMatch",

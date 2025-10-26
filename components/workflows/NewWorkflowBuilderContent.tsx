@@ -26,7 +26,7 @@ import { PreflightCheckDialog } from "./PreflightCheckDialog"
 import { TestModeDialog } from "./TestModeDialog"
 import { StatusBadge } from "./ai-builder/StatusBadge"
 import { WorkflowPlan } from "./ai-builder/WorkflowPlan"
-import { ClarificationQuestion } from "./ai-builder/ClarificationQuestion"
+import { ClarificationQuestion, type ClarificationAnswer } from "./ai-builder/ClarificationQuestion"
 import { PulsingPlaceholders } from "./ai-builder/PulsingPlaceholders"
 import { MissingIntegrationsBadges } from "./ai-builder/MissingIntegrationsBadges"
 import { WorkflowBuildProgress } from "./ai-builder/WorkflowBuildProgress"
@@ -289,7 +289,30 @@ export function NewWorkflowBuilderContent() {
 
   // Clarification system states
   const [clarificationQuestions, setClarificationQuestions] = React.useState<any[]>([])
-  const [clarificationAnswers, setClarificationAnswers] = React.useState<Record<string, any>>({})
+  const [clarificationAnswers, setClarificationAnswers] = React.useState<Record<string, ClarificationAnswer>>({})
+  const requiredClarificationsAnswered = React.useMemo(() => {
+    if (clarificationQuestions.length === 0) {
+      return false
+    }
+
+    const requiredQuestions = clarificationQuestions.filter((q) => q.required)
+    if (requiredQuestions.length === 0) {
+      return true
+    }
+
+    return requiredQuestions.every((question) => {
+      const answer = clarificationAnswers[question.id]
+      if (!answer) return false
+      const { value } = answer
+      if (Array.isArray(value)) {
+        return value.length > 0
+      }
+      if (typeof value === 'string') {
+        return value.trim().length > 0
+      }
+      return value !== undefined && value !== null
+    })
+  }, [clarificationQuestions, clarificationAnswers])
   const [inferredData, setInferredData] = React.useState<Record<string, any>>({})
   const [showClarifications, setShowClarifications] = React.useState(false)
   const [waitingForClarifications, setWaitingForClarifications] = React.useState(false)
@@ -2312,16 +2335,29 @@ export function NewWorkflowBuilderContent() {
                         question={question}
                         answer={clarificationAnswers[question.id]}
                         onAnswer={(questionId, answer) => {
-                          setClarificationAnswers(prev => ({
-                            ...prev,
-                            [questionId]: answer
-                          }))
+                          setClarificationAnswers(prev => {
+                            const next = { ...prev }
+                            const value = answer?.value
+                            const hasValue = Array.isArray(value)
+                              ? value.length > 0
+                              : typeof value === 'string'
+                                ? value.trim().length > 0
+                                : value !== undefined && value !== null
+
+                            if (!hasValue) {
+                              delete next[questionId]
+                              return next
+                            }
+
+                            next[questionId] = answer
+                            return next
+                          })
                         }}
                       />
                     ))}
 
                     {/* Submit clarifications button */}
-                    {Object.keys(clarificationAnswers).length >= clarificationQuestions.filter(q => q.required).length && (
+                    {requiredClarificationsAnswered && (
                       <Button
                         onClick={async () => {
                           logger.info('[CLARIFICATION] User submitted answers:', clarificationAnswers)
@@ -2344,10 +2380,105 @@ export function NewWorkflowBuilderContent() {
                             const availableWidth = window.innerWidth - chatPanelWidth
                             const availableHeight = window.innerHeight
 
+                            // Prepare clarification payload with values and display metadata
+                            const clarificationValues = Object.entries(clarificationAnswers).reduce<Record<string, string | string[]>>((acc, [questionId, answer]) => {
+                              if (!answer) return acc
+                              const { value } = answer
+                              if (Array.isArray(value)) {
+                                if (value.length === 0) return acc
+                                acc[questionId] = value
+                                return acc
+                              }
+                              if (typeof value === 'string') {
+                                const trimmed = value.trim()
+                                if (!trimmed) return acc
+                                acc[questionId] = trimmed
+                                return acc
+                              }
+                              if (value !== undefined && value !== null) {
+                                acc[questionId] = value as any
+                              }
+                              return acc
+                            }, {})
+
+                            const skipSenderValues = new Set(['any', 'anyone', 'any sender', 'anybody', 'all', '*'])
+
+                            const clarificationDetails = clarificationQuestions
+                              .map((question) => {
+                                const answer = clarificationAnswers[question.id]
+                                if (!answer) return null
+
+                                const value = answer.value
+                                if (Array.isArray(value) && value.length === 0) {
+                                  return null
+                                }
+                                if (typeof value === 'string' && value.trim().length === 0) {
+                                  return null
+                                }
+
+                                // Special handling: if user says "anyone" for email sender, skip the field entirely
+                                if (question.id === 'email_sender_filter') {
+                                  if (typeof value === 'string' && skipSenderValues.has(value.trim().toLowerCase())) {
+                                    return null
+                                  }
+                                  if (Array.isArray(value) && value.length === 1 && skipSenderValues.has(value[0].trim().toLowerCase())) {
+                                    return null
+                                  }
+                                }
+
+                                const providerId = typeof question.nodeType === 'string'
+                                  ? question.nodeType.split('_')[0]
+                                  : undefined
+
+                                let displayValue = answer.displayValue
+                                if (!displayValue) {
+                                  if (Array.isArray(value)) {
+                                    displayValue = value.join(', ')
+                                  } else if (typeof value === 'string') {
+                                    displayValue = value
+                                  }
+                                }
+
+                                return {
+                                  questionId: question.id,
+                                  nodeType: question.nodeType,
+                                  configField: question.configField,
+                                  providerId,
+                                  fieldType: question.fieldType,
+                                  required: question.required,
+                                  allowCustom: question.allowCustom ?? false,
+                                  isMultiSelect: question.isMultiSelect ?? false,
+                                  value,
+                                  displayValue
+                                }
+                              })
+                              .filter((detail): detail is {
+                                questionId: string
+                                nodeType: string
+                                configField: string
+                                providerId?: string
+                                fieldType: string
+                                required: boolean
+                                allowCustom: boolean
+                                isMultiSelect: boolean
+                                value: string | string[]
+                                displayValue?: string
+                              } => detail !== null)
+
+                            const clarificationDisplayMap = Object.entries(clarificationAnswers).reduce<Record<string, string>>((acc, [questionId, answer]) => {
+                              if (answer?.displayValue) {
+                                acc[questionId] = answer.displayValue
+                              }
+                              return acc
+                            }, {})
+
                             // Merge inferred data (like message templates) with user's clarification answers
                             const mergedClarifications = {
                               ...inferredData, // AI-inferred values like message_template
-                              ...clarificationAnswers // User-provided answers (these take precedence)
+                              ...clarificationValues, // Legacy shape for compatibility
+                              answers: clarificationValues,
+                              details: clarificationDetails,
+                              displayMap: clarificationDisplayMap
                             }
 
                             // Call stream-workflow with clarifications
