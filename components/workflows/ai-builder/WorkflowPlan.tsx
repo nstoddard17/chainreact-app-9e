@@ -22,7 +22,10 @@ function IntegrationIcon({ providerId }: { providerId: string }) {
   const [imageError, setImageError] = useState(false)
   const iconPath = `/integrations/${providerId}.svg`
 
+  console.log('[IntegrationIcon] Rendering for providerId:', providerId, 'path:', iconPath, 'imageError:', imageError)
+
   if (imageError) {
+    console.log('[IntegrationIcon] Showing fallback for:', providerId)
     // Fallback if image fails to load
     return (
       <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-primary/20 border border-border flex items-center justify-center">
@@ -37,13 +40,19 @@ function IntegrationIcon({ providerId }: { providerId: string }) {
         src={iconPath}
         alt={providerId}
         className="w-full h-full object-contain"
-        onError={() => setImageError(true)}
+        onError={(e) => {
+          console.log('[IntegrationIcon] Image load error for:', providerId, e)
+          setImageError(true)
+        }}
+        onLoad={() => console.log('[IntegrationIcon] Image loaded successfully for:', providerId)}
       />
     </div>
   )
 }
 
 export function WorkflowPlan({ nodes, onContinue, className, isBuilding = false }: WorkflowPlanProps) {
+  console.log('[WorkflowPlan] Received nodes:', nodes)
+
   return (
     <div className={cn("space-y-3", className)}>
       {/* Header */}
@@ -53,7 +62,9 @@ export function WorkflowPlan({ nodes, onContinue, className, isBuilding = false 
 
       {/* Planned nodes as stacked badges */}
       <div className="space-y-2">
-        {nodes.map((node, index) => (
+        {nodes.map((node, index) => {
+          console.log(`[WorkflowPlan] Rendering node ${index}:`, node.title, 'providerId:', node.providerId)
+          return (
             <div
               key={index}
               className="w-full bg-accent/50 border border-border rounded-lg px-4 py-3"
@@ -77,7 +88,8 @@ export function WorkflowPlan({ nodes, onContinue, className, isBuilding = false 
                 </div>
               </div>
             </div>
-        ))}
+          )
+        })}
       </div>
 
       {/* Action button - only show when not building */}

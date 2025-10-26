@@ -671,12 +671,19 @@ export function NewWorkflowBuilderContent() {
 
               case 'show_plan':
                 setReactAgentStatus('')
-                setWorkflowPlan(eventData.nodes.map((n: any) => ({
-                  title: n.title,
-                  description: n.description,
-                  type: n.isTrigger ? 'trigger' : 'action',
-                  providerId: n.providerId
-                })))
+                console.log('[DEBUG show_plan] eventData:', eventData)
+                console.log('[DEBUG show_plan] eventData.nodes:', eventData.nodes)
+                const mappedNodes = eventData.nodes.map((n: any) => {
+                  console.log('[DEBUG] Mapping node:', n.title, 'providerId:', n.providerId)
+                  return {
+                    title: n.title,
+                    description: n.description,
+                    type: n.isTrigger ? 'trigger' : 'action',
+                    providerId: n.providerId
+                  }
+                })
+                console.log('[DEBUG show_plan] mappedNodes:', mappedNodes)
+                setWorkflowPlan(mappedNodes)
                 setApprovedPlanData(eventData.plan) // Save full plan for building
                 setShowPlanApproval(true)
                 setIsPlanBuilding(false) // Reset building state for new plan
@@ -2395,12 +2402,25 @@ export function NewWorkflowBuilderContent() {
 
                                 // Handle show_plan event
                                 if (eventData.type === 'show_plan') {
-                                  setWorkflowPlan(eventData.plan.nodes.map((n: any) => ({
-                                    title: n.title,
-                                    description: n.description,
-                                    type: n.isTrigger ? 'trigger' : 'action',
-                                    providerId: n.providerId
-                                  })))
+                                  console.log('[DEBUG CLARIFICATION show_plan] eventData:', eventData)
+                                  console.log('[DEBUG CLARIFICATION show_plan] eventData.plan.nodes:', eventData.plan?.nodes)
+
+                                  // Use eventData.nodes if available, otherwise eventData.plan.nodes
+                                  const nodesToMap = eventData.nodes || eventData.plan?.nodes || []
+                                  console.log('[DEBUG CLARIFICATION] nodesToMap:', nodesToMap)
+
+                                  const mappedNodes = nodesToMap.map((n: any) => {
+                                    console.log('[DEBUG CLARIFICATION] Mapping node:', n.title, 'providerId:', n.providerId)
+                                    return {
+                                      title: n.title,
+                                      description: n.description,
+                                      type: n.isTrigger ? 'trigger' : 'action',
+                                      providerId: n.providerId
+                                    }
+                                  })
+                                  console.log('[DEBUG CLARIFICATION] mappedNodes:', mappedNodes)
+
+                                  setWorkflowPlan(mappedNodes)
                                   setApprovedPlanData(eventData.plan)
                                   setShowPlanApproval(true)
                                   setIsReactAgentLoading(false)

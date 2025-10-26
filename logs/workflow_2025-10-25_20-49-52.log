@@ -53,3 +53,11 @@ Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
 [2025-10-26T01:58:17.228Z] [INFO   ] 2025-10-26T01:58:17.228Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
 [2025-10-26T01:59:34.075Z] [INFO   ] 2025-10-26T01:59:34.074Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-agent","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12877286675}
 [2025-10-26T01:59:34.861Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/ai-agent ...
+[2025-10-26T01:59:43.821Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/ai-agent in 9.7s (3744 modules)
+[2025-10-26T01:59:45.006Z] [INFO   ] 2025-10-26T01:59:45.005Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-26T01:59:45.005Z"}
+[2025-10-26T01:59:45.011Z] [INFO   ] 2025-10-26T01:59:45.011Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-26T01:59:45.011Z"}
+[2025-10-26T01:59:45.011Z] [INFO   ] 2025-10-26T01:59:45.011Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-26T01:59:45.011Z"}
+[2025-10-26T01:59:46.152Z] [INFO   ] 2025-10-26T01:59:46.151Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-26T01:59:46.543Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.6s (597 modules)
+
+=== Log Session Ended: 2025-10-26T01:59:50.535Z ===
