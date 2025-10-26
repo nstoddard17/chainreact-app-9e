@@ -136,6 +136,7 @@ export interface Workflow {
   description: string | null
   user_id: string
   organization_id?: string | null
+  folder_id?: string | null
   nodes: WorkflowNode[]
   connections: WorkflowConnection[]
   status: 'draft' | 'active' | 'inactive'
@@ -145,6 +146,8 @@ export interface Workflow {
   executions_count?: number
   created_by?: string
   source_template_id?: string | null
+  deleted_at?: string | null
+  original_folder_id?: string | null
   validationState?: {
     invalidNodeIds: string[]
     lastValidatedAt?: string
@@ -174,6 +177,9 @@ interface WorkflowActions {
   createWorkflow: (name: string, description?: string, organizationId?: string) => Promise<Workflow>
   updateWorkflow: (id: string, updates: Partial<Workflow>) => Promise<void>
   deleteWorkflow: (id: string) => Promise<void>
+  moveWorkflowToTrash: (id: string) => Promise<void>
+  restoreWorkflowFromTrash: (id: string) => Promise<void>
+  emptyTrash: () => Promise<void>
   moveWorkflowToOrganization: (workflowId: string, organizationId: string) => Promise<void>
   setCurrentWorkflow: (workflow: Workflow | null) => void
   setSelectedNode: (node: WorkflowNode | null) => void
@@ -748,6 +754,92 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
     })
 
     // Return immediately (optimistic update already applied)
+  },
+
+  moveWorkflowToTrash: async (id: string) => {
+    const workflowToTrash = get().workflows.find(w => w.id === id)
+
+    if (!workflowToTrash) {
+      throw new Error('Workflow not found')
+    }
+
+    try {
+      // Call the database function to move workflow to trash
+      const { error } = await supabase.rpc('move_workflow_to_trash', {
+        workflow_id: id
+      })
+
+      if (error) {
+        throw error
+      }
+
+      // Refresh workflows to show updated state
+      await get().fetchWorkflows()
+
+      logger.info("Workflow moved to trash:", id)
+    } catch (error: any) {
+      const errorMessage = error?.message || error?.toString() || 'Unknown error'
+      logger.error("Error moving workflow to trash:", errorMessage, {
+        workflowId: id,
+        error: error?.stack || error
+      })
+      throw error
+    }
+  },
+
+  restoreWorkflowFromTrash: async (id: string) => {
+    try {
+      // Call the database function to restore workflow from trash
+      const { error } = await supabase.rpc('restore_workflow_from_trash', {
+        workflow_id: id
+      })
+
+      if (error) {
+        throw error
+      }
+
+      // Refresh workflows to show updated state
+      await get().fetchWorkflows()
+
+      logger.info("Workflow restored from trash:", id)
+    } catch (error: any) {
+      const errorMessage = error?.message || error?.toString() || 'Unknown error'
+      logger.error("Error restoring workflow from trash:", errorMessage, {
+        workflowId: id,
+        error: error?.stack || error
+      })
+      throw error
+    }
+  },
+
+  emptyTrash: async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+
+      if (!user) {
+        throw new Error('User not authenticated')
+      }
+
+      // Call the database function to empty user's trash
+      const { error } = await supabase.rpc('empty_user_trash', {
+        user_uuid: user.id
+      })
+
+      if (error) {
+        throw error
+      }
+
+      // Refresh workflows to show updated state
+      await get().fetchWorkflows()
+
+      logger.info("User trash emptied successfully")
+    } catch (error: any) {
+      const errorMessage = error?.message || error?.toString() || 'Unknown error'
+      logger.error("Error emptying trash:", errorMessage, {
+        error: error?.stack || error
+      })
+      throw error
+    }
   },
 
   moveWorkflowToOrganization: async (workflowId: string, organizationId: string) => {
