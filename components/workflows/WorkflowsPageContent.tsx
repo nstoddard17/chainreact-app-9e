@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { useWorkflowStore } from '@/stores/workflowStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useIntegrationStore } from '@/stores/integrationStore'
@@ -77,26 +78,6 @@ type OwnershipFilter = 'all' | 'owned' | 'shared'
 type SortField = 'name' | 'updated_at' | 'status'
 type SortOrder = 'asc' | 'desc'
 
-interface TrashedWorkflowEntry {
-  workflow: {
-    id: string
-    name: string
-    description: string | null
-    user_id: string
-    organization_id?: string | null
-    folder_id?: string | null
-    nodes?: any[]
-    connections?: any[]
-    workflow_json?: any
-    status?: string
-    visibility?: string | null
-    source_template_id?: string | null
-    created_at?: string
-    updated_at?: string
-  }
-  deletedAt: string
-}
-
 interface WorkflowFolder {
   id: string
   name: string
@@ -107,6 +88,8 @@ interface WorkflowFolder {
   color: string
   icon: string
   is_default?: boolean
+  is_trash?: boolean
+  is_system?: boolean
   created_at: string
   updated_at: string
   workflow_count?: number
@@ -152,7 +135,7 @@ const validateWorkflow = (workflow: any) => {
 
 function WorkflowsContent() {
   const router = useRouter()
-  const { workflows, loadingList, fetchWorkflows, updateWorkflow, deleteWorkflow } = useWorkflowStore()
+  const { workflows, loadingList, fetchWorkflows, updateWorkflow, deleteWorkflow, moveWorkflowToTrash, restoreWorkflowFromTrash, emptyTrash } = useWorkflowStore()
   const { user, profile } = useAuthStore()
   const { getConnectedProviders } = useIntegrationStore()
   const { checkActionLimit } = usePlanRestrictions()
@@ -182,9 +165,8 @@ function WorkflowsContent() {
   // Create workflow dialog removed - now navigates directly to /workflows/ai-agent
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false)
   const [requiredPlan, setRequiredPlan] = useState<'free' | 'starter' | 'professional' | 'team' | 'enterprise' | undefined>()
-  const [trashedWorkflows, setTrashedWorkflows] = useState<TrashedWorkflowEntry[]>([])
-  const [trashDialogOpen, setTrashDialogOpen] = useState(false)
-  const [restoringTrashId, setRestoringTrashId] = useState<string | null>(null)
+  const [emptyTrashDialog, setEmptyTrashDialog] = useState(false)
+  const [emptyingTrash, setEmptyingTrash] = useState(false)
 
   // Rename workflow state
   const [renameDialog, setRenameDialog] = useState<{ open: boolean; workflowId: string | null; currentName: string }>({
@@ -249,33 +231,6 @@ function WorkflowsContent() {
       fetchFolders()
     }
   }, [user])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    try {
-      const stored = window.localStorage.getItem('workflow_trash')
-      if (stored) {
-        const parsed = JSON.parse(stored)
-        if (Array.isArray(parsed)) {
-          const normalized = parsed.filter(
-            (item: any) => item && item.workflow && typeof item.workflow.id === 'string'
-          )
-          setTrashedWorkflows(normalized as TrashedWorkflowEntry[])
-        }
-      }
-    } catch (error) {
-      logger.warn('Failed to load trashed workflows from storage', error)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    try {
-      window.localStorage.setItem('workflow_trash', JSON.stringify(trashedWorkflows))
-    } catch (error) {
-      logger.warn('Failed to persist trashed workflows to storage', error)
-    }
-  }, [trashedWorkflows])
 
   useEffect(() => {
     if (activeTab !== 'workflows') {
@@ -357,7 +312,19 @@ function WorkflowsContent() {
     }
   }
 
-  const filteredAndSortedWorkflows = workflows
+  // Get trash folder for current user
+  const trashFolder = folders.find(f => f.is_trash === true)
+
+  // Get workflows in trash (those with deleted_at set)
+  const trashedWorkflows = workflows.filter(w => w.deleted_at !== null && w.deleted_at !== undefined)
+
+  // Get non-trashed workflows
+  const activeWorkflows = workflows.filter(w => !w.deleted_at)
+
+  // Check if user is viewing the trash folder
+  const isViewingTrash = selectedFolderFilter === trashFolder?.id
+
+  const filteredAndSortedWorkflows = (isViewingTrash ? trashedWorkflows : activeWorkflows)
     .filter((w) => {
       const matchesSearch = w.name.toLowerCase().includes(searchQuery.toLowerCase())
 
@@ -369,7 +336,7 @@ function WorkflowsContent() {
       }
 
       let matchesFolder = true
-      if (selectedFolderFilter) {
+      if (selectedFolderFilter && !isViewingTrash) {
         matchesFolder = w.folder_id === selectedFolderFilter
       }
 
@@ -397,8 +364,8 @@ function WorkflowsContent() {
     })
 
   const stats = {
-    total: workflows.length,
-    active: workflows.filter(w => w.status === 'active').length,
+    total: activeWorkflows.length,
+    active: activeWorkflows.filter(w => w.status === 'active').length,
     totalExecutions: Object.values(executionStats).reduce((sum, stat) => sum + stat.total, 0),
     successRate: Object.values(executionStats).reduce((sum, stat) => sum + stat.total, 0) > 0
       ? Math.round((Object.values(executionStats).reduce((sum, stat) => sum + stat.success, 0) /
@@ -418,46 +385,6 @@ function WorkflowsContent() {
     : selectedIds.length === 1
       ? !!loading[`duplicate-${selectedIds[0]}`]
       : false
-
-  const prepareWorkflowForTrash = (workflow: WorkflowRecord | (WorkflowRecord & Record<string, any>) | null): TrashedWorkflowEntry['workflow'] | null => {
-    if (!workflow) return null
-    const {
-      creator,
-      executionStats: _executionStats,
-      runCounts,
-      ...rest
-    } = workflow as WorkflowRecord & Record<string, any>
-
-    return {
-      id: rest.id,
-      name: rest.name,
-      description: rest.description ?? null,
-      user_id: rest.user_id,
-      organization_id: rest.organization_id ?? null,
-      folder_id: rest.folder_id ?? null,
-      nodes: rest.nodes ?? [],
-      connections: rest.connections ?? [],
-      workflow_json: rest.workflow_json ?? null,
-      status: rest.status ?? 'draft',
-      visibility: rest.visibility ?? null,
-      source_template_id: rest.source_template_id ?? null,
-      created_at: rest.created_at ?? new Date().toISOString(),
-      updated_at: rest.updated_at ?? new Date().toISOString()
-    }
-  }
-
-  const addWorkflowToTrash = (workflow: WorkflowRecord | (WorkflowRecord & Record<string, any>) | null) => {
-    const entry = prepareWorkflowForTrash(workflow)
-    if (!entry) return
-    setTrashedWorkflows(prev => {
-      const filtered = prev.filter(item => item.workflow.id !== entry.id)
-      return [{ workflow: entry, deletedAt: new Date().toISOString() }, ...filtered]
-    })
-  }
-
-  const removeWorkflowFromTrash = (workflowId: string) => {
-    setTrashedWorkflows(prev => prev.filter(item => item.workflow.id !== workflowId))
-  }
 
   const toggleTeamSelection = (teamId: string) => {
     setSelectedTeamIds(prev =>
@@ -647,52 +574,6 @@ function WorkflowsContent() {
     setDeleteDialog({ open: true, workflowIds, contextLabel: label })
   }
 
-  const handleRestoreFromTrash = async (workflowId: string) => {
-    const trashed = trashedWorkflows.find(item => item.workflow.id === workflowId)
-    if (!trashed) return
-
-    setRestoringTrashId(workflowId)
-    try {
-      const response = await fetch('/api/workflows/restore', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ workflow: trashed.workflow })
-      })
-
-      const data = await response.json().catch(() => ({}))
-
-      if (!response.ok || data?.success === false) {
-        throw new Error(data?.error || 'Failed to restore workflow')
-      }
-
-      const restored = (data as any)?.workflow
-      const restoredName = restored?.name ?? trashed.workflow.name
-
-      toast({
-        title: 'Workflow Restored',
-        description: `${restoredName} has been restored.`,
-      })
-
-      removeWorkflowFromTrash(workflowId)
-      await fetchWorkflows()
-    } catch (error: any) {
-      toast({
-        title: 'Restore failed',
-        description: error?.message || 'Unable to restore workflow. Please try again.',
-        variant: 'destructive'
-      })
-    } finally {
-      setRestoringTrashId(null)
-    }
-  }
-
-  const handleRemoveFromTrash = (workflowId: string) => {
-    removeWorkflowFromTrash(workflowId)
-    toast({
-      title: 'Removed from Trash',
-      description: 'Workflow permanently removed from trash.',
-    })
-  }
 
   const getCreatorInfo = (workflow: any) => {
     const enrichedCreator = workflow.creator ?? (workflow.user_id === user?.id ? {
@@ -861,52 +742,99 @@ function WorkflowsContent() {
   }
 
   const handleDelete = async () => {
-    if (deleteDialog.workflowIds.length === 0) return
+    if (deleteDialog.workflowIds.length === 0) {
+      logger.warn('handleDelete called with no workflow IDs')
+      return
+    }
 
     const workflowIds = deleteDialog.workflowIds
     const loadingKey = workflowIds.length > 1 ? 'delete-multi' : `delete-${workflowIds[0]}`
+
+    logger.info('Starting delete operation for workflows:', workflowIds)
 
     setDeleteDialog({ open: false, workflowIds: [], contextLabel: '' })
     setSelectedIds(prev => prev.filter(id => !workflowIds.includes(id)))
     updateLoadingState(loadingKey, true)
 
     let failures = 0
+    const errorMessages: string[] = []
 
     for (const workflowId of workflowIds) {
-      const workflowRecord = workflows.find(w => w.id === workflowId) as (WorkflowRecord & Record<string, any>) | undefined
       try {
-        await deleteWorkflow(workflowId)
-        if (workflowRecord) {
-          addWorkflowToTrash(workflowRecord)
+        if (isViewingTrash) {
+          // If viewing trash, permanently delete
+          logger.info('Permanently deleting workflow:', workflowId)
+          await deleteWorkflow(workflowId)
+          logger.info('Successfully permanently deleted workflow:', workflowId)
+        } else {
+          // Otherwise, move to trash
+          logger.info('Moving workflow to trash:', workflowId)
+          await moveWorkflowToTrash(workflowId)
+          logger.info('Successfully moved workflow to trash:', workflowId)
         }
-      } catch (error) {
+      } catch (error: any) {
         failures += 1
-        logger.error('Failed to delete workflow', error)
+        const errorMsg = error?.message || error?.toString() || 'Unknown error'
+        errorMessages.push(`${workflowId}: ${errorMsg}`)
+        logger.error(`Failed to ${isViewingTrash ? 'permanently delete' : 'move to trash'} workflow:`, errorMsg, { workflowId, error })
       }
     }
 
     updateLoadingState(loadingKey, false)
 
-    // Only show toast for errors, not for successful deletions
-    if (failures === workflowIds.length) {
+    // Show appropriate toast messages
+    if (failures === 0) {
+      if (isViewingTrash) {
+        toast({
+          title: 'Permanently Deleted',
+          description: `${workflowIds.length} workflow${workflowIds.length !== 1 ? 's' : ''} permanently deleted.`,
+        })
+      } else {
+        toast({
+          title: 'Moved to Trash',
+          description: `${workflowIds.length} workflow${workflowIds.length !== 1 ? 's' : ''} moved to trash. ${workflowIds.length !== 1 ? 'They' : 'It'} will be permanently deleted after 7 days.`,
+        })
+      }
+    } else if (failures === workflowIds.length) {
       toast({
-        title: 'Failed to delete workflows',
-        description: 'Unable to delete the selected workflows. Please try again.',
+        title: isViewingTrash ? 'Failed to delete' : 'Failed to move to trash',
+        description: errorMessages[0] || `Unable to ${isViewingTrash ? 'delete' : 'move to trash'} the selected workflows. Please try again.`,
         variant: 'destructive'
       })
-    } else if (failures > 0) {
+    } else {
       toast({
-        title: 'Some workflows were not deleted',
-        description: `${workflowIds.length - failures} workflows deleted. ${failures} could not be deleted.`,
+        title: 'Partially completed',
+        description: `${workflowIds.length - failures} workflow${workflowIds.length - failures !== 1 ? 's' : ''} ${isViewingTrash ? 'deleted' : 'moved to trash'}. ${failures} could not be ${isViewingTrash ? 'deleted' : 'moved'}.`,
         variant: 'destructive'
       })
     }
-
-    // Don't refresh workflows - the UI is already updated optimistically
-    // fetchWorkflows() removed to prevent deleted workflows from reappearing
   }
 
   // handleCreateWorkflow removed - now navigates directly to /workflows/ai-agent
+
+  const handleEmptyTrash = async () => {
+    if (trashedWorkflows.length === 0) return
+
+    setEmptyTrashDialog(false)
+    setEmptyingTrash(true)
+
+    try {
+      await emptyTrash()
+
+      toast({
+        title: 'Trash Emptied',
+        description: `${trashedWorkflows.length} workflow${trashedWorkflows.length !== 1 ? 's' : ''} permanently deleted.`,
+      })
+    } catch (error: any) {
+      toast({
+        title: 'Failed to empty trash',
+        description: error?.message || 'Unable to empty trash. Please try again.',
+        variant: 'destructive'
+      })
+    } finally {
+      setEmptyingTrash(false)
+    }
+  }
 
   const handleCreateFolder = async () => {
     if (!newFolderName.trim()) {
@@ -1187,17 +1115,6 @@ function WorkflowsContent() {
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
-
-            {/* Trash Button */}
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-9 gap-2 whitespace-nowrap"
-              onClick={() => setTrashDialogOpen(true)}
-            >
-              <Trash2 className="w-4 h-4" />
-              Trash
-            </Button>
 
             {/* Create Button */}
             <Button
@@ -1607,8 +1524,13 @@ function WorkflowsContent() {
                             </DropdownMenu>
                           </div>
 
+                          {/* Workflow Name */}
+                          <h3 className="font-semibold text-slate-900 text-center mb-3 mt-4 line-clamp-1">
+                            {workflow.name}
+                          </h3>
+
                           {/* Workflow Preview */}
-                          <div className="flex items-center justify-center mb-4 mt-6 px-2">
+                          <div className="flex items-center justify-center mb-4 px-2">
                             <div className="w-full h-20 bg-slate-50 rounded-lg border border-slate-200 overflow-hidden relative">
                               {(() => {
                                 // Parse workflow nodes
@@ -1642,15 +1564,26 @@ function WorkflowsContent() {
                                         {/* Node representation */}
                                         <div
                                           className={cn(
-                                            "w-10 h-10 rounded-md flex items-center justify-center text-xs font-medium flex-shrink-0",
+                                            "w-10 h-10 rounded-md flex items-center justify-center p-1.5 flex-shrink-0",
                                             node.data?.isTrigger
-                                              ? "bg-green-100 text-green-700 border border-green-300"
-                                              : "bg-blue-100 text-blue-700 border border-blue-300"
+                                              ? "bg-green-100 border border-green-300"
+                                              : "bg-blue-100 border border-blue-300"
                                           )}
                                           title={node.data?.title || node.data?.type || 'Node'}
                                         >
-                                          {node.data?.providerId?.slice(0, 2).toUpperCase() ||
-                                           node.data?.type?.slice(0, 2).toUpperCase() || '?'}
+                                          {node.data?.providerId ? (
+                                            <Image
+                                              src={`/integrations/${node.data.providerId}.svg`}
+                                              alt={node.data?.title || node.data?.type || 'Node'}
+                                              width={28}
+                                              height={28}
+                                              className="w-full h-full object-contain"
+                                            />
+                                          ) : (
+                                            <span className="text-xs font-medium text-slate-600">
+                                              {node.data?.type?.slice(0, 2).toUpperCase() || '?'}
+                                            </span>
+                                          )}
                                         </div>
                                         {/* Connection arrow */}
                                         {idx < displayNodes.length - 1 && (
@@ -1667,11 +1600,6 @@ function WorkflowsContent() {
                             </div>
                           </div>
 
-                          {/* Workflow Name */}
-                          <h3 className="font-semibold text-slate-900 text-center mb-2 line-clamp-1">
-                            {workflow.name}
-                          </h3>
-
                           {/* Folder */}
                           <div
                             onClick={(e) => {
@@ -1682,37 +1610,6 @@ function WorkflowsContent() {
                           >
                             <Folder className="w-3.5 h-3.5" />
                             {folderName}
-                          </div>
-
-                          {/* Status Toggle */}
-                          <div className="flex items-center justify-center gap-2 mb-3">
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                                    <Switch
-                                      checked={workflow.status === 'active'}
-                                      onCheckedChange={() => handleToggleStatus(workflow)}
-                                      disabled={loading[`status-${workflow.id}`] || !validation.isValid}
-                                      className={cn(
-                                        !validation.isValid && "opacity-50 cursor-not-allowed"
-                                      )}
-                                    />
-                                    {!validation.isValid && (
-                                      <AlertTriangle className="w-4 h-4 text-amber-500" />
-                                    )}
-                                    <span className="text-xs text-slate-600">
-                                      {workflow.status === 'active' ? 'Active' : 'Draft'}
-                                    </span>
-                                  </div>
-                                </TooltipTrigger>
-                                {!validation.isValid && (
-                                  <TooltipContent side="top">
-                                    <p className="text-sm">Workflow setup is incomplete and cannot be activated</p>
-                                  </TooltipContent>
-                                )}
-                              </Tooltip>
-                            </TooltipProvider>
                           </div>
 
                           {/* Footer Info */}
@@ -1736,6 +1633,38 @@ function WorkflowsContent() {
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
+
+                            {/* Status Toggle */}
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                    <Switch
+                                      checked={workflow.status === 'active'}
+                                      onCheckedChange={() => handleToggleStatus(workflow)}
+                                      disabled={loading[`status-${workflow.id}`] || !validation.isValid}
+                                      className={cn(
+                                        "scale-75",
+                                        !validation.isValid && "opacity-50 cursor-not-allowed"
+                                      )}
+                                    />
+                                    {!validation.isValid && (
+                                      <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                                    )}
+                                  </div>
+                                </TooltipTrigger>
+                                {!validation.isValid ? (
+                                  <TooltipContent side="top">
+                                    <p className="text-sm">Workflow setup is incomplete and cannot be activated</p>
+                                  </TooltipContent>
+                                ) : (
+                                  <TooltipContent side="top">
+                                    <p className="text-xs">{workflow.status === 'active' ? 'Active' : 'Draft'}</p>
+                                  </TooltipContent>
+                                )}
+                              </Tooltip>
+                            </TooltipProvider>
+
                             <div className="text-xs text-slate-600">
                               {stats.total} runs
                             </div>
@@ -1757,8 +1686,12 @@ function WorkflowsContent() {
               <div className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {folders.map((folder) => {
-                    const workflowCount = workflows.filter(w => w.folder_id === folder.id).length
+                    // For trash folder, count trashed workflows. For others, count active workflows
+                    const workflowCount = folder.is_trash
+                      ? trashedWorkflows.length
+                      : activeWorkflows.filter(w => w.folder_id === folder.id).length
                     const isDefaultFolder = folder.is_default === true
+                    const isTrashFolder = folder.is_trash === true
                     return (
                       <div
                         key={folder.id}
@@ -1774,10 +1707,17 @@ function WorkflowsContent() {
                               className="w-10 h-10 rounded-lg flex items-center justify-center relative"
                               style={{ backgroundColor: `${folder.color}20` }}
                             >
-                              <Folder
-                                className="w-5 h-5"
-                                style={{ color: folder.color }}
-                              />
+                              {isTrashFolder ? (
+                                <Trash2
+                                  className="w-5 h-5"
+                                  style={{ color: folder.color }}
+                                />
+                              ) : (
+                                <Folder
+                                  className="w-5 h-5"
+                                  style={{ color: folder.color }}
+                                />
+                              )}
                               {isDefaultFolder && (
                                 <div className="absolute -top-1 -right-1 bg-slate-700 rounded-full p-0.5">
                                   <Lock className="w-2.5 h-2.5 text-white" />
@@ -1803,21 +1743,35 @@ function WorkflowsContent() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setRenameFolderDialog({
-                                    open: true,
-                                    folderId: folder.id,
-                                    currentName: folder.name
-                                  })
-                                  setRenameFolderValue(folder.name)
-                                }}
-                              >
-                                <Edit className="w-4 h-4 mr-2" />
-                                Rename
-                              </DropdownMenuItem>
-                              {!isDefaultFolder && (
+                              {isTrashFolder ? (
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setEmptyTrashDialog(true)
+                                  }}
+                                  disabled={trashedWorkflows.length === 0 || emptyingTrash}
+                                  className="text-red-600 focus:text-red-600"
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  Empty Trash
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setRenameFolderDialog({
+                                      open: true,
+                                      folderId: folder.id,
+                                      currentName: folder.name
+                                    })
+                                    setRenameFolderValue(folder.name)
+                                  }}
+                                >
+                                  <Edit className="w-4 h-4 mr-2" />
+                                  Rename
+                                </DropdownMenuItem>
+                              )}
+                              {!isDefaultFolder && !isTrashFolder && (
                                 <>
                                   <DropdownMenuItem
                                     onClick={(e) => {
@@ -1896,8 +1850,12 @@ function WorkflowsContent() {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {folders.map((folder) => {
-                      const workflowCount = workflows.filter(w => w.folder_id === folder.id).length
+                      // For trash folder, count trashed workflows. For others, count active workflows
+                      const workflowCount = folder.is_trash
+                        ? trashedWorkflows.length
+                        : activeWorkflows.filter(w => w.folder_id === folder.id).length
                       const isDefaultFolder = folder.is_default === true
+                      const isTrashFolder = folder.is_trash === true
 
                       return (
                         <tr
@@ -1914,10 +1872,17 @@ function WorkflowsContent() {
                                 className="w-8 h-8 rounded-lg flex items-center justify-center relative flex-shrink-0"
                                 style={{ backgroundColor: `${folder.color}20` }}
                               >
-                                <Folder
-                                  className="w-4 h-4"
-                                  style={{ color: folder.color }}
-                                />
+                                {isTrashFolder ? (
+                                  <Trash2
+                                    className="w-4 h-4"
+                                    style={{ color: folder.color }}
+                                  />
+                                ) : (
+                                  <Folder
+                                    className="w-4 h-4"
+                                    style={{ color: folder.color }}
+                                  />
+                                )}
                                 {isDefaultFolder && (
                                   <div className="absolute -top-1 -right-1 bg-slate-700 rounded-full p-0.5">
                                     <Lock className="w-2 h-2 text-white" />
@@ -1953,21 +1918,35 @@ function WorkflowsContent() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    setRenameFolderDialog({
-                                      open: true,
-                                      folderId: folder.id,
-                                      currentName: folder.name
-                                    })
-                                    setRenameFolderValue(folder.name)
-                                  }}
-                                >
-                                  <Edit className="w-4 h-4 mr-2" />
-                                  Rename
-                                </DropdownMenuItem>
-                                {!isDefaultFolder && (
+                                {isTrashFolder ? (
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setEmptyTrashDialog(true)
+                                    }}
+                                    disabled={trashedWorkflows.length === 0 || emptyingTrash}
+                                    className="text-red-600 focus:text-red-600"
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Empty Trash
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setRenameFolderDialog({
+                                        open: true,
+                                        folderId: folder.id,
+                                        currentName: folder.name
+                                      })
+                                      setRenameFolderValue(folder.name)
+                                    }}
+                                  >
+                                    <Edit className="w-4 h-4 mr-2" />
+                                    Rename
+                                  </DropdownMenuItem>
+                                )}
+                                {!isDefaultFolder && !isTrashFolder && (
                                   <>
                                     <DropdownMenuItem
                                       onClick={(e) => {
@@ -2030,64 +2009,6 @@ function WorkflowsContent() {
       </NewAppLayout>
 
       {/* Create Workflow Dialog removed - now navigates directly to /workflows/ai-agent */}
-
-      {/* Trash Dialog */}
-      <Dialog open={trashDialogOpen} onOpenChange={setTrashDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Trash</DialogTitle>
-            <DialogDescription>
-              Recently deleted workflows are stored here. Restore them to bring them back to your workspace or remove them permanently from this list.
-            </DialogDescription>
-          </DialogHeader>
-          {trashedWorkflows.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 py-10 text-center">
-              <p className="text-sm text-slate-500">No workflows in trash yet.</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {trashedWorkflows.map((item) => (
-                <div
-                  key={`${item.workflow.id}-${item.deletedAt}`}
-                  className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm"
-                >
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-slate-900">{item.workflow.name}</p>
-                    <p className="text-xs text-slate-500">
-                      Deleted {formatDistanceToNow(new Date(item.deletedAt), { addSuffix: true })}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleRestoreFromTrash(item.workflow.id)}
-                      disabled={restoringTrashId === item.workflow.id}
-                      className="h-8"
-                    >
-                      {restoringTrashId === item.workflow.id ? (
-                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                      ) : (
-                        <RotateCcw className="w-4 h-4 mr-2" />
-                      )}
-                      Restore
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleRemoveFromTrash(item.workflow.id)}
-                      className="h-8 text-slate-600 hover:text-slate-900"
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Remove
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
 
       {/* Rename Workflow Dialog */}
       <Dialog
@@ -2361,9 +2282,12 @@ function WorkflowsContent() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>{isViewingTrash ? 'Permanently Delete?' : 'Move to Trash?'}</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete {deleteDialogLabel}. This action cannot be undone.
+              {isViewingTrash
+                ? `This will permanently delete ${deleteDialogLabel}. This action cannot be undone.`
+                : `This will move ${deleteDialogLabel} to trash. ${deleteDialog.workflowIds.length === 1 ? 'It' : 'They'} will be permanently deleted after 7 days.`
+              }
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -2373,7 +2297,7 @@ function WorkflowsContent() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               <Trash2 className="w-4 h-4 mr-2" />
-              Delete
+              {isViewingTrash ? 'Delete Forever' : 'Move to Trash'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -2451,6 +2375,33 @@ function WorkflowsContent() {
             >
               <Trash2 className="w-4 h-4 mr-2" />
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Empty Trash Dialog */}
+      <AlertDialog open={emptyTrashDialog} onOpenChange={setEmptyTrashDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Empty Trash?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete all {trashedWorkflows.length} workflow{trashedWorkflows.length !== 1 ? 's' : ''} in the trash. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleEmptyTrash}
+              disabled={emptyingTrash}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {emptyingTrash ? (
+                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Trash2 className="w-4 h-4 mr-2" />
+              )}
+              Empty Trash
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
