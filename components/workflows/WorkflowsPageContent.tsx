@@ -1105,7 +1105,7 @@ function WorkflowsContent() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-slate-700 hover:bg-slate-100 h-8"
+                  className="text-indigo-700 hover:bg-indigo-100 h-8"
                   onClick={() => handleBulkMove([...selectedIds])}
                 >
                   <FolderInput className="w-4 h-4 mr-1.5" />
@@ -1114,7 +1114,7 @@ function WorkflowsContent() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-slate-700 hover:bg-slate-100 h-8"
+                  className="text-indigo-700 hover:bg-indigo-100 h-8"
                   onClick={() => handleBulkShare([...selectedIds])}
                 >
                   <Share2 className="w-4 h-4 mr-1.5" />
