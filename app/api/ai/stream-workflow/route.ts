@@ -1066,16 +1066,60 @@ Provide the minimal configuration changes needed to fix this error.`
 async function generateNodeConfig({ node, nodeComponent, previousNodes, prompt, model, userId, clarifications = {} }: any) {
   try {
     // Check if there are clarifications for this node
+    // Clarifications come with metadata about which field they map to
     const nodeClarifications = Object.entries(clarifications).filter(([key, value]) => {
-      // Match clarification to this node based on questionId pattern (e.g., "slack_channel" for slack nodes)
-      return key.includes(nodeComponent.providerId) || key.includes(nodeComponent.type)
+      // Match based on node type or provider ID in the key
+      // Also match "email" questions to Gmail nodes
+      const keyMatches = key.includes(nodeComponent.providerId) || key.includes(nodeComponent.type)
+      const emailKeyToGmail = key.includes('email') && nodeComponent.providerId === 'gmail'
+      return keyMatches || emailKeyToGmail
     })
 
+    // Also check for general inferred data like message_template
+    const messageTemplate = clarifications.message_template
+    const emailSource = clarifications.email_source
+
     let clarificationContext = ''
-    if (nodeClarifications.length > 0) {
-      clarificationContext = '\n\nUSER PROVIDED CLARIFICATIONS:\n' +
-        nodeClarifications.map(([key, value]) => `- ${key}: ${value}`).join('\n') +
-        '\n\nIMPORTANT: Use these exact values for the corresponding fields. Do not use placeholders.'
+    if (nodeClarifications.length > 0 || messageTemplate || emailSource) {
+      const clarificationLines: string[] = []
+
+      // Add node-specific clarifications
+      nodeClarifications.forEach(([key, value]) => {
+        // Extract field name from key (e.g., "slack_channel" -> "channel", "email_sender_filter" -> "from")
+        // The key pattern is: {provider}_{field_name} or {email/trigger}_filter
+        const fieldMatch = key.match(/_(channel|from|subject|to|body|message|sender|keywords)(?:_filter)?$/)
+        let fieldName = fieldMatch ? fieldMatch[1] : key
+
+        // Map field names for clarity
+        if (fieldName === 'sender') fieldName = 'from'
+
+        // Special handling for keywords - searches both subject and body
+        if (fieldName === 'keywords') {
+          clarificationLines.push(`- Search both subject AND body for keywords: ${value} (USER SPECIFIED - DO NOT CHANGE)`)
+          return
+        }
+
+        // Handle array values (multi-select)
+        if (Array.isArray(value)) {
+          clarificationLines.push(`- Field "${fieldName}": Match ANY of these values: ${value.join(', ')} (USER SELECTED - DO NOT CHANGE)`)
+        } else {
+          clarificationLines.push(`- Field "${fieldName}": ${value} (USER SELECTED - DO NOT CHANGE)`)
+        }
+      })
+
+      // Add message template if present (for messaging actions like Slack, Discord, etc.)
+      if (messageTemplate && (nodeComponent.providerId === 'slack' || nodeComponent.providerId === 'discord' || nodeComponent.type.includes('message') || nodeComponent.type.includes('send'))) {
+        clarificationLines.push(`- Field "message" or "text": Use this template:\n${messageTemplate}\n(AI PROVIDED TEMPLATE - USE AS-IS)`)
+      }
+
+      if (clarificationLines.length > 0) {
+        clarificationContext = '\n\nUSER PROVIDED CLARIFICATIONS (CRITICAL - USE EXACT VALUES):\n' +
+          clarificationLines.join('\n') +
+          '\n\nCRITICAL INSTRUCTIONS:\n' +
+          '1. Use the EXACT values above for the corresponding fields\n' +
+          '2. Do NOT use placeholders or example values\n' +
+          '3. Variable syntax like {{trigger.from}} should be preserved exactly as shown'
+      }
     }
 
     // Build context from previous nodes

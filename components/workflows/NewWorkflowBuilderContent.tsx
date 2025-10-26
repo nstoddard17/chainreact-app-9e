@@ -280,7 +280,7 @@ export function NewWorkflowBuilderContent() {
     nodeName: string
     status: 'preparing' | 'configuring' | 'testing' | 'complete' | 'error'
   } | null>(null)
-  const [workflowPlan, setWorkflowPlan] = React.useState<Array<{ title: string, description: string, type: 'trigger' | 'action' }> | null>(null)
+  const [workflowPlan, setWorkflowPlan] = React.useState<Array<{ title: string, description: string, type: 'trigger' | 'action', providerId?: string }> | null>(null)
   const [showPlanApproval, setShowPlanApproval] = React.useState(false)
   const [approvedPlanData, setApprovedPlanData] = React.useState<any>(null)
   const [isPlanBuilding, setIsPlanBuilding] = React.useState(false) // Track if building started
@@ -290,6 +290,7 @@ export function NewWorkflowBuilderContent() {
   // Clarification system states
   const [clarificationQuestions, setClarificationQuestions] = React.useState<any[]>([])
   const [clarificationAnswers, setClarificationAnswers] = React.useState<Record<string, any>>({})
+  const [inferredData, setInferredData] = React.useState<Record<string, any>>({})
   const [showClarifications, setShowClarifications] = React.useState(false)
   const [waitingForClarifications, setWaitingForClarifications] = React.useState(false)
 
@@ -530,6 +531,7 @@ export function NewWorkflowBuilderContent() {
         logger.info('[CLARIFICATION] Showing clarification questions:', analysisResult.questions)
 
         setClarificationQuestions(analysisResult.questions)
+        setInferredData(analysisResult.inferredData || {}) // Store inferred data like message templates
         setShowClarifications(true)
         setWaitingForClarifications(true)
         setIsReactAgentLoading(false)
@@ -2335,6 +2337,12 @@ export function NewWorkflowBuilderContent() {
                             const availableWidth = window.innerWidth - chatPanelWidth
                             const availableHeight = window.innerHeight
 
+                            // Merge inferred data (like message templates) with user's clarification answers
+                            const mergedClarifications = {
+                              ...inferredData, // AI-inferred values like message_template
+                              ...clarificationAnswers // User-provided answers (these take precedence)
+                            }
+
                             // Call stream-workflow with clarifications
                             const response = await fetch('/api/ai/stream-workflow', {
                               method: 'POST',
@@ -2343,7 +2351,7 @@ export function NewWorkflowBuilderContent() {
                                 prompt: originalPrompt,
                                 workflowId: currentWorkflow?.id,
                                 connectedIntegrations,
-                                clarifications: clarificationAnswers,
+                                clarifications: mergedClarifications,
                                 conversationHistory: reactAgentMessages.map(msg => ({
                                   role: msg.role,
                                   content: msg.content
@@ -2387,7 +2395,12 @@ export function NewWorkflowBuilderContent() {
 
                                 // Handle show_plan event
                                 if (eventData.type === 'show_plan') {
-                                  setWorkflowPlan(eventData.plan.nodes)
+                                  setWorkflowPlan(eventData.plan.nodes.map((n: any) => ({
+                                    title: n.title,
+                                    description: n.description,
+                                    type: n.isTrigger ? 'trigger' : 'action',
+                                    providerId: n.providerId
+                                  })))
                                   setApprovedPlanData(eventData.plan)
                                   setShowPlanApproval(true)
                                   setIsReactAgentLoading(false)

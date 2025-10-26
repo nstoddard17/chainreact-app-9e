@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import Image from "next/image"
+import { useState } from "react"
 
 interface PlannedNode {
   title: string
@@ -18,6 +18,31 @@ interface WorkflowPlanProps {
   isBuilding?: boolean // New prop to indicate building in progress
 }
 
+function IntegrationIcon({ providerId }: { providerId: string }) {
+  const [imageError, setImageError] = useState(false)
+  const iconPath = `/integrations/${providerId}.svg`
+
+  if (imageError) {
+    // Fallback if image fails to load
+    return (
+      <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-primary/20 border border-border flex items-center justify-center">
+        <span className="text-xs font-medium text-primary">{providerId.substring(0, 2).toUpperCase()}</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-background border border-border flex items-center justify-center p-1">
+      <img
+        src={iconPath}
+        alt={providerId}
+        className="w-full h-full object-contain"
+        onError={() => setImageError(true)}
+      />
+    </div>
+  )
+}
+
 export function WorkflowPlan({ nodes, onContinue, className, isBuilding = false }: WorkflowPlanProps) {
   return (
     <div className={cn("space-y-3", className)}>
@@ -28,26 +53,15 @@ export function WorkflowPlan({ nodes, onContinue, className, isBuilding = false 
 
       {/* Planned nodes as stacked badges */}
       <div className="space-y-2">
-        {nodes.map((node, index) => {
-          const iconPath = node.providerId ? `/integrations/${node.providerId}.svg` : null
-
-          return (
+        {nodes.map((node, index) => (
             <div
               key={index}
               className="w-full bg-accent/50 border border-border rounded-lg px-4 py-3"
             >
               <div className="flex items-start gap-3">
                 {/* Integration icon */}
-                {iconPath ? (
-                  <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-background border border-border flex items-center justify-center p-1">
-                    <Image
-                      src={iconPath}
-                      alt={node.providerId || ''}
-                      width={24}
-                      height={24}
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
+                {node.providerId ? (
+                  <IntegrationIcon providerId={node.providerId} />
                 ) : (
                   <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-primary/20 border border-border flex items-center justify-center" />
                 )}
@@ -63,8 +77,7 @@ export function WorkflowPlan({ nodes, onContinue, className, isBuilding = false 
                 </div>
               </div>
             </div>
-          )
-        })}
+        ))}
       </div>
 
       {/* Action button - only show when not building */}
