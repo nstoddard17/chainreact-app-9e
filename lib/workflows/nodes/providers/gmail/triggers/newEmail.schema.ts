@@ -45,14 +45,14 @@ export const newEmailTriggerSchema: NodeComponent = {
     },
     {
       name: "labelIds",
-      label: "Folder / Label",
+      label: "Folder",
       type: "select",
       dynamic: "gmail_labels",
       required: false,
       multiple: true,
       loadOnMount: true,
-      placeholder: "Select folders or labels",
-      description: "Filter emails by Gmail folders/labels. Matches the same picker used in the Get Email action.",
+      placeholder: "Select folders",
+      description: "Filter emails by Gmail folder. Select one or more folders to monitor for new emails.",
       defaultOptions: [
         { value: "INBOX", label: "Inbox" },
         { value: "SENT", label: "Sent" },
