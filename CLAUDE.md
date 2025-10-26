@@ -42,6 +42,103 @@ When debugging ANY issue:
 
 This is a large codebase with many moving parts. Jumping to conclusions will break things.
 
+## 🚨 CRITICAL: Search Exhaustively - NEVER Stop at First Instance
+**THIS IS A CRITICAL FAILURE PATTERN THAT MUST BE ELIMINATED.**
+
+When searching for code to remove or fix:
+
+### ❌ WRONG Approach (NEVER DO THIS):
+1. Find one instance of the problem
+2. Fix that one instance
+3. Assume you're done
+4. User reports it still happens
+5. Repeat steps 1-4 multiple times
+
+### ✅ CORRECT Approach (ALWAYS DO THIS):
+1. **Search comprehensively FIRST** - Use grep/search to find ALL instances
+2. **Document all locations found** - List every file and line number
+3. **Analyze each instance** - Understand context of each occurrence
+4. **Fix ALL instances in ONE response** - Never partial fixes
+5. **Verify completeness** - Search again to confirm nothing missed
+
+**Real Example from This Codebase:**
+
+Task: Remove AddActionNode creation from workflow builder
+
+❌ **WRONG**:
+- Found AddActionNode creation in workflow loading (lines 1374-1518)
+- Removed it
+- Told user "Done!"
+- User: "It still appears"
+- Found it in handleReplaceTrigger (lines 2034-2065)
+- Removed it
+- Told user "Done!"
+- User: "STILL appears"
+- Eventually found 4 total instances
+
+✅ **CORRECT**:
+1. Search: `grep -n "type: 'addAction'" useWorkflowBuilder.ts`
+2. Found 4 instances: lines 1441, 2052, 2263, 2499
+3. Analyzed each context
+4. Removed all 4 in single response
+5. Verified: `grep -n "type: 'addAction'" useWorkflowBuilder.ts` → No results
+6. User: "Fixed!"
+
+**Search Commands to Use:**
+```bash
+# Find all instances of a pattern
+grep -rn "pattern" directory/
+
+# Find in specific file types
+grep -rn "pattern" --include="*.ts" --include="*.tsx"
+
+# Find type definitions
+grep -rn "type:\s*['\"]addAction['\"]"
+
+# Find variable assignments
+grep -rn "addActionNode\s*="
+
+# Verify removal
+grep -rn "pattern" # Should return nothing
+```
+
+**Before You Say "Done":**
+- [ ] Did I search the ENTIRE codebase for this pattern?
+- [ ] Did I check all related patterns (variables, types, edges)?
+- [ ] Did I verify with a final search that returns NO results?
+- [ ] Am I 100% certain there are no other instances?
+
+**If you fix one instance and the issue persists, you failed Step 1.**
+
+### 🚨 Remove Means DELETE, Not Comment Out
+**When user says "remove X" - DELETE the code, don't comment it out.**
+
+❌ **WRONG**:
+```typescript
+// Old code that user asked to remove
+// const addActionNode = createAddAction()
+// setNodes([...nodes, addActionNode])
+```
+
+✅ **CORRECT**:
+```typescript
+// Code is completely gone - nothing here
+```
+
+**Why This Matters:**
+- Commented code clutters the codebase
+- Creates confusion about what's active
+- Makes diffs harder to read
+- Suggests you're unsure about the change
+- Git history preserves old code if we need it
+
+**Only comment out code when:**
+- User explicitly asks you to comment it out
+- You're proposing a change and want to show the old code for comparison
+- It's temporary debugging code
+
+**Default action for "remove" = DELETE completely.**
+
 ## Architectural Decision Guidelines
 **IMPORTANT**: For architectural changes ALWAYS:
 1. **Provide analysis** comparing approaches with pros/cons
@@ -129,9 +226,20 @@ ChainReact: workflow automation platform with Next.js 15, TypeScript, Supabase. 
 ## Development Commands
 
 ### Building/Running
+**IMPORTANT**: Always ASK before running `npm run build`. The user has a live dev server running for real-time testing.
+
 ```bash
-npm run build/build:analyze/dev/dev:turbo/start/lint
+npm run dev           # Live dev server (user typically has this running)
+npm run build         # Production build - ASK FIRST before running
+npm run build:analyze # Bundle analysis
+npm run dev:turbo     # Turbo dev mode
+npm run start         # Start production server
+npm run lint          # Run linter
 ```
+
+**Testing Protocol**:
+- Use the live dev server (`npm run dev`) for immediate feedback
+- Only run builds when explicitly requested or for deployment verification
 
 ### Token Management
 ```bash

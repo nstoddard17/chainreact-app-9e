@@ -49,7 +49,20 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { name, description, organization_id, status } = body
+    const { name, description, organization_id, status, folder_id } = body
+
+    // If no folder_id is provided, use the user's default folder
+    let targetFolderId = folder_id
+    if (!targetFolderId) {
+      const { data: defaultFolder } = await supabase
+        .from("workflow_folders")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("is_default", true)
+        .single()
+
+      targetFolderId = defaultFolder?.id || null
+    }
 
     const { data, error } = await supabase
       .from("workflows")
@@ -57,6 +70,7 @@ export async function POST(request: Request) {
         name,
         description,
         organization_id: organization_id || null,
+        folder_id: targetFolderId,
         user_id: user.id,
         nodes: [],
         connections: [],
