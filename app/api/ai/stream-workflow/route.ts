@@ -566,8 +566,10 @@ export async function POST(request: NextRequest) {
               })
 
               // Wait before starting next node
+              console.log(`[STREAM] About to sleep 1500ms after trigger...`)
               await sleep(1500)  // Changed to match non-trigger delay
-              console.log(`[STREAM] Trigger complete, continuing to next node (loop iteration ${i} of ${plan.nodes.length - 1})`)
+              console.log(`[STREAM] Finished sleeping, trigger complete. Loop iteration ${i} of ${plan.nodes.length - 1}`)
+              console.log(`[STREAM] About to check if client disconnected...`)
 
               // Check if stream is still alive
               if (request.signal.aborted) {
@@ -575,6 +577,8 @@ export async function POST(request: NextRequest) {
                 controller.close()
                 return
               }
+
+              console.log(`[STREAM] Client still connected, trigger block ending for node ${i}`)
             } else {
               // Test action and logic nodes
               node.data.aiStatus = 'testing'
@@ -766,9 +770,12 @@ export async function POST(request: NextRequest) {
               }
             } // End of else block (testing for non-trigger nodes)
 
+            console.log(`[STREAM] Exited if/else block for node ${i}, about to sleep 300ms...`)
+
             // Brief pause before starting next node
             await sleep(300)
             console.log(`[STREAM] Completed node ${i + 1} of ${plan.nodes.length}, moving to next iteration`)
+            console.log(`[STREAM] About to loop back to for statement, next i will be ${i + 1}`)
           }
 
           console.log(`[STREAM] All nodes configured and tested, sending workflow_complete event`)
@@ -850,8 +857,17 @@ Be precise - only include apps that are actually needed.`
 }
 
 function buildPlanningPrompt({ prompt, availableNodes, connectedIntegrations, contextNodes }: any) {
-  const nodeList = availableNodes
-    .map((n: any) => `- ${n.name} (${n.type}): ${n.description}`)
+  // Only send relevant nodes to reduce cost and improve speed
+  const connectedProviders = new Set(connectedIntegrations)
+  const coreProviders = new Set(['logic', 'ai', 'automation', 'manual', 'schedule', 'webhook'])
+
+  const relevantNodes = availableNodes.filter((n: any) =>
+    connectedProviders.has(n.providerId) || coreProviders.has(n.providerId)
+  )
+
+  // Simplified node list - just type and brief description
+  const nodeList = relevantNodes
+    .map((n: any) => `- ${n.type}: ${n.description || n.name}`)
     .join('\n')
 
   const connectedList = connectedIntegrations.length > 0
@@ -954,12 +970,13 @@ function selectModelForTask({ taskType, nodeType, complexity, userPreference }: 
     return userPreference
   }
 
-  // Complex tasks need GPT-4o
-  if (complexity > 7 || nodeType.includes('ai_agent') || taskType === 'error_recovery') {
+  // Only use GPT-4o for AI agents - everything else can use mini
+  // GPT-4o is 15x more expensive than mini, only worth it for complex AI tasks
+  if (nodeType.includes('ai_agent')) {
     return 'gpt-4o'
   }
 
-  // Simple tasks use GPT-4o-mini
+  // Use GPT-4o-mini for everything else - it's fast, cheap, and handles most tasks well
   return 'gpt-4o-mini'
 }
 
@@ -985,7 +1002,7 @@ async function generateNodeConfigFix({
   errorDetails,
   previousNodes,
   prompt,
-  model = 'gpt-4',
+  model = 'gpt-4o-mini', // Use cheaper model for error recovery
   userId
 }: {
   node: any
@@ -999,6 +1016,13 @@ async function generateNodeConfigFix({
   userId: string
 }): Promise<{ success: boolean; config?: Record<string, any>; reasoning?: string; error?: string }> {
   try {
+    // Simplify the schema sent to AI - only essential fields
+    const simplifiedSchema = nodeComponent.configSchema?.map((field: any) => ({
+      name: field.name,
+      type: field.type,
+      required: field.required || false
+    })) || []
+
     const systemPrompt = `You are fixing a configuration error in a workflow node.
 
 Node: ${node.title} (${node.type})
@@ -1006,8 +1030,8 @@ Current Configuration: ${JSON.stringify(previousConfig, null, 2)}
 Error: ${error}
 Error Details: ${errorDetails || 'None provided'}
 
-Available fields from the schema:
-${JSON.stringify(nodeComponent.configSchema || [], null, 2)}
+Available fields:
+${JSON.stringify(simplifiedSchema, null, 2)}
 
 Previous nodes in workflow that you can reference:
 ${previousNodes.map((n: any) => `- ${n.data.title} (outputs: ${JSON.stringify(n.data.outputSchema || [])})`).join('\n')}
@@ -1334,14 +1358,55 @@ async function generateNodeConfig({ node, nodeComponent, previousNodes, prompt, 
 
     console.log('[generateNodeConfig] Final clarificationContext:', clarificationContext || 'NONE')
 
-    // Build context from previous nodes
-    const context = previousNodes.map((n: any) => ({
-      title: n.data.title,
-      type: n.data.type,
-      outputs: getNodeOutputs(n)
-    }))
+    // Check if we can skip AI call - if we have all required fields from clarifications
+    const hasAllRequiredFields = (() => {
+      // For triggers, ALWAYS skip AI call - only use clarifications
+      // This prevents AI from hallucinating filter conditions
+      if (nodeComponent.isTrigger) {
+        console.log('[generateNodeConfig] Skipping AI call for trigger - will only use clarification values')
+        return true
+      }
 
-    const configPrompt = `Generate configuration for a ${node.title} node in a workflow automation.
+      if (nodeComponent.type === 'slack_action_send_message') {
+        // For Slack, we need channel and message
+        const hasChannel = clarificationFieldValues.channel || clarificationFieldValues.channelId || clarificationFieldValues.slack_channel
+        const hasMessage = messageTemplate || clarificationFieldValues.message
+        if (hasChannel && hasMessage) {
+          console.log('[generateNodeConfig] Skipping AI call for Slack - have all required fields from clarifications')
+          return true
+        }
+      }
+      return false
+    })()
+
+    let result: any
+
+    if (hasAllRequiredFields) {
+      // Skip AI call, we'll use force-apply logic below
+      result = {
+        success: true,
+        config: {},
+        reasoning: 'Configuration built from user clarifications'
+      }
+    } else {
+      // Build context from previous nodes
+      const context = previousNodes.map((n: any) => ({
+        title: n.data.title,
+        type: n.data.type,
+        outputs: getNodeOutputs(n)
+      }))
+
+      // Simplify schema to reduce prompt size - only include essential field info
+      const simplifiedSchema = nodeComponent.configSchema?.map((field: any) => ({
+        name: field.name,
+        label: field.label,
+        type: field.type,
+        required: field.required || false,
+        ...(field.options ? { options: field.options } : {}),
+        ...(field.defaultValue !== undefined ? { defaultValue: field.defaultValue } : {})
+      })) || []
+
+      const configPrompt = `Generate configuration for a ${node.title} node in a workflow automation.
 
 Node Type: ${node.type}
 Node Description: ${node.description}
@@ -1350,7 +1415,7 @@ User's Original Goal: "${prompt}"
 Previous Nodes in Workflow:
 ${context.map((n: any) => `- ${n.title} (outputs: ${n.outputs.join(', ')})`).join('\n')}
 
-Schema: ${JSON.stringify(nodeComponent.schema, null, 2)}
+Configuration Fields: ${JSON.stringify(simplifiedSchema, null, 2)}
 ${clarificationContext}
 
 Generate a complete configuration that:
@@ -1366,17 +1431,18 @@ Return JSON:
   "reasoning": "Brief explanation of choices made"
 }`
 
-    console.log('[generateNodeConfig] Sending prompt to AI...')
+      console.log('[generateNodeConfig] Sending prompt to AI...')
 
-    const result = await callAI({
-      prompt: configPrompt,
-      model,
-      temperature: 0.3,
-      responseFormat: 'json'
-    })
+      result = await callAI({
+        prompt: configPrompt,
+        model,
+        temperature: 0.3,
+        responseFormat: 'json'
+      })
 
-    console.log('[generateNodeConfig] AI returned result:', JSON.stringify(result, null, 2))
-    console.log('[generateNodeConfig] Config from AI:', JSON.stringify(result.config, null, 2))
+      console.log('[generateNodeConfig] AI returned result:', JSON.stringify(result, null, 2))
+      console.log('[generateNodeConfig] Config from AI:', JSON.stringify(result.config, null, 2))
+    }
 
     // Initialize config if it doesn't exist
     if (!result.config) {

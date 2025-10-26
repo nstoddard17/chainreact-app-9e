@@ -347,6 +347,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
       'email': 'Email',
       'name': 'Name',
       'recordId': 'Record ID',
+      'labelIds': 'Folder',
       // Add more mappings as needed
     }
 
@@ -362,12 +363,39 @@ function CustomNode({ id, data, selected }: NodeProps) {
     return true
   }
 
-  const formatDisplayValue = (value: any): string => {
+  const formatDisplayValue = (value: any, fieldKey?: string): string => {
     if (value === null || value === undefined) return 'Not set'
     if (value === '') return 'Empty'
 
     if (typeof value === 'boolean') {
       return value ? 'Yes' : 'No'
+    }
+
+    // Handle arrays intelligently
+    if (Array.isArray(value)) {
+      // Try to map array values to their labels from schema or saved options
+      const mappedValues = value.map(item => {
+        // Check if we have a schema field for this key
+        if (fieldKey && component?.configSchema) {
+          const field = component.configSchema.find((f: any) => f.name === fieldKey)
+          if (field) {
+            // Check defaultOptions first
+            if (field.defaultOptions) {
+              const option = field.defaultOptions.find((opt: any) => opt.value === item)
+              if (option?.label) return option.label
+            }
+            // Check savedDynamicOptions
+            if (savedDynamicOptions?.[fieldKey]) {
+              const option = savedDynamicOptions[fieldKey].find((opt: any) => opt.value === item)
+              if (option?.label) return option.label
+            }
+          }
+        }
+        // Fallback to the item itself
+        return String(item)
+      })
+
+      return mappedValues.join(', ')
     }
 
     if (typeof value === 'object') {
@@ -886,7 +914,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
                   const liveValue = (testData || {})[key]
                   const hasLiveValue = hasRenderableValue(liveValue)
                   const configuredDisplay = configDisplayOverrides.get(key)
-                  const formattedConfigValue = configuredDisplay ?? formatDisplayValue(value)
+                  const formattedConfigValue = configuredDisplay ?? formatDisplayValue(value, key)
                   const hasConfiguredValue = configuredDisplay !== undefined
                     ? configuredDisplay.trim().length > 0
                     : hasRenderableValue(value)
@@ -928,7 +956,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
                         {hasLiveValue && (
                           <div className="flex items-center gap-1 text-[11px] font-medium text-emerald-600">
                             <CheckCircle2 className="h-3 w-3" />
-                            <span className="break-words">{formatDisplayValue(liveValue)}</span>
+                            <span className="break-words">{formatDisplayValue(liveValue, key)}</span>
                           </div>
                         )}
                       </div>
@@ -973,7 +1001,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
                     <div className="font-semibold uppercase tracking-wide text-emerald-700">{getFieldLabel(key)}</div>
                     <div className="flex items-start gap-1 text-emerald-800">
                       <CheckCircle2 className="h-3 w-3 mt-0.5" />
-                      <span className="break-words leading-relaxed">{formatDisplayValue(value)}</span>
+                      <span className="break-words leading-relaxed">{formatDisplayValue(value, key)}</span>
                     </div>
                   </div>
                 ))}
