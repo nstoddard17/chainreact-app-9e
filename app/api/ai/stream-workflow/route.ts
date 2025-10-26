@@ -450,8 +450,9 @@ export async function POST(request: NextRequest) {
             }
 
             // Update node with config field-by-field for visual effect
-            const configFields = Object.entries(finalConfig)
-            console.log(`[STREAM] Configuring ${configFields.length} fields for ${plannedNode.title}: ${Object.keys(finalConfig).join(', ')}`)
+            const sanitizedFinalConfig = sanitizeConfigForNode(finalConfig, nodeComponent)
+            const configFields = Object.entries(sanitizedFinalConfig)
+            console.log(`[STREAM] Configuring ${configFields.length} fields for ${plannedNode.title}: ${Object.keys(sanitizedFinalConfig).join(', ')}`)
 
             // If no config fields for trigger, add a default one to show something
             if (configFields.length === 0 && nodeComponent.isTrigger) {
@@ -479,17 +480,19 @@ export async function POST(request: NextRequest) {
               console.log(`[STREAM] Setting field ${fieldKey} = ${fieldValue} for ${plannedNode.title}`)
 
               // Format display value for the field
-              let displayValue = ''
-              if (typeof fieldValue === 'string' && fieldValue.includes('{{AI_FIELD:')) {
-                displayValue = '✨ AI will generate'
-              } else if (typeof fieldValue === 'string' && fieldValue.includes('{{')) {
-                const varMatch = fieldValue.match(/\{\{([^}]+)\}\}/)
-                displayValue = varMatch ? `📎 From ${varMatch[1]}` : String(fieldValue)
-              } else if (fieldValue === '' || fieldValue === null || fieldValue === undefined) {
-                displayValue = 'User will select'
-              } else {
-                displayValue = String(fieldValue).substring(0, 50)
-                if (String(fieldValue).length > 50) displayValue += '...'
+              let displayValue = configResult.displayOverrides?.[fieldKey] || ''
+              if (!displayValue) {
+                if (typeof fieldValue === 'string' && fieldValue.includes('{{AI_FIELD:')) {
+                  displayValue = '✨ AI will generate'
+                } else if (typeof fieldValue === 'string' && fieldValue.includes('{{')) {
+                  const varMatch = fieldValue.match(/\{\{([^}]+)\}\}/)
+                  displayValue = varMatch ? `📎 From ${varMatch[1]}` : String(fieldValue)
+                } else if (fieldValue === '' || fieldValue === null || fieldValue === undefined) {
+                  displayValue = 'User will select'
+                } else {
+                  displayValue = String(fieldValue).substring(0, 50)
+                  if (String(fieldValue).length > 50) displayValue += '...'
+                }
               }
 
               // Send event for this field
@@ -1063,37 +1066,242 @@ Provide the minimal configuration changes needed to fix this error.`
   }
 }
 
+function extractNodeClarifications(clarifications: any, nodeComponent: any) {
+  const fieldValues: Record<string, any> = {}
+  const displayOverrides: Record<string, string> = {}
+
+  const allowedFields = new Set(
+    Array.isArray(nodeComponent?.configSchema)
+      ? nodeComponent.configSchema
+          .map((field: any) => field?.name)
+          .filter((name: any): name is string => typeof name === 'string' && name.length > 0)
+      : []
+  )
+
+  const addFieldValue = (rawField: string, value: any, display?: string) => {
+    if (!rawField) return
+
+    let fieldName = rawField
+    if (fieldName === 'sender') fieldName = 'from'
+    if (fieldName === 'channel_id') fieldName = 'channel'
+
+    if (allowedFields.size > 0 && !allowedFields.has(fieldName)) {
+      return
+    }
+
+    if (Array.isArray(value) && value.length === 0) {
+      return
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim()
+      if (!trimmed) return
+      value = trimmed
+    }
+
+    fieldValues[fieldName] = value
+    if (display && !displayOverrides[fieldName]) {
+      displayOverrides[fieldName] = display
+    }
+  }
+
+  const providerId = nodeComponent?.providerId
+  const nodeType = nodeComponent?.type
+
+  if (Array.isArray(clarifications?.details)) {
+    for (const detail of clarifications.details) {
+      if (!detail) continue
+
+      const detailNodeType = detail.nodeType
+      const detailProvider = detail.providerId
+      const questionId = detail.questionId
+
+      const matchesNode =
+        (detailNodeType && detailNodeType === nodeType) ||
+        (detailProvider && providerId && detailProvider === providerId) ||
+        (questionId && typeof questionId === 'string' && (
+          (providerId && questionId.includes(providerId)) ||
+          (nodeType && questionId.includes(nodeType))
+        )) ||
+        (detailNodeType && providerId && typeof detailNodeType === 'string' && detailNodeType.includes(providerId))
+
+      if (!matchesNode) continue
+
+      let fieldName = detail.configField
+
+      if (!fieldName && typeof questionId === 'string') {
+        const match = questionId.match(/_(channel|channel_id|from|subject|to|body|message|sender|keywords)(?:_filter)?$/)
+        if (match) fieldName = match[1]
+      }
+
+      if (!fieldName && typeof detailNodeType === 'string') {
+        const match = detailNodeType.match(/_(channel|channel_id|from|subject|to|body|message|sender|keywords)(?:_filter)?$/)
+        if (match) fieldName = match[1]
+      }
+
+      if (!fieldName && typeof questionId === 'string') {
+        fieldName = questionId
+      }
+
+      if (!fieldName) continue
+
+      addFieldValue(fieldName, detail.value, detail.displayValue)
+    }
+  }
+
+  const legacySource = clarifications?.answers && typeof clarifications.answers === 'object'
+    ? clarifications.answers
+    : clarifications
+
+  if (legacySource && typeof legacySource === 'object') {
+    for (const [key, value] of Object.entries(legacySource)) {
+      if (['answers', 'details', 'displayMap', 'inferredData', 'reasoning', 'message_template', 'email_source'].includes(key)) {
+        continue
+      }
+
+      const matchesProvider = providerId && key.includes(providerId)
+      const matchesType = nodeType && key.includes(nodeType)
+      const matchesEmail = key.includes('email') && providerId === 'gmail'
+
+      if (!matchesProvider && !matchesType && !matchesEmail) {
+        continue
+      }
+
+      addFieldValue(key, value, clarifications?.displayMap?.[key])
+    }
+  }
+
+  if (clarifications?.displayMap && typeof clarifications.displayMap === 'object') {
+    for (const [key, display] of Object.entries(clarifications.displayMap)) {
+      if (typeof display !== 'string' || !display) continue
+      const match = key.match(/_(channel|channel_id|from|subject|to|body|message|sender|keywords)(?:_filter)?$/)
+      if (!match) continue
+      let fieldName = match[1]
+      if (fieldName === 'sender') fieldName = 'from'
+      if (fieldName === 'channel_id') fieldName = 'channel'
+      if (allowedFields.size === 0 || allowedFields.has(fieldName)) {
+        if (!displayOverrides[fieldName]) {
+          displayOverrides[fieldName] = display
+        }
+      }
+    }
+  }
+
+  const messageTemplate =
+    clarifications?.message_template ||
+    clarifications?.inferredData?.message_template
+
+  return { fieldValues, displayOverrides, messageTemplate }
+}
+
+function normalizeFieldKey(key: string): string {
+  return key.toLowerCase().replace(/[^a-z0-9]/g, '')
+}
+
+function unwrapAIConfig(rawConfig: any, nodeType: string, depth = 0): any {
+  if (!rawConfig || typeof rawConfig !== 'object' || Array.isArray(rawConfig)) {
+    return rawConfig
+  }
+
+  if (depth > 4) {
+    return rawConfig
+  }
+
+  const keys = Object.keys(rawConfig)
+  if (keys.length !== 1) {
+    return rawConfig
+  }
+
+  const key = keys[0]
+  const value = rawConfig[key]
+
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return rawConfig
+  }
+
+  const normalizedKey = key.toLowerCase()
+  const unwrapKeys = [
+    'config',
+    'data',
+    'fields',
+    'payload',
+    'settings',
+    'parameters',
+    'params',
+    'request',
+    'trigger',
+    'action',
+    nodeType.toLowerCase()
+  ]
+
+  if (!unwrapKeys.includes(normalizedKey)) {
+    return rawConfig
+  }
+
+  return unwrapAIConfig(value, nodeType, depth + 1)
+}
+
+function sanitizeConfigForNode(config: Record<string, any> | undefined, nodeComponent: any) {
+  if (!config || typeof config !== 'object') {
+    return {}
+  }
+
+  const schemaFields = Array.isArray(nodeComponent?.configSchema)
+    ? nodeComponent.configSchema
+    : []
+
+  const normalizationMap = new Map<string, string>()
+  schemaFields.forEach((field: any) => {
+    if (field?.name) {
+      normalizationMap.set(normalizeFieldKey(field.name), field.name)
+    }
+  })
+
+  if (normalizationMap.size === 0) {
+    return { ...config }
+  }
+
+  const sanitized: Record<string, any> = {}
+  for (const [rawKey, value] of Object.entries(config)) {
+    if (value === undefined || value === null) {
+      continue
+    }
+
+    const normalizedKey = normalizationMap.get(normalizeFieldKey(rawKey))
+    if (normalizedKey) {
+      sanitized[normalizedKey] = value
+    } else if (normalizationMap.has(normalizeFieldKey(rawKey))) {
+      const canonical = normalizationMap.get(normalizeFieldKey(rawKey))
+      if (canonical) {
+        sanitized[canonical] = value
+      }
+    }
+  }
+
+  return sanitized
+}
+
 async function generateNodeConfig({ node, nodeComponent, previousNodes, prompt, model, userId, clarifications = {} }: any) {
   try {
-    // Check if there are clarifications for this node
-    // Clarifications come with metadata about which field they map to
-    const nodeClarifications = Object.entries(clarifications).filter(([key, value]) => {
-      // Match based on node type or provider ID in the key
-      // Also match "email" questions to Gmail nodes
-      const keyMatches = key.includes(nodeComponent.providerId) || key.includes(nodeComponent.type)
-      const emailKeyToGmail = key.includes('email') && nodeComponent.providerId === 'gmail'
-      return keyMatches || emailKeyToGmail
-    })
+    console.log('[generateNodeConfig] Starting for node:', node.title)
+    console.log('[generateNodeConfig] nodeComponent:', { type: nodeComponent.type, providerId: nodeComponent.providerId })
+    console.log('[generateNodeConfig] clarifications received:', JSON.stringify(clarifications, null, 2))
 
-    // Also check for general inferred data like message_template
-    const messageTemplate = clarifications.message_template
-    const emailSource = clarifications.email_source
+    const {
+      fieldValues: clarificationFieldValues,
+      displayOverrides,
+      messageTemplate
+    } = extractNodeClarifications(clarifications, nodeComponent)
+
+    const clarificationEntries = Object.entries(clarificationFieldValues)
+    console.log('[generateNodeConfig] Extracted clarificationEntries:', clarificationEntries)
+    console.log('[generateNodeConfig] messageTemplate:', messageTemplate)
 
     let clarificationContext = ''
-    if (nodeClarifications.length > 0 || messageTemplate || emailSource) {
+    if (clarificationEntries.length > 0 || messageTemplate) {
       const clarificationLines: string[] = []
 
       // Add node-specific clarifications
-      nodeClarifications.forEach(([key, value]) => {
-        // Extract field name from key (e.g., "slack_channel" -> "channel", "email_sender_filter" -> "from")
-        // The key pattern is: {provider}_{field_name} or {email/trigger}_filter
-        const fieldMatch = key.match(/_(channel|from|subject|to|body|message|sender|keywords)(?:_filter)?$/)
-        let fieldName = fieldMatch ? fieldMatch[1] : key
-
-        // Map field names for clarity
-        if (fieldName === 'sender') fieldName = 'from'
-
-        // Special handling for keywords - searches both subject and body
+      clarificationEntries.forEach(([fieldName, value]) => {
         if (fieldName === 'keywords') {
           clarificationLines.push(`- Search both subject AND body for keywords: ${value} (USER SPECIFIED - DO NOT CHANGE)`)
           return
@@ -1119,8 +1327,12 @@ async function generateNodeConfig({ node, nodeComponent, previousNodes, prompt, 
           '1. Use the EXACT values above for the corresponding fields\n' +
           '2. Do NOT use placeholders or example values\n' +
           '3. Variable syntax like {{trigger.from}} should be preserved exactly as shown'
+
+        console.log('[generateNodeConfig] Built clarificationContext:', clarificationContext)
       }
     }
+
+    console.log('[generateNodeConfig] Final clarificationContext:', clarificationContext || 'NONE')
 
     // Build context from previous nodes
     const context = previousNodes.map((n: any) => ({
@@ -1154,6 +1366,8 @@ Return JSON:
   "reasoning": "Brief explanation of choices made"
 }`
 
+    console.log('[generateNodeConfig] Sending prompt to AI...')
+
     const result = await callAI({
       prompt: configPrompt,
       model,
@@ -1161,7 +1375,161 @@ Return JSON:
       responseFormat: 'json'
     })
 
-    return result
+    console.log('[generateNodeConfig] AI returned result:', JSON.stringify(result, null, 2))
+    console.log('[generateNodeConfig] Config from AI:', JSON.stringify(result.config, null, 2))
+
+    // Initialize config if it doesn't exist
+    if (!result.config) {
+      console.log('[generateNodeConfig] No config from AI, initializing empty config')
+      result.config = {}
+    }
+
+    // Unwrap nested config containers (trigger/config/action/etc.)
+    const unwrappedConfig = unwrapAIConfig(result.config, nodeComponent.type)
+    if (unwrappedConfig && typeof unwrappedConfig === 'object' && !Array.isArray(unwrappedConfig)) {
+      result.config = { ...unwrappedConfig }
+    }
+
+    // CRITICAL: Force-apply clarification values to ensure they're used
+    if (clarificationEntries.length > 0) {
+      console.log('[generateNodeConfig] Force-applying clarifications to config...')
+
+      clarificationEntries.forEach(([fieldName, value]) => {
+        if (fieldName && value !== undefined && value !== null && !(Array.isArray(value) && value.length === 0)) {
+          console.log(`[generateNodeConfig] Force-setting field "${fieldName}" to:`, value)
+          result.config[fieldName] = value
+        }
+      })
+    }
+
+    // Provider-specific normalization
+    if (nodeComponent.type === 'gmail_trigger_new_email') {
+      const clarificationFrom = clarificationFieldValues.from
+      if (clarificationFrom) {
+        if (Array.isArray(clarificationFrom)) {
+          result.config.from = clarificationFrom.join(', ')
+        } else {
+          result.config.from = clarificationFrom
+        }
+      }
+
+      const providedLabelIds = result.config.labelIds || result.config.label_ids
+      if (Array.isArray(providedLabelIds) && providedLabelIds.length > 0) {
+        result.config.labelIds = providedLabelIds
+      }
+      if (!Array.isArray(result.config.labelIds) || result.config.labelIds.length === 0) {
+        result.config.labelIds = ['INBOX']
+      }
+
+      delete result.config.label_ids
+      delete result.config.user_id
+      delete result.config.type
+      delete result.config.include_spam_trash
+      delete result.config.fetch_body
+      delete result.config.fetch_attachments
+      delete result.config.search_query
+    }
+
+    if (nodeComponent.type === 'slack_action_send_message') {
+      const channelClarification =
+        clarificationFieldValues.channel ??
+        clarificationFieldValues.channelId ??
+        clarificationFieldValues.slack_channel
+
+      if (channelClarification && (!result.config.channel || result.config.channel === 'Select a channel')) {
+        if (Array.isArray(channelClarification)) {
+          result.config.channel = channelClarification[0]
+        } else {
+          result.config.channel = channelClarification
+        }
+      }
+
+      // Force-apply message template if present
+      if (messageTemplate && (!result.config.message || result.config.message === '' || result.config.message === 'Empty')) {
+        console.log('[generateNodeConfig] Applying message template to Slack message field')
+        result.config.message = messageTemplate
+      }
+
+      if (!displayOverrides.message && result.config.message) {
+        const condensedTemplate = String(result.config.message).replace(/\s+/g, ' ').trim()
+        displayOverrides.message = condensedTemplate.length > 80
+          ? `${condensedTemplate.slice(0, 77)}...`
+          : condensedTemplate || 'Auto-generated message template'
+      }
+
+      // Clean up auto-populated fields we don't want
+      if (!clarificationFieldValues.username) {
+        delete result.config.username
+      }
+
+      // If attachments only contain fallback text, move it into the message
+      if (!result.config.message && result.config.attachments) {
+        if (typeof result.config.attachments === 'string') {
+          result.config.message = result.config.attachments
+          delete result.config.attachments
+        } else if (Array.isArray(result.config.attachments) && result.config.attachments.length > 0) {
+          const attachment = result.config.attachments.find(att => att && typeof att === 'object')
+          const fallbackText = attachment?.fallback || attachment?.text
+          if (fallbackText) {
+            result.config.message = fallbackText
+            delete result.config.attachments
+          }
+        }
+      } else {
+        const hasAttachmentClarification = Boolean(clarificationFieldValues.attachments)
+        if (!hasAttachmentClarification && result.config.attachments !== undefined) {
+          if (typeof result.config.attachments === 'string') {
+            delete result.config.attachments
+          } else if (Array.isArray(result.config.attachments)) {
+            const meaningfulAttachment = result.config.attachments.some(att => {
+              if (!att || typeof att !== 'object') return true
+              const keys = Object.keys(att).filter(k => !['fallback', 'color'].includes(k))
+              return keys.length > 0
+            })
+            if (!meaningfulAttachment) {
+              delete result.config.attachments
+            }
+          }
+        }
+      }
+    }
+
+    // Force-apply message template for other messaging providers if needed
+    if (messageTemplate && nodeComponent.providerId && ['discord'].includes(nodeComponent.providerId)) {
+      if (!result.config.message || result.config.message === '' || result.config.message === 'Empty') {
+        console.log('[generateNodeConfig] Force-setting message template:', messageTemplate)
+        result.config.message = messageTemplate
+      }
+      if (!displayOverrides.message) {
+        const condensedTemplate = String(result.config.message).replace(/\s+/g, ' ').trim()
+        displayOverrides.message = condensedTemplate.length > 80
+          ? `${condensedTemplate.slice(0, 77)}...`
+          : condensedTemplate || 'Auto-generated message template'
+      }
+    }
+
+    // Normalize to schema field names and strip unknown keys
+    const normalizedConfig = sanitizeConfigForNode(result.config, nodeComponent)
+    result.config = { ...normalizedConfig }
+
+    // Re-apply clarification overrides after normalization to ensure they persist
+    if (clarificationEntries.length > 0) {
+      clarificationEntries.forEach(([fieldName, value]) => {
+        if (fieldName && value !== undefined && value !== null && !(Array.isArray(value) && value.length === 0)) {
+          result.config[fieldName] = value
+        }
+      })
+    }
+
+    // Sanitize config so we only keep known schema fields
+    result.config = sanitizeConfigForNode(result.config, nodeComponent)
+
+    console.log('[generateNodeConfig] Final config after force-apply:', JSON.stringify(result.config, null, 2))
+
+    return {
+      ...result,
+      displayOverrides
+    }
   } catch (error: any) {
     return { success: false, error: error.message }
   }
@@ -1412,6 +1780,10 @@ function buildConfigWithFallback({ nodeComponent, initialConfig, plannedNode, pr
 function deriveFallbackValue(field: any, _context: any) {
   if (!field) return undefined
 
+  if (field.dynamic) {
+    return undefined
+  }
+
   if (field.defaultValue !== undefined) {
     return field.multiple ? ([] as any[]).concat(field.defaultValue) : field.defaultValue
   }
@@ -1431,6 +1803,11 @@ function deriveFallbackValue(field: any, _context: any) {
   }
 
   if ((field.type === 'select' || field.type === 'combobox') && options.length > 0) {
+    // For optional select fields, don't auto-select the first option
+    // Return undefined to leave it unselected for user choice
+    if (!field.required) {
+      return undefined
+    }
     return typeof options[0] === 'string' ? options[0] : options[0]?.value
   }
 
@@ -1443,6 +1820,11 @@ function deriveFallbackValue(field: any, _context: any) {
   }
 
   if (field.type === 'email' || field.type === 'email-autocomplete') {
+    // For optional email fields (like filter fields), don't use a placeholder
+    // Return undefined so they stay empty, indicating "anyone" or "no filter"
+    if (!field.required) {
+      return undefined
+    }
     return 'inbox@placeholder.com'
   }
 
@@ -1459,6 +1841,10 @@ function deriveFallbackValue(field: any, _context: any) {
   }
 
   if (field.type === 'text' || field.type === 'textarea' || typeof field.type === 'string') {
+    // For optional text fields, don't use placeholders or auto-generated values
+    if (!field.required) {
+      return undefined
+    }
     if (field.placeholder) {
       return field.placeholder
     }
