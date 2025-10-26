@@ -985,6 +985,33 @@ function WorkflowsContent() {
     }
   }
 
+  const handleSetDefaultFolder = async (folderId: string, folderName: string) => {
+    try {
+      const response = await fetch(`/api/workflows/folders/${folderId}/set-default`, {
+        method: 'POST'
+      })
+
+      const data = await response.json()
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to set default folder')
+      }
+
+      toast({
+        title: "Default Folder Updated",
+        description: `"${folderName}" is now your default folder.`,
+      })
+
+      fetchFolders()
+    } catch (error: any) {
+      toast({
+        title: "Failed to Update",
+        description: error.message || "Failed to set default folder.",
+        variant: "destructive"
+      })
+    }
+  }
+
   const handleDeleteFolder = async () => {
     if (!deleteFolderDialog.folderId) return
 
@@ -1466,51 +1493,62 @@ function WorkflowsContent() {
                               <p className="text-xs text-slate-600">{workflowCount} workflows</p>
                             </div>
                           </div>
-                          {!isDefaultFolder && (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    setRenameFolderDialog({
-                                      open: true,
-                                      folderId: folder.id,
-                                      currentName: folder.name
-                                    })
-                                    setRenameFolderValue(folder.name)
-                                  }}
-                                >
-                                  <Edit className="w-4 h-4 mr-2" />
-                                  Rename
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    setDeleteFolderDialog({
-                                      open: true,
-                                      folderId: folder.id,
-                                      folderName: folder.name
-                                    })
-                                  }}
-                                  className="text-red-600 focus:text-red-600"
-                                >
-                                  <Trash2 className="w-4 h-4 mr-2" />
-                                  Delete Folder
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          )}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setRenameFolderDialog({
+                                    open: true,
+                                    folderId: folder.id,
+                                    currentName: folder.name
+                                  })
+                                  setRenameFolderValue(folder.name)
+                                }}
+                              >
+                                <Edit className="w-4 h-4 mr-2" />
+                                Rename
+                              </DropdownMenuItem>
+                              {!isDefaultFolder && (
+                                <>
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleSetDefaultFolder(folder.id, folder.name)
+                                    }}
+                                  >
+                                    <Lock className="w-4 h-4 mr-2" />
+                                    Set as Default
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setDeleteFolderDialog({
+                                        open: true,
+                                        folderId: folder.id,
+                                        folderName: folder.name
+                                      })
+                                    }}
+                                    className="text-red-600 focus:text-red-600"
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Delete Folder
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                         {folder.description && (
                           <p className="text-sm text-slate-600 line-clamp-2">{folder.description}</p>
