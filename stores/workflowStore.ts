@@ -478,6 +478,17 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       } = await supabase.auth.getUser()
       if (!user) throw new Error("User not authenticated")
 
+      // Fetch the user's default folder
+      let targetFolderId = null
+      const { data: defaultFolder } = await supabase
+        .from("workflow_folders")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("is_default", true)
+        .single()
+
+      targetFolderId = defaultFolder?.id || null
+
       const { data, error } = await supabase
         .from("workflows")
         .insert({
@@ -485,6 +496,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
           description: description || null,
           user_id: user.id,
           organization_id: organizationId || null, // Add organization_id if provided
+          folder_id: targetFolderId, // Use the default folder
           nodes: [],
           connections: [],
           status: "draft",

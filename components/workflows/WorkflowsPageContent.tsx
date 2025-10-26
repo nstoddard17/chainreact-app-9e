@@ -171,6 +171,7 @@ function WorkflowsContent() {
   const [ownershipMenuOpen, setOwnershipMenuOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [selectedFolderFilter, setSelectedFolderFilter] = useState<string | null>(null)
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; workflowIds: string[]; contextLabel: string }>({
     open: false,
     workflowIds: [],
@@ -616,12 +617,14 @@ function WorkflowsContent() {
   }
 
   const openRenameDialogForWorkflow = (workflow: any) => {
+    setOpenDropdownId(null) // Close any open dropdown
     setRenameDialog({ open: true, workflowId: workflow.id, currentName: workflow.name })
     setRenameValue(workflow.name)
   }
 
   const openMoveDialogForWorkflows = (workflowIds: string[], defaultFolderId?: string | null) => {
     if (workflowIds.length === 0) return
+    setOpenDropdownId(null) // Close any open dropdown
     setMoveFolderDialog({ open: true, workflowIds })
     // If no folder is specified, default to the default folder
     const targetFolderId = defaultFolderId ?? folders.find(f => f.is_default)?.id ?? null
@@ -630,12 +633,14 @@ function WorkflowsContent() {
 
   const openShareDialogForWorkflows = (workflowIds: string[]) => {
     if (workflowIds.length === 0) return
+    setOpenDropdownId(null) // Close any open dropdown
     setSelectedTeamIds([])
     setShareDialog({ open: true, workflowIds })
   }
 
   const openDeleteDialogForWorkflows = (workflowIds: string[]) => {
     if (workflowIds.length === 0) return
+    setOpenDropdownId(null) // Close any open dropdown
     const label = workflowIds.length === 1
       ? (workflows.find(w => w.id === workflowIds[0])?.name || 'this workflow')
       : `${workflowIds.length} workflows`
@@ -1431,7 +1436,7 @@ function WorkflowsContent() {
                           {stats.total.toLocaleString()}
                         </td>
                         <td className="px-3 py-4 text-right">
-                          <DropdownMenu>
+                          <DropdownMenu open={openDropdownId === workflow.id} onOpenChange={(open) => setOpenDropdownId(open ? workflow.id : null)}>
                             <DropdownMenuTrigger asChild>
                               <Button
                                 variant="ghost"
@@ -1534,7 +1539,7 @@ function WorkflowsContent() {
 
                           {/* Actions Dropdown */}
                           <div className="absolute top-3 right-3">
-                            <DropdownMenu>
+                            <DropdownMenu open={openDropdownId === workflow.id} onOpenChange={(open) => setOpenDropdownId(open ? workflow.id : null)}>
                               <DropdownMenuTrigger asChild>
                                 <Button
                                   variant="ghost"
