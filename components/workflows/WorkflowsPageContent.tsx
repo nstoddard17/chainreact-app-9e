@@ -60,6 +60,8 @@ import {
   RotateCcw,
   Share2,
   Lock,
+  LayoutGrid,
+  List,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDistanceToNow } from 'date-fns'
@@ -70,6 +72,7 @@ import { NewAppLayout } from '@/components/new-design/layout/NewAppLayout'
 import type { Workflow as WorkflowRecord } from '@/stores/workflowStore'
 
 type ViewTab = 'workflows' | 'folders'
+type ViewMode = 'grid' | 'list'
 type OwnershipFilter = 'all' | 'owned' | 'shared'
 type SortField = 'name' | 'updated_at' | 'status'
 type SortOrder = 'asc' | 'desc'
@@ -161,6 +164,8 @@ function WorkflowsContent() {
   }, [])
 
   const [activeTab, setActiveTab] = useState<ViewTab>('workflows')
+  const [workflowsViewMode, setWorkflowsViewMode] = useState<ViewMode>('list')
+  const [foldersViewMode, setFoldersViewMode] = useState<ViewMode>('grid')
   const [searchQuery, setSearchQuery] = useState('')
   const [ownershipFilter, setOwnershipFilter] = useState<OwnershipFilter>('all')
   const [ownershipMenuOpen, setOwnershipMenuOpen] = useState(false)
@@ -1102,6 +1107,50 @@ function WorkflowsContent() {
               />
             </div>
 
+            {/* View Toggle */}
+            <div className="flex items-center gap-1 p-1 border border-slate-200 rounded-lg bg-white">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  if (activeTab === 'workflows') {
+                    setWorkflowsViewMode('list')
+                  } else {
+                    setFoldersViewMode('list')
+                  }
+                }}
+                className={cn(
+                  'h-7 w-7 p-0 transition-colors',
+                  (activeTab === 'workflows' && workflowsViewMode === 'list') || (activeTab === 'folders' && foldersViewMode === 'list')
+                    ? 'bg-slate-100 text-slate-900'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                )}
+                title="List View"
+              >
+                <List className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  if (activeTab === 'workflows') {
+                    setWorkflowsViewMode('grid')
+                  } else {
+                    setFoldersViewMode('grid')
+                  }
+                }}
+                className={cn(
+                  'h-7 w-7 p-0 transition-colors',
+                  (activeTab === 'workflows' && workflowsViewMode === 'grid') || (activeTab === 'folders' && foldersViewMode === 'grid')
+                    ? 'bg-slate-100 text-slate-900'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                )}
+                title="Grid View"
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </Button>
+            </div>
+
             {/* Ownership Filter */}
             {activeTab === 'workflows' && (
               <DropdownMenu open={ownershipMenuOpen} onOpenChange={setOwnershipMenuOpen}>
@@ -1218,6 +1267,7 @@ function WorkflowsContent() {
           {/* Content Area */}
           <div className="flex-1 overflow-auto">
             {activeTab === 'workflows' ? (
+              workflowsViewMode === 'list' ? (
               <table className="w-full">
                 <thead className="sticky top-0 bg-slate-50 border-b border-slate-200 z-10">
                   <tr>
@@ -1454,8 +1504,198 @@ function WorkflowsContent() {
                   })}
                 </tbody>
               </table>
+              ) : (
+                /* Workflows Grid View */
+                <div className="p-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {filteredAndSortedWorkflows.map((workflow) => {
+                      const creatorInfo = getCreatorInfo(workflow)
+                      const folderName = getFolderName(workflow)
+                      const validation = validateWorkflow(workflow)
+                      const stats = executionStats[workflow.id] || { total: 0, today: 0, success: 0, failed: 0 }
+
+                      return (
+                        <div
+                          key={workflow.id}
+                          className={cn(
+                            "group relative bg-white rounded-xl border-2 p-5 hover:shadow-lg hover:border-blue-300 transition-all cursor-pointer",
+                            selectedIds.includes(workflow.id) ? "border-indigo-400 bg-indigo-50" : "border-slate-200"
+                          )}
+                          onClick={() => router.push(`/workflows/builder/${workflow.id}`)}
+                        >
+                          {/* Checkbox */}
+                          <div className="absolute top-3 left-3">
+                            <Checkbox
+                              checked={selectedIds.includes(workflow.id)}
+                              onCheckedChange={() => handleSelectOne(workflow.id)}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </div>
+
+                          {/* Actions Dropdown */}
+                          <div className="absolute top-3 right-3">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-48">
+                                <DropdownMenuItem
+                                  onSelect={(event) => {
+                                    event.preventDefault()
+                                    handleDuplicate(workflow)
+                                  }}
+                                  disabled={!!loading[`duplicate-${workflow.id}`]}
+                                >
+                                  {loading[`duplicate-${workflow.id}`] ? (
+                                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                                  ) : (
+                                    <Copy className="w-4 h-4 mr-2" />
+                                  )}
+                                  Duplicate
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onSelect={(event) => {
+                                    event.preventDefault()
+                                    openRenameDialogForWorkflow(workflow)
+                                  }}
+                                >
+                                  <Edit className="w-4 h-4 mr-2" />
+                                  Rename
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onSelect={(event) => {
+                                    event.preventDefault()
+                                    openMoveDialogForWorkflows([workflow.id], workflow.folder_id ?? null)
+                                  }}
+                                >
+                                  <FolderInput className="w-4 h-4 mr-2" />
+                                  Move to folder
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onSelect={(event) => {
+                                    event.preventDefault()
+                                    openShareDialogForWorkflows([workflow.id])
+                                  }}
+                                >
+                                  <Share2 className="w-4 h-4 mr-2" />
+                                  Share
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onSelect={(event) => {
+                                    event.preventDefault()
+                                    openDeleteDialogForWorkflows([workflow.id])
+                                  }}
+                                  className="text-destructive focus:bg-destructive/10"
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+
+                          {/* Workflow Icon */}
+                          <div className="flex items-center justify-center mb-4 mt-6">
+                            <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
+                              <Workflow className="w-6 h-6 text-blue-600" />
+                            </div>
+                          </div>
+
+                          {/* Workflow Name */}
+                          <h3 className="font-semibold text-slate-900 text-center mb-2 line-clamp-1">
+                            {workflow.name}
+                          </h3>
+
+                          {/* Folder */}
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleFolderClick(workflow.folder_id, e)
+                            }}
+                            className="flex items-center justify-center gap-1.5 text-xs text-slate-600 hover:underline mb-3"
+                          >
+                            <Folder className="w-3.5 h-3.5" />
+                            {folderName}
+                          </div>
+
+                          {/* Status Toggle */}
+                          <div className="flex items-center justify-center gap-2 mb-3">
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                    <Switch
+                                      checked={workflow.status === 'active'}
+                                      onCheckedChange={() => handleToggleStatus(workflow)}
+                                      disabled={loading[`status-${workflow.id}`] || !validation.isValid}
+                                      className={cn(
+                                        !validation.isValid && "opacity-50 cursor-not-allowed"
+                                      )}
+                                    />
+                                    {!validation.isValid && (
+                                      <AlertTriangle className="w-4 h-4 text-amber-500" />
+                                    )}
+                                    <span className="text-xs text-slate-600">
+                                      {workflow.status === 'active' ? 'Active' : 'Draft'}
+                                    </span>
+                                  </div>
+                                </TooltipTrigger>
+                                {!validation.isValid && (
+                                  <TooltipContent side="top">
+                                    <p className="text-sm">Workflow setup is incomplete and cannot be activated</p>
+                                  </TooltipContent>
+                                )}
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+
+                          {/* Footer Info */}
+                          <div className="flex items-center justify-between pt-3 border-t border-slate-200">
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex items-center">
+                                    <Avatar className="h-6 w-6">
+                                      {creatorInfo.avatar && (
+                                        <AvatarImage src={creatorInfo.avatar} alt={creatorInfo.name} />
+                                      )}
+                                      <AvatarFallback className="text-xs bg-slate-200 text-slate-700">
+                                        {creatorInfo.initials}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">
+                                  <p className="text-xs">{creatorInfo.name}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            <div className="text-xs text-slate-600">
+                              {stats.total} runs
+                            </div>
+                          </div>
+
+                          {/* Last Modified */}
+                          <div className="text-xs text-slate-500 text-center mt-2">
+                            {formatDistanceToNow(new Date(workflow.updated_at || workflow.created_at), { addSuffix: true })}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
             ) : (
               /* Folders View */
+              foldersViewMode === 'grid' ? (
               <div className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {folders.map((folder) => {
@@ -1574,6 +1814,138 @@ function WorkflowsContent() {
                   </div>
                 )}
               </div>
+              ) : (
+                /* Folders List View */
+                <table className="w-full">
+                  <thead className="sticky top-0 bg-slate-50 border-b border-slate-200 z-10">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                        Name
+                      </th>
+                      <th className="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                        Description
+                      </th>
+                      <th className="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                        Workflows
+                      </th>
+                      <th className="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                        Last Modified
+                      </th>
+                      <th className="w-12 px-3 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {folders.map((folder) => {
+                      const workflowCount = workflows.filter(w => w.folder_id === folder.id).length
+                      const isDefaultFolder = folder.is_default === true
+
+                      return (
+                        <tr
+                          key={folder.id}
+                          className="group hover:bg-slate-50 transition-colors cursor-pointer"
+                          onClick={() => {
+                            setSelectedFolderFilter(folder.id)
+                            setActiveTab('workflows')
+                          }}
+                        >
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div
+                                className="w-8 h-8 rounded-lg flex items-center justify-center relative flex-shrink-0"
+                                style={{ backgroundColor: `${folder.color}20` }}
+                              >
+                                <Folder
+                                  className="w-4 h-4"
+                                  style={{ color: folder.color }}
+                                />
+                                {isDefaultFolder && (
+                                  <div className="absolute -top-1 -right-1 bg-slate-700 rounded-full p-0.5">
+                                    <Lock className="w-2 h-2 text-white" />
+                                  </div>
+                                )}
+                              </div>
+                              <span className="font-medium text-sm">{folder.name}</span>
+                            </div>
+                          </td>
+                          <td className="px-3 py-4">
+                            <span className="text-sm text-slate-600">
+                              {folder.description || '-'}
+                            </span>
+                          </td>
+                          <td className="px-3 py-4">
+                            <span className="text-sm">{workflowCount} workflows</span>
+                          </td>
+                          <td className="px-3 py-4">
+                            <span className="text-sm">
+                              {formatDistanceToNow(new Date(folder.updated_at || folder.created_at), { addSuffix: true })}
+                            </span>
+                          </td>
+                          <td className="px-3 py-4 text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-slate-500 hover:text-slate-800"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <MoreHorizontal className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setRenameFolderDialog({
+                                      open: true,
+                                      folderId: folder.id,
+                                      currentName: folder.name
+                                    })
+                                    setRenameFolderValue(folder.name)
+                                  }}
+                                >
+                                  <Edit className="w-4 h-4 mr-2" />
+                                  Rename
+                                </DropdownMenuItem>
+                                {!isDefaultFolder && (
+                                  <>
+                                    <DropdownMenuItem
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleSetDefaultFolder(folder.id, folder.name)
+                                      }}
+                                    >
+                                      <Lock className="w-4 h-4 mr-2" />
+                                      Set as Default
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        setDeleteFolderDialog({
+                                          open: true,
+                                          folderId: folder.id,
+                                          folderName: folder.name
+                                        })
+                                      }}
+                                      className="text-red-600 focus:text-red-600"
+                                    >
+                                      <Trash2 className="w-4 h-4 mr-2" />
+                                      Delete Folder
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              )
             )}
 
             {activeTab === 'workflows' && filteredAndSortedWorkflows.length === 0 && (
