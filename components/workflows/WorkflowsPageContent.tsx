@@ -618,7 +618,9 @@ function WorkflowsContent() {
   const openMoveDialogForWorkflows = (workflowIds: string[], defaultFolderId?: string | null) => {
     if (workflowIds.length === 0) return
     setMoveFolderDialog({ open: true, workflowIds })
-    setSelectedFolderId(defaultFolderId ?? null)
+    // If no folder is specified, default to the default folder
+    const targetFolderId = defaultFolderId ?? folders.find(f => f.is_default)?.id ?? null
+    setSelectedFolderId(targetFolderId)
   }
 
   const openShareDialogForWorkflows = (workflowIds: string[]) => {
@@ -1694,20 +1696,6 @@ function WorkflowsContent() {
             <div className="space-y-2">
               <Label>Select Folder</Label>
               <div className="space-y-2 max-h-64 overflow-y-auto">
-                <div
-                  className={cn(
-                    "p-3 border rounded-lg cursor-pointer transition-colors",
-                    selectedFolderId === null
-                      ? "border-primary bg-primary/5"
-                      : "border-slate-200 hover:bg-slate-50"
-                  )}
-                  onClick={() => setSelectedFolderId(null)}
-                >
-                  <div className="flex items-center gap-2">
-                    <Folder className="w-4 h-4 text-slate-600" />
-                    <span className="text-sm font-medium">Root (No folder)</span>
-                  </div>
-                </div>
                 {folders.map((folder) => (
                   <div
                     key={folder.id}
@@ -1722,6 +1710,9 @@ function WorkflowsContent() {
                     <div className="flex items-center gap-2">
                       <Folder className="w-4 h-4" style={{ color: folder.color }} />
                       <span className="text-sm font-medium">{folder.name}</span>
+                      {folder.is_default && (
+                        <Lock className="w-3 h-3 text-slate-500 ml-1" />
+                      )}
                     </div>
                   </div>
                 ))}
