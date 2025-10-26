@@ -100,7 +100,7 @@ export function OrganizationSettingsContent() {
   // Fetch current organization
   useEffect(() => {
     if (user) {
-      const orgId = localStorage.getItem('current_organization_id')
+      const orgId = localStorage.getItem('current_workspace_id')
       if (orgId) {
         fetchOrganization(orgId)
         fetchMembers(orgId)
@@ -146,11 +146,36 @@ export function OrganizationSettingsContent() {
 
   const fetchMembers = async (orgId: string) => {
     try {
-      const response = await fetch(`/api/organizations/${orgId}/members`)
-      if (!response.ok) throw new Error('Failed to fetch members')
+      // Fetch teams in the organization
+      const teamsResponse = await fetch(`/api/organizations/${orgId}/teams`)
+      if (!teamsResponse.ok) throw new Error('Failed to fetch teams')
 
-      const data = await response.json()
-      setMembers(data.members || [])
+      const teamsData = await teamsResponse.json()
+      const teams = teamsData.teams || []
+
+      // Collect all unique members from all teams
+      const memberMap = new Map()
+      teams.forEach((team: any) => {
+        team.members?.forEach((member: any) => {
+          if (!memberMap.has(member.user_id)) {
+            memberMap.set(member.user_id, {
+              id: member.user_id,
+              user: member.user,
+              role: member.role,
+              teams: [team.name]
+            })
+          } else {
+            const existing = memberMap.get(member.user_id)
+            existing.teams.push(team.name)
+            // Keep the highest role
+            if (member.role === 'admin' && existing.role !== 'owner') {
+              existing.role = 'admin'
+            }
+          }
+        })
+      })
+
+      setMembers(Array.from(memberMap.values()))
     } catch (error) {
       console.error('Error fetching members:', error)
       toast.error('Failed to load members')
@@ -213,7 +238,7 @@ export function OrganizationSettingsContent() {
       toast.success('Organization deleted successfully')
 
       // Clear from localStorage
-      localStorage.removeItem('current_organization_id')
+      localStorage.removeItem('current_workspace_id')
 
       // Redirect to home or refresh
       router.push('/workflows')
@@ -275,23 +300,11 @@ export function OrganizationSettingsContent() {
           <TabsTrigger value="teams">Teams</TabsTrigger>
           <TabsTrigger value="members">Members</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
-          {isOwner && !organization.is_personal && <TabsTrigger value="danger">Danger Zone</TabsTrigger>}
+          {isOwner && <TabsTrigger value="danger">Danger Zone</TabsTrigger>}
         </TabsList>
 
         {/* General Settings */}
         <TabsContent value="general" className="space-y-6">
-          {organization.is_personal && (
-            <Card className="border-blue-500 bg-blue-50 dark:bg-blue-950/20">
-              <CardHeader>
-                <CardTitle className="text-blue-700 dark:text-blue-400">Personal Workspace</CardTitle>
-                <CardDescription className="text-blue-600 dark:text-blue-300">
-                  This is your personal workspace. It cannot be deleted or transferred, and is private to you.
-                  Create an organization to collaborate with others.
-                </CardDescription>
-              </CardHeader>
-            </Card>
-          )}
-
           <Card>
             <CardHeader>
               <CardTitle>Organization Details</CardTitle>
@@ -393,13 +406,10 @@ export function OrganizationSettingsContent() {
                 <div>
                   <CardTitle>Organization Members</CardTitle>
                   <CardDescription>
-                    {organization.is_personal
-                      ? "Personal workspaces are private to you only"
-                      : "Manage who has access to your organization"
-                    }
+                    Manage who has access to your organization
                   </CardDescription>
                 </div>
-                {isAdmin && !organization.is_personal && (
+                {isAdmin && (
                   <Button>
                     <UserPlus className="w-4 h-4 mr-2" />
                     Invite Member
@@ -423,6 +433,11 @@ export function OrganizationSettingsContent() {
                           {member.user?.username || member.user?.email?.split('@')[0] || 'User'}
                         </p>
                         <p className="text-sm text-muted-foreground">{member.user?.email}</p>
+                        {member.teams && member.teams.length > 0 && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Teams: {member.teams.join(', ')}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -492,7 +507,7 @@ export function OrganizationSettingsContent() {
         </TabsContent>
 
         {/* Danger Zone */}
-        {isOwner && !organization.is_personal && (
+        {isOwner && (
           <TabsContent value="danger" className="space-y-6">
             <Card className="border-destructive">
               <CardHeader>

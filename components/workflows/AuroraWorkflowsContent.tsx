@@ -155,7 +155,7 @@ export function AuroraWorkflowsContent() {
 
     window.addEventListener("organization-changed", handleOrgChange as EventListener)
 
-    const storedOrgId = typeof window !== "undefined" ? localStorage.getItem("current_organization_id") : null
+    const storedOrgId = typeof window !== "undefined" ? localStorage.getItem("current_workspace_id") : null
     if (storedOrgId && organizations.length > 0) {
       const org = organizations.find((item) => item.id === storedOrgId)
       if (org) {
@@ -204,7 +204,7 @@ export function AuroraWorkflowsContent() {
       if (Array.isArray(data)) {
         setOrganizations(data)
 
-        const storedOrgId = typeof window !== "undefined" ? localStorage.getItem("current_organization_id") : null
+        const storedOrgId = typeof window !== "undefined" ? localStorage.getItem("current_workspace_id") : null
         if (storedOrgId) {
           const org = data.find((item: Organization) => item.id === storedOrgId)
           if (org) {
@@ -1154,7 +1154,7 @@ export function AuroraWorkflowsContent() {
                           key={org.id}
                           onClick={() => {
                             setSelectedOrgId(org.id)
-                            localStorage.setItem("current_organization_id", org.id)
+                            localStorage.setItem("current_workspace_id", org.id)
                           }}
                           className={cn(
                             "flex w-full items-center justify-between rounded-lg border border-transparent bg-white/5 px-3 py-2 text-left text-sm font-medium text-white/80 transition hover:border-white/20 hover:bg-white/10",

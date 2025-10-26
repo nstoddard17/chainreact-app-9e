@@ -19,16 +19,41 @@ export async function GET(
       return errorResponse("Unauthorized" , 401)
     }
 
-    // Check if user has access to this organization
-    const { data: orgMember } = await serviceClient
-      .from("organization_members")
-      .select("role")
-      .eq("organization_id", organizationId)
-      .eq("user_id", user.id)
+    // Check if this is a personal workspace (no teams)
+    const { data: workspace } = await serviceClient
+      .from("workspaces")
+      .select("id, owner_id")
+      .eq("id", organizationId)
       .single()
 
-    if (!orgMember) {
-      return errorResponse("Access denied" , 403)
+    if (workspace) {
+      // Personal workspace - check ownership
+      if (workspace.owner_id !== user.id) {
+        return errorResponse("Access denied - not the workspace owner", 403)
+      }
+
+      // Personal workspaces have no teams
+      return jsonResponse({ teams: [] })
+    }
+
+    // Not a workspace, so must be an organization - check team membership
+    // First get all team IDs the user is a member of
+    const { data: userTeamMemberships } = await serviceClient
+      .from("team_members")
+      .select("team_id")
+      .eq("user_id", user.id)
+
+    const userTeamIds = userTeamMemberships?.map(tm => tm.team_id) || []
+
+    // Then check if any of those teams belong to this organization
+    const { data: userTeams } = await serviceClient
+      .from("teams")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .in("id", userTeamIds)
+
+    if (!userTeams || userTeams.length === 0) {
+      return errorResponse("Access denied - not a member of any team in this organization", 403)
     }
 
     // Get teams with member info
@@ -36,7 +61,11 @@ export async function GET(
       .from("teams")
       .select(`
         *,
-        team_members(user_id, role),
+        team_members(
+          user_id,
+          role,
+          user:users(id, email, username)
+        ),
         member_count:team_members(count)
       `)
       .eq("organization_id", organizationId)
@@ -50,10 +79,11 @@ export async function GET(
     const transformedTeams = teams.map((team: any) => ({
       ...team,
       member_count: team.member_count?.[0]?.count || 0,
-      user_role: team.team_members?.find((member: any) => member.user_id === user.id)?.role || null
+      user_role: team.team_members?.find((member: any) => member.user_id === user.id)?.role || null,
+      members: team.team_members || []
     }))
 
-    return jsonResponse(transformedTeams)
+    return jsonResponse({ teams: transformedTeams })
   } catch (error) {
     logger.error("Unexpected error:", error)
     return errorResponse("Internal server error" , 500)
@@ -83,16 +113,19 @@ export async function POST(
       return errorResponse("Name and slug are required" , 400)
     }
 
-    // Check if user is organization admin
-    const { data: orgMember } = await serviceClient
-      .from("organization_members")
-      .select("role")
+    // Check if user is an admin of any team in this organization
+    const { data: adminTeams } = await serviceClient
+      .from("teams")
+      .select(`
+        id,
+        team_members!inner(role)
+      `)
       .eq("organization_id", organizationId)
-      .eq("user_id", user.id)
-      .single()
+      .eq("team_members.user_id", user.id)
+      .eq("team_members.role", "admin")
 
-    if (!orgMember || orgMember.role !== 'admin') {
-      return errorResponse("Only organization admins can create teams" , 403)
+    if (!adminTeams || adminTeams.length === 0) {
+      return errorResponse("Only organization admins can create teams", 403)
     }
 
     // Check if slug already exists in this organization
@@ -116,7 +149,8 @@ export async function POST(
         description,
         slug,
         color: color || '#3B82F6',
-        settings: {}
+        settings: {},
+        created_by: user.id
       })
       .select()
       .single()

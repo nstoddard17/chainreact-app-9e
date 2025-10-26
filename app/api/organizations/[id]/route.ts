@@ -9,52 +9,116 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   try {
     const supabase = await createSupabaseRouteHandlerClient()
     const serviceClient = await createSupabaseServiceClient()
-    
+
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      return errorResponse("Unauthorized" , 401)
+      return errorResponse("Unauthorized", 401)
     }
 
-    // Get organization with service client
-    const { data: organization, error } = await serviceClient
+    // Try to get as organization first
+    const { data: organization, error: orgError } = await serviceClient
       .from("organizations")
-      .select(`
-        *,
-        organization_members(user_id, role)
-      `)
+      .select("*")
       .eq("id", id)
       .single()
 
-    if (error) {
-      logger.error("Error fetching organization:", error)
-      return errorResponse("Failed to fetch organization" , 500)
+    // If not found as organization, try as workspace (personal workspace)
+    if (orgError || !organization) {
+      const { data: workspace, error: workspaceError } = await serviceClient
+        .from("workspaces")
+        .select("*")
+        .eq("id", id)
+        .single()
+
+      if (workspaceError || !workspace) {
+        logger.error("Error fetching organization/workspace:", orgError || workspaceError)
+        return errorResponse("Organization or workspace not found", 404)
+      }
+
+      // Check if user owns this workspace
+      if (workspace.owner_id !== user.id) {
+        return errorResponse("Access denied - not the workspace owner", 403)
+      }
+
+      // Return workspace formatted as organization-like object
+      const result = {
+        id: workspace.id,
+        name: workspace.name,
+        slug: workspace.slug,
+        description: workspace.description,
+        avatar_url: workspace.avatar_url,
+        settings: workspace.settings,
+        owner_id: workspace.owner_id,
+        created_at: workspace.created_at,
+        updated_at: workspace.updated_at,
+        user_role: 'owner',
+        member_count: 1,
+        team_count: 0,
+        is_workspace: true
+      }
+
+      return jsonResponse(result)
     }
 
-    // Check if user has access to this organization
-    const userMember = organization.organization_members?.find((member: any) => member.user_id === user.id)
-    if (!userMember) {
-      return errorResponse("Access denied" , 403)
+    // It's an organization - check team membership
+    const { data: userTeams } = await serviceClient
+      .from("teams")
+      .select(`
+        id,
+        team_members!inner(role)
+      `)
+      .eq("organization_id", id)
+      .eq("team_members.user_id", user.id)
+
+    if (!userTeams || userTeams.length === 0) {
+      return errorResponse("Access denied - not a member of this organization", 403)
     }
 
-    // Fetch teams count separately
+    // Get user's highest role
+    const roleHierarchy = { owner: 4, admin: 3, member: 2, viewer: 1 }
+    let highestRole = 'viewer'
+    userTeams.forEach((team: any) => {
+      team.team_members?.forEach((tm: any) => {
+        if ((roleHierarchy[tm.role as keyof typeof roleHierarchy] || 0) > (roleHierarchy[highestRole as keyof typeof roleHierarchy] || 0)) {
+          highestRole = tm.role
+        }
+      })
+    })
+
+    // Fetch teams count
     const { count: teamCount } = await serviceClient
       .from("teams")
       .select("id", { count: 'exact', head: true })
       .eq("organization_id", id)
 
+    // Get unique member count across all teams
+    const { data: teamMembers } = await serviceClient
+      .from("teams")
+      .select(`
+        team_members(user_id)
+      `)
+      .eq("organization_id", id)
+
+    const uniqueMembers = new Set<string>()
+    teamMembers?.forEach((team: any) => {
+      team.team_members?.forEach((tm: any) => {
+        uniqueMembers.add(tm.user_id)
+      })
+    })
+
     // Return organization with user's role
     const result = {
       ...organization,
-      role: userMember.role,
-      member_count: organization.organization_members?.length || 1,
+      user_role: highestRole,
+      member_count: uniqueMembers.size,
       team_count: teamCount || 0
     }
 
     return jsonResponse(result)
   } catch (error) {
     logger.error("Unexpected error:", error)
-    return errorResponse("Internal server error" , 500)
+    return errorResponse("Internal server error", 500)
   }
 }
 
@@ -63,34 +127,29 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   try {
     const supabase = await createSupabaseRouteHandlerClient()
     const serviceClient = await createSupabaseServiceClient()
-    
+
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      return errorResponse("Unauthorized" , 401)
+      return errorResponse("Unauthorized", 401)
     }
 
     const body = await request.json()
-    const { name, description, billing_email, billing_address, owner_id } = body
+    const { name, description, billing_email, billing_address } = body
 
     // Check if user is organization owner
     const { data: organization, error: checkError } = await serviceClient
       .from("organizations")
-      .select("owner_id, is_personal")
+      .select("owner_id")
       .eq("id", id)
       .single()
 
     if (checkError || !organization) {
-      return errorResponse("Organization not found" , 404)
+      return errorResponse("Organization not found", 404)
     }
 
     if (organization.owner_id !== user.id) {
-      return errorResponse("Only organization owners can update settings" , 403)
-    }
-
-    // Prevent ownership transfer of personal workspaces
-    if (organization.is_personal && owner_id && owner_id !== organization.owner_id) {
-      return errorResponse("Personal workspace ownership cannot be transferred" , 403)
+      return errorResponse("Only organization owners can update settings", 403)
     }
 
     // Update organization
@@ -108,13 +167,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     if (updateError) {
       logger.error("Error updating organization:", updateError)
-      return errorResponse("Failed to update organization" , 500)
+      return errorResponse("Failed to update organization", 500)
     }
 
     return jsonResponse(updatedOrg)
   } catch (error) {
     logger.error("Unexpected error:", error)
-    return errorResponse("Internal server error" , 500)
+    return errorResponse("Internal server error", 500)
   }
 }
 
@@ -123,35 +182,30 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   try {
     const supabase = await createSupabaseRouteHandlerClient()
     const serviceClient = await createSupabaseServiceClient()
-    
+
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      return errorResponse("Unauthorized" , 401)
+      return errorResponse("Unauthorized", 401)
     }
 
-    // Check if user is organization owner and if it's a personal workspace
+    // Check if user is organization owner
     const { data: organization, error: checkError } = await serviceClient
       .from("organizations")
-      .select("owner_id, name, is_personal")
+      .select("owner_id, name")
       .eq("id", id)
       .single()
 
     if (checkError || !organization) {
-      return errorResponse("Organization not found" , 404)
+      return errorResponse("Organization not found", 404)
     }
 
     if (organization.owner_id !== user.id) {
-      return errorResponse("Only organization owners can delete organizations" , 403)
-    }
-
-    // Prevent deletion of personal workspaces
-    if (organization.is_personal) {
-      return errorResponse("Personal workspaces cannot be deleted" , 403)
+      return errorResponse("Only organization owners can delete organizations", 403)
     }
 
     // Delete all related data in the correct order (due to foreign key constraints)
-    
+
     // 1. Delete organization invitations
     const { error: invitationsError } = await serviceClient
       .from("organization_invitations")
@@ -162,14 +216,22 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       logger.error("Error deleting invitations:", invitationsError)
     }
 
-    // 2. Delete organization members
-    const { error: membersError } = await serviceClient
-      .from("organization_members")
-      .delete()
+    // 2. Delete team members (teams will cascade delete via ON DELETE CASCADE)
+    const { data: teams } = await serviceClient
+      .from("teams")
+      .select("id")
       .eq("organization_id", id)
 
-    if (membersError) {
-      logger.error("Error deleting members:", membersError)
+    if (teams && teams.length > 0) {
+      const teamIds = teams.map(t => t.id)
+      const { error: teamMembersError } = await serviceClient
+        .from("team_members")
+        .delete()
+        .in("team_id", teamIds)
+
+      if (teamMembersError) {
+        logger.error("Error deleting team members:", teamMembersError)
+      }
     }
 
     // 3. Delete audit logs (if they exist)
@@ -187,7 +249,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       logger.debug("Audit logs table not found, skipping deletion")
     }
 
-    // 4. Finally, delete the organization
+    // 4. Finally, delete the organization (teams will cascade delete)
     const { error: deleteError } = await serviceClient
       .from("organizations")
       .delete()
@@ -195,15 +257,15 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
     if (deleteError) {
       logger.error("Error deleting organization:", deleteError)
-      return errorResponse("Failed to delete organization" , 500)
+      return errorResponse("Failed to delete organization", 500)
     }
 
-    return jsonResponse({ 
+    return jsonResponse({
       message: `Organization "${organization.name}" has been permanently deleted`,
-      organizationId: id 
+      organizationId: id
     })
   } catch (error) {
     logger.error("Unexpected error:", error)
-    return errorResponse("Internal server error" , 500)
+    return errorResponse("Internal server error", 500)
   }
 }

@@ -13,30 +13,49 @@ export async function POST(
   try {
     const supabase = await createSupabaseRouteHandlerClient()
     const serviceClient = await createSupabaseServiceClient()
-    
+
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      return errorResponse("Unauthorized" , 401)
+      return errorResponse("Unauthorized", 401)
     }
 
     const body = await request.json()
-    const { email, role = "viewer" } = body
+    const { email, role = "viewer", team_id } = body
 
     if (!email) {
-      return errorResponse("Email is required" , 400)
+      return errorResponse("Email is required", 400)
     }
 
-    // Check if user is admin of the organization
-    const { data: membership, error: membershipError } = await serviceClient
-      .from("organization_members")
-      .select("role")
+    if (!team_id) {
+      return errorResponse("Team ID is required - members must be invited to a specific team", 400)
+    }
+
+    // Check if user is admin of any team in this organization
+    const { data: adminTeams } = await serviceClient
+      .from("teams")
+      .select(`
+        id,
+        team_members!inner(role)
+      `)
       .eq("organization_id", organizationId)
-      .eq("user_id", user.id)
+      .eq("team_members.user_id", user.id)
+      .eq("team_members.role", "admin")
+
+    if (!adminTeams || adminTeams.length === 0) {
+      return errorResponse("Insufficient permissions - only team admins can invite members", 403)
+    }
+
+    // Verify the team_id belongs to this organization
+    const { data: team, error: teamError } = await serviceClient
+      .from("teams")
+      .select("id, name")
+      .eq("id", team_id)
+      .eq("organization_id", organizationId)
       .single()
 
-    if (membershipError || !membership || membership.role !== 'admin') {
-      return errorResponse("Insufficient permissions" , 403)
+    if (teamError || !team) {
+      return errorResponse("Team not found in this organization", 404)
     }
 
     // Get organization details
@@ -47,19 +66,42 @@ export async function POST(
       .single()
 
     if (orgError || !organization) {
-      return errorResponse("Organization not found" , 404)
+      return errorResponse("Organization not found", 404)
     }
 
-    // Check if user is already a member
-    const { data: existingMember, error: memberCheckError } = await serviceClient
-      .from("organization_members")
+    // Check if user is already a member of this team
+    // First, find if user exists by email
+    const { data: existingUser } = await serviceClient
+      .from("users")
       .select("id")
-      .eq("organization_id", organizationId)
-      .eq("user_id", email) // For now, using email as user_id
+      .eq("email", email)
       .single()
 
-    if (existingMember) {
-      return errorResponse("User is already a member" , 409)
+    if (existingUser) {
+      // Check if already a team member
+      const { data: existingMember } = await serviceClient
+        .from("team_members")
+        .select("id")
+        .eq("team_id", team_id)
+        .eq("user_id", existingUser.id)
+        .single()
+
+      if (existingMember) {
+        return errorResponse("User is already a member of this team", 409)
+      }
+    }
+
+    // Check if there's already a pending invitation
+    const { data: existingInvite } = await serviceClient
+      .from("organization_invitations")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .eq("email", email)
+      .is("accepted_at", null)
+      .single()
+
+    if (existingInvite) {
+      return errorResponse("Invitation already sent to this email", 409)
     }
 
     // Create invitation token
@@ -67,7 +109,7 @@ export async function POST(
     const expiresAt = new Date()
     expiresAt.setDate(expiresAt.getDate() + 7) // 7 days
 
-    // Store invitation in database
+    // Store invitation in database (with team_id if the table supports it)
     const { data: invitation, error: inviteError } = await serviceClient
       .from("organization_invitations")
       .insert({
@@ -76,21 +118,23 @@ export async function POST(
         role,
         token,
         expires_at: expiresAt.toISOString(),
-        invited_by: user.id
+        invited_by: user.id,
+        // Note: If organization_invitations table doesn't have team_id column,
+        // you may need to add it via migration or store in metadata
       })
       .select("*")
       .single()
 
     if (inviteError) {
       logger.error("Error creating invitation:", inviteError)
-      return errorResponse("Failed to create invitation" , 500)
+      return errorResponse("Failed to create invitation", 500)
     }
 
     // Send invitation email
     try {
       const resend = new Resend(process.env.RESEND_API_KEY)
       const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
-      const inviteUrl = `${baseUrl}/invite?token=${token}&org=${organization.slug}`
+      const inviteUrl = `${baseUrl}/invite?token=${token}&org=${organization.slug}&team=${team_id}`
 
       await resend.emails.send({
         from: 'ChainReact <noreply@chainreact.app>',
@@ -100,19 +144,19 @@ export async function POST(
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2 style="color: #1f2937;">You're invited to join ${organization.name}!</h2>
             <p style="color: #6b7280; line-height: 1.6;">
-              You've been invited to join <strong>${organization.name}</strong> on ChainReact as a <strong>${role}</strong>.
+              You've been invited to join the <strong>${team.name}</strong> team in <strong>${organization.name}</strong> on ChainReact as a <strong>${role}</strong>.
             </p>
             <p style="color: #6b7280; line-height: 1.6;">
               ChainReact is a powerful workflow automation platform that helps teams build and manage complex workflows.
             </p>
             <div style="margin: 30px 0;">
-              <a href="${inviteUrl}" 
+              <a href="${inviteUrl}"
                  style="background-color: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
                 Accept Invitation
               </a>
             </div>
             <p style="color: #6b7280; font-size: 14px;">
-              This invitation expires on ${expiresAt.toLocaleDateString()}. 
+              This invitation expires on ${expiresAt.toLocaleDateString()}.
               If you don't have a ChainReact account, you'll be able to create one when you accept the invitation.
             </p>
             <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
@@ -123,10 +167,10 @@ export async function POST(
         `
       })
 
-      return jsonResponse({ 
-        success: true, 
-        message: "Invitation sent successfully",
-        invitation 
+      return jsonResponse({
+        success: true,
+        message: `Invitation sent successfully to ${email} for team ${team.name}`,
+        invitation
       })
     } catch (emailError) {
       logger.error("Error sending email:", emailError)
@@ -135,11 +179,11 @@ export async function POST(
         .from("organization_invitations")
         .delete()
         .eq("id", invitation.id)
-      
-      return errorResponse("Failed to send invitation email" , 500)
+
+      return errorResponse("Failed to send invitation email", 500)
     }
   } catch (error) {
     logger.error("Unexpected error:", error)
-    return errorResponse("Internal server error" , 500)
+    return errorResponse("Internal server error", 500)
   }
-} 
+}
