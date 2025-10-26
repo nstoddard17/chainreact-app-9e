@@ -10,13 +10,14 @@ import { Switch } from "@/components/ui/switch"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@/utils/supabaseClient"
-import { User, Bell, Shield, Palette, Loader2, ChevronRight, Sparkles } from "lucide-react"
+import { User, Bell, Shield, Palette, Loader2, ChevronRight, Sparkles, Briefcase } from "lucide-react"
 import { useTheme } from "next-themes"
 import { TwoFactorSetup } from "@/components/settings/TwoFactorSetup"
 import { cn } from "@/lib/utils"
 import { useSignedAvatarUrl } from "@/hooks/useSignedAvatarUrl"
+import { useSearchParams, useRouter } from "next/navigation"
 
-type SettingsSection = 'profile' | 'notifications' | 'security' | 'appearance'
+type SettingsSection = 'profile' | 'workspace' | 'notifications' | 'security' | 'appearance'
 
 export function SettingsContent() {
   const { profile, updateProfile, user } = useAuthStore()
@@ -24,7 +25,10 @@ export function SettingsContent() {
   const supabase = createClient()
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
-  const [activeSection, setActiveSection] = useState<SettingsSection>('profile')
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const sectionParam = searchParams.get('section') as SettingsSection | null
+  const [activeSection, setActiveSection] = useState<SettingsSection>(sectionParam || 'profile')
 
   // DEBUG: Log profile data to see admin field
   console.log('🔍 SETTINGS PAGE - Profile Debug:', {
@@ -53,10 +57,25 @@ export function SettingsContent() {
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false)
   const [twoFactorLoading, setTwoFactorLoading] = useState(true)
 
+  // Workspace state
+  const [workspace, setWorkspace] = useState<any>(null)
+  const [workspaceLoading, setWorkspaceLoading] = useState(true)
+  const [workspaceName, setWorkspaceName] = useState("")
+  const [workspaceDescription, setWorkspaceDescription] = useState("")
+  const [workspaceSaving, setWorkspaceSaving] = useState(false)
+
   useEffect(() => {
     setMounted(true)
     check2FAStatus()
+    fetchWorkspace()
   }, [])
+
+  // Update active section when URL parameter changes
+  useEffect(() => {
+    if (sectionParam && ['profile', 'workspace', 'notifications', 'security', 'appearance'].includes(sectionParam)) {
+      setActiveSection(sectionParam)
+    }
+  }, [sectionParam])
 
   // Debug: Log profile changes
   useEffect(() => {
@@ -105,6 +124,57 @@ export function SettingsContent() {
   const handle2FASuccess = () => {
     setTwoFactorEnabled(true)
     check2FAStatus()
+  }
+
+  const fetchWorkspace = async () => {
+    try {
+      setWorkspaceLoading(true)
+      // Get current workspace ID from localStorage
+      const workspaceId = localStorage.getItem('current_workspace_id')
+      if (!workspaceId) {
+        console.error('No workspace ID found')
+        return
+      }
+
+      const response = await fetch(`/api/organizations/${workspaceId}`)
+      if (!response.ok) throw new Error('Failed to fetch workspace')
+
+      const data = await response.json()
+      setWorkspace(data)
+      setWorkspaceName(data.name || "")
+      setWorkspaceDescription(data.description || "")
+    } catch (error) {
+      console.error('Error fetching workspace:', error)
+      toast({ title: "Error", description: "Failed to load workspace settings", variant: "destructive" })
+    } finally {
+      setWorkspaceLoading(false)
+    }
+  }
+
+  const saveWorkspaceSettings = async () => {
+    if (!workspace) return
+
+    try {
+      setWorkspaceSaving(true)
+      const response = await fetch(`/api/organizations/${workspace.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: workspaceName.trim(),
+          description: workspaceDescription.trim()
+        })
+      })
+
+      if (!response.ok) throw new Error('Failed to save workspace settings')
+
+      toast({ title: "Success", description: "Workspace settings saved successfully" })
+      fetchWorkspace()
+    } catch (error) {
+      console.error('Error saving workspace:', error)
+      toast({ title: "Error", description: "Failed to save workspace settings", variant: "destructive" })
+    } finally {
+      setWorkspaceSaving(false)
+    }
   }
 
   const disable2FA = async () => {
@@ -271,6 +341,7 @@ export function SettingsContent() {
 
   const navigationItems = [
     { id: 'profile' as const, label: 'Profile', icon: User, description: 'Manage your personal information' },
+    { id: 'workspace' as const, label: 'Workspace', icon: Briefcase, description: 'Your personal workspace settings' },
     { id: 'notifications' as const, label: 'Notifications', icon: Bell, description: 'Configure notification preferences' },
     { id: 'security' as const, label: 'Security', icon: Shield, description: 'Password and authentication settings' },
     { id: 'appearance' as const, label: 'Appearance', icon: Palette, description: 'Customize your theme' },
@@ -289,7 +360,10 @@ export function SettingsContent() {
             return (
               <button
                 key={item.id}
-                onClick={() => setActiveSection(item.id)}
+                onClick={() => {
+                  setActiveSection(item.id)
+                  router.push(`/settings?section=${item.id}`)
+                }}
                 className={cn(
                   "w-full text-left px-4 py-3 rounded-xl transition-all duration-200 group",
                   isActive
@@ -441,6 +515,105 @@ export function SettingsContent() {
                 </div>
               </CardContent>
             </Card>
+          </div>
+        )}
+
+        {/* Workspace Section */}
+        {activeSection === 'workspace' && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-3xl font-bold tracking-tight">Workspace Settings</h2>
+              <p className="text-muted-foreground mt-2">Manage your personal workspace details</p>
+            </div>
+
+            {workspaceLoading ? (
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+                  </div>
+                </CardContent>
+              </Card>
+            ) : workspace ? (
+              <>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Workspace Details</CardTitle>
+                    <CardDescription>Update your workspace's basic information</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="workspace-name">Workspace Name *</Label>
+                      <Input
+                        id="workspace-name"
+                        value={workspaceName}
+                        onChange={(e) => setWorkspaceName(e.target.value)}
+                        placeholder="My Workspace"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="workspace-slug">URL Slug</Label>
+                      <Input
+                        id="workspace-slug"
+                        value={workspace.slug || ""}
+                        disabled
+                        className="bg-muted"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        The URL slug cannot be changed
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="workspace-description">Description</Label>
+                      <Input
+                        id="workspace-description"
+                        value={workspaceDescription}
+                        onChange={(e) => setWorkspaceDescription(e.target.value)}
+                        placeholder="Your personal workspace"
+                      />
+                    </div>
+
+                    <Button onClick={saveWorkspaceSettings} disabled={workspaceSaving}>
+                      {workspaceSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                      Save Changes
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Workspace Stats</CardTitle>
+                    <CardDescription>Overview of your workspace</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="p-4 border rounded-lg">
+                        <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                          <User className="w-4 h-4" />
+                          <span className="text-sm">Owner</span>
+                        </div>
+                        <p className="text-2xl font-bold">{profile?.username || profile?.email || 'You'}</p>
+                      </div>
+                      <div className="p-4 border rounded-lg">
+                        <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                          <Briefcase className="w-4 h-4" />
+                          <span className="text-sm">Type</span>
+                        </div>
+                        <p className="text-2xl font-bold">Personal</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="text-center text-muted-foreground">No workspace found</p>
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
 

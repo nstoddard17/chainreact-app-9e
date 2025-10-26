@@ -104,10 +104,6 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         
-        {/* Optimize favicon */}
-        <link rel="icon" type="image/png" href="/logo.png" sizes="any" />
-        <link rel="apple-touch-icon" href="/logo.png" />
-        
         {/* Performance hints */}
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="theme-color" content="#1e293b" />

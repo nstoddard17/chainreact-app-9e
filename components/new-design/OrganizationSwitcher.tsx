@@ -200,6 +200,9 @@ export function OrganizationSwitcher() {
     )
   }
 
+  // Check if current selection is a personal workspace (has is_workspace flag or team_count === 0 && member_count === 1)
+  const isPersonalWorkspace = (currentOrg as any).is_workspace || (currentOrg.team_count === 0 && currentOrg.member_count === 1)
+
   return (
     <>
       <DropdownMenu>
@@ -209,7 +212,11 @@ export function OrganizationSwitcher() {
             size="sm"
             className="gap-2 max-w-[200px]"
           >
-            <Building2 className="w-4 h-4 flex-shrink-0" />
+            {isPersonalWorkspace ? (
+              <User className="w-4 h-4 flex-shrink-0" />
+            ) : (
+              <Building2 className="w-4 h-4 flex-shrink-0" />
+            )}
             <span className="hidden sm:inline truncate">{currentOrg.name}</span>
             <ChevronsUpDown className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
           </Button>
@@ -221,40 +228,63 @@ export function OrganizationSwitcher() {
               <DropdownMenuLabel className="text-xs text-muted-foreground">
                 WORKSPACES & ORGANIZATIONS
               </DropdownMenuLabel>
-              {organizations.map((org) => (
-                <DropdownMenuItem
-                  key={org.id}
-                  onClick={() => handleSwitchOrganization(org)}
-                  className="flex items-center justify-between cursor-pointer"
-                >
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <Building2 className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{org.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {org.member_count} {org.member_count === 1 ? 'member' : 'members'}
-                        {' • '}
-                        {org.team_count} {org.team_count === 1 ? 'team' : 'teams'}
-                      </p>
+              {organizations.map((org) => {
+                const isWorkspace = (org as any).is_workspace || (org.team_count === 0 && org.member_count === 1)
+                return (
+                  <DropdownMenuItem
+                    key={org.id}
+                    onClick={() => handleSwitchOrganization(org)}
+                    className="flex items-center justify-between cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      {isWorkspace ? (
+                        <User className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
+                      ) : (
+                        <Building2 className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{org.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {isWorkspace ? (
+                            'Personal workspace'
+                          ) : (
+                            <>
+                              {org.member_count} {org.member_count === 1 ? 'member' : 'members'}
+                              {' • '}
+                              {org.team_count} {org.team_count === 1 ? 'team' : 'teams'}
+                            </>
+                          )}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  {currentOrg.id === org.id && (
-                    <Check className="w-4 h-4 flex-shrink-0 text-primary" />
-                  )}
-                </DropdownMenuItem>
-              ))}
+                    {currentOrg.id === org.id && (
+                      <Check className="w-4 h-4 flex-shrink-0 text-primary" />
+                    )}
+                  </DropdownMenuItem>
+                )
+              })}
             </>
           )}
 
           <DropdownMenuSeparator />
 
-          <DropdownMenuItem
-            onClick={() => router.push('/organization-settings')}
-            className="cursor-pointer"
-          >
-            <Settings className="w-4 h-4 mr-2" />
-            <span>Organization Settings</span>
-          </DropdownMenuItem>
+          {isPersonalWorkspace ? (
+            <DropdownMenuItem
+              onClick={() => router.push('/settings?section=workspace')}
+              className="cursor-pointer"
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              <span>Workspace Settings</span>
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem
+              onClick={() => router.push('/organization-settings')}
+              className="cursor-pointer"
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              <span>Organization Settings</span>
+            </DropdownMenuItem>
+          )}
 
           <DropdownMenuItem
             onClick={() => setCreateDialogOpen(true)}
