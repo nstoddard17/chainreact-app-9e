@@ -693,21 +693,33 @@ function WorkflowsContent() {
   const handleMoveToFolder = async () => {
     if (moveFolderDialog.workflowIds.length === 0) return
 
+    // If no folder selected, require user to select one
+    if (!selectedFolderId) {
+      toast({
+        title: "No folder selected",
+        description: "Please select a folder to move the workflow(s) to.",
+        variant: "destructive"
+      })
+      return
+    }
+
     const workflowIds = moveFolderDialog.workflowIds
     const loadingKey = workflowIds.length > 1 ? 'move-multi' : `move-${workflowIds[0]}`
     updateLoadingState(loadingKey, true)
 
     try {
+      const targetFolder = folders.find(f => f.id === selectedFolderId)
+      const folderName = targetFolder?.name || 'the selected folder'
+
       for (const workflowId of workflowIds) {
         await updateWorkflow(workflowId, { folder_id: selectedFolderId })
       }
+
       toast({
         title: workflowIds.length > 1 ? "Workflows moved" : "Workflow moved",
-        description: selectedFolderId
-          ? workflowIds.length > 1
-            ? 'Selected workflows were moved to the folder.'
-            : 'Workflow moved to the selected folder.'
-          : 'Moved to My Workflows.',
+        description: workflowIds.length > 1
+          ? `Selected workflows were moved to "${folderName}".`
+          : `Workflow moved to "${folderName}".`,
       })
       setMoveFolderDialog({ open: false, workflowIds: [] })
       setSelectedFolderId(null)
@@ -837,6 +849,40 @@ function WorkflowsContent() {
       })
     } finally {
       setEmptyingTrash(false)
+    }
+  }
+
+  const handleRestoreWorkflow = async (workflowId: string) => {
+    const workflow = workflows.find(w => w.id === workflowId)
+    if (!workflow) return
+
+    const loadingKey = `restore-${workflowId}`
+    updateLoadingState(loadingKey, true)
+
+    // Close the dropdown menu
+    setOpenDropdownId(null)
+
+    try {
+      await restoreWorkflowFromTrash(workflowId)
+
+      const originalFolder = workflow.original_folder_id
+        ? folders.find(f => f.id === workflow.original_folder_id)
+        : null
+
+      toast({
+        title: 'Workflow Restored',
+        description: originalFolder
+          ? `"${workflow.name}" has been restored to "${originalFolder.name}".`
+          : `"${workflow.name}" has been restored.`,
+      })
+    } catch (error: any) {
+      toast({
+        title: 'Restore failed',
+        description: error?.message || 'Unable to restore workflow. Please try again.',
+        variant: 'destructive'
+      })
+    } finally {
+      updateLoadingState(loadingKey, false)
     }
   }
 
@@ -1386,58 +1432,90 @@ function WorkflowsContent() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-48">
-                              <DropdownMenuItem
-                                onSelect={(event) => {
-                                  event.preventDefault()
-                                  handleDuplicate(workflow)
-                                }}
-                                disabled={!!loading[`duplicate-${workflow.id}`]}
-                              >
-                                {loading[`duplicate-${workflow.id}`] ? (
-                                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                                ) : (
-                                  <Copy className="w-4 h-4 mr-2" />
-                                )}
-                                Duplicate
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onSelect={(event) => {
-                                  event.preventDefault()
-                                  openRenameDialogForWorkflow(workflow)
-                                }}
-                              >
-                                <Edit className="w-4 h-4 mr-2" />
-                                Rename
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onSelect={(event) => {
-                                  event.preventDefault()
-                                  openMoveDialogForWorkflows([workflow.id], workflow.folder_id ?? null)
-                                }}
-                              >
-                                <FolderInput className="w-4 h-4 mr-2" />
-                                Move to folder
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onSelect={(event) => {
-                                  event.preventDefault()
-                                  openShareDialogForWorkflows([workflow.id])
-                                }}
-                              >
-                                <Share2 className="w-4 h-4 mr-2" />
-                                Share
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onSelect={(event) => {
-                                  event.preventDefault()
-                                  openDeleteDialogForWorkflows([workflow.id])
-                                }}
-                                className="text-destructive focus:bg-destructive/10"
-                              >
-                                <Trash2 className="w-4 h-4 mr-2" />
-                                Delete
-                              </DropdownMenuItem>
+                              {isViewingTrash ? (
+                                <>
+                                  <DropdownMenuItem
+                                    onSelect={(event) => {
+                                      event.preventDefault()
+                                      handleRestoreWorkflow(workflow.id)
+                                    }}
+                                    disabled={!!loading[`restore-${workflow.id}`]}
+                                  >
+                                    {loading[`restore-${workflow.id}`] ? (
+                                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                                    ) : (
+                                      <RotateCcw className="w-4 h-4 mr-2" />
+                                    )}
+                                    Restore
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onSelect={(event) => {
+                                      event.preventDefault()
+                                      openDeleteDialogForWorkflows([workflow.id])
+                                    }}
+                                    className="text-destructive focus:bg-destructive/10"
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Delete Forever
+                                  </DropdownMenuItem>
+                                </>
+                              ) : (
+                                <>
+                                  <DropdownMenuItem
+                                    onSelect={(event) => {
+                                      event.preventDefault()
+                                      handleDuplicate(workflow)
+                                    }}
+                                    disabled={!!loading[`duplicate-${workflow.id}`]}
+                                  >
+                                    {loading[`duplicate-${workflow.id}`] ? (
+                                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                                    ) : (
+                                      <Copy className="w-4 h-4 mr-2" />
+                                    )}
+                                    Duplicate
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onSelect={(event) => {
+                                      event.preventDefault()
+                                      openRenameDialogForWorkflow(workflow)
+                                    }}
+                                  >
+                                    <Edit className="w-4 h-4 mr-2" />
+                                    Rename
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onSelect={(event) => {
+                                      event.preventDefault()
+                                      openMoveDialogForWorkflows([workflow.id], workflow.folder_id ?? null)
+                                    }}
+                                  >
+                                    <FolderInput className="w-4 h-4 mr-2" />
+                                    Move to folder
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onSelect={(event) => {
+                                      event.preventDefault()
+                                      openShareDialogForWorkflows([workflow.id])
+                                    }}
+                                  >
+                                    <Share2 className="w-4 h-4 mr-2" />
+                                    Share
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onSelect={(event) => {
+                                      event.preventDefault()
+                                      openDeleteDialogForWorkflows([workflow.id])
+                                    }}
+                                    className="text-destructive focus:bg-destructive/10"
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </td>
@@ -1488,58 +1566,90 @@ function WorkflowsContent() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end" className="w-48">
-                                <DropdownMenuItem
-                                  onSelect={(event) => {
-                                    event.preventDefault()
-                                    handleDuplicate(workflow)
-                                  }}
-                                  disabled={!!loading[`duplicate-${workflow.id}`]}
-                                >
-                                  {loading[`duplicate-${workflow.id}`] ? (
-                                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                                  ) : (
-                                    <Copy className="w-4 h-4 mr-2" />
-                                  )}
-                                  Duplicate
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onSelect={(event) => {
-                                    event.preventDefault()
-                                    openRenameDialogForWorkflow(workflow)
-                                  }}
-                                >
-                                  <Edit className="w-4 h-4 mr-2" />
-                                  Rename
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onSelect={(event) => {
-                                    event.preventDefault()
-                                    openMoveDialogForWorkflows([workflow.id], workflow.folder_id ?? null)
-                                  }}
-                                >
-                                  <FolderInput className="w-4 h-4 mr-2" />
-                                  Move to folder
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onSelect={(event) => {
-                                    event.preventDefault()
-                                    openShareDialogForWorkflows([workflow.id])
-                                  }}
-                                >
-                                  <Share2 className="w-4 h-4 mr-2" />
-                                  Share
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onSelect={(event) => {
-                                    event.preventDefault()
-                                    openDeleteDialogForWorkflows([workflow.id])
-                                  }}
-                                  className="text-destructive focus:bg-destructive/10"
-                                >
-                                  <Trash2 className="w-4 h-4 mr-2" />
-                                  Delete
-                                </DropdownMenuItem>
+                                {isViewingTrash ? (
+                                  <>
+                                    <DropdownMenuItem
+                                      onSelect={(event) => {
+                                        event.preventDefault()
+                                        handleRestoreWorkflow(workflow.id)
+                                      }}
+                                      disabled={!!loading[`restore-${workflow.id}`]}
+                                    >
+                                      {loading[`restore-${workflow.id}`] ? (
+                                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                                      ) : (
+                                        <RotateCcw className="w-4 h-4 mr-2" />
+                                      )}
+                                      Restore
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      onSelect={(event) => {
+                                        event.preventDefault()
+                                        openDeleteDialogForWorkflows([workflow.id])
+                                      }}
+                                      className="text-destructive focus:bg-destructive/10"
+                                    >
+                                      <Trash2 className="w-4 h-4 mr-2" />
+                                      Delete Forever
+                                    </DropdownMenuItem>
+                                  </>
+                                ) : (
+                                  <>
+                                    <DropdownMenuItem
+                                      onSelect={(event) => {
+                                        event.preventDefault()
+                                        handleDuplicate(workflow)
+                                      }}
+                                      disabled={!!loading[`duplicate-${workflow.id}`]}
+                                    >
+                                      {loading[`duplicate-${workflow.id}`] ? (
+                                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                                      ) : (
+                                        <Copy className="w-4 h-4 mr-2" />
+                                      )}
+                                      Duplicate
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onSelect={(event) => {
+                                        event.preventDefault()
+                                        openRenameDialogForWorkflow(workflow)
+                                      }}
+                                    >
+                                      <Edit className="w-4 h-4 mr-2" />
+                                      Rename
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onSelect={(event) => {
+                                        event.preventDefault()
+                                        openMoveDialogForWorkflows([workflow.id], workflow.folder_id ?? null)
+                                      }}
+                                    >
+                                      <FolderInput className="w-4 h-4 mr-2" />
+                                      Move to folder
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onSelect={(event) => {
+                                        event.preventDefault()
+                                        openShareDialogForWorkflows([workflow.id])
+                                      }}
+                                    >
+                                      <Share2 className="w-4 h-4 mr-2" />
+                                      Share
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      onSelect={(event) => {
+                                        event.preventDefault()
+                                        openDeleteDialogForWorkflows([workflow.id])
+                                      }}
+                                      className="text-destructive focus:bg-destructive/10"
+                                    >
+                                      <Trash2 className="w-4 h-4 mr-2" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>
@@ -2105,26 +2215,28 @@ function WorkflowsContent() {
             <div className="space-y-2">
               <Label>Select Folder</Label>
               <div className="space-y-2 max-h-64 overflow-y-auto">
-                {folders.map((folder) => (
-                  <div
-                    key={folder.id}
-                    className={cn(
-                      "p-3 border rounded-lg cursor-pointer transition-colors",
-                      selectedFolderId === folder.id
-                        ? "border-primary bg-primary/5"
-                        : "border-slate-200 hover:bg-slate-50"
-                    )}
-                    onClick={() => setSelectedFolderId(folder.id)}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Folder className="w-4 h-4" style={{ color: folder.color }} />
-                      <span className="text-sm font-medium">{folder.name}</span>
-                      {folder.is_default && (
-                        <Lock className="w-3 h-3 text-slate-500 ml-1" />
+                {folders
+                  .filter(folder => !folder.is_trash) // Don't allow moving to trash folder
+                  .map((folder) => (
+                    <div
+                      key={folder.id}
+                      className={cn(
+                        "p-3 border rounded-lg cursor-pointer transition-colors",
+                        selectedFolderId === folder.id
+                          ? "border-primary bg-primary/5"
+                          : "border-slate-200 hover:bg-slate-50"
                       )}
+                      onClick={() => setSelectedFolderId(folder.id)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Folder className="w-4 h-4" style={{ color: folder.color }} />
+                        <span className="text-sm font-medium">{folder.name}</span>
+                        {folder.is_default && (
+                          <Lock className="w-3 h-3 text-slate-500 ml-1" />
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             </div>
           </div>
