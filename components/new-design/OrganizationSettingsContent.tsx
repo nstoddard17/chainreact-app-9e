@@ -45,6 +45,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { TeamContent } from "./TeamContent"
+import { OrganizationMembersManager } from "@/components/organizations/OrganizationMembersManager"
 
 interface Organization {
   id: string
@@ -467,61 +468,10 @@ export function OrganizationSettingsContent() {
 
         {/* Members Tab */}
         <TabsContent value="members" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Organization Members</CardTitle>
-                  <CardDescription>
-                    Manage who has access to your organization
-                  </CardDescription>
-                </div>
-                {isAdmin && (
-                  <Button>
-                    <UserPlus className="w-4 h-4 mr-2" />
-                    Invite Member
-                  </Button>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {members.map((member) => (
-                  <div
-                    key={member.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                        <UserIcon className="w-5 h-5 text-muted-foreground" />
-                      </div>
-                      <div>
-                        <p className="font-medium">
-                          {member.user?.username || member.user?.email?.split('@')[0] || 'User'}
-                        </p>
-                        <p className="text-sm text-muted-foreground">{member.user?.email}</p>
-                        {member.teams && member.teams.length > 0 && (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Teams: {member.teams.join(', ')}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      {getRoleIcon(member.role)}
-                      {getRoleBadge(member.role)}
-                    </div>
-                  </div>
-                ))}
-
-                {members.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No members found
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <OrganizationMembersManager
+            organizationId={organization.id}
+            currentUserRole={organization.user_role as any}
+          />
         </TabsContent>
 
         {/* Billing Tab */}

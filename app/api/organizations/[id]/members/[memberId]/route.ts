@@ -4,10 +4,10 @@ import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@
 
 import { logger } from '@/lib/utils/logger'
 
-// Note: This route is DEPRECATED
-// Members should now be managed via /api/teams/[id]/members endpoints
-// Keeping this for backward compatibility but it will update ALL teams the user is in
-
+/**
+ * PUT /api/organizations/[id]/members/[memberId]
+ * Update a member's organization-level role
+ */
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; memberId: string }> }
@@ -24,87 +24,61 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const { role, team_id } = body
+    const { role } = body
 
-    if (!role || !['admin', 'member', 'viewer'].includes(role)) {
-      return errorResponse("Invalid role", 400)
+    // Validate role
+    const validRoles = ['owner', 'admin', 'manager', 'hr', 'finance']
+    if (!role || !validRoles.includes(role)) {
+      return errorResponse(`Invalid role. Must be one of: ${validRoles.join(', ')}`, 400)
     }
 
-    // Check if user is admin of any team in the organization
-    const { data: adminTeams } = await serviceClient
-      .from("teams")
-      .select(`
-        id,
-        team_members!inner(role)
-      `)
+    // Check if current user has permission (owner or admin)
+    const { data: currentUserMember } = await serviceClient
+      .from("organization_members")
+      .select("role")
       .eq("organization_id", organizationId)
-      .eq("team_members.user_id", user.id)
-      .eq("team_members.role", "admin")
+      .eq("user_id", user.id)
+      .maybeSingle()
 
-    if (!adminTeams || adminTeams.length === 0) {
-      return errorResponse("Insufficient permissions - only team admins can update member roles", 403)
+    if (!currentUserMember || !['owner', 'admin'].includes(currentUserMember.role)) {
+      return errorResponse("You don't have permission to change member roles", 403)
     }
 
-    // If team_id specified, update only that team membership
-    if (team_id) {
-      const { data: updatedMember, error: updateError } = await serviceClient
-        .from("team_members")
-        .update({ role })
-        .eq("team_id", team_id)
-        .eq("user_id", memberId)
-        .select(`
-          *,
-          user:users(id, email, username)
-        `)
-        .single()
-
-      if (updateError) {
-        logger.error("Error updating team member:", updateError)
-        return errorResponse("Failed to update member", 500)
-      }
-
-      return jsonResponse(updatedMember)
+    // Only owners can assign owner role
+    if (role === 'owner' && currentUserMember.role !== 'owner') {
+      return errorResponse("Only organization owners can assign the owner role", 403)
     }
 
-    // Otherwise update ALL team memberships in this organization
-    const { data: teams } = await serviceClient
-      .from("teams")
-      .select("id")
-      .eq("organization_id", organizationId)
-
-    if (!teams || teams.length === 0) {
-      return errorResponse("No teams found in organization", 404)
+    // Can't change your own role
+    if (memberId === user.id) {
+      return errorResponse("You cannot change your own role", 400)
     }
 
-    const teamIds = teams.map(t => t.id)
-
-    const { data: updatedMembers, error: updateError } = await serviceClient
-      .from("team_members")
+    // Update the member's role
+    const { data: updatedMember, error: updateError } = await serviceClient
+      .from("organization_members")
       .update({ role })
-      .in("team_id", teamIds)
+      .eq("organization_id", organizationId)
       .eq("user_id", memberId)
-      .select(`
-        *,
-        user:users(id, email, username),
-        team:teams(id, name)
-      `)
+      .select()
+      .single()
 
     if (updateError) {
-      logger.error("Error updating team members:", updateError)
-      return errorResponse("Failed to update member", 500)
+      logger.error('Error updating member role:', updateError)
+      return errorResponse("Failed to update member role", 500)
     }
 
-    return jsonResponse({
-      success: true,
-      updated_count: updatedMembers?.length || 0,
-      members: updatedMembers
-    })
+    return jsonResponse({ member: updatedMember })
   } catch (error) {
     logger.error("Unexpected error:", error)
     return errorResponse("Internal server error", 500)
   }
 }
 
+/**
+ * DELETE /api/organizations/[id]/members/[memberId]
+ * Remove a member's organization-level role
+ */
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; memberId: string }> }
@@ -120,54 +94,66 @@ export async function DELETE(
       return errorResponse("Unauthorized", 401)
     }
 
-    // Check if user is admin of any team in the organization
-    const { data: adminTeams } = await serviceClient
-      .from("teams")
-      .select(`
-        id,
-        team_members!inner(role)
-      `)
+    // Check if current user has permission (owner or admin)
+    const { data: currentUserMember } = await serviceClient
+      .from("organization_members")
+      .select("role")
       .eq("organization_id", organizationId)
-      .eq("team_members.user_id", user.id)
-      .eq("team_members.role", "admin")
+      .eq("user_id", user.id)
+      .maybeSingle()
 
-    if (!adminTeams || adminTeams.length === 0) {
-      return errorResponse("Insufficient permissions - only team admins can remove members", 403)
+    if (!currentUserMember || !['owner', 'admin'].includes(currentUserMember.role)) {
+      return errorResponse("You don't have permission to remove members", 403)
     }
 
-    // Prevent admin from deleting themselves
+    // Get target member's role
+    const { data: targetMember } = await serviceClient
+      .from("organization_members")
+      .select("role")
+      .eq("organization_id", organizationId)
+      .eq("user_id", memberId)
+      .maybeSingle()
+
+    if (!targetMember) {
+      return errorResponse("Member not found", 404)
+    }
+
+    // Can't remove yourself
     if (memberId === user.id) {
-      return errorResponse("Cannot remove yourself from the organization", 400)
+      return errorResponse("You cannot remove yourself. Transfer ownership first if you're the owner.", 400)
     }
 
-    // Get all teams in this organization
-    const { data: teams } = await serviceClient
-      .from("teams")
-      .select("id")
-      .eq("organization_id", organizationId)
-
-    if (!teams || teams.length === 0) {
-      return errorResponse("No teams found in organization", 404)
+    // Only owners can remove other owners
+    if (targetMember.role === 'owner' && currentUserMember.role !== 'owner') {
+      return errorResponse("Only owners can remove other owners", 403)
     }
 
-    const teamIds = teams.map(t => t.id)
+    // Can't remove the last owner
+    if (targetMember.role === 'owner') {
+      const { count } = await serviceClient
+        .from("organization_members")
+        .select("id", { count: 'exact', head: true })
+        .eq("organization_id", organizationId)
+        .eq("role", "owner")
 
-    // Delete member from ALL teams in this organization
+      if (count === 1) {
+        return errorResponse("Cannot remove the last owner. Transfer ownership first.", 400)
+      }
+    }
+
+    // Remove the member
     const { error: deleteError } = await serviceClient
-      .from("team_members")
+      .from("organization_members")
       .delete()
-      .in("team_id", teamIds)
+      .eq("organization_id", organizationId)
       .eq("user_id", memberId)
 
     if (deleteError) {
-      logger.error("Error deleting team members:", deleteError)
+      logger.error('Error removing member:', deleteError)
       return errorResponse("Failed to remove member", 500)
     }
 
-    return jsonResponse({
-      success: true,
-      message: "Member removed from all teams in the organization"
-    })
+    return jsonResponse({ success: true })
   } catch (error) {
     logger.error("Unexpected error:", error)
     return errorResponse("Internal server error", 500)
