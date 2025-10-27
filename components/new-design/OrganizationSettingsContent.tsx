@@ -353,15 +353,6 @@ export function OrganizationSettingsContent() {
               <Building2 className="w-4 h-4 mr-2" />
               Create Organization
             </Button>
-
-            <div className="text-center">
-              <Button
-                variant="ghost"
-                onClick={() => router.push('/settings?section=workspace')}
-              >
-                Go to Workspace Settings
-              </Button>
-            </div>
           </CardContent>
         </Card>
       </div>
