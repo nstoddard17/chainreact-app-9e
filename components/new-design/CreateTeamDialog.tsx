@@ -21,9 +21,10 @@ interface CreateTeamDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   organizationId?: string
+  onTeamCreated?: () => void
 }
 
-export function CreateTeamDialog({ open, onOpenChange, organizationId }: CreateTeamDialogProps) {
+export function CreateTeamDialog({ open, onOpenChange, organizationId, onTeamCreated }: CreateTeamDialogProps) {
   const router = useRouter()
   const [creating, setCreating] = useState(false)
   const [teamName, setTeamName] = useState("")
@@ -70,9 +71,14 @@ export function CreateTeamDialog({ open, onOpenChange, organizationId }: CreateT
       setTeamDescription("")
       onOpenChange(false)
 
-      // Navigate to teams page or team settings
-      router.push('/teams')
-      router.refresh()
+      // Refresh the teams list if callback provided
+      if (onTeamCreated) {
+        onTeamCreated()
+      } else {
+        // Navigate to teams page if no callback
+        router.push('/teams')
+        router.refresh()
+      }
     } catch (error: any) {
       console.error('Error creating team:', error)
       toast.error(error.message || 'Failed to create team')

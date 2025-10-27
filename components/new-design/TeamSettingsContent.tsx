@@ -97,8 +97,8 @@ export function TeamSettingsContent() {
       fetchTeam(teamId)
       fetchMembers(teamId)
     } else if (teams.length > 0 && !selectedTeamId) {
-      // Select first team by default
-      const firstTeam = teams.find(t => t.user_role === 'owner' || t.user_role === 'admin')
+      // Select first team by default (any management role)
+      const firstTeam = teams[0] // Already filtered to management roles in fetchTeams
       if (firstTeam) {
         setSelectedTeamId(firstTeam.id)
         fetchTeam(firstTeam.id)
@@ -110,17 +110,17 @@ export function TeamSettingsContent() {
   const fetchTeams = async () => {
     try {
       setLoading(true)
-      const orgId = localStorage.getItem('current_workspace_id')
-      if (!orgId) return
 
-      const response = await fetch(`/api/organizations/${orgId}/teams`)
+      // Fetch all teams where user is a member with management roles
+      const response = await fetch('/api/teams/my-teams')
       if (!response.ok) throw new Error('Failed to fetch teams')
 
       const data = await response.json()
-      const adminTeams = (data.teams || []).filter(
-        (t: Team) => t.user_role === 'owner' || t.user_role === 'admin'
+      // Filter to only teams where user has management roles
+      const managementTeams = (data.teams || []).filter(
+        (t: Team) => t.user_role && ['owner', 'admin', 'manager', 'hr', 'finance'].includes(t.user_role)
       )
-      setTeams(adminTeams)
+      setTeams(managementTeams)
     } catch (error) {
       console.error('Error fetching teams:', error)
       toast.error('Failed to load teams')
@@ -282,7 +282,8 @@ export function TeamSettingsContent() {
   }
 
   const isOwner = currentTeam?.user_role === 'owner'
-  const isAdmin = currentTeam?.user_role === 'admin' || isOwner
+  // Management roles that can edit: owner, admin, manager, hr, finance
+  const canManage = currentTeam?.user_role && ['owner', 'admin', 'manager', 'hr', 'finance'].includes(currentTeam.user_role)
 
   if (loading && teams.length === 0) {
     return (
@@ -293,8 +294,6 @@ export function TeamSettingsContent() {
   }
 
   if (teams.length === 0) {
-    const orgId = localStorage.getItem('current_workspace_id')
-
     return (
       <>
         <div className="h-full w-full flex items-center justify-center p-6">
@@ -360,7 +359,7 @@ export function TeamSettingsContent() {
         <CreateTeamDialog
           open={createTeamDialogOpen}
           onOpenChange={setCreateTeamDialogOpen}
-          organizationId={orgId || undefined}
+          onTeamCreated={fetchTeams}
         />
       </>
     )
@@ -420,7 +419,7 @@ export function TeamSettingsContent() {
               id="team-name"
               value={teamName}
               onChange={(e) => setTeamName(e.target.value)}
-              disabled={!isAdmin}
+              disabled={!canManage}
             />
           </div>
 
@@ -444,12 +443,12 @@ export function TeamSettingsContent() {
               value={teamDescription}
               onChange={(e) => setTeamDescription(e.target.value)}
               rows={3}
-              disabled={!isAdmin}
+              disabled={!canManage}
               placeholder="What does your team work on?"
             />
           </div>
 
-          {isAdmin && (
+          {canManage && (
             <Button onClick={handleSaveSettings} disabled={saving}>
               {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {!saving && <Save className="w-4 h-4 mr-2" />}
@@ -469,7 +468,7 @@ export function TeamSettingsContent() {
                 Manage who has access to this team
               </CardDescription>
             </div>
-            {isAdmin && (
+            {canManage && (
               <Button size="sm">
                 <UserPlus className="w-4 h-4 mr-2" />
                 Add Member

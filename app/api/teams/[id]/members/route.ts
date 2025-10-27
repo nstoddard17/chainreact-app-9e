@@ -31,13 +31,10 @@ export async function GET(
       return errorResponse("Access denied" , 403)
     }
 
-    // Get team members with user info
-    const { data: members, error } = await serviceClient
+    // Get team members
+    const { data: teamMembers, error } = await serviceClient
       .from("team_members")
-      .select(`
-        *,
-        user:profiles(email, full_name, username)
-      `)
+      .select('user_id, role, joined_at')
       .eq("team_id", teamId)
 
     if (error) {
@@ -45,7 +42,24 @@ export async function GET(
       return errorResponse("Failed to fetch team members" , 500)
     }
 
-    return jsonResponse(members)
+    // Get user profiles separately
+    const userIds = teamMembers?.map(m => m.user_id) || []
+    const { data: profiles, error: profileError } = await serviceClient
+      .from("user_profiles")
+      .select('id, email, full_name, username')
+      .in('id', userIds)
+
+    if (profileError) {
+      logger.error("Error fetching user profiles:", profileError)
+    }
+
+    // Merge members with profile data
+    const members = teamMembers?.map(member => ({
+      ...member,
+      user: profiles?.find(p => p.id === member.user_id) || { email: 'Unknown' }
+    })) || []
+
+    return jsonResponse({ members })
   } catch (error) {
     logger.error("Unexpected error:", error)
     return errorResponse("Internal server error" , 500)
@@ -121,10 +135,7 @@ export async function POST(
         user_id,
         role
       })
-      .select(`
-        *,
-        user:profiles(email, full_name, username)
-      `)
+      .select('user_id, role, joined_at')
       .single()
 
     if (addError) {
@@ -132,7 +143,19 @@ export async function POST(
       return errorResponse("Failed to add team member" , 500)
     }
 
-    return jsonResponse(newMember, { status: 201 })
+    // Get user profile separately
+    const { data: userProfile } = await serviceClient
+      .from("user_profiles")
+      .select('id, email, full_name, username')
+      .eq('id', user_id)
+      .single()
+
+    return jsonResponse({
+      member: {
+        ...newMember,
+        user: userProfile || { email: 'Unknown' }
+      }
+    }, { status: 201 })
   } catch (error) {
     logger.error("Unexpected error:", error)
     return errorResponse("Internal server error" , 500)

@@ -11,7 +11,14 @@
       "Bash(supabase db push:*)",
       "Bash(supabase db execute:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(find:*)",
+      "Bash(cat:*)",
+      "Bash(psql:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "Bash(cmd //c taskkill //PID 11272 //F)"
     ],
     "deny": [],
     "ask": [],
