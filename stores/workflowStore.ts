@@ -472,7 +472,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
     }
   },
 
-  createWorkflow: async (name: string, description?: string, organizationId?: string) => {
+  createWorkflow: async (name: string, description?: string, workspaceId?: string) => {
     if (!supabase) {
       throw new Error("Supabase not available")
     }
@@ -484,6 +484,17 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
         data: { user },
       } = await supabase.auth.getUser()
       if (!user) throw new Error("User not authenticated")
+
+      // Fetch the user's workspace
+      const { data: workspace } = await supabase
+        .from("workspaces")
+        .select("id")
+        .eq("owner_id", user.id)
+        .single()
+
+      if (!workspace?.id) {
+        throw new Error("User does not have a workspace")
+      }
 
       // Fetch the user's default folder
       let targetFolderId = null
@@ -502,7 +513,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
           name,
           description: description || null,
           user_id: user.id,
-          organization_id: organizationId || null, // Add organization_id if provided
+          workspace_id: workspace.id, // Use workspace_id from user's workspace
           folder_id: targetFolderId, // Use the default folder
           nodes: [],
           connections: [],

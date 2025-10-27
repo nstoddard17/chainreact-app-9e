@@ -28,7 +28,6 @@ export async function GET(request: NextRequest) {
           slug,
           description,
           organization_id,
-          workspace_id,
           created_at
         )
       `)

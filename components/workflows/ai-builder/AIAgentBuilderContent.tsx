@@ -500,20 +500,26 @@ export function AIAgentBuilderContent() {
       // Redirect immediately without updating UI state
       try {
         setIsLoading(true)
+        logger.info('Starting workflow creation...')
 
         // Create a new workflow
         const workflow = await createWorkflow("New Workflow", "Created from AI Agent")
 
+        logger.info('Workflow created successfully:', workflow)
+
         if (!workflow || !workflow.id) {
+          logger.error('Workflow creation returned invalid data:', workflow)
           throw new Error('Failed to create workflow')
         }
 
-        logger.info('Created workflow:', workflow.id)
+        logger.info('Created workflow with ID:', workflow.id)
 
         // Redirect immediately - no toast, no delay
         const url = `/workflows/builder/${workflow.id}?aiChat=true&initialPrompt=${encodeURIComponent(messageText)}`
-        logger.info('Redirecting to:', url)
-        router.push(url)
+        logger.info('Attempting redirect to:', url)
+
+        await router.push(url)
+        logger.info('Router.push completed')
 
         return
       } catch (error) {
