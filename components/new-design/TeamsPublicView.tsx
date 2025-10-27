@@ -12,16 +12,22 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import {
-  Building2,
   Users,
   Loader2,
   User as UserIcon,
   Shield,
   Settings,
-  Plus
+  Plus,
+  MoreHorizontal
 } from "lucide-react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { CreateTeamDialog } from "./CreateTeamDialog"
 
 interface Team {
@@ -97,6 +103,10 @@ export function TeamsPublicView() {
     }
   }
 
+  const handleViewMembers = (team: Team) => {
+    router.push(`/teams/${team.slug}/members`)
+  }
+
   const getRoleBadge = (role?: string) => {
     if (!role) return null
 
@@ -123,98 +133,161 @@ export function TeamsPublicView() {
   // Show empty state if no teams
   if (teams.length === 0) {
     return (
-      <div className="h-full w-full flex items-center justify-center">
-        <Card className="max-w-2xl w-full">
-          <CardHeader className="text-center">
-            <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
-              <Users className="w-6 h-6 text-muted-foreground" />
-            </div>
-            <CardTitle>No Teams Yet</CardTitle>
-            <CardDescription>
-              You are not a member of any teams. Create an organization and team to start collaborating.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button
-              className="w-full"
-              onClick={() => window.dispatchEvent(new CustomEvent('create-organization'))}
-            >
-              <Building2 className="w-4 h-4 mr-2" />
-              Create Organization
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <>
+        <div className="h-full w-full flex items-center justify-center">
+          <Card className="max-w-2xl w-full">
+            <CardHeader className="text-center">
+              <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
+                <Users className="w-6 h-6 text-muted-foreground" />
+              </div>
+              <CardTitle>No Teams Yet</CardTitle>
+              <CardDescription>
+                You are not a member of any teams. Create a team to start collaborating.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                className="w-full"
+                onClick={() => setCreateTeamDialogOpen(true)}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create Team
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Create Team Dialog */}
+        <CreateTeamDialog
+          open={createTeamDialogOpen}
+          onOpenChange={setCreateTeamDialogOpen}
+          onTeamCreated={fetchUserTeams}
+        />
+      </>
     )
   }
 
   // Show teams list
   return (
-    <div className="h-full w-full space-y-6 max-w-5xl mx-auto">
+    <div className="h-full w-full">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Teams</h1>
-          <p className="text-muted-foreground mt-1">
-            Browse and manage teams in your organization
-          </p>
+      <div className="px-6 py-4 border-b bg-white">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">My Teams</h1>
+            <p className="text-muted-foreground text-sm mt-1">
+              {teams.length} {teams.length === 1 ? 'team' : 'teams'}
+            </p>
+          </div>
+          <Button onClick={() => setCreateTeamDialogOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Create Team
+          </Button>
         </div>
-        <Button onClick={() => setCreateTeamDialogOpen(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Create Team
-        </Button>
       </div>
 
-      {/* Teams Grid */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {teams.map((team) => {
-          const isAdmin = team.user_role === 'owner' || team.user_role === 'admin'
+      {/* Teams List */}
+      <div className="p-6">
+        <div className="bg-white rounded-lg border">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b bg-slate-50">
+                <th className="text-left p-4 font-semibold text-sm text-slate-600">Team</th>
+                <th className="text-left p-4 font-semibold text-sm text-slate-600">Description</th>
+                <th className="text-left p-4 font-semibold text-sm text-slate-600">Members</th>
+                <th className="text-left p-4 font-semibold text-sm text-slate-600">Role</th>
+                <th className="text-right p-4 font-semibold text-sm text-slate-600">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {teams.map((team) => {
+                // Roles that can access settings: owner, admin, manager, hr, finance
+                const canAccessSettings = team.user_role && ['owner', 'admin', 'manager', 'hr', 'finance'].includes(team.user_role)
 
-          return (
-            <Card key={team.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-3">
-                    <Users className="w-5 h-5 text-primary" />
-                  </div>
-                  {team.user_role && getRoleBadge(team.user_role)}
-                </div>
-                <CardTitle className="text-xl">{team.name}</CardTitle>
-                <CardDescription className="line-clamp-2">
-                  {team.description || 'No description provided'}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <UserIcon className="w-4 h-4" />
-                    <span>{team.member_count} {team.member_count === 1 ? 'member' : 'members'}</span>
-                  </div>
-                </div>
-
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => router.push(`/teams/${team.id}`)}
+                return (
+                  <tr
+                    key={team.id}
+                    className="border-b last:border-b-0 hover:bg-slate-50 cursor-pointer transition-colors"
+                    onClick={() => router.push(`/teams/${team.slug}`)}
                   >
-                    View Team
-                  </Button>
-                  {isAdmin && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => router.push(`/team-settings?team=${team.id}`)}
-                    >
-                      <Settings className="w-4 h-4" />
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )
-        })}
+                    {/* Team Name & Icon */}
+                    <td className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+                          <Users className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <div className="font-semibold text-slate-900">{team.name}</div>
+                          <div className="text-xs text-slate-500">{team.slug}</div>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Description */}
+                    <td className="p-4">
+                      <div className="text-sm text-slate-600 line-clamp-2 max-w-md">
+                        {team.description || 'No description'}
+                      </div>
+                    </td>
+
+                    {/* Members */}
+                    <td className="p-4">
+                      <div className="flex items-center gap-2 text-sm text-slate-600">
+                        <UserIcon className="w-4 h-4" />
+                        <span>{team.member_count} {team.member_count === 1 ? 'member' : 'members'}</span>
+                      </div>
+                    </td>
+
+                    {/* Role */}
+                    <td className="p-4">
+                      {team.user_role && getRoleBadge(team.user_role)}
+                    </td>
+
+                    {/* Actions */}
+                    <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-2">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem
+                              onSelect={(e) => {
+                                e.preventDefault()
+                                handleViewMembers(team)
+                              }}
+                            >
+                              <UserIcon className="w-4 h-4 mr-2" />
+                              View Members
+                            </DropdownMenuItem>
+                            {canAccessSettings && (
+                              <DropdownMenuItem
+                                onSelect={(e) => {
+                                  e.preventDefault()
+                                  router.push(`/team-settings?team=${team.id}`)
+                                }}
+                              >
+                                <Settings className="w-4 h-4 mr-2" />
+                                Settings
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Create Team Dialog */}
@@ -222,6 +295,7 @@ export function TeamsPublicView() {
         open={createTeamDialogOpen}
         onOpenChange={setCreateTeamDialogOpen}
         organizationId={teams[0]?.organization_id}
+        onTeamCreated={fetchUserTeams}
       />
     </div>
   )

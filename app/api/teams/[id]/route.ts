@@ -19,23 +19,10 @@ export async function GET(
 
     const { id: teamId } = await params
 
-    // Get team with members
+    // Get team details
     const { data: team, error } = await supabase
       .from('teams')
-      .select(`
-        *,
-        team_members(
-          id,
-          role,
-          joined_at,
-          user_id,
-          user:user_profiles(
-            user_id,
-            username,
-            email
-          )
-        )
-      `)
+      .select('*')
       .eq('id', teamId)
       .single()
 
@@ -46,7 +33,25 @@ export async function GET(
       throw error
     }
 
-    return jsonResponse({ team })
+    // Get member count
+    const { count } = await supabase
+      .from('team_members')
+      .select('id', { count: 'exact', head: true })
+      .eq('team_id', teamId)
+
+    // Get current user's role in this team
+    const { data: membership } = await supabase
+      .from('team_members')
+      .select('role')
+      .eq('team_id', teamId)
+      .eq('user_id', user.id)
+      .single()
+
+    return jsonResponse({
+      ...team,
+      member_count: count || 0,
+      user_role: membership?.role || null
+    })
   } catch (error: any) {
     console.error('Error fetching team:', error)
     return errorResponse(error.message || "Failed to fetch team", 500)
