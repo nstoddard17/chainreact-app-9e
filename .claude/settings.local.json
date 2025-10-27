@@ -9,7 +9,9 @@
       "Bash(supabase migration:*)",
       "Bash(npx supabase:*)",
       "Bash(supabase db push:*)",
-      "Bash(supabase db execute:*)"
+      "Bash(supabase db execute:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": [],
