@@ -1,5 +1,11 @@
 import React from 'react'
-import { EdgeProps, getSmoothStepPath } from '@xyflow/react'
+import { EdgeProps, getSmoothStepPath, getStraightPath } from '@xyflow/react'
+
+const shouldUseStraightEdge = (sourceX: number, sourceY: number, targetX: number, targetY: number) => {
+  const verticalGap = Math.abs(sourceY - targetY)
+  const horizontalDelta = targetX - sourceX
+  return verticalGap <= 60 && horizontalDelta >= -40
+}
 
 /**
  * CustomEdgeWithButton - Simplified edge component
@@ -16,15 +22,22 @@ export const CustomEdgeWithButton = ({
   targetPosition,
   style = {},
 }: EdgeProps) => {
-  const [edgePath] = getSmoothStepPath({
-    sourceX,
-    sourceY,
-    sourcePosition,
-    targetX,
-    targetY,
-    targetPosition,
-    borderRadius: 16, // Match the rounded corners of nodes
-  })
+  const [edgePath] = shouldUseStraightEdge(sourceX, sourceY, targetX, targetY)
+    ? getStraightPath({
+        sourceX,
+        sourceY,
+        targetX,
+        targetY
+      })
+    : getSmoothStepPath({
+        sourceX,
+        sourceY,
+        sourcePosition,
+        targetX,
+        targetY,
+        targetPosition,
+        borderRadius: 16, // Match the rounded corners of nodes
+      })
 
   return (
     <g>

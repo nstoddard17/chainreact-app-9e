@@ -56,6 +56,8 @@ const REACT_AGENT_VIEWPORT_MARGIN = 48
 const REACT_AGENT_VERTICAL_MARGIN = 80
 const MIN_VIEWPORT_ZOOM = 0.1
 const MAX_VIEWPORT_ZOOM = 1.1
+const VIEWPORT_IDLE_DELAY_MS = 400
+const AUTO_FIT_GROWTH_THRESHOLD = 60
 
 export function NewWorkflowBuilderContent() {
   // Get URL parameters for AI chat
@@ -1419,6 +1421,9 @@ export function NewWorkflowBuilderContent() {
   }, [initialPromptParam, hasProcessedInitialPrompt, isReactAgentLoading, isReactAgentOpen, currentWorkflow, optimizedOnNodesChange, onEdgesChange, reactAgentInput, integrationsReady, integrations, getConnectedProviders])
 
   const [reactFlowInstance, setReactFlowInstance] = React.useState<any>(null)
+  const [isViewportInteracting, setIsViewportInteracting] = React.useState(false)
+  const viewportInteractionTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
+  const nodeBoundsRef = React.useRef<{ width: number; height: number } | null>(null)
 
   // Debug: Log when reactFlowInstance is set
   React.useEffect(() => {
@@ -1427,8 +1432,45 @@ export function NewWorkflowBuilderContent() {
     }
   }, [reactFlowInstance])
 
+  const scheduleViewportIdleReset = React.useCallback(() => {
+    if (viewportInteractionTimeoutRef.current) {
+      clearTimeout(viewportInteractionTimeoutRef.current)
+    }
+    viewportInteractionTimeoutRef.current = setTimeout(() => {
+      setIsViewportInteracting(false)
+      viewportInteractionTimeoutRef.current = null
+    }, VIEWPORT_IDLE_DELAY_MS)
+  }, [])
+
+  const handleViewportMoveStart = React.useCallback(() => {
+    if (viewportInteractionTimeoutRef.current) {
+      clearTimeout(viewportInteractionTimeoutRef.current)
+      viewportInteractionTimeoutRef.current = null
+    }
+    setIsViewportInteracting(true)
+  }, [])
+
+  const handleViewportMove = React.useCallback(() => {
+    if (!isViewportInteracting) {
+      setIsViewportInteracting(true)
+    }
+    scheduleViewportIdleReset()
+  }, [isViewportInteracting, scheduleViewportIdleReset])
+
+  const handleViewportMoveEnd = React.useCallback(() => {
+    scheduleViewportIdleReset()
+  }, [scheduleViewportIdleReset])
+
+  React.useEffect(() => {
+    return () => {
+      if (viewportInteractionTimeoutRef.current) {
+        clearTimeout(viewportInteractionTimeoutRef.current)
+      }
+    }
+  }, [])
+
   const fitViewWithChatPanel = React.useCallback(() => {
-    if (!reactFlowInstance) {
+    if (!reactFlowInstance || isViewportInteracting) {
       return
     }
 
@@ -1474,11 +1516,51 @@ export function NewWorkflowBuilderContent() {
       y: nextY,
       zoom,
     })
-  }, [isReactAgentOpen, reactFlowInstance])
+  }, [isReactAgentOpen, isViewportInteracting, reactFlowInstance])
 
   React.useEffect(() => {
     fitViewWithChatPanel()
   }, [fitViewWithChatPanel, isReactAgentOpen, nodes.length])
+
+  React.useEffect(() => {
+    if (!reactFlowInstance) {
+      return
+    }
+
+    if (!nodes.length) {
+      nodeBoundsRef.current = null
+      return
+    }
+
+    if (isViewportInteracting) {
+      return
+    }
+
+    const nodesInFlow = reactFlowInstance.getNodes()
+    if (!nodesInFlow.length) {
+      return
+    }
+
+    const bounds = reactFlowInstance.getNodesBounds(nodesInFlow)
+    if (!bounds) {
+      return
+    }
+
+    const previousBounds = nodeBoundsRef.current
+    nodeBoundsRef.current = bounds
+
+    if (!previousBounds) {
+      fitViewWithChatPanel()
+      return
+    }
+
+    const widthGrowth = bounds.width - previousBounds.width
+    const heightGrowth = bounds.height - previousBounds.height
+
+    if (widthGrowth > AUTO_FIT_GROWTH_THRESHOLD || heightGrowth > AUTO_FIT_GROWTH_THRESHOLD) {
+      fitViewWithChatPanel()
+    }
+  }, [nodes, reactFlowInstance, isViewportInteracting, fitViewWithChatPanel])
 
   const onDragOver = React.useCallback((event: React.DragEvent) => {
     event.preventDefault()
@@ -1590,6 +1672,9 @@ export function NewWorkflowBuilderContent() {
             edgeTypes={edgeTypes}
             onNodeDragStop={() => setHasUnsavedChanges(true)}
             onInit={setReactFlowInstance}
+            onMoveStart={handleViewportMoveStart}
+            onMove={handleViewportMove}
+            onMoveEnd={handleViewportMoveEnd}
             fitView={nodes.length > 0}
             fitViewOptions={{
               padding: 0.2,
@@ -2485,6 +2570,9 @@ export function NewWorkflowBuilderContent() {
                               details: clarificationDetails,
                               displayMap: clarificationDisplayMap
                             }
+
+                            logger.info('[CLARIFICATION] Sending payload to builder', mergedClarifications)
+                            console.log('[CLARIFICATION] Payload', mergedClarifications)
 
                             // Call stream-workflow with clarifications
                             const response = await fetch('/api/ai/stream-workflow', {
