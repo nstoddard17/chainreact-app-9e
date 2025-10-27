@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
 import {
   Card,
   CardContent,
@@ -16,7 +15,6 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import {
- Alert,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
@@ -37,9 +35,7 @@ import {
   Users,
   Loader2,
   User as UserIcon,
-  Crown,
   Shield,
-  UserPlus,
   Trash2,
   Save
 } from "lucide-react"
@@ -56,16 +52,6 @@ interface Team {
   user_role?: string
 }
 
-interface TeamMember {
-  user_id: string
-  role: string
-  joined_at: string
-  user?: {
-    username?: string
-    email: string
-  }
-}
-
 export function TeamSettingsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -73,7 +59,6 @@ export function TeamSettingsContent() {
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
   const [teams, setTeams] = useState<Team[]>([])
   const [currentTeam, setCurrentTeam] = useState<Team | null>(null)
-  const [members, setMembers] = useState<TeamMember[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -95,14 +80,12 @@ export function TeamSettingsContent() {
     if (teamId && teams.length > 0) {
       setSelectedTeamId(teamId)
       fetchTeam(teamId)
-      fetchMembers(teamId)
     } else if (teams.length > 0 && !selectedTeamId) {
-      // Select first team by default
-      const firstTeam = teams.find(t => t.user_role === 'owner' || t.user_role === 'admin')
+      // Select first team by default (any management role)
+      const firstTeam = teams[0] // Already filtered to management roles in fetchTeams
       if (firstTeam) {
         setSelectedTeamId(firstTeam.id)
         fetchTeam(firstTeam.id)
-        fetchMembers(firstTeam.id)
       }
     }
   }, [searchParams, teams])
@@ -110,17 +93,17 @@ export function TeamSettingsContent() {
   const fetchTeams = async () => {
     try {
       setLoading(true)
-      const orgId = localStorage.getItem('current_workspace_id')
-      if (!orgId) return
 
-      const response = await fetch(`/api/organizations/${orgId}/teams`)
+      // Fetch all teams where user is a member with management roles
+      const response = await fetch('/api/teams/my-teams')
       if (!response.ok) throw new Error('Failed to fetch teams')
 
       const data = await response.json()
-      const adminTeams = (data.teams || []).filter(
-        (t: Team) => t.user_role === 'owner' || t.user_role === 'admin'
+      // Filter to only teams where user has management roles
+      const managementTeams = (data.teams || []).filter(
+        (t: Team) => t.user_role && ['owner', 'admin', 'manager', 'hr', 'finance'].includes(t.user_role)
       )
-      setTeams(adminTeams)
+      setTeams(managementTeams)
     } catch (error) {
       console.error('Error fetching teams:', error)
       toast.error('Failed to load teams')
@@ -141,19 +124,6 @@ export function TeamSettingsContent() {
     } catch (error) {
       console.error('Error fetching team:', error)
       toast.error('Failed to load team details')
-    }
-  }
-
-  const fetchMembers = async (teamId: string) => {
-    try {
-      const response = await fetch(`/api/teams/${teamId}/members`)
-      if (!response.ok) throw new Error('Failed to fetch members')
-
-      const data = await response.json()
-      setMembers(data.members || [])
-    } catch (error) {
-      console.error('Error fetching members:', error)
-      toast.error('Failed to load team members')
     }
   }
 
@@ -214,75 +184,9 @@ export function TeamSettingsContent() {
     }
   }
 
-  const handleUpdateMemberRole = async (userId: string, newRole: string) => {
-    if (!currentTeam) return
-
-    try {
-      const response = await fetch(`/api/teams/${currentTeam.id}/members/${userId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: newRole }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to update member role')
-      }
-
-      toast.success('Member role updated')
-      fetchMembers(currentTeam.id)
-    } catch (error: any) {
-      console.error('Error updating member role:', error)
-      toast.error(error.message || 'Failed to update member role')
-    }
-  }
-
-  const handleRemoveMember = async (userId: string) => {
-    if (!currentTeam) return
-
-    try {
-      const response = await fetch(`/api/teams/${currentTeam.id}/members/${userId}`, {
-        method: 'DELETE',
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to remove member')
-      }
-
-      toast.success('Member removed from team')
-      fetchMembers(currentTeam.id)
-      fetchTeam(currentTeam.id)
-    } catch (error: any) {
-      console.error('Error removing member:', error)
-      toast.error(error.message || 'Failed to remove member')
-    }
-  }
-
-  const getRoleIcon = (role: string) => {
-    switch (role) {
-      case 'owner':
-        return <Crown className="w-4 h-4 text-yellow-500" />
-      case 'admin':
-        return <Shield className="w-4 h-4 text-blue-500" />
-      default:
-        return <UserIcon className="w-4 h-4 text-muted-foreground" />
-    }
-  }
-
-  const getRoleBadge = (role: string) => {
-    switch (role) {
-      case 'owner':
-        return <Badge className="bg-yellow-500">Owner</Badge>
-      case 'admin':
-        return <Badge variant="secondary">Admin</Badge>
-      default:
-        return <Badge variant="outline">Member</Badge>
-    }
-  }
-
   const isOwner = currentTeam?.user_role === 'owner'
-  const isAdmin = currentTeam?.user_role === 'admin' || isOwner
+  // Management roles that can edit: owner, admin, manager, hr, finance
+  const canManage = currentTeam?.user_role && ['owner', 'admin', 'manager', 'hr', 'finance'].includes(currentTeam.user_role)
 
   if (loading && teams.length === 0) {
     return (
@@ -293,8 +197,6 @@ export function TeamSettingsContent() {
   }
 
   if (teams.length === 0) {
-    const orgId = localStorage.getItem('current_workspace_id')
-
     return (
       <>
         <div className="h-full w-full flex items-center justify-center p-6">
@@ -360,7 +262,7 @@ export function TeamSettingsContent() {
         <CreateTeamDialog
           open={createTeamDialogOpen}
           onOpenChange={setCreateTeamDialogOpen}
-          organizationId={orgId || undefined}
+          onTeamCreated={fetchTeams}
         />
       </>
     )
@@ -420,7 +322,7 @@ export function TeamSettingsContent() {
               id="team-name"
               value={teamName}
               onChange={(e) => setTeamName(e.target.value)}
-              disabled={!isAdmin}
+              disabled={!canManage}
             />
           </div>
 
@@ -444,100 +346,18 @@ export function TeamSettingsContent() {
               value={teamDescription}
               onChange={(e) => setTeamDescription(e.target.value)}
               rows={3}
-              disabled={!isAdmin}
+              disabled={!canManage}
               placeholder="What does your team work on?"
             />
           </div>
 
-          {isAdmin && (
+          {canManage && (
             <Button onClick={handleSaveSettings} disabled={saving}>
               {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {!saving && <Save className="w-4 h-4 mr-2" />}
               Save Changes
             </Button>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Team Members */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Team Members</CardTitle>
-              <CardDescription>
-                Manage who has access to this team
-              </CardDescription>
-            </div>
-            {isAdmin && (
-              <Button size="sm">
-                <UserPlus className="w-4 h-4 mr-2" />
-                Add Member
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {members.map((member) => {
-              const isCurrentUser = member.user_id === user?.id
-              const canModify = isOwner && !isCurrentUser
-
-              return (
-                <div
-                  key={member.user_id}
-                  className="flex items-center justify-between p-4 border rounded-lg"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                      {getRoleIcon(member.role)}
-                    </div>
-                    <div>
-                      <p className="font-medium">
-                        {member.user?.username || member.user?.email?.split('@')[0] || 'User'}
-                        {isCurrentUser && <span className="text-muted-foreground ml-2">(You)</span>}
-                      </p>
-                      <p className="text-sm text-muted-foreground">{member.user?.email}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {canModify ? (
-                      <Select
-                        value={member.role}
-                        onValueChange={(value) => handleUpdateMemberRole(member.user_id, value)}
-                      >
-                        <SelectTrigger className="w-32">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="owner">Owner</SelectItem>
-                          <SelectItem value="admin">Admin</SelectItem>
-                          <SelectItem value="member">Member</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      getRoleBadge(member.role)
-                    )}
-                    {canModify && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveMember(member.user_id)}
-                      >
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-
-            {members.length === 0 && (
-              <div className="text-center py-8 text-muted-foreground">
-                No members found
-              </div>
-            )}
-          </div>
         </CardContent>
       </Card>
 

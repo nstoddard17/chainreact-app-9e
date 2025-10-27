@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { jsonResponse, errorResponse } from "@/lib/utils/api-response"
+import { logger } from "@/lib/utils/logger"
 
 export const dynamic = 'force-dynamic'
 
@@ -63,29 +64,42 @@ export async function POST(request: NextRequest) {
       return errorResponse("Team name is required", 400)
     }
 
-    if (!organization_id) {
-      return errorResponse("Organization ID is required", 400)
+    // Generate slug from name
+    const baseSlug = name.trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+
+    // Add random suffix to ensure uniqueness
+    const randomSuffix = Math.random().toString(36).substring(2, 8)
+    const slug = `${baseSlug}-${randomSuffix}`
+
+    // If organization_id is provided, verify user belongs to the organization
+    if (organization_id) {
+      const { data: membership, error: membershipError } = await supabase
+        .from('organization_members')
+        .select('role')
+        .eq('organization_id', organization_id)
+        .eq('user_id', user.id)
+        .single()
+
+      if (membershipError || !membership) {
+        return errorResponse("You don't have access to this organization", 403)
+      }
     }
 
-    // Verify user belongs to the organization
-    const { data: membership, error: membershipError } = await supabase
-      .from('organization_members')
-      .select('role')
-      .eq('organization_id', organization_id)
-      .eq('user_id', user.id)
-      .single()
+    // Create the team (can be standalone if no organization_id)
+    // Using service role client to bypass RLS - security is enforced at API layer
+    const { createSupabaseServiceClient } = await import("@/utils/supabase/server")
+    const serviceSupabase = await createSupabaseServiceClient()
 
-    if (membershipError || !membership) {
-      return errorResponse("You don't have access to this organization", 403)
-    }
-
-    // Create the team
-    const { data: team, error: createError } = await supabase
+    const { data: team, error: createError } = await serviceSupabase
       .from('teams')
       .insert({
         name: name.trim(),
+        slug: slug,
         description: description?.trim() || null,
-        organization_id,
+        organization_id: organization_id || null,
         created_by: user.id,
       })
       .select()
@@ -93,25 +107,30 @@ export async function POST(request: NextRequest) {
 
     if (createError) throw createError
 
-    // The trigger will automatically add the creator as owner
-    // Fetch the complete team with member info
-    const { data: completeTeam, error: fetchError } = await supabase
-      .from('teams')
-      .select(`
-        *,
-        team_members(
-          id,
-          role,
-          joined_at,
-          user_id
-        )
-      `)
-      .eq('id', team.id)
-      .single()
+    // Add the creator as owner in team_members
+    const { error: memberError } = await serviceSupabase
+      .from('team_members')
+      .insert({
+        team_id: team.id,
+        user_id: user.id,
+        role: 'owner'
+      })
 
-    if (fetchError) throw fetchError
+    if (memberError) {
+      logger.error("Error adding team creator to team_members:", memberError)
+      // Clean up the team if we can't add the member
+      await serviceSupabase.from('teams').delete().eq('id', team.id)
+      throw new Error("Failed to add team creator as member")
+    }
 
-    return jsonResponse({ team: completeTeam }, 201)
+    // Return the created team with member_count
+    return NextResponse.json({
+      team: {
+        ...team,
+        member_count: 1,
+        user_role: 'owner'
+      }
+    }, { status: 201 })
   } catch (error: any) {
     console.error('Error creating team:', error)
     return errorResponse(error.message || "Failed to create team", 500)

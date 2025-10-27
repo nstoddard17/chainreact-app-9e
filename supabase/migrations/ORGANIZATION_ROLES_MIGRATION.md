@@ -1,13 +1,24 @@
 # Organization & Team Role System Migration
 
 **Date**: January 26, 2025
-**Migrations**: `20250126180000_create_organization_members_table.sql`, `20250126180001_update_team_roles.sql`
+**Status**: ⚠️ **PLANNED BUT NOT IMPLEMENTED**
+**Migrations**: `20250126180000_create_organization_members_table.sql` (NOT CREATED), `20250126180001_update_team_roles.sql` (✅ APPLIED)
 
-## Overview
+## ⚠️ IMPORTANT: Current Status
 
-This migration implements a two-tier role system:
-1. **Organization-level roles** - Managed in the new `organization_members` table
-2. **Team-level roles** - Enhanced roles in existing `team_members` table
+**Organization-level roles (`organization_members` table) were NEVER implemented.**
+
+Only the team role updates were applied. Organizations currently only have a single `owner_id` field, not a members table.
+
+See `/learning/docs/database-schema-current.md` for the actual current schema.
+
+---
+
+## Original Plan (Not Implemented)
+
+This migration was planned to implement a two-tier role system:
+1. **Organization-level roles** - Managed in the new `organization_members` table ❌ NOT CREATED
+2. **Team-level roles** - Enhanced roles in existing `team_members` table ✅ IMPLEMENTED
 
 ## Role Structure
 

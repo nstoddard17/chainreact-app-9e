@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Check, ChevronsUpDown, Plus, Building2, Loader2, Settings, User, Crown, Star, Shield } from "lucide-react"
+import { Check, ChevronsUpDown, Building2, Loader2, Settings, User, Crown, Star, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -12,17 +12,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import { useAuthStore } from "@/stores/authStore"
 import { type UserRole } from "@/lib/utils/roles"
@@ -60,8 +49,6 @@ export function OrganizationSwitcher() {
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [currentOrg, setCurrentOrg] = useState<Organization | null>(null)
   const [loading, setLoading] = useState(true)
-  const [createDialogOpen, setCreateDialogOpen] = useState(false)
-  const [creating, setCreating] = useState(false)
 
   // Get user role for badge icon
   const isAdmin = profile?.admin === true
@@ -84,10 +71,6 @@ export function OrganizationSwitcher() {
 
   const RoleIcon = getRoleIcon()
 
-  // Form state
-  const [orgName, setOrgName] = useState("")
-  const [orgDescription, setOrgDescription] = useState("")
-
   // Fetch organizations
   const fetchOrganizations = async () => {
     try {
@@ -98,24 +81,23 @@ export function OrganizationSwitcher() {
       const data = await response.json()
       const allOrgs = Array.isArray(data.organizations) ? data.organizations : (Array.isArray(data) ? data : [])
 
-      // CRITICAL: Filter out personal workspaces - only show actual organizations
-      const realOrganizations = allOrgs.filter((org: Organization) => !org.is_workspace)
-      setOrganizations(realOrganizations)
+      // Include both workspaces and organizations - show all contexts user can switch between
+      setOrganizations(allOrgs)
 
-      // Set current org from localStorage or default to first REAL organization
+      // Set current org/workspace from localStorage or default to first available
       const storedOrgId = localStorage.getItem('current_workspace_id')
-      if (storedOrgId && realOrganizations.length > 0) {
-        const org = realOrganizations.find((o: Organization) => o.id === storedOrgId)
+      if (storedOrgId && allOrgs.length > 0) {
+        const org = allOrgs.find((o: Organization) => o.id === storedOrgId)
         if (org) {
           setCurrentOrg(org)
         } else {
-          // Stored ID is not a real organization, default to first
-          setCurrentOrg(realOrganizations[0] || null)
+          // Stored ID doesn't exist, default to first
+          setCurrentOrg(allOrgs[0] || null)
         }
-      } else if (realOrganizations.length > 0) {
-        setCurrentOrg(realOrganizations[0])
+      } else if (allOrgs.length > 0) {
+        setCurrentOrg(allOrgs[0])
       } else {
-        // No organizations exist
+        // No organizations/workspaces exist
         setCurrentOrg(null)
         // Clear invalid workspace ID from localStorage
         localStorage.removeItem('current_workspace_id')
@@ -134,18 +116,6 @@ export function OrganizationSwitcher() {
     }
   }, [user])
 
-  // Listen for create organization event
-  useEffect(() => {
-    const handleCreateOrg = () => {
-      setCreateDialogOpen(true)
-    }
-
-    window.addEventListener('create-organization', handleCreateOrg)
-    return () => {
-      window.removeEventListener('create-organization', handleCreateOrg)
-    }
-  }, [])
-
   // Save current org to localStorage when it changes
   useEffect(() => {
     if (currentOrg) {
@@ -154,51 +124,6 @@ export function OrganizationSwitcher() {
       window.dispatchEvent(new CustomEvent('organization-changed', { detail: currentOrg }))
     }
   }, [currentOrg])
-
-  const handleCreateOrganization = async () => {
-    if (!orgName.trim()) {
-      toast.error('Organization name is required')
-      return
-    }
-
-    try {
-      setCreating(true)
-      const response = await fetch('/api/organizations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: orgName.trim(),
-          description: orgDescription.trim() || null,
-        }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to create organization')
-      }
-
-      const { organization } = await response.json()
-      toast.success('Organization created successfully')
-
-      // Add to list and set as current
-      setOrganizations(prev => [organization, ...prev])
-      setCurrentOrg(organization)
-
-      // Reset form and close dialog
-      setOrgName("")
-      setOrgDescription("")
-      setCreateDialogOpen(false)
-
-      // Redirect to organization page
-      router.push('/organization')
-      router.refresh()
-    } catch (error: any) {
-      console.error('Error creating organization:', error)
-      toast.error(error.message || 'Failed to create organization')
-    } finally {
-      setCreating(false)
-    }
-  }
 
   const handleSwitchOrganization = (org: Organization) => {
     setCurrentOrg(org)
@@ -216,14 +141,9 @@ export function OrganizationSwitcher() {
 
   if (!currentOrg) {
     return (
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => setCreateDialogOpen(true)}
-        className="gap-2"
-      >
-        <Plus className="w-4 h-4" />
-        <span className="hidden sm:inline">Create Organization</span>
+      <Button variant="ghost" size="sm" disabled className="gap-2">
+        <User className="w-4 h-4" />
+        <span className="hidden sm:inline">No Workspace</span>
       </Button>
     )
   }
@@ -313,66 +233,8 @@ export function OrganizationSwitcher() {
               <span>Organization Settings</span>
             </DropdownMenuItem>
           )}
-
-          <DropdownMenuItem
-            onClick={() => setCreateDialogOpen(true)}
-            className="cursor-pointer"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            <span>Create Organization</span>
-          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-
-      {/* Create Organization Dialog */}
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Create Organization</DialogTitle>
-            <DialogDescription>
-              Create a new organization to manage teams and workflows together.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="org-name">Organization Name *</Label>
-              <Input
-                id="org-name"
-                placeholder="Acme Inc."
-                value={orgName}
-                onChange={(e) => setOrgName(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleCreateOrganization()}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="org-description">Description</Label>
-              <Textarea
-                id="org-description"
-                placeholder="What does your organization do?"
-                value={orgDescription}
-                onChange={(e) => setOrgDescription(e.target.value)}
-                rows={3}
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setCreateDialogOpen(false)}
-              disabled={creating}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleCreateOrganization} disabled={creating}>
-              {creating && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Create Organization
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   )
 }
