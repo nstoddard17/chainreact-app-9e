@@ -98,23 +98,27 @@ export function TeamMembersContent({ team, userRole }: TeamMembersContentProps) 
       return
     }
 
-    try {
-      setInviting(true)
+    setInviting(true)
 
+    try {
       // First, find user by email
       const userResponse = await fetch(`/api/users/search?email=${encodeURIComponent(inviteEmail)}`)
+
       if (!userResponse.ok) {
-        toast.error('User not found with that email')
+        setInviting(false)
+        toast.error('User not found with that email. They need to create a ChainReact account first.')
         return
       }
 
       const { user } = await userResponse.json()
+
       if (!user) {
-        toast.error('User not found with that email')
+        setInviting(false)
+        toast.error('User not found with that email. They need to create a ChainReact account first.')
         return
       }
 
-      // Add user to team
+      // Send invitation - backend will check permissions
       const response = await fetch(`/api/teams/${team.id}/members`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -125,20 +129,30 @@ export function TeamMembersContent({ team, userRole }: TeamMembersContentProps) 
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to invite member')
+        setInviting(false)
+        const errorData = await response.json()
+        const errorMessage = errorData.error || errorData.message || 'Failed to send invitation'
+
+        // Show user-friendly error notification
+        toast.error(errorMessage)
+
+        // Log for debugging
+        logger.debug('Invitation failed:', { status: response.status, error: errorMessage })
+        return
       }
 
-      toast.success('Member invited successfully')
+      // Success!
+      setInviting(false)
+      toast.success('Invitation sent! The user will receive a notification.')
       setInviteDialogOpen(false)
       setInviteEmail("")
       setInviteRole("member")
-      fetchMembers()
+
     } catch (error) {
-      logger.error('Error inviting member:', error)
-      toast.error(error instanceof Error ? error.message : 'Failed to invite member')
-    } finally {
+      // Only catch unexpected errors (network issues, etc)
       setInviting(false)
+      logger.error('Unexpected error inviting member:', error)
+      toast.error('An unexpected error occurred. Please try again.')
     }
   }
 
