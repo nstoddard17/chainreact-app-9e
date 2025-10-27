@@ -733,25 +733,62 @@ function WorkflowsContent() {
       const targetFolder = folders.find(f => f.id === selectedFolderId)
       const folderName = targetFolder?.name || 'the selected folder'
 
-      for (const workflowId of workflowIds) {
-        await updateWorkflow(workflowId, { folder_id: selectedFolderId })
+      // Use batch API for multiple workflows, single update for one workflow
+      if (workflowIds.length > 1) {
+        const response = await fetch('/api/workflows/batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            operation: 'move',
+            workflowIds,
+            data: { folder_id: selectedFolderId }
+          })
+        })
+
+        const result = await response.json()
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to move workflows')
+        }
+
+        if (result.failed > 0) {
+          logger.warn(`${result.failed} workflows failed to move`, result.errors)
+        }
+      } else {
+        // Single workflow - use existing method
+        await updateWorkflow(workflowIds[0], { folder_id: selectedFolderId })
       }
 
+      // Close dialog and clear selection first
+      setMoveFolderDialog({ open: false, workflowIds: [] })
+      setSelectedFolderId(null)
+      setSelectedIds([])
+
+      // Invalidate cache and refresh both folders and workflows to ensure UI updates
+      invalidateCache()
+      await Promise.all([
+        fetchFolders(),
+        fetchWorkflows()
+      ])
+
+      // Show success message after UI updates
       toast({
         title: workflowIds.length > 1 ? "Workflows moved" : "Workflow moved",
         description: workflowIds.length > 1
-          ? `Selected workflows were moved to "${folderName}".`
+          ? `${workflowIds.length} workflows moved to "${folderName}".`
           : `Workflow moved to "${folderName}".`,
       })
-      setMoveFolderDialog({ open: false, workflowIds: [] })
-      setSelectedFolderId(null)
-      fetchWorkflows()
     } catch (error: any) {
       toast({
         title: "Error",
         description: error?.message || "Failed to move workflow",
         variant: "destructive"
       })
+      // Still refresh UI even on error to show any partial changes
+      invalidateCache()
+      await Promise.all([
+        fetchFolders(),
+        fetchWorkflows()
+      ])
     } finally {
       updateLoadingState(loadingKey, false)
     }
@@ -794,57 +831,93 @@ function WorkflowsContent() {
     setSelectedIds(prev => prev.filter(id => !workflowIds.includes(id)))
     updateLoadingState(loadingKey, true)
 
-    let failures = 0
-    const errorMessages: string[] = []
+    try {
+      // Use batch API for multiple workflows, single delete for one workflow
+      if (workflowIds.length > 1) {
+        const operation = isViewingTrash ? 'delete' : 'trash'
 
-    for (const workflowId of workflowIds) {
-      try {
+        const response = await fetch('/api/workflows/batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            operation,
+            workflowIds
+          })
+        })
+
+        const result = await response.json()
+
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to process workflows')
+        }
+
+        // Show appropriate toast messages
+        if (result.failed === 0) {
+          if (isViewingTrash) {
+            toast({
+              title: 'Permanently Deleted',
+              description: `${result.processed} workflow${result.processed !== 1 ? 's' : ''} permanently deleted.`,
+            })
+          } else {
+            toast({
+              title: 'Moved to Trash',
+              description: `${result.processed} workflow${result.processed !== 1 ? 's' : ''} moved to trash. ${result.processed !== 1 ? 'They' : 'It'} will be permanently deleted after 7 days.`,
+            })
+          }
+        } else if (result.processed === 0) {
+          toast({
+            title: isViewingTrash ? 'Failed to delete' : 'Failed to move to trash',
+            description: result.errors?.[0]?.message || `Unable to ${isViewingTrash ? 'delete' : 'move to trash'} the selected workflows.`,
+            variant: 'destructive'
+          })
+        } else {
+          toast({
+            title: 'Partially completed',
+            description: `${result.processed} workflow${result.processed !== 1 ? 's' : ''} ${isViewingTrash ? 'deleted' : 'moved to trash'}. ${result.failed} could not be ${isViewingTrash ? 'deleted' : 'moved'}.`,
+            variant: 'destructive'
+          })
+        }
+      } else {
+        // Single workflow - use existing method
+        const workflowId = workflowIds[0]
         if (isViewingTrash) {
-          // If viewing trash, permanently delete
           logger.info('Permanently deleting workflow:', workflowId)
           await deleteWorkflow(workflowId)
-          logger.info('Successfully permanently deleted workflow:', workflowId)
+          toast({
+            title: 'Permanently Deleted',
+            description: 'Workflow permanently deleted.',
+          })
         } else {
-          // Otherwise, move to trash
           logger.info('Moving workflow to trash:', workflowId)
           await moveWorkflowToTrash(workflowId)
-          logger.info('Successfully moved workflow to trash:', workflowId)
+          toast({
+            title: 'Moved to Trash',
+            description: 'Workflow moved to trash. It will be permanently deleted after 7 days.',
+          })
         }
-      } catch (error: any) {
-        failures += 1
-        const errorMsg = error?.message || error?.toString() || 'Unknown error'
-        errorMessages.push(`${workflowId}: ${errorMsg}`)
-        logger.error(`Failed to ${isViewingTrash ? 'permanently delete' : 'move to trash'} workflow:`, errorMsg, { workflowId, error })
       }
-    }
 
-    updateLoadingState(loadingKey, false)
-
-    // Show appropriate toast messages
-    if (failures === 0) {
-      if (isViewingTrash) {
-        toast({
-          title: 'Permanently Deleted',
-          description: `${workflowIds.length} workflow${workflowIds.length !== 1 ? 's' : ''} permanently deleted.`,
-        })
-      } else {
-        toast({
-          title: 'Moved to Trash',
-          description: `${workflowIds.length} workflow${workflowIds.length !== 1 ? 's' : ''} moved to trash. ${workflowIds.length !== 1 ? 'They' : 'It'} will be permanently deleted after 7 days.`,
-        })
-      }
-    } else if (failures === workflowIds.length) {
+      // Invalidate cache and refresh both folders and workflows to ensure UI updates
+      invalidateCache()
+      await Promise.all([
+        fetchFolders(),
+        fetchWorkflows()
+      ])
+    } catch (error: any) {
+      logger.error('Delete operation failed:', error)
       toast({
-        title: isViewingTrash ? 'Failed to delete' : 'Failed to move to trash',
-        description: errorMessages[0] || `Unable to ${isViewingTrash ? 'delete' : 'move to trash'} the selected workflows. Please try again.`,
+        title: 'Error',
+        description: error?.message || 'Failed to process workflows',
         variant: 'destructive'
       })
-    } else {
-      toast({
-        title: 'Partially completed',
-        description: `${workflowIds.length - failures} workflow${workflowIds.length - failures !== 1 ? 's' : ''} ${isViewingTrash ? 'deleted' : 'moved to trash'}. ${failures} could not be ${isViewingTrash ? 'deleted' : 'moved'}.`,
-        variant: 'destructive'
-      })
+      // Still refresh UI even on error to show any partial changes
+      invalidateCache()
+      await Promise.all([
+        fetchFolders(),
+        fetchWorkflows()
+      ])
+    } finally {
+      updateLoadingState(loadingKey, false)
     }
   }
 
@@ -903,6 +976,90 @@ function WorkflowsContent() {
         description: error?.message || 'Unable to restore workflow. Please try again.',
         variant: 'destructive'
       })
+    } finally {
+      updateLoadingState(loadingKey, false)
+    }
+  }
+
+  const handleBulkRestore = async (workflowIds: string[]) => {
+    if (workflowIds.length === 0) return
+
+    const loadingKey = workflowIds.length > 1 ? 'restore-multi' : `restore-${workflowIds[0]}`
+    updateLoadingState(loadingKey, true)
+    setSelectedIds([])
+
+    try {
+      // Use batch API for multiple workflows, single restore for one workflow
+      if (workflowIds.length > 1) {
+        const response = await fetch('/api/workflows/batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            operation: 'restore',
+            workflowIds
+          })
+        })
+
+        const result = await response.json()
+
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to restore workflows')
+        }
+
+        // Show appropriate toast messages
+        if (result.failed === 0) {
+          toast({
+            title: 'Workflows Restored',
+            description: `${result.processed} workflow${result.processed !== 1 ? 's' : ''} restored successfully.`,
+          })
+        } else if (result.processed === 0) {
+          toast({
+            title: 'Failed to restore',
+            description: result.errors?.[0]?.message || 'Unable to restore the selected workflows.',
+            variant: 'destructive'
+          })
+        } else {
+          toast({
+            title: 'Partially completed',
+            description: `${result.processed} workflow${result.processed !== 1 ? 's' : ''} restored. ${result.failed} could not be restored.`,
+            variant: 'destructive'
+          })
+        }
+      } else {
+        // Single workflow - use existing method
+        await restoreWorkflowFromTrash(workflowIds[0])
+        const workflow = workflows.find(w => w.id === workflowIds[0])
+        const originalFolder = workflow?.original_folder_id
+          ? folders.find(f => f.id === workflow.original_folder_id)
+          : null
+
+        toast({
+          title: 'Workflow Restored',
+          description: originalFolder
+            ? `"${workflow?.name}" has been restored to "${originalFolder.name}".`
+            : `Workflow restored successfully.`,
+        })
+      }
+
+      // Invalidate cache and refresh both folders and workflows to ensure UI updates
+      invalidateCache()
+      await Promise.all([
+        fetchFolders(),
+        fetchWorkflows()
+      ])
+    } catch (error: any) {
+      logger.error('Restore operation failed:', error)
+      toast({
+        title: 'Error',
+        description: error?.message || 'Failed to restore workflows',
+        variant: 'destructive'
+      })
+      // Still refresh UI even on error to show any partial changes
+      invalidateCache()
+      await Promise.all([
+        fetchFolders(),
+        fetchWorkflows()
+      ])
     } finally {
       updateLoadingState(loadingKey, false)
     }
@@ -1312,47 +1469,79 @@ function WorkflowsContent() {
                 {selectedIds.length} selected
               </div>
               <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-indigo-700 hover:bg-indigo-100 h-8"
-                  onClick={() => handleBulkDuplicate([...selectedIds])}
-                  disabled={bulkDuplicateLoading}
-                >
-                  {bulkDuplicateLoading ? (
-                    <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />
-                  ) : (
-                    <Copy className="w-4 h-4 mr-1.5" />
-                  )}
-                  Duplicate
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-indigo-700 hover:bg-indigo-100 h-8"
-                  onClick={() => handleBulkMove([...selectedIds])}
-                >
-                  <FolderInput className="w-4 h-4 mr-1.5" />
-                  Move
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-indigo-700 hover:bg-indigo-100 h-8"
-                  onClick={() => handleBulkShare([...selectedIds])}
-                >
-                  <Share2 className="w-4 h-4 mr-1.5" />
-                  Share
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-red-600 hover:bg-red-50 h-8"
-                  onClick={() => handleBulkDelete([...selectedIds])}
-                >
-                  <Trash2 className="w-4 h-4 mr-1.5" />
-                  Delete
-                </Button>
+                {isViewingTrash ? (
+                  <>
+                    {/* Trash view: Show Restore and Permanent Delete */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-green-600 hover:bg-green-50 h-8"
+                      onClick={() => handleBulkRestore([...selectedIds])}
+                      disabled={!!loading['restore-multi']}
+                    >
+                      {loading['restore-multi'] ? (
+                        <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />
+                      ) : (
+                        <RotateCcw className="w-4 h-4 mr-1.5" />
+                      )}
+                      Restore
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-red-600 hover:bg-red-50 h-8"
+                      onClick={() => handleBulkDelete([...selectedIds])}
+                    >
+                      <Trash2 className="w-4 h-4 mr-1.5" />
+                      Delete Forever
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    {/* Normal view: Show Duplicate, Move, Share, Delete */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-indigo-700 hover:bg-indigo-100 h-8"
+                      onClick={() => handleBulkDuplicate([...selectedIds])}
+                      disabled={bulkDuplicateLoading}
+                    >
+                      {bulkDuplicateLoading ? (
+                        <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />
+                      ) : (
+                        <Copy className="w-4 h-4 mr-1.5" />
+                      )}
+                      Duplicate
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-indigo-700 hover:bg-indigo-100 h-8"
+                      onClick={() => handleBulkMove([...selectedIds])}
+                    >
+                      <FolderInput className="w-4 h-4 mr-1.5" />
+                      Move
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-indigo-700 hover:bg-indigo-100 h-8"
+                      onClick={() => handleBulkShare([...selectedIds])}
+                    >
+                      <Share2 className="w-4 h-4 mr-1.5" />
+                      Share
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-red-600 hover:bg-red-50 h-8"
+                      onClick={() => handleBulkDelete([...selectedIds])}
+                    >
+                      <Trash2 className="w-4 h-4 mr-1.5" />
+                      Delete
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           )}
