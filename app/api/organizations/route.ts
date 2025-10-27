@@ -28,8 +28,7 @@ export async function GET(request: NextRequest) {
       .select(`
         team:teams(
           id,
-          organization_id,
-          workspace_id
+          organization_id
         )
       `)
       .eq("user_id", user.id)

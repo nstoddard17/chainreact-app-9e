@@ -47,7 +47,10 @@ export function OrganizationPublicView() {
     if (user) {
       const orgId = localStorage.getItem('current_workspace_id')
       if (orgId) {
-        fetchOrganization(orgId)
+        // Check if this is actually an organization, not a workspace
+        checkIfOrganization(orgId)
+      } else {
+        setLoading(false)
       }
     }
   }, [user])
@@ -64,6 +67,34 @@ export function OrganizationPublicView() {
       window.removeEventListener('organization-changed', handleOrgChange as EventListener)
     }
   }, [])
+
+  const checkIfOrganization = async (orgId: string) => {
+    try {
+      setLoading(true)
+      // Fetch all organizations to see if this ID is a real organization
+      const response = await fetch('/api/organizations')
+      if (!response.ok) throw new Error('Failed to fetch organizations')
+
+      const { organizations } = await response.json()
+
+      // Find if this ID corresponds to a real organization (not a workspace)
+      const realOrg = organizations.find((org: Organization) =>
+        org.id === orgId && org.team_count > 0
+      )
+
+      if (realOrg) {
+        setOrganization(realOrg)
+      } else {
+        // It's a workspace or doesn't exist, show empty state
+        setOrganization(null)
+      }
+    } catch (error) {
+      console.error('Error checking organization:', error)
+      setOrganization(null)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const fetchOrganization = async (orgId: string) => {
     try {
@@ -106,16 +137,8 @@ export function OrganizationPublicView() {
     )
   }
 
+  // Show empty state when no organization is selected or available
   if (!organization) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-muted-foreground">No organization selected</p>
-      </div>
-    )
-  }
-
-  // Show special UI for personal workspaces
-  if (isPersonalWorkspace) {
     return (
       <div className="h-full w-full flex items-center justify-center">
         <Card className="max-w-2xl w-full">
@@ -123,45 +146,20 @@ export function OrganizationPublicView() {
             <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
               <Building2 className="w-6 h-6 text-muted-foreground" />
             </div>
-            <CardTitle>Personal Workspace</CardTitle>
+            <CardTitle>Organization Workspace</CardTitle>
             <CardDescription>
-              You're currently in your personal workspace. Create an organization to collaborate with teams.
+              You have no organizations. Create an organization to collaborate with teams.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="p-4 border rounded-lg space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Workspace Name</span>
-                <span className="text-sm text-muted-foreground">{organization.name}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Type</span>
-                <Badge variant="outline">Personal</Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Created</span>
-                <span className="text-sm text-muted-foreground">
-                  {new Date(organization.created_at).toLocaleDateString()}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
+            <div className="flex gap-3 justify-center">
               <Button
-                className="flex-1"
                 onClick={() => {
                   window.dispatchEvent(new CustomEvent('create-organization'))
                 }}
               >
                 <Building2 className="w-4 h-4 mr-2" />
                 Create Organization
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => router.push('/settings?section=workspace')}
-              >
-                <Settings className="w-4 h-4 mr-2" />
-                Workspace Settings
               </Button>
             </div>
           </CardContent>
