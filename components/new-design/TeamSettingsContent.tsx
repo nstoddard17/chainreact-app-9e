@@ -44,6 +44,7 @@ import {
   Save
 } from "lucide-react"
 import { toast } from "sonner"
+import { CreateTeamDialog } from "./CreateTeamDialog"
 
 interface Team {
   id: string
@@ -76,6 +77,7 @@ export function TeamSettingsContent() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [createTeamDialogOpen, setCreateTeamDialogOpen] = useState(false)
 
   // Form state
   const [teamName, setTeamName] = useState("")
@@ -291,65 +293,76 @@ export function TeamSettingsContent() {
   }
 
   if (teams.length === 0) {
+    const orgId = localStorage.getItem('current_workspace_id')
+
     return (
-      <div className="h-full w-full flex items-center justify-center p-6">
-        <Card className="max-w-2xl w-full border-2">
-          <CardHeader className="text-center">
-            <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
-              <Users className="w-6 h-6 text-muted-foreground" />
-            </div>
-            <CardTitle className="text-2xl">No Teams</CardTitle>
-            <CardDescription className="text-base mt-2">
-              You're currently not part of any team. Join a team or create an organization to collaborate with teams.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Feature Benefits */}
-            <div className="space-y-4">
-              <div className="flex items-start gap-3 p-4 bg-muted/50 rounded-lg">
-                <Users className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
-                <div>
-                  <h3 className="font-semibold text-sm mb-1">Collaborate with Teams</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Work together with team members and share workflows
-                  </p>
+      <>
+        <div className="h-full w-full flex items-center justify-center p-6">
+          <Card className="max-w-2xl w-full border-2">
+            <CardHeader className="text-center">
+              <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
+                <Users className="w-6 h-6 text-muted-foreground" />
+              </div>
+              <CardTitle className="text-2xl">No Teams</CardTitle>
+              <CardDescription className="text-base mt-2">
+                You're currently not part of any team. Join a team or create an organization to collaborate with teams.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Feature Benefits */}
+              <div className="space-y-4">
+                <div className="flex items-start gap-3 p-4 bg-muted/50 rounded-lg">
+                  <Users className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h3 className="font-semibold text-sm mb-1">Collaborate with Teams</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Work together with team members and share workflows
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-4 bg-muted/50 rounded-lg">
+                  <Shield className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h3 className="font-semibold text-sm mb-1">Manage Permissions</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Control access levels and manage team member permissions
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-4 bg-muted/50 rounded-lg">
+                  <UserIcon className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h3 className="font-semibold text-sm mb-1">Organized Workflows</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Keep workflows organized by team and department
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 p-4 bg-muted/50 rounded-lg">
-                <Shield className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
-                <div>
-                  <h3 className="font-semibold text-sm mb-1">Manage Permissions</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Control access levels and manage team member permissions
-                  </p>
-                </div>
+              {/* Action Button */}
+              <div className="flex justify-center pt-2">
+                <Button
+                  size="lg"
+                  onClick={() => setCreateTeamDialogOpen(true)}
+                >
+                  <Users className="w-4 h-4 mr-2" />
+                  Create Team
+                </Button>
               </div>
+            </CardContent>
+          </Card>
+        </div>
 
-              <div className="flex items-start gap-3 p-4 bg-muted/50 rounded-lg">
-                <UserIcon className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
-                <div>
-                  <h3 className="font-semibold text-sm mb-1">Organized Workflows</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Keep workflows organized by team and department
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Action Button */}
-            <div className="flex justify-center pt-2">
-              <Button
-                size="lg"
-                onClick={() => router.push('/teams')}
-              >
-                <Users className="w-4 h-4 mr-2" />
-                Go to Teams
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+        {/* Create Team Dialog */}
+        <CreateTeamDialog
+          open={createTeamDialogOpen}
+          onOpenChange={setCreateTeamDialogOpen}
+          organizationId={orgId || undefined}
+        />
+      </>
     )
   }
 

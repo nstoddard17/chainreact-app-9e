@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import Image from "next/image"
 import { useAuthStore } from "@/stores/authStore"
@@ -68,16 +68,58 @@ interface NavItem {
 export function NewSidebar() {
   const router = useRouter()
   const pathname = usePathname()
-  const { profile, signOut } = useAuthStore()
+  const { profile, signOut, user } = useAuthStore()
   const [creditsModalOpen, setCreditsModalOpen] = useState(false)
   const [upgradePlanModalOpen, setUpgradePlanModalOpen] = useState(false)
   const [freeCreditsModalOpen, setFreeCreditsModalOpen] = useState(false)
   const [socialPostUrl, setSocialPostUrl] = useState("")
   const [referralLink, setReferralLink] = useState("")
+  const [hasAdminTeam, setHasAdminTeam] = useState(false)
+  const [hasAdminOrg, setHasAdminOrg] = useState(false)
   const { toast } = useToast()
 
   // Check if user is admin
   const isAdmin = profile?.admin === true
+
+  // Check if user has admin/owner privileges in any team or organization
+  useEffect(() => {
+    const checkAdminPrivileges = async () => {
+      if (!user) return
+
+      try {
+        const orgId = localStorage.getItem('current_workspace_id')
+        if (!orgId) {
+          setHasAdminTeam(false)
+          setHasAdminOrg(false)
+          return
+        }
+
+        // Fetch teams to check if user has admin/owner role in any team
+        const teamsResponse = await fetch(`/api/organizations/${orgId}/teams`)
+        if (teamsResponse.ok) {
+          const { teams } = await teamsResponse.json()
+          const adminTeams = teams?.filter((team: any) =>
+            team.user_role === 'owner' || team.user_role === 'admin'
+          ) || []
+          setHasAdminTeam(adminTeams.length > 0)
+        }
+
+        // Fetch organizations to check if user has admin/owner role
+        const orgsResponse = await fetch('/api/organizations')
+        if (orgsResponse.ok) {
+          const { organizations } = await orgsResponse.json()
+          const realOrgs = organizations?.filter((org: any) =>
+            org.team_count > 0 && (org.user_role === 'owner' || org.user_role === 'admin')
+          ) || []
+          setHasAdminOrg(realOrgs.length > 0)
+        }
+      } catch (error) {
+        console.error('Error checking admin privileges:', error)
+      }
+    }
+
+    checkAdminPrivileges()
+  }, [user])
 
   // Generate referral link based on user ID
   const userReferralLink = profile?.id
@@ -97,12 +139,14 @@ export function NewSidebar() {
     { label: "Organization", href: "/organization", icon: Building },
   ]
 
-  // Organization admin navigation - visible to org admins/owners
-  // TODO: Add logic to detect if user is org admin
-  const orgAdminNav: NavItem[] = [
-    { label: "Team Settings", href: "/team-settings", icon: Users },
-    { label: "Organization Settings", href: "/organization-settings", icon: Building },
-  ]
+  // Organization admin navigation - visible to org/team admins/owners
+  const orgAdminNav: NavItem[] = []
+  if (hasAdminTeam) {
+    orgAdminNav.push({ label: "Team Settings", href: "/team-settings", icon: Users })
+  }
+  if (hasAdminOrg) {
+    orgAdminNav.push({ label: "Organization Settings", href: "/organization-settings", icon: Building })
+  }
 
   const adminNav: NavItem[] = isAdmin ? [
     { label: "Admin Panel", href: "/admin", icon: Crown },
