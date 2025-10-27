@@ -1,0 +1,419 @@
+=== Log Session Started: 2025-10-27T04:19:22.718Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-27T04:19:22.718Z] [INFO   ] File logging initialized
+[2025-10-27T04:19:22.718Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-26_23-19-22.log
+[2025-10-27T04:19:22.725Z] [INFO   ] Deleted old log file: workflow_2025-10-19_23-01-31.log
+[2025-10-27T04:19:22.726Z] [INFO   ] Deleted old log file: workflow_2025-10-19_22-47-29.log
+[2025-10-27T04:19:22.727Z] [INFO   ] Deleted old log file: workflow_2025-10-19_22-28-35.log
+[2025-10-27T04:19:22.728Z] [INFO   ] Deleted old log file: workflow_2025-10-19_22-02-21.log
+[2025-10-27T04:19:22.729Z] [INFO   ] Deleted old log file: workflow_2025-10-19_21-51-25.log
+[2025-10-27T04:19:22.729Z] [INFO   ] Deleted old log file: workflow_2025-10-19_21-51-05.log
+[2025-10-27T04:19:22.730Z] [INFO   ] Deleted old log file: workflow_2025-10-19_21-46-17.log
+[2025-10-27T04:19:22.731Z] [INFO   ] Deleted old log file: workflow_2025-10-19_21-25-24.log
+[2025-10-27T04:19:22.732Z] [INFO   ] Deleted old log file: workflow_2025-10-19_21-04-40.log
+[2025-10-27T04:19:22.733Z] [INFO   ] Deleted old log file: workflow_2025-10-19_20-55-22.log
+[2025-10-27T04:19:22.733Z] [INFO   ] Deleted old log file: workflow_2025-10-19_19-25-14.log
+[2025-10-27T04:19:22.733Z] [INFO   ] 📁 File logging enabled
+[2025-10-27T04:19:22.734Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-26_23-19-22.log
+[2025-10-27T04:19:22.734Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-26_23-19-22.log
+[2025-10-27T04:19:22.734Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-26_23-19-22.log
+[2025-10-27T04:19:22.734Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-26_23-19-22.log
+[2025-10-27T04:19:22.734Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-27T04:19:22.734Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-27T04:19:22.741Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 3.5s
+[2025-10-27T04:19:22.859Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 113ms (233 modules)
+[2025-10-27T04:19:23.148Z] [INFO   ] 2025-10-27T04:19:23.148Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12972075749}
+[2025-10-27T04:19:23.705Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows ...
+[2025-10-27T04:19:23.737Z] [INFO   ] 2025-10-27T04:19:23.737Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-10-27T04:19:25.797Z] [INFO   ] 2025-10-27T04:19:25.797Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-10-27T04:19:25.797Z] [INFO   ] 2025-10-27T04:19:25.797Z [DEBUG] 🔑 Discord bot token loaded
+[2025-10-27T04:19:26.061Z] [INFO   ] 2025-10-27T04:19:26.061Z [DEBUG] Discord Gateway initialization complete
+[2025-10-27T04:19:26.063Z] [INFO   ] 2025-10-27T04:19:26.063Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-10-27T04:19:26.559Z] [INFO   ] 2025-10-27T04:19:26.559Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-10-27T04:19:26.561Z] [INFO   ] 2025-10-27T04:19:26.561Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-10-27T04:19:26.858Z] [INFO   ] 2025-10-27T04:19:26.858Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"60bebb10c876054c647e9ba8116aa795","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-10-27T04:19:26.858Z] [INFO   ] 2025-10-27T04:19:26.858Z [DEBUG] 📋 Initializing invite cache...
+[2025-10-27T04:19:26.859Z] [INFO   ] 2025-10-27T04:19:26.859Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-27T04:19:26.859Z] [INFO   ] 2025-10-27T04:19:26.859Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-27T04:19:27.808Z] [INFO   ] 2025-10-27T04:19:27.808Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-10-27T04:19:29.524Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows in 6.4s (4371 modules)
+[2025-10-27T04:19:29.954Z] [INFO   ] 2025-10-27T04:19:29.954Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-27T04:19:29.954Z"}
+[2025-10-27T04:19:29.958Z] [INFO   ] 2025-10-27T04:19:29.957Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-27T04:19:29.957Z"}
+[2025-10-27T04:19:29.958Z] [INFO   ] 2025-10-27T04:19:29.958Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-27T04:19:29.958Z"}
+[2025-10-27T04:19:30.343Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 804ms (736 modules)
+[2025-10-27T04:19:30.448Z] [INFO   ] 2025-10-27T04:19:30.447Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:19:31.232Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-10-27T04:19:32.989Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 2.3s (4382 modules)
+[2025-10-27T04:19:33.133Z] [INFO   ] 2025-10-27T04:19:33.133Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-27T04:19:33.133Z","headers":{"referer":"check-console"}}
+[2025-10-27T04:19:33.272Z] [INFO   ] 2025-10-27T04:19:33.272Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-27T04:19:33.358Z] [INFO   ] 2025-10-27T04:19:33.358Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-27T04:19:34.439Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/analytics/workflow-stats ...
+[2025-10-27T04:19:35.235Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/analytics/workflow-stats in 1299ms (4406 modules)
+[2025-10-27T04:19:35.892Z] [INFO   ] 2025-10-27T04:19:35.891Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12972088492}
+[2025-10-27T04:19:36.137Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/workflows/folders ...
+[2025-10-27T04:19:36.407Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/workflows/folders in 830ms (4408 modules)
+[2025-10-27T04:19:36.514Z] [ERROR  ] 2025-10-27T04:19:36.514Z [ERROR] Error fetching teams: {"code":"PGRST200","details":"Searched for a foreign key relationship between 'team_members' and 'users' in the schema 'public', but no matches were found.","hint":null,"message":"Could not find a relationship between 'team_members' and 'users' in the schema cache"}
+[2025-10-27T04:19:36.660Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (3672 modules)
+[2025-10-27T04:19:36.899Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1ms (3672 modules)
+[2025-10-27T04:19:37.129Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (3672 modules)
+[2025-10-27T04:19:37.290Z] [INFO   ] 2025-10-27T04:19:37.289Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:19:37.573Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/organizations/[id]/members/me in 1ms (3672 modules)
+[2025-10-27T04:19:37.901Z] [INFO   ] 2025-10-27T04:19:37.901Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12972090502}
+[2025-10-27T04:19:38.217Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 460ms (4396 modules)
+[2025-10-27T04:19:38.372Z] [INFO   ] 2025-10-27T04:19:38.372Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:19:38.382Z] [ERROR  ] 2025-10-27T04:19:38.382Z [ERROR] Error fetching teams: {"code":"PGRST200","details":"Searched for a foreign key relationship between 'team_members' and 'users' in the schema 'public', but no matches were found.","hint":null,"message":"Could not find a relationship between 'team_members' and 'users' in the schema cache"}
+[2025-10-27T04:19:38.777Z] [WARN   ] Route "/api/organizations/[id]/members/me" used `params.id`. `params` should be awaited before using its properties. Learn more: https://nextjs.org/docs/messages/sync-dynamic-apis
+Error: Route "/api/organizations/[id]/members/me" used `params.id`. `params` should be awaited before using its properties. Learn more: https://nextjs.org/docs/messages/sync-dynamic-apis
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:6157
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:3863
+    at syncIODev (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:5948)
+    at Object.get (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:33346)
+    at GET (webpack-internal:///(rsc)/./app/api/organizations/[id]/members/me/route.ts:20:30)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async AppRouteRouteModule.do (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:38696)
+    at async AppRouteRouteModule.handle (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:45978)
+    at async responseGenerator (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute&page=%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute.ts&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:203:38)
+    at async AppRouteRouteModule.handleResponse (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:1:187565)
+    at async handleResponse (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute&page=%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute.ts&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:265:32)
+    at async handler (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute&page=%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute.ts&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:317:13)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1474:24)
+    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-27T04:19:38.889Z] [ERROR  ] Error fetching organization member: {
+  "code": "42P17",
+  "details": null,
+  "hint": null,
+  "message": "infinite recursion detected in policy for relation \"organization_members\""
+}
+[2025-10-27T04:19:39.038Z] [WARN   ] Route "/api/organizations/[id]/members/me" used `params.id`. `params` should be awaited before using its properties. Learn more: https://nextjs.org/docs/messages/sync-dynamic-apis
+Error: Route "/api/organizations/[id]/members/me" used `params.id`. `params` should be awaited before using its properties. Learn more: https://nextjs.org/docs/messages/sync-dynamic-apis
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:6157
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:3863
+    at syncIODev (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:5948)
+    at Object.get (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:33346)
+    at GET (webpack-internal:///(rsc)/./app/api/organizations/[id]/members/me/route.ts:20:30)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async AppRouteRouteModule.do (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:38696)
+    at async AppRouteRouteModule.handle (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:45978)
+    at async responseGenerator (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute&page=%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute.ts&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:203:38)
+    at async AppRouteRouteModule.handleResponse (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:1:187565)
+    at async handleResponse (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute&page=%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute.ts&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:265:32)
+    at async handler (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute&page=%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute.ts&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:317:13)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1474:24)
+    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-27T04:19:39.112Z] [ERROR  ] Error fetching organization member: {
+  "code": "42P17",
+  "details": null,
+  "hint": null,
+  "message": "infinite recursion detected in policy for relation \"organization_members\""
+}
+[2025-10-27T04:19:44.843Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 269ms (736 modules)
+[2025-10-27T04:19:45.077Z] [INFO   ] 2025-10-27T04:19:45.076Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12972097677}
+[2025-10-27T04:19:45.166Z] [INFO   ] 2025-10-27T04:19:45.165Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:19:54.750Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 263ms (736 modules)
+[2025-10-27T04:19:54.956Z] [INFO   ] 2025-10-27T04:19:54.956Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12972107557}
+[2025-10-27T04:19:55.043Z] [INFO   ] 2025-10-27T04:19:55.043Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:20:04.347Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 262ms (736 modules)
+[2025-10-27T04:20:04.699Z] [INFO   ] 2025-10-27T04:20:04.699Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12972117300}
+[2025-10-27T04:20:04.787Z] [INFO   ] 2025-10-27T04:20:04.787Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:20:18.341Z] [INFO   ] 2025-10-27T04:20:18.341Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-builder","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12972130942}
+[2025-10-27T04:20:18.962Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/ai-builder ...
+[2025-10-27T04:20:19.565Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/ai-builder in 1189ms (4425 modules)
+[2025-10-27T04:20:19.815Z] [INFO   ] 2025-10-27T04:20:19.815Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-27T04:20:19.815Z"}
+[2025-10-27T04:20:19.817Z] [INFO   ] 2025-10-27T04:20:19.817Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-27T04:20:19.817Z"}
+[2025-10-27T04:20:19.818Z] [INFO   ] 2025-10-27T04:20:19.817Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-27T04:20:19.817Z"}
+[2025-10-27T04:20:23.711Z] [INFO   ] 2025-10-27T04:20:23.711Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-27T04:20:23.711Z","headers":{"referer":"check-console"}}
+[2025-10-27T04:20:23.855Z] [INFO   ] 2025-10-27T04:20:23.855Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-27T04:20:23.936Z] [INFO   ] 2025-10-27T04:20:23.936Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-27T04:20:41.942Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/ai/generate-workflow-plan ...
+[2025-10-27T04:20:42.830Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/ai/generate-workflow-plan in 1447ms (4515 modules)
+[2025-10-27T04:21:18.514Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 336ms (749 modules)
+[2025-10-27T04:21:18.765Z] [INFO   ] 2025-10-27T04:21:18.765Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12972191366}
+[2025-10-27T04:21:18.788Z] [INFO   ] 2025-10-27T04:21:18.787Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-builder","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12972191388}
+[2025-10-27T04:21:18.996Z] [INFO   ] 2025-10-27T04:21:18.995Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:26:32.315Z] [INFO   ] 2025-10-27T04:26:32.314Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-builder","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12972504915}
+[2025-10-27T04:26:32.461Z] [INFO   ] 2025-10-27T04:26:32.461Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-27T04:26:32.461Z"}
+[2025-10-27T04:26:32.462Z] [INFO   ] 2025-10-27T04:26:32.462Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-27T04:26:32.462Z"}
+[2025-10-27T04:26:32.462Z] [INFO   ] 2025-10-27T04:26:32.462Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-27T04:26:32.462Z"}
+[2025-10-27T04:26:36.361Z] [INFO   ] 2025-10-27T04:26:36.361Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-27T04:26:36.361Z","headers":{"referer":"check-console"}}
+[2025-10-27T04:26:36.445Z] [INFO   ] 2025-10-27T04:26:36.445Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-27T04:26:36.566Z] [INFO   ] 2025-10-27T04:26:36.566Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-27T04:27:13.306Z] [INFO   ]  [37m[1m○[22m[39m Compiling /_not-found ...
+[2025-10-27T04:27:13.675Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_not-found in 1180ms (4514 modules)
+[2025-10-27T04:27:13.860Z] [INFO   ] 2025-10-27T04:27:13.860Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-27T04:27:13.860Z"}
+[2025-10-27T04:27:13.861Z] [INFO   ] 2025-10-27T04:27:13.861Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-27T04:27:13.861Z"}
+[2025-10-27T04:27:13.861Z] [INFO   ] 2025-10-27T04:27:13.861Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-27T04:27:13.861Z"}
+[2025-10-27T04:27:19.296Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/workflows/test-node ...
+[2025-10-27T04:27:23.502Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/workflows/test-node in 4.8s (6726 modules)
+[2025-10-27T04:27:27.262Z] [INFO   ] 2025-10-27T04:27:27.262Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-27T04:27:27.262Z"}
+[2025-10-27T04:27:27.264Z] [INFO   ] 2025-10-27T04:27:27.263Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-27T04:27:27.263Z"}
+[2025-10-27T04:27:27.264Z] [INFO   ] 2025-10-27T04:27:27.264Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-27T04:27:27.264Z"}
+[2025-10-27T04:28:04.198Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1303ms (6732 modules)
+[2025-10-27T04:28:04.459Z] [INFO   ] 2025-10-27T04:28:04.458Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-builder","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12972597059}
+[2025-10-27T04:28:04.487Z] [INFO   ] 2025-10-27T04:28:04.487Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12972597088}
+[2025-10-27T04:28:04.734Z] [INFO   ] 2025-10-27T04:28:04.733Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:28:32.585Z] [INFO   ] 2025-10-27T04:28:32.585Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-builder","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12972625186}
+[2025-10-27T04:28:32.802Z] [INFO   ] 2025-10-27T04:28:32.802Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-27T04:28:32.802Z"}
+[2025-10-27T04:28:32.809Z] [INFO   ] 2025-10-27T04:28:32.809Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-27T04:28:32.809Z"}
+[2025-10-27T04:28:32.809Z] [INFO   ] 2025-10-27T04:28:32.809Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-27T04:28:32.809Z"}
+[2025-10-27T04:28:33.823Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-27T04:28:33.924Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 647ms (3670 modules)
+[2025-10-27T04:28:34.310Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (3672 modules)
+[2025-10-27T04:28:37.877Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 194ms (3674 modules)
+[2025-10-27T04:28:37.939Z] [INFO   ] 2025-10-27T04:28:37.939Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-27T04:28:37.939Z","headers":{"referer":"check-console"}}
+[2025-10-27T04:28:38.064Z] [INFO   ] 2025-10-27T04:28:38.064Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-27T04:28:38.188Z] [INFO   ] 2025-10-27T04:28:38.187Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-27T04:28:53.721Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/ai/generate-workflow-plan in 488ms (3774 modules)
+[2025-10-27T04:29:08.233Z] [INFO   ] 2025-10-27T04:29:08.233Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-27T04:29:08.233Z","headers":{"referer":"check-console"}}
+[2025-10-27T04:29:08.376Z] [INFO   ] 2025-10-27T04:29:08.376Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-27T04:29:08.488Z] [INFO   ] 2025-10-27T04:29:08.488Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-27T04:32:30.323Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.3s (4400 modules)
+[2025-10-27T04:32:30.593Z] [INFO   ] 2025-10-27T04:32:30.592Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-builder","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12972863193}
+[2025-10-27T04:32:30.625Z] [INFO   ] 2025-10-27T04:32:30.625Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12972863226}
+[2025-10-27T04:32:30.956Z] [INFO   ] 2025-10-27T04:32:30.956Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:32:40.350Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 586ms (4400 modules)
+[2025-10-27T04:32:40.561Z] [INFO   ] 2025-10-27T04:32:40.561Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-builder","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12972873162}
+[2025-10-27T04:32:40.573Z] [INFO   ] 2025-10-27T04:32:40.572Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12972873173}
+[2025-10-27T04:32:40.830Z] [INFO   ] 2025-10-27T04:32:40.830Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:33:05.616Z] [INFO   ]  [37m[1m○[22m[39m Compiling /auth/login ...
+[2025-10-27T04:33:07.195Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /auth/login in 2.1s (4413 modules)
+[2025-10-27T04:33:07.447Z] [INFO   ] 2025-10-27T04:33:07.447Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-27T04:33:07.447Z"}
+[2025-10-27T04:33:07.448Z] [INFO   ] 2025-10-27T04:33:07.448Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-27T04:33:07.448Z"}
+[2025-10-27T04:33:07.448Z] [INFO   ] 2025-10-27T04:33:07.448Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-27T04:33:07.448Z"}
+[2025-10-27T04:33:08.360Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/organizations/[id]/teams ...
+[2025-10-27T04:33:08.554Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/organizations/[id]/teams in 706ms (3682 modules)
+[2025-10-27T04:33:09.387Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /icon.png in 0ms (3685 modules)
+[2025-10-27T04:33:09.686Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (3687 modules)
+[2025-10-27T04:33:09.953Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1ms (3687 modules)
+[2025-10-27T04:33:10.293Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (3687 modules)
+[2025-10-27T04:33:10.942Z] [ERROR  ] 2025-10-27T04:33:10.942Z [ERROR] Error fetching teams: {"code":"PGRST200","details":"Searched for a foreign key relationship between 'team_members' and 'users' in the schema 'public', but no matches were found.","hint":null,"message":"Could not find a relationship between 'team_members' and 'users' in the schema cache"}
+[2025-10-27T04:33:11.283Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/organizations/[id]/members/me in 309ms (3689 modules)
+[2025-10-27T04:33:11.579Z] [WARN   ] Route "/api/organizations/[id]/members/me" used `params.id`. `params` should be awaited before using its properties. Learn more: https://nextjs.org/docs/messages/sync-dynamic-apis
+Error: Route "/api/organizations/[id]/members/me" used `params.id`. `params` should be awaited before using its properties. Learn more: https://nextjs.org/docs/messages/sync-dynamic-apis
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:6157
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:3863
+    at syncIODev (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:5948)
+    at Object.get (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:33346)
+    at GET (webpack-internal:///(rsc)/./app/api/organizations/[id]/members/me/route.ts:20:30)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async AppRouteRouteModule.do (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:38696)
+    at async AppRouteRouteModule.handle (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:45978)
+    at async responseGenerator (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute&page=%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute.ts&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:203:38)
+    at async AppRouteRouteModule.handleResponse (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:1:187565)
+    at async handleResponse (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute&page=%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute.ts&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:265:32)
+    at async handler (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute&page=%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute.ts&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:317:13)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1474:24)
+    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-27T04:33:11.666Z] [ERROR  ] Error fetching organization member: {
+  "code": "42P17",
+  "details": null,
+  "hint": null,
+  "message": "infinite recursion detected in policy for relation \"organization_members\""
+}
+[2025-10-27T04:33:11.978Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/organizations in 285ms (3691 modules)
+[2025-10-27T04:33:33.925Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-27T04:33:34.856Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1431ms (3693 modules)
+[2025-10-27T04:34:55.555Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 569ms (761 modules)
+[2025-10-27T04:34:56.199Z] [INFO   ] 2025-10-27T04:34:56.199Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973008800}
+[2025-10-27T04:34:56.253Z] [INFO   ] 2025-10-27T04:34:56.253Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-builder","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973008854}
+[2025-10-27T04:34:56.352Z] [INFO   ] 2025-10-27T04:34:56.352Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:35:02.201Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 367ms (761 modules)
+[2025-10-27T04:35:02.688Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 341ms (761 modules)
+[2025-10-27T04:35:02.771Z] [INFO   ] 2025-10-27T04:35:02.771Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973015372}
+[2025-10-27T04:35:02.772Z] [INFO   ] 2025-10-27T04:35:02.772Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-builder","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973015373}
+[2025-10-27T04:35:03.376Z] [INFO   ] 2025-10-27T04:35:03.376Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:35:03.487Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 751ms (761 modules)
+[2025-10-27T04:35:03.880Z] [INFO   ] 2025-10-27T04:35:03.879Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-builder","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973016480}
+[2025-10-27T04:35:03.883Z] [INFO   ] 2025-10-27T04:35:03.883Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973016484}
+[2025-10-27T04:35:04.159Z] [INFO   ] 2025-10-27T04:35:04.159Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:35:04.462Z] [INFO   ] 2025-10-27T04:35:04.462Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973017063}
+[2025-10-27T04:35:04.554Z] [INFO   ] 2025-10-27T04:35:04.554Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:35:04.778Z] [INFO   ] 2025-10-27T04:35:04.778Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-builder","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973017379}
+[2025-10-27T04:35:05.465Z] [INFO   ]  [37m[1m○[22m[39m Compiling /_not-found ...
+[2025-10-27T04:35:06.034Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_not-found in 1461ms (4435 modules)
+[2025-10-27T04:35:06.509Z] [INFO   ] 2025-10-27T04:35:06.509Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-27T04:35:06.509Z"}
+[2025-10-27T04:35:06.510Z] [INFO   ] 2025-10-27T04:35:06.510Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-27T04:35:06.510Z"}
+[2025-10-27T04:35:06.510Z] [INFO   ] 2025-10-27T04:35:06.510Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-27T04:35:06.510Z"}
+[2025-10-27T04:35:07.233Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /icon.png in 357ms (3686 modules)
+[2025-10-27T04:35:33.632Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 438ms (765 modules)
+[2025-10-27T04:35:34.222Z] [INFO   ] 2025-10-27T04:35:34.222Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973046823}
+[2025-10-27T04:35:34.223Z] [INFO   ] 2025-10-27T04:35:34.223Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-builder","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973046824}
+[2025-10-27T04:35:34.582Z] [INFO   ] 2025-10-27T04:35:34.582Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:35:35.125Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1275ms (4434 modules)
+[2025-10-27T04:35:35.252Z] [INFO   ] 2025-10-27T04:35:35.252Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-27T04:35:35.252Z"}
+[2025-10-27T04:35:35.253Z] [INFO   ] 2025-10-27T04:35:35.253Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-27T04:35:35.253Z"}
+[2025-10-27T04:35:35.253Z] [INFO   ] 2025-10-27T04:35:35.253Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-27T04:35:35.253Z"}
+[2025-10-27T04:36:04.752Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 493ms (765 modules)
+[2025-10-27T04:36:06.676Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1291ms (4434 modules)
+[2025-10-27T04:36:06.762Z] [INFO   ] 2025-10-27T04:36:06.762Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-27T04:36:06.762Z"}
+[2025-10-27T04:36:06.763Z] [INFO   ] 2025-10-27T04:36:06.763Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-27T04:36:06.763Z"}
+[2025-10-27T04:36:06.763Z] [INFO   ] 2025-10-27T04:36:06.763Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-27T04:36:06.763Z"}
+[2025-10-27T04:36:55.350Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 473ms (765 modules)
+[2025-10-27T04:37:01.838Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 415ms (765 modules)
+[2025-10-27T04:37:02.361Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 375ms (765 modules)
+[2025-10-27T04:37:02.929Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 516ms (765 modules)
+[2025-10-27T04:37:04.681Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/check-provider ...
+[2025-10-27T04:37:05.167Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/check-provider in 999ms (4438 modules)
+[2025-10-27T04:37:06.365Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 378ms (3689 modules)
+[2025-10-27T04:37:06.451Z] [INFO   ] 2025-10-27T04:37:06.451Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973139052}
+[2025-10-27T04:37:06.855Z] [INFO   ] 2025-10-27T04:37:06.855Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:37:07.363Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 391ms (3691 modules)
+[2025-10-27T04:37:07.433Z] [INFO   ] 2025-10-27T04:37:07.433Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-27T04:37:07.433Z","headers":{"referer":"check-console"}}
+[2025-10-27T04:37:07.516Z] [INFO   ] 2025-10-27T04:37:07.516Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-27T04:37:07.606Z] [INFO   ] 2025-10-27T04:37:07.606Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-27T04:37:09.074Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/organizations ...
+[2025-10-27T04:37:09.308Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/organizations in 781ms (3693 modules)
+[2025-10-27T04:37:09.711Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (3699 modules)
+[2025-10-27T04:37:10.443Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/workflows/folders in 433ms (3701 modules)
+[2025-10-27T04:38:03.404Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 559ms (761 modules)
+[2025-10-27T04:38:04.800Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1087ms (761 modules)
+[2025-10-27T04:38:05.105Z] [INFO   ] 2025-10-27T04:38:05.105Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-27T04:38:05.105Z"}
+[2025-10-27T04:38:05.107Z] [INFO   ] 2025-10-27T04:38:05.107Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-27T04:38:05.107Z"}
+[2025-10-27T04:38:05.107Z] [INFO   ] 2025-10-27T04:38:05.107Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-27T04:38:05.107Z"}
+[2025-10-27T04:38:06.665Z] [INFO   ] 2025-10-27T04:38:06.665Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973199266}
+[2025-10-27T04:38:06.965Z] [INFO   ] 2025-10-27T04:38:06.965Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:38:07.208Z] [INFO   ] 2025-10-27T04:38:07.208Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-27T04:38:07.208Z","headers":{"referer":"check-console"}}
+[2025-10-27T04:38:07.307Z] [INFO   ] 2025-10-27T04:38:07.307Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-27T04:38:07.388Z] [INFO   ] 2025-10-27T04:38:07.388Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-27T04:38:35.363Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 434ms (761 modules)
+[2025-10-27T04:38:42.785Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 325ms (761 modules)
+[2025-10-27T04:39:08.974Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 391ms (761 modules)
+[2025-10-27T04:39:21.990Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 327ms (761 modules)
+[2025-10-27T04:39:28.404Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 288ms (761 modules)
+[2025-10-27T04:39:28.787Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 283ms (761 modules)
+[2025-10-27T04:39:29.177Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 341ms (761 modules)
+[2025-10-27T04:39:30.826Z] [INFO   ] 2025-10-27T04:39:30.826Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973283427}
+[2025-10-27T04:39:31.138Z] [INFO   ] 2025-10-27T04:39:31.138Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:39:31.287Z] [INFO   ] 2025-10-27T04:39:31.287Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-27T04:39:31.287Z","headers":{"referer":"check-console"}}
+[2025-10-27T04:39:31.356Z] [INFO   ] 2025-10-27T04:39:31.356Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-27T04:39:31.438Z] [INFO   ] 2025-10-27T04:39:31.438Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-27T04:40:30.654Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1415ms (761 modules)
+[2025-10-27T04:40:32.031Z] [INFO   ] 2025-10-27T04:40:32.031Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973344632}
+[2025-10-27T04:40:32.277Z] [INFO   ] 2025-10-27T04:40:32.276Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:40:32.480Z] [INFO   ] 2025-10-27T04:40:32.480Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-27T04:40:32.480Z","headers":{"referer":"check-console"}}
+[2025-10-27T04:40:32.558Z] [INFO   ] 2025-10-27T04:40:32.557Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-27T04:40:32.641Z] [INFO   ] 2025-10-27T04:40:32.641Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-27T04:41:30.696Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 454ms (761 modules)
+[2025-10-27T04:41:31.145Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 318ms (761 modules)
+[2025-10-27T04:41:32.872Z] [INFO   ] 2025-10-27T04:41:32.872Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973405473}
+[2025-10-27T04:41:33.113Z] [INFO   ] 2025-10-27T04:41:33.112Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:41:33.319Z] [INFO   ] 2025-10-27T04:41:33.319Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-27T04:41:33.319Z","headers":{"referer":"check-console"}}
+[2025-10-27T04:41:33.402Z] [INFO   ] 2025-10-27T04:41:33.402Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-27T04:41:33.485Z] [INFO   ] 2025-10-27T04:41:33.485Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-27T04:50:03.985Z] [INFO   ] 2025-10-27T04:50:03.985Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-agent","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973916586}
+[2025-10-27T04:50:04.967Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/ai-agent ...
+[2025-10-27T04:50:06.175Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/ai-agent in 2.1s (4452 modules)
+[2025-10-27T04:50:06.573Z] [INFO   ] 2025-10-27T04:50:06.573Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:50:06.826Z] [INFO   ] 2025-10-27T04:50:06.826Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-agent","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973919427}
+[2025-10-27T04:50:06.855Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/organizations/[id]/teams in 351ms (3698 modules)
+[2025-10-27T04:50:07.341Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (3700 modules)
+[2025-10-27T04:50:07.522Z] [INFO   ] 2025-10-27T04:50:07.521Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:50:07.746Z] [INFO   ] 2025-10-27T04:50:07.746Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-agent","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973920347}
+[2025-10-27T04:50:07.813Z] [INFO   ] 2025-10-27T04:50:07.813Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:50:07.822Z] [ERROR  ] 2025-10-27T04:50:07.822Z [ERROR] Error fetching teams: {"code":"PGRST200","details":"Searched for a foreign key relationship between 'team_members' and 'users' in the schema 'public', but no matches were found.","hint":null,"message":"Could not find a relationship between 'team_members' and 'users' in the schema cache"}
+[2025-10-27T04:50:07.973Z] [INFO   ] 2025-10-27T04:50:07.973Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-agent","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973920574}
+[2025-10-27T04:50:08.124Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/organizations/[id]/members/me in 272ms (3702 modules)
+[2025-10-27T04:50:08.459Z] [INFO   ] 2025-10-27T04:50:08.459Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:50:08.570Z] [WARN   ] Route "/api/organizations/[id]/members/me" used `params.id`. `params` should be awaited before using its properties. Learn more: https://nextjs.org/docs/messages/sync-dynamic-apis
+Error: Route "/api/organizations/[id]/members/me" used `params.id`. `params` should be awaited before using its properties. Learn more: https://nextjs.org/docs/messages/sync-dynamic-apis
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:6157
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:3863
+    at syncIODev (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:5948)
+    at Object.get (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:33346)
+    at GET (webpack-internal:///(rsc)/./app/api/organizations/[id]/members/me/route.ts:20:30)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async AppRouteRouteModule.do (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:38696)
+    at async AppRouteRouteModule.handle (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:45978)
+    at async responseGenerator (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute&page=%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute.ts&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:203:38)
+    at async AppRouteRouteModule.handleResponse (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:1:187565)
+    at async handleResponse (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute&page=%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute.ts&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:265:32)
+    at async handler (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute&page=%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Forganizations%2F%5Bid%5D%2Fmembers%2Fme%2Froute.ts&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:317:13)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1474:24)
+    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-27T04:50:08.654Z] [ERROR  ] Error fetching organization member: {
+  "code": "42P17",
+  "details": null,
+  "hint": null,
+  "message": "infinite recursion detected in policy for relation \"organization_members\""
+}
+[2025-10-27T04:50:08.655Z] [INFO   ] 2025-10-27T04:50:08.655Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-agent","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973921256}
+[2025-10-27T04:50:09.144Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/organizations in 449ms (3704 modules)
+[2025-10-27T04:50:09.441Z] [INFO   ] 2025-10-27T04:50:09.441Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:50:09.628Z] [INFO   ] 2025-10-27T04:50:09.628Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-agent","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973922229}
+[2025-10-27T04:50:09.682Z] [INFO   ] 2025-10-27T04:50:09.682Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:50:09.855Z] [INFO   ] 2025-10-27T04:50:09.855Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-agent","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973922456}
+[2025-10-27T04:50:09.935Z] [INFO   ] 2025-10-27T04:50:09.935Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:50:10.113Z] [INFO   ] 2025-10-27T04:50:10.113Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-agent","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973922714}
+[2025-10-27T04:50:10.188Z] [INFO   ] 2025-10-27T04:50:10.188Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:50:10.350Z] [INFO   ] 2025-10-27T04:50:10.350Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-agent","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973922951}
+[2025-10-27T04:50:10.433Z] [INFO   ] 2025-10-27T04:50:10.432Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:50:10.593Z] [INFO   ] 2025-10-27T04:50:10.593Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-agent","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973923194}
+[2025-10-27T04:50:10.673Z] [INFO   ] 2025-10-27T04:50:10.672Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:50:10.830Z] [INFO   ] 2025-10-27T04:50:10.829Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-agent","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973923430}
+[2025-10-27T04:50:10.916Z] [INFO   ] 2025-10-27T04:50:10.915Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:50:11.078Z] [INFO   ] 2025-10-27T04:50:11.078Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-agent","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973923679}
+[2025-10-27T04:50:11.175Z] [INFO   ] 2025-10-27T04:50:11.175Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:50:11.334Z] [INFO   ] 2025-10-27T04:50:11.334Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-agent","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973923935}
+[2025-10-27T04:50:11.418Z] [INFO   ] 2025-10-27T04:50:11.418Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:50:11.594Z] [INFO   ] 2025-10-27T04:50:11.594Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-agent","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973924195}
+[2025-10-27T04:50:11.670Z] [INFO   ] 2025-10-27T04:50:11.670Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:50:11.835Z] [INFO   ] 2025-10-27T04:50:11.835Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-agent","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973924436}
+[2025-10-27T04:50:11.908Z] [INFO   ] 2025-10-27T04:50:11.908Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:50:12.066Z] [INFO   ] 2025-10-27T04:50:12.066Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-agent","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973924667}
+[2025-10-27T04:50:12.145Z] [INFO   ] 2025-10-27T04:50:12.145Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:50:12.295Z] [INFO   ] 2025-10-27T04:50:12.295Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-agent","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973924896}
+[2025-10-27T04:50:12.376Z] [INFO   ] 2025-10-27T04:50:12.376Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:50:12.538Z] [INFO   ] 2025-10-27T04:50:12.538Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-agent","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973925139}
+[2025-10-27T04:50:12.723Z] [INFO   ] 2025-10-27T04:50:12.722Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:50:12.879Z] [INFO   ] 2025-10-27T04:50:12.878Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-agent","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973925479}
+[2025-10-27T04:50:12.940Z] [INFO   ] 2025-10-27T04:50:12.940Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-27T04:50:13.095Z] [INFO   ] 2025-10-27T04:50:13.095Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-agent","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12973925696}
+
+=== Log Session Ended: 2025-10-27T04:50:13.097Z ===

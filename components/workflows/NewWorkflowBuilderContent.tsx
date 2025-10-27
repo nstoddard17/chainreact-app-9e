@@ -292,6 +292,9 @@ export function NewWorkflowBuilderContent() {
   // Clarification system states
   const [clarificationQuestions, setClarificationQuestions] = React.useState<any[]>([])
   const [clarificationAnswers, setClarificationAnswers] = React.useState<Record<string, ClarificationAnswer>>({})
+  const clarificationAnswersRef = React.useRef<Record<string, ClarificationAnswer>>({})
+  const lastClarificationsRef = React.useRef<any>(null)
+  const [autoFitWhileBuilding, setAutoFitWhileBuilding] = React.useState(false)
   const requiredClarificationsAnswered = React.useMemo(() => {
     if (clarificationQuestions.length === 0) {
       return false
@@ -551,6 +554,8 @@ export function NewWorkflowBuilderContent() {
       const analysisResult = await analysisResponse.json()
       logger.info('[CLARIFICATION] Analysis result:', analysisResult)
       setInferredData(analysisResult.inferredData || {})
+      const inferredClarifications = analysisResult.inferredData ? { ...analysisResult.inferredData } : {}
+      lastClarificationsRef.current = inferredClarifications
 
       // STEP 2: If clarifications needed, show questions and STOP
       if (analysisResult.needsClarification && analysisResult.questions.length > 0) {
@@ -558,6 +563,8 @@ export function NewWorkflowBuilderContent() {
 
         setClarificationQuestions(analysisResult.questions)
         setInferredData(analysisResult.inferredData || {}) // Store inferred data like message templates
+        setClarificationAnswers({})
+        clarificationAnswersRef.current = {}
         setShowClarifications(true)
         setWaitingForClarifications(true)
         setIsReactAgentLoading(false)
@@ -575,6 +582,7 @@ export function NewWorkflowBuilderContent() {
 
       // STEP 3: No clarifications needed, proceed with building
       logger.info('[CLARIFICATION] No clarifications needed, proceeding with workflow build')
+      setAutoFitWhileBuilding(true)
 
       // Start streaming from SSE endpoint
       const response = await fetch('/api/ai/stream-workflow', {
@@ -586,9 +594,7 @@ export function NewWorkflowBuilderContent() {
           prompt: userMessage,
           workflowId: currentWorkflow?.id,
           connectedIntegrations,
-          clarifications: analysisResult.inferredData ? {
-            ...analysisResult.inferredData
-          } : {},
+          clarifications: inferredClarifications,
           conversationHistory: reactAgentMessages.map(msg => ({
             role: msg.role,
             content: msg.content
@@ -889,9 +895,11 @@ export function NewWorkflowBuilderContent() {
                     }
                   ])
 
-                  setTimeout(() => {
-                    fitViewWithChatPanel()
-                  }, 120)
+                  if (autoFitWhileBuilding) {
+                    setTimeout(() => {
+                      fitViewWithChatPanel()
+                    }, 120)
+                  }
 
                   // Log current viewport state after adding node
                   if (reactFlowInstance) {
@@ -1313,10 +1321,10 @@ export function NewWorkflowBuilderContent() {
                   timestamp: new Date()
                 }])
 
-                // Final fitView to ensure everything is visible (nodes are already positioned correctly)
-                setTimeout(() => {
-                  fitViewWithChatPanel()
-                }, 200)
+                setAutoFitWhileBuilding(false)
+                setClarificationAnswers({})
+                clarificationAnswersRef.current = {}
+                setClarificationQuestions([])
 
                 // Clear status on completion
                 setReactAgentStatus('')
@@ -1336,6 +1344,7 @@ export function NewWorkflowBuilderContent() {
                 // Clear status on error
                 setReactAgentStatus('')
                 setIsReactAgentLoading(false)
+                setAutoFitWhileBuilding(false)
                 break
             }
 
@@ -1362,10 +1371,12 @@ export function NewWorkflowBuilderContent() {
           timestamp: new Date()
         }])
       }
+      setAutoFitWhileBuilding(false)
     } finally {
       setIsReactAgentLoading(false)
       setReactAgentStatus('')
       streamControllerRef.current = null
+      setAutoFitWhileBuilding(false)
     }
   }, [reactAgentInput, isReactAgentLoading, reactAgentMessages, selectedContextNodes, nodes, currentWorkflow, optimizedOnNodesChange, onEdgesChange, integrationsReady, integrationsLoading, integrations, getConnectedProviders])
 
@@ -1519,10 +1530,16 @@ export function NewWorkflowBuilderContent() {
   }, [isReactAgentOpen, isViewportInteracting, reactFlowInstance])
 
   React.useEffect(() => {
+    if (!autoFitWhileBuilding) return
     fitViewWithChatPanel()
-  }, [fitViewWithChatPanel, isReactAgentOpen, nodes.length])
+  }, [autoFitWhileBuilding, fitViewWithChatPanel, isReactAgentOpen, nodes.length])
 
   React.useEffect(() => {
+    if (!autoFitWhileBuilding) {
+      nodeBoundsRef.current = null
+      return
+    }
+
     if (!reactFlowInstance) {
       return
     }
@@ -1560,7 +1577,7 @@ export function NewWorkflowBuilderContent() {
     if (widthGrowth > AUTO_FIT_GROWTH_THRESHOLD || heightGrowth > AUTO_FIT_GROWTH_THRESHOLD) {
       fitViewWithChatPanel()
     }
-  }, [nodes, reactFlowInstance, isViewportInteracting, fitViewWithChatPanel])
+  }, [autoFitWhileBuilding, nodes, reactFlowInstance, isViewportInteracting, fitViewWithChatPanel])
 
   const onDragOver = React.useCallback((event: React.DragEvent) => {
     event.preventDefault()
@@ -2436,10 +2453,12 @@ export function NewWorkflowBuilderContent() {
 
                             if (!hasValue) {
                               delete next[questionId]
+                              clarificationAnswersRef.current = next
                               return next
                             }
 
                             next[questionId] = answer
+                            clarificationAnswersRef.current = next
                             return next
                           })
                         }}
@@ -2455,6 +2474,7 @@ export function NewWorkflowBuilderContent() {
                           // Hide clarifications, proceed with workflow build
                           setShowClarifications(false)
                           setWaitingForClarifications(false)
+                          setClarificationQuestions([])
                           setIsReactAgentLoading(true)
                           setReactAgentStatus('Building your workflow...')
 
@@ -2471,7 +2491,8 @@ export function NewWorkflowBuilderContent() {
                             const availableHeight = window.innerHeight
 
                             // Prepare clarification payload with values and display metadata
-                            const clarificationValues = Object.entries(clarificationAnswers).reduce<Record<string, string | string[]>>((acc, [questionId, answer]) => {
+                            const answersSnapshot = clarificationAnswersRef.current
+                            const clarificationValues = Object.entries(answersSnapshot).reduce<Record<string, string | string[]>>((acc, [questionId, answer]) => {
                               if (!answer) return acc
                               const { value } = answer
                               if (Array.isArray(value)) {
@@ -2495,7 +2516,7 @@ export function NewWorkflowBuilderContent() {
 
                             const clarificationDetails = clarificationQuestions
                               .map((question) => {
-                                const answer = clarificationAnswers[question.id]
+                                const answer = answersSnapshot[question.id]
                                 if (!answer) return null
 
                                 const value = answer.value
@@ -2555,7 +2576,7 @@ export function NewWorkflowBuilderContent() {
                                 displayValue?: string
                               } => detail !== null)
 
-                            const clarificationDisplayMap = Object.entries(clarificationAnswers).reduce<Record<string, string>>((acc, [questionId, answer]) => {
+                            const clarificationDisplayMap = Object.entries(answersSnapshot).reduce<Record<string, string>>((acc, [questionId, answer]) => {
                               if (answer?.displayValue) {
                                 acc[questionId] = answer.displayValue
                               }
@@ -2570,11 +2591,13 @@ export function NewWorkflowBuilderContent() {
                               details: clarificationDetails,
                               displayMap: clarificationDisplayMap
                             }
+                            lastClarificationsRef.current = mergedClarifications
 
                             logger.info('[CLARIFICATION] Sending payload to builder', mergedClarifications)
                             console.log('[CLARIFICATION] Payload', mergedClarifications)
 
                             // Call stream-workflow with clarifications
+                            setAutoFitWhileBuilding(true)
                             const response = await fetch('/api/ai/stream-workflow', {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
@@ -2713,6 +2736,7 @@ export function NewWorkflowBuilderContent() {
                             availableHeight
                           })
 
+                          setAutoFitWhileBuilding(true)
                           const response = await fetch('/api/ai/stream-workflow', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -2721,6 +2745,7 @@ export function NewWorkflowBuilderContent() {
                               workflowId: currentWorkflow?.id,
                               approvedPlan: approvedPlanData,
                               connectedIntegrations,
+                              clarifications: lastClarificationsRef.current || {},
                               conversationHistory: [],
                               contextNodes: [],
                               testNodes: true,
@@ -2841,9 +2866,11 @@ export function NewWorkflowBuilderContent() {
 
                                     optimizedOnNodesChange([{ type: 'add', item: enhancedNode }])
 
-                                    setTimeout(() => {
-                                      fitViewWithChatPanel()
-                                    }, 120)
+                                    if (autoFitWhileBuilding) {
+                                      setTimeout(() => {
+                                        fitViewWithChatPanel()
+                                      }, 120)
+                                    }
 
                                     if (reactFlowInstance) {
                                       const currentViewport = reactFlowInstance.getViewport()
@@ -3224,9 +3251,10 @@ export function NewWorkflowBuilderContent() {
                                   console.log('[CONTINUE] Workflow complete!')
                                   // Set completion message to show AFTER the plan
                                   setWorkflowCompletionMessage('Workflow configuration complete. All nodes have been successfully configured and are ready for use. You can now test the workflow, make adjustments, or activate it in your workflow settings.')
-                                  setTimeout(() => {
-                                    fitViewWithChatPanel()
-                                  }, 200)
+                                  setAutoFitWhileBuilding(false)
+                                  setClarificationAnswers({})
+                                  clarificationAnswersRef.current = {}
+                                  setClarificationQuestions([])
                                   setIsReactAgentLoading(false)
                                   setReactAgentStatus('')
                                   setIsPlacingNodes(false)
@@ -3245,6 +3273,7 @@ export function NewWorkflowBuilderContent() {
                           setIsReactAgentLoading(false)
                           setReactAgentStatus('')
                           setIsPlacingNodes(false)
+                          setAutoFitWhileBuilding(false)
                           // Don't reset isPlanBuilding - keep button hidden even on error
                           setConfigurationProgress(null)
                           setShowPlanApproval(true)
@@ -3252,6 +3281,7 @@ export function NewWorkflowBuilderContent() {
                           setIsReactAgentLoading(false)
                           setReactAgentStatus('')
                           setIsPlacingNodes(false)
+                          setAutoFitWhileBuilding(false)
                           // Don't reset isPlanBuilding - keep button hidden permanently
                         }
                       }}

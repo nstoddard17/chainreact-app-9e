@@ -1,4 +1,5 @@
 import { logger } from '@/lib/utils/logger'
+import { formatRichTextForTarget } from '@/lib/workflows/formatters/richText'
 import OpenAI from 'openai'
 
 interface MockDataContext {
@@ -157,6 +158,37 @@ function generateTriggerMockData(context: MockDataContext): any {
 function transformPreviousOutput(previousOutput: any, context: MockDataContext): any {
   const { nodeType, nodeConfig } = context
 
+  if (nodeType === 'format_transformer') {
+    const rawBody = extractEmailBody(previousOutput) || sampleEmailBody()
+    const targetFormat = nodeConfig?.targetFormat || 'slack_markdown'
+    const originalFormat = looksLikeHtml(rawBody) ? 'html' : 'plain'
+    let transformedContent = rawBody
+
+    if (targetFormat === 'slack_markdown') {
+      transformedContent = formatRichTextForTarget(rawBody, 'slack') || rawBody
+    }
+
+    const attachments =
+      Array.isArray(previousOutput?.attachments) && previousOutput.attachments.length > 0
+        ? previousOutput.attachments
+        : Array.isArray(previousOutput?.data?.attachments)
+          ? previousOutput.data.attachments
+          : undefined
+
+    const result: Record<string, any> = {
+      transformedContent,
+      originalFormat,
+      targetFormat,
+      success: true
+    }
+
+    if (attachments) {
+      result.attachments = attachments
+    }
+
+    return result
+  }
+
   // For filter nodes, return a subset
   if (nodeType === 'filter' || nodeType === 'if_condition') {
     if (Array.isArray(previousOutput)) {
@@ -200,6 +232,25 @@ function transformPreviousOutput(previousOutput: any, context: MockDataContext):
     _processedBy: context.nodeTitle,
     _processedAt: new Date().toISOString()
   }
+}
+
+function extractEmailBody(payload: any): string | null {
+  if (!payload) return null
+  if (typeof payload === 'string') return payload
+  if (typeof payload.body === 'string') return payload.body
+  if (typeof payload.data?.body === 'string') return payload.data.body
+  if (typeof payload.transformedContent === 'string') return payload.transformedContent
+  return null
+}
+
+function looksLikeHtml(content: string): boolean {
+  return /<\/?[a-z][\s\S]*>/i.test(content)
+}
+
+function sampleEmailBody(): string {
+  return `<p>Hi team,</p>
+<p>Quick reminder that our status updates go out every Friday. Please review the attached summary and highlight any blockers.</p>
+<p>Thanks,<br/>Automation</p>`
 }
 
 /**

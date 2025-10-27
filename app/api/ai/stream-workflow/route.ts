@@ -504,6 +504,20 @@ export async function POST(request: NextRequest) {
               finalConfig: finalConfigWithMappings
             })
             const configFields = Object.entries(finalConfigWithMappings)
+            const unresolvedFallbackFields = fallbackFields.filter(field => isEmptyFieldValue(finalConfigWithMappings[field]))
+            const enforcedMissingFields: string[] = []
+
+            if (nodeComponent.type === 'slack_action_send_message') {
+              if (isEmptyFieldValue(finalConfigWithMappings.channel)) {
+                enforcedMissingFields.push('channel')
+              }
+              if (isEmptyFieldValue(finalConfigWithMappings.message)) {
+                enforcedMissingFields.push('message')
+              }
+            }
+
+            const effectiveFallbackFields = Array.from(new Set([...unresolvedFallbackFields, ...enforcedMissingFields]))
+            const hasUnresolvedFields = effectiveFallbackFields.length > 0
             logger.debug('[STREAM] Applying configuration fields', {
               title: plannedNode.title,
               fieldCount: configFields.length,
@@ -576,7 +590,7 @@ export async function POST(request: NextRequest) {
                 displayValue,
                 fieldIndex,
                 totalFields: configFields.length,
-                viaFallback: fallbackFields.includes(fieldKey),
+                viaFallback: effectiveFallbackFields.includes(fieldKey),
                 status: 'configuring',
                 badgeText: 'Configuring',
                 badgeVariant: 'info'
@@ -585,13 +599,13 @@ export async function POST(request: NextRequest) {
               await sleep(300) // Pause to show each field being set visually
             }
 
-            node.data.aiStatus = 'configured'
-            node.data.aiBadgeText = usedFallback ? 'Review Settings' : 'Ready'
-            node.data.aiBadgeVariant = usedFallback ? 'warning' : 'success'
+            node.data.aiStatus = hasUnresolvedFields ? 'configuring' : 'configured'
+            node.data.aiBadgeText = hasUnresolvedFields ? 'Review Settings' : 'Ready'
+            node.data.aiBadgeVariant = hasUnresolvedFields ? 'warning' : 'success'
             if (!node.data.description) {
               node.data.description = reasoning || configResult.reasoning || node.data.description
             }
-            node.data.aiFallbackFields = fallbackFields
+            node.data.aiFallbackFields = effectiveFallbackFields
             node.data.autoMappingTelemetry = autoMappingTelemetry
 
             sendEvent('node_configured', {
@@ -604,9 +618,46 @@ export async function POST(request: NextRequest) {
               status: node.data.aiStatus,
               badgeText: node.data.aiBadgeText,
               badgeVariant: node.data.aiBadgeVariant,
-              fallbackFields,
+              fallbackFields: effectiveFallbackFields,
               autoMappingTelemetry
             })
+
+            if (nodeComponent.type === 'slack_action_send_message') {
+              const missingChannel = enforcedMissingFields.includes('channel')
+              const missingMessage = enforcedMissingFields.includes('message')
+              const slackNeedsManualSetup = missingChannel || missingMessage
+
+              if (slackNeedsManualSetup) {
+                node.data.aiStatus = 'error'
+                node.data.aiBadgeText = missingChannel ? 'Select a Slack channel' : 'Add message content'
+                node.data.aiBadgeVariant = 'warning'
+                node.data.executionStatus = 'pending'
+                node.data.needsSetup = true
+
+                sendEvent('node_complete', {
+                  message: missingChannel
+                    ? `⚠️ ${plannedNode.title} needs a Slack channel before it can run`
+                    : `⚠️ ${plannedNode.title} needs message content before it can run`,
+                  nodeId: node.id,
+                  nodeName: plannedNode.title,
+                  nodeIndex: i,
+                  totalNodes: plan.nodes.length,
+                  skipTest: true,
+                  testResult: {
+                    success: false,
+                    message: missingChannel
+                      ? 'Channel is required before this Slack action can be tested.'
+                      : 'Message content is required before testing this Slack action.'
+                  },
+                  status: node.data.aiStatus,
+                  badgeText: node.data.aiBadgeText,
+                  badgeVariant: node.data.aiBadgeVariant,
+                  executionStatus: node.data.executionStatus
+                })
+
+                continue
+              }
+            }
 
             // Add wait after configuration for all nodes
             await sleep(500)
@@ -1784,9 +1835,13 @@ Return JSON:
       })()
 
       const slackConfig: Record<string, any> = {}
+      const existingChannelDisplay = displayOverrides.channel
+
       if (resolvedChannel && resolvedChannel !== 'Select a channel') {
         slackConfig.channel = resolvedChannel
-        displayOverrides.channel = resolvedChannel
+        if (!existingChannelDisplay) {
+          displayOverrides.channel = resolvedChannel
+        }
       }
       if (aiMessageCandidate) {
         slackConfig.message = aiMessageCandidate
@@ -2236,6 +2291,13 @@ function buildConfigWithFallback({ nodeComponent, initialConfig, plannedNode, pr
     reasoning,
     usedFallback
   }
+}
+
+function isEmptyFieldValue(value: any): boolean {
+  if (value === undefined || value === null) return true
+  if (typeof value === 'string') return value.trim().length === 0
+  if (Array.isArray(value)) return value.length === 0
+  return false
 }
 
 function deriveFallbackValue(field: any, _context: any) {
