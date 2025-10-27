@@ -139,7 +139,8 @@ export async function GET(request: NextRequest) {
         updated_at: workspace.updated_at,
         user_role: 'owner',
         member_count: 1,
-        team_count: 0
+        team_count: 0,
+        is_workspace: true  // Mark as personal workspace
       })
     }
 

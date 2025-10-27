@@ -41,70 +41,57 @@ export function TeamsPublicView() {
   const { user } = useAuthStore()
   const [teams, setTeams] = useState<Team[]>([])
   const [loading, setLoading] = useState(true)
-  const [hasOrganization, setHasOrganization] = useState(false)
   const [createTeamDialogOpen, setCreateTeamDialogOpen] = useState(false)
-  const [currentOrgId, setCurrentOrgId] = useState<string | null>(null)
 
   useEffect(() => {
     if (user) {
-      fetchTeams()
-      checkOrganization()
+      fetchUserTeams()
     }
   }, [user])
 
-  // Listen for organization changes
-  useEffect(() => {
-    const handleOrgChange = () => {
-      fetchTeams()
-      checkOrganization()
-    }
-
-    window.addEventListener('organization-changed', handleOrgChange)
-    return () => {
-      window.removeEventListener('organization-changed', handleOrgChange)
-    }
-  }, [])
-
-  const checkOrganization = async () => {
-    try {
-      const orgId = localStorage.getItem('current_workspace_id')
-      if (!orgId) return
-
-      const response = await fetch(`/api/organizations/${orgId}`)
-      if (!response.ok) return
-
-      const data = await response.json()
-      const isPersonalWorkspace = data.is_workspace || (data.team_count === 0 && data.member_count === 1)
-      setHasOrganization(!isPersonalWorkspace)
-
-      // Store org ID if it's an actual organization
-      if (!isPersonalWorkspace) {
-        setCurrentOrgId(orgId)
-      } else {
-        setCurrentOrgId(null)
-      }
-    } catch (error) {
-      console.error('Error checking organization:', error)
-    }
-  }
-
-  const fetchTeams = async () => {
+  const fetchUserTeams = async () => {
     try {
       setLoading(true)
-      const orgId = localStorage.getItem('current_workspace_id')
-      if (!orgId) {
-        setTeams([])
-        return
+
+      // Fetch teams where user is a member directly from team_members
+      const response = await fetch('/api/teams/my-teams')
+      if (!response.ok) {
+        // If endpoint doesn't exist yet, fallback to fetching all orgs and getting teams
+        const orgsResponse = await fetch('/api/organizations')
+        if (!orgsResponse.ok) throw new Error('Failed to fetch data')
+
+        const { organizations } = await orgsResponse.json()
+
+        // Filter to real organizations only
+        const realOrgs = organizations.filter((org: any) =>
+          !org.is_workspace && org.team_count > 0
+        )
+
+        if (realOrgs.length === 0) {
+          setTeams([])
+          setLoading(false)
+          return
+        }
+
+        // Fetch teams for each organization
+        const allTeams: Team[] = []
+        for (const org of realOrgs) {
+          const teamsResponse = await fetch(`/api/organizations/${org.id}/teams`)
+          if (teamsResponse.ok) {
+            const { teams: orgTeams } = await teamsResponse.json()
+            allTeams.push(...(orgTeams || []))
+          }
+        }
+
+        setTeams(allTeams)
+      } else {
+        const { teams } = await response.json()
+        setTeams(teams || [])
       }
-
-      const response = await fetch(`/api/organizations/${orgId}/teams`)
-      if (!response.ok) throw new Error('Failed to fetch teams')
-
-      const data = await response.json()
-      setTeams(data.teams || [])
     } catch (error) {
       console.error('Error fetching teams:', error)
       toast.error('Failed to load teams')
+      setTeams([])
     } finally {
       setLoading(false)
     }
@@ -133,34 +120,6 @@ export function TeamsPublicView() {
     )
   }
 
-  // Show empty state if no organization
-  if (!hasOrganization) {
-    return (
-      <div className="h-full w-full flex items-center justify-center">
-        <Card className="max-w-2xl w-full">
-          <CardHeader className="text-center">
-            <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
-              <Users className="w-6 h-6 text-muted-foreground" />
-            </div>
-            <CardTitle>No Teams Available</CardTitle>
-            <CardDescription>
-              Create your first team to start collaborating with others.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button
-              className="w-full"
-              onClick={() => setCreateTeamDialogOpen(true)}
-            >
-              <Users className="w-4 h-4 mr-2" />
-              Create Team
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
   // Show empty state if no teams
   if (teams.length === 0) {
     return (
@@ -172,16 +131,16 @@ export function TeamsPublicView() {
             </div>
             <CardTitle>No Teams Yet</CardTitle>
             <CardDescription>
-              Teams haven't been created in your organization yet.
+              You are not a member of any teams. Create an organization and team to start collaborating.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button
               className="w-full"
-              onClick={() => setCreateTeamDialogOpen(true)}
+              onClick={() => window.dispatchEvent(new CustomEvent('create-organization'))}
             >
-              <Plus className="w-4 h-4 mr-2" />
-              Create Team
+              <Building2 className="w-4 h-4 mr-2" />
+              Create Organization
             </Button>
           </CardContent>
         </Card>
@@ -262,7 +221,7 @@ export function TeamsPublicView() {
       <CreateTeamDialog
         open={createTeamDialogOpen}
         onOpenChange={setCreateTeamDialogOpen}
-        organizationId={currentOrgId || undefined}
+        organizationId={teams[0]?.organization_id}
       />
     </div>
   )
