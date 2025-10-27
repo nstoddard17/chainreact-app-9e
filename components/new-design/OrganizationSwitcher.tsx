@@ -35,6 +35,7 @@ interface Organization {
   user_role: string
   member_count: number
   team_count: number
+  is_workspace?: boolean  // True if this is a personal workspace, not an organization
 }
 
 interface Workspace {
@@ -95,18 +96,29 @@ export function OrganizationSwitcher() {
       if (!response.ok) throw new Error('Failed to fetch organizations')
 
       const data = await response.json()
-      const organizations = Array.isArray(data.organizations) ? data.organizations : (Array.isArray(data) ? data : [])
-      setOrganizations(organizations)
+      const allOrgs = Array.isArray(data.organizations) ? data.organizations : (Array.isArray(data) ? data : [])
 
-      // Set current org from localStorage or default to first
+      // CRITICAL: Filter out personal workspaces - only show actual organizations
+      const realOrganizations = allOrgs.filter((org: Organization) => !org.is_workspace)
+      setOrganizations(realOrganizations)
+
+      // Set current org from localStorage or default to first REAL organization
       const storedOrgId = localStorage.getItem('current_workspace_id')
-      if (storedOrgId && organizations.length > 0) {
-        const org = organizations.find((o: Organization) => o.id === storedOrgId)
-        setCurrentOrg(org || organizations[0] || null)
-      } else if (organizations.length > 0) {
-        setCurrentOrg(organizations[0])
+      if (storedOrgId && realOrganizations.length > 0) {
+        const org = realOrganizations.find((o: Organization) => o.id === storedOrgId)
+        if (org) {
+          setCurrentOrg(org)
+        } else {
+          // Stored ID is not a real organization, default to first
+          setCurrentOrg(realOrganizations[0] || null)
+        }
+      } else if (realOrganizations.length > 0) {
+        setCurrentOrg(realOrganizations[0])
       } else {
+        // No organizations exist
         setCurrentOrg(null)
+        // Clear invalid workspace ID from localStorage
+        localStorage.removeItem('current_workspace_id')
       }
     } catch (error) {
       console.error('Error fetching organizations:', error)

@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 // GET - Get team details with members
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createSupabaseRouteHandlerClient()
@@ -17,7 +17,7 @@ export async function GET(
       return errorResponse("Unauthorized", 401)
     }
 
-    const teamId = params.id
+    const { id: teamId } = await params
 
     // Get team with members
     const { data: team, error } = await supabase
