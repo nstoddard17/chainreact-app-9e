@@ -118,14 +118,19 @@ export class IntegrationService {
         
         // If it's the last attempt or not a timeout, throw the error
         if (error.name === 'AbortError') {
-          throw new Error('Request timeout - please try refreshing the page')
+          logger.warn('Integration fetch timed out after all retries - returning empty array')
+          // Return empty array instead of throwing to prevent page from getting stuck
+          // The page can still function with cached data or show a non-blocking error
+          return []
         }
         throw error
       }
     }
 
     // If we get here, all retries failed
-    throw lastError || new Error('Failed to fetch integrations after multiple attempts')
+    // Return empty array instead of throwing to prevent page from getting stuck
+    logger.warn('All integration fetch retries failed - returning empty array', lastError)
+    return []
   }
 
   /**

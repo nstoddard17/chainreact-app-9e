@@ -141,10 +141,22 @@ export function usePageDataPreloader(
         }
 
         // Execute all loaders sequentially with progress updates
-        // If ANY fail, we'll retry from the beginning
+        // If ANY fail with non-timeout errors, we'll retry from the beginning
         for (const { name, loader } of loaders) {
           logger.info('usePageDataPreloader', `Loading ${name} for ${pageType}`)
-          await loader()
+          try {
+            await loader()
+          } catch (loaderError: any) {
+            // If it's a timeout error, log it but don't fail the entire preload
+            // The page can still function with cached/missing data
+            if (loaderError?.message?.includes('timeout') || loaderError?.message?.includes('aborted')) {
+              logger.warn('usePageDataPreloader', `${name} timed out but continuing with cached data`, loaderError)
+              // Continue to next loader instead of throwing
+              continue
+            }
+            // For other errors, throw to trigger retry
+            throw loaderError
+          }
         }
 
         setLoadingMessage("Finalizing...")

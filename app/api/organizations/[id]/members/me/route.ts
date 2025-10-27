@@ -5,12 +5,18 @@ import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
 /**
  * GET /api/organizations/[id]/members/me
  * Get the current user's organization-level role in the specified organization
+ *
+ * NOTE: organization_members table doesn't exist yet (planned but not implemented)
+ * Currently returns null for all queries until organization-level roles are implemented
  */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Await params to access the id
+    const { id } = await params
+
     const supabase = await createSupabaseRouteHandlerClient()
 
     // Get current user
@@ -19,27 +25,10 @@ export async function GET(
       return errorResponse("Unauthorized", 401)
     }
 
-    const { id: orgId } = await params
-
-    // Check if user has an organization-level role
-    const { data: member, error: memberError } = await supabase
-      .from("organization_members")
-      .select("*")
-      .eq("organization_id", orgId)
-      .eq("user_id", user.id)
-      .maybeSingle()
-
-    if (memberError) {
-      console.error('Error fetching organization member:', memberError)
-      return errorResponse("Failed to fetch organization membership", 500)
-    }
-
-    // If no org-level role, user might still be a member via team membership
-    if (!member) {
-      return jsonResponse({ member: null })
-    }
-
-    return jsonResponse({ member })
+    // organization_members table doesn't exist yet
+    // Return null to indicate user has no organization-level role
+    // (they may still be a member via team membership)
+    return jsonResponse({ member: null })
   } catch (error) {
     console.error('Unexpected error:', error)
     return errorResponse("Internal server error", 500)
