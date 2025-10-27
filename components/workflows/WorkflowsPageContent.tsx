@@ -382,6 +382,13 @@ function WorkflowsContent() {
       return sortOrder === 'asc' ? comparison : -comparison
     })
 
+  // Filter folders based on search query
+  const filteredFolders = folders.filter((folder) => {
+    if (!searchQuery) return true
+    return folder.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+           (folder.description && folder.description.toLowerCase().includes(searchQuery.toLowerCase()))
+  })
+
   const stats = {
     total: activeWorkflows.length,
     active: activeWorkflows.filter(w => w.status === 'active').length,
@@ -1913,7 +1920,7 @@ function WorkflowsContent() {
               foldersViewMode === 'grid' ? (
               <div className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {folders.map((folder) => {
+                  {filteredFolders.map((folder) => {
                     // For trash folder, count trashed workflows. For others, count active workflows
                     const workflowCount = folder.is_trash
                       ? trashedWorkflows.length
@@ -2034,46 +2041,53 @@ function WorkflowsContent() {
                   })}
                 </div>
 
-                {folders.length === 0 && (
+                {filteredFolders.length === 0 && (
                   <div className="text-center py-16">
                     <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                       <Folder className="w-8 h-8 text-slate-400" />
                     </div>
-                    <h3 className="text-xl font-semibold text-slate-900 mb-2">No folders yet</h3>
+                    <h3 className="text-xl font-semibold text-slate-900 mb-2">
+                      {searchQuery ? 'No folders found' : 'No folders yet'}
+                    </h3>
                     <p className="text-slate-600 mb-6">
-                      Create folders to organize your workflows
+                      {searchQuery
+                        ? 'Try adjusting your search'
+                        : 'Create folders to organize your workflows'}
                     </p>
-                    <Button onClick={() => setCreateFolderDialog(true)}>
-                      <FolderPlus className="w-4 h-4 mr-2" />
-                      Create Folder
-                    </Button>
+                    {!searchQuery && (
+                      <Button onClick={() => setCreateFolderDialog(true)}>
+                        <FolderPlus className="w-4 h-4 mr-2" />
+                        Create Folder
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
               ) : (
                 /* Folders List View */
-                <table className="w-full">
-                  <thead className="sticky top-0 bg-slate-50 border-b border-slate-200 z-10">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                        Name
-                      </th>
-                      <th className="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                        Description
-                      </th>
-                      <th className="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                        Workflows
-                      </th>
-                      <th className="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                        Last Modified
-                      </th>
-                      <th className="w-12 px-3 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {folders.map((folder) => {
+                <>
+                  <table className="w-full">
+                    <thead className="sticky top-0 bg-slate-50 border-b border-slate-200 z-10">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                          Name
+                        </th>
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                          Description
+                        </th>
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                          Workflows
+                        </th>
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                          Last Modified
+                        </th>
+                        <th className="w-12 px-3 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredFolders.map((folder) => {
                       // For trash folder, count trashed workflows. For others, count active workflows
                       const workflowCount = folder.is_trash
                         ? trashedWorkflows.length
@@ -2198,10 +2212,32 @@ function WorkflowsContent() {
                             </DropdownMenu>
                           </td>
                         </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                  {filteredFolders.length === 0 && (
+                    <div className="text-center py-16">
+                      <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <Folder className="w-8 h-8 text-slate-400" />
+                      </div>
+                      <h3 className="text-xl font-semibold text-slate-900 mb-2">
+                        {searchQuery ? 'No folders found' : 'No folders yet'}
+                      </h3>
+                      <p className="text-slate-600 mb-6">
+                        {searchQuery
+                          ? 'Try adjusting your search'
+                          : 'Create folders to organize your workflows'}
+                      </p>
+                      {!searchQuery && (
+                        <Button onClick={() => setCreateFolderDialog(true)}>
+                          <FolderPlus className="w-4 h-4 mr-2" />
+                          Create Folder
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </>
               )
             )}
 

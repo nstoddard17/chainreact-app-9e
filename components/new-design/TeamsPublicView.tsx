@@ -12,7 +12,6 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import {
-  Building2,
   Users,
   Loader2,
   User as UserIcon,
@@ -131,16 +130,16 @@ export function TeamsPublicView() {
             </div>
             <CardTitle>No Teams Yet</CardTitle>
             <CardDescription>
-              You are not a member of any teams. Create an organization and team to start collaborating.
+              You are not a member of any teams. Create a team to start collaborating.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button
               className="w-full"
-              onClick={() => window.dispatchEvent(new CustomEvent('create-organization'))}
+              onClick={() => setCreateTeamDialogOpen(true)}
             >
-              <Building2 className="w-4 h-4 mr-2" />
-              Create Organization
+              <Plus className="w-4 h-4 mr-2" />
+              Create Team
             </Button>
           </CardContent>
         </Card>
