@@ -17,10 +17,17 @@ import {
   User as UserIcon,
   Shield,
   Settings,
-  Plus
+  Plus,
+  MoreHorizontal
 } from "lucide-react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { CreateTeamDialog } from "./CreateTeamDialog"
 
 interface Team {
@@ -197,7 +204,7 @@ export function TeamsPublicView() {
                   <tr
                     key={team.id}
                     className="border-b last:border-b-0 hover:bg-slate-50 cursor-pointer transition-colors"
-                    onClick={() => router.push(`/teams/${team.id}`)}
+                    onClick={() => router.push(`/teams/${team.slug}`)}
                   >
                     {/* Team Name & Icon */}
                     <td className="p-4">
@@ -233,29 +240,42 @@ export function TeamsPublicView() {
                     </td>
 
                     {/* Actions */}
-                    <td className="p-4">
+                    <td className="p-4" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-2">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={(e) => {
                             e.stopPropagation()
-                            router.push(`/teams/${team.id}`)
+                            router.push(`/teams/${team.slug}`)
                           }}
                         >
                           View
                         </Button>
                         {canAccessSettings && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              router.push(`/team-settings?team=${team.id}`)
-                            }}
-                          >
-                            <Settings className="w-4 h-4" />
-                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <MoreHorizontal className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48">
+                              <DropdownMenuItem
+                                onSelect={(e) => {
+                                  e.preventDefault()
+                                  router.push(`/team-settings?team=${team.id}`)
+                                }}
+                              >
+                                <Settings className="w-4 h-4 mr-2" />
+                                Settings
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         )}
                       </div>
                     </td>
