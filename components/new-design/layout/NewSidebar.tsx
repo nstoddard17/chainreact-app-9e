@@ -94,7 +94,7 @@ export function NewSidebar() {
           return
         }
 
-        // Fetch teams to check if user has admin/owner role in any team
+        // Check if user has admin/owner role at team level
         const teamsResponse = await fetch(`/api/organizations/${orgId}/teams`)
         if (teamsResponse.ok) {
           const { teams } = await teamsResponse.json()
@@ -104,14 +104,31 @@ export function NewSidebar() {
           setHasAdminTeam(adminTeams.length > 0)
         }
 
-        // Fetch organizations to check if user has admin/owner role
-        const orgsResponse = await fetch('/api/organizations')
-        if (orgsResponse.ok) {
-          const { organizations } = await orgsResponse.json()
-          const realOrgs = organizations?.filter((org: any) =>
-            org.team_count > 0 && (org.user_role === 'owner' || org.user_role === 'admin')
-          ) || []
-          setHasAdminOrg(realOrgs.length > 0)
+        // Check if user has admin/owner role at organization level
+        // Use the new organization_members endpoint
+        const orgMemberResponse = await fetch(`/api/organizations/${orgId}/members/me`)
+        if (orgMemberResponse.ok) {
+          const { member } = await orgMemberResponse.json()
+          // User has org-level admin privileges if they have owner/admin role
+          const hasOrgAdminRole = member && ['owner', 'admin'].includes(member.role)
+
+          // Also check if this is a real organization (not a workspace)
+          const orgResponse = await fetch(`/api/organizations/${orgId}`)
+          if (orgResponse.ok) {
+            const org = await orgResponse.json()
+            const isRealOrg = org && org.team_count > 0
+            setHasAdminOrg(hasOrgAdminRole && isRealOrg)
+          }
+        } else {
+          // Fallback to old method if new endpoint doesn't exist yet
+          const orgsResponse = await fetch('/api/organizations')
+          if (orgsResponse.ok) {
+            const { organizations } = await orgsResponse.json()
+            const realOrgs = organizations?.filter((org: any) =>
+              org.team_count > 0 && (org.user_role === 'owner' || org.user_role === 'admin')
+            ) || []
+            setHasAdminOrg(realOrgs.length > 0)
+          }
         }
       } catch (error) {
         console.error('Error checking admin privileges:', error)

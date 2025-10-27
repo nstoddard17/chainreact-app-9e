@@ -7,7 +7,8 @@
       "Bash(npm run:*)",
       "Bash(cp:*)",
       "Bash(supabase migration:*)",
-      "Bash(npx supabase:*)"
+      "Bash(npx supabase:*)",
+      "Bash(supabase db push:*)"
     ],
     "deny": [],
     "ask": [],
