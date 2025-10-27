@@ -435,41 +435,10 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
   },
 
   fetchOrganizationWorkflows: async (organizationId: string) => {
-    if (!supabase) {
-      logger.warn("Supabase not available")
-      set({ workflows: [], loadingList: false })
-      return
-    }
-
-    set({ loadingList: true, error: null })
-
-    try {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 30000)
-
-      const { data, error } = await supabase
-        .from("workflows")
-        .select("*")
-        .eq("organization_id", organizationId)
-        .order("updated_at", { ascending: false })
-        .abortSignal(controller.signal)
-
-      clearTimeout(timeoutId)
-
-      if (error) {
-        if (error.message?.includes('aborted')) {
-          logger.warn("Organization workflows fetch timeout - continuing without blocking")
-          set({ workflows: [], loadingList: false, error: null })
-          return
-        }
-        throw error
-      }
-
-      set({ workflows: data || [], loadingList: false })
-    } catch (error: any) {
-      logger.error("Error fetching organization workflows:", error)
-      set({ workflows: [], loadingList: false, error: null })
-    }
+    // TEMP: organization_id column doesn't exist yet (pending workspace migration)
+    // For now, just fetch all user workflows
+    logger.warn("fetchOrganizationWorkflows called but organization_id column doesn't exist yet - falling back to regular fetch")
+    await get().fetchWorkflows()
   },
 
   createWorkflow: async (name: string, description?: string, organizationId?: string) => {
@@ -496,13 +465,13 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
 
       targetFolderId = defaultFolder?.id || null
 
-      const { data, error } = await supabase
+      const { data, error} = await supabase
         .from("workflows")
         .insert({
           name,
           description: description || null,
           user_id: user.id,
-          organization_id: organizationId || null, // Add organization_id if provided
+          // organization_id removed - column doesn't exist yet (pending workspace migration)
           folder_id: targetFolderId, // Use the default folder
           nodes: [],
           connections: [],
@@ -847,50 +816,10 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
   },
 
   moveWorkflowToOrganization: async (workflowId: string, organizationId: string) => {
-    if (!supabase) {
-      throw new Error("Supabase not available")
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from("workflows")
-        .update({ organization_id: organizationId })
-        .eq("id", workflowId)
-        .select()
-        .single()
-
-      if (error) throw error
-
-      set((state) => ({
-        workflows: state.workflows.map((w) => (w.id === workflowId ? { ...w, organization_id: organizationId } : w)),
-        currentWorkflow:
-          state.currentWorkflow?.id === workflowId ? { ...state.currentWorkflow, organization_id: organizationId } : state.currentWorkflow,
-      }))
-
-      // Log workflow move
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          await supabase.from("audit_logs").insert({
-            user_id: user.id,
-            action: "workflow_moved_to_organization",
-            resource_type: "workflow",
-            resource_id: workflowId,
-            details: {
-              workflow_id: workflowId,
-              workflow_name: data.name,
-              organization_id: organizationId,
-            },
-            created_at: new Date().toISOString()
-          })
-        }
-      } catch (auditError) {
-        logger.warn("Failed to log workflow move:", auditError)
-      }
-    } catch (error: any) {
-      logger.error("Error moving workflow to organization:", error)
-      throw error
-    }
+    // TEMP: organization_id column doesn't exist yet (pending workspace migration)
+    // This function is disabled until the migration is complete
+    logger.warn("moveWorkflowToOrganization called but organization_id column doesn't exist yet - operation skipped")
+    throw new Error("Organization features are not yet available. The workspace migration is pending.")
   },
 
   invalidateCache: () => {

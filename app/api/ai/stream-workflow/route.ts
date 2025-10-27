@@ -46,6 +46,13 @@ export async function POST(request: NextRequest) {
       clarifications = {} // User-provided clarifications from analysis phase
     } = body
 
+    logger.debug('[STREAM] Clarifications payload summary', {
+      clarificationKeys: clarifications ? Object.keys(clarifications) : [],
+      detailsCount: Array.isArray(clarifications?.details) ? clarifications.details.length : 0,
+      answersKeys: clarifications?.answers ? Object.keys(clarifications.answers) : [],
+      hasClarifications: !!clarifications && Object.keys(clarifications).length > 0
+    })
+
     if (!prompt && !approvedPlan) {
       return new Response('Prompt or approved plan is required', { status: 400 })
     }
@@ -199,9 +206,9 @@ export async function POST(request: NextRequest) {
             return
           }
 
-          // Assign to outer scope plan variable (exclude the success property)
+          // Assign to outer scope plan variable (exclude the success property) and augment if needed
           const { success, ...planData } = planResult
-          plan = planData
+          plan = augmentPlanWithFormatTransformers(planData)
 
           // Phase 4: Show Plan & Wait for Approval (unless autoApprove is true)
           if (!autoApprove) {
@@ -215,7 +222,8 @@ export async function POST(request: NextRequest) {
                   title: n.title,
                   description: n.description,
                   providerId: nodeDef?.providerId || 'generic',
-                  isTrigger: nodeDef?.isTrigger || false
+                  isTrigger: nodeDef?.isTrigger || false,
+                  note: n.note
                 }
               }),
               plan: plan, // Send full plan for building later
@@ -255,7 +263,8 @@ export async function POST(request: NextRequest) {
                 title: n.title,
                 description: n.description,
                 providerId: nodeDef?.providerId || 'generic',
-                isTrigger: nodeDef?.isTrigger || false
+                isTrigger: nodeDef?.isTrigger || false,
+                note: n.note
               }
             })
           })
@@ -308,6 +317,7 @@ export async function POST(request: NextRequest) {
                 description: nodeDescription,
                 providerId: nodeComponent.providerId,
                 isTrigger: nodeComponent.isTrigger,
+                note: plannedNode.note,
                 outputSchema: nodeComponent.outputSchema || [],
                 config: {},
                 needsSetup: false,
@@ -1066,6 +1076,63 @@ function selectModelForTask({ taskType, nodeType, complexity, userPreference }: 
   return 'gpt-4o-mini'
 }
 
+const HTML_CONTENT_SOURCE_TYPES = new Set([
+  'gmail_trigger_new_email',
+  'gmail_action_search_email',
+  'gmail_action_read_email',
+  'gmail_action_fetch_message',
+  'microsoft-outlook_trigger_new_email',
+  'microsoft-outlook_action_fetch_emails'
+])
+
+function augmentPlanWithFormatTransformers(plan: any) {
+  if (!plan || !Array.isArray(plan.nodes)) {
+    return plan
+  }
+
+  const augmentedNodes: any[] = []
+  let insertedCount = 0
+
+  for (const node of plan.nodes) {
+    const previousNode = augmentedNodes[augmentedNodes.length - 1]
+    if (shouldInsertFormatTransformer(previousNode, node)) {
+      augmentedNodes.push(createFormatTransformerPlanNode(previousNode))
+      insertedCount += 1
+    }
+    augmentedNodes.push(node)
+  }
+
+  if (insertedCount > 0) {
+    logger.info('[STREAM] Auto-inserted Format Transformer nodes', { insertedCount })
+  }
+
+  return {
+    ...plan,
+    nodes: augmentedNodes
+  }
+}
+
+function shouldInsertFormatTransformer(previousNode: any, currentNode: any): boolean {
+  if (!currentNode || currentNode.type !== 'slack_action_send_message') {
+    return false
+  }
+  if (!previousNode || previousNode.type === 'format_transformer') {
+    return false
+  }
+  return HTML_CONTENT_SOURCE_TYPES.has(previousNode.type)
+}
+
+function createFormatTransformerPlanNode(prevNode: any) {
+  const prevTitle = prevNode?.title || 'previous node'
+  return {
+    type: 'format_transformer',
+    title: 'Format Transformer',
+    description: `Convert ${prevTitle} output into Slack-friendly formatting.`,
+    providerId: 'utility',
+    note: 'Auto-added to convert HTML emails into Slack-friendly formatting. Delete it if you prefer the raw content.'
+  }
+}
+
 function calculateComplexity(node: any): number {
   // Simple heuristic: more config fields = more complex
   let complexity = 1
@@ -1418,6 +1485,12 @@ async function generateNodeConfig({
     } = extractNodeClarifications(clarifications, nodeComponent)
 
     const clarificationEntries = Object.entries(clarificationFieldValues)
+    if (nodeComponent.type === 'slack_action_send_message') {
+      logger.debug('[generateNodeConfig] Slack clarifications captured', {
+        clarificationFieldValues,
+        clarificationEntries
+      })
+    }
     logger.trace('[generateNodeConfig] Clarification entries extracted', {
       clarificationEntries,
       messageTemplate
@@ -1468,6 +1541,22 @@ async function generateNodeConfig({
     })
 
     // Check if we can skip AI call - if we have all required fields from clarifications
+    const autoMappingEntries =
+      runtimeNode && workflowData
+        ? computeAutoMappingEntries({
+            workflowData,
+            currentNodeId: runtimeNode.id,
+            configSchema: Array.isArray(nodeComponent?.configSchema) ? nodeComponent.configSchema : [],
+            currentConfig: runtimeNode?.data?.config || {}
+          })
+        : []
+
+    if (nodeComponent.type === 'slack_action_send_message') {
+      logger.debug('[generateNodeConfig] Slack auto-mapping entries', {
+        entries: autoMappingEntries
+      })
+    }
+
     const hasAllRequiredFields = (() => {
       // For triggers, ALWAYS skip AI call - only use clarifications
       // This prevents AI from hallucinating filter conditions
@@ -1482,23 +1571,20 @@ async function generateNodeConfig({
         // For Slack, we need channel and message
         const hasChannel = clarificationFieldValues.channel || clarificationFieldValues.channelId || clarificationFieldValues.slack_channel
         const hasMessage = messageTemplate || clarificationFieldValues.message
-        if (hasChannel && hasMessage) {
-          logger.info('[generateNodeConfig] Skipping AI call for Slack action - clarifications satisfied requirements')
+        const hasAutoMessage = autoMappingEntries.some(entry => entry.fieldKey === 'message')
+        const hasAutoChannel = autoMappingEntries.some(entry => entry.fieldKey === 'channel')
+        if ((hasChannel || hasAutoChannel) && (hasMessage || hasAutoMessage)) {
+          logger.info('[generateNodeConfig] Skipping AI call for Slack action - clarifications/auto-mapping satisfied requirements', {
+            hasChannel,
+            hasAutoChannel,
+            hasMessage,
+            hasAutoMessage
+          })
           return true
         }
       }
       return false
     })()
-
-    const autoMappingEntries =
-      runtimeNode && workflowData
-        ? computeAutoMappingEntries({
-            workflowData,
-            currentNodeId: runtimeNode.id,
-            configSchema: Array.isArray(nodeComponent?.configSchema) ? nodeComponent.configSchema : [],
-            currentConfig: runtimeNode?.data?.config || {}
-          })
-        : []
 
     let result: any
 
@@ -2024,70 +2110,24 @@ function logManualVerificationChecklist({
 }
 
 function calculateNodePosition(index: number, existingNodes: any[], viewport: any = null) {
-  // Constants
-  const NODE_WIDTH = 450 // From CustomNode.tsx
-  const NODE_HEIGHT = 260 // Allow room for expanded active nodes
-  const BASE_HORIZONTAL_SPACING = 580 // Comfortable spacing between horizontally connected nodes
-  const VERTICAL_SPACING = NODE_HEIGHT + 140 // Extra room if a wrap to next row is required
-  const BASE_PADDING = 80 // Padding from viewport edges
+  const NODE_WIDTH = 450 // Matches CustomNode width
+  const BASE_PADDING = 80
+  const HORIZONTAL_GAP = 130
 
-  // If no viewport info provided, use legacy positioning
-  if (!viewport || !viewport.width) {
-    logger.debug('[POSITION] No viewport info, using legacy positioning', { index })
-    return {
-      x: PADDING + (index * HORIZONTAL_SPACING),
-      y: PADDING
-    }
-  }
+  const zoom = viewport?.defaultZoom || 1
+  const chatPanelWidth = viewport?.chatPanelWidth || 0
+  const adjustedPanelOffset = chatPanelWidth ? chatPanelWidth / zoom : 0
+  const startX = BASE_PADDING + adjustedPanelOffset
 
-  // CRITICAL: Account for React Flow's default zoom level (0.35)
-  // When zoom is 0.35, the visible area in world coordinates is much larger
-  // Example: 1000px screen width at 0.35 zoom shows 1000/0.35 = 2857px of world space
-  const zoom = viewport.defaultZoom || 1.0
-  const chatPanelWidth = viewport.chatPanelWidth || 0
+  const x = startX + index * (NODE_WIDTH + HORIZONTAL_GAP)
+  const y = BASE_PADDING
 
-  // Calculate visible area in world coordinates (accounting for zoom)
-  const effectiveViewportWidth = (viewport.width + chatPanelWidth) / zoom
-  const builderViewportWidth = viewport.width / zoom
-  const visibleHeight = viewport.height / zoom
-
-  const horizontalPadding = chatPanelWidth > 0 ? BASE_PADDING / 2 : BASE_PADDING
-  const availableWidth = Math.max(builderViewportWidth - (horizontalPadding * 2), NODE_WIDTH + 40)
-
-  // Determine how many nodes comfortably fit per row (limit to 5 for readability)
-  const maxNodesPerRow = Math.max(1, Math.floor(availableWidth / (NODE_WIDTH + 120)))
-  const nodesPerRow = Math.max(1, Math.min(maxNodesPerRow || 1, 5))
-
-  const totalNodes = existingNodes.length + 1 // Include the node currently being placed
-  const row = Math.floor(index / nodesPerRow)
-  const col = index % nodesPerRow
-
-  // Compute spacing between nodes for this layout
-  let horizontalSpacing = NODE_WIDTH + 120
-  if (nodesPerRow > 1) {
-    const maxRowSpacing = Math.max(1, nodesPerRow - 1)
-    const spaceForGaps = Math.max(availableWidth - NODE_WIDTH, NODE_WIDTH)
-    const computedSpacing = spaceForGaps / maxRowSpacing
-    horizontalSpacing = Math.max(NODE_WIDTH + 120, Math.min(BASE_HORIZONTAL_SPACING, computedSpacing))
-  }
-
-  const nodesInThisRow = Math.min(nodesPerRow, totalNodes - row * nodesPerRow)
-  const rowWidth = (nodesInThisRow - 1) * horizontalSpacing + NODE_WIDTH
-  const centerOffset = horizontalPadding + Math.max(0, (availableWidth - rowWidth) / 2)
-
-  const x = centerOffset + (col * horizontalSpacing)
-  const y = BASE_PADDING + (row * VERTICAL_SPACING)
-
-  logger.trace('[POSITION] Computed node placement', {
+  logger.trace('[POSITION] Sequential placement applied', {
     index,
-    viewport: { width: viewport.width, height: viewport.height, zoom, chatPanelWidth },
-    effectiveViewportWidth,
-    builderViewportWidth,
-    visibleHeight,
-    availableWidth,
-    nodesPerRow,
-    row,
-    col,
+    existingCount: existingNodes?.length || 0,
+    viewport: viewport
+      ? { width: viewport.width, height: viewport.height, zoom, chatPanelWidth }
+      : null,
     position: { x, y }
   })
 

@@ -94,6 +94,15 @@ export function useWorkflowSaveActions({
     }
   })
 
+  useEffect(() => {
+    if (!isSaving) return
+    const timeoutId = setTimeout(() => {
+      setIsSaving(false)
+      logger.warn('[Workflow Save] Save operation exceeded timeout; clearing loading state')
+    }, 60000)
+    return () => clearTimeout(timeoutId)
+  }, [isSaving])
+
   /**
    * Serialize workflow state - filters out UI-only nodes
    */
