@@ -195,6 +195,16 @@ import {
 // Dropbox actions
 import { uploadDropboxFile } from './dropbox'
 
+// Utility actions
+import {
+  executeTransformer,
+  formatTransformer,
+  executeFileUpload,
+  executeExtractWebsiteData,
+  executeGoogleSearch,
+  executeTavilySearch
+} from './utility'
+
 // Workflow control actions
 import {
   executeIfThenCondition,
@@ -626,7 +636,23 @@ export const actionHandlerRegistry: Record<string, Function> = {
     getUserTimelineHandler(params.config, params.userId, params.input),
   "twitter_action_get_mentions": (params: { config: any; userId: string; input: Record<string, any> }) =>
     getMentionsHandler(params.config, params.userId, params.input),
-  
+
+  // Utility actions - data transformation, web scraping, search, etc.
+  "transformer": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    executeTransformer(params.config, params.userId, params.input),
+  "format_transformer": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    formatTransformer(params.config, params.userId, params.input),
+  "utility_action_format_transformer": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    formatTransformer(params.config, params.userId, params.input),
+  "file_upload": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    executeFileUpload(params.config, params.userId, params.input),
+  "extract_website_data": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    executeExtractWebsiteData(params.config, params.userId, params.input),
+  "google_search": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    executeGoogleSearch(params.config, params.userId, params.input),
+  "tavily_search": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    executeTavilySearch(params.config, params.userId, params.input),
+
   // Workflow control actions - special handling needed for wait_for_time - wrapped to handle new calling convention
   "if_then_condition": (params: { config: any; userId: string; input: Record<string, any> }) =>
     executeIfThenCondition(params.config, params.userId, params.input),

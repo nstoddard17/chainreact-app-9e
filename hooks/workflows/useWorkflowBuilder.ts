@@ -1981,18 +1981,6 @@ export function useWorkflowBuilder() {
 
     return () => clearInterval(intervalId)
   }, [loadingStartTime, toast])
-  // Failsafe: never let the Save spinner get stuck indefinitely
-  useEffect(() => {
-    if (!isSaving) return
-    const timeoutId = setTimeout(() => {
-      // If we are still saving after the timeout, force-clear and notify
-      setIsSaving(false)
-      logger.warn('[Workflow Builder] Save operation took too long; clearing loading state')
-    }, 60000) // Increased to 60s for workflows with complex webhook operations
-    return () => clearTimeout(timeoutId)
-  }, [isSaving])
-
-
   // Track loading state changes
   useEffect(() => {
     if (isLoading && !hasShownLoading) {

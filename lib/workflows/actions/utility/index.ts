@@ -4,6 +4,7 @@
  */
 
 export { executeTransformer } from './transformer';
+export { formatTransformer } from './formatTransformer';
 export { executeFileUpload } from './fileUpload';
 export { executeExtractWebsiteData } from './extractWebsiteData';
 export { executeGoogleSearch } from './googleSearch';

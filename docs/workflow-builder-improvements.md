@@ -79,9 +79,13 @@ Action items to solidify this decision:
 
 ## Build Order & Upcoming Enhancements
 
-- **Lock down AI-built workflows first.** We’ll finish stabilizing clarifications, auto-mapping, and inline editing before enabling approval callbacks or other backend behaviors so we know every generated flow is runnable from the UI alone.
-- **Preview + formatting UX.** Add a live “Message Preview” pane inside the Slack configuration modal (fed by sample data/mock payloads) so users can see variable substitutions and formatting before running tests.
-- **Transformer node (deferred).** Plan a dedicated “Content Transformer” action that converts HTML ↔ Slack Markdown ↔ plaintext; the React agent will insert it automatically when users describe cross-channel formatting, while still letting power users remove it if they prefer raw content.
+- **Lock down AI-built workflows first.** We'll finish stabilizing clarifications, auto-mapping, and inline editing before enabling approval callbacks or other backend behaviors so we know every generated flow is runnable from the UI alone.
+- **Preview + formatting UX.** Add a live "Message Preview" pane inside the Slack configuration modal (fed by sample data/mock payloads) so users can see variable substitutions and formatting before running tests.
+- **✅ Transformer node (COMPLETE).** Implemented a dedicated "Format Transformer" action (`format_transformer`) that converts content between formats (HTML → Slack Markdown, plain text, etc.). The node is available in the utility nodes category and can be inserted by the AI agent when building cross-channel workflows. Node includes a `note` field that allows the agent to explain why it was added. Users can delete the transformer if they prefer raw content.
+  - **Location**: `/lib/workflows/nodes/providers/utility/index.ts` (node definition)
+  - **Handler**: `/lib/workflows/actions/utility/formatTransformer.ts`
+  - **Registry**: Added to `/lib/workflows/actions/registry.ts`
+  - **UI**: Node notes display in CustomNode component with Info icon
 - **Inline editing polish.** Node card fields now open the modal focused on that field; a follow-up will add richer hover states, inline hints, and the ability to toggle optional sections directly from the canvas.
 
 ---

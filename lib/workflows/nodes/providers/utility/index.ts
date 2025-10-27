@@ -5,10 +5,110 @@ import {
   Search,
   Compass,
   Zap,
+  RefreshCw,
 } from "lucide-react"
 import { NodeComponent } from "../../types"
 
 export const utilityNodes: NodeComponent[] = [
+  {
+    type: "format_transformer",
+    title: "Format Transformer",
+    description: "Convert content between formats (HTML → Slack markdown, plain text, etc.)",
+    icon: RefreshCw,
+    category: "Data Transformation",
+    providerId: "utility",
+    isTrigger: false,
+    testable: true,
+    producesOutput: true,
+    outputSchema: [
+      {
+        name: "transformedContent",
+        label: "Transformed Content",
+        type: "string",
+        description: "The content after format transformation",
+        example: "*Bold text* and _italic text_"
+      },
+      {
+        name: "originalFormat",
+        label: "Original Format",
+        type: "string",
+        description: "The detected format of the input content",
+        example: "html"
+      },
+      {
+        name: "targetFormat",
+        label: "Target Format",
+        type: "string",
+        description: "The format the content was transformed to",
+        example: "slack_markdown"
+      },
+      {
+        name: "success",
+        label: "Success Status",
+        type: "boolean",
+        description: "Whether the transformation was successful",
+        example: true
+      },
+      {
+        name: "attachments",
+        label: "Attachments",
+        type: "array",
+        description: "Any upstream attachments passed through for downstream steps",
+        example: [
+          {
+            name: "invoice.pdf",
+            url: "https://files.example.com/invoice.pdf"
+          }
+        ]
+      }
+    ],
+    configSchema: [
+      {
+        name: "content",
+        label: "Content to Transform",
+        type: "textarea",
+        required: true,
+        placeholder: "{{previousNode.body}}",
+        description: "The content to transform between formats",
+        hasVariablePicker: true
+      },
+      {
+        name: "sourceFormat",
+        label: "Source Format",
+        type: "select",
+        defaultValue: "auto",
+        options: [
+          { value: "auto", label: "Auto-detect" },
+          { value: "html", label: "HTML" },
+          { value: "markdown", label: "Markdown" },
+          { value: "plain", label: "Plain Text" }
+        ],
+        description: "Format of the input content (auto-detect will identify HTML automatically)"
+      },
+      {
+        name: "targetFormat",
+        label: "Target Format",
+        type: "select",
+        required: true,
+        defaultValue: "slack_markdown",
+        options: [
+          { value: "slack_markdown", label: "Slack Markdown" },
+          { value: "plain", label: "Plain Text" },
+          { value: "html", label: "HTML" },
+          { value: "markdown", label: "Standard Markdown" }
+        ],
+        description: "Format to convert the content to"
+      },
+      {
+        name: "preserveVariables",
+        label: "Preserve Workflow Variables",
+        type: "boolean",
+        defaultValue: true,
+        description: "Keep {{variable}} placeholders intact during transformation",
+        uiTab: "advanced"
+      }
+    ],
+  },
   {
     type: "transformer",
     title: "Transformer",

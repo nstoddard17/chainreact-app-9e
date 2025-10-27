@@ -35,6 +35,7 @@ interface CustomNodeData {
     lastUpdatedAt?: string
     isValid?: boolean
   }
+  note?: string // Optional note explaining why this node was added (useful for AI-inserted nodes like transformers)
   onConfigure: (id: string, options?: ConfigureOptions) => void
   onDelete: (id: string) => void
   onAddChain?: (nodeId: string) => void
@@ -115,6 +116,8 @@ const DEFAULT_SLACK_SECTION_STATE = SLACK_CONFIG_SECTIONS.reduce<Record<string, 
   return acc
 }, {})
 
+const INTERNAL_PROVIDER_IDS = new Set(['logic', 'core', 'manual', 'schedule', 'webhook', 'ai', 'utility'])
+
 function CustomNode({ id, data, selected }: NodeProps) {
   const updateNodeInternalsHook = useUpdateNodeInternals?.()
   const reactFlowInstance = useReactFlow()
@@ -142,6 +145,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
     config,
     savedDynamicOptions,
     validationState,
+    note,
     onConfigure,
     onDelete,
     onAddChain,
@@ -197,7 +201,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
   const { integrations } = useIntegrationStore()
   const isIntegrationDisconnected = (() => {
     // Skip check for system/internal node types
-    if (!providerId || ['logic', 'core', 'manual', 'schedule', 'webhook', 'ai'].includes(providerId)) {
+    if (!providerId || INTERNAL_PROVIDER_IDS.has(providerId)) {
       return false
     }
 
@@ -460,6 +464,42 @@ function CustomNode({ id, data, selected }: NodeProps) {
     return true
   }
 
+  const formatSimpleToken = (val: string) => {
+    if (!val) return val
+    return val
+      .split(/[_-]/)
+      .map(token => token.charAt(0).toUpperCase() + token.slice(1))
+      .join(' ')
+  }
+
+  const getSavedOptionLabel = (fieldName: string, rawValue: any): string | undefined => {
+    if (!fieldName) return undefined
+    const options = savedDynamicOptions?.[fieldName]
+    if (!options) return undefined
+    const match = options.find((opt: any) => opt?.value === rawValue)
+    return match?.label
+  }
+
+  const getSchemaOptionLabel = (fieldName: string | undefined, rawValue: any): string | undefined => {
+    if (!fieldName) return undefined
+    const meta = fieldMetadataMap.get(fieldName)
+    if (!meta?.options) return undefined
+    const options = meta.options
+    const normalize = (val: any) => typeof val === 'string' ? val : String(val)
+    const target = normalize(rawValue)
+    const match = options.find((opt: any) => {
+      if (typeof opt === 'string') {
+        return opt === target
+      }
+      return opt?.value === rawValue || opt?.value === target
+    })
+    if (!match) return undefined
+    if (typeof match === 'string') {
+      return formatSimpleToken(match)
+    }
+    return match.label || match.name || formatSimpleToken(target)
+  }
+
   const formatDisplayValue = (value: any, fieldKey?: string): string => {
     if (value === null || value === undefined) return 'Not set'
     if (value === '') return 'Empty'
@@ -470,35 +510,37 @@ function CustomNode({ id, data, selected }: NodeProps) {
 
     // Handle arrays intelligently
     if (Array.isArray(value)) {
-      // Try to map array values to their labels from schema or saved options
       const mappedValues = value.map(item => {
-        // Check if we have a schema field for this key
-        if (fieldKey && component?.configSchema) {
-          const field = component.configSchema.find((f: any) => f.name === fieldKey)
-          if (field) {
-            // Check defaultOptions first
-            if (field.defaultOptions) {
-              const option = field.defaultOptions.find((opt: any) => opt.value === item)
-              if (option?.label) return option.label
-            }
-            // Check savedDynamicOptions
-            if (savedDynamicOptions?.[fieldKey]) {
-              const option = savedDynamicOptions[fieldKey].find((opt: any) => opt.value === item)
-              if (option?.label) return option.label
-            }
+        if (fieldKey) {
+          const labelFromSchema = getSchemaOptionLabel(fieldKey, item)
+          if (labelFromSchema) return labelFromSchema
+          const labelFromSaved = getSavedOptionLabel(fieldKey, item)
+          if (labelFromSaved) return labelFromSaved
+        }
+        if (typeof item === 'string') {
+          if (item.includes('{{')) return item
+          return formatSimpleToken(item)
+        }
+        if (item && typeof item === 'object') {
+          const attachmentName = (item as any).fileName || (item as any).filename || (item as any).name || (item as any).title
+          if (attachmentName) {
+            return attachmentName
+          }
+          try {
+            return JSON.stringify(item, null, 2)
+          } catch {
+            return '[Object]'
           }
         }
-        // Fallback to the item itself
         return String(item)
       })
 
-      return mappedValues.join(', ')
+      return mappedValues.join('\n')
     }
 
     if (typeof value === 'object') {
       try {
-        const serialized = JSON.stringify(value)
-        return serialized.length > 60 ? `${serialized.substring(0, 60)}...` : serialized
+        return JSON.stringify(value, null, 2)
       } catch {
         return '[Object]'
       }
@@ -515,6 +557,17 @@ function CustomNode({ id, data, selected }: NodeProps) {
       if (varMatch) {
         return `📎 From ${varMatch[1]}`
       }
+    }
+
+    if (fieldKey) {
+      const labelFromSchema = getSchemaOptionLabel(fieldKey, value)
+      if (labelFromSchema) return labelFromSchema
+      const labelFromSaved = getSavedOptionLabel(fieldKey, value)
+      if (labelFromSaved) return labelFromSaved
+    }
+
+    if (/^[a-z0-9_-]+$/i.test(stringValue) && !stringValue.includes('.')) {
+      return formatSimpleToken(stringValue)
     }
 
     return stringValue.length > 60 ? `${stringValue.substring(0, 60)}...` : stringValue
@@ -819,7 +872,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
       onDelete={onDelete}
     >
       <div
-        className={`relative w-[450px] ${backgroundClass} rounded-lg shadow-sm border-2 group ${borderClass} ${shadowClass} ${ringClass} transition-all duration-200 ${
+        className={`relative w-[450px] ${backgroundClass} rounded-lg shadow-sm border-2 group ${borderClass} ${shadowClass} ${ringClass} transition-all duration-200 overflow-hidden ${
           nodeHasConfiguration() ? "cursor-pointer" : ""
         } ${getExecutionStatusStyle()}`}
         data-testid={`node-${id}`}
@@ -974,6 +1027,13 @@ function CustomNode({ id, data, selected }: NodeProps) {
             )}
           </div>
         </div>
+        {/* Node note - explanatory text for AI-inserted nodes */}
+        {note && (
+          <div className="mt-3 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
+            <Info className="w-3.5 h-3.5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-blue-700 leading-relaxed whitespace-pre-wrap">{note}</p>
+          </div>
+        )}
       </div>
 
       <div className="px-3 pb-3 space-y-3">
@@ -1048,7 +1108,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
 
                     const labelContent = renderLabelWithTooltip(key)
                     const rowClasses = cn(
-                      "grid grid-cols-[120px_1fr] gap-3 px-3 py-3 text-xs transition-all duration-300 rounded-lg",
+                      "grid grid-cols-[120px_1fr] items-start gap-3 px-3 py-3 text-xs transition-all duration-300 rounded-lg",
                       onConfigure && "cursor-pointer hover:bg-muted/60",
                       isFallback && 'bg-amber-50/40'
                     )
@@ -1084,7 +1144,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
                             )}
                           >
                             {hasConfiguredValue ? (
-                              <span className="leading-relaxed break-words whitespace-pre-wrap block">{formattedConfigValue}</span>
+                              <span className="leading-relaxed break-words break-all whitespace-pre-wrap block">{formattedConfigValue}</span>
                             ) : (
                               <span className="flex items-center gap-1 text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> Filling…</span>
                             )}
@@ -1092,7 +1152,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
                           {hasLiveValue && (
                             <div className="flex items-center gap-1 text-[11px] font-medium text-emerald-600">
                               <CheckCircle2 className="h-3 w-3" />
-                              <span className="break-words">{formatDisplayValue(liveValue, key)}</span>
+                              <span className="break-words break-all whitespace-pre-wrap">{formatDisplayValue(liveValue, key)}</span>
                             </div>
                           )}
                         </div>
@@ -1138,7 +1198,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
                     <div className="font-semibold uppercase tracking-wide text-emerald-700">{getFieldLabel(key)}</div>
                     <div className="flex items-start gap-1 text-emerald-800">
                       <CheckCircle2 className="h-3 w-3 mt-0.5" />
-                      <span className="break-words leading-relaxed">{formatDisplayValue(value, key)}</span>
+                      <span className="break-words break-all whitespace-pre-wrap leading-relaxed">{formatDisplayValue(value, key)}</span>
                     </div>
                   </div>
                 ))}
