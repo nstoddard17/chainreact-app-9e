@@ -5,7 +5,9 @@
       "Bash(npx tsc:*)",
       "Bash(npm install:*)",
       "Bash(npm run:*)",
-      "Bash(cp:*)"
+      "Bash(cp:*)",
+      "Bash(supabase migration:*)",
+      "Bash(npx supabase:*)"
     ],
     "deny": [],
     "ask": [],
