@@ -241,7 +241,8 @@ function WorkflowsContent() {
 
   useEffect(() => {
     if (user) {
-      fetchWorkflows()
+      // Don't fetch workflows here - PagePreloader already did it
+      // This prevents race conditions and duplicate fetches
       fetchExecutionStats()
       fetchFolders()
     }

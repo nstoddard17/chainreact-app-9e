@@ -228,28 +228,24 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       return
     }
 
-    // Check if we have a recent fetch (within 30 seconds) and return cached data
     const state = get()
-    const CACHE_DURATION = 30000 // 30 seconds
-    if (state.lastFetchTime && Date.now() - state.lastFetchTime < CACHE_DURATION && state.workflows.length > 0) {
-      logger.debug('[WorkflowStore] Using cached workflows')
-      return
-    }
 
     // If already fetching, return the existing promise to avoid duplicate requests
-    // BUT if loadingList has been true for more than 35 seconds, assume it's stuck and reset
-    const LOADING_TIMEOUT = 35000 // 35 seconds (longer than the fetch timeout)
     if (state.fetchPromise && state.loadingList) {
-      // Check if we've been loading for too long (stuck state)
-      const timeSinceLastFetch = state.lastFetchTime ? Date.now() - state.lastFetchTime : Infinity
-      if (timeSinceLastFetch > LOADING_TIMEOUT) {
-        logger.warn('[WorkflowStore] Detected stuck loading state, resetting...')
-        set({ loadingList: false, fetchPromise: null })
-        // Continue with fresh fetch below
-      } else {
-        logger.debug('[WorkflowStore] Already fetching, returning existing promise')
-        return state.fetchPromise
-      }
+      logger.debug('[WorkflowStore] Already fetching, waiting for existing request')
+      return state.fetchPromise
+    }
+
+    // Reduced cache duration to 5 seconds - workflows change frequently
+    const CACHE_DURATION = 5000 // 5 seconds (reduced from 30)
+    const timeSinceLastFetch = state.lastFetchTime ? Date.now() - state.lastFetchTime : Infinity
+
+    // Use cache only if:
+    // 1. We have a recent fetch (within 5 seconds)
+    // 2. We're not currently loading (to avoid stale data during transitions)
+    if (timeSinceLastFetch < CACHE_DURATION && !state.loadingList) {
+      logger.debug('[WorkflowStore] Using cached workflows (age: ' + Math.round(timeSinceLastFetch / 1000) + 's)')
+      return
     }
 
     // Create the fetch promise

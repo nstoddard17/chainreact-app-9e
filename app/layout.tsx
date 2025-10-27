@@ -8,6 +8,7 @@ import AuthInitializer from "@/components/auth/AuthInitializer"
 import AuthErrorBoundary from "@/components/auth/AuthErrorBoundary"
 import { LightweightPresenceProvider } from "@/components/providers/LightweightPresenceProvider"
 import { Toaster } from "@/components/ui/toaster"
+import { Toaster as SonnerToaster } from "sonner"
 import { GlobalErrorHandler } from "@/components/GlobalErrorHandler"
 import { LoadingDetector } from "@/components/LoadingDetector"
 import { IconPrefetcher } from "@/components/integrations/IconPrefetcher"
@@ -119,6 +120,7 @@ export default function RootLayout({
               <IconPrefetcher />
               <LightweightPresenceProvider>
                 <Toaster />
+                <SonnerToaster position="top-right" />
                 {children}
               </LightweightPresenceProvider>
             </AuthErrorBoundary>

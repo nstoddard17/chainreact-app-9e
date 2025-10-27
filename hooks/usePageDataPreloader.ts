@@ -72,9 +72,18 @@ export function usePageDataPreloader(
     setIsLoading(true)
     setError(null)
 
-    // Keep trying until all data loads successfully
+    // Add overall timeout - if we're still loading after 30 seconds, show the page anyway
+    const overallTimeout = setTimeout(() => {
+      logger.warn('usePageDataPreloader', `Overall timeout reached for ${pageType} - showing page anyway`)
+      hasRunRef.current = true
+      isRunningRef.current = false
+      setIsReady(true)
+      setIsLoading(false)
+    }, 30000) // 30 seconds total max
+
+    // Keep trying until all data loads successfully (reduced retry count)
     let retryCount = 0
-    const maxRetries = 50 // Effectively infinite, but prevents true infinite loop
+    const maxRetries = 3 // Reduced from 50 to 3 - if it fails 3 times, show the page anyway
     let success = false
 
     while (!success && retryCount < maxRetries) {
@@ -98,6 +107,7 @@ export function usePageDataPreloader(
             name: "workflows",
             loader: async () => {
               setLoadingMessage("Loading your workflows...")
+              // Force fresh fetch on first load to prevent stale data flash
               await fetchWorkflows()
             }
           })
@@ -154,8 +164,9 @@ export function usePageDataPreloader(
               // Continue to next loader instead of throwing
               continue
             }
-            // For other errors, throw to trigger retry
-            throw loaderError
+            // For other errors, log and continue anyway - better to show page with missing data than infinite loading
+            logger.error('usePageDataPreloader', `${name} failed but continuing to next loader`, loaderError)
+            continue
           }
         }
 
@@ -163,7 +174,7 @@ export function usePageDataPreloader(
         // Small delay to ensure all state updates are processed
         await new Promise(resolve => setTimeout(resolve, 150))
 
-        // All loaders succeeded!
+        // All loaders succeeded (or failed gracefully)!
         success = true
         hasRunRef.current = true // Mark as completed
         isRunningRef.current = false
@@ -172,22 +183,29 @@ export function usePageDataPreloader(
       } catch (err) {
         retryCount++
         const error = err instanceof Error ? err : new Error('Failed to load page data')
-        logger.warn('usePageDataPreloader', `Failed to preload data for ${pageType}, retrying... (attempt ${retryCount})`, error)
+        logger.warn('usePageDataPreloader', `Failed to preload data for ${pageType}, retrying... (attempt ${retryCount}/${maxRetries})`, error)
         setError(error)
 
+        // If we've hit max retries, just show the page anyway
+        if (retryCount >= maxRetries) {
+          logger.warn('usePageDataPreloader', `Max retries reached for ${pageType}, showing page anyway`)
+          clearTimeout(overallTimeout) // Clear timeout before exiting
+          success = true // Force success to exit loop
+          hasRunRef.current = true
+          isRunningRef.current = false
+          setIsReady(true)
+          break
+        }
+
         // Wait before retrying (exponential backoff)
-        const delayMs = Math.min(1000 * Math.pow(2, retryCount - 1), 5000) // Cap at 5 seconds
+        const delayMs = Math.min(1000 * Math.pow(2, retryCount - 1), 3000) // Cap at 3 seconds
         setLoadingMessage(`Connection issue detected. Retrying in ${Math.ceil(delayMs / 1000)}s...`)
         await new Promise(resolve => setTimeout(resolve, delayMs))
       }
     }
 
-    if (!success) {
-      logger.error('usePageDataPreloader', `Max retries reached for ${pageType}`)
-      isRunningRef.current = false
-      // Still stuck after max retries - this should rarely happen
-      setLoadingMessage("Unable to connect. Please check your network connection.")
-    }
+    // Clear the overall timeout
+    clearTimeout(overallTimeout)
 
     setIsLoading(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
