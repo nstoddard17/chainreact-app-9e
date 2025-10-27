@@ -1,15 +1,15 @@
 import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
-import { TeamContent } from "@/components/new-design/TeamContent"
+import { TeamsPublicView } from "@/components/new-design/TeamsPublicView"
 import { requireUsername } from "@/utils/checkUsername"
 
 export const dynamic = 'force-dynamic'
 
-export default async function TeamPage() {
+export default async function TeamsPage() {
   await requireUsername()
 
   return (
-    <NewAppLayout title="Team" subtitle="Manage team members and collaboration">
-      <TeamContent />
+    <NewAppLayout title="Teams" subtitle="Browse Teams">
+      <TeamsPublicView />
     </NewAppLayout>
   )
 }

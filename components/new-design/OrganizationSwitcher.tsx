@@ -122,6 +122,18 @@ export function OrganizationSwitcher() {
     }
   }, [user])
 
+  // Listen for create organization event
+  useEffect(() => {
+    const handleCreateOrg = () => {
+      setCreateDialogOpen(true)
+    }
+
+    window.addEventListener('create-organization', handleCreateOrg)
+    return () => {
+      window.removeEventListener('create-organization', handleCreateOrg)
+    }
+  }, [])
+
   // Save current org to localStorage when it changes
   useEffect(() => {
     if (currentOrg) {

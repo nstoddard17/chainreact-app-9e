@@ -93,7 +93,15 @@ export function NewSidebar() {
 
   const secondaryNav: NavItem[] = [
     { label: "Analytics", href: "/analytics", icon: BarChart3 },
-    { label: "Organization", href: "/organization-settings", icon: Users },
+    { label: "Teams", href: "/teams", icon: Users },
+    { label: "Organization", href: "/organization", icon: Building },
+  ]
+
+  // Organization admin navigation - visible to org admins/owners
+  // TODO: Add logic to detect if user is org admin
+  const orgAdminNav: NavItem[] = [
+    { label: "Team Settings", href: "/team-settings", icon: Users },
+    { label: "Organization Settings", href: "/organization-settings", icon: Building },
   ]
 
   const adminNav: NavItem[] = isAdmin ? [
@@ -197,6 +205,32 @@ export function NewSidebar() {
             )
           })}
         </nav>
+
+        {/* Organization Admin Navigation - Only show for org admins */}
+        {orgAdminNav.length > 0 && (
+          <nav className="px-3 space-y-1 mt-2 pt-2 border-t border-gray-200 dark:border-gray-800">
+            {orgAdminNav.map((item) => {
+              const Icon = item.icon
+              const active = isActive(item.href)
+
+              return (
+                <button
+                  key={item.href}
+                  onClick={() => router.push(item.href)}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                    active
+                      ? "bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100 font-semibold"
+                      : "text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                  )}
+                >
+                  <Icon className="w-4 h-4 flex-shrink-0" />
+                  <span>{item.label}</span>
+                </button>
+              )
+            })}
+          </nav>
+        )}
 
         {/* Admin Navigation - Only show for admins */}
         {isAdmin && adminNav.length > 0 && (

@@ -58,7 +58,7 @@ interface Organization {
   member_count: number
   team_count: number
   created_at: string
-  is_personal?: boolean
+  is_workspace?: boolean
 }
 
 interface OrganizationMember {
@@ -276,6 +276,9 @@ export function OrganizationSettingsContent() {
   const isOwner = organization?.owner_id === user?.id
   const isAdmin = organization?.user_role === 'admin' || isOwner
 
+  // Check if current selection is a personal workspace
+  const isPersonalWorkspace = organization?.is_workspace || (organization?.team_count === 0 && organization?.member_count === 1)
+
   if (loading && !organization) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -288,6 +291,79 @@ export function OrganizationSettingsContent() {
     return (
       <div className="text-center py-12">
         <p className="text-muted-foreground">No organization selected</p>
+      </div>
+    )
+  }
+
+  // Show special UI for personal workspaces
+  if (isPersonalWorkspace) {
+    return (
+      <div className="h-full w-full flex items-center justify-center">
+        <Card className="max-w-2xl w-full">
+          <CardHeader className="text-center">
+            <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
+              <Building2 className="w-6 h-6 text-muted-foreground" />
+            </div>
+            <CardTitle>No Organization</CardTitle>
+            <CardDescription>
+              You're currently in your personal workspace. Create an organization to collaborate with teams.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-4">
+              <div className="p-4 border rounded-lg space-y-2">
+                <h4 className="font-semibold flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Collaborate with Teams
+                </h4>
+                <p className="text-sm text-muted-foreground">
+                  Invite team members, assign roles, and work together on workflows
+                </p>
+              </div>
+
+              <div className="p-4 border rounded-lg space-y-2">
+                <h4 className="font-semibold flex items-center gap-2">
+                  <Shield className="w-4 h-4" />
+                  Manage Permissions
+                </h4>
+                <p className="text-sm text-muted-foreground">
+                  Control access levels and manage team member permissions
+                </p>
+              </div>
+
+              <div className="p-4 border rounded-lg space-y-2">
+                <h4 className="font-semibold flex items-center gap-2">
+                  <Building2 className="w-4 h-4" />
+                  Centralized Management
+                </h4>
+                <p className="text-sm text-muted-foreground">
+                  Manage billing, settings, and resources from one place
+                </p>
+              </div>
+            </div>
+
+            <Button
+              className="w-full"
+              size="lg"
+              onClick={() => {
+                // Trigger the organization switcher create dialog
+                window.dispatchEvent(new CustomEvent('create-organization'))
+              }}
+            >
+              <Building2 className="w-4 h-4 mr-2" />
+              Create Organization
+            </Button>
+
+            <div className="text-center">
+              <Button
+                variant="ghost"
+                onClick={() => router.push('/settings?section=workspace')}
+              >
+                Go to Workspace Settings
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     )
   }
