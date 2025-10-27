@@ -103,6 +103,10 @@ export function TeamsPublicView() {
     }
   }
 
+  const handleViewMembers = (team: Team) => {
+    router.push(`/teams/${team.slug}/members`)
+  }
+
   const getRoleBadge = (role?: string) => {
     if (!role) return null
 
@@ -242,29 +246,28 @@ export function TeamsPublicView() {
                     {/* Actions */}
                     <td className="p-4" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            router.push(`/teams/${team.slug}`)
-                          }}
-                        >
-                          View
-                        </Button>
-                        {canAccessSettings && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <MoreHorizontal className="w-4 h-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem
+                              onSelect={(e) => {
+                                e.preventDefault()
+                                handleViewMembers(team)
+                              }}
+                            >
+                              <UserIcon className="w-4 h-4 mr-2" />
+                              View Members
+                            </DropdownMenuItem>
+                            {canAccessSettings && (
                               <DropdownMenuItem
                                 onSelect={(e) => {
                                   e.preventDefault()
@@ -274,9 +277,9 @@ export function TeamsPublicView() {
                                 <Settings className="w-4 h-4 mr-2" />
                                 Settings
                               </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        )}
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </td>
                   </tr>
