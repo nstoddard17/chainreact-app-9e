@@ -8,7 +8,7 @@ import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createSupabaseRouteHandlerClient()
@@ -19,7 +19,7 @@ export async function GET(
       return errorResponse("Unauthorized", 401)
     }
 
-    const orgId = params.id
+    const { id: orgId } = await params
 
     // Check if user has an organization-level role
     const { data: member, error: memberError } = await supabase
