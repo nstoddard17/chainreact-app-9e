@@ -61,15 +61,16 @@ export default function CreateOrganizationDialog({ open, onOpenChange }: Props) 
       
       // Show success message
       toast.success(`Organization "${result.name}" created successfully!`)
-      
+
       // Close dialog and reset form
       onOpenChange(false)
       setName("")
       setSlug("")
       setDescription("")
-      
-      // Redirect to the organization overview page
-      router.push(`/teams/${result.slug}`)
+
+      // Redirect to the organization page
+      router.push('/organization')
+      router.refresh()
     } catch (error: any) {
       logger.error("Dialog: Failed to create organization:", {
         message: error.message,

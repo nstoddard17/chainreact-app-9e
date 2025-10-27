@@ -176,6 +176,10 @@ export function OrganizationSwitcher() {
       setOrgName("")
       setOrgDescription("")
       setCreateDialogOpen(false)
+
+      // Redirect to organization page
+      router.push('/organization')
+      router.refresh()
     } catch (error: any) {
       console.error('Error creating organization:', error)
       toast.error(error.message || 'Failed to create organization')
