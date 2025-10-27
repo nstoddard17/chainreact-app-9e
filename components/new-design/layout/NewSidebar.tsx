@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import Image from "next/image"
 import { useAuthStore } from "@/stores/authStore"
@@ -36,27 +36,15 @@ import {
   BarChart3,
   Users,
   User,
-  Coins,
   Crown,
   Gift,
   Info,
   Check,
   Building,
-  Link as LinkIcon,
-  Share2,
-  MessageSquare,
-  Copy,
-  ExternalLink,
   Plus
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 
 interface NavItem {
   label: string
@@ -73,70 +61,10 @@ export function NewSidebar() {
   const [upgradePlanModalOpen, setUpgradePlanModalOpen] = useState(false)
   const [freeCreditsModalOpen, setFreeCreditsModalOpen] = useState(false)
   const [socialPostUrl, setSocialPostUrl] = useState("")
-  const [referralLink, setReferralLink] = useState("")
-  const [hasAdminTeam, setHasAdminTeam] = useState(false)
-  const [hasAdminOrg, setHasAdminOrg] = useState(false)
   const { toast } = useToast()
 
   // Check if user is admin
   const isAdmin = profile?.admin === true
-
-  // Check if user has admin/owner privileges in any team or organization
-  useEffect(() => {
-    const checkAdminPrivileges = async () => {
-      if (!user) return
-
-      try {
-        const orgId = localStorage.getItem('current_workspace_id')
-        if (!orgId) {
-          setHasAdminTeam(false)
-          setHasAdminOrg(false)
-          return
-        }
-
-        // Check if user has admin/owner role at team level
-        const teamsResponse = await fetch(`/api/organizations/${orgId}/teams`)
-        if (teamsResponse.ok) {
-          const { teams } = await teamsResponse.json()
-          const adminTeams = teams?.filter((team: any) =>
-            team.user_role === 'owner' || team.user_role === 'admin'
-          ) || []
-          setHasAdminTeam(adminTeams.length > 0)
-        }
-
-        // Check if user has admin/owner role at organization level
-        // Use the new organization_members endpoint
-        const orgMemberResponse = await fetch(`/api/organizations/${orgId}/members/me`)
-        if (orgMemberResponse.ok) {
-          const { member } = await orgMemberResponse.json()
-          // User has org-level admin privileges if they have owner/admin role
-          const hasOrgAdminRole = member && ['owner', 'admin'].includes(member.role)
-
-          // Also check if this is a real organization (not a workspace)
-          const orgResponse = await fetch(`/api/organizations/${orgId}`)
-          if (orgResponse.ok) {
-            const org = await orgResponse.json()
-            const isRealOrg = org && org.team_count > 0
-            setHasAdminOrg(hasOrgAdminRole && isRealOrg)
-          }
-        } else {
-          // Fallback to old method if new endpoint doesn't exist yet
-          const orgsResponse = await fetch('/api/organizations')
-          if (orgsResponse.ok) {
-            const { organizations } = await orgsResponse.json()
-            const realOrgs = organizations?.filter((org: any) =>
-              org.team_count > 0 && (org.user_role === 'owner' || org.user_role === 'admin')
-            ) || []
-            setHasAdminOrg(realOrgs.length > 0)
-          }
-        }
-      } catch (error) {
-        console.error('Error checking admin privileges:', error)
-      }
-    }
-
-    checkAdminPrivileges()
-  }, [user])
 
   // Generate referral link based on user ID
   const userReferralLink = profile?.id
@@ -156,14 +84,6 @@ export function NewSidebar() {
     { label: "Organization", href: "/organization", icon: Building },
   ]
 
-  // Organization admin navigation - visible to org/team admins/owners
-  const orgAdminNav: NavItem[] = []
-  if (hasAdminTeam) {
-    orgAdminNav.push({ label: "Team Settings", href: "/team-settings", icon: Users })
-  }
-  if (hasAdminOrg) {
-    orgAdminNav.push({ label: "Organization Settings", href: "/organization-settings", icon: Building })
-  }
 
   const adminNav: NavItem[] = isAdmin ? [
     { label: "Admin Panel", href: "/admin", icon: Crown },
@@ -267,31 +187,6 @@ export function NewSidebar() {
           })}
         </nav>
 
-        {/* Organization Admin Navigation - Only show for org admins */}
-        {orgAdminNav.length > 0 && (
-          <nav className="px-3 space-y-1 mt-2 pt-2 border-t border-gray-200 dark:border-gray-800">
-            {orgAdminNav.map((item) => {
-              const Icon = item.icon
-              const active = isActive(item.href)
-
-              return (
-                <button
-                  key={item.href}
-                  onClick={() => router.push(item.href)}
-                  className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                    active
-                      ? "bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100 font-semibold"
-                      : "text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                  )}
-                >
-                  <Icon className="w-4 h-4 flex-shrink-0" />
-                  <span>{item.label}</span>
-                </button>
-              )
-            })}
-          </nav>
-        )}
 
         {/* Admin Navigation - Only show for admins */}
         {isAdmin && adminNav.length > 0 && (
