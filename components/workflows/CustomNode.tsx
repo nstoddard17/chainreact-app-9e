@@ -1193,15 +1193,23 @@ function CustomNode({ id, data, selected }: NodeProps) {
               </div>
             ) : (
               <div className="divide-y divide-emerald-200/70">
-                {testDataEntries.map(([key, value]) => (
-                  <div key={key} className="grid grid-cols-[120px_1fr] gap-3 px-3 py-3 text-xs">
-                    <div className="font-semibold uppercase tracking-wide text-emerald-700">{getFieldLabel(key)}</div>
-                    <div className="flex items-start gap-1 text-emerald-800">
-                      <CheckCircle2 className="h-3 w-3 mt-0.5" />
-                      <span className="break-words break-all whitespace-pre-wrap leading-relaxed">{formatDisplayValue(value, key)}</span>
+                {testDataEntries.map(([key, value]) => {
+                  const sampleDisplay = formatDisplayValue(value, key)
+                  return (
+                    <div key={key} className="grid grid-cols-[120px_1fr] gap-3 px-3 py-3 text-xs">
+                      <div className="font-semibold uppercase tracking-wide text-emerald-700">{getFieldLabel(key)}</div>
+                      <div className="flex items-start gap-1 text-emerald-800">
+                        <CheckCircle2 className="h-3 w-3 mt-0.5" />
+                        <span
+                          className="leading-relaxed truncate block max-w-full"
+                          title={sampleDisplay}
+                        >
+                          {sampleDisplay}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
                 {testDataEntries.length === 0 && (
                   <div className="px-3 py-4 text-xs text-emerald-700/70">No sample data returned yet.</div>
                 )}
