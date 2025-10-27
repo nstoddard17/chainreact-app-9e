@@ -53,16 +53,23 @@ export function ClarificationQuestion({ question, onAnswer, answer }: Clarificat
       const fetchOptions = async () => {
         setLoading(true)
         try {
+          console.log('[CLARIFICATION] Fetching options from:', question.dataEndpoint)
           const response = await fetch(question.dataEndpoint!)
-          if (!response.ok) throw new Error('Failed to fetch options')
+
+          if (!response.ok) {
+            console.error('[CLARIFICATION] Fetch failed with status:', response.status, response.statusText)
+            throw new Error(`Failed to fetch options: ${response.status} ${response.statusText}`)
+          }
 
           const data = await response.json()
 
           // Handle different response formats
           const optionsList = data.channels || data.senders || data.options || data.items || []
+          console.log('[CLARIFICATION] Loaded options:', optionsList.length, 'items')
           setOptions(optionsList)
         } catch (error) {
           console.error('[CLARIFICATION] Failed to load options:', error)
+          console.error('[CLARIFICATION] Endpoint was:', question.dataEndpoint)
           setOptions([])
         } finally {
           setLoading(false)
