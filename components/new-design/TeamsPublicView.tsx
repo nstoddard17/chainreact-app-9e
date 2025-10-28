@@ -124,26 +124,10 @@ export function TeamsPublicView() {
 
   const fetchInvitations = async () => {
     try {
-      const response = await fetch('/api/notifications?unread=true')
+      const response = await fetch('/api/teams/my-invitations')
       if (response.ok) {
-        const { notifications } = await response.json()
-        // Filter for team invitations and map to Invitation type
-        const teamInvites = notifications
-          .filter((n: any) => n.type === 'team_invitation')
-          .map((n: any) => ({
-            id: n.metadata?.invitation_id,
-            team_id: n.metadata?.team_id,
-            role: n.metadata?.role,
-            status: 'pending',
-            invited_at: n.created_at,
-            expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
-            team: {
-              id: n.metadata?.team_id,
-              name: n.metadata?.team_name,
-              description: ''
-            }
-          }))
-        setInvitations(teamInvites)
+        const { invitations: data } = await response.json()
+        setInvitations(data || [])
       }
     } catch (error) {
       logger.error('Error fetching invitations:', error)
@@ -309,27 +293,27 @@ export function TeamsPublicView() {
         {invitations.length > 0 && (
           <div>
             <h2 className="text-lg font-semibold mb-3">Pending Invitations</h2>
-            <div className="bg-blue-50 rounded-lg border border-blue-200">
+            <div className="bg-white rounded-lg border">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-blue-200 bg-blue-100">
-                    <th className="text-left p-4 font-semibold text-sm text-slate-700">Team</th>
-                    <th className="text-left p-4 font-semibold text-sm text-slate-700">Description</th>
-                    <th className="text-left p-4 font-semibold text-sm text-slate-700">Role</th>
-                    <th className="text-left p-4 font-semibold text-sm text-slate-700">Status</th>
-                    <th className="text-right p-4 font-semibold text-sm text-slate-700">Actions</th>
+                  <tr className="border-b bg-slate-50">
+                    <th className="text-left p-4 font-semibold text-sm text-slate-600">Team</th>
+                    <th className="text-left p-4 font-semibold text-sm text-slate-600">Description</th>
+                    <th className="text-left p-4 font-semibold text-sm text-slate-600">Role</th>
+                    <th className="text-left p-4 font-semibold text-sm text-slate-600">Status</th>
+                    <th className="text-right p-4 font-semibold text-sm text-slate-600">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {invitations.map((invitation) => (
                     <tr
                       key={invitation.id}
-                      className="border-b last:border-b-0 border-blue-200 bg-white hover:bg-blue-50 transition-colors"
+                      className="border-b last:border-b-0 hover:bg-slate-50 transition-colors"
                     >
                       {/* Team Name & Icon */}
                       <td className="p-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                          <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
                             <Users className="w-5 h-5 text-blue-600" />
                           </div>
                           <div>

@@ -1,9 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useIntegrationStore } from "@/stores/integrationStore"
 import { useRouter } from "next/navigation"
-import { Bell, AlertCircle, Users, Check, X, Clock, Loader2 } from "lucide-react"
+import { Bell, Users, Check, X, Clock, Loader2, AlertCircle, Mail } from "lucide-react"
 import Link from "next/link"
 import {
   DropdownMenu,
@@ -13,7 +12,6 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
-import { getProviderDisplayName } from "@/lib/utils/provider-names"
 import { toast } from "sonner"
 import { logger } from "@/lib/utils/logger"
 
@@ -31,15 +29,9 @@ interface Notification {
 
 export function NotificationDropdown() {
   const router = useRouter()
-  const { integrations } = useIntegrationStore()
-  const [integrationIssues, setIntegrationIssues] = useState<Array<{
-    id: string
-    name: string
-    provider: string
-    issue: string
-  }>>([])
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [processingNotification, setProcessingNotification] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
 
   // Fetch notifications
   const fetchNotifications = async () => {
@@ -47,67 +39,29 @@ export function NotificationDropdown() {
       const response = await fetch('/api/notifications?unread=true')
       if (response.ok) {
         const { notifications: data } = await response.json()
+        logger.debug('Fetched notifications:', { count: data?.length || 0, notifications: data })
         setNotifications(data || [])
+      } else {
+        logger.error('Failed to fetch notifications:', { status: response.status })
       }
     } catch (error) {
       logger.error('Error fetching notifications:', error)
+    } finally {
+      setLoading(false)
     }
   }
 
-  // Check for integration issues
   useEffect(() => {
-    const checkIntegrations = () => {
-      const now = new Date()
-      const issues: typeof integrationIssues = []
-
-      integrations.forEach(integration => {
-        // Check database status first
-        if (integration.status === 'needs_reauthorization') {
-          issues.push({
-            id: integration.id,
-            name: getProviderDisplayName(integration.provider),
-            provider: integration.provider,
-            issue: 'Needs reauthorization'
-          })
-        } else if (integration.status === 'expired') {
-          issues.push({
-            id: integration.id,
-            name: getProviderDisplayName(integration.provider),
-            provider: integration.provider,
-            issue: 'Connection expired'
-          })
-        } else if (integration.status === 'connected' && integration.expires_at) {
-          // Check if connected integration has expired based on expires_at timestamp
-          const expiresAt = new Date(integration.expires_at)
-          const expiryTimestamp = expiresAt.getTime()
-          const nowTimestamp = now.getTime()
-
-          // If expired (past the expiry time)
-          if (expiryTimestamp <= nowTimestamp) {
-            issues.push({
-              id: integration.id,
-              name: getProviderDisplayName(integration.provider),
-              provider: integration.provider,
-              issue: 'Token expired'
-            })
-          }
-        }
-      })
-
-      setIntegrationIssues(issues)
-    }
-
-    checkIntegrations()
+    logger.debug('NotificationDropdown mounted - fetching notifications...')
     fetchNotifications()
 
-    // Check periodically
+    // Check periodically for new notifications
     const interval = setInterval(() => {
-      checkIntegrations()
       fetchNotifications()
     }, 30000) // Check every 30 seconds
 
     return () => clearInterval(interval)
-  }, [integrations])
+  }, [])
 
   const handleAcceptInvitation = async (notification: Notification, e: React.MouseEvent) => {
     e.preventDefault()
@@ -186,20 +140,61 @@ export function NotificationDropdown() {
     // Just close the dropdown - notification stays unread
   }
 
-  const totalCount = integrationIssues.length + notifications.length
+  const handleMarkAsRead = async (notificationId: string) => {
+    try {
+      const response = await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notification_ids: [notificationId] })
+      })
 
-  // Don't show the bell if there are no issues or notifications
-  if (totalCount === 0) {
-    return null
+      if (response.ok) {
+        fetchNotifications()
+      }
+    } catch (error) {
+      logger.error('Error marking notification as read:', error)
+    }
   }
+
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'team_invitation':
+        return <Users className="w-4 h-4 text-blue-600" />
+      case 'workflow_shared':
+        return <Mail className="w-4 h-4 text-green-600" />
+      case 'execution_failed':
+        return <AlertCircle className="w-4 h-4 text-red-600" />
+      case 'integration_disconnected':
+        return <AlertCircle className="w-4 h-4 text-yellow-600" />
+      default:
+        return <Bell className="w-4 h-4 text-gray-600" />
+    }
+  }
+
+  const getNotificationBgColor = (type: string) => {
+    switch (type) {
+      case 'team_invitation':
+        return 'bg-blue-100'
+      case 'workflow_shared':
+        return 'bg-green-100'
+      case 'execution_failed':
+        return 'bg-red-100'
+      case 'integration_disconnected':
+        return 'bg-yellow-100'
+      default:
+        return 'bg-gray-100'
+    }
+  }
+
+  const totalCount = notifications.length
+  const hasNotifications = totalCount > 0
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-4 w-4 text-yellow-500 animate-pulse" />
-          <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-          {totalCount > 0 && (
+          <Bell className={`h-4 w-4 ${hasNotifications ? 'text-yellow-500 animate-pulse' : 'text-gray-400'}`} />
+          {hasNotifications && (
             <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-white text-xs flex items-center justify-center font-bold">
               {totalCount > 9 ? '9+' : totalCount}
             </span>
@@ -217,15 +212,32 @@ export function NotificationDropdown() {
         <DropdownMenuSeparator className="bg-gray-700" />
 
         <div className="max-h-96 overflow-y-auto">
-          {/* Team Invitations */}
+          {/* Empty State */}
+          {totalCount === 0 && !loading && (
+            <div className="px-6 py-8 text-center">
+              <Bell className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+              <p className="text-sm text-gray-400">No notifications</p>
+              <p className="text-xs text-gray-500 mt-1">You're all caught up!</p>
+            </div>
+          )}
+
+          {/* Loading State */}
+          {loading && (
+            <div className="px-6 py-8 text-center">
+              <Loader2 className="w-8 h-8 text-gray-400 mx-auto mb-3 animate-spin" />
+              <p className="text-sm text-gray-400">Loading notifications...</p>
+            </div>
+          )}
+
+          {/* Team Invitations - Special handling with action buttons */}
           {notifications.filter(n => n.type === 'team_invitation').map((notification) => (
             <div
               key={notification.id}
-              className="px-3 py-3 border-b border-gray-700 last:border-b-0"
+              className="px-3 py-3 border-b border-gray-700 last:border-b-0 hover:bg-gray-800 transition-colors"
             >
               <div className="flex items-start gap-2">
-                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-1">
-                  <Users className="w-4 h-4 text-blue-600" />
+                <div className={`w-8 h-8 rounded-full ${getNotificationBgColor(notification.type)} flex items-center justify-center flex-shrink-0 mt-1`}>
+                  {getNotificationIcon(notification.type)}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-white">{notification.title}</p>
@@ -272,67 +284,68 @@ export function NotificationDropdown() {
             </div>
           ))}
 
-          {/* Other Notifications */}
+          {/* All Other Notifications - Standard clickable items */}
           {notifications.filter(n => n.type !== 'team_invitation').map((notification) => (
-            <DropdownMenuItem key={notification.id} asChild>
-              <Link
-                href={notification.action_url || '#'}
-                className="flex flex-col gap-1 px-3 py-2 text-gray-200 hover:text-white hover:bg-gray-700"
+            <div
+              key={notification.id}
+              className="border-b border-gray-700 last:border-b-0"
+            >
+              <div
+                className="px-3 py-3 hover:bg-gray-800 transition-colors cursor-pointer"
+                onClick={() => {
+                  if (notification.action_url) {
+                    handleMarkAsRead(notification.id)
+                    router.push(notification.action_url)
+                  }
+                }}
               >
-                <div className="font-medium text-sm">{notification.title}</div>
-                <div className="text-xs text-gray-400">{notification.message}</div>
-                {notification.action_label && (
-                  <div className="text-xs text-blue-400 mt-1">{notification.action_label}</div>
-                )}
-              </Link>
-            </DropdownMenuItem>
-          ))}
-
-          {/* Integration Issues */}
-          {integrationIssues.length > 0 && (
-            <>
-              <DropdownMenuSeparator className="bg-gray-700" />
-              <div className="px-3 py-2">
-                <h4 className="text-xs font-semibold text-gray-400 flex items-center gap-2">
-                  <AlertCircle className="h-3 w-3 text-yellow-500" />
-                  Integration Issues ({integrationIssues.length})
-                </h4>
+                <div className="flex items-start gap-2">
+                  <div className={`w-8 h-8 rounded-full ${getNotificationBgColor(notification.type)} flex items-center justify-center flex-shrink-0 mt-1`}>
+                    {getNotificationIcon(notification.type)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-white">{notification.title}</p>
+                    <p className="text-xs text-gray-300 mt-1">{notification.message}</p>
+                    {notification.action_label && (
+                      <p className="text-xs text-blue-400 mt-2">{notification.action_label}</p>
+                    )}
+                    <p className="text-xs text-gray-500 mt-1">
+                      {new Date(notification.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
               </div>
-              {integrationIssues.map((issue) => (
-                <DropdownMenuItem key={issue.id} asChild>
-                  <Link
-                    href="/integrations"
-                    className="flex flex-col gap-1 px-3 py-2 text-gray-200 hover:text-white hover:bg-gray-700"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium text-sm">
-                        {issue.name}
-                      </span>
-                      <span className="text-xs text-yellow-400 whitespace-nowrap">
-                        {issue.issue}
-                      </span>
-                    </div>
-                    <span className="text-xs text-gray-400">
-                      Click to fix this integration
-                    </span>
-                  </Link>
-                </DropdownMenuItem>
-              ))}
-            </>
-          )}
+            </div>
+          ))}
         </div>
 
-        <DropdownMenuSeparator className="bg-gray-700" />
-        <div className="px-3 py-2">
-          <Button
-            size="sm"
-            variant="ghost"
-            className="w-full text-gray-300 hover:text-white hover:bg-gray-700"
-            onClick={() => router.push('/teams')}
-          >
-            View All Teams
-          </Button>
-        </div>
+        {hasNotifications && (
+          <>
+            <DropdownMenuSeparator className="bg-gray-700" />
+            <div className="px-3 py-2 flex gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="flex-1 text-gray-300 hover:text-white hover:bg-gray-700"
+                onClick={async () => {
+                  try {
+                    await fetch('/api/notifications', {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ mark_all: true })
+                    })
+                    fetchNotifications()
+                    toast.success('All notifications marked as read')
+                  } catch (error) {
+                    logger.error('Error marking all as read:', error)
+                  }
+                }}
+              >
+                Mark all as read
+              </Button>
+            </div>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )

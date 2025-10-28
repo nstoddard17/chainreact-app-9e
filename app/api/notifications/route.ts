@@ -38,6 +38,13 @@ export async function GET(request: NextRequest) {
       return errorResponse("Failed to fetch notifications", 500)
     }
 
+    logger.debug("Notifications API response:", {
+      userId: user.id,
+      unreadOnly,
+      count: notifications?.length || 0,
+      notifications: notifications?.map(n => ({ id: n.id, type: n.type, title: n.title, is_read: n.is_read }))
+    })
+
     return jsonResponse({ notifications: notifications || [] })
   } catch (error) {
     logger.error("Unexpected error:", error)
