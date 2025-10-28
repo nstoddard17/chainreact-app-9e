@@ -25,6 +25,7 @@ import {
 import { CheckCircle2, Plus, ExternalLink, MoreVertical, Unplug, RefreshCw, Settings, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { logger } from "@/lib/utils/logger"
+import { fetchWithTimeout } from "@/lib/utils/fetch-with-timeout"
 import { getIntegrationLogoClasses } from "@/lib/integrations/logoStyles"
 
 export function AppsContent() {
@@ -102,7 +103,12 @@ export function AppsContent() {
     setLocalLoading(prev => ({ ...prev, [integrationId]: true }))
 
     try {
-      const response = await fetch(`/api/integrations/${integrationId}`, { method: "DELETE" })
+      const response = await fetchWithTimeout(`/api/integrations/${integrationId}`, { method: "DELETE" }, 8000)
+
+      if (!response.ok) {
+        throw new Error(`Failed to disconnect: ${response.status}`)
+      }
+
       const data = await response.json()
 
       if (data.success) {
@@ -118,10 +124,11 @@ export function AppsContent() {
           variant: "destructive",
         })
       }
-    } catch (error) {
+    } catch (error: any) {
+      logger.error("Failed to disconnect integration:", error)
       toast({
         title: "Error",
-        description: "An unexpected error occurred.",
+        description: error?.message || "An unexpected error occurred.",
         variant: "destructive",
       })
     } finally {
