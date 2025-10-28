@@ -60,6 +60,10 @@ export const TeamInvitationEmail = ({
               <strong>{inviterName}</strong> ({inviterEmail}) has invited you to join their team <strong>{teamName}</strong> on ChainReact.
             </Text>
 
+            <Text style={importantNote}>
+              <strong>Note:</strong> To accept this invitation and join the team, you'll need to have at least a Pro plan subscription. You can view the invitation now, but you'll be prompted to upgrade if needed when you try to accept.
+            </Text>
+
             <Section style={roleBox}>
               <Text style={roleTitle}>Your Role: <span style={roleBadge}>{role.charAt(0).toUpperCase() + role.slice(1)}</span></Text>
               <Text style={roleDescription}>
@@ -233,6 +237,17 @@ const helpText = {
   fontSize: '16px',
   fontWeight: 'bold',
   margin: '24px 0 12px',
+}
+
+const importantNote = {
+  color: '#525252',
+  fontSize: '14px',
+  lineHeight: '22px',
+  margin: '16px 0',
+  padding: '12px 16px',
+  backgroundColor: '#fef3c7',
+  borderLeft: '4px solid #f59e0b',
+  borderRadius: '4px',
 }
 
 const hr = {

@@ -47,6 +47,15 @@ export function TeamInvitationCard({ invitation, onUpdate }: TeamInvitationCardP
 
       if (!response.ok) {
         const error = await response.json()
+
+        // Check if error is due to free plan
+        if (response.status === 403 && error.error?.includes('upgrade')) {
+          toast.error('You need to upgrade to a Pro plan or higher to join teams')
+          // Redirect to upgrade page
+          router.push('/settings/billing')
+          return
+        }
+
         throw new Error(error.error || 'Failed to accept invitation')
       }
 
