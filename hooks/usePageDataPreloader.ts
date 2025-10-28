@@ -150,25 +150,30 @@ export function usePageDataPreloader(
           })
         }
 
-        // Execute all loaders sequentially with progress updates
-        // If ANY fail with non-timeout errors, we'll retry from the beginning
-        for (const { name, loader } of loaders) {
-          logger.info('usePageDataPreloader', `Loading ${name} for ${pageType}`)
-          try {
-            await loader()
-          } catch (loaderError: any) {
-            // If it's a timeout error, log it but don't fail the entire preload
-            // The page can still function with cached/missing data
-            if (loaderError?.message?.includes('timeout') || loaderError?.message?.includes('aborted')) {
-              logger.warn('usePageDataPreloader', `${name} timed out but continuing with cached data`, loaderError)
-              // Continue to next loader instead of throwing
-              continue
-            }
-            // For other errors, log and continue anyway - better to show page with missing data than infinite loading
-            logger.error('usePageDataPreloader', `${name} failed but continuing to next loader`, loaderError)
-            continue
-          }
-        }
+        // Execute all loaders in PARALLEL for faster loading
+        // Using Promise.allSettled to allow partial success
+        logger.info('usePageDataPreloader', `Loading ${loaders.length} data sources in parallel for ${pageType}`)
+
+        const results = await Promise.allSettled(
+          loaders.map(({ name, loader }) => {
+            logger.info('usePageDataPreloader', `Starting ${name} for ${pageType}`)
+            return loader().catch((loaderError: any) => {
+              // Log error but don't reject - allow other loaders to continue
+              if (loaderError?.message?.includes('timeout') || loaderError?.message?.includes('aborted')) {
+                logger.warn('usePageDataPreloader', `${name} timed out but continuing with cached data`, loaderError)
+              } else {
+                logger.error('usePageDataPreloader', `${name} failed but continuing`, loaderError)
+              }
+              // Return null to indicate this loader failed gracefully
+              return null
+            })
+          })
+        )
+
+        // Log results
+        const failures = results.filter(r => r.status === 'rejected')
+        const successes = results.filter(r => r.status === 'fulfilled')
+        logger.info('usePageDataPreloader', `Parallel loading complete: ${successes.length} succeeded, ${failures.length} failed`)
 
         setLoadingMessage("Finalizing...")
         // Small delay to ensure all state updates are processed

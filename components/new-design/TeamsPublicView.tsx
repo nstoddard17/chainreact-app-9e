@@ -75,47 +75,33 @@ export function TeamsPublicView() {
   }, [user])
 
   const fetchUserTeams = async () => {
+    setLoading(true)
+
     try {
-      setLoading(true)
+      // Fetch teams where user is a member - backend handles all logic
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 8000) // 8 second timeout
 
-      // Fetch teams where user is a member directly from team_members
-      const response = await fetch('/api/teams/my-teams')
-      if (!response.ok) {
-        // If endpoint doesn't exist yet, fallback to fetching all orgs and getting teams
-        const orgsResponse = await fetch('/api/organizations')
-        if (!orgsResponse.ok) throw new Error('Failed to fetch data')
+      try {
+        const response = await fetch('/api/teams/my-teams', { signal: controller.signal })
 
-        const { organizations } = await orgsResponse.json()
-
-        // Filter to real organizations only
-        const realOrgs = organizations.filter((org: any) =>
-          !org.is_workspace && org.team_count > 0
-        )
-
-        if (realOrgs.length === 0) {
-          setTeams([])
-          setLoading(false)
-          return
+        if (!response.ok) {
+          throw new Error('Failed to fetch teams')
         }
 
-        // Fetch teams for each organization
-        const allTeams: Team[] = []
-        for (const org of realOrgs) {
-          const teamsResponse = await fetch(`/api/organizations/${org.id}/teams`)
-          if (teamsResponse.ok) {
-            const { teams: orgTeams } = await teamsResponse.json()
-            allTeams.push(...(orgTeams || []))
-          }
-        }
-
-        setTeams(allTeams)
-      } else {
         const { teams } = await response.json()
         setTeams(teams || [])
+      } catch (error: any) {
+        if (error.name === 'AbortError') {
+          throw new Error('Request timed out. Please try again.')
+        }
+        throw error
+      } finally {
+        clearTimeout(timeoutId)
       }
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Error fetching teams:', error)
-      toast.error('Failed to load teams')
+      toast.error(error.message || 'Failed to load teams')
       setTeams([])
     } finally {
       setLoading(false)
@@ -124,13 +110,22 @@ export function TeamsPublicView() {
 
   const fetchInvitations = async () => {
     try {
-      const response = await fetch('/api/teams/my-invitations')
-      if (response.ok) {
-        const { invitations: data } = await response.json()
-        setInvitations(data || [])
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 8000) // 8 second timeout
+
+      try {
+        const response = await fetch('/api/teams/my-invitations', { signal: controller.signal })
+        if (response.ok) {
+          const { invitations: data } = await response.json()
+          setInvitations(data || [])
+        }
+      } finally {
+        clearTimeout(timeoutId)
       }
-    } catch (error) {
-      logger.error('Error fetching invitations:', error)
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        logger.error('Error fetching invitations:', error)
+      }
     }
   }
 

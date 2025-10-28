@@ -2,6 +2,7 @@
 
 import { create } from "zustand"
 import { getSupabaseClient } from "@/lib/supabase"
+import { queryWithTimeout, fetchWithTimeout } from '@/lib/utils/fetch-with-timeout'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -108,8 +109,8 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
     set({ loading: true, error: null })
 
     try {
-      const response = await fetch('/api/organizations')
-      
+      const response = await fetchWithTimeout('/api/organizations', {}, 8000)
+
       if (!response.ok) {
         const errorData = await response.json()
         throw new Error(errorData.error || 'Failed to fetch organizations')
@@ -126,14 +127,18 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
   createOrganization: async (data: Partial<Organization>) => {
     try {
       logger.debug('Starting organization creation with data:', data)
-      
-      const response = await fetch('/api/organizations', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+
+      const response = await fetchWithTimeout(
+        '/api/organizations',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data),
         },
-        body: JSON.stringify(data),
-      })
+        8000
+      )
 
       if (!response.ok) {
         const errorData = await response.json()
@@ -162,7 +167,10 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
     }
 
     try {
-      const { error } = await supabase.from("organizations").update(data).eq("id", id)
+      const { error } = await queryWithTimeout(
+        supabase.from("organizations").update(data).eq("id", id),
+        8000
+      )
 
       if (error) throw error
 
@@ -184,7 +192,10 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
     }
 
     try {
-      const { error } = await supabase.from("organizations").delete().eq("id", id)
+      const { error } = await queryWithTimeout(
+        supabase.from("organizations").delete().eq("id", id),
+        8000
+      )
 
       if (error) throw error
 
@@ -208,18 +219,21 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
       set({ error: 'Supabase client not configured', loading: false })
       return
     }
-    
+
     set({ loading: true })
 
     try {
-      const { data, error } = await supabase
-        .from("organization_members")
-        .select(`
-          *,
-          user:profiles(email, full_name, username)
-        `)
-        .eq("organization_id", orgId)
-        .order("created_at", { ascending: false })
+      const { data, error } = await queryWithTimeout(
+        supabase
+          .from("organization_members")
+          .select(`
+            *,
+            user:profiles(email, full_name, username)
+          `)
+          .eq("organization_id", orgId)
+          .order("created_at", { ascending: false }),
+        8000
+      )
 
       if (error) throw error
 

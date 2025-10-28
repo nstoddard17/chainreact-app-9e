@@ -39,12 +39,18 @@ import {
   Crown,
   Gift,
   Info,
-  Check,
   Building,
   Plus
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Badge } from "@/components/ui/badge"
+import dynamic from "next/dynamic"
+import { VisuallyHidden } from "@/components/ui/visually-hidden"
+
+// Dynamically import BillingContent to avoid SSR issues
+const BillingContent = dynamic(() => import("@/components/billing/BillingContent"), {
+  ssr: false,
+  loading: () => <div className="flex items-center justify-center p-12"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div></div>
+})
 
 interface NavItem {
   label: string
@@ -109,7 +115,10 @@ export function NewSidebar() {
     <div className="flex flex-col h-screen w-60 bg-white dark:bg-gray-950">
       {/* Logo */}
       <div className="h-14 flex items-center px-4">
-        <div className="flex items-center gap-2">
+        <button
+          onClick={() => router.push('/')}
+          className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+        >
           <Image
             src="/logo_transparent.png"
             alt="ChainReact Logo"
@@ -118,7 +127,7 @@ export function NewSidebar() {
             className="w-10 h-10"
           />
           <span className="font-semibold text-lg">ChainReact</span>
-        </div>
+        </button>
       </div>
 
       {/* New Workflow Button */}
@@ -436,206 +445,33 @@ export function NewSidebar() {
 
       {/* Upgrade Plan Modal */}
       <Dialog open={upgradePlanModalOpen} onOpenChange={setUpgradePlanModalOpen}>
-        <DialogContent className="max-w-[1400px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-2xl">
-              <Crown className="w-6 h-6 text-primary" />
-              Choose Your Plan
-            </DialogTitle>
-            <DialogDescription className="text-base">
-              Automate more with higher task limits and advanced features
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 py-6">
-            {/* Starter Plan */}
-            <div className="rounded-lg border-2 bg-card p-6 space-y-4">
-              <div className="space-y-2">
-                <h3 className="font-bold text-xl">Starter</h3>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-bold">$14.99</span>
-                  <span className="text-muted-foreground text-sm">/mo</span>
-                </div>
-                <p className="text-sm text-muted-foreground">Perfect for individuals getting started</p>
-              </div>
-
-              <div className="space-y-3 text-sm">
-                <div className="font-semibold">1,000 tasks/month</div>
-                <div className="flex items-start gap-2">
-                  <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                  <span>Multi-step workflows</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                  <span>Unlimited workflows</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                  <span>Conditional logic</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                  <span>Webhooks & scheduling</span>
-                </div>
-              </div>
-
-              <Button variant="outline" className="w-full" onClick={() => {
-                toast({
-                  title: "Coming Soon",
-                  description: "Starter plan will be available soon!"
-                })
-              }}>
-                Select Plan
-              </Button>
-            </div>
-
-            {/* Professional Plan */}
-            <div className="rounded-lg border-2 border-primary bg-primary/5 p-6 space-y-4 relative">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                <Badge className="bg-primary">Most Popular</Badge>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="font-bold text-xl">Professional</h3>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-bold">$39</span>
-                  <span className="text-muted-foreground text-sm">/mo</span>
-                </div>
-                <p className="text-sm text-muted-foreground">For professionals and small teams</p>
-              </div>
-
-              <div className="space-y-3 text-sm">
-                <div className="font-semibold">5,000 tasks/month</div>
-                <div className="flex items-start gap-2">
-                  <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                  <span>Everything in Starter</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                  <span className="font-semibold">AI Agents included</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                  <span>Advanced analytics</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                  <span>Priority support</span>
-                </div>
-              </div>
-
-              <Button className="w-full" onClick={() => {
-                toast({
-                  title: "Coming Soon",
-                  description: "Professional plan will be available soon!"
-                })
-              }}>
-                Select Plan
-              </Button>
-            </div>
-
-            {/* Team Plan */}
-            <div className="rounded-lg border-2 bg-card p-6 space-y-4">
-              <div className="space-y-2">
-                <h3 className="font-bold text-xl">Team</h3>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-bold">$79</span>
-                  <span className="text-muted-foreground text-sm">/mo</span>
-                </div>
-                <p className="text-sm text-muted-foreground">For growing teams</p>
-              </div>
-
-              <div className="space-y-3 text-sm">
-                <div className="font-semibold">50,000 tasks/month</div>
-                <div className="flex items-start gap-2">
-                  <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                  <span>Everything in Professional</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                  <span>Team sharing (up to 25 members)</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                  <span>Shared workspaces</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                  <span>365-day history retention</span>
-                </div>
-              </div>
-
-              <Button variant="outline" className="w-full" onClick={() => {
-                toast({
-                  title: "Coming Soon",
-                  description: "Team plan will be available soon!"
-                })
-              }}>
-                Select Plan
-              </Button>
-            </div>
-
-            {/* Enterprise Plan */}
-            <div className="rounded-lg border-2 bg-card p-6 space-y-4">
-              <div className="space-y-2">
-                <h3 className="font-bold text-xl">Enterprise</h3>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-2xl font-bold">Contact Us</span>
-                </div>
-                <p className="text-sm text-muted-foreground">For large organizations</p>
-              </div>
-
-              <div className="space-y-3 text-sm">
-                <div className="font-semibold">Unlimited tasks</div>
-                <div className="flex items-start gap-2">
-                  <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                  <span>Everything in Team</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                  <span>Advanced admin & security</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                  <span>Dedicated support</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                  <span>Custom integrations</span>
-                </div>
-              </div>
-
-              <Button variant="outline" className="w-full" onClick={() => {
-                router.push('/contact-sales')
-              }}>
-                Contact Sales
-              </Button>
-            </div>
-          </div>
-
-          <div className="border-t pt-4 text-center text-sm text-muted-foreground">
-            <p>Need more tasks? <button className="text-primary hover:underline" onClick={() => router.push('/contact-sales')}>Contact us</button> for custom pricing with higher task limits</p>
-          </div>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <VisuallyHidden>
+            <DialogTitle>Choose Your Plan</DialogTitle>
+          </VisuallyHidden>
+          <BillingContent isModal={true} />
         </DialogContent>
       </Dialog>
 
       {/* Get Free Tasks Modal */}
       <Dialog open={freeCreditsModalOpen} onOpenChange={setFreeCreditsModalOpen}>
-        <DialogContent className="max-w-[1400px] max-h-[90vh]">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold">Get Free Tasks</DialogTitle>
-            <p className="text-muted-foreground mt-2">Choose from the options below to earn additional tasks</p>
+            <DialogDescription className="text-muted-foreground">
+              Choose from the options below to earn additional tasks
+            </DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 py-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
             {/* Share Your Success */}
-            <div className="rounded-xl border-2 bg-gradient-to-br from-primary/5 to-transparent p-5 space-y-4 hover:border-primary/50 transition-colors flex flex-col">
+            <div className="rounded-lg border-2 bg-gradient-to-br from-primary/5 to-transparent p-4 space-y-3 hover:border-primary/50 transition-colors flex flex-col">
               <div className="space-y-2 flex-1">
-                <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
                   <h3 className="font-semibold text-base">Share Your Success</h3>
-                  <div className="flex items-center gap-1.5 text-sm font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-full w-fit">
+                  <div className="flex items-center gap-1 text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
                     <span>1500</span>
-                    <Zap className="w-3.5 h-3.5" />
+                    <Zap className="w-3 h-3" />
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground leading-relaxed">
@@ -650,10 +486,10 @@ export function NewSidebar() {
                   placeholder="Paste your post URL"
                   value={socialPostUrl}
                   onChange={(e) => setSocialPostUrl(e.target.value)}
-                  className="h-10 text-sm"
+                  className="h-9 text-sm"
                 />
                 <Button
-                  className="w-full h-10 text-sm"
+                  className="w-full h-9 text-sm"
                   disabled={!socialPostUrl}
                   onClick={async () => {
                     try {
@@ -715,13 +551,13 @@ export function NewSidebar() {
             </div>
 
             {/* Invite Friends */}
-            <div className="rounded-xl border-2 bg-gradient-to-br from-primary/5 to-transparent p-5 space-y-4 hover:border-primary/50 transition-colors flex flex-col">
+            <div className="rounded-lg border-2 bg-gradient-to-br from-primary/5 to-transparent p-4 space-y-3 hover:border-primary/50 transition-colors flex flex-col">
               <div className="space-y-2 flex-1">
-                <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
                   <h3 className="font-semibold text-base">Invite Friends</h3>
-                  <div className="flex items-center gap-1.5 text-sm font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-full w-fit">
+                  <div className="flex items-center gap-1 text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
                     <span>1000</span>
-                    <Zap className="w-3.5 h-3.5" />
+                    <Zap className="w-3 h-3" />
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground leading-relaxed">
@@ -732,11 +568,11 @@ export function NewSidebar() {
                 <Input
                   readOnly
                   value={userReferralLink}
-                  className="text-xs font-mono h-10"
+                  className="text-xs font-mono h-9"
                 />
                 <Button
                   variant="outline"
-                  className="w-full h-10 text-sm"
+                  className="w-full h-9 text-sm"
                   onClick={() => {
                     navigator.clipboard.writeText(userReferralLink)
                     toast({
@@ -751,13 +587,13 @@ export function NewSidebar() {
             </div>
 
             {/* Quick Feedback Call */}
-            <div className="rounded-xl border-2 bg-gradient-to-br from-primary/5 to-transparent p-5 space-y-4 hover:border-primary/50 transition-colors flex flex-col">
+            <div className="rounded-lg border-2 bg-gradient-to-br from-primary/5 to-transparent p-4 space-y-3 hover:border-primary/50 transition-colors flex flex-col">
               <div className="space-y-2 flex-1">
-                <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
                   <h3 className="font-semibold text-base">Feedback Call</h3>
-                  <div className="flex items-center gap-1.5 text-sm font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-full w-fit">
+                  <div className="flex items-center gap-1 text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
                     <span>500</span>
-                    <Zap className="w-3.5 h-3.5" />
+                    <Zap className="w-3 h-3" />
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground leading-relaxed">
@@ -767,7 +603,7 @@ export function NewSidebar() {
               <div>
                 <Button
                   variant="outline"
-                  className="w-full h-10 text-sm"
+                  className="w-full h-9 text-sm"
                   onClick={() => {
                     toast({
                       title: "Coming Soon",
@@ -781,9 +617,9 @@ export function NewSidebar() {
             </div>
 
             {/* Redeem Coupon */}
-            <div className="rounded-xl border-2 bg-gradient-to-br from-primary/5 to-transparent p-5 space-y-4 hover:border-primary/50 transition-colors flex flex-col">
+            <div className="rounded-lg border-2 bg-gradient-to-br from-primary/5 to-transparent p-4 space-y-3 hover:border-primary/50 transition-colors flex flex-col">
               <div className="space-y-2 flex-1">
-                <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
                   <h3 className="font-semibold text-base">Redeem Coupon</h3>
                   <Zap className="w-4 h-4 text-primary" />
                 </div>
@@ -794,11 +630,11 @@ export function NewSidebar() {
               <div className="space-y-2">
                 <Input
                   placeholder="Enter coupon code"
-                  className="h-10 text-sm"
+                  className="h-9 text-sm"
                 />
                 <Button
                   variant="outline"
-                  className="w-full h-10 text-sm"
+                  className="w-full h-9 text-sm"
                   disabled
                 >
                   Redeem
