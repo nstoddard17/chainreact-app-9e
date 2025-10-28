@@ -90,7 +90,7 @@ export async function POST(
       return errorResponse("User ID is required" , 400)
     }
 
-    // Check inviter's role - must not be on free tier
+    // Check inviter's role - must be at least Pro to send invitations
     const { data: inviterProfile } = await serviceClient
       .from("user_profiles")
       .select('role')
@@ -98,7 +98,7 @@ export async function POST(
       .single()
 
     if (!inviterProfile || inviterProfile.role === 'free') {
-      return errorResponse("Team invitations require a paid plan. Please upgrade your account." , 403)
+      return errorResponse("Team invitations require a Pro plan or higher. Please upgrade your account." , 403)
     }
 
     // Check if user is team admin
@@ -149,7 +149,7 @@ export async function POST(
       return errorResponse("Team not found", 404)
     }
 
-    // Get invitee profile with role check
+    // Get invitee profile (no role check - we allow inviting free users)
     const { data: inviteeProfile, error: inviteeError } = await serviceClient
       .from("user_profiles")
       .select('id, email, full_name, username, role')
@@ -172,12 +172,6 @@ export async function POST(
       has_role_field: 'role' in inviteeProfile
     })
 
-    // Check invitee's role - must not be on free tier
-    if (!inviteeProfile.role || inviteeProfile.role === 'free') {
-      const userName = inviteeProfile.full_name || inviteeProfile.username || inviteeProfile.email
-      return errorResponse(`${userName} is on the free plan. Users must have a paid plan to be invited to teams.`, 403)
-    }
-
     // Create invitation
     const { data: invitation, error: inviteError } = await serviceClient
       .from("team_invitations")
@@ -196,7 +190,7 @@ export async function POST(
     }
 
     // Create notification for invitee
-    const { error: notificationError } = await serviceClient
+    const { data: notificationData, error: notificationError } = await serviceClient
       .from("notifications")
       .insert({
         user_id: user_id,
@@ -212,10 +206,21 @@ export async function POST(
           role
         }
       })
+      .select()
 
     if (notificationError) {
-      logger.error("Error creating notification:", notificationError)
+      logger.error("Error creating notification:", {
+        error: notificationError,
+        message: notificationError.message,
+        details: notificationError.details,
+        hint: notificationError.hint,
+        code: notificationError.code,
+        user_id,
+        team_name: team.name
+      })
       // Don't fail the request if notification fails
+    } else {
+      logger.info("Notification created successfully:", { notificationId: notificationData?.[0]?.id })
     }
 
     // Get inviter profile for email
