@@ -77,6 +77,16 @@ export default function CreateOrganizationDialog({ open, onOpenChange }: Props) 
         stack: error.stack,
         error: error
       })
+
+      // Check if error is due to plan restriction
+      if (error.message?.includes('Business or Organization plan')) {
+        toast.error('You need to upgrade to a Business or Organization plan to create organizations')
+        // Close dialog and redirect to billing page
+        onOpenChange(false)
+        router.push('/settings/billing')
+        return
+      }
+
       toast.error(error.message || 'Failed to create organization')
     } finally {
       setLoading(false)

@@ -7,14 +7,16 @@ import PlanSelector from "./PlanSelectorStyled"
 import SubscriptionDetails from "./SubscriptionDetails"
 import UsageStats from "./UsageStats"
 import { Card, CardContent } from "@/components/ui/card"
-import { Loader2, Sparkles, CheckCircle } from "lucide-react"
-import { useSearchParams } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Loader2, Sparkles, CheckCircle, ArrowLeft } from "lucide-react"
+import { useSearchParams, useRouter } from "next/navigation"
 
 export default function BillingContent() {
   const { plans, currentSubscription, usage, loading, error, fetchPlans, fetchSubscription, fetchUsage, fetchAll } =
     useBillingStore()
   const { profile } = useAuthStore()
   const searchParams = useSearchParams()
+  const router = useRouter()
   const targetPlanId = searchParams.get("plan")
   const [showWelcome, setShowWelcome] = useState(false)
 
@@ -58,6 +60,16 @@ export default function BillingContent() {
   if (isBetaTester) {
     return (
       <div className="space-y-12">
+        {/* Back Button */}
+        <Button
+          variant="ghost"
+          onClick={() => router.back()}
+          className="gap-2"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back
+        </Button>
+
         <Card className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 border-purple-500/30">
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
@@ -105,6 +117,16 @@ export default function BillingContent() {
 
   return (
     <div className="space-y-12">
+      {/* Back Button */}
+      <Button
+        variant="ghost"
+        onClick={() => router.back()}
+        className="gap-2"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        Back
+      </Button>
+
       {/* Welcome banner for new Pro users */}
       {showWelcome && currentSubscription && (
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 rounded-2xl shadow-xl animate-in fade-in slide-in-from-top-3 duration-500">

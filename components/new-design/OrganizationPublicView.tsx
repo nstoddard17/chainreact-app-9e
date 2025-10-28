@@ -39,7 +39,7 @@ interface Organization {
 
 export function OrganizationPublicView() {
   const router = useRouter()
-  const { user } = useAuthStore()
+  const { user, profile } = useAuthStore()
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null)
   const [loading, setLoading] = useState(true)
@@ -120,6 +120,12 @@ export function OrganizationPublicView() {
             <div className="flex gap-3 justify-center">
               <Button
                 onClick={() => {
+                  // Check if user has required plan
+                  if (!profile?.role || !['business', 'organization'].includes(profile.role)) {
+                    toast.error('You need to upgrade to a Business or Organization plan to create organizations')
+                    router.push('/settings/billing')
+                    return
+                  }
                   window.dispatchEvent(new CustomEvent('create-organization'))
                 }}
               >
