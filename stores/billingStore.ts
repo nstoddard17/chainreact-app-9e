@@ -2,6 +2,7 @@
 
 import { create } from "zustand"
 import { getSupabaseClient } from "@/lib/supabase"
+import { queryWithTimeout, fetchWithTimeout } from '@/lib/utils/fetch-with-timeout'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -79,11 +80,14 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
     }
 
     try {
-      const { data, error } = await supabase
-        .from("plans")
-        .select("*")
-        .eq("is_active", true)
-        .order("price_monthly", { ascending: true })
+      const { data, error } = await queryWithTimeout(
+        supabase
+          .from("plans")
+          .select("*")
+          .eq("is_active", true)
+          .order("price_monthly", { ascending: true }),
+        8000 // 8 second timeout
+      )
 
       if (error) throw error
 
@@ -91,6 +95,7 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
     } catch (error: any) {
       logger.error("Error fetching plans:", error)
       set({ error: error.message })
+      throw error // Propagate error for Promise.allSettled
     }
   },
 
@@ -112,25 +117,28 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
         return
       }
 
-      const { data, error } = await supabase
-        .from("subscriptions")
-        .select(`
-          *,
-          plan:plans (*)
-        `)
-        .eq("user_id", user.id)
-        .maybeSingle()
+      const { data, error } = await queryWithTimeout(
+        supabase
+          .from("subscriptions")
+          .select(`
+            *,
+            plan:plans (*)
+          `)
+          .eq("user_id", user.id)
+          .maybeSingle(),
+        8000 // 8 second timeout
+      )
 
       // It's OK if no subscription exists
       if (error && error.code !== "PGRST116") {
         logger.error("Error fetching subscription:", error)
-        return
+        throw error // Propagate for Promise.allSettled
       }
 
       set({ currentSubscription: data || null })
     } catch (error: any) {
       logger.error("Subscription fetch error:", error)
-      // Don't set error state to prevent blocking UI
+      throw error // Propagate error for Promise.allSettled
     }
   },
 
@@ -156,17 +164,21 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
       const year = currentDate.getFullYear()
       const month = currentDate.getMonth() + 1
 
-      const { data, error } = await supabase
-        .from("monthly_usage")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("year", year)
-        .eq("month", month)
-        .maybeSingle()
+      const { data, error } = await queryWithTimeout(
+        supabase
+          .from("monthly_usage")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("year", year)
+          .eq("month", month)
+          .maybeSingle(),
+        8000 // 8 second timeout
+      )
 
       // It's OK if no usage record exists
       if (error && error.code !== "PGRST116") {
         logger.error("Error fetching usage:", error)
+        throw error // Propagate for Promise.allSettled
       }
 
       set({
@@ -180,7 +192,7 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
       })
     } catch (error: any) {
       logger.error("Usage fetch error:", error)
-      // Don't set error state to prevent blocking UI
+      throw error // Propagate error for Promise.allSettled
     }
   },
 
@@ -189,7 +201,7 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
     const state = get()
     const now = Date.now()
     const CACHE_DURATION = 30000 // 30 seconds
-    
+
     if (state.lastFetchTime && (now - state.lastFetchTime) < CACHE_DURATION && state.plans.length > 0) {
       logger.debug("Using cached billing data")
       return
@@ -205,13 +217,23 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
     set({ loading: true, error: null })
 
     try {
-      // Run all fetches in parallel
-      await Promise.all([
-        get().fetchPlans().catch(err => logger.error("Error fetching plans:", err)),
-        get().fetchSubscription().catch(err => logger.error("Error fetching subscription:", err)),
-        get().fetchUsage().catch(err => logger.error("Error fetching usage:", err))
+      // Run all fetches in parallel - use allSettled for partial success
+      const results = await Promise.allSettled([
+        get().fetchPlans(),
+        get().fetchSubscription(),
+        get().fetchUsage()
       ])
-      
+
+      // Check for failures
+      const failures = results.filter(r => r.status === 'rejected')
+      if (failures.length > 0) {
+        logger.error('Some billing fetches failed:', failures)
+        // Set error if ALL failed, otherwise continue with partial data
+        if (failures.length === results.length) {
+          set({ error: 'Failed to load billing information. Please try again.' })
+        }
+      }
+
       set({ lastFetchTime: now })
     } finally {
       set({ loading: false })
@@ -234,26 +256,19 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
       
       logger.debug("Session obtained, making API request...")
       
-      // Add a timeout to the fetch request
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
-      
-      const response = await fetch("/api/billing/checkout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}`,
+      // Use fetchWithTimeout for better timeout handling
+      const response = await fetchWithTimeout(
+        "/api/billing/checkout",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ planId, billingCycle }),
         },
-        body: JSON.stringify({ planId, billingCycle }),
-        signal: controller.signal,
-      }).catch((error) => {
-        if (error.name === 'AbortError') {
-          throw new Error('Request timed out. Please try again.')
-        }
-        throw error
-      }).finally(() => {
-        clearTimeout(timeoutId)
-      })
+        30000 // 30 second timeout for checkout (longer than usual)
+      )
 
       logger.debug("Checkout response status:", response.status)
 
@@ -283,9 +298,11 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
     if (!currentSubscription) return
 
     try {
-      const response = await fetch(`/api/billing/subscriptions/${currentSubscription.id}/cancel`, {
-        method: "POST",
-      })
+      const response = await fetchWithTimeout(
+        `/api/billing/subscriptions/${currentSubscription.id}/cancel`,
+        { method: "POST" },
+        8000
+      )
 
       if (!response.ok) {
         throw new Error("Failed to cancel subscription")
@@ -304,9 +321,11 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
     if (!currentSubscription) return
 
     try {
-      const response = await fetch(`/api/billing/subscriptions/${currentSubscription.id}/reactivate`, {
-        method: "POST",
-      })
+      const response = await fetchWithTimeout(
+        `/api/billing/subscriptions/${currentSubscription.id}/reactivate`,
+        { method: "POST" },
+        8000
+      )
 
       if (!response.ok) {
         throw new Error("Failed to reactivate subscription")
@@ -327,13 +346,17 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
     }
 
     try {
-      const response = await fetch(`/api/billing/subscriptions/${currentSubscription.id}/change-plan`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await fetchWithTimeout(
+        `/api/billing/subscriptions/${currentSubscription.id}/change-plan`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ newPlanId, billingCycle }),
         },
-        body: JSON.stringify({ newPlanId, billingCycle }),
-      })
+        8000
+      )
 
       if (!response.ok) {
         const error = await response.json()
@@ -354,9 +377,11 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
 
   createPortalSession: async () => {
     try {
-      const response = await fetch("/api/billing/portal", {
-        method: "POST",
-      })
+      const response = await fetchWithTimeout(
+        "/api/billing/portal",
+        { method: "POST" },
+        8000
+      )
 
       const data = await response.json()
 

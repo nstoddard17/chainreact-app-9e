@@ -8,10 +8,15 @@ import SubscriptionDetails from "./SubscriptionDetails"
 import UsageStats from "./UsageStats"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Loader2, Sparkles, CheckCircle, ArrowLeft } from "lucide-react"
+import { Sparkles, CheckCircle, ArrowLeft } from "lucide-react"
 import { useSearchParams, useRouter } from "next/navigation"
+import { LoadingScreen } from "@/components/ui/loading-screen"
 
-export default function BillingContent() {
+interface BillingContentProps {
+  isModal?: boolean
+}
+
+export default function BillingContent({ isModal = false }: BillingContentProps) {
   const { plans, currentSubscription, usage, loading, error, fetchPlans, fetchSubscription, fetchUsage, fetchAll } =
     useBillingStore()
   const { profile } = useAuthStore()
@@ -23,16 +28,18 @@ export default function BillingContent() {
   // Check if user is a beta tester
   const isBetaTester = profile?.role === 'beta-pro'
 
+  // Fetch data on mount only
   useEffect(() => {
-    // Fetch all data in parallel for better performance
     fetchAll()
-    
-    // Check if user just upgraded (comes from parent component's success handling)
+  }, [])
+
+  // Handle upgrade welcome banner separately
+  useEffect(() => {
     const justUpgraded = sessionStorage.getItem("just_upgraded")
     if (justUpgraded === "true" && currentSubscription?.plan_id !== "free") {
       setShowWelcome(true)
       sessionStorage.removeItem("just_upgraded")
-      
+
       // Hide welcome banner after 10 seconds
       setTimeout(() => setShowWelcome(false), 10000)
     }
@@ -40,9 +47,11 @@ export default function BillingContent() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin" />
-      </div>
+      <LoadingScreen
+        title="Loading Billing Information"
+        description="Fetching your subscription and usage data..."
+        size="lg"
+      />
     )
   }
 
@@ -50,7 +59,12 @@ export default function BillingContent() {
     return (
       <Card>
         <CardContent className="pt-6">
-          <div className="text-center text-red-600">Error loading billing information: {error}</div>
+          <div className="text-center space-y-4">
+            <div className="text-red-600">Error loading billing information: {error}</div>
+            <Button onClick={() => fetchAll()} variant="outline">
+              Retry
+            </Button>
+          </div>
         </CardContent>
       </Card>
     )
@@ -59,16 +73,18 @@ export default function BillingContent() {
   // Show special message for beta testers
   if (isBetaTester) {
     return (
-      <div className="space-y-12">
-        {/* Back Button */}
-        <Button
-          variant="ghost"
-          onClick={() => router.back()}
-          className="gap-2"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back
-        </Button>
+      <div className={isModal ? "space-y-6" : "space-y-12"}>
+        {/* Back Button - only show on full page */}
+        {!isModal && (
+          <Button
+            variant="ghost"
+            onClick={() => router.back()}
+            className="gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back
+          </Button>
+        )}
 
         <Card className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 border-purple-500/30">
           <CardContent className="pt-6">
@@ -116,19 +132,21 @@ export default function BillingContent() {
   }
 
   return (
-    <div className="space-y-12">
-      {/* Back Button */}
-      <Button
-        variant="ghost"
-        onClick={() => router.back()}
-        className="gap-2"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Back
-      </Button>
+    <div className={isModal ? "space-y-6" : "space-y-12"}>
+      {/* Back Button - only show on full page */}
+      {!isModal && (
+        <Button
+          variant="ghost"
+          onClick={() => router.back()}
+          className="gap-2"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back
+        </Button>
+      )}
 
-      {/* Welcome banner for new Pro users */}
-      {showWelcome && currentSubscription && (
+      {/* Welcome banner for new Pro users - only show on full page */}
+      {!isModal && showWelcome && currentSubscription && (
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 rounded-2xl shadow-xl animate-in fade-in slide-in-from-top-3 duration-500">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -146,21 +164,24 @@ export default function BillingContent() {
           </div>
         </div>
       )}
-      
-      {currentSubscription && (
+
+      {/* Subscription details - only show on full page */}
+      {!isModal && currentSubscription && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 bg-slate-800/20 backdrop-blur-sm p-6 rounded-xl border border-slate-700/30">
           <SubscriptionDetails subscription={currentSubscription} />
           <UsageStats usage={usage} subscription={currentSubscription} />
         </div>
       )}
 
-      <div className="pt-8">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold mb-3">{currentSubscription ? "Change Plan" : "Choose Your Plan"}</h2>
+      <div className={isModal ? "" : "pt-8"}>
+        <div className={`text-center ${isModal ? "mb-6" : "mb-12"}`}>
+          <h2 className={`font-bold ${isModal ? "text-2xl mb-2" : "text-3xl mb-3"}`}>
+            {currentSubscription ? "Change Plan" : "Choose Your Plan"}
+          </h2>
           <p className="text-slate-400">Pick the plan that fits your workflow needs. You can switch anytime.</p>
         </div>
         <div className="bg-gradient-to-b from-slate-900/20 to-slate-900/0 rounded-3xl p-1">
-          <PlanSelector plans={plans} currentSubscription={currentSubscription} targetPlanId={targetPlanId || undefined} />
+          <PlanSelector plans={plans} currentSubscription={currentSubscription} targetPlanId={targetPlanId || undefined} isModal={isModal} />
         </div>
       </div>
     </div>
