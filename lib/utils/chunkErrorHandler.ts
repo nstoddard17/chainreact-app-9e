@@ -60,7 +60,7 @@ class ChunkErrorHandler {
     logger.warn('Chunk load error detected:', error)
 
     // Extract chunk ID from error message
-    const chunkMatch = error.message.match(/chunk (\d+)/)
+    const chunkMatch = error.message.match(/chunk (\w+)/)
     const chunkId = chunkMatch ? chunkMatch[1] : 'unknown'
 
     // Get retry count for this chunk
@@ -72,12 +72,21 @@ class ChunkErrorHandler {
 
       logger.debug(`Retrying chunk ${chunkId} (attempt ${retries + 1}/${this.config.maxRetries})`)
 
-      // Wait before retrying
-      await new Promise(resolve => setTimeout(resolve, this.config.retryDelay * (retries + 1)))
+      // First retry: silent, immediate
+      // This handles most transient errors during navigation
+      if (retries === 0) {
+        logger.info('First chunk retry - silent reload')
+        // No delay, just try again silently
+        this.attemptSoftReload()
+        return
+      }
+
+      // Wait before subsequent retries
+      await new Promise(resolve => setTimeout(resolve, this.config.retryDelay * retries))
 
       // Try to reload the page with cache bypass
       if (retries === this.config.maxRetries - 1) {
-        // Last retry - do a hard reload
+        // Last retry - show prompt
         this.showReloadPrompt()
       } else {
         // Try soft reload of the failed module
@@ -100,6 +109,14 @@ class ChunkErrorHandler {
   private showReloadPrompt() {
     // Check if we've already shown a prompt
     if (document.getElementById('chunk-error-prompt')) return
+
+    // Only show if we've had multiple chunk errors (indicates real problem, not transient nav issue)
+    const totalErrors = Array.from(this.retryCount.values()).reduce((sum, count) => sum + count, 0)
+    if (totalErrors < 2) {
+      logger.debug('Single chunk error - silently reloading without prompt')
+      this.attemptSoftReload()
+      return
+    }
 
     const prompt = document.createElement('div')
     prompt.id = 'chunk-error-prompt'

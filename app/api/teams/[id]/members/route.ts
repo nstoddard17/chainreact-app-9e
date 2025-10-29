@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
-
+import { sendTeamInvitationEmail } from '@/lib/services/resend'
+import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 import { logger } from '@/lib/utils/logger'
 
 export async function GET(
@@ -74,7 +75,7 @@ export async function POST(
   try {
     const supabase = await createSupabaseRouteHandlerClient()
     const serviceClient = await createSupabaseServiceClient()
-    
+
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
@@ -89,6 +90,17 @@ export async function POST(
       return errorResponse("User ID is required" , 400)
     }
 
+    // Check inviter's role - must be at least Pro to send invitations
+    const { data: inviterProfile } = await serviceClient
+      .from("user_profiles")
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (!inviterProfile || inviterProfile.role === 'free') {
+      return errorResponse("Team invitations require a Pro plan or higher. Please upgrade your account." , 403)
+    }
+
     // Check if user is team admin
     const { data: teamMember } = await serviceClient
       .from("team_members")
@@ -97,8 +109,8 @@ export async function POST(
       .eq("user_id", user.id)
       .single()
 
-    if (!teamMember || !['admin', 'editor'].includes(teamMember.role)) {
-      return errorResponse("Only team admins and editors can add members" , 403)
+    if (!teamMember || !['owner', 'admin', 'manager'].includes(teamMember.role)) {
+      return errorResponse("Only team owners, admins, and managers can invite members" , 403)
     }
 
     // Check if user is already a member
@@ -113,6 +125,19 @@ export async function POST(
       return errorResponse("User is already a member of this team" , 409)
     }
 
+    // Check if invitation already exists
+    const { data: existingInvitation } = await serviceClient
+      .from("team_invitations")
+      .select("id, status")
+      .eq("team_id", teamId)
+      .eq("invitee_id", user_id)
+      .eq("status", "pending")
+      .single()
+
+    if (existingInvitation) {
+      return errorResponse("An invitation is already pending for this user" , 409)
+    }
+
     // Verify team exists
     const { data: team, error: teamError } = await serviceClient
       .from("teams")
@@ -124,36 +149,110 @@ export async function POST(
       return errorResponse("Team not found", 404)
     }
 
-    // Note: In the new schema, users can be added directly to teams
-    // No need to check organization membership first
-
-    // Add user to team
-    const { data: newMember, error: addError } = await serviceClient
-      .from("team_members")
-      .insert({
-        team_id: teamId,
-        user_id,
-        role
-      })
-      .select('user_id, role, joined_at')
-      .single()
-
-    if (addError) {
-      logger.error("Error adding team member:", addError)
-      return errorResponse("Failed to add team member" , 500)
-    }
-
-    // Get user profile separately
-    const { data: userProfile } = await serviceClient
+    // Get invitee profile (no role check - we allow inviting free users)
+    const { data: inviteeProfile, error: inviteeError } = await serviceClient
       .from("user_profiles")
-      .select('id, email, full_name, username')
+      .select('id, email, full_name, username, role')
       .eq('id', user_id)
       .single()
 
+    if (inviteeError) {
+      logger.error("Error fetching invitee profile:", inviteeError)
+    }
+
+    if (!inviteeProfile) {
+      return errorResponse("User not found", 404)
+    }
+
+    // Log the invitee profile for debugging
+    logger.debug("Invitee profile:", {
+      id: inviteeProfile.id,
+      email: inviteeProfile.email,
+      role: inviteeProfile.role,
+      has_role_field: 'role' in inviteeProfile
+    })
+
+    // Create invitation
+    const { data: invitation, error: inviteError } = await serviceClient
+      .from("team_invitations")
+      .insert({
+        team_id: teamId,
+        inviter_id: user.id,
+        invitee_id: user_id,
+        role
+      })
+      .select()
+      .single()
+
+    if (inviteError) {
+      logger.error("Error creating team invitation:", inviteError)
+      return errorResponse("Failed to create invitation" , 500)
+    }
+
+    // Create notification for invitee
+    const { data: notificationData, error: notificationError } = await serviceClient
+      .from("notifications")
+      .insert({
+        user_id: user_id,
+        type: 'team_invitation',
+        title: 'Team Invitation',
+        message: `You've been invited to join ${team.name}`,
+        action_url: `/teams/invitations/${invitation.id}`,
+        action_label: 'View Invitation',
+        metadata: {
+          invitation_id: invitation.id,
+          team_id: teamId,
+          team_name: team.name,
+          role
+        }
+      })
+      .select()
+
+    if (notificationError) {
+      logger.error("Error creating notification:", {
+        error: notificationError,
+        message: notificationError.message,
+        details: notificationError.details,
+        hint: notificationError.hint,
+        code: notificationError.code,
+        user_id,
+        team_name: team.name
+      })
+      // Don't fail the request if notification fails
+    } else {
+      logger.info("Notification created successfully:", { notificationId: notificationData?.[0]?.id })
+    }
+
+    // Get inviter profile for email
+    const { data: inviterProfileData } = await serviceClient
+      .from("user_profiles")
+      .select('email, full_name, username')
+      .eq('id', user.id)
+      .single()
+
+    // Send email notification
+    const acceptUrl = `${getBaseUrl()}/teams/invitations/${invitation.id}`
+    const emailResult = await sendTeamInvitationEmail(
+      inviteeProfile.email,
+      inviteeProfile.full_name || inviteeProfile.username || inviteeProfile.email,
+      inviterProfileData?.full_name || inviterProfileData?.username || inviterProfileData?.email || 'A team member',
+      inviterProfileData?.email || 'noreply@chainreact.app',
+      team.name,
+      role,
+      acceptUrl,
+      invitation.expires_at
+    )
+
+    if (!emailResult.success) {
+      logger.error("Error sending invitation email:", emailResult.error)
+      // Don't fail the request if email fails - user still has in-app notification
+    }
+
     return jsonResponse({
-      member: {
-        ...newMember,
-        user: userProfile || { email: 'Unknown' }
+      invitation: {
+        ...invitation,
+        team: { id: team.id, name: team.name },
+        invitee: inviteeProfile
       }
     }, { status: 201 })
   } catch (error) {

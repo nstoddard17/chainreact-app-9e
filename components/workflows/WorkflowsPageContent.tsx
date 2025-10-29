@@ -68,6 +68,7 @@ import { cn } from '@/lib/utils'
 import { formatDistanceToNow } from 'date-fns'
 import { useToast } from '@/hooks/use-toast'
 import { logger } from '@/lib/utils/logger'
+import { fetchWithTimeout, retryWithBackoff } from '@/lib/utils/fetch-with-timeout'
 import { PagePreloader } from '@/components/common/PagePreloader'
 import { NewAppLayout } from '@/components/new-design/layout/NewAppLayout'
 import type { Workflow as WorkflowRecord } from '@/stores/workflowStore'
@@ -241,9 +242,23 @@ function WorkflowsContent() {
 
   useEffect(() => {
     if (user) {
-      fetchWorkflows()
-      fetchExecutionStats()
-      fetchFolders()
+      // Don't fetch workflows here - PagePreloader already did it
+      // This prevents race conditions and duplicate fetches
+
+      // Fetch stats and folders in parallel for faster loading
+      // Using Promise.allSettled to allow partial success
+      Promise.allSettled([
+        fetchExecutionStats(),
+        fetchFolders()
+      ]).then((results) => {
+        const failures = results.filter(r => r.status === 'rejected')
+        if (failures.length > 0) {
+          logger.warn('[WorkflowsPageContent] Some initial data fetches failed:', {
+            failureCount: failures.length,
+            totalCount: results.length
+          })
+        }
+      })
     }
   }, [user])
 
@@ -264,38 +279,49 @@ function WorkflowsContent() {
 
   const fetchExecutionStats = async () => {
     try {
-      const response = await fetch('/api/analytics/workflow-stats')
+      const response = await fetchWithTimeout('/api/analytics/workflow-stats', {}, 8000)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch stats: ${response.status}`)
+      }
       const data = await response.json()
       if (data.success) {
         setExecutionStats(data.stats || {})
       }
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Failed to fetch execution stats:', error)
+      // Don't throw - allow page to load without stats
     }
   }
 
   const fetchFolders = async () => {
     try {
-      // First ensure the user has a default folder
-      await fetch('/api/workflows/folders/ensure-default', { method: 'POST' }).catch(() => {
+      // First ensure the user has a default folder (non-blocking)
+      await fetchWithTimeout('/api/workflows/folders/ensure-default', { method: 'POST' }, 5000).catch(() => {
         // Silently fail - folder creation is not critical
       })
 
-      // Then fetch all folders
-      const response = await fetch('/api/workflows/folders')
+      // Then fetch all folders with timeout protection
+      const response = await fetchWithTimeout('/api/workflows/folders', {}, 8000)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch folders: ${response.status}`)
+      }
       const data = await response.json()
       if (data.success) {
         setFolders(data.folders || [])
       }
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Failed to fetch folders:', error)
+      // Don't throw - allow page to load without folders
     }
   }
 
   const fetchTeamsList = async () => {
+    setLoadingTeams(true)
     try {
-      setLoadingTeams(true)
-      const response = await fetch('/api/teams')
+      const response = await fetchWithTimeout('/api/teams', {}, 8000)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch teams: ${response.status}`)
+      }
       const data = await response.json()
       if (data?.teams) {
         setAvailableTeams(data.teams)
@@ -306,7 +332,7 @@ function WorkflowsContent() {
           variant: 'destructive'
         })
       }
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Failed to fetch teams:', error)
       toast({
         title: 'Unable to load teams',
@@ -433,11 +459,11 @@ function WorkflowsContent() {
 
     for (const workflowId of shareDialog.workflowIds) {
       try {
-        const response = await fetch(`/api/workflows/${workflowId}/share`, {
+        const response = await fetchWithTimeout(`/api/workflows/${workflowId}/share`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ teamIds: selectedTeamIds })
-        })
+        }, 8000)
 
         const data = await response.json().catch(() => ({}))
 
@@ -481,10 +507,10 @@ function WorkflowsContent() {
   }
 
   const duplicateWorkflowRequest = async (workflowId: string) => {
-    const response = await fetch(`/api/workflows/${workflowId}/duplicate`, {
+    const response = await fetchWithTimeout(`/api/workflows/${workflowId}/duplicate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
-    })
+    }, 8000)
 
     const data = await response.json().catch(() => ({}))
     if (!response.ok || data?.success === false) {
@@ -735,7 +761,7 @@ function WorkflowsContent() {
 
       // Use batch API for multiple workflows, single update for one workflow
       if (workflowIds.length > 1) {
-        const response = await fetch('/api/workflows/batch', {
+        const response = await fetchWithTimeout('/api/workflows/batch', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -743,7 +769,7 @@ function WorkflowsContent() {
             workflowIds,
             data: { folder_id: selectedFolderId }
           })
-        })
+        }, 8000)
 
         const result = await response.json()
         if (!result.success) {
@@ -836,14 +862,14 @@ function WorkflowsContent() {
       if (workflowIds.length > 1) {
         const operation = isViewingTrash ? 'delete' : 'trash'
 
-        const response = await fetch('/api/workflows/batch', {
+        const response = await fetchWithTimeout('/api/workflows/batch', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             operation,
             workflowIds
           })
-        })
+        }, 8000)
 
         const result = await response.json()
 
@@ -991,14 +1017,14 @@ function WorkflowsContent() {
     try {
       // Use batch API for multiple workflows, single restore for one workflow
       if (workflowIds.length > 1) {
-        const response = await fetch('/api/workflows/batch', {
+        const response = await fetchWithTimeout('/api/workflows/batch', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             operation: 'restore',
             workflowIds
           })
-        })
+        }, 8000)
 
         const result = await response.json()
 
@@ -1078,14 +1104,14 @@ function WorkflowsContent() {
     setLoading(prev => ({ ...prev, 'create-folder': true }))
 
     try {
-      const response = await fetch('/api/workflows/folders', {
+      const response = await fetchWithTimeout('/api/workflows/folders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: newFolderName.trim(),
           description: newFolderDescription.trim() || null,
         })
-      })
+      }, 8000)
 
       const data = await response.json()
 
@@ -1121,11 +1147,11 @@ function WorkflowsContent() {
     setLoading(prev => ({ ...prev, [`rename-folder-${folderId}`]: true }))
 
     try {
-      const response = await fetch(`/api/workflows/folders/${folderId}`, {
+      const response = await fetchWithTimeout(`/api/workflows/folders/${folderId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: renameFolderValue.trim() })
-      })
+      }, 8000)
 
       const data = await response.json()
 
@@ -1154,9 +1180,9 @@ function WorkflowsContent() {
 
   const handleSetDefaultFolder = async (folderId: string, folderName: string) => {
     try {
-      const response = await fetch(`/api/workflows/folders/${folderId}/set-default`, {
+      const response = await fetchWithTimeout(`/api/workflows/folders/${folderId}/set-default`, {
         method: 'POST'
-      })
+      }, 8000)
 
       const data = await response.json()
 
@@ -1213,9 +1239,9 @@ function WorkflowsContent() {
     setDeleteFolderDialog({ open: false, folderId: null, folderName: '' })
 
     try {
-      const response = await fetch(`/api/workflows/folders/${folderId}`, {
+      const response = await fetchWithTimeout(`/api/workflows/folders/${folderId}`, {
         method: 'DELETE'
-      })
+      }, 8000)
 
       const data = await response.json()
 
@@ -1258,7 +1284,7 @@ function WorkflowsContent() {
     })
 
     try {
-      const response = await fetch(`/api/workflows/folders/${folderId}`, {
+      const response = await fetchWithTimeout(`/api/workflows/folders/${folderId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json'
@@ -1267,7 +1293,7 @@ function WorkflowsContent() {
           action,
           targetFolderId
         })
-      })
+      }, 8000)
 
       const data = await response.json()
 

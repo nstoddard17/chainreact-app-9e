@@ -3,6 +3,7 @@
 import React from "react"
 import { FullScreenLoadingScreen } from "@/components/ui/loading-screen"
 import { usePageDataPreloader, PageType } from "@/hooks/usePageDataPreloader"
+import { ErrorBoundary } from "@/components/common/ErrorBoundary"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -57,5 +58,10 @@ export function PagePreloader({
 
   // All data loaded successfully or with non-critical errors, show the page
   // If there's an error, it will be logged and the page components can handle missing data gracefully
-  return <>{children}</>
+  // Wrap in ErrorBoundary to catch chunk loading errors and other runtime errors
+  return (
+    <ErrorBoundary>
+      {children}
+    </ErrorBoundary>
+  )
 }

@@ -3,16 +3,10 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Bell, Command } from "lucide-react"
+import { Command } from "lucide-react"
 import { OrganizationSwitcher } from "@/components/new-design/OrganizationSwitcher"
 import { CommandPalette } from "@/components/new-design/CommandPalette"
+import { NotificationDropdown } from "@/components/ui/notification-dropdown"
 
 interface NewHeaderProps {
   title?: string
@@ -21,7 +15,6 @@ interface NewHeaderProps {
 }
 
 export function NewHeader({ title, subtitle, actions }: NewHeaderProps) {
-  const [notifications] = useState(0)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
 
   // Keyboard shortcut: Cmd+K or Ctrl+K
@@ -69,28 +62,7 @@ export function NewHeader({ title, subtitle, actions }: NewHeaderProps) {
         </Button>
 
         {/* Notifications */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="w-4 h-4" />
-              {notifications > 0 && (
-                <Badge
-                  variant="destructive"
-                  className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs"
-                >
-                  {notifications}
-                </Badge>
-              )}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80">
-            <div className="p-3">
-              <p className="text-sm text-muted-foreground text-center py-8">
-                No notifications
-              </p>
-            </div>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <NotificationDropdown />
 
         {/* Custom Actions */}
         {actions}

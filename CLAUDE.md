@@ -139,6 +139,254 @@ grep -rn "pattern" # Should return nothing
 
 **Default action for "remove" = DELETE completely.**
 
+## 🚨 CRITICAL: Network Call Requirements - MANDATORY
+**ALL NETWORK CALLS MUST FOLLOW THESE PATTERNS TO PREVENT STUCK LOADING SCREENS.**
+
+### Rule 1: ALL fetch() calls MUST have timeout protection
+
+**Use the fetchWithTimeout utility** (`/lib/utils/fetch-with-timeout.ts`):
+
+```typescript
+// ❌ WRONG - No timeout protection
+const response = await fetch('/api/data')
+
+// ✅ CORRECT - 8 second timeout
+import { fetchWithTimeout } from '@/lib/utils/fetch-with-timeout'
+const response = await fetchWithTimeout('/api/data', {}, 8000)
+```
+
+**Default timeout: 8 seconds** (8000ms) for normal requests, 30 seconds for checkout/payment operations.
+
+### Rule 2: ALL Supabase queries MUST have timeout protection
+
+**Use the queryWithTimeout utility**:
+
+```typescript
+// ❌ WRONG - No timeout protection
+const { data, error } = await supabase.from('users').select('*')
+
+// ✅ CORRECT - 8 second timeout
+import { queryWithTimeout } from '@/lib/utils/fetch-with-timeout'
+const { data, error } = await queryWithTimeout(
+  supabase.from('users').select('*'),
+  8000
+)
+```
+
+### Rule 3: useEffect dependencies MUST NOT include state updated by the effect
+
+```typescript
+// ❌ WRONG - Infinite loop
+useEffect(() => {
+  fetchData()  // This updates 'data' state
+}, [data])  // Triggers effect when data changes → infinite loop
+
+// ✅ CORRECT - Run once on mount
+useEffect(() => {
+  fetchData()
+}, [])
+
+// ✅ CORRECT - Memoized fetch function
+const fetchData = useCallback(async () => {
+  // ...
+}, [/* stable dependencies only */])
+
+useEffect(() => {
+  fetchData()
+}, [fetchData])
+```
+
+### Rule 4: Use Promise.allSettled instead of Promise.all for parallel fetches
+
+```typescript
+// ❌ WRONG - One failure stops everything
+await Promise.all([
+  fetchPlans(),
+  fetchSubscription(),
+  fetchUsage()
+])
+
+// ✅ CORRECT - Partial success is acceptable
+const results = await Promise.allSettled([
+  fetchPlans(),
+  fetchSubscription(),
+  fetchUsage()
+])
+
+// Check for failures
+const failures = results.filter(r => r.status === 'rejected')
+if (failures.length > 0) {
+  logger.error('Some fetches failed:', failures)
+  // Decide: show error or continue with partial data?
+}
+```
+
+### Rule 5: Loading states MUST use try/finally pattern
+
+```typescript
+// ❌ WRONG - Loading might not reset on error
+const fetchData = async () => {
+  try {
+    setLoading(true)
+    const data = await fetch('/api/data')
+    setData(data)
+    setLoading(false)  // Won't run if error occurs
+  } catch (error) {
+    setError(error.message)
+  }
+}
+
+// ✅ CORRECT - Loading always resets
+const fetchData = async () => {
+  setLoading(true)
+
+  try {
+    const data = await fetchWithTimeout('/api/data', {}, 8000)
+    setData(data)
+  } catch (error: any) {
+    setError(error.message)
+    logger.error('Fetch failed:', error)
+  } finally {
+    setLoading(false)  // ✅ ALWAYS runs
+  }
+}
+```
+
+### Rule 6: Error states MUST include retry mechanism
+
+```typescript
+// ❌ WRONG - User is stuck, no recovery
+if (error) {
+  return <div>Error: {error}</div>
+}
+
+// ✅ CORRECT - User can retry
+if (error) {
+  return (
+    <div className="space-y-4">
+      <div className="text-red-600">Error: {error}</div>
+      <Button onClick={() => fetchData()} variant="outline">
+        Retry
+      </Button>
+    </div>
+  )
+}
+```
+
+### Rule 7: NEVER swallow errors in catch() blocks
+
+```typescript
+// ❌ WRONG - Error logged but never propagates
+await Promise.all([
+  fetchPlans().catch(err => logger.error(err)),
+  fetchSubscription().catch(err => logger.error(err))
+])
+// Promise.all thinks all succeeded!
+
+// ✅ CORRECT - Errors propagate
+try {
+  const results = await Promise.allSettled([
+    fetchPlans(),
+    fetchSubscription()
+  ])
+  // Handle results individually
+} catch (error) {
+  // Handle overall error
+}
+```
+
+### Rule 8: NO early returns that bypass finally blocks
+
+```typescript
+// ❌ RISKY - Early return skips cleanup
+const fetchData = async () => {
+  setLoading(true)
+  try {
+    const response = await fetch('/api/data')
+    if (!response.ok) {
+      setLoading(false)  // Manual cleanup
+      return  // Early exit
+    }
+    // More logic...
+  } finally {
+    setLoading(false)  // This still runs, but fragile pattern
+  }
+}
+
+// ✅ CORRECT - No manual cleanup needed
+const fetchData = async () => {
+  setLoading(true)
+  try {
+    const response = await fetch('/api/data')
+    if (!response.ok) {
+      throw new Error('Failed to fetch')  // Throw instead of return
+    }
+    // More logic...
+  } catch (error: any) {
+    logger.error('Fetch failed:', error)
+  } finally {
+    setLoading(false)  // ✅ Always runs, no manual cleanup
+  }
+}
+```
+
+### Available Utilities
+
+**File:** `/lib/utils/fetch-with-timeout.ts`
+
+1. **fetchWithTimeout(url, options?, timeoutMs?)** - Fetch with automatic timeout
+2. **queryWithTimeout(queryPromise, timeoutMs?)** - Supabase query timeout wrapper
+3. **retryWithBackoff(fn, retries?, delayMs?)** - Retry with exponential backoff
+
+**Examples:**
+
+```typescript
+// Simple fetch with timeout
+const response = await fetchWithTimeout('/api/users', {}, 8000)
+
+// POST with timeout
+const response = await fetchWithTimeout(
+  '/api/organizations',
+  {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  },
+  8000
+)
+
+// Supabase query with timeout
+const { data, error } = await queryWithTimeout(
+  supabase.from('plans').select('*').eq('active', true),
+  8000
+)
+
+// Retry with backoff
+const data = await retryWithBackoff(
+  async () => {
+    const response = await fetchWithTimeout('/api/data', {}, 8000)
+    if (!response.ok) throw new Error('Failed')
+    return response.json()
+  },
+  3, // retry 3 times
+  1000 // start with 1 second delay
+)
+```
+
+### Enforcement Checklist
+
+Before committing ANY code with network calls:
+- [ ] All `fetch()` calls use `fetchWithTimeout`
+- [ ] All Supabase queries use `queryWithTimeout`
+- [ ] useEffect dependencies don't include state updated by the effect
+- [ ] Parallel fetches use `Promise.allSettled` when partial success is acceptable
+- [ ] Loading states use `try/finally` pattern
+- [ ] Error states include retry button
+- [ ] No error swallowing in `.catch()`
+- [ ] No early returns that bypass `finally` blocks
+
+**Violation of these rules causes stuck loading screens and broken UX.**
+
 ## Architectural Decision Guidelines
 **IMPORTANT**: For architectural changes ALWAYS:
 1. **Provide analysis** comparing approaches with pros/cons

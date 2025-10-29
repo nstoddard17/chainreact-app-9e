@@ -20,6 +20,8 @@ import {
   Play,
   Eye,
   Loader2,
+  Users,
+  Building,
 } from "lucide-react"
 
 interface CommandPaletteProps {
@@ -125,7 +127,9 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     { name: "Apps", href: "/apps", icon: Layout },
     { name: "AI Assistant", href: "/ai-assistant", icon: Sparkles },
     { name: "Analytics", href: "/analytics", icon: BarChart3 },
-    { name: "Organization Settings", href: "/organization-settings", icon: Settings },
+    { name: "Teams", href: "/teams", icon: Users },
+    { name: "Organization", href: "/organization", icon: Building },
+    { name: "Settings", href: "/settings", icon: Settings },
   ]
 
   const filteredPages = pages.filter((page) =>
@@ -158,7 +162,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             {!search && (
               <Command.Group heading="Quick Actions">
                 <Command.Item
-                  onSelect={() => handleSelect(() => router.push("/workflows"))}
+                  onSelect={() => handleSelect(() => router.push("/workflows/ai-agent"))}
                   className="flex items-center gap-2 px-2 py-2 cursor-pointer rounded-sm hover:bg-accent"
                 >
                   <Plus className="h-4 w-4" />

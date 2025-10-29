@@ -5,6 +5,7 @@ import PasswordResetEmail from '../../emails/password-reset'
 import BetaInvitationEmail from '../../emails/beta-invitation'
 import WaitlistWelcomeEmail from '../../emails/waitlist-welcome'
 import WaitlistInvitationEmail from '../../emails/waitlist-invitation'
+import TeamInvitationEmail from '../../emails/team-invitation'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -282,6 +283,52 @@ export async function sendWaitlistInvitationEmail(
     return { success: true, id: result.data?.id }
   } catch (error) {
     logger.error('Error sending waitlist invitation email:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}
+
+/**
+ * Send team invitation email
+ */
+export async function sendTeamInvitationEmail(
+  inviteeEmail: string,
+  inviteeName: string,
+  inviterName: string,
+  inviterEmail: string,
+  teamName: string,
+  role: string,
+  acceptUrl: string,
+  expiresAt: string
+) {
+  try {
+    const emailHtml = await render(TeamInvitationEmail({
+      inviteeName,
+      inviterName,
+      inviterEmail,
+      teamName,
+      role,
+      acceptUrl,
+      expiresAt,
+    }))
+
+    const result = await resend.emails.send({
+      from: 'ChainReact <noreply@chainreact.app>',
+      to: inviteeEmail,
+      subject: `${inviterName} invited you to join ${teamName} on ChainReact`,
+      html: emailHtml,
+      headers: {
+        'X-Priority': '1',
+        'X-MSMail-Priority': 'High',
+        'Importance': 'high',
+        'X-Mailer': 'ChainReact Teams',
+      },
+      replyTo: inviterEmail,
+    })
+
+    logger.debug('Team invitation email sent successfully:', result.data?.id)
+    return { success: true, id: result.data?.id }
+  } catch (error) {
+    logger.error('Error sending team invitation email:', error)
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
   }
 }

@@ -14,9 +14,10 @@ interface PlanSelectorProps {
   plans: any[]
   currentSubscription: any
   targetPlanId?: string
+  isModal?: boolean
 }
 
-export default function PlanSelector({ plans = [], currentSubscription, targetPlanId }: PlanSelectorProps) {
+export default function PlanSelector({ plans = [], currentSubscription, targetPlanId, isModal = false }: PlanSelectorProps) {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">(
     currentSubscription?.billing_cycle === "yearly" ? "annual" : "monthly"
   )
@@ -178,7 +179,7 @@ export default function PlanSelector({ plans = [], currentSubscription, targetPl
         </div>
 
         {/* Main Plans Grid - Only Free vs Pro */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 max-w-4xl mx-auto">
+        <div className={`grid grid-cols-1 md:grid-cols-2 ${isModal ? 'gap-6' : 'gap-10'} max-w-4xl mx-auto`}>
           {activePlans.map((plan) => (
             <PlanCard
               key={plan.id}
@@ -192,6 +193,7 @@ export default function PlanSelector({ plans = [], currentSubscription, targetPl
               isDisabled={!hasStripeConfig}
               onSelect={() => handlePlanSelection(plan.id)}
               isMainCard={true}
+              isModal={isModal}
             />
           ))}
         </div>
@@ -212,19 +214,21 @@ interface PlanCardProps {
   isDisabled: boolean
   onSelect: () => void
   isMainCard?: boolean
+  isModal?: boolean
 }
 
-function PlanCard({ 
-  plan, 
-  price, 
-  billingCycle, 
-  isCurrentPlan, 
-  isProcessing, 
+function PlanCard({
+  plan,
+  price,
+  billingCycle,
+  isCurrentPlan,
+  isProcessing,
   isExpanded,
   onToggleExpand,
-  isDisabled, 
+  isDisabled,
   onSelect,
-  isMainCard = false
+  isMainCard = false,
+  isModal = false
 }: PlanCardProps) {
   const isPro = plan.name === 'Pro'
   const isFree = plan.name === 'Free'
@@ -269,32 +273,32 @@ function PlanCard({
             </div>
           </>
         )}
-        <CardContent className={`${isMainCard ? 'p-12' : 'p-10'} flex flex-col h-full ${isComingSoon ? 'relative z-0' : ''}`}>
-          {/* Plan Name - Even larger for main cards */}
-          <h3 className={`${isMainCard ? 'text-4xl' : 'text-3xl'} font-black text-center mb-3 ${isComingSoon ? 'text-slate-600' : 'text-white'}`}>
+        <CardContent className={`${isModal ? 'p-6' : isMainCard ? 'p-12' : 'p-10'} flex flex-col h-full ${isComingSoon ? 'relative z-0' : ''}`}>
+          {/* Plan Name - Responsive sizing */}
+          <h3 className={`${isModal ? 'text-2xl' : isMainCard ? 'text-4xl' : 'text-3xl'} font-black text-center ${isModal ? 'mb-2' : 'mb-3'} ${isComingSoon ? 'text-slate-600' : 'text-white'}`}>
             {plan.name}
           </h3>
-          
+
           {/* Tagline - Smaller and lighter */}
-          <p className={`text-xs font-light text-center mb-10 ${isComingSoon ? 'text-slate-700' : 'text-slate-400'}`}>
+          <p className={`text-xs font-light text-center ${isModal ? 'mb-4' : 'mb-10'} ${isComingSoon ? 'text-slate-700' : 'text-slate-400'}`}>
             {tagline}
           </p>
-          
+
           {/* Price Section with divider */}
-          <div className="pb-8 mb-8 border-b border-slate-800/30">
+          <div className={`${isModal ? 'pb-4 mb-4' : 'pb-8 mb-8'} border-b border-slate-800/30`}>
             <div className="text-center">
               {isEnterprise ? (
-                <div className={`text-4xl font-bold ${isComingSoon ? 'text-slate-600' : 'text-white'}`}>Custom</div>
+                <div className={`${isModal ? 'text-3xl' : 'text-4xl'} font-bold ${isComingSoon ? 'text-slate-600' : 'text-white'}`}>Custom</div>
               ) : (
                 <div>
-                  {billingCycle === "annual" && isPro && (
+                  {billingCycle === "annual" && isPro && !isModal && (
                     <div className="text-center mb-2">
                       <span className="text-slate-500 line-through text-lg">$19.99/mo</span>
                       <span className="ml-2 text-green-500 text-sm font-semibold">Save $59.89/year</span>
                     </div>
                   )}
                   <div className="flex items-baseline justify-center gap-1">
-                    <span className={`${isPro && isMainCard ? 'text-6xl' : 'text-5xl'} font-bold ${isComingSoon ? 'text-slate-600' : 'text-white'}`}>
+                    <span className={`${isModal ? 'text-4xl' : isPro && isMainCard ? 'text-6xl' : 'text-5xl'} font-bold ${isComingSoon ? 'text-slate-600' : 'text-white'}`}>
                       ${billingCycle === "annual" && !isFree && isPro ? "15" : isFree ? "0" : "19.99"}
                     </span>
                     <span className={`text-sm font-medium ${isComingSoon ? 'text-slate-700' : 'text-slate-500'}`}>
@@ -313,7 +317,7 @@ function PlanCard({
           
           {/* Features - Better spacing */}
           <div className="flex-grow">
-            <div className="space-y-5">
+            <div className={isModal ? 'space-y-3' : 'space-y-5'}>
               {(plan.features || []).slice(0, isExpanded ? 8 : 4).map((feature: string, index: number) => (
                 <div key={index} className="flex items-start gap-3">
                   <Check className={`w-4 h-4 mt-0.5 flex-shrink-0 ${isComingSoon ? 'text-slate-700' : 'text-green-500'}`} />
@@ -323,20 +327,20 @@ function PlanCard({
                 </div>
               ))}
             </div>
-            
+
             {/* View all features link - moved under features */}
             {plan.features && plan.features.length > 4 && !isComingSoon && (
               <button
                 onClick={onToggleExpand}
-                className="text-sm text-slate-500 hover:text-slate-400 transition-colors mt-6 text-left"
+                className={`text-sm text-slate-500 hover:text-slate-400 transition-colors ${isModal ? 'mt-3' : 'mt-6'} text-left`}
               >
                 {isExpanded ? "← Show less" : "View all features →"}
               </button>
             )}
           </div>
-          
+
           {/* Buttons with better hierarchy */}
-          <div className="mt-auto space-y-3">
+          <div className={`mt-auto ${isModal ? 'space-y-2 pt-4' : 'space-y-3'}`}>
             {isComingSoon ? (
               <div className="w-full py-3 bg-slate-800/30 text-slate-600 rounded-lg text-center font-medium cursor-not-allowed">
                 Coming Soon
@@ -344,7 +348,7 @@ function PlanCard({
             ) : (
               <>
                 <Button
-                  className={`w-full py-6 text-base font-semibold transition-all ${isPro && !isCurrentPlan && isMainCard ? "bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white shadow-lg hover:shadow-xl hover:scale-[1.02]" : isCurrentPlan ? "bg-slate-800/30 text-slate-500 cursor-default border border-slate-700/50" : isFree && !isCurrentPlan && isMainCard ? "bg-transparent border-2 border-slate-700 hover:bg-slate-800/50 text-slate-200" : "bg-slate-800 hover:bg-slate-700 text-white"}`}
+                  className={`w-full ${isModal ? 'py-3 text-sm' : 'py-6 text-base'} font-semibold transition-all ${isPro && !isCurrentPlan && isMainCard ? "bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white shadow-lg hover:shadow-xl hover:scale-[1.02]" : isCurrentPlan ? "bg-slate-800/30 text-slate-500 cursor-default border border-slate-700/50" : isFree && !isCurrentPlan && isMainCard ? "bg-transparent border-2 border-slate-700 hover:bg-slate-800/50 text-slate-200" : "bg-slate-800 hover:bg-slate-700 text-white"}`}
                   disabled={isProcessing || isCurrentPlan}
                   onClick={onSelect}
                 >
@@ -363,7 +367,7 @@ function PlanCard({
                     `Select ${plan.name}`
                   )}
                 </Button>
-                
+
               </>
             )}
           </div>
