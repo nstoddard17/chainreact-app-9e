@@ -2806,13 +2806,6 @@ function AIAgentVisualChainBuilder({
         }}
         className="bg-slate-50"
         proOptions={{ hideAttribution: true }}
-        defaultEdgeOptions={{
-          type: 'custom',
-          style: {
-            stroke: '#94a3b8',
-            strokeWidth: 2
-          },
-        }}
       >
         <Background gap={15} color="#e2e8f0" />
         <Controls />

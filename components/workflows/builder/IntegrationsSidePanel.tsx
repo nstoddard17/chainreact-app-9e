@@ -3,7 +3,6 @@
 import { useState, useMemo } from "react"
 import Image from "next/image"
 import { Input } from "@/components/ui/input"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import {
   X,
@@ -117,7 +116,7 @@ export function IntegrationsSidePanel({ isOpen, onClose, onNodeSelect }: Integra
       </div>
 
       {/* Nodes List */}
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-y-auto">
         <div className="p-4 space-y-1">
           {filteredNodes.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
@@ -175,7 +174,7 @@ export function IntegrationsSidePanel({ isOpen, onClose, onNodeSelect }: Integra
             })
           )}
         </div>
-      </ScrollArea>
+      </div>
     </div>
   )
 }

@@ -1,0 +1,172 @@
+/**
+ * FlowV2Builder.module.css
+ *
+ * Positioning rules and CSS classes for Flow V2 Builder
+ * Ensures exact visual parity with Kadabra/legacy layout
+ */
+
+/* Main Layout */
+.builderContainer {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+/* Agent Panel - Left Column */
+.agentPane {
+  width: var(--agent-pane-width);
+  height: 100%;
+  flex-shrink: 0;
+  border-right: 1px solid hsl(var(--border));
+  background: hsl(var(--background));
+  z-index: 40;
+}
+
+/* Canvas - Center */
+.canvas {
+  flex: 1;
+  height: 100%;
+  position: relative;
+  background: hsl(var(--background));
+}
+
+/* Inspector - Right Column */
+.inspector {
+  width: var(--inspector-width);
+  height: 100%;
+  flex-shrink: 0;
+  border-left: 1px solid hsl(var(--border));
+  background: hsl(var(--background));
+  z-index: 30;
+}
+
+/* Badge - Top Center of Canvas */
+.badgeTopCenter {
+  position: fixed;
+  top: calc(var(--header-height) + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--badge-z);
+  pointer-events: none;
+}
+
+.badgeTopCenter > * {
+  pointer-events: auto;
+}
+
+/* Node States */
+.nodeGrey {
+  filter: var(--fx-grey);
+  transition: filter 300ms ease-in-out;
+}
+
+.nodeActive {
+  box-shadow: var(--fx-active-outline);
+  transition: box-shadow 200ms ease-in-out;
+}
+
+.nodeDone {
+  /* Completed nodes keep normal styling */
+  filter: none;
+  opacity: 1;
+}
+
+/* Toolbar */
+.toolbar {
+  height: var(--toolbar-height);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 0 16px;
+  border-bottom: 1px solid hsl(var(--border));
+  background: hsl(var(--background));
+  z-index: var(--toolbar-z);
+}
+
+/* Inspector Tabs */
+.inspectorTabs {
+  display: flex;
+  gap: 12px;  /* Exact 12px gap between tabs */
+  padding: 12px 16px;
+  border-bottom: 1px solid hsl(var(--border));
+  background: hsl(var(--background));
+}
+
+.inspectorTab {
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 150ms ease-in-out;
+}
+
+.inspectorTab:hover {
+  background: hsl(var(--accent));
+}
+
+.inspectorTabActive {
+  background: hsl(var(--accent));
+  color: hsl(var(--foreground));
+}
+
+/* Inspector Content */
+.inspectorContent {
+  padding: 16px;
+  overflow-y: auto;
+  height: calc(100% - 52px); /* Subtract tabs height */
+}
+
+/* Card Shadow */
+.card {
+  box-shadow: var(--fx-shadow);
+  border-radius: 8px;
+  background: hsl(var(--card));
+  transition: box-shadow var(--motion-fast) var(--eas-out);
+}
+
+.card:hover {
+  box-shadow: 0 12px 32px rgba(12, 18, 28, 0.12);
+}
+
+/* Canvas Background - 8px dot grid */
+.canvasBackground {
+  background-image: radial-gradient(circle, hsl(var(--muted-foreground) / 0.15) 1px, transparent 1px);
+  background-size: var(--canvas-grid-size) var(--canvas-grid-size);
+}
+
+/* Button States */
+.primaryButton {
+  height: 36px;
+  padding: 10px 12px;
+  font-size: var(--font-md);
+  font-weight: 500;
+  border-radius: 6px;
+  transition: all var(--motion-fast) var(--eas-out);
+}
+
+.primaryButton:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.primaryButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ghostButton {
+  composes: primaryButton;
+  background: transparent;
+  border: 1px solid hsl(var(--border));
+}
+
+.ghostButton:hover:not(:disabled) {
+  background: hsl(var(--accent));
+}

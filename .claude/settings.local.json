@@ -1,24 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm run build:*)",
-      "Bash(npx tsc:*)",
-      "Bash(npm install:*)",
-      "Bash(npm run:*)",
-      "Bash(cp:*)",
-      "Bash(supabase migration:*)",
-      "Bash(npx supabase:*)",
-      "Bash(supabase db push:*)",
-      "Bash(supabase db execute:*)",
-      "Bash(git add:*)",
-      "Bash(git commit:*)",
-      "Bash(find:*)",
-      "Bash(cat:*)",
-      "Bash(psql:*)",
-      "Bash(netstat:*)",
-      "Bash(findstr:*)",
-      "Bash(taskkill:*)",
-      "Bash(cmd //c taskkill //PID 11272 //F)"
+      "Bash(done)",
+      "Bash(chmod:*)",
+      "Bash(./verify-flow-v2.sh:*)"
     ],
     "deny": [],
     "ask": [],

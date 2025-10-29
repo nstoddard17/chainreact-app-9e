@@ -1,11 +1,15 @@
 import { type Database } from '@/types/supabase'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 
 import { logger } from '@/lib/utils/logger'
 
+async function getCookieStore() {
+  const { cookies } = await import('next/headers')
+  return cookies()
+}
+
 export async function createSupabaseServerClient() {
-  const cookieStore = await cookies()
+  const cookieStore = await getCookieStore()
   return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -33,7 +37,7 @@ export async function createSupabaseServerClient() {
 }
 
 export async function createSupabaseServerActionClient() {
-  const cookieStore = await cookies()
+  const cookieStore = await getCookieStore()
   return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -61,7 +65,7 @@ export async function createSupabaseServerActionClient() {
 }
 
 export async function createSupabaseRouteHandlerClient() {
-  const cookieStore = await cookies()
+  const cookieStore = await getCookieStore()
   return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
