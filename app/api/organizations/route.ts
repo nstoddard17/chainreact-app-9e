@@ -164,6 +164,17 @@ export async function POST(request: NextRequest) {
       return errorResponse("Unauthorized", 401)
     }
 
+    // Check user's plan - must be business or organization tier
+    const { data: userProfile } = await serviceClient
+      .from("user_profiles")
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (!userProfile || !['business', 'organization'].includes(userProfile.role)) {
+      return errorResponse("Organization creation requires a Business or Organization plan. Please upgrade your account.", 403)
+    }
+
     const body = await request.json()
     const { name, description } = body
 

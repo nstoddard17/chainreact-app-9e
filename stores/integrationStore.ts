@@ -233,10 +233,10 @@ export const useIntegrationStore = create<IntegrationStore>()(
       })
         const { setLoading, currentUserId, integrations, lastFetchTime } = get()
 
-        // Check cache - use 60 second cache for integrations
-        const CACHE_DURATION = 60000 // 60 seconds
-        if (!force && lastFetchTime && Date.now() - lastFetchTime < CACHE_DURATION && integrations.length > 0) {
-          logger.debug('[IntegrationStore] Using cached integrations')
+        // Reduced cache duration to 5 seconds (matching workflow store) - integrations change frequently
+        const CACHE_DURATION = 5000 // 5 seconds (reduced from 60)
+        if (!force && lastFetchTime && Date.now() - lastFetchTime < CACHE_DURATION) {
+          logger.debug('[IntegrationStore] Using cached integrations (age: ' + Math.round((Date.now() - lastFetchTime) / 1000) + 's)')
           return integrations
         }
 

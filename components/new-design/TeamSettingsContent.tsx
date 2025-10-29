@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { cn } from "@/lib/utils"
 import {
   Card,
   CardContent,
@@ -37,7 +38,10 @@ import {
   User as UserIcon,
   Shield,
   Trash2,
-  Save
+  Save,
+  Settings,
+  CreditCard,
+  ChevronRight
 } from "lucide-react"
 import { toast } from "sonner"
 import { CreateTeamDialog } from "./CreateTeamDialog"
@@ -52,6 +56,8 @@ interface Team {
   user_role?: string
 }
 
+type SettingsSection = 'general' | 'billing'
+
 export function TeamSettingsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -63,16 +69,26 @@ export function TeamSettingsContent() {
   const [saving, setSaving] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [createTeamDialogOpen, setCreateTeamDialogOpen] = useState(false)
+  const sectionParam = searchParams.get('section') as SettingsSection | null
+  const [activeSection, setActiveSection] = useState<SettingsSection>(sectionParam || 'general')
 
   // Form state
   const [teamName, setTeamName] = useState("")
   const [teamDescription, setTeamDescription] = useState("")
+  const [openingPortal, setOpeningPortal] = useState(false)
 
   useEffect(() => {
     if (user) {
       fetchTeams()
     }
   }, [user])
+
+  // Update active section when URL parameter changes
+  useEffect(() => {
+    if (sectionParam && ['general', 'billing'].includes(sectionParam)) {
+      setActiveSection(sectionParam)
+    }
+  }, [sectionParam])
 
   // Handle team parameter from URL
   useEffect(() => {
@@ -184,6 +200,38 @@ export function TeamSettingsContent() {
     }
   }
 
+  const handleOpenBillingPortal = async () => {
+    try {
+      setOpeningPortal(true)
+      const response = await fetch('/api/billing/portal', {
+        method: 'POST',
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+
+        // If no subscription exists, redirect to billing page to upgrade
+        if (error.error === 'No subscription found') {
+          toast.error('Please upgrade to a paid plan first')
+          router.push('/settings/billing')
+          return
+        }
+
+        throw new Error(error.error || 'Failed to open billing portal')
+      }
+
+      const { url } = await response.json()
+      if (url) {
+        window.location.href = url
+      }
+    } catch (error: any) {
+      console.error('Error opening billing portal:', error)
+      toast.error(error.message || 'Failed to open billing portal')
+    } finally {
+      setOpeningPortal(false)
+    }
+  }
+
   const isOwner = currentTeam?.user_role === 'owner'
   // Management roles that can edit: owner, admin, manager, hr, finance
   const canManage = currentTeam?.user_role && ['owner', 'admin', 'manager', 'hr', 'finance'].includes(currentTeam.user_role)
@@ -276,15 +324,25 @@ export function TeamSettingsContent() {
     )
   }
 
+  // Check if team is standalone (not attached to an organization)
+  const isStandaloneTeam = !currentTeam?.organization_id
+
+  // Navigation items - include billing only for standalone teams
+  const navigationItems = [
+    { id: 'general' as const, label: 'General', icon: Settings, description: 'Team details and settings' },
+    ...(isStandaloneTeam ? [{ id: 'billing' as const, label: 'Billing', icon: CreditCard, description: 'Manage team subscription' }] : []),
+  ]
+
   return (
-    <div className="h-full w-full space-y-6 max-w-5xl mx-auto">
-      {/* Team Selector */}
-      {teams.length > 1 && (
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <Label htmlFor="team-select" className="text-sm font-medium whitespace-nowrap">
-                Select Team:
+    <div className="flex gap-8 max-w-7xl mx-auto">
+      {/* Sidebar Navigation */}
+      <aside className="w-64 shrink-0">
+        <div className="sticky top-6 space-y-6">
+          {/* Team Selector */}
+          {teams.length > 1 && (
+            <div className="space-y-2">
+              <Label htmlFor="team-select" className="text-sm font-medium">
+                Select Team
               </Label>
               <Select
                 value={selectedTeamId || ''}
@@ -293,7 +351,7 @@ export function TeamSettingsContent() {
                   router.push(`/team-settings?team=${value}`)
                 }}
               >
-                <SelectTrigger id="team-select" className="flex-1">
+                <SelectTrigger id="team-select">
                   <SelectValue placeholder="Select a team" />
                 </SelectTrigger>
                 <SelectContent>
@@ -305,12 +363,69 @@ export function TeamSettingsContent() {
                 </SelectContent>
               </Select>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
 
-      {/* Team Details */}
-      <Card>
+          {/* Navigation Menu */}
+          <div className="space-y-1">
+            {navigationItems.map((item) => {
+              const Icon = item.icon
+              const isActive = activeSection === item.id
+
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    setActiveSection(item.id)
+                    const teamParam = selectedTeamId ? `&team=${selectedTeamId}` : ''
+                    router.push(`/team-settings?section=${item.id}${teamParam}`)
+                  }}
+                  className={cn(
+                    "w-full text-left px-4 py-3 rounded-xl transition-all duration-200 group",
+                    isActive
+                      ? "bg-primary text-primary-foreground shadow-md"
+                      : "hover:bg-accent text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon className={cn(
+                      "w-5 h-5 transition-transform group-hover:scale-110",
+                      isActive ? "text-primary-foreground" : ""
+                    )} />
+                    <div className="flex-1">
+                      <div className={cn(
+                        "font-semibold text-sm",
+                        isActive ? "text-primary-foreground" : ""
+                      )}>
+                        {item.label}
+                      </div>
+                      {!isActive && (
+                        <div className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                          {item.description}
+                        </div>
+                      )}
+                    </div>
+                    {isActive && (
+                      <ChevronRight className="w-4 h-4 text-primary-foreground" />
+                    )}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <main className="flex-1 min-w-0">
+        {activeSection === 'general' && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-3xl font-bold tracking-tight">General Settings</h2>
+              <p className="text-muted-foreground mt-2">Update your team's basic information</p>
+            </div>
+
+            {/* Team Details */}
+            <Card>
         <CardHeader>
           <CardTitle>Team Details</CardTitle>
           <CardDescription>Update your team's basic information</CardDescription>
@@ -361,34 +476,131 @@ export function TeamSettingsContent() {
         </CardContent>
       </Card>
 
-      {/* Danger Zone */}
-      {isOwner && (
-        <Card className="border-destructive">
-          <CardHeader>
-            <CardTitle className="text-destructive">Danger Zone</CardTitle>
-            <CardDescription>
-              Irreversible and destructive actions
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between p-4 border border-destructive rounded-lg">
-              <div>
-                <h4 className="font-semibold">Delete Team</h4>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Permanently delete this team. This action cannot be undone.
-                </p>
-              </div>
-              <Button
-                variant="destructive"
-                onClick={() => setDeleteDialogOpen(true)}
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete
-              </Button>
+            {/* Danger Zone */}
+            {isOwner && (
+              <Card className="border-destructive">
+                <CardHeader>
+                  <CardTitle className="text-destructive">Danger Zone</CardTitle>
+                  <CardDescription>
+                    Irreversible and destructive actions
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between p-4 border border-destructive rounded-lg">
+                    <div>
+                      <h4 className="font-semibold">Delete Team</h4>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Permanently delete this team. This action cannot be undone.
+                      </p>
+                    </div>
+                    <Button
+                      variant="destructive"
+                      onClick={() => setDeleteDialogOpen(true)}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+
+        {/* Billing Section */}
+        {activeSection === 'billing' && isStandaloneTeam && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-3xl font-bold tracking-tight">Billing & Subscription</h2>
+              <p className="text-muted-foreground mt-2">Manage your team's subscription through Stripe</p>
             </div>
-          </CardContent>
-        </Card>
-      )}
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Current Plan</CardTitle>
+                <CardDescription>Your team's subscription is managed through Stripe</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex items-center justify-between p-6 border rounded-lg bg-muted/50">
+                  <div>
+                    <h3 className="font-semibold text-lg">Free Plan</h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Basic features for small teams
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => router.push('/settings/billing')}
+                    className="gap-2"
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    Upgrade Plan
+                  </Button>
+                </div>
+
+                <div className="pt-4 border-t">
+                  <h4 className="font-semibold mb-3">Plan Includes</h4>
+                  <div className="grid gap-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                      <span>Unlimited workflows</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                      <span>Up to 5 team members</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                      <span>Community support</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Billing Management</CardTitle>
+                <CardDescription>
+                  All billing information is securely managed through Stripe
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  To view invoices, update payment methods, or manage your subscription, use the Stripe Customer Portal.
+                </p>
+                <Button
+                  variant="outline"
+                  className="w-full sm:w-auto gap-2"
+                  onClick={handleOpenBillingPortal}
+                  disabled={openingPortal}
+                >
+                  {openingPortal ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Opening Portal...
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard className="w-4 h-4" />
+                      Open Billing Portal
+                    </>
+                  )}
+                </Button>
+
+                <div className="pt-4 border-t space-y-2">
+                  <h4 className="font-semibold text-sm">What you can do in the portal:</h4>
+                  <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                    <li>Update payment methods</li>
+                    <li>View billing history and invoices</li>
+                    <li>Update billing address</li>
+                    <li>Cancel or modify your subscription</li>
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </main>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

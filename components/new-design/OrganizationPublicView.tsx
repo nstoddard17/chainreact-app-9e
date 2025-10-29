@@ -39,7 +39,7 @@ interface Organization {
 
 export function OrganizationPublicView() {
   const router = useRouter()
-  const { user } = useAuthStore()
+  const { user, profile } = useAuthStore()
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null)
   const [loading, setLoading] = useState(true)
@@ -51,27 +51,39 @@ export function OrganizationPublicView() {
   }, [user])
 
   const fetchUserOrganizations = async () => {
+    setLoading(true)
+
     try {
-      setLoading(true)
-
       // Fetch organizations where user is a team member
-      const response = await fetch('/api/organizations')
-      if (!response.ok) throw new Error('Failed to fetch organizations')
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 8000) // 8 second timeout
 
-      const { organizations } = await response.json()
+      try {
+        const response = await fetch('/api/organizations', { signal: controller.signal })
+        if (!response.ok) throw new Error('Failed to fetch organizations')
 
-      // Filter to only real organizations (not personal workspaces)
-      const realOrgs = organizations.filter((org: Organization) =>
-        !org.is_workspace && org.team_count > 0
-      )
+        const { organizations } = await response.json()
 
-      setOrganizations(realOrgs)
+        // Filter to only real organizations (not personal workspaces)
+        const realOrgs = organizations.filter((org: Organization) =>
+          !org.is_workspace && org.team_count > 0
+        )
 
-      // Set the first organization as selected, or null if none exist
-      setSelectedOrg(realOrgs.length > 0 ? realOrgs[0] : null)
-    } catch (error) {
+        setOrganizations(realOrgs)
+
+        // Set the first organization as selected, or null if none exist
+        setSelectedOrg(realOrgs.length > 0 ? realOrgs[0] : null)
+      } catch (error: any) {
+        if (error.name === 'AbortError') {
+          throw new Error('Request timed out. Please try again.')
+        }
+        throw error
+      } finally {
+        clearTimeout(timeoutId)
+      }
+    } catch (error: any) {
       console.error('Error fetching organizations:', error)
-      toast.error('Failed to load organizations')
+      toast.error(error.message || 'Failed to load organizations')
       setOrganizations([])
       setSelectedOrg(null)
     } finally {
@@ -120,6 +132,12 @@ export function OrganizationPublicView() {
             <div className="flex gap-3 justify-center">
               <Button
                 onClick={() => {
+                  // Check if user has required plan
+                  if (!profile?.role || !['business', 'organization'].includes(profile.role)) {
+                    toast.error('You need to upgrade to a Business or Organization plan to create organizations')
+                    router.push('/settings/billing')
+                    return
+                  }
                   window.dispatchEvent(new CustomEvent('create-organization'))
                 }}
               >
