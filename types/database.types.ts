@@ -6235,6 +6235,38 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      },
+      workspace_memberships: {
+        Row: {
+          workspace_id: string
+          user_id: string
+          role: string
+          invited_by: string | null
+          created_at: string | null
+        }
+        Insert: {
+          workspace_id: string
+          user_id: string
+          role: string
+          invited_by?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          workspace_id?: string
+          user_id?: string
+          role?: string
+          invited_by?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_memberships_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

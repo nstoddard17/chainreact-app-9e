@@ -1,0 +1,334 @@
+/**
+ * tokens.css
+ *
+ * Design tokens for V2 Flow Builder
+ * Ensures visual parity with legacy/Kadabra-style layout
+ * LOCKED VALUES - only tweak if single pixel forces overflow
+ */
+
+:root {
+  /* Header / Toolbar */
+  --header-height: 56px;
+  --toolbar-height: 44px;
+
+  /* Columns */
+  --agent-pane-width: 420px;   /* left column */
+  --inspector-width: 380px;    /* right column */
+
+  /* Canvas Grid */
+  --canvas-grid-size: 8px;  /* dot spacing */
+  --canvas-padding: 64px;   /* fit padding */
+
+  /* Node Cards */
+  --node-width: 300px;      /* base node width */
+  --node-radius: 12px;
+  --node-gap-x: 160px;      /* horizontal gap between columns */
+  --node-gap-y: 96px;       /* vertical gap between rows */
+
+  /* Z-index */
+  --badge-z: 40;
+  --toolbar-z: 30;
+
+  /* Colors (locked key surfaces) */
+  --chip-blue-bg: #eaf3ff;
+  --chip-blue-text: #2563eb;
+  --chip-green-bg: #eaf7ec;
+  --chip-green-text: #15803d;
+
+  /* Effects */
+  --fx-shadow: 0 8px 24px rgba(12, 18, 28, 0.08);
+  --fx-active-outline: 0 0 0 2px rgba(37, 99, 235, 0.25);
+  --fx-grey: grayscale(1) opacity(.65);
+
+  /* Legacy Compatibility - keep existing values */
+  --flow-header-height: var(--header-height);
+  --flow-toolbar-height: var(--toolbar-height);
+  --flow-inspector-width: var(--inspector-width);
+  --flow-agent-panel-width: var(--agent-pane-width);
+  --flow-spacing-xs: 4px;
+  --flow-spacing-sm: 8px;
+  --flow-spacing-md: 16px;
+  --flow-spacing-lg: 24px;
+  --flow-spacing-xl: 32px;
+
+  /* Tab spacing */
+  --flow-tab-padding: 12px 16px;
+  --flow-tab-spacing: 12px;  /* Updated from 4px to 12px for exact match */
+  --flow-tab-border-radius: 6px;
+
+  /* Badge */
+  --flow-badge-padding: 8px 16px;
+  --flow-badge-radius: 20px;
+  --flow-badge-gap: 8px;
+
+  /* Colors - Semantic */
+  --flow-blue: hsl(210, 100%, 50%);
+  --flow-blue-bg: hsl(210, 100%, 95%);
+  --flow-green: hsl(142, 76%, 36%);
+  --flow-green-bg: hsl(142, 76%, 95%);
+  --flow-red: hsl(0, 84%, 60%);
+  --flow-red-bg: hsl(0, 84%, 95%);
+  --flow-grey: hsl(0, 0%, 60%);
+  --flow-grey-bg: hsl(0, 0%, 95%);
+
+  /* Z-index layers */
+  --flow-z-canvas: 1;
+  --flow-z-badge: var(--badge-z);
+  --flow-z-toolbar: var(--toolbar-z);
+  --flow-z-inspector: 30;
+  --flow-z-modal: 40;
+
+  /* Typography */
+  --font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Inter, sans-serif;
+  --font-xs: 11px;
+  --font-sm: 12.5px;
+  --font-md: 14px;
+  --font-lg: 16px;
+  --flow-font-mono: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+  --flow-font-body: var(--font-family);
+
+  /* Iconography */
+  --icon-xxs: 12px;
+  --icon-xs: 14px;
+  --icon-sm: 16px;
+  --icon-md: 20px;
+  --icon-lg: 24px;
+
+  /* Motion & Easing */
+  --motion-fast: 120ms;
+  --motion-med: 240ms;
+  --motion-slow: 420ms;
+  --eas-out: cubic-bezier(0.22, 1, 0.36, 1);  /* back-out */
+  --eas-inout: cubic-bezier(0.45, 0, 0.40, 1);
+
+  /* Legacy Transitions (keep for compatibility) */
+  --flow-transition-fast: var(--motion-fast) var(--eas-out);
+  --flow-transition-normal: var(--motion-med) var(--eas-inout);
+  --flow-transition-slow: var(--motion-slow) var(--eas-out);
+
+  /* Camera/Animation */
+  --flow-camera-duration: 500ms;
+  --flow-camera-easing: var(--eas-out);
+
+  /* Accessibility */
+  --focus-ring: 0 0 0 2px hsl(var(--primary));
+  --focus-ring-offset: 2px;
+}
+
+/* Global Focus Ring for all interactive elements */
+*:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* Accessibility: Respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0ms;
+    --motion-med: 0ms;
+    --motion-slow: 0ms;
+    --flow-camera-duration: 0ms;
+  }
+
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Bouncing Dots Animation */
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.bouncing-dots {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+}
+
+.bouncing-dots span {
+  width: 4px;
+  height: 4px;
+  background: currentColor;
+  border-radius: 50%;
+  animation: bounce 450ms ease-in-out infinite;
+}
+
+.bouncing-dots span:nth-child(1) {
+  animation-delay: 0ms;
+}
+
+.bouncing-dots span:nth-child(2) {
+  animation-delay: 100ms;
+}
+
+.bouncing-dots span:nth-child(3) {
+  animation-delay: 200ms;
+}
+
+/* Badge Components */
+.flow-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--flow-badge-gap);
+  padding: var(--flow-badge-padding);
+  border-radius: var(--flow-badge-radius);
+  font-size: 14px;
+  font-weight: 500;
+  transition: all var(--flow-transition-normal);
+}
+
+.flow-badge--blue {
+  background-color: var(--flow-blue-bg);
+  color: var(--flow-blue);
+}
+
+.flow-badge--green {
+  background-color: var(--flow-green-bg);
+  color: var(--flow-green);
+}
+
+.flow-badge--red {
+  background-color: var(--flow-red-bg);
+  color: var(--flow-red);
+}
+
+.flow-badge--grey {
+  background-color: var(--flow-grey-bg);
+  color: var(--flow-grey);
+}
+
+/* Badge positioning - top-center of canvas */
+.flow-badge-container {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--flow-z-badge);
+  pointer-events: none;
+}
+
+.flow-badge-container .flow-badge {
+  pointer-events: auto;
+}
+
+/* Inspector Tabs */
+.flow-inspector-tabs {
+  display: flex;
+  gap: var(--flow-tab-spacing);
+  padding: var(--flow-spacing-sm);
+  border-bottom: 1px solid hsl(0, 0%, 90%);
+}
+
+.flow-inspector-tab {
+  padding: var(--flow-tab-padding);
+  border-radius: var(--flow-tab-border-radius);
+  font-size: 13px;
+  font-weight: 500;
+  color: hsl(0, 0%, 40%);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all var(--flow-transition-fast);
+}
+
+.flow-inspector-tab:hover {
+  background: hsl(0, 0%, 96%);
+}
+
+.flow-inspector-tab--active {
+  background: hsl(210, 100%, 96%);
+  color: var(--flow-blue);
+}
+
+/* Toolbar */
+.flow-toolbar {
+  height: var(--flow-toolbar-height);
+  display: flex;
+  align-items: center;
+  gap: var(--flow-spacing-md);
+  padding: 0 var(--flow-spacing-md);
+  border-bottom: 1px solid hsl(0, 0%, 90%);
+}
+
+/* Node Grey/Active States */
+.flow-node.isGrey {
+  opacity: 0.4;
+  filter: grayscale(0.8);
+  transition: all var(--flow-transition-normal);
+}
+
+.flow-node.isActive {
+  opacity: 1;
+  filter: none;
+  box-shadow: 0 0 0 2px var(--flow-blue);
+  transition: all var(--flow-transition-normal);
+}
+
+/* Setup Card */
+.flow-setup-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--flow-spacing-md);
+  padding: var(--flow-spacing-lg);
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.flow-setup-card-actions {
+  display: flex;
+  gap: var(--flow-spacing-sm);
+  justify-content: flex-end;
+}
+
+/* Plan List */
+.flow-plan-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--flow-spacing-sm);
+  margin-bottom: var(--flow-spacing-lg);
+}
+
+.flow-plan-item {
+  display: flex;
+  align-items: center;
+  gap: var(--flow-spacing-md);
+  padding: var(--flow-spacing-md);
+  background: hsl(0, 0%, 98%);
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.flow-plan-item__icon {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+}
+
+.flow-plan-item__title {
+  flex: 1;
+  font-weight: 500;
+}
+
+.flow-plan-item__requirements {
+  display: flex;
+  gap: var(--flow-spacing-xs);
+  flex-wrap: wrap;
+}
+
+.flow-plan-item__badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  background: hsl(0, 0%, 92%);
+  border-radius: 10px;
+  color: hsl(0, 0%, 40%);
+}

@@ -1186,8 +1186,6 @@ export function AIAgentConfigModal({
                         // Don't open dialog here - onOpenActionDialog will handle it
                       }}
                       onConfigureNode={handleConfigureNode}
-                      workflowData={workflowData}
-                      currentNodeId={currentNodeId}
                     />
                   </div>
 

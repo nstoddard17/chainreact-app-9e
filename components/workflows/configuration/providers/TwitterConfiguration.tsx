@@ -3,7 +3,7 @@
 import React, { useCallback, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertTriangle, Twitter, Settings, Star } from "lucide-react";
+import { AlertTriangle, Twitter, Settings, Star, ChevronLeft } from "lucide-react";
 import { ConfigurationContainer } from '../components/ConfigurationContainer';
 import { FieldRenderer } from '../fields/FieldRenderer';
 import { AIFieldWrapper } from '../fields/AIFieldWrapper';

@@ -1,0 +1,42 @@
+=== Log Session Started: 2025-10-27T20:53:25.009Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-27T20:53:25.009Z] [INFO   ] File logging initialized
+[2025-10-27T20:53:25.009Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-27_15-53-25.log
+[2025-10-27T20:53:25.028Z] [INFO   ] Deleted old log file: workflow_2025-10-20_13-55-50.log
+[2025-10-27T20:53:25.038Z] [INFO   ] Deleted old log file: workflow_2025-10-20_13-32-26.log
+[2025-10-27T20:53:25.049Z] [INFO   ] Deleted old log file: workflow_2025-10-20_13-13-32.log
+[2025-10-27T20:53:25.053Z] [INFO   ] Deleted old log file: workflow_2025-10-20_13-04-32.log
+[2025-10-27T20:53:25.068Z] [INFO   ] Deleted old log file: workflow_2025-10-20_12-48-21.log
+[2025-10-27T20:53:25.076Z] [INFO   ] Deleted old log file: workflow_2025-10-20_12-41-37.log
+[2025-10-27T20:53:25.084Z] [INFO   ] Deleted old log file: workflow_2025-10-20_12-29-55.log
+[2025-10-27T20:53:25.103Z] [INFO   ] Deleted old log file: workflow_2025-10-20_12-06-35.log
+[2025-10-27T20:53:25.109Z] [INFO   ] Deleted old log file: workflow_2025-10-20_11-59-35.log
+[2025-10-27T20:53:25.115Z] [INFO   ] Deleted old log file: workflow_2025-10-20_11-45-27.log
+[2025-10-27T20:53:25.133Z] [INFO   ] Deleted old log file: workflow_2025-10-20_08-59-55.log
+[2025-10-27T20:53:25.133Z] [INFO   ] 📁 File logging enabled
+[2025-10-27T20:53:25.133Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-27_15-53-25.log
+[2025-10-27T20:53:25.133Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-27_15-53-25.log
+[2025-10-27T20:53:25.133Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-27_15-53-25.log
+[2025-10-27T20:53:25.133Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-27_15-53-25.log
+[2025-10-27T20:53:25.133Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-27T20:53:25.133Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-27T20:53:25.142Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 4.1s
+[2025-10-27T20:53:26.356Z] [INFO   ] 2025-10-27T20:53:26.356Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-10-27T20:53:28.782Z] [INFO   ] 2025-10-27T20:53:28.782Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-10-27T20:53:28.782Z] [INFO   ] 2025-10-27T20:53:28.782Z [DEBUG] 🔑 Discord bot token loaded
+[2025-10-27T20:53:29.132Z] [INFO   ] 2025-10-27T20:53:29.132Z [DEBUG] Discord Gateway initialization complete
+[2025-10-27T20:53:29.135Z] [INFO   ] 2025-10-27T20:53:29.134Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-10-27T20:53:29.350Z] [INFO   ] 2025-10-27T20:53:29.350Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-10-27T20:53:29.351Z] [INFO   ] 2025-10-27T20:53:29.351Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-10-27T20:53:29.887Z] [INFO   ] 2025-10-27T20:53:29.887Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"79c9bc60367d8c1a5b79b4546ff008d7","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-10-27T20:53:29.887Z] [INFO   ] 2025-10-27T20:53:29.887Z [DEBUG] 📋 Initializing invite cache...
+[2025-10-27T20:53:29.889Z] [INFO   ] 2025-10-27T20:53:29.889Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-27T20:53:29.896Z] [INFO   ] 2025-10-27T20:53:29.896Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-27T20:53:30.154Z] [INFO   ] 2025-10-27T20:53:30.153Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-10-27T20:56:40.339Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1350ms (2577 modules)
+
+=== Log Session Ended: 2025-10-27T21:00:27.537Z ===

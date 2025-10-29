@@ -4,8 +4,8 @@ let executeActionRef: typeof import("@/lib/workflows/executeNode")["executeActio
 
 async function getExecuteAction() {
   if (!executeActionRef) {
-    const module = await import("@/lib/workflows/executeNode")
-    executeActionRef = module.executeAction
+    const executeNodeModule = await import("@/lib/workflows/executeNode")
+    executeActionRef = executeNodeModule.executeAction
   }
 
   return executeActionRef

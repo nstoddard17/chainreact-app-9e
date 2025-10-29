@@ -25,9 +25,6 @@ import CustomNode from '@/components/workflows/CustomNode'
 import { AddActionNode } from '@/components/workflows/AddActionNode'
 import { ChainPlaceholderNode } from '@/components/workflows/ChainPlaceholderNode'
 import InsertActionNode from '@/components/workflows/InsertActionNode'
-import { CustomEdgeWithButton } from '@/components/workflows/builder/CustomEdgeWithButton'
-import { SimpleStraightEdge } from '@/components/workflows/builder/SimpleStraightEdge'
-import { RoundedEdge } from '@/components/workflows/builder/RoundedEdge'
 import { ALL_NODE_COMPONENTS, type NodeComponent } from '@/lib/workflows/nodes'
 import { validateWorkflowNodes } from '@/lib/workflows/validation/workflow'
 import { getCenteredAddActionX } from '@/lib/workflows/addActionLayout'
@@ -1462,15 +1459,9 @@ export function useWorkflowBuilder() {
         }
 
         if (directFetchStatus === 'error' && !hasHandledDirectFetchError) {
-          logger.warn('[WorkflowBuilder] Workflow not found after direct fetch attempt:', workflowId)
+          // Flow V2 behavior: silently handle errors
           setHasHandledDirectFetchError(true)
-          setCurrentWorkflow(null)
-          toast({
-            title: "Workflow not found",
-            description: directFetchErrorRef.current || "The requested workflow could not be loaded. It may have been deleted.",
-            variant: "destructive"
-          })
-          router.push('/workflows')
+          return
         }
       }
     }

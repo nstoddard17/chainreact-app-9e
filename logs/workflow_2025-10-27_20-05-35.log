@@ -1,0 +1,73 @@
+=== Log Session Started: 2025-10-28T01:05:35.230Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-28T01:05:35.230Z] [INFO   ] File logging initialized
+[2025-10-28T01:05:35.230Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-27_20-05-35.log
+[2025-10-28T01:05:35.233Z] [INFO   ] 📁 File logging enabled
+[2025-10-28T01:05:35.233Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-27_20-05-35.log
+[2025-10-28T01:05:35.233Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-27_20-05-35.log
+[2025-10-28T01:05:35.233Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-27_20-05-35.log
+[2025-10-28T01:05:35.233Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-27_20-05-35.log
+[2025-10-28T01:05:35.233Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-28T01:05:35.233Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-28T01:05:35.241Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 6.2s
+[2025-10-28T01:05:36.290Z] [INFO   ] 2025-10-28T01:05:36.290Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-10-28T01:05:38.070Z] [INFO   ] 2025-10-28T01:05:38.070Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-10-28T01:05:38.070Z] [INFO   ] 2025-10-28T01:05:38.070Z [DEBUG] 🔑 Discord bot token loaded
+[2025-10-28T01:05:38.620Z] [INFO   ] 2025-10-28T01:05:38.620Z [DEBUG] Discord Gateway initialization complete
+[2025-10-28T01:05:38.621Z] [INFO   ] 2025-10-28T01:05:38.621Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-10-28T01:05:38.819Z] [INFO   ] 2025-10-28T01:05:38.819Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-10-28T01:05:38.820Z] [INFO   ] 2025-10-28T01:05:38.820Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-10-28T01:05:40.180Z] [INFO   ] 2025-10-28T01:05:40.180Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"bdf094e458c44e94de1f8b7fa6fcaa17","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-10-28T01:05:40.181Z] [INFO   ] 2025-10-28T01:05:40.181Z [DEBUG] 📋 Initializing invite cache...
+[2025-10-28T01:05:40.183Z] [INFO   ] 2025-10-28T01:05:40.183Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-28T01:05:40.197Z] [INFO   ] 2025-10-28T01:05:40.197Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-28T01:05:40.391Z] [INFO   ] 2025-10-28T01:05:40.391Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-10-28T01:10:14.614Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-28T01:10:16.474Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 2.4s (3010 modules)
+[2025-10-28T01:17:18.531Z] [INFO   ]  [37m[1m○[22m[39m Compiling /middleware ...
+[2025-10-28T01:17:18.690Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 659ms (234 modules)
+[2025-10-28T01:17:19.348Z] [INFO   ] 2025-10-28T01:17:19.348Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-agent","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13047551949}
+[2025-10-28T01:17:19.881Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/ai-agent ...
+[2025-10-28T01:17:24.899Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/ai-agent in 5.5s (4058 modules)
+[2025-10-28T01:17:25.508Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 595ms (597 modules)
+[2025-10-28T01:17:25.741Z] [INFO   ] 2025-10-28T01:17:25.741Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T01:17:48.631Z] [INFO   ] 2025-10-28T01:17:48.630Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13047581231}
+[2025-10-28T01:17:49.358Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/v2/api/flows ...
+[2025-10-28T01:17:49.867Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows in 1173ms (4105 modules)
+[2025-10-28T01:17:50.813Z] [INFO   ] 2025-10-28T01:17:50.813Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/83636204-1f6d-4c73-b2a3-8d5608fae1b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13047583414}
+[2025-10-28T01:17:51.422Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/builder/[id] ...
+[2025-10-28T01:17:56.693Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/builder/[id] in 5.8s (6329 modules)
+[2025-10-28T01:17:58.237Z] [INFO   ] 2025-10-28T01:17:58.237Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T01:17:58.754Z] [INFO   ] 2025-10-28T01:17:58.753Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/83636204-1f6d-4c73-b2a3-8d5608fae1b7/revisions","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13047591354}
+[2025-10-28T01:17:59.776Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/v2/api/flows/[flowId]/revisions ...
+[2025-10-28T01:17:59.802Z] [INFO   ] 2025-10-28T01:17:59.802Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13047592403}
+[2025-10-28T01:18:02.112Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows in 3.3s (6405 modules)
+[2025-10-28T01:18:02.660Z] [INFO   ] 2025-10-28T01:18:02.659Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T01:18:03.491Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-10-28T01:18:03.673Z] [INFO   ] 2025-10-28T01:18:03.673Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/83636204-1f6d-4c73-b2a3-8d5608fae1b7/revisions/aa9c5b5a-9cfa-4859-a543-5c65732dd33e","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13047596274}
+[2025-10-28T01:18:03.712Z] [INFO   ] 2025-10-28T01:18:03.712Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/83636204-1f6d-4c73-b2a3-8d5608fae1b7/revisions","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13047596313}
+[2025-10-28T01:18:03.809Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 1037ms (6408 modules)
+[2025-10-28T01:18:04.316Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/v2/api/flows/[flowId]/revisions/[revisionId] ...
+[2025-10-28T01:18:04.748Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/revisions/[revisionId] in 933ms (6410 modules)
+[2025-10-28T01:18:04.817Z] [INFO   ] 2025-10-28T01:18:04.817Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-28T01:18:04.817Z","headers":{"referer":"check-console"}}
+[2025-10-28T01:18:04.933Z] [INFO   ] 2025-10-28T01:18:04.933Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-28T01:18:05.119Z] [INFO   ] 2025-10-28T01:18:05.119Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-28T01:18:05.522Z] [INFO   ] 2025-10-28T01:18:05.522Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/83636204-1f6d-4c73-b2a3-8d5608fae1b7/revisions","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13047598122}
+[2025-10-28T01:18:05.891Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/analytics/workflow-stats ...
+[2025-10-28T01:18:06.887Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/analytics/workflow-stats in 1514ms (6418 modules)
+[2025-10-28T01:18:07.379Z] [INFO   ] 2025-10-28T01:18:07.379Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/83636204-1f6d-4c73-b2a3-8d5608fae1b7/revisions/aa9c5b5a-9cfa-4859-a543-5c65732dd33e","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13047599980}
+[2025-10-28T01:18:07.762Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/workflows/folders ...
+[2025-10-28T01:18:08.325Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/workflows/folders in 1084ms (6420 modules)
+[2025-10-28T01:18:09.312Z] [INFO   ] 2025-10-28T01:18:09.312Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/83636204-1f6d-4c73-b2a3-8d5608fae1b7/revisions/aa9c5b5a-9cfa-4859-a543-5c65732dd33e","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13047601913}
+[2025-10-28T01:18:09.399Z] [INFO   ] 2025-10-28T01:18:09.399Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/83636204-1f6d-4c73-b2a3-8d5608fae1b7/edits","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13047602000}
+[2025-10-28T01:18:10.066Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/v2/api/flows/[flowId]/edits ...
+[2025-10-28T01:18:10.239Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/edits in 804ms (6423 modules)
+[2025-10-28T01:19:40.722Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.5s (4529 modules)
+[2025-10-28T01:19:44.686Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 669ms (1718 modules)
+[2025-10-28T01:20:14.636Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 494ms (2818 modules)
+
+=== Log Session Ended: 2025-10-28T01:23:58.993Z ===
