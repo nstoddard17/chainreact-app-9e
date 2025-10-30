@@ -30,6 +30,7 @@ import { onedriveNodes } from "./providers/onedrive"
 import { onenoteNodes } from "./providers/onenote"
 import { dropboxNodes } from "./providers/dropbox"
 import { shopifyNodes } from "./providers/shopify"
+import { mondayNodes } from "./providers/monday"
 import { miscNodes } from "./providers/misc"
 import { utilityNodes } from "./providers/utility"
 import { OUTPUT_SCHEMA_FALLBACKS } from "./outputSchemaFallbacks"
@@ -66,6 +67,7 @@ const BASE_NODE_COMPONENTS: NodeComponent[] = [
   ...onenoteNodes,
   ...dropboxNodes,
   ...shopifyNodes,
+  ...mondayNodes,
   ...miscNodes,
   ...utilityNodes,
 ]

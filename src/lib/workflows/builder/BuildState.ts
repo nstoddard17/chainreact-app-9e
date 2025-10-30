@@ -30,6 +30,7 @@ export enum BuildState {
 export interface PlanNode {
   id: string
   title: string
+  description?: string
   nodeType: string
   providerId?: string
   icon?: any
@@ -84,17 +85,16 @@ export const getBadgeForState = (state: BuildState, currentNodeTitle?: string): 
     case BuildState.THINKING:
       return { text: Copy.thinking, variant: 'blue', dots: true }
     case BuildState.SUBTASKS:
-      return { text: Copy.breakingDown, variant: 'blue', dots: true }
+      return { text: Copy.subtasks, variant: 'blue', dots: false }
     case BuildState.COLLECT_NODES:
-      return { text: Copy.collectingNodes, variant: 'blue', dots: true }
+      return { text: Copy.collected, variant: 'blue', dots: false }
     case BuildState.OUTLINE:
-      return { text: Copy.outliningFlow, variant: 'blue', dots: true }
     case BuildState.PURPOSE:
-      return { text: Copy.definingPurpose, variant: 'blue', dots: true }
+      return { text: Copy.outline, variant: 'blue', dots: false }
     case BuildState.PLAN_READY:
       return null // Hide badge when plan is ready
     case BuildState.BUILDING_SKELETON:
-      return { text: Copy.agentBadge, variant: 'blue', dots: true }
+      return { text: `${Copy.agentBadge} …`, variant: 'blue', dots: true }
     case BuildState.WAITING_USER:
       return {
         text: Copy.agentBadge,

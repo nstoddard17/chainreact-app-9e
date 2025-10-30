@@ -22,6 +22,7 @@ interface AgentResult {
   edits: PlannerEdit[]
   prerequisites: string[]
   rationale?: string
+  workflowName?: string
 }
 
 interface RunNodeSnapshot {
@@ -389,6 +390,7 @@ export function useFlowV2Builder(flowId: string, _options?: UseFlowV2BuilderOpti
         edits?: PlannerEdit[]
         prerequisites?: string[]
         rationale?: string
+        workflowName?: string
       }>(`/workflows/v2/api/flows/${flowId}/edits`, {
         method: "POST",
         headers: JSON_HEADERS,
@@ -402,6 +404,7 @@ export function useFlowV2Builder(flowId: string, _options?: UseFlowV2BuilderOpti
         edits: payload.edits ?? [],
         prerequisites: payload.prerequisites ?? [],
         rationale: payload.rationale,
+        workflowName: payload.workflowName,
       }
 
       setFlowState((prev) => ({

@@ -1896,12 +1896,12 @@ export function useWorkflowBuilder() {
 
   // Determine loading state with timeout protection
   const [loadingStartTime, setLoadingStartTime] = useState<number | null>(null)
-  const MAX_LOADING_TIME = 15000 // 15 seconds max loading time
+  const MAX_LOADING_TIME = 60000 // 60 seconds max loading time (increased to handle complex workflows)
 
   const shouldShowLoading = () => {
     if (isTemplateEditing && isTemplateLoading) {
       if (loadingStartTime && Date.now() - loadingStartTime > MAX_LOADING_TIME) {
-        logger.warn('[WorkflowBuilder] Template loading timeout reached, hiding loading screen')
+        logger.info('[WorkflowBuilder] Template loading timeout reached, hiding loading screen')
         return false
       }
       return true
@@ -1910,7 +1910,7 @@ export function useWorkflowBuilder() {
     if (workflowId && !currentWorkflow) {
       // But not if we've been loading for too long
       if (loadingStartTime && Date.now() - loadingStartTime > MAX_LOADING_TIME) {
-        logger.warn('[WorkflowBuilder] Loading timeout reached, hiding loading screen')
+        logger.info('[WorkflowBuilder] Loading timeout reached, hiding loading screen')
         // Don't call toast here - it causes infinite render loop
         // Toast notification is handled in a useEffect below
         return false
@@ -1959,11 +1959,8 @@ export function useWorkflowBuilder() {
 
       if (loadingStartTime && Date.now() - loadingStartTime > MAX_LOADING_TIME) {
         timeoutToastShownRef.current = true
-        toast({
-          title: "Loading timeout",
-          description: "The workflow is taking too long to load. Please try refreshing or check your connection.",
-          variant: "destructive"
-        })
+        // Only log, don't show toast - the loading screen will automatically hide
+        logger.info('[WorkflowBuilder] Loading timeout of 60s reached - hiding loading screen')
       }
     }
 

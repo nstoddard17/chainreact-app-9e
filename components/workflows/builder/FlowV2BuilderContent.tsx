@@ -21,6 +21,7 @@ import { Plus, ArrowRight } from "lucide-react"
 import { IntegrationsSidePanel } from "./IntegrationsSidePanel"
 import { Copy } from "./ui/copy"
 import { BuildState, type BadgeInfo } from "@/src/lib/workflows/builder/BuildState"
+import { CanvasBadge, type CanvasBadgeVariant } from "./ui/CanvasBadge"
 import { flowNodeTypes } from "./FlowNodes"
 import { flowEdgeTypes, defaultEdgeOptions } from "./FlowEdges"
 import "./styles/tokens.css"
@@ -154,26 +155,22 @@ export function FlowV2BuilderContent({
         </Panel>
       </ReactFlow>
 
-      {/* Floating Badge - Top center */}
-      {badge && (
-        <div className={styles.badgeTopCenter}>
-          <div className={`chip ${badge.variant}`}>
-            {badge.spinner && <div className="spinner" />}
-            {badge.dots && (
-              <div className="bouncing-dots">
-                <span />
-                <span />
-                <span />
-              </div>
-            )}
-            <div>
-              <div className="font-medium">{badge.text}</div>
-              {badge.subtext && (
-                <div className="text-xs opacity-75">{badge.subtext}</div>
-              )}
-            </div>
-          </div>
-        </div>
+      {/* Floating Badge - Top center (Canvas phase only) */}
+      {badge && (buildState === BuildState.BUILDING_SKELETON ||
+                 buildState === BuildState.WAITING_USER ||
+                 buildState === BuildState.PREPARING_NODE ||
+                 buildState === BuildState.TESTING_NODE ||
+                 buildState === BuildState.COMPLETE) && (
+        <CanvasBadge
+          text={badge.text}
+          subtext={badge.subtext}
+          variant={(() => {
+            if (buildState === BuildState.COMPLETE) return 'success'
+            if (buildState === BuildState.WAITING_USER) return 'waiting'
+            return 'active'
+          })() as CanvasBadgeVariant}
+          reducedMotion={typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches}
+        />
       )}
 
       {/* Integrations Side Panel */}
