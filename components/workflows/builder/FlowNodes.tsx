@@ -7,7 +7,6 @@
 
 import React from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
-import Image from 'next/image'
 import { Copy } from './ui/copy'
 import './styles/tokens.css'
 import styles from './FlowV2Builder.module.css'
@@ -81,12 +80,10 @@ export function FlowNode({ data, selected, dragging }: NodeProps<FlowNodeData>) 
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: data.sublabel ? '4px' : '0' }}>
         {/* Icon */}
         {data.providerId ? (
-          <Image
+          <img
             src={`/integrations/${data.providerId}.svg`}
             alt={data.providerId}
-            width={16}
-            height={16}
-            style={{ width: 'var(--icon-sm)', height: 'var(--icon-sm)', flexShrink: 0 }}
+            style={{ width: '16px', height: 'auto', flexShrink: 0 }}
           />
         ) : NodeIcon ? (
           <NodeIcon style={{ width: 'var(--icon-sm)', height: 'var(--icon-sm)', flexShrink: 0 }} />

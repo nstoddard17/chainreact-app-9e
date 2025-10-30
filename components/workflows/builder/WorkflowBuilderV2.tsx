@@ -51,10 +51,67 @@ import {
   setNodeDone,
 } from "./layout"
 
+// Agent panel dimensions
 const DEFAULT_AGENT_PANEL_WIDTH = 1120
 const AGENT_PANEL_MIN_WIDTH = 360
 const AGENT_PANEL_MAX_WIDTH = 1120
 const AGENT_PANEL_MARGIN = 48
+
+// Kadabra-style node display name mapping
+const NODE_DISPLAY_NAME_MAP: Record<string, string> = {
+  // Gmail
+  'gmail_trigger_new_email': 'Gmail.Trigger',
+  'gmail_action_send_email': 'Gmail.SendEmail',
+
+  // Slack
+  'slack_action_send_message': 'Slack.Post',
+  'slack_action_create_channel': 'Slack.CreateChannel',
+
+  // Discord
+  'discord_action_send_message': 'Discord.SendMessage',
+
+  // AI
+  'ai_agent': 'AI.Agent',
+  'ai.generate': 'AI.Generate',
+
+  // Utility
+  'transformer': 'Transformer',
+  'format_transformer': 'Formatter.HTMLtoMarkdown',
+
+  // Notion
+  'notion_action_create_page': 'Notion.CreatePage',
+  'notion_action_update_page': 'Notion.UpdatePage',
+
+  // Monday.com (for when nodes are added)
+  'monday_action_get_board_tasks': 'Monday.GetBoardTasks',
+  'monday_trigger_new_item': 'Monday.NewItem',
+
+  // Gmail actions
+  'gmail_action_send_email_to_me': 'SendEmailToMe',
+
+  // Generic/Legacy
+  'http.trigger': 'HTTP.Trigger',
+  'http.request': 'HTTP.Request',
+  'notify.dispatch': 'Notify.Dispatch',
+  'mapper.node': 'Mapper',
+  'logic.ifSwitch': 'Logic.IfSwitch',
+}
+
+function getKadabraStyleNodeName(nodeType: string, providerId?: string, title?: string): string {
+  // Check explicit mapping first
+  if (NODE_DISPLAY_NAME_MAP[nodeType]) {
+    return NODE_DISPLAY_NAME_MAP[nodeType]
+  }
+
+  // Fallback to Provider.Action format
+  if (providerId && title) {
+    const provider = providerId.charAt(0).toUpperCase() + providerId.slice(1)
+    const action = title.replace(/\s+/g, '')
+    return `${provider}.${action}`
+  }
+
+  return title || nodeType
+}
 
 function computeReactAgentPanelWidth(win?: { innerWidth: number }) {
   if (!win) {
@@ -226,6 +283,7 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
                 return {
                   id: `node-${index}`,
                   title: nodeComponent?.title || edit.node?.label || nodeType,
+                  description: nodeComponent?.description || `${nodeComponent?.title || nodeType} node`,
                   nodeType,
                   providerId: nodeComponent?.providerId,
                   icon: nodeComponent?.icon,
@@ -415,9 +473,17 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
           const nodeType = edit.node?.type || 'unknown'
           const nodeComponent = ALL_NODE_COMPONENTS.find(n => n.type === nodeType)
 
+          // Get Kadabra-style display name
+          const displayTitle = getKadabraStyleNodeName(
+            nodeType,
+            nodeComponent?.providerId,
+            nodeComponent?.title
+          )
+
           return {
             id: `node-${index}`,
-            title: nodeComponent?.title || edit.node?.label || nodeType,
+            title: displayTitle,
+            description: nodeComponent?.description || `${nodeComponent?.title || nodeType} node`,
             nodeType,
             providerId: nodeComponent?.providerId,
             icon: nodeComponent?.icon,
@@ -445,6 +511,16 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
         progress: { currentIndex: -1, done: 0, total: plan.length },
       }))
 
+      // Update workflow name if AI generated one
+      if (result.workflowName && actions.updateFlowName) {
+        try {
+          await actions.updateFlowName(result.workflowName)
+        } catch (error) {
+          console.error('Failed to update workflow name:', error)
+          // Non-critical, continue anyway
+        }
+      }
+
       await new Promise(resolve => setTimeout(resolve, 500))
       transitionTo(BuildState.PLAN_READY)
       setIsAgentLoading(false)
@@ -466,21 +542,76 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
     transitionTo(BuildState.BUILDING_SKELETON)
 
     try {
-      // Apply all edits at once
-      await actions.applyEdits(buildMachine.edits)
+      // Separate edits by type
+      const addNodeEdits = buildMachine.edits.filter(e => e.op === 'addNode')
+      const connectEdits = buildMachine.edits.filter(e => e.op === 'connect')
+      const otherEdits = buildMachine.edits.filter(e => e.op !== 'addNode' && e.op !== 'connect')
 
-      // Wait for nodes to appear
-      await new Promise(resolve => setTimeout(resolve, 800))
+      // Apply non-node edits first (interface setup, etc.)
+      if (otherEdits.length > 0) {
+        await actions.applyEdits(otherEdits)
+      }
 
-      // Apply dagre auto-layout if nodes need positioning
+      // Track added node IDs for connection mapping
+      const addedNodeIds = new Set<string>()
+
+      // Add nodes one at a time with animation delay
+      for (let i = 0; i < addNodeEdits.length; i++) {
+        const edit = addNodeEdits[i]
+
+        // Update progress to show which node we're building
+        setBuildMachine(prev => ({
+          ...prev,
+          progress: { ...prev.progress, currentIndex: i, done: i, total: addNodeEdits.length },
+        }))
+
+        // Add the node
+        await actions.applyEdits([edit])
+        if (edit.op === 'addNode') {
+          addedNodeIds.add(edit.node.id)
+        }
+
+        // Wait for node to appear in DOM
+        await new Promise(resolve => setTimeout(resolve, 100))
+
+        // Apply grey filter to the newly added node
+        if (reactFlowInstanceRef.current && edit.op === 'addNode') {
+          const nodeElement = document.querySelector(`[data-id="${edit.node.id}"]`)
+          if (nodeElement) {
+            nodeElement.classList.add('node-grey')
+          }
+        }
+
+        // Add connections for this node (edges where source or target is this node)
+        if (edit.op === 'addNode') {
+          const nodeConnections = connectEdits.filter(e =>
+            e.op === 'connect' && (e.edge.source === edit.node.id || e.edge.target === edit.node.id)
+          )
+
+          // Only add connections where both nodes exist
+          const validConnections = nodeConnections.filter(e =>
+            e.op === 'connect' && addedNodeIds.has(e.edge.source) && addedNodeIds.has(e.edge.target)
+          )
+
+          if (validConnections.length > 0) {
+            await actions.applyEdits(validConnections)
+          }
+        }
+
+        // Pause before adding next node
+        if (i < addNodeEdits.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 400))
+        }
+      }
+
+      // Apply dagre auto-layout after all nodes are placed
+      await new Promise(resolve => setTimeout(resolve, 300))
+
       if (reactFlowInstanceRef.current && builder?.nodes) {
         if (needsLayout(builder.nodes)) {
           const layoutedNodes = applyDagreLayout(builder.nodes, builder.edges || [])
           builder.setNodes?.(layoutedNodes)
         }
-
-        // Apply grey filter to all nodes
-        setAllNodesGrey(reactFlowInstanceRef.current)
       }
 
       // Fit view to show all nodes (with skeleton zoom level)
@@ -488,7 +619,7 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
         fitCanvasToFlow(reactFlowInstanceRef.current, { skeleton: true })
       }
 
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      await new Promise(resolve => setTimeout(resolve, 800))
 
       // Transition to waiting for user to setup first node
       setBuildMachine(prev => ({
@@ -511,7 +642,7 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
       })
       transitionTo(BuildState.PLAN_READY)
     }
-  }, [actions, buildMachine, builder?.nodes, builder?.edges, builder?.setNodes, toast, transitionTo])
+  }, [actions, buildMachine, builder?.nodes, builder?.edges, builder?.setNodes, toast, transitionTo, setBuildMachine])
 
   const handleContinueNode = useCallback(async () => {
     const currentIndex = buildMachine.progress.currentIndex

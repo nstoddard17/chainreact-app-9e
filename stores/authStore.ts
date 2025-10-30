@@ -283,7 +283,7 @@ export const useAuthStore = create<AuthState>()(
                 return null
               } catch (error: any) {
                 if (error?.name === 'AbortError') {
-                  logger.warn('Service profile fetch timed out, falling back to direct query')
+                  logger.info('Service profile fetch timed out, falling back to direct query')
                 } else {
                   logger.error('Failed to fetch profile via service endpoint:', error)
                 }
