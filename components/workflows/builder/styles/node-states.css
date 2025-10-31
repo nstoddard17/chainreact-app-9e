@@ -1,0 +1,146 @@
+/**
+ * Node State Animations and Styling
+ *
+ * Defines visual states for workflow nodes:
+ * - skeleton: Building state (grey, muted)
+ * - ready: Default state
+ * - running: Active execution with blue wave animation
+ * - passed: Success state (green)
+ * - failed: Error state (red)
+ */
+
+/* ===== Running Animation - Shimmer Effect ===== */
+
+/* Shimmer sweep animation - smooth left to right */
+@keyframes shimmer-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Border pulse animation - subtle glow */
+@keyframes border-pulse {
+  0%, 100% {
+    border-color: hsl(217 91% 60% / 0.3);
+    box-shadow: 0 0 0 0 hsl(217 91% 60% / 0);
+  }
+  50% {
+    border-color: hsl(217 91% 60% / 0.6);
+    box-shadow: 0 0 8px 2px hsl(217 91% 60% / 0.2);
+  }
+}
+
+/* Apply running state - soft blue gradient background */
+.node-running {
+  background: linear-gradient(
+    4deg,
+    #e6f0ff 0%,
+    #d3e7ff 50%,
+    #e6f0ff 100%
+  ) !important;
+  animation: border-pulse 2s ease-in-out infinite;
+}
+
+/* Shimmer overlay - translucent glowing bar */
+.node-running::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    hsl(217 91% 60% / 0.35) 50%,
+    transparent 100%
+  );
+  animation: shimmer-sweep 2s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 1;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+/* Ensure node content stays above the shimmer */
+.node-running > *:not(.react-flow__handle) {
+  position: relative;
+  z-index: 2;
+}
+
+.node-running > .react-flow__handle {
+  position: absolute !important;
+  z-index: 5;
+}
+
+/* ===== Status Badge Styling ===== */
+
+/* Ready state badge */
+.badge-ready {
+  background: hsl(var(--muted) / 0.5);
+  color: hsl(var(--muted-foreground));
+  border: 1px solid hsl(var(--border));
+}
+
+/* Skeleton state badge */
+.badge-skeleton {
+  background: hsl(var(--muted) / 0.3);
+  color: hsl(var(--muted-foreground));
+  border: 1px solid hsl(var(--border) / 0.3);
+}
+
+/* Running state badge - static, no animation */
+.badge-running {
+  background: hsl(217 91% 60% / 0.15);
+  color: hsl(217 91% 60%);
+  border: 1px solid hsl(217 91% 60% / 0.4);
+  font-weight: 600;
+}
+
+/* Passed state badge */
+.badge-passed {
+  background: hsl(142 76% 36% / 0.1);
+  color: hsl(142 76% 36%);
+  border: 1px solid hsl(142 76% 36% / 0.3);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.badge-passed:hover {
+  background: hsl(142 76% 36% / 0.2);
+  border-color: hsl(142 76% 36% / 0.5);
+}
+
+/* Failed state badge */
+.badge-failed {
+  background: hsl(var(--destructive) / 0.1);
+  color: hsl(var(--destructive));
+  border: 1px solid hsl(var(--destructive) / 0.3);
+  font-weight: 600;
+}
+
+/* ===== Reduced Motion Support ===== */
+@media (prefers-reduced-motion: reduce) {
+  .node-running {
+    /* Remove border pulse animation */
+    animation: none;
+    border-color: hsl(217 91% 60% / 0.4);
+  }
+
+  .node-running::before {
+    /* Remove shimmer sweep animation */
+    animation: none;
+    /* Show static subtle overlay */
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      hsl(217 91% 60% / 0.15) 100%
+    );
+    transform: translateX(0);
+  }
+}

@@ -22,8 +22,7 @@ import { IntegrationsSidePanel } from "./IntegrationsSidePanel"
 import { Copy } from "./ui/copy"
 import { BuildState, type BadgeInfo } from "@/src/lib/workflows/builder/BuildState"
 import { CanvasBadge, type CanvasBadgeVariant } from "./ui/CanvasBadge"
-import { flowNodeTypes } from "./FlowNodes"
-import { flowEdgeTypes, defaultEdgeOptions } from "./FlowEdges"
+import { defaultEdgeOptions } from "./FlowEdges"
 import "./styles/tokens.css"
 import "./styles/FlowBuilder.anim.css"
 import styles from "./FlowV2Builder.module.css"
@@ -35,8 +34,8 @@ interface FlowV2BuilderContentProps {
   onNodesChange?: (changes: any) => void
   onEdgesChange?: (changes: any) => void
   onConnect?: (connection: any) => void
-  nodeTypes?: any
-  edgeTypes?: any
+  nodeTypes: any // Required - provided by WorkflowBuilderV2
+  edgeTypes: any // Required - provided by WorkflowBuilderV2
   onSelectionChange?: (params: any) => void
   onInit?: (instance: any) => void
 
@@ -104,8 +103,8 @@ export function FlowV2BuilderContent({
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
-        nodeTypes={nodeTypes || flowNodeTypes}
-        edgeTypes={edgeTypes || flowEdgeTypes}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         onSelectionChange={onSelectionChange}
         onInit={onInit}
         fitView

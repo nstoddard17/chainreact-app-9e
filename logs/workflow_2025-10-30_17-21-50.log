@@ -1,0 +1,44 @@
+=== Log Session Started: 2025-10-30T22:21:50.666Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-30T22:21:50.667Z] [INFO   ] File logging initialized
+[2025-10-30T22:21:50.667Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-30_17-21-50.log
+[2025-10-30T22:21:50.670Z] [INFO   ] Deleted old log file: workflow_2025-10-23_16-44-25.log
+[2025-10-30T22:21:50.671Z] [INFO   ] Deleted old log file: workflow_2025-10-23_16-41-13.log
+[2025-10-30T22:21:50.672Z] [INFO   ] Deleted old log file: workflow_2025-10-23_16-29-01.log
+[2025-10-30T22:21:50.673Z] [INFO   ] Deleted old log file: workflow_2025-10-23_16-23-36.log
+[2025-10-30T22:21:50.673Z] [INFO   ] Deleted old log file: workflow_2025-10-23_16-17-26.log
+[2025-10-30T22:21:50.674Z] [INFO   ] Deleted old log file: workflow_2025-10-23_16-07-42.log
+[2025-10-30T22:21:50.675Z] [INFO   ] Deleted old log file: workflow_2025-10-23_16-02-03.log
+[2025-10-30T22:21:50.676Z] [INFO   ] Deleted old log file: workflow_2025-10-23_14-18-02.log
+[2025-10-30T22:21:50.677Z] [INFO   ] Deleted old log file: workflow_2025-10-23_14-07-06.log
+[2025-10-30T22:21:50.677Z] [INFO   ] Deleted old log file: workflow_2025-10-23_13-58-13.log
+[2025-10-30T22:21:50.678Z] [INFO   ] Deleted old log file: workflow_2025-10-23_13-52-17.log
+[2025-10-30T22:21:50.679Z] [INFO   ] Deleted old log file: workflow_2025-10-23_13-40-24.log
+[2025-10-30T22:21:50.680Z] [INFO   ] Deleted old log file: workflow_2025-10-23_12-32-00.log
+[2025-10-30T22:21:50.681Z] [INFO   ] Deleted old log file: workflow_2025-10-23_10-32-20.log
+[2025-10-30T22:21:50.681Z] [INFO   ] 📁 File logging enabled
+[2025-10-30T22:21:50.681Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-30_17-21-50.log
+[2025-10-30T22:21:50.681Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-30_17-21-50.log
+[2025-10-30T22:21:50.681Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-30_17-21-50.log
+[2025-10-30T22:21:50.681Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-30_17-21-50.log
+[2025-10-30T22:21:50.681Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-30T22:21:50.681Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-30T22:21:50.700Z] [INFO   ]  ✓ Ready in 6.8s
+[2025-10-30T22:21:51.728Z] [INFO   ] 2025-10-30T22:21:51.728Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-10-30T22:21:55.459Z] [INFO   ] 2025-10-30T22:21:55.458Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-10-30T22:21:55.459Z] [INFO   ] 2025-10-30T22:21:55.459Z [DEBUG] 🔑 Discord bot token loaded
+[2025-10-30T22:21:55.793Z] [INFO   ] 2025-10-30T22:21:55.793Z [DEBUG] Discord Gateway initialization complete
+[2025-10-30T22:21:55.795Z] [INFO   ] 2025-10-30T22:21:55.795Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-10-30T22:21:57.630Z] [INFO   ] 2025-10-30T22:21:57.630Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-10-30T22:21:57.631Z] [INFO   ] 2025-10-30T22:21:57.631Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-10-30T22:21:57.823Z] [INFO   ] 2025-10-30T22:21:57.823Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"17f8abe94bb1920f140226cebcc51f54","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-10-30T22:21:57.823Z] [INFO   ] 2025-10-30T22:21:57.823Z [DEBUG] 📋 Initializing invite cache...
+[2025-10-30T22:21:57.826Z] [INFO   ] 2025-10-30T22:21:57.826Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-30T22:21:57.845Z] [INFO   ] 2025-10-30T22:21:57.845Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-30T22:21:58.024Z] [INFO   ] 2025-10-30T22:21:58.023Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+
+=== Log Session Ended: 2025-10-30T22:31:54.857Z ===
