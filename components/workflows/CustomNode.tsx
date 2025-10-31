@@ -158,6 +158,45 @@ function CustomNode({ id, data, selected }: NodeProps) {
 
   const statusBadge = getStatusBadge(nodeState)
 
+  // Helper function to get handle styling based on node state
+  const getHandleStyle = (state: NodeState) => {
+    switch (state) {
+      case 'skeleton':
+        return {
+          background: 'hsl(var(--muted))',
+          borderColor: 'hsl(var(--border))',
+          boxShadow: 'none',
+        }
+      case 'running':
+        return {
+          background: 'linear-gradient(90deg, #d3e7ff 0%, #e6f0ff 100%)',
+          borderColor: 'hsl(217 91% 60% / 0.5)',
+          boxShadow: '0 0 6px hsl(217 91% 60% / 0.3)',
+        }
+      case 'passed':
+        return {
+          background: 'hsl(142 76% 36% / 0.1)',
+          borderColor: 'hsl(142 76% 36% / 0.4)',
+          boxShadow: '0 0 4px hsl(142 76% 36% / 0.2)',
+        }
+      case 'failed':
+        return {
+          background: 'hsl(var(--destructive) / 0.1)',
+          borderColor: 'hsl(var(--destructive) / 0.4)',
+          boxShadow: '0 0 4px hsl(var(--destructive) / 0.2)',
+        }
+      case 'ready':
+      default:
+        return {
+          background: 'hsl(var(--card))',
+          borderColor: 'hsl(var(--border))',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+        }
+    }
+  }
+
+  const handleStyle = getHandleStyle(nodeState)
+
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [editedTitle, setEditedTitle] = useState("")
   const [isConfigExpanded, setIsConfigExpanded] = useState<boolean>(() => {
@@ -1377,32 +1416,42 @@ function CustomNode({ id, data, selected }: NodeProps) {
         </div>
       )}
 
-      {/* Input handle - Half-moon on left side - Fixed to align with header center */}
+      {/* Input handle - Half-moon on left side - Blends with node state */}
       {!isTrigger && (
         <Handle
           type="target"
           position={Position.Left}
-          className="!w-3 !h-6 !rounded-r-full !rounded-l-none !bg-border !border-2 !border-background !shadow-sm hover:!scale-110 !transition-transform"
+          className="!w-3 !h-6 !rounded-r-full !rounded-l-none !border hover:!scale-110 !transition-all !duration-200"
           style={{
             visibility: data.isTrigger ? "hidden" : "visible",
             left: "0px",
-            top: "50%",  // Center vertically
+            top: "50%",
             transform: "translateY(-50%)",
             zIndex: 10,
+            background: handleStyle.background,
+            borderColor: handleStyle.borderColor,
+            borderWidth: '1.5px',
+            borderLeftWidth: '0px',
+            boxShadow: handleStyle.boxShadow,
           }}
         />
       )}
 
-      {/* Output handle - Half-moon on right side - ALWAYS show for all nodes - Fixed to align with header center */}
+      {/* Output handle - Half-moon on right side - Blends with node state */}
       <Handle
         type="source"
         position={Position.Right}
-        className="!w-3 !h-6 !rounded-l-full !rounded-r-none !bg-border !border-2 !border-background !shadow-sm hover:!scale-110 !transition-transform"
+        className="!w-3 !h-6 !rounded-l-full !rounded-r-none !border hover:!scale-110 !transition-all !duration-200"
         style={{
           right: "0px",
-          top: "50%",  // Center vertically
+          top: "50%",
           transform: "translateY(-50%)",
           zIndex: 10,
+          background: handleStyle.background,
+          borderColor: handleStyle.borderColor,
+          borderWidth: '1.5px',
+          borderRightWidth: '0px',
+          boxShadow: handleStyle.boxShadow,
         }}
       />
     </div>
