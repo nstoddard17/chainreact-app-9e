@@ -50,16 +50,38 @@ export function useIntegrations(): UseIntegrationsReturn {
       // Fetch available integrations
       const availableResponse = await fetch("/api/integrations/available")
       if (!availableResponse.ok) {
-        throw new Error("Failed to fetch available integrations")
+        const errorText = await availableResponse.text()
+        throw new Error(`Failed to fetch available integrations: ${availableResponse.status} ${errorText}`)
       }
-      const availableIntegrations = await availableResponse.json()
+      const availableData = await availableResponse.json()
+
+      // Handle wrapped response format
+      // /api/integrations/available returns: { success: true, data: { integrations: [...], stats: {...} } }
+      let availableIntegrations = availableData.data?.integrations || availableData.integrations || []
+
+      // Ensure it's an array
+      if (!Array.isArray(availableIntegrations)) {
+        logger.warn("Available integrations is not an array:", availableIntegrations)
+        availableIntegrations = []
+      }
 
       // Fetch user's connected integrations
       const connectedResponse = await fetch("/api/integrations")
       if (!connectedResponse.ok) {
-        throw new Error("Failed to fetch connected integrations")
+        const errorText = await connectedResponse.text()
+        throw new Error(`Failed to fetch connected integrations: ${connectedResponse.status} ${errorText}`)
       }
-      const connectedIntegrations = await connectedResponse.json()
+      const connectedData = await connectedResponse.json()
+
+      // Handle wrapped response format
+      // /api/integrations returns: { success: true, data: [...] } (array directly in data)
+      let connectedIntegrations = connectedData.data || []
+
+      // Ensure it's an array
+      if (!Array.isArray(connectedIntegrations)) {
+        logger.warn("Connected integrations is not an array:", connectedIntegrations)
+        connectedIntegrations = []
+      }
 
       // Merge available and connected integrations
       const mergedIntegrations = availableIntegrations.map((integration: any) => {
@@ -76,13 +98,19 @@ export function useIntegrations(): UseIntegrationsReturn {
 
       setIntegrations(mergedIntegrations)
     } catch (err) {
-      logger.error("Error fetching integrations:", err)
-      setError(err instanceof Error ? err.message : "Failed to fetch integrations")
-      toast({
-        title: "Error",
-        description: "Failed to load integrations. Please try again.",
-        variant: "destructive",
-      })
+      const errorMessage = err instanceof Error ? err.message : "Failed to fetch integrations"
+      logger.error("Error fetching integrations:", { error: err, message: errorMessage })
+      setError(errorMessage)
+
+      // Don't show toast on every error, as this can be called multiple times
+      // Only show if there's a meaningful error message
+      if (errorMessage && errorMessage !== "Failed to fetch integrations") {
+        toast({
+          title: "Error",
+          description: errorMessage,
+          variant: "destructive",
+        })
+      }
     } finally {
       setLoading(false)
     }

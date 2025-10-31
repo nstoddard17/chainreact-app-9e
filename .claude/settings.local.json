@@ -34,7 +34,11 @@
       "Update(*)",
       "Bash(npx tsc:*)",
       "Bash(npx playwright test:*)",
-      "Bash(npm run lint:*)"
+      "Bash(npm run lint:*)",
+      "Bash(tree:*)",
+      "Bash(xargs ls:*)",
+      "Bash(for file in \"FlowV2AIAgentBuilderContent\" \"FlowV2Inspector\" \"KadabraStyleWorkflowBuilder\" \"AuroraWorkflowsContent\")",
+      "Bash(do echo \"=== $file ===\" grep -rn \"import.*$file\" --include=\"*.ts\" --include=\"*.tsx\" components/ app/ hooks/ lib/)"
     ],
     "deny": [],
     "ask": [],

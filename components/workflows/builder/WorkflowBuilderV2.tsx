@@ -41,6 +41,7 @@ import "./styles/FlowBuilder.anim.css"
 import { Sparkles } from "lucide-react"
 import { FlowV2BuilderContent } from "./FlowV2BuilderContent"
 import { FlowV2AgentPanel } from "./FlowV2AgentPanel"
+import { NodeStateTestPanel } from "./NodeStateTestPanel"
 import {
   applyDagreLayout,
   needsLayout,
@@ -859,6 +860,9 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
               <span className="text-[10px]">Agent</span>
             </Button>
           )}
+
+          {/* Node State Test Panel - Phase 1 Testing */}
+          <NodeStateTestPanel />
         </div>
       </BuilderLayout>
     </TooltipProvider>

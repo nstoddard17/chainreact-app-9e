@@ -13,13 +13,16 @@ import { NodeContextMenu } from "./NodeContextMenu"
 import { logger } from '@/lib/utils/logger'
 import { getIntegrationLogoClasses } from "@/lib/integrations/logoStyles"
 import { cn } from "@/lib/utils"
+import './builder/styles/node-states.css'
+
+export type NodeState = 'skeleton' | 'ready' | 'running' | 'passed' | 'failed'
 
 // The data object passed to the node will now contain these callbacks.
 type ConfigureOptions = {
   focusField?: string
 }
 
-interface CustomNodeData {
+export interface CustomNodeData {
   title: string
   description: string
   type: string
@@ -60,7 +63,7 @@ interface CustomNodeData {
   needsSetup?: boolean
   aiStatus?: 'creating' | 'configuring' | 'configured' | 'testing' | 'ready' | 'error' | string
   aiBadgeText?: string
-  aiBadgeVariant?: 'success' | 'warning' | 'info' | 'danger' | 'default' | string
+  aiBadgeVariant?: 'success' | 'warning' | 'info' | 'danger' | 'default' | 'string'
   aiTestSummary?: string | null
   autoExpand?: boolean
   aiFallbackFields?: string[]
@@ -70,6 +73,12 @@ interface CustomNodeData {
     displayValue?: string
     viaFallback?: boolean
   }[]
+  // Phase 1: Node state management
+  state?: NodeState
+  preview?: {
+    title?: string
+    content: string | string[]
+  }
 }
 
 type SlackConfigSection = {
@@ -127,6 +136,28 @@ function CustomNode({ id, data, selected }: NodeProps) {
       ? reactFlowInstance.updateNodeInternals
       : null
   const nodeData = data as CustomNodeData & { debugListeningMode?: boolean; debugExecutionStatus?: string }
+
+  // Phase 1: Node state helpers
+  const nodeState = nodeData.state || 'ready'
+
+  const getStatusBadge = (state: NodeState): { text: string; className: string } => {
+    switch (state) {
+      case 'skeleton':
+        return { text: 'Setup Required', className: 'badge-skeleton' }
+      case 'running':
+        return { text: 'Running', className: 'badge-running' }
+      case 'passed':
+        return { text: 'Success', className: 'badge-passed' }
+      case 'failed':
+        return { text: 'Failed', className: 'badge-failed' }
+      case 'ready':
+      default:
+        return { text: 'Ready', className: 'badge-ready' }
+    }
+  }
+
+  const statusBadge = getStatusBadge(nodeState)
+
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [editedTitle, setEditedTitle] = useState("")
   const [isConfigExpanded, setIsConfigExpanded] = useState<boolean>(() => {
@@ -874,10 +905,37 @@ function CustomNode({ id, data, selected }: NodeProps) {
       <div
         className={`relative w-[450px] ${backgroundClass} rounded-lg shadow-sm border-2 group ${borderClass} ${shadowClass} ${ringClass} transition-all duration-200 overflow-hidden ${
           nodeHasConfiguration() ? "cursor-pointer" : ""
-        } ${getExecutionStatusStyle()}`}
+        } ${getExecutionStatusStyle()} ${nodeState === 'running' ? 'node-running' : ''}`}
         data-testid={`node-${id}`}
         onDoubleClick={handleDoubleClick}
+        style={{
+          opacity: nodeState === 'skeleton' ? 0.5 : 1,
+          width: '450px',
+          maxWidth: '450px',
+          minWidth: '450px',
+          boxSizing: 'border-box',
+          flex: 'none',
+        }}
       >
+      {/* Phase 1: Status Badge - Top Right Corner */}
+      <div
+        className={statusBadge.className}
+        style={{
+          position: 'absolute',
+          top: '8px',
+          right: '8px',
+          fontSize: '10px',
+          padding: '4px 8px',
+          borderRadius: '4px',
+          fontWeight: 600,
+          textAlign: 'center',
+          lineHeight: 1,
+          zIndex: 10,
+        }}
+      >
+        {statusBadge.text}
+      </div>
+
       {/* Execution status indicator */}
       {getExecutionStatusIndicator()}
       {/* Error label */}
@@ -921,32 +979,36 @@ function CustomNode({ id, data, selected }: NodeProps) {
 
       <div className="p-3">
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-start space-x-2.5 flex-1 min-w-0">
-            {type === 'chain_placeholder' ? (
-              <Layers className="h-7 w-7 text-muted-foreground flex-shrink-0 mt-0.5" />
-            ) : providerId ? (
-              <img
-                src={`/integrations/${providerId}.svg`}
-                alt={`${title || ''} logo`}
-                className={getIntegrationLogoClasses(providerId, "w-7 h-7 object-contain flex-shrink-0 mt-0.5")}
-                onError={(e) => {
-                  logger.error(`Failed to load logo for ${providerId} at path: /integrations/${providerId}.svg`)
-                  // Fallback to icon if image fails
-                  if (component?.icon) {
-                    const parent = e.currentTarget.parentElement
-                    if (parent) {
-                      e.currentTarget.remove()
-                      const iconElement = React.createElement(component.icon, { className: "h-8 w-8 text-foreground" })
-                      // This won't work directly, but shows the intent
+          <div className="grid grid-cols-[40px_1fr] gap-2.5 items-center flex-1 min-w-0">
+            {/* Logo - Fixed position, vertically centered */}
+            <div className="flex items-center justify-center">
+              {type === 'chain_placeholder' ? (
+                <Layers className="h-7 w-7 text-muted-foreground flex-shrink-0" />
+              ) : providerId ? (
+                <img
+                  src={`/integrations/${providerId}.svg`}
+                  alt={`${title || ''} logo`}
+                  className={getIntegrationLogoClasses(providerId, "w-7 h-7 object-contain flex-shrink-0")}
+                  onError={(e) => {
+                    logger.error(`Failed to load logo for ${providerId} at path: /integrations/${providerId}.svg`)
+                    // Fallback to icon if image fails
+                    if (component?.icon) {
+                      const parent = e.currentTarget.parentElement
+                      if (parent) {
+                        e.currentTarget.remove()
+                        const iconElement = React.createElement(component.icon, { className: "h-8 w-8 text-foreground" })
+                        // This won't work directly, but shows the intent
+                      }
                     }
-                  }
-                }}
-                onLoad={() => logger.debug(`Successfully loaded logo for ${providerId}`)}
-              />
-            ) : (
-              component?.icon && React.createElement(component.icon, { className: "h-7 w-7 text-foreground flex-shrink-0 mt-0.5" })
-            )}
-            <div className="min-w-0 flex-1 pr-2">
+                  }}
+                  onLoad={() => logger.debug(`Successfully loaded logo for ${providerId}`)}
+                />
+              ) : (
+                component?.icon && React.createElement(component.icon, { className: "h-7 w-7 text-foreground flex-shrink-0" })
+              )}
+            </div>
+            {/* Content - Flows independently */}
+            <div className="min-w-0 pr-2">
               {isEditingTitle ? (
                 <input
                   ref={titleInputRef}
@@ -1324,8 +1386,9 @@ function CustomNode({ id, data, selected }: NodeProps) {
           style={{
             visibility: data.isTrigger ? "hidden" : "visible",
             left: "0px",
-            top: "40px",  // Fixed position to align with header/icon center
-            transform: "none",
+            top: "50%",  // Center vertically
+            transform: "translateY(-50%)",
+            zIndex: 10,
           }}
         />
       )}
@@ -1337,8 +1400,9 @@ function CustomNode({ id, data, selected }: NodeProps) {
         className="!w-3 !h-6 !rounded-l-full !rounded-r-none !bg-border !border-2 !border-background !shadow-sm hover:!scale-110 !transition-transform"
         style={{
           right: "0px",
-          top: "40px",  // Fixed position to align with header/icon center
-          transform: "none",
+          top: "50%",  // Center vertically
+          transform: "translateY(-50%)",
+          zIndex: 10,
         }}
       />
     </div>
