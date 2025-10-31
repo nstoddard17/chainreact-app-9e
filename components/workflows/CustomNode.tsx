@@ -1421,7 +1421,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
         <Handle
           type="target"
           position={Position.Left}
-          className="!w-3 !h-6 !rounded-r-full !rounded-l-none !border hover:!scale-110 !transition-all !duration-200"
+          className="!w-3 !h-6 !rounded-r-full !rounded-l-none hover:!scale-110 !transition-all !duration-200"
           style={{
             visibility: data.isTrigger ? "hidden" : "visible",
             left: "0px",
@@ -1429,9 +1429,10 @@ function CustomNode({ id, data, selected }: NodeProps) {
             transform: "translateY(-50%)",
             zIndex: 10,
             background: handleStyle.background,
-            borderColor: handleStyle.borderColor,
-            borderWidth: '1.5px',
-            borderLeftWidth: '0px',
+            borderRight: `1.5px solid ${handleStyle.borderColor}`,
+            borderTop: 'none',
+            borderBottom: 'none',
+            borderLeft: 'none',
             boxShadow: handleStyle.boxShadow,
           }}
         />
@@ -1441,16 +1442,17 @@ function CustomNode({ id, data, selected }: NodeProps) {
       <Handle
         type="source"
         position={Position.Right}
-        className="!w-3 !h-6 !rounded-l-full !rounded-r-none !border hover:!scale-110 !transition-all !duration-200"
+        className="!w-3 !h-6 !rounded-l-full !rounded-r-none hover:!scale-110 !transition-all !duration-200"
         style={{
           right: "0px",
           top: "50%",
           transform: "translateY(-50%)",
           zIndex: 10,
           background: handleStyle.background,
-          borderColor: handleStyle.borderColor,
-          borderWidth: '1.5px',
-          borderRightWidth: '0px',
+          borderLeft: `1.5px solid ${handleStyle.borderColor}`,
+          borderTop: 'none',
+          borderBottom: 'none',
+          borderRight: 'none',
           boxShadow: handleStyle.boxShadow,
         }}
       />
