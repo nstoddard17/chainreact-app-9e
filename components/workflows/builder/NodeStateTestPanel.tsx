@@ -16,10 +16,12 @@
 import React, { useState } from 'react'
 import { useReactFlow } from '@xyflow/react'
 import type { NodeState, CustomNodeData } from '@/components/workflows/CustomNode'
+import { HandleDesignTester } from './HandleDesignTester'
 
 export function NodeStateTestPanel() {
   const { addNodes, getNodes, setNodes } = useReactFlow()
   const [isOpen, setIsOpen] = useState(false)
+  const [showHandleDesigns, setShowHandleDesigns] = useState(false)
 
   const addTestNode = (state: NodeState) => {
     const existingNodes = getNodes()
@@ -260,11 +262,32 @@ export function NodeStateTestPanel() {
         >
           Clear All Test Nodes
         </button>
+
+        <button
+          onClick={() => setShowHandleDesigns(true)}
+          style={{
+            padding: '8px 12px',
+            background: 'hsl(var(--primary) / 0.1)',
+            color: 'hsl(var(--primary))',
+            border: '1px solid hsl(var(--primary) / 0.3)',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '13px',
+            fontWeight: 600,
+          }}
+        >
+          🎨 View Handle Designs
+        </button>
       </div>
 
       <p style={{ fontSize: '11px', color: 'hsl(var(--muted-foreground))', margin: '12px 0 0 0', fontStyle: 'italic' }}>
         Remove this component after testing Phase 1
       </p>
+
+      {/* Handle Design Tester Modal */}
+      {showHandleDesigns && (
+        <HandleDesignTester onClose={() => setShowHandleDesigns(false)} />
+      )}
     </div>
   )
 }

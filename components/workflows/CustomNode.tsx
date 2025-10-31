@@ -161,36 +161,23 @@ function CustomNode({ id, data, selected }: NodeProps) {
   // Helper function to get handle styling based on node state
   const getHandleStyle = (state: NodeState) => {
     switch (state) {
-      case 'skeleton':
-        return {
-          background: 'hsl(var(--muted))',
-          borderColor: 'hsl(var(--border))',
-          boxShadow: 'none',
-        }
       case 'running':
+        // Running nodes get special blue gradient handles
         return {
           background: 'linear-gradient(90deg, #d3e7ff 0%, #e6f0ff 100%)',
           borderColor: 'hsl(217 91% 60% / 0.5)',
           boxShadow: '0 0 6px hsl(217 91% 60% / 0.3)',
         }
+      case 'skeleton':
       case 'passed':
-        return {
-          background: 'hsl(142 76% 36% / 0.1)',
-          borderColor: 'hsl(142 76% 36% / 0.4)',
-          boxShadow: '0 0 4px hsl(142 76% 36% / 0.2)',
-        }
       case 'failed':
-        return {
-          background: 'hsl(var(--destructive) / 0.1)',
-          borderColor: 'hsl(var(--destructive) / 0.4)',
-          boxShadow: '0 0 4px hsl(var(--destructive) / 0.2)',
-        }
       case 'ready':
       default:
+        // All other states get the same subtle gray handles
         return {
-          background: 'hsl(var(--card))',
+          background: 'hsl(var(--muted) / 0.3)',
           borderColor: 'hsl(var(--border))',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
         }
     }
   }
@@ -204,6 +191,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
     return Boolean(nodeData.autoExpand) || nodeData.aiStatus === 'configuring'
   }) // Track if config section is expanded
   const [slackSectionsOpen, setSlackSectionsOpen] = useState<Record<string, boolean>>(DEFAULT_SLACK_SECTION_STATE)
+  const [isPreviewExpanded, setIsPreviewExpanded] = useState(true) // Phase 1: Preview auto-expanded for running/passed/failed nodes
   const titleInputRef = useRef<HTMLInputElement>(null)
 
   const {
@@ -944,7 +932,11 @@ function CustomNode({ id, data, selected }: NodeProps) {
       <div
         className={`relative w-[450px] ${backgroundClass} rounded-lg shadow-sm border-2 group ${borderClass} ${shadowClass} ${ringClass} transition-all duration-200 overflow-hidden ${
           nodeHasConfiguration() ? "cursor-pointer" : ""
-        } ${getExecutionStatusStyle()} ${nodeState === 'running' ? 'node-running' : ''}`}
+        } ${getExecutionStatusStyle()} ${
+          nodeState === 'running' ? 'node-running' :
+          nodeState === 'passed' ? 'node-passed' :
+          nodeState === 'failed' ? 'node-failed' : ''
+        }`}
         data-testid={`node-${id}`}
         onDoubleClick={handleDoubleClick}
         style={{
@@ -956,9 +948,15 @@ function CustomNode({ id, data, selected }: NodeProps) {
           flex: 'none',
         }}
       >
-      {/* Phase 1: Status Badge - Top Right Corner */}
+      {/* Phase 1: Status Badge - Top Right Corner - Click to toggle preview details */}
       <div
         className={statusBadge.className}
+        onClick={(e) => {
+          e.stopPropagation() // Prevent double-click from opening config
+          if (nodeState === 'passed' || nodeState === 'failed' || nodeState === 'running') {
+            setIsPreviewExpanded(!isPreviewExpanded)
+          }
+        }}
         style={{
           position: 'absolute',
           top: '8px',
@@ -970,7 +968,10 @@ function CustomNode({ id, data, selected }: NodeProps) {
           textAlign: 'center',
           lineHeight: 1,
           zIndex: 10,
+          cursor: (nodeState === 'passed' || nodeState === 'failed' || nodeState === 'running') ? 'pointer' : 'default',
         }}
+        title={(nodeState === 'passed' || nodeState === 'failed' || nodeState === 'running') ?
+          (isPreviewExpanded ? 'Click to hide details' : 'Click to show details') : undefined}
       >
         {statusBadge.text}
       </div>
@@ -1107,32 +1108,37 @@ function CustomNode({ id, data, selected }: NodeProps) {
               )}
             </div>
           </div>
-          <div className="flex items-center space-x-0.5 flex-shrink-0">
-            {/* Don't show delete button for chain placeholder nodes */}
-            {type !== 'chain_placeholder' && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleDelete}
-                      className="h-7 w-7 text-muted-foreground hover:text-destructive flex-shrink-0"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">Delete {title}</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-          </div>
         </div>
         {/* Node note - explanatory text for AI-inserted nodes */}
         {note && (
           <div className="mt-3 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
             <Info className="w-3.5 h-3.5 text-blue-600 flex-shrink-0 mt-0.5" />
             <p className="text-xs text-blue-700 leading-relaxed whitespace-pre-wrap">{note}</p>
+          </div>
+        )}
+
+        {/* Phase 1: Preview/Output Display - Kadabra-style results - Auto-expanded, click badge to toggle */}
+        {nodeData.preview && isPreviewExpanded && (
+          <div className="mt-3 rounded-lg border border-border/60 bg-muted/30 overflow-hidden">
+            {nodeData.preview.title && (
+              <div className="px-3 py-2 border-b border-border/50 bg-muted/50">
+                <p className="text-xs font-semibold text-foreground">{nodeData.preview.title}</p>
+              </div>
+            )}
+            <div className="px-3 py-2.5">
+              {Array.isArray(nodeData.preview.content) ? (
+                <div className="space-y-1.5">
+                  {nodeData.preview.content.map((line, index) => (
+                    <div key={index} className="flex items-start gap-2">
+                      <div className="w-1 h-1 rounded-full bg-muted-foreground/40 mt-1.5 flex-shrink-0" />
+                      <p className="text-xs text-muted-foreground leading-relaxed flex-1">{line}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground leading-relaxed">{nodeData.preview.content}</p>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -1421,12 +1427,11 @@ function CustomNode({ id, data, selected }: NodeProps) {
         <Handle
           type="target"
           position={Position.Left}
-          className="!w-3 !h-6 !rounded-r-full !rounded-l-none hover:!scale-110 !transition-all !duration-200"
+          className="!w-4 !h-8 !rounded-r-full !rounded-l-none !transition-all !duration-200"
           style={{
             visibility: data.isTrigger ? "hidden" : "visible",
             left: "0px",
-            top: "50%",
-            transform: "translateY(-50%)",
+            top: "32px",
             zIndex: 10,
             background: handleStyle.background,
             borderRight: `1.5px solid ${handleStyle.borderColor}`,
@@ -1442,11 +1447,10 @@ function CustomNode({ id, data, selected }: NodeProps) {
       <Handle
         type="source"
         position={Position.Right}
-        className="!w-3 !h-6 !rounded-l-full !rounded-r-none hover:!scale-110 !transition-all !duration-200"
+        className="!w-4 !h-8 !rounded-l-full !rounded-r-none !transition-all !duration-200"
         style={{
           right: "0px",
-          top: "50%",
-          transform: "translateY(-50%)",
+          top: "32px",
           zIndex: 10,
           background: handleStyle.background,
           borderLeft: `1.5px solid ${handleStyle.borderColor}`,
