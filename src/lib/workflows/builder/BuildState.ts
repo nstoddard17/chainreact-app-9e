@@ -69,6 +69,8 @@ export interface BuildStateMachine {
   progress: BuildProgress
   badge: BadgeInfo | null
   edits: any[] | null
+  nodeMapping?: Record<string, string> // Maps planNode.id -> reactFlowNode.id
+  nodesCache?: any[] // Stores actual ReactFlow nodes to avoid relying on stale builder.nodes
 }
 
 export const getInitialState = (): BuildStateMachine => ({

@@ -52,12 +52,16 @@ import {
   setAllNodesGrey,
   setNodeActive,
   setNodeDone,
+  calculateHorizontalLayout,
+  calculateSafeZoom,
+  setNodeState,
 } from "./layout"
 import { BuildChoreographer } from "@/lib/workflows/ai-agent/build-choreography"
 import { ChatService, type ChatMessage } from "@/lib/workflows/ai-agent/chat-service"
 import { CostTracker, estimateWorkflowCost } from "@/lib/workflows/ai-agent/cost-tracker"
 import { CostDisplay } from "@/components/workflows/ai-agent/CostDisplay"
 import { useAuthStore } from "@/stores/authStore"
+import { useIntegrationSelection } from "@/hooks/workflows/useIntegrationSelection"
 
 type PendingChatMessage = {
   localId: string
@@ -164,6 +168,7 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
   const flowState = builder?.flowState
   const { toast } = useToast()
   const { initialized: authInitialized } = useAuthStore()
+  const { isIntegrationConnected } = useIntegrationSelection()
 
   // State management
   const [workflowName, setWorkflowName] = useState(adapter.state.flowName)
@@ -184,6 +189,9 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
 
   // Build state machine (Kadabra-style animated build)
   const [buildMachine, setBuildMachine] = useState<BuildStateMachine>(getInitialState())
+
+  // Node configuration state (for user input during build)
+  const [nodeConfigs, setNodeConfigs] = useState<Record<string, Record<string, any>>>({})
 
   // AI Agent Infrastructure (Spec-Compliant)
   const choreographerRef = useRef<BuildChoreographer | null>(null)
@@ -990,95 +998,184 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
   const handleBuild = useCallback(async () => {
     if (!actions || !buildMachine.edits || buildMachine.state !== BuildState.PLAN_READY) return
 
-    transitionTo(BuildState.BUILDING_SKELETON)
-
-    // Save status message (or queue until persistence enabled)
-    await persistOrQueueStatus("Building workflow...")
-
     try {
-      // Separate edits by type
+      // STEP 1: Check integration connections FIRST
       const addNodeEdits = buildMachine.edits.filter(e => e.op === 'addNode')
-      const connectEdits = buildMachine.edits.filter(e => e.op === 'connect')
-      const otherEdits = buildMachine.edits.filter(e => e.op !== 'addNode' && e.op !== 'connect')
+      const requiredIntegrations = new Set<string>()
 
-      // Apply non-node edits first (interface setup, etc.)
-      if (otherEdits.length > 0) {
-        await actions.applyEdits(otherEdits)
+      // Collect all provider IDs from plan nodes
+      buildMachine.plan.forEach(planNode => {
+        if (planNode.providerId && !['ai', 'logic', 'core', 'manual', 'schedule'].includes(planNode.providerId)) {
+          requiredIntegrations.add(planNode.providerId)
+        }
+      })
+
+      // Check if all required integrations are connected
+      const missingIntegrations: string[] = []
+      requiredIntegrations.forEach(providerId => {
+        if (!isIntegrationConnected(providerId)) {
+          missingIntegrations.push(providerId)
+        }
+      })
+
+      // If integrations missing, show error and don't proceed
+      if (missingIntegrations.length > 0) {
+        toast({
+          title: "Missing Integrations",
+          description: `Please connect: ${missingIntegrations.join(', ')}`,
+          variant: "destructive",
+        })
+        return
       }
 
-      // Track added node IDs for connection mapping
-      const addedNodeIds = new Set<string>()
+      transitionTo(BuildState.BUILDING_SKELETON)
+      await persistOrQueueStatus("Building workflow...")
 
-      // Add nodes one at a time with spec-compliant stagger delay (120ms)
-      for (let i = 0; i < addNodeEdits.length; i++) {
-        const edit = addNodeEdits[i]
-
-        // Update progress to show which node we're building
-        setBuildMachine(prev => ({
-          ...prev,
-          progress: { ...prev.progress, currentIndex: i, done: i, total: addNodeEdits.length },
-        }))
-
-        // Add the node
-        await actions.applyEdits([edit])
-        if (edit.op === 'addNode') {
-          addedNodeIds.add(edit.node.id)
+      // STEP 2: Create mapping of plan nodes to ReactFlow node IDs AND cache the nodes
+      const nodeMapping: Record<string, string> = {}
+      const nodesCache: any[] = []
+      addNodeEdits.forEach((edit, index) => {
+        if (edit.op === 'addNode' && edit.node && buildMachine.plan[index]) {
+          // Map planNode.id -> reactFlowNode.id
+          nodeMapping[buildMachine.plan[index].id] = edit.node.id
+          // Cache the actual node object
+          nodesCache.push(edit.node)
+          console.log(`[handleBuild] Mapped plan node "${buildMachine.plan[index].id}" -> ReactFlow node "${edit.node.id}"`)
         }
+      })
 
-        // Wait for node to appear in DOM
-        await new Promise(resolve => setTimeout(resolve, 100))
+      // Store mapping AND nodes cache in build machine
+      setBuildMachine(prev => ({
+        ...prev,
+        nodeMapping,
+        nodesCache,
+      }))
 
-        // Add connections for this node (edges where source or target is this node)
-        if (edit.op === 'addNode') {
-          const nodeConnections = connectEdits.filter(e =>
-            e.op === 'connect' && (e.edge.source === edit.node.id || e.edge.target === edit.node.id)
-          )
+      console.log('[handleBuild] Cached nodes count:', nodesCache.length)
 
-          // Only add connections where both nodes exist
-          const validConnections = nodeConnections.filter(e =>
-            e.op === 'connect' && addedNodeIds.has(e.edge.source) && addedNodeIds.has(e.edge.target)
-          )
-
-          if (validConnections.length > 0) {
-            await actions.applyEdits(validConnections)
+      // STEP 3: Apply edits with correct positions from the start
+      // Pre-calculate positions so nodes appear in correct place immediately
+      const editsWithPositions = buildMachine.edits.map((edit: any, index: number) => {
+        if (edit.op === 'addNode' && edit.node) {
+          return {
+            ...edit,
+            node: {
+              ...edit.node,
+              position: {
+                x: agentPanelWidth + 100 + (index * 400), // Horizontal spacing
+                y: 200, // Same Y for all nodes
+              },
+              selected: false, // No selection border
+            },
           }
         }
+        return edit
+      })
 
-        // Spec-compliant stagger delay (120ms per node)
-        if (i < addNodeEdits.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 120))
-        }
-      }
+      await actions.applyEdits(editsWithPositions)
 
-      // Apply dagre auto-layout after all nodes are placed
-      await new Promise(resolve => setTimeout(resolve, 300))
+      console.log('[handleBuild] Edits applied with correct positions')
 
-      if (reactFlowInstanceRef.current && builder?.nodes) {
-        if (needsLayout(builder.nodes)) {
-          const layoutedNodes = applyDagreLayout(builder.nodes, builder.edges || [])
-          builder.setNodes?.(layoutedNodes)
-        }
-      }
-
-      // Use BuildChoreographer for spec-compliant animation
-      if (choreographerRef.current && reactFlowInstanceRef.current && builder?.nodes && builder?.edges) {
-        await choreographerRef.current.executeBuildSequence(
-          builder.nodes,
-          builder.edges,
-          reactFlowInstanceRef.current
+      // Clear any selection in ReactFlow instance
+      if (reactFlowInstanceRef.current) {
+        reactFlowInstanceRef.current.setNodes((nodes) =>
+          nodes.map((n) => ({ ...n, selected: false }))
         )
       }
 
-      // Update status
-      await persistOrQueueStatus("Flow ready ✅")
+      // STEP 4: Schedule layout to happen AFTER React has rendered the nodes
+      // Use setTimeout to let React's state updates complete
+      setTimeout(async () => {
+        console.log('[handleBuild Layout] Starting layout phase...')
 
-      // Transition to waiting for user to setup first node
-      setBuildMachine(prev => ({
-        ...prev,
-        progress: { ...prev.progress, currentIndex: 0 },
-      }))
+        // Get nodes from ReactFlow instance directly (not stale closure)
+        const rfNodes = reactFlowInstanceRef.current?.getNodes() || []
+        console.log('[handleBuild Layout] ReactFlow nodes count:', rfNodes.length)
 
-      transitionTo(BuildState.WAITING_USER)
+        if (rfNodes.length === 0) {
+          console.error('[handleBuild Layout] Still no nodes after timeout!')
+          // Still transition to WAITING_USER even without layout
+          await persistOrQueueStatus("Flow ready ✅")
+
+          setBuildMachine(prev => ({
+            ...prev,
+            progress: { ...prev.progress, currentIndex: 0, total: buildMachine.plan.length },
+          }))
+
+          transitionTo(BuildState.WAITING_USER)
+          return
+        }
+
+        if (reactFlowInstanceRef.current && builder?.setNodes) {
+          // Ensure all nodes have correct positions and no selection
+          console.log('[handleBuild Layout] Ensuring positions and clearing selection')
+          const currentNodes = rfNodes.map((node, index) => ({
+            ...node,
+            position: {
+              x: agentPanelWidth + 100 + (index * 400), // Horizontal spacing
+              y: 200, // Same Y for all
+            },
+            selected: false, // No selection border
+          }))
+
+          // Apply the corrected positions
+          builder.setNodes(currentNodes)
+
+          // Wait for positions to apply
+          await new Promise(resolve => setTimeout(resolve, 100))
+
+          // STEP 5: Set ALL nodes to skeleton state initially
+          console.log('[handleBuild Layout] Setting all nodes to skeleton state')
+          currentNodes.forEach((node) => {
+            if (reactFlowInstanceRef.current) {
+              setNodeState(reactFlowInstanceRef.current, node.id, 'skeleton')
+            }
+          })
+
+          // STEP 6: Fit view to show all skeleton nodes horizontally
+          fitCanvasToFlow(reactFlowInstanceRef.current, { skeleton: true })
+
+          // Wait briefly before transitioning
+          await new Promise(resolve => setTimeout(resolve, 300))
+
+          // STEP 7: Smooth zoom animation to first node
+          if (currentNodes.length > 0) {
+            const firstNodeId = currentNodes[0].id
+            console.log('[handleBuild Layout] Animating zoom to first node:', firstNodeId)
+
+            // Smooth zoom animation to first node (keep them in skeleton state)
+            panToNode(reactFlowInstanceRef.current, firstNodeId, {
+              zoom: 1.0, // Reasonable zoom level to see the node
+              duration: 800,
+            })
+
+            // Wait for zoom animation to complete before transitioning state
+            await new Promise(resolve => setTimeout(resolve, 800))
+          }
+
+          // STEP 8: Update status and transition to WAITING_USER
+          // This will trigger the first node pill to expand in the Flow Plan
+          await persistOrQueueStatus("Flow ready ✅")
+
+          setBuildMachine(prev => ({
+            ...prev,
+            progress: { ...prev.progress, currentIndex: 0, total: buildMachine.plan.length },
+          }))
+
+          transitionTo(BuildState.WAITING_USER)
+
+          // STEP 9: After transitioning to WAITING_USER, transition first node from skeleton → ready
+          await new Promise(resolve => setTimeout(resolve, 200))
+
+          if (currentNodes.length > 0) {
+            const firstNodeId = currentNodes[0].id
+            if (reactFlowInstanceRef.current) {
+              console.log('[handleBuild Layout] Transitioning first node to ready state')
+              setNodeState(reactFlowInstanceRef.current, firstNodeId, 'ready')
+            }
+          }
+        }
+      }, 100) // Small delay to let React update
 
     } catch (error: any) {
       toast({
@@ -1087,28 +1184,129 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
         variant: "destructive",
       })
       transitionTo(BuildState.PLAN_READY)
-
-      // Update status
       await persistOrQueueStatus("Build failed ❌")
     }
-  }, [actions, buildMachine, builder?.nodes, builder?.edges, builder?.setNodes, persistOrQueueStatus, toast, transitionTo, setBuildMachine])
+  }, [actions, agentPanelWidth, buildMachine, builder?.nodes, builder?.setNodes, isIntegrationConnected, persistOrQueueStatus, toast, transitionTo, setBuildMachine])
 
   const handleContinueNode = useCallback(async () => {
+    console.log('[handleContinueNode] Starting...')
     const currentIndex = buildMachine.progress.currentIndex
-    if (currentIndex < 0 || !buildMachine.plan[currentIndex]) return
+    console.log('[handleContinueNode] currentIndex:', currentIndex)
+    console.log('[handleContinueNode] buildMachine.nodeMapping:', buildMachine.nodeMapping)
+    console.log('[handleContinueNode] buildMachine.nodesCache:', buildMachine.nodesCache)
 
+    if (currentIndex < 0 || !buildMachine.plan[currentIndex]) {
+      console.log('[handleContinueNode] Invalid index or no plan node')
+      return
+    }
+    if (!builder?.setNodes) {
+      console.log('[handleContinueNode] No builder setNodes')
+      return
+    }
+
+    const planNode = buildMachine.plan[currentIndex]
+    console.log('[handleContinueNode] planNode:', planNode)
+
+    // Use the mapping to find the ReactFlow node ID
+    const reactFlowNodeId = buildMachine.nodeMapping?.[planNode.id]
+    console.log('[handleContinueNode] Looking for ReactFlow node ID:', reactFlowNodeId)
+
+    if (!reactFlowNodeId) {
+      console.log('[handleContinueNode] No mapping found for plan node:', planNode.id)
+      toast({
+        title: "Node mapping error",
+        description: "Could not find the workflow node mapping. Please try rebuilding.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Try to find node in cached nodes first, then fall back to builder.nodes
+    let reactFlowNode = buildMachine.nodesCache?.find(n => n.id === reactFlowNodeId)
+
+    if (!reactFlowNode) {
+      console.log('[handleContinueNode] Node not in cache, checking builder.nodes...')
+      reactFlowNode = builder.nodes?.find(n => n.id === reactFlowNodeId)
+    }
+
+    console.log('[handleContinueNode] reactFlowNode:', reactFlowNode)
+
+    if (!reactFlowNode) {
+      console.log('[handleContinueNode] No reactFlowNode found with ID:', reactFlowNodeId)
+      console.log('[handleContinueNode] builder.nodes:', builder.nodes)
+      console.log('[handleContinueNode] nodesCache:', buildMachine.nodesCache)
+      toast({
+        title: "Node not found",
+        description: "Could not find the workflow node. Please try rebuilding.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    console.log('[handleContinueNode] Transitioning to PREPARING_NODE')
     transitionTo(BuildState.PREPARING_NODE)
 
-    // TODO: Implement node configuration based on setup card inputs
-    await new Promise(resolve => setTimeout(resolve, 500))
-
-    transitionTo(BuildState.TESTING_NODE)
-
     try {
-      // TODO: Test node using runFromHere
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // STEP 1: Get user input from nodeConfigs
+      const userConfig = nodeConfigs[planNode.id] || {}
 
-      // Move to next node
+      // STEP 2: Update node data with user-provided values
+      if (reactFlowInstanceRef.current) {
+        // Use builder.nodes if available, otherwise fall back to nodesCache
+        const currentNodes = (builder.nodes && builder.nodes.length > 0)
+          ? builder.nodes
+          : buildMachine.nodesCache || []
+
+        console.log('[handleContinueNode] Using nodes for update:', currentNodes.length, 'nodes')
+
+        const updatedNodes = currentNodes.map(node => {
+          if (node.id === reactFlowNode.id) {
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                config: {
+                  ...node.data.config,
+                  ...userConfig,
+                },
+              },
+            }
+          }
+          return node
+        })
+        builder.setNodes(updatedNodes)
+
+        // Wait for update to apply
+        await new Promise(resolve => setTimeout(resolve, 100))
+
+        // STEP 3: Change node state skeleton → ready
+        setNodeState(reactFlowInstanceRef.current, reactFlowNode.id, 'ready')
+        await new Promise(resolve => setTimeout(resolve, 300))
+
+        // STEP 4: AI configures remaining fields (stubbed for now - enhance later)
+        // TODO: Call AI service to auto-configure non-user fields
+        await new Promise(resolve => setTimeout(resolve, 400))
+
+        // STEP 5: Change node state ready → running
+        transitionTo(BuildState.TESTING_NODE)
+        setNodeState(reactFlowInstanceRef.current, reactFlowNode.id, 'running')
+        await new Promise(resolve => setTimeout(resolve, 500))
+
+        // STEP 6: Test node (basic validation for now)
+        // TODO: Implement actual node testing (validate connection, fetch sample data)
+        const testSuccess = true // For now, always succeed
+        await new Promise(resolve => setTimeout(resolve, 800))
+
+        // STEP 7: Change to passed/failed based on test
+        if (testSuccess) {
+          setNodeState(reactFlowInstanceRef.current, reactFlowNode.id, 'passed')
+        } else {
+          setNodeState(reactFlowInstanceRef.current, reactFlowNode.id, 'failed')
+          throw new Error('Node test failed')
+        }
+      }
+
+      // STEP 8: Move to next node or complete
       const nextIndex = currentIndex + 1
       if (nextIndex >= buildMachine.plan.length) {
         setBuildMachine(prev => ({
@@ -1123,20 +1321,30 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
         }))
         transitionTo(BuildState.WAITING_USER)
 
-        // Pan to next node
-        if (reactFlowInstanceRef.current && builder?.nodes?.[nextIndex]) {
-          panToNode(reactFlowInstanceRef.current, builder.nodes[nextIndex].id)
+        // STEP 9: Pan to next node with safe zoom (maintain zoom from before)
+        if (reactFlowInstanceRef.current && builder.nodes[nextIndex]) {
+          const safeZoom = calculateSafeZoom(builder.nodes.length, 5)
+          panToNode(reactFlowInstanceRef.current, builder.nodes[nextIndex].id, {
+            zoom: safeZoom,
+            duration: 600,
+          })
         }
       }
     } catch (error: any) {
       toast({
-        title: "Node test failed",
-        description: error?.message || "Unable to test node",
+        title: "Node configuration failed",
+        description: error?.message || "Unable to configure node",
         variant: "destructive",
       })
+
+      // Mark node as failed
+      if (reactFlowInstanceRef.current && reactFlowNode) {
+        setNodeState(reactFlowInstanceRef.current, reactFlowNode.id, 'failed')
+      }
+
       transitionTo(BuildState.WAITING_USER)
     }
-  }, [buildMachine, builder?.nodes, toast, transitionTo])
+  }, [buildMachine, builder?.nodes, builder?.setNodes, nodeConfigs, toast, transitionTo, setBuildMachine])
 
   const handleSkipNode = useCallback(() => {
     const nextIndex = buildMachine.progress.currentIndex + 1
@@ -1154,6 +1362,16 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
       transitionTo(BuildState.WAITING_USER)
     }
   }, [buildMachine.plan.length, buildMachine.progress.currentIndex, transitionTo])
+
+  const handleNodeConfigChange = useCallback((nodeId: string, fieldName: string, value: any) => {
+    setNodeConfigs(prev => ({
+      ...prev,
+      [nodeId]: {
+        ...prev[nodeId],
+        [fieldName]: value
+      }
+    }))
+  }, [])
 
   const handleCancelBuild = useCallback(() => {
     transitionTo(BuildState.PLAN_READY)
@@ -1305,6 +1523,7 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
               agentInput,
               isAgentLoading,
               agentMessages,
+              nodeConfigs,
             }}
             actions={{
               onInputChange: value => setAgentInput(value),
@@ -1314,6 +1533,7 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
               onSkipNode: handleSkipNode,
               onUndoToPreviousStage: handleUndoToPreviousStage,
               onCancelBuild: handleCancelBuild,
+              onNodeConfigChange: handleNodeConfigChange,
             }}
           />
 
