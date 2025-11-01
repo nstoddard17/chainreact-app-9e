@@ -6,6 +6,7 @@ import type { Edge as ReactFlowEdge, Node as ReactFlowNode, XYPosition } from "@
 import { useWorkflowBuilder } from "@/hooks/workflows/useWorkflowBuilder"
 import { FlowSchema, type Flow, type FlowInterface, type Node as FlowNode, type Edge as FlowEdge } from "./schema"
 import { addNodeEdit, oldConnectToEdge } from "../compat/v2Adapter"
+import { ALL_NODE_COMPONENTS } from "../../../../lib/workflows/nodes"
 
 export interface UseFlowV2BuilderOptions {
   initialPrompt?: string
@@ -17,6 +18,7 @@ type PlannerEdit =
   | { op: "connect"; edge: FlowEdge }
   | { op: "setConfig"; nodeId: string; patch: Record<string, any> }
   | { op: "setInterface"; inputs: FlowInterface["inputs"]; outputs: FlowInterface["outputs"] }
+  | { op: "deleteNode"; nodeId: string }
 
 interface AgentResult {
   edits: PlannerEdit[]
@@ -77,6 +79,7 @@ interface FlowV2BuilderState {
   flow: Flow | null
   revisionId?: string
   version?: number
+  revisionCount: number
   isLoading: boolean
   isSaving: boolean
   error?: string
@@ -97,6 +100,7 @@ export interface FlowV2BuilderActions {
   updateConfig: (nodeId: string, patch: Record<string, any>) => void
   updateFlowName: (name: string) => Promise<void>
   addNode: (type: string, position?: XYPosition) => Promise<void>
+  deleteNode: (nodeId: string) => Promise<void>
   connectEdge: (params: { sourceId: string; targetId: string; sourceHandle?: string; targetHandle?: string }) => Promise<void>
   run: (inputs: any) => Promise<{ runId: string }>
   runFromHere: (nodeId: string, runId?: string) => Promise<{ runId: string }>
@@ -180,6 +184,15 @@ function applyPlannerEdits(base: Flow, edits: PlannerEdit[]): Flow {
         }
         break
       }
+      case "deleteNode": {
+        // Remove the node
+        working.nodes = working.nodes.filter((node) => node.id !== edit.nodeId)
+        // Remove any edges connected to this node
+        working.edges = working.edges.filter(
+          (edge) => edge.from.nodeId !== edit.nodeId && edge.to.nodeId !== edit.nodeId
+        )
+        break
+      }
       default: {
         const exhaustive: never = edit
         throw new Error(`Unhandled edit operation: ${(exhaustive as any)?.op}`)
@@ -191,13 +204,20 @@ function applyPlannerEdits(base: Flow, edits: PlannerEdit[]): Flow {
   return working
 }
 
-function flowToReactFlowNodes(flow: Flow): ReactFlowNode[] {
+const NODE_COMPONENT_MAP = new Map(ALL_NODE_COMPONENTS.map((node) => [node.type, node]))
+
+function flowToReactFlowNodes(flow: Flow, onDelete?: (nodeId: string) => void): ReactFlowNode[] {
   return flow.nodes.map((node, index) => {
     const metadata = (node.metadata ?? {}) as any
     const position = metadata.position ?? {
       x: 120 + index * 260,
       y: 120,
     }
+
+    const catalogNode = NODE_COMPONENT_MAP.get(node.type)
+    const providerId = metadata.providerId ?? catalogNode?.providerId
+    const icon = catalogNode?.icon
+    const description = node.description ?? catalogNode?.description
 
     return {
       id: node.id,
@@ -208,10 +228,13 @@ function flowToReactFlowNodes(flow: Flow): ReactFlowNode[] {
         title: node.label ?? node.type,
         type: node.type,
         config: node.config ?? {},
-        description: node.description,
+        description,
+        providerId,
+        icon,
         isTrigger: metadata.isTrigger ?? false,
         agentHighlights: metadata.agentHighlights ?? [],
         costHint: node.costHint ?? 0,
+        onDelete,
       },
     } as ReactFlowNode
   })
@@ -233,13 +256,14 @@ function flowToReactFlowEdges(flow: Flow): ReactFlowEdge[] {
 export function useFlowV2Builder(flowId: string, _options?: UseFlowV2BuilderOptions): UseFlowV2BuilderResult | null {
   const builder = useWorkflowBuilder()
 
-  const { setNodes, setEdges, setWorkflowName, setHasUnsavedChanges } = builder
+  const { setNodes, setEdges, setWorkflowName, setHasUnsavedChanges, getNodes } = builder
 
   const [flowState, setFlowState] = useState<FlowV2BuilderState>(() => ({
     flowId,
     flow: null,
     revisionId: undefined,
     version: undefined,
+    revisionCount: 0,
     isLoading: false,
     isSaving: false,
     error: undefined,
@@ -258,17 +282,56 @@ export function useFlowV2Builder(flowId: string, _options?: UseFlowV2BuilderOpti
   const pendingConfigRef = useRef<Map<string, Record<string, any>>>(new Map())
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
   const isMountedRef = useRef<boolean>(false)
+  const deleteNodeRef = useRef<((nodeId: string) => Promise<void>) | null>(null)
 
   const updateReactFlowGraph = useCallback(
     (flow: Flow) => {
-      const nodes = flowToReactFlowNodes(flow)
+      const existingNodes = getNodes ? getNodes() : []
+      const existingNodeMap = new Map<string, ReactFlowNode>(
+        existingNodes
+          .filter(node => !node.id.startsWith("temp-"))
+          .map(node => [node.id, node])
+      )
+
+      const placeholderQueue = existingNodes
+        .filter(node => node.id.startsWith("temp-"))
+        .map(node => ({
+          type: (node.data as any)?.type,
+          position: node.position,
+          consumed: false,
+        }))
+
+      const graphNodes = flowToReactFlowNodes(flow, deleteNodeRef.current ?? undefined).map(node => {
+        const existing = existingNodeMap.get(node.id)
+        if (existing) {
+          return {
+            ...node,
+            position: existing.position ?? node.position,
+          }
+        }
+
+        const placeholder = placeholderQueue.find(
+          entry => !entry.consumed && entry.type === (node.data as any)?.type
+        )
+
+        if (placeholder) {
+          placeholder.consumed = true
+          return {
+            ...node,
+            position: placeholder.position ?? node.position,
+          }
+        }
+
+        return node
+      })
+
       const edges = flowToReactFlowEdges(flow)
-      setNodes(nodes)
+      setNodes(graphNodes)
       setEdges(edges)
       setWorkflowName(flow.name ?? "Untitled Flow")
       setHasUnsavedChanges(false)
     },
-    [setEdges, setNodes, setWorkflowName, setHasUnsavedChanges]
+    [getNodes, setEdges, setNodes, setWorkflowName, setHasUnsavedChanges]
   )
 
   const setLoading = useCallback((isLoading: boolean) => {
@@ -313,6 +376,7 @@ export function useFlowV2Builder(flowId: string, _options?: UseFlowV2BuilderOpti
         flow,
         revisionId: revisionPayload.revision.id,
         version: flow.version ?? revisions[0].version,
+        revisionCount: revisions.length,
         error: undefined,
       }))
     } catch (error: any) {
@@ -372,6 +436,7 @@ export function useFlowV2Builder(flowId: string, _options?: UseFlowV2BuilderOpti
           flow: updatedFlow,
           revisionId: payload.revisionId ?? prev.revisionId,
           version: updatedFlow.version ?? payload.version ?? prev.version,
+          revisionCount: (prev.revisionCount ?? 0) + 1,
           pendingAgentEdits: [],
         }))
 
@@ -500,6 +565,7 @@ export function useFlowV2Builder(flowId: string, _options?: UseFlowV2BuilderOpti
           flow: updatedFlow,
           revisionId: payload.revisionId ?? prev.revisionId,
           version: updatedFlow.version ?? payload.version ?? prev.version,
+          revisionCount: (prev.revisionCount ?? 0) + 1,
         }))
       } finally {
         setSaving(false)
@@ -515,6 +581,19 @@ export function useFlowV2Builder(flowId: string, _options?: UseFlowV2BuilderOpti
     },
     [applyEdits]
   )
+
+  const deleteNode = useCallback(
+    async (nodeId: string) => {
+      const edit: PlannerEdit = { op: "deleteNode", nodeId }
+      await applyEdits([edit])
+    },
+    [applyEdits]
+  )
+
+  // Store deleteNode in ref for use in updateReactFlowGraph
+  useEffect(() => {
+    deleteNodeRef.current = deleteNode
+  }, [deleteNode])
 
   const connectEdge = useCallback(
     async (params: { sourceId: string; targetId: string; sourceHandle?: string; targetHandle?: string }) => {
@@ -690,6 +769,7 @@ export function useFlowV2Builder(flowId: string, _options?: UseFlowV2BuilderOpti
       updateConfig,
       updateFlowName,
       addNode,
+      deleteNode,
       connectEdge,
       run,
       runFromHere,
@@ -706,6 +786,7 @@ export function useFlowV2Builder(flowId: string, _options?: UseFlowV2BuilderOpti
       askAgent,
       connectEdge,
       createSecret,
+      deleteNode,
       estimate,
       getNodeSnapshot,
       updateFlowName,

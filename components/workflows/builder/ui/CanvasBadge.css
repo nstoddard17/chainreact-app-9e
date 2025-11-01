@@ -6,15 +6,11 @@
  */
 
 .canvas-badge {
-  position: absolute;
-  top: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 50;
-  display: flex;
+  position: relative;
+  display: inline-flex;
   flex-direction: column;
   align-items: center;
-  padding: 8px 28px;
+  padding: 8px 24px;
   background: rgba(219, 234, 254, 0.92);
   border: 1px solid rgba(59, 130, 246, 0.26);
   border-radius: 9999px;
@@ -23,6 +19,7 @@
   animation: slideDown 0.3s ease;
   overflow: hidden;
   backdrop-filter: blur(6px);
+  pointer-events: none;
 }
 
 .canvas-badge.active,
@@ -70,11 +67,11 @@
 @keyframes slideDown {
   from {
     opacity: 0;
-    transform: translateX(-50%) translateY(-10px);
+    transform: translateY(-10px);
   }
   to {
     opacity: 1;
-    transform: translateX(-50%) translateY(0);
+    transform: translateY(0);
   }
 }
 
@@ -87,11 +84,11 @@
 @keyframes fadeOut {
   from {
     opacity: 1;
-    transform: translateX(-50%) translateY(0);
+    transform: translateY(0);
   }
   to {
     opacity: 0;
-    transform: translateX(-50%) translateY(-10px);
+    transform: translateY(-10px);
   }
 }
 
@@ -114,12 +111,6 @@
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.canvas-badge-icon {
-  flex-shrink: 0;
-  border-radius: 8px;
-  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.2);
 }
 
 .canvas-badge-subtext-wrapper {
@@ -195,7 +186,6 @@
   display: flex;
   align-items: center;
   gap: 3px;
-  margin-left: 6px;
 }
 
 .canvas-badge-dots .dot {

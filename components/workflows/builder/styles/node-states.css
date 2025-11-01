@@ -153,49 +153,6 @@
   border-color: hsl(var(--destructive) / 0.2) !important;
 }
 
-/* ===== Handle Hover Effects ===== */
-
-/* Subtle pulse animation - matches the half-moon curve */
-@keyframes handle-curve-pulse {
-  0%, 100% {
-    opacity: 0.3;
-  }
-  50% {
-    opacity: 0.7;
-  }
-}
-
-.react-flow__handle {
-  transition: all 0.2s ease !important;
-}
-
-/* Hover effect - overlay that matches the exact half-moon shape */
-.react-flow__handle:hover::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: currentColor;
-  opacity: 0.3;
-  animation: handle-curve-pulse 1.5s ease-in-out infinite;
-  pointer-events: none;
-  z-index: 1;
-}
-
-/* Left handle - rounded on right side, flat on left */
-.react-flow__handle[data-handlepos="left"]:hover::before,
-.react-flow__handle[data-id$="-target"]:hover::before {
-  border-radius: 0 9999px 9999px 0;
-}
-
-/* Right handle - rounded on left side, flat on right */
-.react-flow__handle[data-handlepos="right"]:hover::before,
-.react-flow__handle[data-id$="-source"]:hover::before {
-  border-radius: 9999px 0 0 9999px;
-}
-
 /* ===== Reduced Motion Support ===== */
 @media (prefers-reduced-motion: reduce) {
   .node-running {
@@ -221,15 +178,5 @@
   .badge-passed:hover,
   .badge-failed:hover {
     transform: none;
-  }
-
-  .react-flow__handle:hover {
-    transform: none !important;
-  }
-
-  /* Disable handle curve pulse for reduced motion */
-  .react-flow__handle:hover::before {
-    animation: none !important;
-    opacity: 0.4 !important;
   }
 }

@@ -1,0 +1,187 @@
+/**
+ * AI Agent Flow Builder Styles
+ * Design token compliant - DO NOT modify without updating design-tokens.ts
+ */
+
+/* Agent Panel - 420px ± 4 */
+.agent-panel {
+  width: 420px;
+  min-width: 416px; /* 420 - 4 */
+  max-width: 424px; /* 420 + 4 */
+  flex-shrink: 0;
+}
+
+/* Inspector Panel - 380px ± 4 */
+.inspector-panel {
+  width: 380px;
+  min-width: 376px; /* 380 - 4 */
+  max-width: 384px; /* 380 + 4 */
+  flex-shrink: 0;
+}
+
+/* Node States */
+.node-skeleton {
+  filter: grayscale(1);
+  opacity: 0.65;
+  transition: all 300ms ease;
+}
+
+.node-active-halo {
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.5); /* soft blue */
+  filter: drop-shadow(0 0 12px rgba(59, 130, 246, 0.5));
+  transition: box-shadow 300ms ease;
+}
+
+.node-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.node-shimmer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(59, 130, 246, 0.35),
+    transparent
+  );
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+.node-running-pulse {
+  animation: pulse-ring 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite;
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(96, 165, 250, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(96, 165, 250, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(96, 165, 250, 0);
+  }
+}
+
+/* Edge Styling */
+.react-flow__edge-path {
+  stroke-width: 1.5px;
+  stroke: #9ca3af; /* neutral gray */
+}
+
+.react-flow__edge-path.active {
+  stroke: #3b82f6; /* blue for active */
+}
+
+.react-flow__edge .react-flow__edge-path {
+  stroke-width: 1.5px;
+}
+
+/* Canvas */
+.react-flow__background {
+  background-size: 8px 8px; /* dot grid */
+}
+
+/* Badge */
+.build-badge {
+  position: fixed;
+  top: 80px; /* 20px from header that's 60px tall */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+}
+
+/* Typography */
+.text-xs-agent {
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.text-sm-agent {
+  font-size: 12.5px;
+  line-height: 18px;
+}
+
+.text-base-agent {
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.text-lg-agent {
+  font-size: 16px;
+  line-height: 24px;
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .node-skeleton,
+  .node-active-halo,
+  .node-running-pulse,
+  .build-badge {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  .node-shimmer::after {
+    display: none;
+  }
+}
+
+/* Node Spacing (enforced by layout engine, documented here) */
+/* X gap: 160px ± 12 (148-172px) */
+/* Y gap: 96px ± 12 (84-108px) */
+/* Branch lane offset: 200px vertical */
+
+/* Success State */
+.node-success {
+  border-color: #22c55e;
+  background-color: #dcfce7;
+}
+
+.node-success .node-badge {
+  background-color: #22c55e;
+  color: white;
+}
+
+/* Error State */
+.node-error {
+  border-color: #ef4444;
+  background-color: #fee2e2;
+}
+
+.node-error .node-badge {
+  background-color: #ef4444;
+  color: white;
+}
+
+/* Preview Block (under node) */
+.node-preview {
+  margin-top: 8px;
+  font-size: 11px;
+  line-height: 16px;
+  color: #6b7280;
+  max-width: 450px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.node-preview:hover {
+  text-decoration: underline;
+}
