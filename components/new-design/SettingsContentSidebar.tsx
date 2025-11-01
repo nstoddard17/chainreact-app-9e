@@ -67,13 +67,23 @@ export function SettingsContent() {
   useEffect(() => {
     setMounted(true)
     check2FAStatus()
-    fetchWorkspace()
+    // Only fetch workspace if user is viewing workspace section
+    if (sectionParam === 'workspace') {
+      fetchWorkspace()
+    } else {
+      // Set workspace loading to false if not viewing workspace section
+      setWorkspaceLoading(false)
+    }
   }, [])
 
   // Update active section when URL parameter changes
   useEffect(() => {
     if (sectionParam && ['profile', 'workspace', 'notifications', 'security', 'appearance'].includes(sectionParam)) {
       setActiveSection(sectionParam)
+      // Fetch workspace data when user navigates to workspace section
+      if (sectionParam === 'workspace') {
+        fetchWorkspace()
+      }
     }
   }, [sectionParam])
 
@@ -132,7 +142,12 @@ export function SettingsContent() {
       // Get current workspace ID from localStorage
       const workspaceId = localStorage.getItem('current_workspace_id')
       if (!workspaceId) {
-        console.error('No workspace ID found')
+        // No workspace ID means user is in personal workspace
+        // Set workspace to null and use profile data instead
+        setWorkspace(null)
+        setWorkspaceName(profile?.full_name || profile?.username || "Personal Workspace")
+        setWorkspaceDescription("Your personal workspace")
+        setWorkspaceLoading(false)
         return
       }
 
