@@ -1071,9 +1071,17 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
         builder.setEdges([])
 
         // Positioning - nodes in horizontal row
-        const BASE_X = 400 // Start well inside visible area (after agent panel)
+        // Place nodes AFTER the agent panel with generous offset
+        const BASE_X = agentPanelWidth + 250 // Agent panel width + 250px margin (further right)
         const BASE_Y = 200 // Vertical center
         const H_SPACING = 500 // Wide spacing between nodes
+
+        console.log('[handleBuild] Node positioning:', {
+          agentPanelWidth,
+          BASE_X,
+          firstNodeX: BASE_X,
+          secondNodeX: BASE_X + H_SPACING
+        })
 
         // Create all nodes at once (simpler, more reliable)
         const allNodes = nodeEdits.map((nodeEdit, i) => {
@@ -1137,24 +1145,18 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
           nodesCache: allNodes,
         }))
 
-        // STEP 5: Fit view to show all nodes (and keep them all visible)
-        await new Promise(resolve => setTimeout(resolve, 300))
+        // STEP 5: Keep nodes where we positioned them - don't move viewport
+        await new Promise(resolve => setTimeout(resolve, 500))
+
+        // Log actual node positions after render
         if (reactFlowInstanceRef.current) {
-          const allNodes = reactFlowInstanceRef.current.getNodes()
-          console.log('[handleBuild Animation] Fitting view to show all nodes:', allNodes.length)
-
-          // Use ReactFlow's fitView with padding to show all nodes comfortably
-          reactFlowInstanceRef.current.fitView({
-            padding: 0.2, // 20% padding around the nodes
-            duration: 800,
-            minZoom: 0.5,
-            maxZoom: 1.0, // Don't zoom in too much
-          })
-
-          await new Promise(resolve => setTimeout(resolve, 800))
+          const currentNodes = reactFlowInstanceRef.current.getNodes()
+          console.log('[handleBuild] Actual node positions after render:',
+            currentNodes.map(n => ({ id: n.id, x: n.position.x, y: n.position.y }))
+          )
         }
 
-        const firstNode = (reactFlowInstanceRef.current?.getNodes() ?? allNodes)[0]
+        const firstNode = allNodes[0]
 
         // STEP 7: Update status and transition to WAITING_USER
         // This will trigger the first node pill to expand in the Flow Plan
