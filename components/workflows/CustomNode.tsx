@@ -139,6 +139,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
 
   // Phase 1: Node state helpers
   const nodeState = nodeData.state || 'ready'
+  const isSkeletonState = nodeState === 'skeleton'
 
   const getStatusBadge = (state: NodeState): { text: string; className: string } => {
     switch (state) {
@@ -160,25 +161,41 @@ function CustomNode({ id, data, selected }: NodeProps) {
 
   // Helper function to get handle styling based on node state
   const getHandleStyle = (state: NodeState) => {
+    const baseStyle = {
+      background: 'linear-gradient(180deg, rgba(248, 250, 252, 0.95), rgba(236, 242, 250, 0.95))',
+      borderColor: 'rgba(148, 163, 184, 0.35)',
+      boxShadow: '0 4px 10px rgba(15, 23, 42, 0.08)',
+    }
+
     switch (state) {
       case 'running':
         // Running nodes get special blue gradient handles
         return {
-          background: 'linear-gradient(90deg, #d3e7ff 0%, #e6f0ff 100%)',
-          borderColor: 'hsl(217 91% 60% / 0.5)',
-          boxShadow: '0 0 6px hsl(217 91% 60% / 0.3)',
+          background: 'linear-gradient(180deg, rgba(219, 234, 254, 0.95), rgba(201, 218, 255, 0.95))',
+          borderColor: 'rgba(59, 130, 246, 0.45)',
+          boxShadow: '0 6px 16px rgba(59, 130, 246, 0.20)',
         }
       case 'skeleton':
+        return {
+          background: 'linear-gradient(180deg, rgba(255, 248, 240, 0.95), rgba(255, 241, 224, 0.95))',
+          borderColor: 'rgba(253, 186, 116, 0.4)',
+          boxShadow: '0 4px 10px rgba(253, 186, 116, 0.15)',
+        }
       case 'passed':
+        return {
+          background: 'linear-gradient(180deg, rgba(229, 250, 239, 0.95), rgba(209, 241, 223, 0.95))',
+          borderColor: 'rgba(34, 197, 94, 0.35)',
+          boxShadow: '0 4px 12px rgba(34, 197, 94, 0.16)',
+        }
       case 'failed':
+        return {
+          background: 'linear-gradient(180deg, rgba(254, 242, 242, 0.95), rgba(254, 226, 226, 0.95))',
+          borderColor: 'rgba(248, 113, 113, 0.4)',
+          boxShadow: '0 4px 12px rgba(248, 113, 113, 0.16)',
+        }
       case 'ready':
       default:
-        // All other states get the same subtle gray handles
-        return {
-          background: 'hsl(var(--muted) / 0.3)',
-          borderColor: 'hsl(var(--border))',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
-        }
+        return baseStyle
     }
   }
 
@@ -726,7 +743,9 @@ function CustomNode({ id, data, selected }: NodeProps) {
   const testDataEntries = useMemo(() => Object.entries(testData || {}), [testData])
   const hasConfigEntries = configEntries.length > 0
   const hasTestEntries = testDataEntries.length > 0
-  const showConfigSection = hasConfigEntries || ['preparing', 'creating', 'configuring', 'configured', 'testing', 'testing_successful', 'ready'].includes(aiStatus || '')
+  // Hide auto-configured fields in skeleton and ready states
+  // Only show when AI is actively populating (after Continue is clicked)
+  const showConfigSection = hasConfigEntries || ['preparing', 'creating', 'configuring', 'configured', 'testing', 'testing_successful'].includes(aiStatus || '')
   const displayConfigEntries = useMemo(() => {
     if (configEntries.length > 0) return configEntries
     if (progressConfigEntries.length > 0) {
@@ -822,6 +841,9 @@ function CustomNode({ id, data, selected }: NodeProps) {
   const idleStatus = React.useMemo(() => {
     if (aiStatus === 'ready' || aiStatus === 'complete') {
       return { text: 'Successful', tone: 'success' as const }
+    }
+    if (aiStatus === 'awaiting_user') {
+      return { text: 'Awaiting input', tone: 'info' as const }
     }
     if (!aiStatus) {
       if (executionStatus === 'pending') {
@@ -923,6 +945,85 @@ function CustomNode({ id, data, selected }: NodeProps) {
       fallbackFields
     })
   }, [id, aiStatus, aiBadgeText, aiBadgeVariant, executionStatus, needsSetup, fallbackFields])
+
+  if (isSkeletonState) {
+    return (
+      <NodeContextMenu
+        nodeId={id}
+        selectedNodeIds={selectedNodeIds}
+        onTestNode={onTestNode}
+        onTestFlowFromHere={onTestFlowFromHere}
+        onFreeze={onFreeze}
+        onStop={onStop}
+        onDelete={onDelete}
+        onDeleteSelected={onDeleteSelected}
+      >
+        <div className="relative w-[450px]" data-testid={`node-${id}-skeleton`}>
+          <div className="pointer-events-none select-none rounded-lg border border-slate-200 bg-slate-50 shadow-sm overflow-hidden">
+            <div className="flex items-start gap-3 px-4 py-4">
+              <div className="h-10 w-10 rounded-full bg-slate-200" />
+              <div className="flex-1 space-y-2">
+                <div className="h-4 w-1/2 rounded bg-slate-200" />
+                <div className="h-3 w-4/5 rounded bg-slate-100" />
+              </div>
+              <span className="inline-flex items-center gap-1 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                Skeleton
+              </span>
+            </div>
+            <div className="px-4 pb-5">
+              <div className="space-y-2 animate-pulse">
+                <div className="h-3 w-full rounded bg-slate-100" />
+                <div className="h-3 w-11/12 rounded bg-slate-100" />
+                <div className="h-3 w-4/5 rounded bg-slate-100" />
+              </div>
+              <div className="mt-5 h-24 rounded-md border border-dashed border-slate-200 bg-white/70 flex items-center justify-center text-xs font-medium text-slate-400 uppercase tracking-wider">
+                Preparing workflow step…
+              </div>
+            </div>
+          </div>
+
+          {!isTrigger && (
+            <Handle
+              type="target"
+              position={Position.Left}
+              className="!w-[18px] !h-10 !rounded-r-full !rounded-l-none"
+              style={{
+                visibility: isTrigger ? "hidden" : "visible",
+                left: "0px",
+                top: "44px",
+                zIndex: 5,
+                background: handleStyle.background,
+                borderRight: `1.5px solid ${handleStyle.borderColor}`,
+                borderTop: 'none',
+                borderBottom: 'none',
+                borderLeft: 'none',
+                boxShadow: handleStyle.boxShadow,
+                backdropFilter: 'blur(2px)',
+              }}
+            />
+          )}
+
+          <Handle
+            type="source"
+            position={Position.Right}
+            className="!w-[18px] !h-10 !rounded-l-full !rounded-r-none"
+            style={{
+              right: "0px",
+              top: "44px",
+              zIndex: 5,
+              background: handleStyle.background,
+              borderLeft: `1.5px solid ${handleStyle.borderColor}`,
+              borderTop: 'none',
+              borderBottom: 'none',
+              borderRight: 'none',
+              boxShadow: handleStyle.boxShadow,
+              backdropFilter: 'blur(2px)',
+            }}
+          />
+        </div>
+      </NodeContextMenu>
+    )
+  }
 
   return (
     <NodeContextMenu
@@ -1425,18 +1526,19 @@ function CustomNode({ id, data, selected }: NodeProps) {
         <Handle
           type="target"
           position={Position.Left}
-          className="!w-4 !h-8 !rounded-r-full !rounded-l-none !transition-all !duration-200"
+          className="!w-[18px] !h-10 !rounded-r-full !rounded-l-none !transition-all !duration-200"
           style={{
             visibility: data.isTrigger ? "hidden" : "visible",
             left: "0px",
-            top: "32px",
-            zIndex: 10,
+            top: "44px",
+            zIndex: 5,
             background: handleStyle.background,
             borderRight: `1.5px solid ${handleStyle.borderColor}`,
             borderTop: 'none',
             borderBottom: 'none',
             borderLeft: 'none',
             boxShadow: handleStyle.boxShadow,
+            backdropFilter: 'blur(2px)',
           }}
         />
       )}
@@ -1445,17 +1547,18 @@ function CustomNode({ id, data, selected }: NodeProps) {
       <Handle
         type="source"
         position={Position.Right}
-        className="!w-4 !h-8 !rounded-l-full !rounded-r-none !transition-all !duration-200"
+        className="!w-[18px] !h-10 !rounded-l-full !rounded-r-none !transition-all !duration-200"
         style={{
           right: "0px",
-          top: "32px",
-          zIndex: 10,
+          top: "44px",
+          zIndex: 5,
           background: handleStyle.background,
           borderLeft: `1.5px solid ${handleStyle.borderColor}`,
           borderTop: 'none',
           borderBottom: 'none',
           borderRight: 'none',
           boxShadow: handleStyle.boxShadow,
+          backdropFilter: 'blur(2px)',
         }}
       />
     </div>
