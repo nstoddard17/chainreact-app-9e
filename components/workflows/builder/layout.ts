@@ -267,3 +267,84 @@ export function applyDagreLayout(
 export function needsLayout(nodes: Node[]): boolean {
   return nodes.some((node) => !node.position || (node.position.x === 0 && node.position.y === 0))
 }
+
+/**
+ * Calculate horizontal layout starting from agent panel edge
+ * Places nodes in a horizontal row to the right of the 1120px agent panel
+ */
+export function calculateHorizontalLayout(
+  nodes: Node[],
+  options: {
+    agentPanelWidth?: number
+    startOffset?: number
+    verticalCenter?: number
+  } = {}
+): Node[] {
+  const {
+    agentPanelWidth = 1120,
+    startOffset = 80, // Space between panel and first node
+    verticalCenter = 200, // Y position for all nodes
+  } = options
+
+  const dims = getCanvasDimensions()
+  const startX = agentPanelWidth + startOffset
+
+  return nodes.map((node, index) => ({
+    ...node,
+    position: {
+      x: startX + (index * (dims.nodeWidth + dims.nodeGapX)),
+      y: verticalCenter,
+    },
+  }))
+}
+
+/**
+ * Calculate safe zoom level based on expected node expansion
+ * Prevents nodes from going outside viewport when fields populate
+ */
+export function calculateSafeZoom(
+  nodeCount: number,
+  estimatedFieldsPerNode: number = 5
+): number {
+  // Estimate expanded node height: base (100px) + fields (30px each)
+  const estimatedHeight = 100 + (estimatedFieldsPerNode * 30)
+
+  // More fields = need more zoom out
+  // 1-3 fields: 0.7 zoom
+  // 4-6 fields: 0.6 zoom
+  // 7+ fields: 0.5 zoom
+  if (estimatedFieldsPerNode <= 3) return 0.7
+  if (estimatedFieldsPerNode <= 6) return 0.6
+  return 0.5
+}
+
+/**
+ * Update node state (skeleton, ready, running, passed, failed)
+ * Changes the visual appearance and className of a node
+ */
+export function setNodeState(
+  instance: ReactFlowInstance,
+  nodeId: string,
+  state: 'skeleton' | 'ready' | 'running' | 'passed' | 'failed'
+) {
+  if (!instance) return
+
+  const nodes = instance.getNodes()
+  const updatedNodes = nodes.map((node) => {
+    if (node.id === nodeId) {
+      // Update both data.state and className
+      const stateClass = `node-${state}`
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          state,
+        },
+        className: stateClass,
+      }
+    }
+    return node
+  })
+
+  instance.setNodes(updatedNodes)
+}

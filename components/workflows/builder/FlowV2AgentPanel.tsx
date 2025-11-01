@@ -45,6 +45,7 @@ interface PanelStateProps {
   agentInput: string
   isAgentLoading: boolean
   agentMessages: ChatMessage[]
+  nodeConfigs: Record<string, Record<string, any>>
 }
 
 interface PanelActions {
@@ -55,6 +56,7 @@ interface PanelActions {
   onSkipNode: () => void
   onUndoToPreviousStage: () => void
   onCancelBuild: () => void
+  onNodeConfigChange: (nodeId: string, fieldName: string, value: any) => void
 }
 
 interface FlowV2AgentPanelProps {
@@ -69,7 +71,7 @@ export function FlowV2AgentPanel({
   actions,
 }: FlowV2AgentPanelProps) {
   const { isOpen, onClose, width } = layout
-  const { buildMachine, agentInput, isAgentLoading, agentMessages } = state
+  const { buildMachine, agentInput, isAgentLoading, agentMessages, nodeConfigs } = state
   const {
     onInputChange,
     onSubmit,
@@ -78,6 +80,7 @@ export function FlowV2AgentPanel({
     onSkipNode,
     onUndoToPreviousStage,
     onCancelBuild,
+    onNodeConfigChange,
   } = actions
 
   // Use state for viewport dimensions to avoid hydration mismatch
@@ -85,9 +88,6 @@ export function FlowV2AgentPanel({
 
   // Fetch user's integrations for connection dropdown
   const { integrations, loading: integrationsLoading } = useIntegrations()
-
-  // State for field configurations per node
-  const [nodeConfigs, setNodeConfigs] = useState<Record<string, Record<string, any>>>({})
 
   // Set viewport dimensions after mount to avoid SSR/client mismatch
   useEffect(() => {
@@ -119,13 +119,7 @@ export function FlowV2AgentPanel({
 
   // Helper: Update field configuration for a node
   const handleFieldChange = (nodeId: string, fieldName: string, value: any) => {
-    setNodeConfigs(prev => ({
-      ...prev,
-      [nodeId]: {
-        ...prev[nodeId],
-        [fieldName]: value
-      }
-    }))
+    onNodeConfigChange(nodeId, fieldName, value)
   }
 
   // Helper: Get connected integrations for a provider
@@ -346,9 +340,9 @@ export function FlowV2AgentPanel({
                                         const providerConnections = planNode.providerId ? getProviderConnections(planNode.providerId) : []
 
                                         return (
-                                          <div className="w-full mt-4 space-y-4 border-t border-border pt-4">
+                                          <div className="w-full mt-4 space-y-3 border-t border-border pt-4">
                                             {requiresConnection && (
-                                              <div className="space-y-3">
+                                              <div className="space-y-2">
                                                 <p className="text-sm text-muted-foreground">
                                                   Let's connect the service first — pick a saved connection or make a new one
                                                 </p>
@@ -357,28 +351,31 @@ export function FlowV2AgentPanel({
                                                   <label className="text-xs font-medium text-foreground">
                                                     Your {getProviderDisplayName(planNode.providerId || '')} connection
                                                   </label>
-                                                  <select
-                                                    className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background"
-                                                    value={nodeConfigs[planNode.id]?.connection || ''}
-                                                    onChange={(e) => handleFieldChange(planNode.id, 'connection', e.target.value)}
-                                                  >
-                                                    <option value="">Select an option...</option>
-                                                    {providerConnections.map(conn => (
-                                                      <option key={conn.id} value={conn.id}>
-                                                        {conn.name || `${getProviderDisplayName(planNode.providerId || '')} Account`}
-                                                      </option>
-                                                    ))}
-                                                  </select>
-                                                  <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="w-full text-blue-600 border-blue-200 hover:bg-blue-50"
-                                                    onClick={() => {
-                                                      window.open(`/integrations?provider=${planNode.providerId}`, '_blank')
-                                                    }}
-                                                  >
-                                                    + Connect {getProviderDisplayName(planNode.providerId || '')}
-                                                  </Button>
+                                                  {/* Dropdown and Connect button in same row */}
+                                                  <div className="flex gap-2">
+                                                    <select
+                                                      className="flex-1 px-3 py-2 text-sm border border-input rounded-md bg-background"
+                                                      value={nodeConfigs[planNode.id]?.connection || ''}
+                                                      onChange={(e) => handleFieldChange(planNode.id, 'connection', e.target.value)}
+                                                    >
+                                                      <option value="">Select an option...</option>
+                                                      {providerConnections.map(conn => (
+                                                        <option key={conn.id} value={conn.id}>
+                                                          {conn.name || `${getProviderDisplayName(planNode.providerId || '')} Account`}
+                                                        </option>
+                                                      ))}
+                                                    </select>
+                                                    <Button
+                                                      variant="default"
+                                                      size="sm"
+                                                      className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0 shadow-sm whitespace-nowrap"
+                                                      onClick={() => {
+                                                        window.open(`/integrations?provider=${planNode.providerId}`, '_blank')
+                                                      }}
+                                                    >
+                                                      + Connect
+                                                    </Button>
+                                                  </div>
                                                 </div>
                                               </div>
                                             )}
@@ -414,18 +411,25 @@ export function FlowV2AgentPanel({
                                               )
                                             })}
 
-                                            {/* Continue/Skip buttons */}
-                                            <div className="flex gap-2 pt-2">
+                                            {/* Continue/Skip buttons - moved up closer to fields */}
+                                            <div className="flex gap-2">
                                               <Button
-                                                onClick={onContinueNode}
+                                                onClick={() => {
+                                                  console.log('[Continue Button] Clicked!')
+                                                  console.log('[Continue Button] planNode:', planNode)
+                                                  console.log('[Continue Button] nodeConfigs for this node:', nodeConfigs[planNode.id])
+                                                  onContinueNode()
+                                                }}
                                                 className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                                                size="default"
                                               >
                                                 Continue
                                               </Button>
                                               <Button
                                                 onClick={onSkipNode}
-                                                variant="ghost"
-                                                className="flex-1"
+                                                variant="outline"
+                                                className="flex-1 bg-white hover:bg-gray-50"
+                                                size="default"
                                               >
                                                 Skip
                                               </Button>
