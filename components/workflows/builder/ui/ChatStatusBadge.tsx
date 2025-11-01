@@ -34,21 +34,54 @@ export function ChatStatusBadge({
   reducedMotion = false,
   className = '',
 }: ChatStatusBadgeProps) {
+  const variantClass = (() => {
+    switch (state) {
+      case 'success':
+        return 'green'
+      case 'error':
+        return 'red'
+      case 'idle':
+        return 'default'
+      case 'waiting':
+      case 'active':
+      default:
+        return 'blue'
+    }
+  })()
+
+  const showPulseDot = state === 'active' || state === 'waiting'
+  const showSuccessIcon = state === 'success'
+  const showErrorIcon = state === 'error'
+
   return (
     <div
       role="status"
       aria-live="polite"
-      className={`chat-status-badge ${state} ${reducedMotion ? 'reduced-motion' : ''} ${className}`}
+      className={[
+        'chat-status-badge',
+        'chip',
+        variantClass,
+        state,
+        reducedMotion ? 'reduced-motion' : '',
+        className,
+      ].filter(Boolean).join(' ')}
     >
       <div className="chat-status-badge-content">
-        {state === 'active' && (
-          <div className="chat-status-badge-dot" aria-hidden="true" />
+        {showPulseDot && (
+          <span
+            className={`chat-status-badge-dot ${reducedMotion ? 'no-animation' : ''}`}
+            aria-hidden="true"
+          />
         )}
-        {state === 'success' && (
-          <span className="chat-status-badge-icon" aria-hidden="true">✓</span>
+        {showSuccessIcon && (
+          <span className="chat-status-badge-icon" aria-hidden="true">
+            ✓
+          </span>
         )}
-        {state === 'error' && (
-          <span className="chat-status-badge-icon error" aria-hidden="true">!</span>
+        {showErrorIcon && (
+          <span className="chat-status-badge-icon error" aria-hidden="true">
+            !
+          </span>
         )}
         <div className="chat-status-badge-text">
           <span className="chat-status-badge-main">{text}</span>
