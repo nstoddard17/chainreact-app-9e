@@ -15,8 +15,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Loader2 } from "lucide-react"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Loader2, User, Users, Building2 } from "lucide-react"
 import { useWorkflows } from "@/hooks/use-workflows"
+import { useWorkspaces } from "@/hooks/useWorkspaces"
+import { useWorkflowStore } from "@/stores/workflowStore"
 
 import { logger } from '@/lib/utils/logger'
 import type { Workflow } from "@/stores/workflowStore"
@@ -28,18 +37,21 @@ interface WorkflowDialogProps {
   onSuccess?: () => void // Callback after successful create/update
 }
 
-export default function WorkflowDialog({ 
-  open, 
-  onOpenChange, 
+export default function WorkflowDialog({
+  open,
+  onOpenChange,
   workflow,
-  onSuccess 
+  onSuccess
 }: WorkflowDialogProps) {
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
+  const [selectedWorkspace, setSelectedWorkspace] = useState<string>("personal:")
   const [loading, setLoading] = useState(false)
   const { createNewWorkflow, updateWorkflowById } = useWorkflows()
+  const { workspaces, loading: workspacesLoading } = useWorkspaces()
+  const { setWorkspaceContext } = useWorkflowStore()
   const router = useRouter()
-  
+
   const isEditMode = !!workflow
 
   // Reset form when dialog opens/closes or workflow changes
@@ -51,6 +63,7 @@ export default function WorkflowDialog({
       } else {
         setName("")
         setDescription("")
+        setSelectedWorkspace("personal:")
       }
     }
   }, [open, workflow])
@@ -67,32 +80,48 @@ export default function WorkflowDialog({
           name: name.trim(),
           description: description.trim()
         })
-        
+
         onOpenChange(false)
         setName("")
         setDescription("")
-        
+
         if (onSuccess) {
           onSuccess()
         }
       } else {
-        // Create new workflow
+        // Parse selected workspace (format: "type:id")
+        const [workspaceType, workspaceId] = selectedWorkspace.split(':')
+
+        // Set workspace context in store before creating
+        setWorkspaceContext(
+          workspaceType as 'personal' | 'team' | 'organization',
+          workspaceId || null
+        )
+
+        logger.debug("🌐 [WorkflowDialog] Creating workflow with workspace context:", {
+          workspaceType,
+          workspaceId: workspaceId || null
+        })
+
+        // Create new workflow (will use workspace context from store)
         const newWorkflow = await createNewWorkflow(name.trim(), description.trim())
-        
+
         if (!newWorkflow || !newWorkflow.id) {
           throw new Error("Workflow created but no ID returned")
         }
-        
+
         logger.debug("✅ [WorkflowDialog] New workflow created:", {
           id: newWorkflow.id,
           name: newWorkflow.name,
-          user_id: newWorkflow.user_id
+          user_id: newWorkflow.user_id,
+          workspace_type: newWorkflow.workspace_type,
+          workspace_id: newWorkflow.workspace_id
         })
-        
+
         onOpenChange(false)
         setName("")
         setDescription("")
-        
+
         // Add a small delay to ensure the database has propagated the new workflow
         setTimeout(() => {
           logger.debug("🚀 [WorkflowDialog] Navigating to workflow builder:", newWorkflow.id)
@@ -152,6 +181,51 @@ export default function WorkflowDialog({
                 {description.length}/150 characters
               </div>
             </div>
+
+            {/* Workspace Selector - only show when creating */}
+            {!isEditMode && (
+              <div className="space-y-2">
+                <Label htmlFor="workspace">Workspace</Label>
+                <Select
+                  value={selectedWorkspace}
+                  onValueChange={setSelectedWorkspace}
+                  disabled={workspacesLoading}
+                >
+                  <SelectTrigger id="workspace">
+                    <SelectValue placeholder="Select workspace" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {workspaces.map((workspace) => {
+                      const value = `${workspace.type}:${workspace.id || ''}`
+                      const icon = workspace.type === 'personal'
+                        ? <User className="w-4 h-4" />
+                        : workspace.type === 'team'
+                        ? <Users className="w-4 h-4" />
+                        : <Building2 className="w-4 h-4" />
+
+                      return (
+                        <SelectItem key={value} value={value}>
+                          <div className="flex items-center gap-2">
+                            {icon}
+                            <div className="flex flex-col">
+                              <span className="font-medium">{workspace.name}</span>
+                              {workspace.description && (
+                                <span className="text-xs text-slate-500">
+                                  {workspace.description}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </SelectItem>
+                      )
+                    })}
+                  </SelectContent>
+                </Select>
+                <div className="text-xs text-slate-500">
+                  Choose where this workflow will be created
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button
