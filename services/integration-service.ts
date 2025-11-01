@@ -3,6 +3,7 @@ import { providerRegistry } from "@/src/domains/integrations/use-cases/provider-
 import { IntegrationError, ErrorType } from "@/src/domains/integrations/entities/integration-error"
 
 import { logger } from '@/lib/utils/logger'
+import { useDebugStore } from '@/stores/debugStore'
 
 export interface Integration {
   id: string
@@ -110,7 +111,13 @@ export class IntegrationService {
           params.append('workspace_id', workspaceId)
         }
 
-        const response = await fetch(`/api/integrations?${params.toString()}`, {
+        const url = `/api/integrations?${params.toString()}`
+        const startTime = Date.now()
+
+        // Debug logging
+        const requestId = useDebugStore.getState().logApiCall('GET', url, { workspaceType, workspaceId })
+
+        const response = await fetch(url, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -120,13 +127,27 @@ export class IntegrationService {
         })
 
         clearTimeout(timeoutId)
+        const duration = Date.now() - startTime
 
         if (!response.ok) {
+          useDebugStore.getState().logApiError(requestId, new Error(`HTTP ${response.status}: ${response.statusText}`), duration)
           throw new Error(`Failed to fetch integrations: ${response.statusText}`)
         }
 
         const data = await response.json()
         const integrations = data.data || []
+
+        // Debug log successful response
+        useDebugStore.getState().logApiResponse(requestId, response.status, {
+          count: integrations.length,
+          hasPermissions: integrations.filter((i: any) => i.user_permission).length,
+          sample: integrations.slice(0, 2).map((i: any) => ({
+            provider: i.provider,
+            workspace_type: i.workspace_type,
+            user_permission: i.user_permission
+          }))
+        }, duration)
+
         return integrations
       } catch (error: any) {
         clearTimeout(timeoutId)

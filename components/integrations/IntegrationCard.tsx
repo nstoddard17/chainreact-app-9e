@@ -4,7 +4,7 @@ import { useState, useMemo, memo } from "react"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Link as LinkIcon, Link2Off, RefreshCw, Info, X, CheckCircle, Clock, XCircle, AlertTriangle, FileSpreadsheet, CheckCircle2, Sparkles } from "lucide-react"
+import { Link as LinkIcon, Link2Off, RefreshCw, Info, X, CheckCircle, Clock, XCircle, AlertTriangle, FileSpreadsheet, CheckCircle2, Sparkles, Shield, Eye, Settings } from "lucide-react"
 import { LightningLoader } from '@/components/ui/lightning-loader'
 import { useIntegrationStore, type Provider } from "@/stores/integrationStore"
 import { cn } from "@/lib/utils"
@@ -145,6 +145,39 @@ export const IntegrationCard = memo(function IntegrationCard({
 
   const { icon: statusIcon, badgeClass, borderClass, action: statusAction } = statusUi
 
+  // Get permission badge UI
+  const permissionBadge = useMemo(() => {
+    if (!integration?.user_permission) return null
+
+    const permission = integration.user_permission
+
+    switch (permission) {
+      case 'admin':
+        return {
+          icon: <Shield className="w-3 h-3" />,
+          label: 'Admin',
+          className: 'bg-purple-100 dark:bg-purple-900/20 text-purple-800 dark:text-purple-300',
+          tooltip: 'Full control: connect, disconnect, manage permissions'
+        }
+      case 'manage':
+        return {
+          icon: <Settings className="w-3 h-3" />,
+          label: 'Manage',
+          className: 'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300',
+          tooltip: 'Can reconnect and view details'
+        }
+      case 'use':
+        return {
+          icon: <Eye className="w-3 h-3" />,
+          label: 'View',
+          className: 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300',
+          tooltip: 'Can use in workflows (read-only)'
+        }
+      default:
+        return null
+    }
+  }, [integration?.user_permission])
+
   // No memoization needed - StaticIntegrationLogo handles its own optimization
 
   const details = [
@@ -281,14 +314,38 @@ export const IntegrationCard = memo(function IntegrationCard({
           </div>
         </div>
         {!isComingSoon && (
-          <Badge
-            className={cn(
-              "px-3 py-1.5 text-xs font-medium whitespace-nowrap shrink-0 ml-3 flex items-center gap-1",
-              badgeClass
+          <div className="flex items-center gap-2 ml-3 shrink-0">
+            {/* Permission Badge */}
+            {permissionBadge && integration && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge
+                      className={cn(
+                        "px-2 py-1 text-xs font-medium whitespace-nowrap flex items-center gap-1",
+                        permissionBadge.className
+                      )}
+                    >
+                      {permissionBadge.icon}
+                      <span className="hidden sm:inline">{permissionBadge.label}</span>
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{permissionBadge.tooltip}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
-          >
-            {statusIcon}
-          </Badge>
+            {/* Status Badge */}
+            <Badge
+              className={cn(
+                "px-3 py-1.5 text-xs font-medium whitespace-nowrap flex items-center gap-1",
+                badgeClass
+              )}
+            >
+              {statusIcon}
+            </Badge>
+          </div>
         )}
       </CardHeader>
 
@@ -373,31 +430,98 @@ export const IntegrationCard = memo(function IntegrationCard({
                 {status === "connected" ? "Disconnecting..." : "Connecting..."}
               </Button>
             ) : isConnected ? (
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => setShowDisconnectDialog(true)}
-              >
-                <Link2Off className="mr-2 h-4 w-4" />
-                Disconnect
-              </Button>
+              <>
+                {integration?.user_permission === 'admin' ? (
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setShowDisconnectDialog(true)}
+                  >
+                    <Link2Off className="mr-2 h-4 w-4" />
+                    Disconnect
+                  </Button>
+                ) : (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="w-full">
+                          <Button
+                            variant="outline"
+                            className="w-full"
+                            disabled
+                          >
+                            <Link2Off className="mr-2 h-4 w-4" />
+                            Disconnect
+                          </Button>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Only admins can disconnect this integration</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+              </>
             ) : status === "expired" ? (
               <>
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => setShowDisconnectDialog(true)}
-                >
-                  <Link2Off className="mr-2 h-4 w-4" />
-                  Disconnect
+                {integration?.user_permission === 'admin' ? (
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => setShowDisconnectDialog(true)}
+                  >
+                    <Link2Off className="mr-2 h-4 w-4" />
+                    Disconnect
                 </Button>
-                <Button
-                  className="flex-1"
-                  onClick={handleConnectClick}
-                >
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Reconnect
-                </Button>
+                ) : (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex-1">
+                          <Button
+                            variant="outline"
+                            className="w-full"
+                            disabled
+                          >
+                            <Link2Off className="mr-2 h-4 w-4" />
+                            Disconnect
+                          </Button>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Only admins can disconnect this integration</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+                {(integration?.user_permission === 'admin' || integration?.user_permission === 'manage') ? (
+                  <Button
+                    className="flex-1"
+                    onClick={handleConnectClick}
+                  >
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Reconnect
+                  </Button>
+                ) : (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex-1">
+                          <Button
+                            className="w-full"
+                            disabled
+                          >
+                            <RefreshCw className="mr-2 h-4 w-4" />
+                            Reconnect
+                          </Button>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Only admins and managers can reconnect this integration</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
               </>
             ) : (
               <Button
@@ -409,7 +533,7 @@ export const IntegrationCard = memo(function IntegrationCard({
               </Button>
             )}
 
-            {isConnected && (
+            {isConnected && (integration?.user_permission === 'admin' || integration?.user_permission === 'manage') && (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>

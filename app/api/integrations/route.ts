@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
       .from("integrations")
       .select(`
         *,
-        permissions:integration_permissions!inner(permission)
+        permissions:integration_permissions(permission, user_id)
       `)
 
     // Filter by workspace context
@@ -87,22 +87,13 @@ export async function GET(request: NextRequest) {
         .eq('workspace_id', workspaceId)
     }
 
-    // Filter to only integrations user has permission for
-    query = query.eq('permissions.user_id', user.id)
-
     const { data: integrations, error: integrationsError } = await query
 
     logger.debug('📊 [API /api/integrations] Query result', {
       workspaceType,
       workspaceId,
       count: integrations?.length || 0,
-      error: integrationsError,
-      firstFew: integrations?.slice(0, 2).map(i => ({
-        provider: i.provider,
-        status: i.status,
-        workspace_type: i.workspace_type,
-        permission: (i as any).permissions?.permission
-      }))
+      error: integrationsError
     });
 
     if (integrationsError) {
@@ -148,10 +139,16 @@ export async function GET(request: NextRequest) {
     const updatedIntegrations = integrations?.map((integration: any) => {
       const { permissions, ...integrationData } = integration
 
+      // permissions is now an array from the LEFT JOIN
+      // Find the permission for the current user
+      const userPermission = Array.isArray(permissions)
+        ? permissions.find((p: any) => p.user_id === user.id)?.permission
+        : permissions?.permission
+
       return {
         ...integrationData,
         status: expiredIntegrationIds.includes(integration.id) ? "expired" : integration.status,
-        user_permission: permissions?.permission || null // Add permission level to response
+        user_permission: userPermission || null // Add permission level to response
       }
     })
 

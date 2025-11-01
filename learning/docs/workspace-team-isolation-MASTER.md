@@ -1,8 +1,8 @@
 # Workspace & Team Isolation - Master Implementation Plan
 
 **Created:** 2025-10-27
-**Updated:** 2025-10-27 (Updated for Option B: Unified View)
-**Status:** Ready for Implementation
+**Updated:** 2025-11-01 (Integration Permissions & UI Badges Complete)
+**Status:** Phase 4 - Integration Management Complete ✅
 **Implementation Model:** Option C with Option B UX (Hybrid Personal + Organization + Teams with Unified Workflow View)
 
 ---
@@ -939,6 +939,81 @@ CREATE INDEX idx_profiles_default_workspace ON profiles(default_workspace_id);
 
 ---
 
-**Last Updated:** 2025-10-27
-**Estimated Time:** 40-60 hours for full implementation
-**Status:** Documentation complete, ready for implementation
+## ✅ Phase 4 Completion Summary - Integration Management (2025-11-01)
+
+### What Was Completed
+
+**Database Layer:**
+- ✅ Added `workspace_type`, `workspace_id`, `connected_by` columns to `integrations` table
+- ✅ Created `integration_permissions` table with user permissions (use/manage/admin)
+- ✅ Backfilled all existing integrations with `workspace_type = 'personal'` and admin permissions
+- ✅ Created SQL helper functions for permission management
+- ✅ Migration file: `20251028000001_add_workspace_integrations.sql`
+
+**API Layer:**
+- ✅ Updated `/api/integrations` route to join with `integration_permissions` table
+- ✅ Added `user_permission` field to API response
+- ✅ Fixed LEFT JOIN to return all integrations with their permissions
+- ✅ Added workspace context filtering (workspace_type, workspace_id parameters)
+
+**Frontend UI:**
+- ✅ Added permission badges to integration cards (Admin/Manage/View with icons)
+- ✅ Added workspace context badge at top of /apps page
+- ✅ Integrated `useWorkspaceContext()` hook into AppsContent
+- ✅ Color-coded badges: Purple (admin), Blue (manage), Gray (view)
+- ✅ Tooltips explaining permission levels
+
+**Global Admin Debug Panel:**
+- ✅ Created `GlobalAdminDebugPanel` component for app-wide debugging
+- ✅ Live event logging system (`debugStore` with real-time capture)
+- ✅ Integrated into root layout - persists across all pages
+- ✅ Two tabs: Live Logs (terminal-style) & Snapshot (current state)
+- ✅ Auto-scrolling, export, minimize/maximize features
+- ✅ Only visible to users with `user_profiles.admin = true`
+- ✅ Logs API calls, responses, state changes with duration tracking
+
+### Files Modified
+
+**Database:**
+- `supabase/migrations/20251028000001_add_workspace_integrations.sql`
+
+**API Routes:**
+- `app/api/integrations/route.ts` - Added permission join and user_permission field
+
+**Components:**
+- `components/new-design/AppsContent.tsx` - Added permission badges and workspace context
+- `components/debug/GlobalAdminDebugPanel.tsx` - New global debug panel
+- `app/layout.tsx` - Added GlobalAdminDebugPanel to root
+
+**Stores:**
+- `stores/debugStore.ts` - New debug event logging store
+- `stores/integrationStore.ts` - Added debug logging integration
+- `services/integration-service.ts` - Added debug logging for API calls
+
+**Types:**
+- `stores/integrationStore.ts` - Added `user_permission` field to Integration interface
+- `services/integration-service.ts` - Added `user_permission` field to Integration interface
+
+### Verified Working
+
+- ✅ Permission badges appear on all 15 connected integrations
+- ✅ All show "Admin" permission (purple badges with shield icon)
+- ✅ API returns `user_permission: "admin"` correctly
+- ✅ Debug panel shows live logs as user navigates
+- ✅ Workspace context badge shows "Personal Workspace" correctly
+- ✅ SQL verification confirms 49 permissions created for 49 integrations
+
+### Debug Tools Available
+
+Admins now have a powerful debugging tool:
+- **Access:** Click "Debug" button (bottom-right, any page)
+- **Live Logs:** Real-time event stream with color-coded badges
+- **Snapshot:** Current state of integrations, permissions, workspace context
+- **Export:** Download logs or snapshots as JSON
+- **Persistent:** Stays open while navigating across pages
+
+---
+
+**Last Updated:** 2025-11-01
+**Phase 4 Status:** ✅ Complete - Integration workspace management and permissions working
+**Next Phase:** Workflow workspace management (creation, visibility, team badges)

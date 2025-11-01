@@ -9,6 +9,7 @@ import { OAuthConnectionFlow } from "@/lib/oauth/connection-flow"
 import { useWorkflowStore } from "./workflowStore"
 
 import { logger } from '@/lib/utils/logger'
+import { useDebugStore } from './debugStore'
 
 // Track ongoing requests for cleanup
 let currentAbortController: AbortController | null = null
@@ -342,6 +343,26 @@ export const useIntegrationStore = create<IntegrationStore>()(
           setLoading('integrations', false)
           const previousIntegrations = get().integrations
           handleIntegrationStatusChanges(previousIntegrations, integrations)
+
+          // Debug log state change
+          useDebugStore.getState().logStateChange(
+            'IntegrationStore',
+            'Integrations fetched and updated',
+            {
+              count: integrations.length,
+              previousCount: previousIntegrations.length,
+              workspaceType: effectiveWorkspaceType,
+              workspaceId: effectiveWorkspaceId,
+              withPermissions: integrations.filter(i => i.user_permission).length,
+              permissionBreakdown: {
+                admin: integrations.filter(i => i.user_permission === 'admin').length,
+                manage: integrations.filter(i => i.user_permission === 'manage').length,
+                use: integrations.filter(i => i.user_permission === 'use').length,
+                null: integrations.filter(i => !i.user_permission).length,
+              }
+            }
+          )
+
           set({
             integrations,
             lastFetchTime: Date.now()
