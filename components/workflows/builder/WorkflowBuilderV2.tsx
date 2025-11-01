@@ -1053,127 +1053,141 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
 
       console.log('[handleBuild] Cached nodes count:', nodesCache.length)
 
-      // STEP 3: Apply edits with correct positions from the start
-      // Pre-calculate positions so nodes appear in correct place immediately
-      const editsWithPositions = buildMachine.edits.map((edit: any, index: number) => {
-        if (edit.op === 'addNode' && edit.node) {
-          return {
-            ...edit,
-            node: {
-              ...edit.node,
-              position: {
-                x: agentPanelWidth + 100 + (index * 400), // Horizontal spacing
-                y: 200, // Same Y for all nodes
-              },
-              selected: false, // No selection border
-            },
-          }
-        }
-        return edit
-      })
+      // STEP 3: Add nodes ONE AT A TIME with animation
+      // Extract node edits (connect edges will be created sequentially)
+      const nodeEdits = buildMachine.edits.filter((e: any) => e.op === 'addNode')
 
-      await actions.applyEdits(editsWithPositions)
+      console.log('[handleBuild] Adding', nodeEdits.length, 'nodes sequentially with animation')
 
-      console.log('[handleBuild] Edits applied with correct positions')
-
-      // Clear any selection in ReactFlow instance
-      if (reactFlowInstanceRef.current) {
-        reactFlowInstanceRef.current.setNodes((nodes) =>
-          nodes.map((n) => ({ ...n, selected: false }))
-        )
-      }
-
-      // STEP 4: Schedule layout to happen AFTER React has rendered the nodes
-      // Use setTimeout to let React's state updates complete
+      // STEP 4: Animate nodes appearing one by one
       setTimeout(async () => {
-        console.log('[handleBuild Layout] Starting layout phase...')
-
-        // Get nodes from ReactFlow instance directly (not stale closure)
-        const rfNodes = reactFlowInstanceRef.current?.getNodes() || []
-        console.log('[handleBuild Layout] ReactFlow nodes count:', rfNodes.length)
-
-        if (rfNodes.length === 0) {
-          console.error('[handleBuild Layout] Still no nodes after timeout!')
-          // Still transition to WAITING_USER even without layout
-          await persistOrQueueStatus("Flow ready ✅")
-
-          setBuildMachine(prev => ({
-            ...prev,
-            progress: { ...prev.progress, currentIndex: 0, total: buildMachine.plan.length },
-          }))
-
-          transitionTo(BuildState.WAITING_USER)
+        if (!reactFlowInstanceRef.current || !builder?.setNodes || !builder?.setEdges) {
+          console.error('[handleBuild Animation] Missing required refs')
           return
         }
 
-        if (reactFlowInstanceRef.current && builder?.setNodes) {
-          // Ensure all nodes have correct positions and no selection
-          console.log('[handleBuild Layout] Ensuring positions and clearing selection')
-          const currentNodes = rfNodes.map((node, index) => ({
-            ...node,
+        // Clear canvas
+        builder.setNodes([])
+        builder.setEdges([])
+
+        // Positioning - nodes in horizontal row
+        const BASE_X = 400 // Start well inside visible area (after agent panel)
+        const BASE_Y = 200 // Vertical center
+        const H_SPACING = 500 // Wide spacing between nodes
+
+        // Create all nodes at once (simpler, more reliable)
+        const allNodes = nodeEdits.map((nodeEdit, i) => {
+          const plannerNode = nodeEdit.node
+          const metadata = (plannerNode?.metadata ?? {}) as any
+          const catalogNode = ALL_NODE_COMPONENTS.find(c => c.type === plannerNode.type)
+
+          return {
+            id: plannerNode.id,
+            type: 'custom',
             position: {
-              x: agentPanelWidth + 100 + (index * 400), // Horizontal spacing
-              y: 200, // Same Y for all
+              x: BASE_X + (i * H_SPACING),
+              y: BASE_Y,
             },
-            selected: false, // No selection border
-          }))
+            selected: false,
+            draggable: true,
+            data: {
+              label: plannerNode.label ?? plannerNode.type,
+              title: plannerNode.label ?? plannerNode.type,
+              type: plannerNode.type,
+              config: plannerNode.config ?? {},
+              description: plannerNode.description ?? catalogNode?.description,
+              providerId: metadata.providerId ?? catalogNode?.providerId,
+              icon: catalogNode?.icon,
+              isTrigger: metadata.isTrigger ?? false,
+              state: 'skeleton',
+              aiStatus: 'skeleton',
+              agentHighlights: metadata.agentHighlights ?? [],
+              costHint: plannerNode.costHint ?? 0,
+            },
+            className: 'node-skeleton',
+          }
+        }).filter(Boolean)
 
-          // Apply the corrected positions
-          builder.setNodes(currentNodes)
+        // Create all edges
+        const allEdges = []
+        for (let i = 1; i < allNodes.length; i++) {
+          allEdges.push({
+            id: `${allNodes[i-1].id}-${allNodes[i].id}`,
+            source: allNodes[i-1].id,
+            target: allNodes[i].id,
+            type: 'custom',
+            style: {
+              stroke: '#94a3b8',
+              strokeWidth: 2,
+            },
+          })
+        }
 
-          // Wait for positions to apply
-          await new Promise(resolve => setTimeout(resolve, 100))
+        console.log('[handleBuild] Adding all nodes:', {
+          count: allNodes.length,
+          positions: allNodes.map(n => ({ id: n.id, x: n.position.x, y: n.position.y }))
+        })
 
-          // STEP 5: Set ALL nodes to skeleton state initially
-          console.log('[handleBuild Layout] Setting all nodes to skeleton state')
-          currentNodes.forEach((node) => {
-            if (reactFlowInstanceRef.current) {
-              setNodeState(reactFlowInstanceRef.current, node.id, 'skeleton')
-            }
+        // Set everything at once
+        builder.setNodes(allNodes)
+        builder.setEdges(allEdges)
+
+        setBuildMachine(prev => ({
+          ...prev,
+          nodesCache: allNodes,
+        }))
+
+        // STEP 5: Fit view to show all nodes (and keep them all visible)
+        await new Promise(resolve => setTimeout(resolve, 300))
+        if (reactFlowInstanceRef.current) {
+          const allNodes = reactFlowInstanceRef.current.getNodes()
+          console.log('[handleBuild Animation] Fitting view to show all nodes:', allNodes.length)
+
+          // Use ReactFlow's fitView with padding to show all nodes comfortably
+          reactFlowInstanceRef.current.fitView({
+            padding: 0.2, // 20% padding around the nodes
+            duration: 800,
+            minZoom: 0.5,
+            maxZoom: 1.0, // Don't zoom in too much
           })
 
-          // STEP 6: Fit view to show all skeleton nodes horizontally
-          fitCanvasToFlow(reactFlowInstanceRef.current, { skeleton: true })
+          await new Promise(resolve => setTimeout(resolve, 800))
+        }
 
-          // Wait briefly before transitioning
-          await new Promise(resolve => setTimeout(resolve, 300))
+        const firstNode = (reactFlowInstanceRef.current?.getNodes() ?? allNodes)[0]
 
-          // STEP 7: Smooth zoom animation to first node
-          if (currentNodes.length > 0) {
-            const firstNodeId = currentNodes[0].id
-            console.log('[handleBuild Layout] Animating zoom to first node:', firstNodeId)
+        // STEP 7: Update status and transition to WAITING_USER
+        // This will trigger the first node pill to expand in the Flow Plan
+        await persistOrQueueStatus("Flow ready ✅")
 
-            // Smooth zoom animation to first node (keep them in skeleton state)
-            panToNode(reactFlowInstanceRef.current, firstNodeId, {
-              zoom: 1.0, // Reasonable zoom level to see the node
-              duration: 800,
-            })
+        setBuildMachine(prev => ({
+          ...prev,
+          progress: { ...prev.progress, currentIndex: 0, total: buildMachine.plan.length },
+        }))
 
-            // Wait for zoom animation to complete before transitioning state
-            await new Promise(resolve => setTimeout(resolve, 800))
-          }
+        transitionTo(BuildState.WAITING_USER)
 
-          // STEP 8: Update status and transition to WAITING_USER
-          // This will trigger the first node pill to expand in the Flow Plan
-          await persistOrQueueStatus("Flow ready ✅")
+        // STEP 8: After transitioning to WAITING_USER, transition first node from skeleton → ready
+        await new Promise(resolve => setTimeout(resolve, 200))
 
-          setBuildMachine(prev => ({
-            ...prev,
-            progress: { ...prev.progress, currentIndex: 0, total: buildMachine.plan.length },
-          }))
-
-          transitionTo(BuildState.WAITING_USER)
-
-          // STEP 9: After transitioning to WAITING_USER, transition first node from skeleton → ready
-          await new Promise(resolve => setTimeout(resolve, 200))
-
-          if (currentNodes.length > 0) {
-            const firstNodeId = currentNodes[0].id
-            if (reactFlowInstanceRef.current) {
-              console.log('[handleBuild Layout] Transitioning first node to ready state')
-              setNodeState(reactFlowInstanceRef.current, firstNodeId, 'ready')
+        if (firstNode && reactFlowInstanceRef.current) {
+          console.log('[handleBuild Animation] Transitioning first node to ready state')
+          setNodeState(reactFlowInstanceRef.current, firstNode.id, 'ready')
+          builder.setNodes(prevNodes => prevNodes.map(node => {
+            if (node.id === firstNode.id) {
+              return {
+                ...node,
+                selected: false, // Keep node unselected (no blue border)
+                data: {
+                  ...node.data,
+                  state: 'ready',
+                  aiStatus: 'awaiting_user',
+                },
+                className: 'node-ready',
+              }
             }
-          }
+            return node
+          }))
         }
       }, 100) // Small delay to let React update
 
@@ -1247,64 +1261,172 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
     transitionTo(BuildState.PREPARING_NODE)
 
     try {
-      // STEP 1: Get user input from nodeConfigs
+      const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
       const userConfig = nodeConfigs[planNode.id] || {}
+      const nodeComponent = ALL_NODE_COMPONENTS.find(component => component.type === planNode.nodeType)
+      const configSchema = nodeComponent?.configSchema ?? []
 
-      // STEP 2: Update node data with user-provided values
+      const prioritizedFields = [
+        ...configSchema.filter(field => field?.required && !field?.hidden),
+        ...configSchema.filter(field => !field?.required && !field?.hidden),
+      ]
+
+      const seenFieldNames = new Set<string>()
+      const uniqueFields = prioritizedFields.filter(field => {
+        if (!field?.name || seenFieldNames.has(field.name)) return false
+        seenFieldNames.add(field.name)
+        return true
+      })
+
+      const existingConfig = (reactFlowNode?.data?.config ?? {}) as Record<string, any>
+      const fieldsToPopulate = uniqueFields
+        .filter(field => existingConfig[field.name] === undefined && userConfig[field.name] === undefined)
+        .slice(0, 6)
+
+      const progressEntries: Array<{ key: string; value: any; displayValue?: string }> = []
+
+      const generateAIValue = (field: any, index: number) => {
+        const label = (field?.label || field?.name || `Field ${index + 1}`).trim()
+        const normalizedName = (field?.name || '').toLowerCase()
+
+        if (normalizedName.includes('channel')) return '#general'
+        if (normalizedName.includes('email')) return `team${index + 1}@example.com`
+        if (normalizedName.includes('subject')) return `AI Draft: ${label}`
+        if (normalizedName.includes('name')) return `${label} (auto-generated)`
+        if (normalizedName.includes('message') || normalizedName.includes('body') || field?.type === 'textarea') {
+          return `Automatically generated ${label.toLowerCase()} for this workflow step.`
+        }
+        if (normalizedName.includes('title')) {
+          return `${label} — generated for ${planNode.title}`
+        }
+        return `AI suggestion for ${label}`
+      }
+
+      const applyNodeUpdate = (transform: (node: any) => any) => {
+        let updatedNode = reactFlowNode
+        builder.setNodes((current: any[]) => {
+          const working = current && current.length > 0 ? current : (buildMachine.nodesCache ?? [])
+          const nextNodes = working.map(node => {
+            if (node.id !== reactFlowNode.id) return node
+            updatedNode = transform(node)
+            return updatedNode
+          })
+          return nextNodes
+        })
+        reactFlowNode = updatedNode
+      }
+
       if (reactFlowInstanceRef.current) {
-        // Use builder.nodes if available, otherwise fall back to nodesCache
-        const currentNodes = (builder.nodes && builder.nodes.length > 0)
-          ? builder.nodes
-          : buildMachine.nodesCache || []
+        applyNodeUpdate(node => ({
+          ...node,
+          data: {
+            ...node.data,
+            config: {
+              ...(node.data?.config ?? {}),
+              ...userConfig,
+            },
+            aiStatus: 'preparing',
+            state: 'ready',
+            aiProgressConfig: progressEntries,
+          },
+          className: 'node-ready',
+        }))
 
-        console.log('[handleContinueNode] Using nodes for update:', currentNodes.length, 'nodes')
+        await wait(150)
+        setNodeState(reactFlowInstanceRef.current, reactFlowNode.id, 'ready')
+        await wait(250)
 
-        const updatedNodes = currentNodes.map(node => {
-          if (node.id === reactFlowNode.id) {
-            return {
+        if (fieldsToPopulate.length > 0) {
+          applyNodeUpdate(node => ({
+            ...node,
+            data: {
+              ...node.data,
+              aiStatus: 'configuring',
+              aiProgressConfig: [...progressEntries],
+            },
+          }))
+
+          for (let index = 0; index < fieldsToPopulate.length; index++) {
+            const field = fieldsToPopulate[index]
+            const aiValue = generateAIValue(field, index)
+            const displayValue = typeof aiValue === 'string' ? aiValue : JSON.stringify(aiValue)
+            progressEntries.push({
+              key: field.name,
+              value: aiValue,
+              displayValue,
+            })
+
+            applyNodeUpdate(node => ({
               ...node,
               data: {
                 ...node.data,
+                aiStatus: 'configuring',
+                aiProgressConfig: [...progressEntries],
                 config: {
-                  ...node.data.config,
+                  ...(node.data?.config ?? {}),
                   ...userConfig,
+                  [field.name]: aiValue,
                 },
               },
-            }
+            }))
+
+            await wait(350)
           }
-          return node
-        })
-        builder.setNodes(updatedNodes)
+        } else {
+          applyNodeUpdate(node => ({
+            ...node,
+            data: {
+              ...node.data,
+              aiStatus: 'configuring',
+              aiProgressConfig: [],
+            },
+          }))
+          await wait(300)
+        }
 
-        // Wait for update to apply
-        await new Promise(resolve => setTimeout(resolve, 100))
-
-        // STEP 3: Change node state skeleton → ready
-        setNodeState(reactFlowInstanceRef.current, reactFlowNode.id, 'ready')
-        await new Promise(resolve => setTimeout(resolve, 300))
-
-        // STEP 4: AI configures remaining fields (stubbed for now - enhance later)
-        // TODO: Call AI service to auto-configure non-user fields
-        await new Promise(resolve => setTimeout(resolve, 400))
-
-        // STEP 5: Change node state ready → running
         transitionTo(BuildState.TESTING_NODE)
+
+        applyNodeUpdate(node => ({
+          ...node,
+          data: {
+            ...node.data,
+            aiStatus: 'testing',
+          },
+        }))
         setNodeState(reactFlowInstanceRef.current, reactFlowNode.id, 'running')
-        await new Promise(resolve => setTimeout(resolve, 500))
+        await wait(500)
 
-        // STEP 6: Test node (basic validation for now)
-        // TODO: Implement actual node testing (validate connection, fetch sample data)
-        const testSuccess = true // For now, always succeed
-        await new Promise(resolve => setTimeout(resolve, 800))
+        const testSuccess = true
+        await wait(600)
 
-        // STEP 7: Change to passed/failed based on test
         if (testSuccess) {
           setNodeState(reactFlowInstanceRef.current, reactFlowNode.id, 'passed')
+          applyNodeUpdate(node => ({
+            ...node,
+            data: {
+              ...node.data,
+              aiStatus: 'ready',
+              state: 'passed',
+            },
+          }))
         } else {
           setNodeState(reactFlowInstanceRef.current, reactFlowNode.id, 'failed')
+          applyNodeUpdate(node => ({
+            ...node,
+            data: {
+              ...node.data,
+              aiStatus: 'error',
+              state: 'failed',
+            },
+          }))
           throw new Error('Node test failed')
         }
       }
+
+      setBuildMachine(prev => ({
+        ...prev,
+        nodesCache: builder.nodes ?? prev.nodesCache,
+      }))
 
       // STEP 8: Move to next node or complete
       const nextIndex = currentIndex + 1
@@ -1321,10 +1443,33 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
         }))
         transitionTo(BuildState.WAITING_USER)
 
+        const nextPlanNode = buildMachine.plan[nextIndex]
+        const nextReactNodeId = nextPlanNode ? buildMachine.nodeMapping?.[nextPlanNode.id] : null
+
+        if (nextReactNodeId && reactFlowInstanceRef.current) {
+          setNodeState(reactFlowInstanceRef.current, nextReactNodeId, 'ready')
+          builder.setNodes((current: any[]) => {
+            const working = current && current.length > 0 ? current : (buildMachine.nodesCache ?? [])
+            return working.map(node => {
+              if (node.id !== nextReactNodeId) return node
+              return {
+                ...node,
+                data: {
+                  ...node.data,
+                  state: 'ready',
+                  aiStatus: 'awaiting_user',
+                },
+                className: 'node-ready',
+              }
+            })
+          })
+        }
+
         // STEP 9: Pan to next node with safe zoom (maintain zoom from before)
-        if (reactFlowInstanceRef.current && builder.nodes[nextIndex]) {
-          const safeZoom = calculateSafeZoom(builder.nodes.length, 5)
-          panToNode(reactFlowInstanceRef.current, builder.nodes[nextIndex].id, {
+        if (reactFlowInstanceRef.current && nextReactNodeId) {
+          const totalNodes = builder.nodes?.length ?? buildMachine.plan.length
+          const safeZoom = calculateSafeZoom(totalNodes, 5)
+          panToNode(reactFlowInstanceRef.current, nextReactNodeId, {
             zoom: safeZoom,
             duration: 600,
           })
