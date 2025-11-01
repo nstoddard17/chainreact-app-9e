@@ -22,17 +22,25 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { CheckCircle2, Plus, ExternalLink, MoreVertical, Unplug, RefreshCw, Settings, AlertCircle } from "lucide-react"
+import { CheckCircle2, Plus, ExternalLink, MoreVertical, Unplug, RefreshCw, Settings, AlertCircle, Shield, Eye } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { logger } from "@/lib/utils/logger"
 import { fetchWithTimeout } from "@/lib/utils/fetch-with-timeout"
 import { getIntegrationLogoClasses, getIntegrationLogoPath } from "@/lib/integrations/logoStyles"
 import { useTheme } from "next-themes"
+import { useWorkspaceContext } from "@/hooks/useWorkspaceContext"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 export function AppsContent() {
-  const { providers, integrations, initializeProviders, fetchIntegrations, connectIntegration, setLoading, loading: storeLoading } = useIntegrationStore()
+  const { providers, integrations, initializeProviders, fetchIntegrations, connectIntegration, setLoading, loading: storeLoading, setWorkspaceContext: setStoreWorkspaceContext } = useIntegrationStore()
   const { user } = useAuthStore()
   const { theme } = useTheme()
+  const { workspaceContext } = useWorkspaceContext()
   const [searchQuery, setSearchQuery] = useState("")
   const [availableSearchQuery, setAvailableSearchQuery] = useState("")
   const [showConnectDialog, setShowConnectDialog] = useState(false)
@@ -40,18 +48,26 @@ export function AppsContent() {
   const [initialLoadComplete, setInitialLoadComplete] = useState(false)
   const { toast } = useToast()
 
+  // Sync workspace context to integration store when it changes
   useEffect(() => {
-    if (user) {
+    if (workspaceContext) {
+      setStoreWorkspaceContext(workspaceContext.type, workspaceContext.id)
+    }
+  }, [workspaceContext, setStoreWorkspaceContext])
+
+  useEffect(() => {
+    if (user && workspaceContext) {
       const loadData = async () => {
         await Promise.all([
           initializeProviders(),
-          fetchIntegrations(false)
+          fetchIntegrations(false, workspaceContext.type, workspaceContext.id || undefined)
         ])
         setInitialLoadComplete(true)
       }
       loadData()
     }
-  }, [user, initializeProviders, fetchIntegrations])
+  }, [user, workspaceContext, initializeProviders, fetchIntegrations])
+
 
   const getConnectionStatus = (providerId: string) => {
     return integrations.find(i => i.provider === providerId)
@@ -206,6 +222,17 @@ export function AppsContent() {
 
   return (
     <div className="space-y-6">
+      {/* Workspace Context Badge */}
+      <div className="flex items-center justify-between mb-2">
+        <Badge variant="outline" className="text-xs sm:text-sm py-1 px-3">
+          {workspaceContext.isPersonal ? (
+            <>Personal Workspace</>
+          ) : (
+            <>{workspaceContext.name} ({workspaceContext.type === 'team' ? 'Team' : 'Organization'})</>
+          )}
+        </Badge>
+      </div>
+
       {/* Header Action */}
       <div className="flex items-center justify-between">
         <div>
@@ -535,11 +562,51 @@ export function AppsContent() {
                           <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
                         )}
                       </div>
-                      {isExpired ? (
-                        <Badge variant="destructive" className="text-xs">Expired</Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-xs">Connected</Badge>
-                      )}
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {/* Permission Badge */}
+                        {connection?.user_permission && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge
+                                  variant="outline"
+                                  className={`text-xs px-1.5 py-0.5 flex items-center gap-0.5 ${
+                                    connection.user_permission === 'admin'
+                                      ? 'bg-purple-100 dark:bg-purple-900/20 text-purple-800 dark:text-purple-300'
+                                      : connection.user_permission === 'manage'
+                                      ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300'
+                                      : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300'
+                                  }`}
+                                >
+                                  {connection.user_permission === 'admin' ? (
+                                    <Shield className="w-3 h-3" />
+                                  ) : connection.user_permission === 'manage' ? (
+                                    <Settings className="w-3 h-3" />
+                                  ) : (
+                                    <Eye className="w-3 h-3" />
+                                  )}
+                                  <span className="hidden sm:inline">{connection.user_permission === 'admin' ? 'Admin' : connection.user_permission === 'manage' ? 'Manage' : 'View'}</span>
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>{
+                                  connection.user_permission === 'admin'
+                                    ? 'Full control: connect, disconnect, manage permissions'
+                                    : connection.user_permission === 'manage'
+                                    ? 'Can reconnect and view details'
+                                    : 'Can use in workflows (read-only)'
+                                }</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                        {/* Status Badge */}
+                        {isExpired ? (
+                          <Badge variant="destructive" className="text-xs">Expired</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs">Connected</Badge>
+                        )}
+                      </div>
                     </div>
 
                     {/* Actions Dropdown */}

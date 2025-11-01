@@ -25,6 +25,7 @@ interface Organization {
   member_count: number
   team_count: number
   is_workspace?: boolean  // True if this is a personal workspace, not an organization
+  integration_count?: number  // Number of integrations in this workspace
 }
 
 interface Workspace {
@@ -71,6 +72,42 @@ export function OrganizationSwitcher() {
 
   const RoleIcon = getRoleIcon()
 
+  // Fetch integration counts for each workspace
+  const fetchIntegrationCounts = async (orgs: Organization[]) => {
+    try {
+      // Fetch counts for all organizations in parallel
+      const countsPromises = orgs.map(async (org) => {
+        const isWorkspace = org.is_workspace || (org.team_count === 0 && org.member_count === 1)
+        const workspaceType = isWorkspace ? 'personal' : (org.team_count > 0 ? 'organization' : 'team')
+        const workspaceId = isWorkspace ? undefined : org.id
+
+        const params = new URLSearchParams({ workspace_type: workspaceType })
+        if (workspaceId) params.append('workspace_id', workspaceId)
+
+        try {
+          const response = await fetch(`/api/integrations?${params.toString()}`)
+          if (!response.ok) return { orgId: org.id, count: 0 }
+
+          const data = await response.json()
+          return { orgId: org.id, count: data.data?.length || 0 }
+        } catch {
+          return { orgId: org.id, count: 0 }
+        }
+      })
+
+      const counts = await Promise.all(countsPromises)
+
+      // Update organizations with integration counts
+      return orgs.map(org => ({
+        ...org,
+        integration_count: counts.find(c => c.orgId === org.id)?.count || 0
+      }))
+    } catch (error) {
+      logger.error('Error fetching integration counts:', error)
+      return orgs
+    }
+  }
+
   // Fetch organizations
   const fetchOrganizations = async () => {
     try {
@@ -79,7 +116,10 @@ export function OrganizationSwitcher() {
       if (!response.ok) throw new Error('Failed to fetch organizations')
 
       const data = await response.json()
-      const allOrgs = Array.isArray(data.organizations) ? data.organizations : (Array.isArray(data) ? data : [])
+      let allOrgs = Array.isArray(data.organizations) ? data.organizations : (Array.isArray(data) ? data : [])
+
+      // Fetch integration counts for all orgs
+      allOrgs = await fetchIntegrationCounts(allOrgs)
 
       // Include both workspaces and organizations - show all contexts user can switch between
       setOrganizations(allOrgs)
@@ -192,7 +232,7 @@ export function OrganizationSwitcher() {
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{org.name}</p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
                           {isWorkspace ? (
                             'Personal workspace'
                           ) : (
@@ -201,6 +241,13 @@ export function OrganizationSwitcher() {
                               {' • '}
                               {org.team_count} {org.team_count === 1 ? 'team' : 'teams'}
                             </>
+                          )}
+                          {org.integration_count !== undefined && (
+                            <span className="inline-flex items-center gap-0.5 ml-1">
+                              {!isWorkspace && ' • '}
+                              <Check className="w-3 h-3" />
+                              {org.integration_count}
+                            </span>
                           )}
                         </p>
                       </div>
