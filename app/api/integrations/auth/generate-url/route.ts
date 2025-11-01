@@ -41,10 +41,23 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const { provider, reconnect = false, integrationId, forceFresh = false } = await request.json()
+    const {
+      provider,
+      reconnect = false,
+      integrationId,
+      forceFresh = false,
+      // NEW: Workspace context
+      workspaceType = 'personal',
+      workspaceId
+    } = await request.json()
 
     if (!provider) {
       return errorResponse("Provider is required" , 400)
+    }
+
+    // Validate workspace context
+    if ((workspaceType === 'team' || workspaceType === 'organization') && !workspaceId) {
+      return errorResponse("workspaceId is required for team/organization context", 400)
     }
 
     // Check if we're running on localhost and the provider doesn't support it
@@ -96,7 +109,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create state object
+    // Create state object with workspace context
     const stateObject: {
       userId: string
       provider: string
@@ -105,6 +118,9 @@ export async function POST(request: NextRequest) {
       timestamp: number
       forceFresh?: boolean
       forceConsent?: boolean
+      // NEW: Workspace context
+      workspaceType?: 'personal' | 'team' | 'organization'
+      workspaceId?: string
     } = {
       userId: user.id,
       // Microsoft Excel uses OneDrive provider in the database
@@ -112,6 +128,9 @@ export async function POST(request: NextRequest) {
       reconnect,
       integrationId,
       timestamp: Date.now(),
+      // NEW: Add workspace context to state
+      workspaceType: workspaceType as 'personal' | 'team' | 'organization',
+      workspaceId: workspaceId || undefined,
     }
 
     let finalState = btoa(JSON.stringify(stateObject))

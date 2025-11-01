@@ -158,25 +158,39 @@ Workspace Switcher (with 🏠 icon - "Home Base"):
   🏠 [Personal ▼] ← Switched to → 🏠 [BrightSpark ▼]
 
   Effects of Switching:
-  ✅ Shows workspace's task quota: "450/10,000 tasks"
+  ✅ Updates "Tasks This Month" widget in bottom left sidebar
   ✅ Shows workspace's integrations in dropdown
   ✅ Pre-selects workspace in creation modal (if no default)
   ❌ Does NOT hide workflows from view
 
   Workspace Switcher Dropdown:
   ┌──────────────────────────────────────────┐
-  │ 🏠 Personal                             │
-  │    📊 50/100 tasks used                 │
-  │    🔌 Personal Gmail, Personal Slack    │
+  │ 🏠 Personal                        ✓    │  ← Simple, clean
   ├──────────────────────────────────────────┤
-  │ 🏠 BrightSpark Marketing           ✓   │  ← Currently selected
-  │    📊 450/10,000 tasks (team pool)      │
-  │    🔌 Company Gmail, Slack, HubSpot     │
+  │ 🏠 BrightSpark Marketing                │
   ├──────────────────────────────────────────┤
   │ 🏠 Freelance Client A                   │
-  │    📊 5/1,000 tasks used                │
-  │    🔌 Client Gmail, Client Slack        │
   └──────────────────────────────────────────┘
+
+  Bottom Left Sidebar Widget (Updates on Switch):
+  ┌──────────────────────────────────────────┐
+  │ 📊 Tasks This Month                     │  ← Shows based on workspace
+  │    50 / 100 used                  0%    │  ← Personal workspace
+  │    [Upgrade Plan]                       │
+  │    [Get Free Tasks]                     │
+  └──────────────────────────────────────────┘
+
+  When switched to "BrightSpark Marketing":
+  ┌──────────────────────────────────────────┐
+  │ 📊 Tasks This Month                     │
+  │    450 / 10,000 used              4%    │  ← Organization pool
+  │    [View Billing] (if admin)            │  ← Permission-based
+  └──────────────────────────────────────────┘
+
+  Widget Visibility Rules:
+  ✅ Personal workspace → Always visible (your quota)
+  ✅ Team/Org workspace → Visible only if you have billing/admin permissions
+  ❌ Team/Org workspace → Hidden for regular members (no permission to see)
 
 ─────────────────────────────────────────────
 User clicks [+ New Workflow]:
@@ -189,14 +203,11 @@ SCENARIO 1: No Default Workspace Set
 │ Where would you like to create this?           │
 │                                                 │
 │ ○ 🏠 Personal                                   │
-│    📊 50/100 tasks • 🔌 Personal integrations  │
 │                                                 │
 │ ● 🏠 BrightSpark Marketing                      │  ← Pre-selected (matches switcher)
-│    📊 450/10,000 tasks • 🔌 Company integrations│
 │    Team: [Marketing ▼]                         │
 │                                                 │
 │ ○ 🏠 Freelance Client A                         │
-│    📊 5/1,000 tasks • 🔌 Client integrations   │
 │                                                 │
 │ ☐ Set as my default workspace                  │  ← User can check
 │                                                 │
@@ -267,7 +278,8 @@ Quick Filters (Optional - for viewing):
 **Benefits of This Approach:**
 - ✅ See everything at once - no switching required
 - ✅ Maximum flexibility - user controls default behavior
-- ✅ Workspace switcher shows quota/integrations per context
+- ✅ Workspace switcher is clean and simple
+- ✅ Task quota updates in existing sidebar widget (permission-based)
 - ✅ Can set default OR use switcher OR ask every time
 - ✅ Clear visual distinction (🏠 icon = "home base")
 - ✅ One-time overrides don't change default
@@ -306,19 +318,21 @@ Quick Filters (Optional - for viewing):
 - [x] 3.4 - Create workspace context provider
 - [x] 3.5 - Update authStore to track current workspace
 
-### 🚧 Phase 4: UI Components (PARTIAL - 40% complete) **✨ Updated for new workspace switcher UX**
+### 🚧 Phase 4: UI Components (PARTIAL - 40% complete) **✨ Updated for sidebar task widget UX**
 - [x] 4.1 - Update OrganizationSwitcher with team info
 - [x] 4.2 - Create TeamBadge component
 - [x] 4.3 - Create TeamFilter component
-- [ ] 4.4 - **Update WorkspaceSwitcher to show quota/integrations**
+- [ ] 4.4 - **Update WorkspaceSwitcher (clean dropdown with 🏠 icon)**
+- [ ] 4.4a - **Update Sidebar Task Widget (workspace-aware + permission-based visibility)**
 - [ ] 4.5 - **Create WorkflowCreationModal with default workspace preference**
 - [ ] 4.6 - **Add default workspace settings to user preferences**
 - [ ] 4.7 - Update WorkflowCard with team badges
 - [ ] 4.8 - Update folder UI with team badges
 - [ ] 4.9 - Add team selector to workflow builder
 
-**New Requirements (Workspace Switcher Enhancement):**
-- 4.4: Workspace switcher shows 🏠 icon, task quota, and integrations per workspace
+**New Requirements (Sidebar Task Widget Enhancement):**
+- 4.4: Clean workspace switcher with 🏠 icon (workspace names only)
+- 4.4a: Sidebar task widget updates on workspace switch, shows/hides based on permissions
 - 4.5: Workflow creation modal with 3 scenarios (no default, has default, override)
 - 4.6: Settings page option: default workspace / ask every time / use switcher
 
@@ -482,29 +496,55 @@ assertCanDeleteWorkflow(userId, workflowId)
 ## 🎨 UI/UX Design Principles
 
 ### Workspace Switcher (Enhanced with 🏠 Icon)
-**Purpose:** Shows quota/integrations, suggests creation context
+**Purpose:** Switch context for integrations and workflow creation
 
 **Visual Design:**
 - 🏠 icon indicates "home base" concept
-- Shows task quota: "50/100 tasks"
-- Shows connected integrations summary
+- Clean, simple list of available workspaces
+- Does NOT show quota (that's in sidebar widget)
 - Does NOT filter workflows from view
 
 **Dropdown Content:**
 ```
 ┌────────────────────────────────────┐
 │ 🏠 Personal               ✓       │
-│    📊 50/100 tasks                │
-│    🔌 2 integrations connected    │
 ├────────────────────────────────────┤
 │ 🏠 BrightSpark Marketing          │
-│    📊 450/10,000 tasks (shared)   │
-│    🔌 5 integrations connected    │
 ├────────────────────────────────────┤
 │ 🏠 Freelance Client A             │
-│    📊 5/1,000 tasks               │
-│    🔌 2 integrations connected    │
 └────────────────────────────────────┘
+```
+
+### Sidebar Task Widget (Updates on Workspace Switch)
+**Purpose:** Display task quota for current workspace context
+
+**Visibility Rules:**
+- **Personal workspace** → Always visible (user's own quota)
+- **Team/Organization workspace** → Visible only if user has billing/admin permissions
+- **Team/Organization workspace (regular member)** → Hidden (no permission to see org billing)
+
+**Visual Design (Personal):**
+```
+┌────────────────────────────────────┐
+│ 📊 Tasks This Month               │
+│    50 / 100 used            0%    │
+│    [Upgrade Plan]                 │
+│    [Get Free Tasks]               │
+└────────────────────────────────────┘
+```
+
+**Visual Design (Organization - Admin View):**
+```
+┌────────────────────────────────────┐
+│ 📊 Tasks This Month               │
+│    450 / 10,000 used          4%  │
+│    [View Billing]                 │
+└────────────────────────────────────┘
+```
+
+**Visual Design (Organization - Regular Member):**
+```
+Widget is completely hidden - no permission to view
 ```
 
 ### Team Badges
@@ -771,7 +811,7 @@ CREATE TABLE integration_permissions (
 
 **Integration management is HIGH PRIORITY** and should be implemented alongside Phase 4 (UI Components):
 
-- [ ] 4.4a - Update workspace switcher to show integration counts
+- [ ] 4.4a - Update sidebar task widget to be workspace-aware (show/hide based on permissions)
 - [ ] 4.4b - Add integration permission checks to OAuth flow
 - [ ] 4.4c - Update integrations page to be workspace-aware
 - [ ] 4.4d - Add "Insufficient Permissions" dialog for non-admins
@@ -781,32 +821,35 @@ CREATE TABLE integration_permissions (
 
 ---
 
-## ✨ Latest Updates (2025-10-27) - Workspace Switcher Enhancement
+## ✨ Latest Updates (2025-10-28) - Sidebar Task Widget Updates
 
 ### What Changed
 
-Based on user feedback, the workspace switcher has been enhanced to provide maximum flexibility while maintaining clear context.
+Based on user feedback, task quota display has been moved to the existing sidebar widget with permission-based visibility.
 
 **Key Improvements:**
 
 1. **🏠 Icon ("Home Base")** - Workspace switcher now shows 🏠 icon to indicate it's your "home base"
 
-2. **Quota & Integration Display** - Switcher dropdown shows:
-   - Task usage: "50/100 tasks used"
-   - Connected integrations: "🔌 2 integrations connected"
+2. **Clean Workspace Switcher** - Simple dropdown with workspace names only (no quota clutter)
 
-3. **Default Workspace Preference** - Users can now:
+3. **Sidebar Task Widget Updates on Context Switch**:
+   - Personal workspace → Always visible (your quota)
+   - Team/Org workspace (admin) → Shows organization quota + [View Billing] button
+   - Team/Org workspace (member) → **Hidden** (no permission to see billing)
+
+4. **Default Workspace Preference** - Users can now:
    - Set a default workspace for quick workflow creation
    - Choose to be asked every time
    - Follow the workspace switcher selection
    - Override default on a per-workflow basis
 
-4. **Smart Workflow Creation Modal** - Three scenarios:
+5. **Smart Workflow Creation Modal** - Three scenarios:
    - **No default set**: Shows workspace selector, pre-selects switcher selection
    - **Default set**: Compact view, quick creation
    - **Override default**: Expandable [Change ▼] button
 
-5. **Info Notifications** - When setting default, shows:
+6. **Info Notifications** - When setting default, shows:
    ```
    ℹ️ Default workspace saved! New workflows will be created in
       BrightSpark Marketing. You can change this in Settings or
@@ -830,16 +873,23 @@ CREATE INDEX idx_profiles_default_workspace ON profiles(default_workspace_id);
 
 **1. Enhanced WorkspaceSwitcher** (Phase 4.4)
 - Shows 🏠 icon
-- Displays quota and integrations
-- Dropdown with rich information
+- Clean, simple dropdown (workspace names only)
+- Triggers sidebar task widget update on switch
 
-**2. WorkflowCreationModal** (Phase 4.5)
-- Workspace selector with quota/integration info
+**2. Sidebar Task Widget** (Phase 4.4a)
+- Updates when workspace context changes
+- Shows personal quota (always visible)
+- Shows org/team quota (only if admin/billing permissions)
+- Hides completely for team members without permissions
+- Button changes: [Upgrade Plan] vs [View Billing] based on context
+
+**3. WorkflowCreationModal** (Phase 4.5)
+- Workspace selector (clean, no quota display)
 - "Set as my default workspace" checkbox
 - Collapsible workspace selector when default is set
 - Info toast notification
 
-**3. User Preferences** (Phase 4.6)
+**4. User Preferences** (Phase 4.6)
 - Settings page section: "Workflow Creation Defaults"
 - Three radio options: default / ask / follow switcher
 - Dropdown to select default workspace
@@ -848,22 +898,25 @@ CREATE INDEX idx_profiles_default_workspace ON profiles(default_workspace_id);
 
 ✅ **Flexibility**: Set default OR ask every time OR follow switcher
 ✅ **Speed**: Quick workflow creation with defaults
-✅ **Clarity**: Always know quota and available integrations
+✅ **Clarity**: Task quota shows in familiar sidebar location
+✅ **Privacy**: Team members don't see billing info they shouldn't access
 ✅ **Control**: Easy override for one-time changes
 ✅ **Visibility**: Still see ALL workflows regardless of switcher
+✅ **Clean UI**: Workspace switcher is simple and uncluttered
 
 ### Implementation Priority
 
 **High Priority:**
 1. Phase 1.7 - Database migration (default workspace columns)
-2. Phase 4.4 - Enhanced WorkspaceSwitcher UI
-3. Phase 4.5 - WorkflowCreationModal with defaults
-4. Phase 4.6 - Settings page for default workspace
+2. Phase 4.4 - Enhanced WorkspaceSwitcher UI (clean dropdown)
+3. Phase 4.4a - Sidebar Task Widget (workspace-aware + permission-based visibility)
+4. Phase 4.5 - WorkflowCreationModal with defaults
+5. Phase 4.6 - Settings page for default workspace
 
 **Medium Priority:**
-5. Phase 4.7 - WorkflowCard badges
-6. Phase 4.8 - Folder UI updates
-7. Phase 4.9 - Workflow builder team selector
+6. Phase 4.7 - WorkflowCard badges
+7. Phase 4.8 - Folder UI updates
+8. Phase 4.9 - Workflow builder team selector
 
 ---
 

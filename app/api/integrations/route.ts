@@ -1,20 +1,32 @@
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
 import { logger } from '@/lib/utils/logger'
+import { NextRequest } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-export async function GET() {
+/**
+ * GET /api/integrations
+ *
+ * Fetches integrations for the current user based on workspace context.
+ *
+ * Query Parameters:
+ * - workspace_type: 'personal' | 'team' | 'organization' (default: 'personal')
+ * - workspace_id: UUID of team or organization (required for team/org)
+ *
+ * Returns integrations that the user has permission to access.
+ *
+ * Updated: 2025-10-28 - Added workspace context filtering
+ */
+export async function GET(request: NextRequest) {
   logger.debug('📍 [API /api/integrations] GET request received', {
     timestamp: new Date().toISOString(),
-    headers: {
-      referer: 'check-console', // Will be logged from request
-    }
+    url: request.url
   });
-  
+
   try {
-    // First get the user from the regular client
+    // Get authenticated user
     const supabaseAuth = await createSupabaseRouteHandlerClient()
     const {
       data: { user },
@@ -22,30 +34,74 @@ export async function GET() {
     } = await supabaseAuth.auth.getUser()
 
     if (userError || !user) {
-      logger.error('❌ [API /api/integrations] Auth error', { 
+      logger.error('❌ [API /api/integrations] Auth error', {
         userError,
-        hasUser: !!user 
+        hasUser: !!user
       });
-      return errorResponse("Not authenticated" , 401)
+      return errorResponse("Not authenticated", 401)
     }
 
     logger.debug('✅ [API /api/integrations] User authenticated', { userId: user.id });
 
-    // Use service role client to bypass RLS for reading integrations
+    // Parse workspace context from query parameters
+    const { searchParams } = new URL(request.url)
+    const workspaceType = searchParams.get('workspace_type') || 'personal'
+    const workspaceId = searchParams.get('workspace_id')
+
+    logger.debug('🏠 [API /api/integrations] Workspace context', {
+      workspaceType,
+      workspaceId
+    });
+
+    // Validate workspace parameters
+    if ((workspaceType === 'team' || workspaceType === 'organization') && !workspaceId) {
+      return errorResponse('workspace_id is required for team/organization context', 400)
+    }
+
+    if (!['personal', 'team', 'organization'].includes(workspaceType)) {
+      return errorResponse('Invalid workspace_type. Must be personal, team, or organization', 400)
+    }
+
+    // Use service role client to query integrations with permissions
     const supabaseService = await createSupabaseServiceClient()
-    const { data: integrations, error: integrationsError } = await supabaseService
+
+    let query = supabaseService
       .from("integrations")
-      .select("*")
-      .eq("user_id", user.id)
-    
+      .select(`
+        *,
+        permissions:integration_permissions!inner(permission)
+      `)
+
+    // Filter by workspace context
+    if (workspaceType === 'personal') {
+      query = query
+        .eq('workspace_type', 'personal')
+        .eq('user_id', user.id)
+    } else if (workspaceType === 'team') {
+      query = query
+        .eq('workspace_type', 'team')
+        .eq('workspace_id', workspaceId)
+    } else if (workspaceType === 'organization') {
+      query = query
+        .eq('workspace_type', 'organization')
+        .eq('workspace_id', workspaceId)
+    }
+
+    // Filter to only integrations user has permission for
+    query = query.eq('permissions.user_id', user.id)
+
+    const { data: integrations, error: integrationsError } = await query
+
     logger.debug('📊 [API /api/integrations] Query result', {
+      workspaceType,
+      workspaceId,
       count: integrations?.length || 0,
       error: integrationsError,
-      errorMessage: integrationsError?.message,
-      errorCode: integrationsError?.code,
-      firstFew: integrations?.slice(0, 2).map(i => ({ 
-        provider: i.provider, 
-        status: i.status 
+      firstFew: integrations?.slice(0, 2).map(i => ({
+        provider: i.provider,
+        status: i.status,
+        workspace_type: i.workspace_type,
+        permission: (i as any).permissions?.permission
       }))
     });
 
@@ -56,13 +112,12 @@ export async function GET() {
         details: integrationsError.details,
         hint: integrationsError.hint
       });
-      return errorResponse(integrationsError.message , 500)
+      return errorResponse(integrationsError.message, 500)
     }
 
     // Check for expired integrations and update their status
     const now = new Date()
     const expiredIntegrationIds: string[] = []
-    const expiredProviders: string[] = []
 
     // First, identify all expired integrations
     for (const integration of integrations || []) {
@@ -72,7 +127,6 @@ export async function GET() {
         new Date(integration.expires_at) <= now
       ) {
         expiredIntegrationIds.push(integration.id)
-        expiredProviders.push(integration.provider)
       }
     }
 
@@ -85,21 +139,37 @@ export async function GET() {
           updated_at: now.toISOString(),
         })
         .in("id", expiredIntegrationIds)
+
+      logger.debug(`⏰ [API /api/integrations] Updated ${expiredIntegrationIds.length} expired integrations`)
     }
 
     // Update the integrations array with the corrected statuses
-    const updatedIntegrations = integrations?.map((integration) => {
-      if (expiredIntegrationIds.includes(integration.id)) {
-        return { ...integration, status: "expired" }
+    // Also clean up the permissions object and add permission level to root
+    const updatedIntegrations = integrations?.map((integration: any) => {
+      const { permissions, ...integrationData } = integration
+
+      return {
+        ...integrationData,
+        status: expiredIntegrationIds.includes(integration.id) ? "expired" : integration.status,
+        user_permission: permissions?.permission || null // Add permission level to response
       }
-      return integration
     })
+
+    logger.debug('✅ [API /api/integrations] Returning integrations', {
+      count: updatedIntegrations?.length || 0,
+      workspaceType
+    });
 
     return jsonResponse({
       success: true,
       data: updatedIntegrations || [],
+      workspace: {
+        type: workspaceType,
+        id: workspaceId
+      }
     })
   } catch (error: any) {
+    logger.error('❌ [API /api/integrations] Exception:', error);
     return jsonResponse(
       {
         success: false,
