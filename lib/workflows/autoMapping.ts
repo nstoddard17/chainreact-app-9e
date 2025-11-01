@@ -1,8 +1,9 @@
 export interface AutoMappingParams {
   workflowData: {
-    nodes?: any[]
-    edges?: any[]
-  }
+    nodes: any[]
+    edges: any[]
+    [key: string]: any // Allow additional properties like id, name, etc.
+  } | undefined
   currentNodeId: string | undefined
   configSchema: any[]
   currentConfig: Record<string, any>

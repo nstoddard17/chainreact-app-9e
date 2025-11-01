@@ -2424,17 +2424,18 @@ export function useWorkflowBuilder() {
           logger.debug('Positioned new node at:', newNode.position)
           logger.debug('Moved target and downstream nodes down by:', nodeSpacing)
 
-          const result = [...updatedNodes, newNode]
+          const result = [...updatedNodes, { ...newNode, draggable: true }]
           logger.debug('Total nodes after insertion:', result.length)
           return result
         } else {
           logger.error('Target node not found for insertion:', sourceNodeInfo.insertBefore)
-          return [...nds, newNode]
+          return [...nds, { ...newNode, draggable: true }]
         }
       } else {
         // Regular add action - remove the old AddActionNode and add new one
         const filteredNodes = nds.filter(n => n.id !== sourceNodeInfo.id)
-        const updatedNodes = [...filteredNodes, newNode]
+        const newNodeWithDrag = { ...newNode, draggable: true }
+        const updatedNodes = [...filteredNodes, newNodeWithDrag]
 
         // Check if this is an AI Agent node
         const isAIAgent = nodeComponent.type === 'ai_agent'
@@ -3235,6 +3236,7 @@ export function useWorkflowBuilder() {
     uploadTemplateAsset,
     deleteTemplateAsset,
     templateSettingsLabel,
+    pushHistorySnapshot: trackChange,
     // Undo/redo functionality
     handleUndo,
     handleRedo,

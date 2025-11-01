@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Workflow, WorkflowConnection, WorkflowNode } from "@/stores/workflowStore"
 import type { Flow, Node as FlowNode, Edge as FlowEdge, FlowInterface } from "@/src/lib/workflows/builder/schema"
 import { FlowSchema } from "@/src/lib/workflows/builder/schema"
+import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 
 type PlannerEdit =
   | { op: "addNode"; node: FlowNode }
@@ -106,6 +107,23 @@ export function v2ToOldFlow(flow: Flow): { nodes: OldNode[]; edges: OldEdge[]; m
   const nodes: OldNode[] = flow.nodes.map((node, index) => {
     const metadata = (node.metadata ?? {}) as any
     const position = metadata.position ?? fallbackPosition(index)
+
+    // If providerId is missing from metadata, look it up from ALL_NODE_COMPONENTS
+    let providerId = metadata.providerId
+    let isTrigger = metadata.isTrigger ?? false
+    let icon = metadata.icon
+    let category = metadata.category
+
+    if (!providerId) {
+      const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === node.type)
+      if (nodeComponent) {
+        providerId = nodeComponent.providerId
+        isTrigger = nodeComponent.isTrigger ?? false
+        icon = nodeComponent.icon
+        category = nodeComponent.category
+      }
+    }
+
     return {
       id: node.id,
       type: metadata.reactFlowType ?? "custom",
@@ -115,10 +133,12 @@ export function v2ToOldFlow(flow: Flow): { nodes: OldNode[]; edges: OldEdge[]; m
         title: node.label ?? node.type,
         type: node.type,
         config: node.config ?? {},
-        providerId: metadata.providerId,
-        isTrigger: metadata.isTrigger ?? false,
+        providerId,
+        isTrigger,
         description: node.description,
         costHint: node.costHint ?? 0,
+        icon,
+        category,
       },
     }
   })
@@ -169,13 +189,23 @@ export function oldConnectToEdge(
 
 export function addNodeEdit(type: string, position?: { x: number; y: number }): { op: "addNode"; node: FlowNode } {
   const nodeId = generateId(type.replace(/\W+/g, "-") || "node")
+
+  // Look up node definition from ALL_NODE_COMPONENTS
+  const nodeDefinition = ALL_NODE_COMPONENTS.find(n => n.type === type)
+  const title = nodeDefinition?.title || type
+  const description = nodeDefinition?.description
+  const providerId = nodeDefinition?.providerId
+  const isTrigger = nodeDefinition?.isTrigger || false
+  const icon = nodeDefinition?.icon
+  const category = nodeDefinition?.category
+
   return {
     op: "addNode",
     node: {
       id: nodeId,
       type,
-      label: type,
-      description: undefined,
+      label: title,
+      description: description,
       config: {},
       inPorts: [],
       outPorts: [],
@@ -185,6 +215,10 @@ export function addNodeEdit(type: string, position?: { x: number; y: number }): 
       metadata: {
         position: position ?? { x: 160, y: 120 },
         reactFlowType: "custom",
+        providerId,
+        isTrigger,
+        icon,
+        category,
       },
     },
   }

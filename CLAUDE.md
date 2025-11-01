@@ -846,3 +846,171 @@ return addCorsHeaders(response, request, { allowCredentials: true })
 
 ### General Security
 No token logging, encrypted storage, scope validation, OAuth best practices, audit logs
+
+## 🎯 AI Agent Flow - Current Status & Enhancements
+
+### ✅ Completed Features (12/12 - 100%)
+**Last Updated**: October 31, 2025  
+**Documentation**: See `/AI_AGENT_FLOW_COMPLETE.md` and `/AI_AGENT_FLOW_ENHANCEMENTS.md`
+
+**Core Features Implemented:**
+1. ✅ Chat Persistence - Messages saved to database per flow
+2. ✅ Planner Determinism - 247-node catalog with deterministic planning
+3. ✅ Animated Build Choreography - 120ms stagger, 550ms camera movements
+4. ✅ Design Tokens - 420±4px agent panel, 380±4px inspector, exact spacing
+5. ✅ Configuration Drawer - 4 tabs (Setup, Output, Advanced, Results)
+6. ✅ Guided Setup - Sequential Continue/Skip flow for node configuration
+7. ✅ Cost Tracking - Pre-run estimation + breakdown by provider
+8. ✅ Build Badge - Top-center overlay with stage indicators
+9. ✅ Reduced Motion - Full accessibility support
+10. ✅ Node States - CSS classes (skeleton, halo, pulse, success, error)
+11. ✅ Edge Styling - 1.5px stroke, neutral gray from design tokens
+12. ✅ Typography - 11/12.5/14/16px scale
+
+**Files Modified:**
+- `components/workflows/builder/WorkflowBuilderV2.tsx` - Main integration (~200 lines)
+- `components/workflows/configuration/ConfigurationModal.tsx` - 4-tab system
+- See `/AI_AGENT_FLOW_COMPLETE.md` for full file manifest
+
+**Infrastructure Created:**
+- `/lib/workflows/ai-agent/` - design-tokens, chat-service, build-choreography, cost-tracker
+- `/components/workflows/ai-agent/` - BuildBadge, GuidedSetupCard, AgentChatPanel, CostDisplay
+- `/app/api/workflows/[id]/chat/` - Chat persistence API
+- `/supabase/migrations/agent_chat_persistence_v2.sql` - Database schema
+
+### ⚠️ Manual Action Required (User Must Do)
+
+**CRITICAL - Database Migration:**
+```bash
+# Apply this SQL in Supabase Studio SQL Editor
+# File: /supabase/migrations/agent_chat_persistence_v2.sql
+# Creates: agent_chat_messages table with RLS policies
+# Required for: Chat persistence to work
+```
+
+See `/MANUAL_ACTIONS_REQUIRED.md` for detailed steps.
+
+### 🎯 Outstanding Enhancements (Beyond Original Spec)
+
+**See**: `/AI_AGENT_FLOW_ENHANCEMENTS.md` for detailed implementation guides
+
+**High Priority (10-12 hours):**
+1. **Node Testing in Guided Setup** (4-5h)
+   - Test node before advancing to next
+   - Save sample output data
+   - Track cost per tested node
+   - **Why**: Ensures workflows configured correctly before deployment
+
+2. **Planner Node Descriptions** (2h)
+   - Generate descriptions for each node in plan
+   - Show subtitles on canvas
+   - Display preview snippets
+   - **Why**: Improves UX clarity of what each node does
+
+3. **Complete Output Schemas** (4-12h)
+   - Define `outputSchema` for all 247 nodes
+   - Enable full variable picker functionality
+   - Type-safe merge field references
+   - **Why**: Critical for variable picker and workflow composability
+   - **Note**: Can start with top 20 nodes (4h) for 80% coverage
+
+**Medium Priority (9-11 hours):**
+4. **Runtime Execution States** (5-6h)
+   - Real-time visual states during workflow execution
+   - Success/failure indicators
+   - Streaming execution updates
+   - **Why**: Better debugging and monitoring
+
+5. **Sample Data Preview** (4-5h)
+   - Show output data on canvas after tests
+   - Collapsible JSON viewer with syntax highlighting
+   - Copy merge fields from preview
+   - **Why**: Faster iteration on workflow development
+
+**Low Priority (4 hours):**
+6. **Actual Cost Tracking** (4h)
+   - Track actual cost during execution
+   - Compare estimate vs actual
+   - Historical cost trends
+   - **Why**: Analytics and optimization insights
+
+**Total Estimated Time**: ~28 hours over 3 weeks
+
+### 🔍 End-to-End Requirements Checklist
+
+**For AI Agent Flow to work end-to-end:**
+
+1. ✅ **Code Integration** - COMPLETE
+   - All infrastructure wired into WorkflowBuilderV2.tsx
+   - Agent panel renders at 420px ± 4
+   - BuildBadge shows during build
+   - CostDisplay in top-right
+   - Guided setup Continue/Skip buttons wired
+
+2. ⚠️ **Database Migration** - REQUIRES USER ACTION
+   - Apply `agent_chat_persistence_v2.sql` in Supabase Studio
+   - Creates `agent_chat_messages` table
+   - Without this: Chat won't persist across refreshes
+
+3. ✅ **API Routes** - COMPLETE
+   - `/api/workflows/[id]/chat` - GET/POST/PATCH
+   - Chat service handles all persistence
+   - Status messages prevent duplicates
+
+4. ✅ **Design System** - COMPLETE
+   - `agent-flow.css` imported
+   - Design tokens applied (420±4, 380±4, etc.)
+   - Node state CSS classes ready
+   - Reduced motion support
+
+5. ✅ **Build Choreography** - COMPLETE
+   - BuildChoreographer integrated
+   - 120ms node stagger (spec-compliant)
+   - 550ms camera movements
+   - Zoom-fit → skeleton → focus sequence
+
+6. ⚠️ **Testing** - NOT YET DONE
+   - User needs to test with actual prompt
+   - Verify chat persistence after migration
+   - Check build animation timing
+   - Confirm guided setup flow
+
+**Test URL Format:**
+```
+http://localhost:3001/workflows/[flow-id]?prompt=Send%20email%20to%20Slack
+```
+
+### 🐛 Known Issues
+
+1. **Gmail Icon Warning (Non-Breaking)**
+   - Dev server shows `TagOff/TagPlus not exported`
+   - Code is correct (uses `Plus` and `X`)
+   - Fix: `rm -rf .next && npm run dev`
+
+2. **Chat Persistence Requires Migration**
+   - Messages don't persist until migration applied
+   - User must manually run SQL in Supabase Studio
+
+### 📖 Documentation Reference
+
+When user asks about AI Agent Flow enhancements:
+1. **Feature List**: `/AI_AGENT_FLOW_ENHANCEMENTS.md`
+2. **What's Complete**: `/AI_AGENT_FLOW_COMPLETE.md`
+3. **Manual Actions**: `/MANUAL_ACTIONS_REQUIRED.md`
+4. **Technical Details**: `/learning/docs/agent-flow-integration-complete.md`
+
+**Quick Status Check:**
+- Core Features: 12/12 (100%)
+- Manual Actions: 1 required (database migration)
+- Enhancements: 6 identified, prioritized, documented
+
+### 🎬 Next Steps for User
+
+1. Apply database migration from `/MANUAL_ACTIONS_REQUIRED.md`
+2. Test end-to-end: Submit prompt → Plan → Build → Guided setup
+3. Verify chat persistence (refresh page after prompt)
+4. Report any issues
+5. Choose enhancements to implement from `/AI_AGENT_FLOW_ENHANCEMENTS.md`
+
+---
+

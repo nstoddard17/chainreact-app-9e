@@ -12,7 +12,7 @@ import {
   Grid3x3,
   ArrowRight,
 } from "lucide-react"
-import { ALL_NODE_COMPONENTS } from "@/lib/workflows/availableNodes"
+import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 import type { NodeComponent } from "@/lib/workflows/nodes/types"
 
 interface IntegrationsSidePanelProps {
@@ -129,12 +129,61 @@ export function IntegrationsSidePanel({ isOpen, onClose, onNodeSelect }: Integra
               const shouldUseNodeIcon = ['logic', 'ai'].includes(node.providerId || '')
               const providerLogo = !shouldUseNodeIcon && node.providerId ? `/integrations/${node.providerId}.svg` : null
 
-              const handleDragStart = (e: React.DragEvent) => {
+              const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
                 e.dataTransfer.effectAllowed = 'copy'
                 e.dataTransfer.setData('application/reactflow', JSON.stringify({
                   type: 'node',
                   nodeData: node
                 }))
+
+                // Create a pill-style drag preview
+                const dragElement = document.createElement('div')
+                dragElement.style.position = 'absolute'
+                dragElement.style.top = '-1000px'
+                dragElement.style.padding = '8px 16px'
+                dragElement.style.background = 'rgba(255, 255, 255, 0.95)'
+                dragElement.style.border = '2px solid #e5e7eb'
+                dragElement.style.borderRadius = '24px'
+                dragElement.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)'
+                dragElement.style.display = 'flex'
+                dragElement.style.alignItems = 'center'
+                dragElement.style.gap = '8px'
+                dragElement.style.fontSize = '14px'
+                dragElement.style.fontWeight = '500'
+                dragElement.style.color = '#1f2937'
+                dragElement.style.whiteSpace = 'nowrap'
+                dragElement.style.pointerEvents = 'none'
+
+                // Add icon
+                if (providerLogo) {
+                  const iconImg = document.createElement('img')
+                  iconImg.src = providerLogo
+                  iconImg.style.width = '20px'
+                  iconImg.style.height = '20px'
+                  iconImg.style.objectFit = 'contain'
+                  dragElement.appendChild(iconImg)
+                } else if (NodeIcon) {
+                  const iconSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+                  iconSvg.setAttribute('width', '20')
+                  iconSvg.setAttribute('height', '20')
+                  iconSvg.setAttribute('viewBox', '0 0 24 24')
+                  iconSvg.setAttribute('fill', 'none')
+                  iconSvg.setAttribute('stroke', 'currentColor')
+                  iconSvg.setAttribute('stroke-width', '2')
+                  dragElement.appendChild(iconSvg)
+                }
+
+                // Add text
+                const text = document.createElement('span')
+                text.textContent = node.title
+                dragElement.appendChild(text)
+
+                document.body.appendChild(dragElement)
+
+                e.dataTransfer.setDragImage(dragElement, 40, 20)
+
+                // Clean up the temporary element after drag starts
+                setTimeout(() => document.body.removeChild(dragElement), 0)
               }
 
               return (
@@ -163,8 +212,18 @@ export function IntegrationsSidePanel({ isOpen, onClose, onNodeSelect }: Integra
                     <h3 className="font-medium text-sm leading-tight mb-0.5">
                       {node.title}
                     </h3>
+                    {/* Provider/Category subtitle */}
+                    {(node.providerId || node.category) && (
+                      <div className="text-xs text-muted-foreground/70 mb-1 capitalize">
+                        {node.providerId ?
+                          node.providerId.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) :
+                          node.category
+                        }
+                        {node.isTrigger ? ' • Trigger' : ' • Action'}
+                      </div>
+                    )}
                     <p className="text-xs text-muted-foreground line-clamp-2">
-                      {node.description}
+                      {node.description || 'No description available'}
                     </p>
                   </div>
                 </div>

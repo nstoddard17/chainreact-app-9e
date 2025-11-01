@@ -139,34 +139,51 @@ export class FlowRepository {
   }: CreateFlowRevisionParams): Promise<FlowRevisionRecord> {
     const validated = FlowSchema.parse(flow)
 
-    const resolvedVersion = await this.resolveRevisionVersion(flowId, version)
-    const now = new Date().toISOString()
+    // Retry logic to handle race conditions when adding multiple nodes quickly
+    const maxRetries = 3
+    let lastError: any = null
 
-    const { data, error } = await this.client
-      .from("flow_v2_revisions")
-      .insert({
-        id,
-        flow_id: flowId,
-        version: resolvedVersion,
-        graph: validated,
-        created_at: now,
-      })
-      .select("id, flow_id, version, graph, created_at")
-      .single()
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      const resolvedVersion = await this.resolveRevisionVersion(flowId, version)
+      const now = new Date().toISOString()
 
-    if (error) {
+      const { data, error } = await this.client
+        .from("flow_v2_revisions")
+        .insert({
+          id: attempt === 0 ? id : randomUUID(), // Use new ID on retry
+          flow_id: flowId,
+          version: resolvedVersion,
+          graph: validated,
+          created_at: now,
+        })
+        .select("id, flow_id, version, graph, created_at")
+        .single()
+
+      if (!error) {
+        const parsed = FlowRevisionRowSchema.parse(data)
+        return {
+          id: parsed.id,
+          flowId: parsed.flow_id,
+          version: parsed.version,
+          graph: FlowSchema.parse(parsed.graph as JsonValue),
+          createdAt: parsed.created_at,
+        }
+      }
+
+      // Check if it's a duplicate key error
+      if (error.code === '23505' && error.message.includes('flow_v2_revisions_unique_version')) {
+        lastError = error
+        // Wait a bit before retrying (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, 50 * Math.pow(2, attempt)))
+        continue
+      }
+
+      // For other errors, throw immediately
       throw new Error(`Failed to create flow revision: ${error.message}`)
     }
 
-    const parsed = FlowRevisionRowSchema.parse(data)
-
-    return {
-      id: parsed.id,
-      flowId: parsed.flow_id,
-      version: parsed.version,
-      graph: FlowSchema.parse(parsed.graph as JsonValue),
-      createdAt: parsed.created_at,
-    }
+    // If we exhausted all retries
+    throw new Error(`Failed to create flow revision after ${maxRetries} attempts: ${lastError?.message}`)
   }
 
   async loadRevision({ flowId, version }: LoadFlowRevisionParams): Promise<FlowRevisionRecord | null> {
