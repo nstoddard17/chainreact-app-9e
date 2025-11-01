@@ -1,4 +1,4 @@
-import { AIAgentBuilderContent } from "@/components/workflows/ai-builder/AIAgentBuilderContent"
+import { FlowV2AIAgentBuilderContent } from "@/components/workflows/builder/FlowV2AIAgentBuilderContent"
 import { requireUsername } from "@/utils/checkUsername"
 
 export const dynamic = 'force-dynamic'
@@ -6,5 +6,5 @@ export const dynamic = 'force-dynamic'
 export default async function AIAgentPage() {
   await requireUsername()
 
-  return <AIAgentBuilderContent />
+  return <FlowV2AIAgentBuilderContent />
 }

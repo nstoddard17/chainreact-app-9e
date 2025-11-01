@@ -13,13 +13,16 @@ import { NodeContextMenu } from "./NodeContextMenu"
 import { logger } from '@/lib/utils/logger'
 import { getIntegrationLogoClasses } from "@/lib/integrations/logoStyles"
 import { cn } from "@/lib/utils"
+import './builder/styles/node-states.css'
+
+export type NodeState = 'skeleton' | 'ready' | 'running' | 'passed' | 'failed'
 
 // The data object passed to the node will now contain these callbacks.
 type ConfigureOptions = {
   focusField?: string
 }
 
-interface CustomNodeData {
+export interface CustomNodeData {
   title: string
   description: string
   type: string
@@ -60,7 +63,7 @@ interface CustomNodeData {
   needsSetup?: boolean
   aiStatus?: 'creating' | 'configuring' | 'configured' | 'testing' | 'ready' | 'error' | string
   aiBadgeText?: string
-  aiBadgeVariant?: 'success' | 'warning' | 'info' | 'danger' | 'default' | string
+  aiBadgeVariant?: 'success' | 'warning' | 'info' | 'danger' | 'default' | 'string'
   aiTestSummary?: string | null
   autoExpand?: boolean
   aiFallbackFields?: string[]
@@ -70,6 +73,12 @@ interface CustomNodeData {
     displayValue?: string
     viaFallback?: boolean
   }[]
+  // Phase 1: Node state management
+  state?: NodeState
+  preview?: {
+    title?: string
+    content: string | string[]
+  }
 }
 
 type SlackConfigSection = {
@@ -127,6 +136,54 @@ function CustomNode({ id, data, selected }: NodeProps) {
       ? reactFlowInstance.updateNodeInternals
       : null
   const nodeData = data as CustomNodeData & { debugListeningMode?: boolean; debugExecutionStatus?: string }
+
+  // Phase 1: Node state helpers
+  const nodeState = nodeData.state || 'ready'
+
+  const getStatusBadge = (state: NodeState): { text: string; className: string } => {
+    switch (state) {
+      case 'skeleton':
+        return { text: 'Setup Required', className: 'badge-skeleton' }
+      case 'running':
+        return { text: 'Running', className: 'badge-running' }
+      case 'passed':
+        return { text: 'Success', className: 'badge-passed' }
+      case 'failed':
+        return { text: 'Failed', className: 'badge-failed' }
+      case 'ready':
+      default:
+        return { text: 'Ready', className: 'badge-ready' }
+    }
+  }
+
+  const statusBadge = getStatusBadge(nodeState)
+
+  // Helper function to get handle styling based on node state
+  const getHandleStyle = (state: NodeState) => {
+    switch (state) {
+      case 'running':
+        // Running nodes get special blue gradient handles
+        return {
+          background: 'linear-gradient(90deg, #d3e7ff 0%, #e6f0ff 100%)',
+          borderColor: 'hsl(217 91% 60% / 0.5)',
+          boxShadow: '0 0 6px hsl(217 91% 60% / 0.3)',
+        }
+      case 'skeleton':
+      case 'passed':
+      case 'failed':
+      case 'ready':
+      default:
+        // All other states get the same subtle gray handles
+        return {
+          background: 'hsl(var(--muted) / 0.3)',
+          borderColor: 'hsl(var(--border))',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
+        }
+    }
+  }
+
+  const handleStyle = getHandleStyle(nodeState)
+
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [editedTitle, setEditedTitle] = useState("")
   const [isConfigExpanded, setIsConfigExpanded] = useState<boolean>(() => {
@@ -134,6 +191,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
     return Boolean(nodeData.autoExpand) || nodeData.aiStatus === 'configuring'
   }) // Track if config section is expanded
   const [slackSectionsOpen, setSlackSectionsOpen] = useState<Record<string, boolean>>(DEFAULT_SLACK_SECTION_STATE)
+  const [isPreviewExpanded, setIsPreviewExpanded] = useState(true) // Phase 1: Preview auto-expanded for running/passed/failed nodes
   const titleInputRef = useRef<HTMLInputElement>(null)
 
   const {
@@ -874,10 +932,50 @@ function CustomNode({ id, data, selected }: NodeProps) {
       <div
         className={`relative w-[450px] ${backgroundClass} rounded-lg shadow-sm border-2 group ${borderClass} ${shadowClass} ${ringClass} transition-all duration-200 overflow-hidden ${
           nodeHasConfiguration() ? "cursor-pointer" : ""
-        } ${getExecutionStatusStyle()}`}
+        } ${getExecutionStatusStyle()} ${
+          nodeState === 'running' ? 'node-running' :
+          nodeState === 'passed' ? 'node-passed' :
+          nodeState === 'failed' ? 'node-failed' : ''
+        }`}
         data-testid={`node-${id}`}
         onDoubleClick={handleDoubleClick}
+        style={{
+          opacity: nodeState === 'skeleton' ? 0.5 : 1,
+          width: '450px',
+          maxWidth: '450px',
+          minWidth: '450px',
+          boxSizing: 'border-box',
+          flex: 'none',
+        }}
       >
+      {/* Phase 1: Status Badge - Top Right Corner - Click to toggle preview details */}
+      <div
+        className={statusBadge.className}
+        onClick={(e) => {
+          e.stopPropagation() // Prevent double-click from opening config
+          if (nodeState === 'passed' || nodeState === 'failed' || nodeState === 'running') {
+            setIsPreviewExpanded(!isPreviewExpanded)
+          }
+        }}
+        style={{
+          position: 'absolute',
+          top: '8px',
+          right: '8px',
+          fontSize: '10px',
+          padding: '4px 8px',
+          borderRadius: '4px',
+          fontWeight: 600,
+          textAlign: 'center',
+          lineHeight: 1,
+          zIndex: 10,
+          cursor: (nodeState === 'passed' || nodeState === 'failed' || nodeState === 'running') ? 'pointer' : 'default',
+        }}
+        title={(nodeState === 'passed' || nodeState === 'failed' || nodeState === 'running') ?
+          (isPreviewExpanded ? 'Click to hide details' : 'Click to show details') : undefined}
+      >
+        {statusBadge.text}
+      </div>
+
       {/* Execution status indicator */}
       {getExecutionStatusIndicator()}
       {/* Error label */}
@@ -921,32 +1019,36 @@ function CustomNode({ id, data, selected }: NodeProps) {
 
       <div className="p-3">
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-start space-x-2.5 flex-1 min-w-0">
-            {type === 'chain_placeholder' ? (
-              <Layers className="h-7 w-7 text-muted-foreground flex-shrink-0 mt-0.5" />
-            ) : providerId ? (
-              <img
-                src={`/integrations/${providerId}.svg`}
-                alt={`${title || ''} logo`}
-                className={getIntegrationLogoClasses(providerId, "w-7 h-7 object-contain flex-shrink-0 mt-0.5")}
-                onError={(e) => {
-                  logger.error(`Failed to load logo for ${providerId} at path: /integrations/${providerId}.svg`)
-                  // Fallback to icon if image fails
-                  if (component?.icon) {
-                    const parent = e.currentTarget.parentElement
-                    if (parent) {
-                      e.currentTarget.remove()
-                      const iconElement = React.createElement(component.icon, { className: "h-8 w-8 text-foreground" })
-                      // This won't work directly, but shows the intent
+          <div className="grid grid-cols-[40px_1fr] gap-2.5 items-center flex-1 min-w-0">
+            {/* Logo - Fixed position, vertically centered */}
+            <div className="flex items-center justify-center">
+              {type === 'chain_placeholder' ? (
+                <Layers className="h-7 w-7 text-muted-foreground flex-shrink-0" />
+              ) : providerId ? (
+                <img
+                  src={`/integrations/${providerId}.svg`}
+                  alt={`${title || ''} logo`}
+                  className={getIntegrationLogoClasses(providerId, "w-7 h-7 object-contain flex-shrink-0")}
+                  onError={(e) => {
+                    logger.error(`Failed to load logo for ${providerId} at path: /integrations/${providerId}.svg`)
+                    // Fallback to icon if image fails
+                    if (component?.icon) {
+                      const parent = e.currentTarget.parentElement
+                      if (parent) {
+                        e.currentTarget.remove()
+                        const iconElement = React.createElement(component.icon, { className: "h-8 w-8 text-foreground" })
+                        // This won't work directly, but shows the intent
+                      }
                     }
-                  }
-                }}
-                onLoad={() => logger.debug(`Successfully loaded logo for ${providerId}`)}
-              />
-            ) : (
-              component?.icon && React.createElement(component.icon, { className: "h-7 w-7 text-foreground flex-shrink-0 mt-0.5" })
-            )}
-            <div className="min-w-0 flex-1 pr-2">
+                  }}
+                  onLoad={() => logger.debug(`Successfully loaded logo for ${providerId}`)}
+                />
+              ) : (
+                component?.icon && React.createElement(component.icon, { className: "h-7 w-7 text-foreground flex-shrink-0" })
+              )}
+            </div>
+            {/* Content - Flows independently */}
+            <div className="min-w-0 pr-2">
               {isEditingTitle ? (
                 <input
                   ref={titleInputRef}
@@ -1006,32 +1108,37 @@ function CustomNode({ id, data, selected }: NodeProps) {
               )}
             </div>
           </div>
-          <div className="flex items-center space-x-0.5 flex-shrink-0">
-            {/* Don't show delete button for chain placeholder nodes */}
-            {type !== 'chain_placeholder' && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleDelete}
-                      className="h-7 w-7 text-muted-foreground hover:text-destructive flex-shrink-0"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">Delete {title}</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-          </div>
         </div>
         {/* Node note - explanatory text for AI-inserted nodes */}
         {note && (
           <div className="mt-3 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
             <Info className="w-3.5 h-3.5 text-blue-600 flex-shrink-0 mt-0.5" />
             <p className="text-xs text-blue-700 leading-relaxed whitespace-pre-wrap">{note}</p>
+          </div>
+        )}
+
+        {/* Phase 1: Preview/Output Display - Kadabra-style results - Auto-expanded, click badge to toggle */}
+        {nodeData.preview && isPreviewExpanded && (
+          <div className="mt-3 rounded-lg border border-border/60 bg-muted/30 overflow-hidden">
+            {nodeData.preview.title && (
+              <div className="px-3 py-2 border-b border-border/50 bg-muted/50">
+                <p className="text-xs font-semibold text-foreground">{nodeData.preview.title}</p>
+              </div>
+            )}
+            <div className="px-3 py-2.5">
+              {Array.isArray(nodeData.preview.content) ? (
+                <div className="space-y-1.5">
+                  {nodeData.preview.content.map((line, index) => (
+                    <div key={index} className="flex items-start gap-2">
+                      <div className="w-1 h-1 rounded-full bg-muted-foreground/40 mt-1.5 flex-shrink-0" />
+                      <p className="text-xs text-muted-foreground leading-relaxed flex-1">{line}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground leading-relaxed">{nodeData.preview.content}</p>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -1315,30 +1422,42 @@ function CustomNode({ id, data, selected }: NodeProps) {
         </div>
       )}
 
-      {/* Input handle - Half-moon on left side - Fixed to align with header center */}
+      {/* Input handle - Half-moon on left side - Blends with node state */}
       {!isTrigger && (
         <Handle
           type="target"
           position={Position.Left}
-          className="!w-3 !h-6 !rounded-r-full !rounded-l-none !bg-border !border-2 !border-background !shadow-sm hover:!scale-110 !transition-transform"
+          className="!w-4 !h-8 !rounded-r-full !rounded-l-none !transition-all !duration-200"
           style={{
             visibility: data.isTrigger ? "hidden" : "visible",
             left: "0px",
-            top: "40px",  // Fixed position to align with header/icon center
-            transform: "none",
+            top: "32px",
+            zIndex: 10,
+            background: handleStyle.background,
+            borderRight: `1.5px solid ${handleStyle.borderColor}`,
+            borderTop: 'none',
+            borderBottom: 'none',
+            borderLeft: 'none',
+            boxShadow: handleStyle.boxShadow,
           }}
         />
       )}
 
-      {/* Output handle - Half-moon on right side - ALWAYS show for all nodes - Fixed to align with header center */}
+      {/* Output handle - Half-moon on right side - Blends with node state */}
       <Handle
         type="source"
         position={Position.Right}
-        className="!w-3 !h-6 !rounded-l-full !rounded-r-none !bg-border !border-2 !border-background !shadow-sm hover:!scale-110 !transition-transform"
+        className="!w-4 !h-8 !rounded-l-full !rounded-r-none !transition-all !duration-200"
         style={{
           right: "0px",
-          top: "40px",  // Fixed position to align with header/icon center
-          transform: "none",
+          top: "32px",
+          zIndex: 10,
+          background: handleStyle.background,
+          borderLeft: `1.5px solid ${handleStyle.borderColor}`,
+          borderTop: 'none',
+          borderBottom: 'none',
+          borderRight: 'none',
+          boxShadow: handleStyle.boxShadow,
         }}
       />
     </div>

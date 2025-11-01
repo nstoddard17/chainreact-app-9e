@@ -47,7 +47,8 @@ import {
   Gauge,
   Key,
   HelpCircle,
-  ArrowRight
+  ArrowRight,
+  Workflow
 } from 'lucide-react'
 import { LightningLoader } from '@/components/ui/lightning-loader'
 import { useToast } from '@/hooks/use-toast'

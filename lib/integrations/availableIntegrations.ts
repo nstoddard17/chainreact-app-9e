@@ -282,6 +282,21 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     authType: "oauth",
   },
 
+  monday: {
+    id: "monday",
+    name: "Monday.com",
+    description: "Work OS for teams to run projects and workflows",
+    category: "productivity",
+    capabilities: ["Create Items", "Update Items", "Manage Boards", "Post Updates", "Track Progress"],
+    scopes: ["boards:read", "boards:write", "workspaces:read", "me:read", "webhooks:write"],
+    isAvailable: false,
+    requiresClientId: "MONDAY_CLIENT_ID",
+    requiresClientSecret: "MONDAY_CLIENT_SECRET",
+    color: "#FF3D57",
+    docsUrl: "https://developer.monday.com/api-reference/docs",
+    authType: "oauth",
+  },
+
   // E-commerce & Payments
   stripe: {
     id: "stripe",

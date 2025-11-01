@@ -26,11 +26,13 @@ import { CheckCircle2, Plus, ExternalLink, MoreVertical, Unplug, RefreshCw, Sett
 import { useToast } from "@/hooks/use-toast"
 import { logger } from "@/lib/utils/logger"
 import { fetchWithTimeout } from "@/lib/utils/fetch-with-timeout"
-import { getIntegrationLogoClasses } from "@/lib/integrations/logoStyles"
+import { getIntegrationLogoClasses, getIntegrationLogoPath } from "@/lib/integrations/logoStyles"
+import { useTheme } from "next-themes"
 
 export function AppsContent() {
   const { providers, integrations, initializeProviders, fetchIntegrations, connectIntegration, setLoading, loading: storeLoading } = useIntegrationStore()
   const { user } = useAuthStore()
+  const { theme } = useTheme()
   const [searchQuery, setSearchQuery] = useState("")
   const [availableSearchQuery, setAvailableSearchQuery] = useState("")
   const [showConnectDialog, setShowConnectDialog] = useState(false)
@@ -160,8 +162,11 @@ export function AppsContent() {
     return needsAttention && matchesSearch
   }).sort((a, b) => a.name.localeCompare(b.name))
 
+  // Popular apps to show first (most commonly used integrations)
+  const POPULAR_APPS = ['gmail', 'slack', 'notion', 'drive', 'twitter', 'discord', 'airtable', 'hubspot']
+
   // Filter available apps (not connected at all - no integration record)
-  const availableApps = providers.filter(provider => {
+  const allAvailableApps = providers.filter(provider => {
     if (["ai", "logic", "control"].includes(provider.id)) return false
     const connection = getConnectionStatus(provider.id)
     // Only show as available if there's NO integration record at all
@@ -169,7 +174,18 @@ export function AppsContent() {
     const matchesSearch = availableSearchQuery === "" ||
       provider.name.toLowerCase().includes(availableSearchQuery.toLowerCase())
     return isAvailable && matchesSearch
-  }).sort((a, b) => a.name.localeCompare(b.name))
+  })
+
+  // Split into popular and other apps
+  const popularApps = POPULAR_APPS
+    .map(id => allAvailableApps.find(app => app.id === id))
+    .filter((app): app is typeof allAvailableApps[0] => app !== undefined)
+
+  const otherApps = allAvailableApps
+    .filter(app => !POPULAR_APPS.includes(app.id))
+    .sort((a, b) => a.name.localeCompare(b.name))
+
+  const availableApps = [...popularApps, ...otherApps]
 
   const stats = {
     connected: integrations.filter(i => i.status === 'connected').length,
@@ -205,10 +221,10 @@ export function AppsContent() {
               Connect New App
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-3xl max-h-[80vh]">
+          <DialogContent className="w-full max-w-[1400px] lg:max-w-[1800px] xl:max-w-[2400px] max-h-[80vh] bg-white dark:bg-white border-none shadow-2xl">
             <DialogHeader>
-              <DialogTitle>Connect New App</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="text-gray-900">Connect New App</DialogTitle>
+              <DialogDescription className="text-gray-600">
                 Choose an app to connect to your account
               </DialogDescription>
             </DialogHeader>
@@ -219,54 +235,153 @@ export function AppsContent() {
                 placeholder="Search available apps..."
                 value={availableSearchQuery}
                 onChange={(e) => setAvailableSearchQuery(e.target.value)}
+                className="bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400"
               />
             </div>
 
             {/* Available apps grid */}
-            <div className="grid sm:grid-cols-2 gap-3 overflow-y-auto max-h-[50vh] pr-2">
-              {availableApps.length === 0 ? (
-                <div className="col-span-2 text-center py-8">
-                  <p className="text-muted-foreground">
-                    {availableSearchQuery ? "No apps found matching your search" : "All apps are already connected!"}
-                  </p>
-                </div>
-              ) : (
-                availableApps.map((provider) => (
-                  <Card key={provider.id} className="hover:bg-accent/50 transition-colors">
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg border flex items-center justify-center flex-shrink-0 bg-white dark:bg-slate-900">
-                          <img
-                            src={`/integrations/${provider.id}.svg`}
-                            alt={provider.name}
-                            className={getIntegrationLogoClasses(provider.id)}
-                            onError={(e) => {
-                              e.currentTarget.style.display = 'none'
-                            }}
-                          />
+            <div className="overflow-y-auto max-h-[500px] pr-2">
+              <div className="space-y-6">
+                {availableApps.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-600">
+                      {availableSearchQuery ? "No apps found matching your search" : "All apps are already connected!"}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Most Popular Section */}
+                    {!availableSearchQuery && popularApps.length > 0 && (
+                      <div>
+                        <div className="mb-4">
+                          <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">Most Popular</h3>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-sm truncate">{provider.name}</h3>
+                        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                          {popularApps.map((provider) => (
+                            <Card key={provider.id} className="bg-gray-50 border border-gray-200 hover:bg-gray-100 hover:border-gray-300 transition-all duration-200 shadow-sm hover:shadow-md">
+                              <CardContent className="py-5 px-4">
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                                    <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
+                                      <img
+                                        src={getIntegrationLogoPath(provider.id, 'light')}
+                                        alt={provider.name}
+                                        className="w-10 h-10 object-contain"
+                                        onError={(e) => {
+                                          e.currentTarget.style.display = 'none'
+                                        }}
+                                      />
+                                    </div>
+                                    <h3 className="font-semibold text-sm text-gray-900 whitespace-nowrap">{provider.name}</h3>
+                                  </div>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => handleConnect(provider.id)}
+                                    disabled={loading[provider.id]}
+                                    className="h-8 w-8 flex-shrink-0 hover:bg-gray-200 text-gray-700 hover:text-gray-900"
+                                  >
+                                    {loading[provider.id] ? (
+                                      <RefreshCw className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                      <Plus className="w-4 h-4" />
+                                    )}
+                                  </Button>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
                         </div>
-                        <Button
-                          size="sm"
-                          onClick={() => handleConnect(provider.id)}
-                          disabled={loading[provider.id]}
-                        >
-                          {loading[provider.id] ? (
-                            <RefreshCw className="w-3 h-3 animate-spin" />
-                          ) : (
-                            <>
-                              <Plus className="w-3 h-3 mr-1" />
-                              Connect
-                            </>
-                          )}
-                        </Button>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
+                    )}
+
+                    {/* All Apps Section */}
+                    {!availableSearchQuery && otherApps.length > 0 && (
+                      <div>
+                        <div className="mb-4">
+                          <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">All Apps (A-Z)</h3>
+                        </div>
+                        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                          {otherApps.map((provider) => (
+                            <Card key={provider.id} className="bg-gray-50 border border-gray-200 hover:bg-gray-100 hover:border-gray-300 transition-all duration-200 shadow-sm hover:shadow-md">
+                              <CardContent className="py-5 px-4">
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                                    <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
+                                      <img
+                                        src={getIntegrationLogoPath(provider.id, 'light')}
+                                        alt={provider.name}
+                                        className="w-10 h-10 object-contain"
+                                        onError={(e) => {
+                                          e.currentTarget.style.display = 'none'
+                                        }}
+                                      />
+                                    </div>
+                                    <h3 className="font-semibold text-sm text-gray-900 whitespace-nowrap">{provider.name}</h3>
+                                  </div>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => handleConnect(provider.id)}
+                                    disabled={loading[provider.id]}
+                                    className="h-8 w-8 flex-shrink-0 hover:bg-gray-200 text-gray-700 hover:text-gray-900"
+                                  >
+                                    {loading[provider.id] ? (
+                                      <RefreshCw className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                      <Plus className="w-4 h-4" />
+                                    )}
+                                  </Button>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Search Results - Show all apps in one grid */}
+                    {availableSearchQuery && (
+                      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        {availableApps.map((provider) => (
+                          <Card key={provider.id} className="bg-gray-50 border border-gray-200 hover:bg-gray-100 hover:border-gray-300 transition-all duration-200 shadow-sm hover:shadow-md">
+                            <CardContent className="py-5 px-4">
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-3 flex-1 min-w-0">
+                                  <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
+                                    <img
+                                      src={getIntegrationLogoPath(provider.id, 'light')}
+                                      alt={provider.name}
+                                      className="w-10 h-10 object-contain"
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none'
+                                      }}
+                                    />
+                                  </div>
+                                  <h3 className="font-semibold text-sm text-gray-900 whitespace-nowrap">{provider.name}</h3>
+                                </div>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => handleConnect(provider.id)}
+                                  disabled={loading[provider.id]}
+                                  className="h-8 w-8 flex-shrink-0 hover:bg-gray-200 text-gray-700 hover:text-gray-900"
+                                >
+                                  {loading[provider.id] ? (
+                                    <RefreshCw className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <Plus className="w-4 h-4" />
+                                  )}
+                                </Button>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           </DialogContent>
         </Dialog>
@@ -291,7 +406,7 @@ export function AppsContent() {
                       {/* App Icon */}
                       <div className="w-10 h-10 rounded-lg border flex items-center justify-center flex-shrink-0 bg-white dark:bg-slate-900">
                         <img
-                          src={`/integrations/${provider.id}.svg`}
+                          src={getIntegrationLogoPath(provider.id, theme)}
                           alt={provider.name}
                           className={getIntegrationLogoClasses(provider.id)}
                           onError={(e) => {
@@ -403,7 +518,7 @@ export function AppsContent() {
                     {/* App Icon */}
                     <div className="w-10 h-10 rounded-lg border flex items-center justify-center flex-shrink-0 bg-white dark:bg-slate-900">
                       <img
-                        src={`/integrations/${provider.id}.svg`}
+                        src={getIntegrationLogoPath(provider.id, theme)}
                         alt={provider.name}
                         className={getIntegrationLogoClasses(provider.id)}
                         onError={(e) => {

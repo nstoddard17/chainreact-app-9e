@@ -40,10 +40,7 @@ export const IntegrationCardWrapper = memo(function IntegrationCardWrapper({
 
   // Get static config
   const providerConfig = INTEGRATION_CONFIGS[providerId]
-  if (!provider || !providerConfig) return null
-
-  // Merge provider data with config
-  const fullProvider = { ...providerConfig, ...provider }
+  const fullProvider = provider && providerConfig ? { ...providerConfig, ...provider } : null
 
   // Memoize callbacks with dependencies
   const handleConnect = useCallback(() => {
@@ -61,6 +58,10 @@ export const IntegrationCardWrapper = memo(function IntegrationCardWrapper({
       reconnectIntegration(integration.id)
     }
   }, [reconnectIntegration, integration])
+
+  if (!fullProvider) {
+    return null
+  }
 
   // Calculate status
   let status: "connected" | "expired" | "expiring" | "disconnected" = "disconnected"

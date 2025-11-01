@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -401,12 +401,52 @@ Configure this to:
   }
 ]
 
-export function AIAgentBuilderContent() {
+interface AIAgentBuilderContentProps {
+  variant?: "legacy" | "v2"
+}
+
+export function AIAgentBuilderContent({ variant = "legacy" }: AIAgentBuilderContentProps) {
   const router = useRouter()
   const { user, profile, updateProfile } = useAuthStore()
   const { getConnectedProviders } = useIntegrationStore()
-  const { createWorkflow } = useWorkflowStore()
+  const { createWorkflow: createLegacyWorkflow } = useWorkflowStore()
   const { toast } = useToast()
+  const createFlow = useCallback(
+    async (name: string, description: string, options?: { prompt?: string }) => {
+      if (variant === "v2") {
+        const response = await fetch("/workflows/v2/api/flows", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, description }),
+        })
+
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => response.statusText)
+          throw new Error(errorText || "Failed to create Flow v2 definition")
+        }
+
+        const data = await response.json().catch(() => ({}))
+        const flowId = data?.flowId
+
+        if (!flowId) {
+          throw new Error("Flow v2 API did not return a flowId")
+        }
+
+        if (options?.prompt && typeof window !== "undefined") {
+          try {
+            sessionStorage.setItem("flowv2:pendingPrompt", options.prompt)
+          } catch (storageError) {
+            logger.warn("[AIAgentBuilderContent] Failed to persist pending prompt", storageError)
+          }
+        }
+
+        return { id: flowId }
+      }
+
+      return createLegacyWorkflow(name, description)
+    },
+    [variant, createLegacyWorkflow]
+  )
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isCreatingWorkflow, setIsCreatingWorkflow] = useState(false)
@@ -503,7 +543,9 @@ export function AIAgentBuilderContent() {
         logger.info('Starting workflow creation...')
 
         // Create a new workflow
-        const workflow = await createWorkflow("New Workflow", "Created from AI Agent")
+        const workflow = await createFlow("New Workflow", "Created from AI Agent", {
+          prompt: messageText,
+        })
 
         logger.info('Workflow created successfully:', workflow)
 
@@ -515,7 +557,10 @@ export function AIAgentBuilderContent() {
         logger.info('Created workflow with ID:', workflow.id)
 
         // Redirect immediately - no toast, no delay
-        const url = `/workflows/builder/${workflow.id}?aiChat=true&initialPrompt=${encodeURIComponent(messageText)}`
+        const url =
+          variant === "v2"
+            ? `/workflows/builder/${workflow.id}?prompt=${encodeURIComponent(messageText)}`
+            : `/workflows/builder/${workflow.id}?aiChat=true&initialPrompt=${encodeURIComponent(messageText)}`
         logger.info('Attempting redirect to:', url)
 
         await router.push(url)
@@ -598,8 +643,12 @@ export function AIAgentBuilderContent() {
   const handleStartBuilding = async () => {
     setIsCreatingWorkflow(true)
     try {
-      const workflow = await createWorkflow("New Workflow", "Created from React Agent")
-      router.push(`/workflows/builder/${workflow.id}?reactAgent=true`)
+      const workflow = await createFlow("New Workflow", "Created from React Agent")
+      const url =
+        variant === "v2"
+          ? `/workflows/builder/${workflow.id}`
+          : `/workflows/builder/${workflow.id}?reactAgent=true`
+      router.push(url)
     } catch (error) {
       logger.error("Failed to create workflow:", error)
       toast({
@@ -687,7 +736,7 @@ export function AIAgentBuilderContent() {
         <div className="w-full px-6 py-3.5">
           <div className="flex items-center justify-between w-full">
             {/* Left side - Back button and workflow title */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 min-w-0 flex-1 overflow-hidden">
               <Button
                 variant="ghost"
                 size="icon"
@@ -696,23 +745,23 @@ export function AIAgentBuilderContent() {
               >
                 <ArrowLeft className="w-4 h-4" />
               </Button>
-              <div className="flex items-center gap-2">
-                <h1 className="text-base font-semibold">New Workflow</h1>
-                <Badge variant="secondary" className="h-5 text-xs">
+              <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+                <h1 className="text-base font-semibold truncate">New Workflow</h1>
+                <Badge variant="secondary" className="h-5 text-xs shrink-0 whitespace-nowrap">
                   Not Scheduled
                 </Badge>
               </div>
             </div>
 
             {/* Right side - Action buttons */}
-            <div className="flex items-center gap-1.5">
-              <Button variant="outline" size="sm" className="h-8 text-xs">
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Button variant="outline" size="sm" className="h-8 text-xs whitespace-nowrap">
                 <Wand2 className="w-3.5 h-3.5 mr-1.5" />
-                Test
+                <span className="hidden sm:inline">Test</span>
               </Button>
-              <Button size="sm" className="h-8 text-xs">
+              <Button size="sm" className="h-8 text-xs whitespace-nowrap">
                 <Zap className="w-3.5 h-3.5 mr-1.5" />
-                Publish
+                <span className="hidden sm:inline">Publish</span>
               </Button>
             </div>
           </div>
@@ -728,13 +777,13 @@ export function AIAgentBuilderContent() {
               {/* Header Section */}
               <div className="text-center space-y-3">
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/5 border border-primary/10 mb-2">
-                  <Sparkles className="w-3.5 h-3.5 text-primary" />
-                  <span className="text-xs font-medium text-primary">AI-Powered Workflow Builder</span>
+                  <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
+                  <span className="text-xs font-medium text-primary whitespace-nowrap">AI-Powered Workflow Builder</span>
                 </div>
-                <h2 className="text-4xl md:text-5xl font-bold tracking-tight leading-tight">
+                <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight leading-tight px-4 break-words">
                   Type any task, Get a working AI automation.
                 </h2>
-                <p className="text-muted-foreground text-sm md:text-base max-w-4xl mx-auto">
+                <p className="text-muted-foreground text-sm md:text-base max-w-4xl mx-auto px-4 break-words">
                   Describe your idea and React Agent builds the automation, tests, and deploys it in under 3 minutes.
                 </p>
               </div>
@@ -796,10 +845,10 @@ export function AIAgentBuilderContent() {
               {/* Category Examples */}
               <div className="space-y-6">
                 <div className="space-y-3">
-                  <p className="text-center text-sm font-medium text-muted-foreground">
+                  <p className="text-center text-sm font-medium text-muted-foreground px-4 break-words">
                     Not sure where to start? Explore examples by category
                   </p>
-                  <div className="flex items-center justify-center gap-2 flex-wrap">
+                  <div className="flex items-center justify-center gap-2 flex-wrap px-4">
                     {EXAMPLE_PROMPTS.map((category) => (
                       <Button
                         key={category.category}
@@ -809,7 +858,7 @@ export function AIAgentBuilderContent() {
                           selectedCategory === category.category ? null : category.category
                         )}
                         className={cn(
-                          "rounded-full transition-all duration-200 h-8 px-4 text-xs",
+                          "rounded-full transition-all duration-200 h-8 px-4 text-xs whitespace-nowrap",
                           selectedCategory === category.category && "shadow-md"
                         )}
                       >
@@ -821,17 +870,17 @@ export function AIAgentBuilderContent() {
 
                 {/* Example Prompts */}
                 {selectedCategory && (
-                  <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-top-2 duration-300 px-4">
                     <div className="grid gap-2">
                       {EXAMPLE_PROMPTS.find(c => c.category === selectedCategory)?.examples.map((example, idx) => (
                         <button
                           key={idx}
                           onClick={() => handleExampleClick(example.prompt)}
-                          className="group text-left p-3 rounded-xl border bg-card/50 hover:bg-card hover:border-primary/30 hover:shadow-sm transition-all duration-200 text-sm flex items-center gap-2.5"
+                          className="group text-left p-3 rounded-xl border bg-card/50 hover:bg-card hover:border-primary/30 hover:shadow-sm transition-all duration-200 text-sm flex items-start gap-2.5"
                         >
-                          <div className="w-1.5 h-1.5 rounded-full bg-primary/40 group-hover:bg-primary group-hover:scale-125 transition-all" />
-                          <span className="flex-1">{example.display}</span>
-                          <ArrowLeft className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-primary rotate-180 transition-all" />
+                          <div className="w-1.5 h-1.5 rounded-full bg-primary/40 group-hover:bg-primary group-hover:scale-125 transition-all flex-shrink-0 mt-1.5" />
+                          <span className="flex-1 break-words hyphens-auto" lang="en">{example.display}</span>
+                          <ArrowLeft className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-primary rotate-180 transition-all flex-shrink-0 mt-0.5" />
                         </button>
                       ))}
                     </div>
@@ -839,13 +888,13 @@ export function AIAgentBuilderContent() {
                 )}
 
                 {/* Bottom Note - uniform spacing */}
-                <div className="text-center">
+                <div className="text-center px-4">
                   <button
                     onClick={handleStartBuilding}
                     disabled={isCreatingWorkflow}
-                    className="relative text-xs text-muted-foreground/80 hover:text-foreground transition-all duration-200 px-3 py-1.5 rounded-full hover:bg-accent border border-transparent hover:border-border disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
+                    className="relative text-xs text-muted-foreground/80 hover:text-foreground transition-all duration-200 px-3 py-1.5 rounded-full hover:bg-accent border border-transparent hover:border-border disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden whitespace-nowrap"
                   >
-                    <span className="relative z-10">
+                    <span className="relative z-10 break-keep">
                       {isCreatingWorkflow ? "Creating workflow..." : "Start building with React AI agent"}
                     </span>
                     {!isCreatingWorkflow && (
@@ -888,7 +937,7 @@ export function AIAgentBuilderContent() {
                           : 'bg-card border'
                       )}
                     >
-                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                      <p className="text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere">{message.content}</p>
                       {message.status === 'complete' && message.role === 'assistant' && (
                         <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
                           <CheckCircle className="w-3 h-3" />

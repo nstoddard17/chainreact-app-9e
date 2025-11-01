@@ -58,6 +58,13 @@ import {
   listAirtableRecords,
 } from './airtable'
 
+// Monday.com actions
+import {
+  createMondayItem,
+  updateMondayItem,
+  createMondayUpdate
+} from './monday'
+
 // Slack actions
 import { createSlackChannel, slackActionSendMessage } from './slack'
 
@@ -408,7 +415,15 @@ export const actionHandlerRegistry: Record<string, Function> = {
     updateAirtableRecord(params.config, params.userId, params.input),
   "airtable_action_list_records": (params: { config: any; userId: string; input: Record<string, any> }) =>
     listAirtableRecords(params.config, params.userId, params.input),
-  
+
+  // Monday.com actions - wrapped to handle new calling convention
+  "monday_action_create_item": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createMondayItem(params.config, params.userId, params.input),
+  "monday_action_update_item": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    updateMondayItem(params.config, params.userId, params.input),
+  "monday_action_create_update": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createMondayUpdate(params.config, params.userId, params.input),
+
   // Slack actions - wrapped to handle new calling convention
   "slack_action_create_channel": (params: { config: any; userId: string; input: Record<string, any> }) =>
     createSlackChannel(params.config, params.userId, params.input),

@@ -1,0 +1,1080 @@
+=== Log Session Started: 2025-10-28T15:39:37.974Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-28T15:39:37.974Z] [INFO   ] File logging initialized
+[2025-10-28T15:39:37.974Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-28_10-39-37.log
+[2025-10-28T15:39:37.983Z] [INFO   ] 📁 File logging enabled
+[2025-10-28T15:39:37.984Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-28_10-39-37.log
+[2025-10-28T15:39:37.984Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-28_10-39-37.log
+[2025-10-28T15:39:37.985Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-28_10-39-37.log
+[2025-10-28T15:39:37.985Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-28_10-39-37.log
+[2025-10-28T15:39:37.986Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-28T15:39:37.986Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-28T15:39:38.020Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 3.3s
+[2025-10-28T15:39:39.017Z] [INFO   ] 2025-10-28T15:39:39.017Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-10-28T15:39:40.951Z] [INFO   ] 2025-10-28T15:39:40.950Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-10-28T15:39:40.951Z] [INFO   ] 2025-10-28T15:39:40.951Z [DEBUG] 🔑 Discord bot token loaded
+[2025-10-28T15:39:41.203Z] [INFO   ] 2025-10-28T15:39:41.203Z [DEBUG] Discord Gateway initialization complete
+[2025-10-28T15:39:41.204Z] [INFO   ] 2025-10-28T15:39:41.204Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-10-28T15:39:41.265Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 226ms (234 modules)
+[2025-10-28T15:39:41.481Z] [INFO   ] 2025-10-28T15:39:41.481Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-10-28T15:39:41.488Z] [INFO   ] 2025-10-28T15:39:41.488Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-10-28T15:39:41.574Z] [INFO   ] 2025-10-28T15:39:41.574Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13099294175}
+[2025-10-28T15:39:41.974Z] [INFO   ] 2025-10-28T15:39:41.974Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"cb6ad79405cb8acb7a62594d1c86534f","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-10-28T15:39:41.974Z] [INFO   ] 2025-10-28T15:39:41.974Z [DEBUG] 📋 Initializing invite cache...
+[2025-10-28T15:39:41.977Z] [INFO   ] 2025-10-28T15:39:41.977Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-28T15:39:41.978Z] [INFO   ] 2025-10-28T15:39:41.978Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-28T15:39:42.128Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/builder/[id] ...
+[2025-10-28T15:39:42.164Z] [INFO   ] 2025-10-28T15:39:42.164Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-10-28T15:39:47.037Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/builder/[id] in 5.4s (5565 modules)
+[2025-10-28T15:39:47.588Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 530ms (1321 modules)
+[2025-10-28T15:39:47.943Z] [INFO   ] 2025-10-28T15:39:47.943Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-28T15:39:47.943Z"}
+[2025-10-28T15:39:47.947Z] [INFO   ] 2025-10-28T15:39:47.947Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-28T15:39:47.947Z"}
+[2025-10-28T15:39:47.947Z] [INFO   ] 2025-10-28T15:39:47.947Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-28T15:39:47.947Z"}
+[2025-10-28T15:39:48.235Z] [INFO   ] 2025-10-28T15:39:48.235Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T15:39:48.809Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-28T15:39:49.962Z] [INFO   ] 2025-10-28T15:39:49.961Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/c322cca4-95e5-421f-94a7-8e47231bc0c0/revisions","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13099302562}
+[2025-10-28T15:39:50.665Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/revisions in 2.4s (5568 modules)
+[2025-10-28T15:39:50.878Z] [INFO   ] 2025-10-28T15:39:50.878Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-28T15:39:50.878Z","headers":{"referer":"check-console"}}
+[2025-10-28T15:39:51.046Z] [INFO   ] 2025-10-28T15:39:51.046Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-28T15:39:51.155Z] [INFO   ] 2025-10-28T15:39:51.155Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-28T15:39:51.761Z] [INFO   ] 2025-10-28T15:39:51.761Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/c322cca4-95e5-421f-94a7-8e47231bc0c0/revisions","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13099304362}
+[2025-10-28T15:39:51.781Z] [INFO   ] 2025-10-28T15:39:51.781Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/c322cca4-95e5-421f-94a7-8e47231bc0c0/revisions/fd0b71a2-ace3-4311-bab4-9a585b27e100","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13099304382}
+[2025-10-28T15:39:52.236Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/revisions/[revisionId] in 405ms (5570 modules)
+[2025-10-28T15:39:53.017Z] [INFO   ] 2025-10-28T15:39:53.017Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/c322cca4-95e5-421f-94a7-8e47231bc0c0/revisions/fd0b71a2-ace3-4311-bab4-9a585b27e100","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13099305618}
+[2025-10-28T15:42:13.663Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1546ms (4766 modules)
+[2025-10-28T15:42:13.714Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-28T15:42:14.138Z] [INFO   ] 2025-10-28T15:42:14.138Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13099446739}
+[2025-10-28T15:42:14.166Z] [INFO   ] 2025-10-28T15:42:14.166Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13099446767}
+[2025-10-28T15:42:14.434Z] [INFO   ] 2025-10-28T15:42:14.433Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T15:42:14.589Z] [INFO   ] 2025-10-28T15:42:14.589Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-28T15:42:14.589Z"}
+[2025-10-28T15:42:14.593Z] [INFO   ] 2025-10-28T15:42:14.593Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-28T15:42:14.593Z"}
+[2025-10-28T15:42:14.593Z] [INFO   ] 2025-10-28T15:42:14.593Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-28T15:42:14.593Z"}
+[2025-10-28T15:42:14.867Z] [INFO   ] 2025-10-28T15:42:14.867Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T15:42:15.195Z] [ERROR  ]  [31m[1m⨯[22m[39m FlowV2AgentPanel is not defined
+ReferenceError: FlowV2AgentPanel is not defined
+    at WorkflowBuilderV2 (webpack-internal:///(ssr)/./components/workflows/WorkflowBuilderV2.tsx:314:97)
+    at Object.react_stack_bottom_frame (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:292649)
+    at renderWithHooks (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:114080)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:128752)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194969)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:215436)
+    at Immediate._onImmediate (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:98974)
+    at process.processImmediate (node:internal/timers:511:21)
+    at process.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-28T15:42:15.430Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-28T15:42:15.448Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 521ms (3852 modules)
+[2025-10-28T15:42:15.769Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /icon.png in 1ms (3852 modules)
+[2025-10-28T15:42:16.038Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (3854 modules)
+[2025-10-28T15:42:19.481Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 546ms (4772 modules)
+[2025-10-28T15:42:19.505Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-28T15:42:19.804Z] [INFO   ] 2025-10-28T15:42:19.804Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13099452405}
+[2025-10-28T15:42:19.986Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 414ms (3856 modules)
+[2025-10-28T15:42:20.315Z] [INFO   ] 2025-10-28T15:42:20.315Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-28T15:42:20.315Z","headers":{"referer":"check-console"}}
+[2025-10-28T15:42:20.518Z] [INFO   ] 2025-10-28T15:42:20.518Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-28T15:42:20.518Z"}
+[2025-10-28T15:42:20.523Z] [INFO   ] 2025-10-28T15:42:20.523Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-28T15:42:20.523Z"}
+[2025-10-28T15:42:20.523Z] [INFO   ] 2025-10-28T15:42:20.523Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-28T15:42:20.523Z"}
+[2025-10-28T15:42:20.667Z] [INFO   ] 2025-10-28T15:42:20.666Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-28T15:42:20.801Z] [INFO   ] 2025-10-28T15:42:20.801Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-28T15:42:20.825Z] [INFO   ] 2025-10-28T15:42:20.824Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T15:42:21.121Z] [ERROR  ]  [31m[1m⨯[22m[39m FlowV2AgentPanel is not defined
+ReferenceError: FlowV2AgentPanel is not defined
+    at WorkflowBuilderV2 (webpack-internal:///(ssr)/./components/workflows/WorkflowBuilderV2.tsx:315:97)
+    at Object.react_stack_bottom_frame (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:292649)
+    at renderWithHooks (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:114080)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:128752)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194969)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:215436)
+    at Immediate._onImmediate (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:98974)
+    at process.processImmediate (node:internal/timers:511:21)
+    at process.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-28T15:42:24.310Z] [INFO   ] 2025-10-28T15:42:24.310Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-28T15:42:24.310Z","headers":{"referer":"check-console"}}
+[2025-10-28T15:42:24.533Z] [INFO   ] 2025-10-28T15:42:24.533Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-28T15:42:24.689Z] [INFO   ] 2025-10-28T15:42:24.689Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-28T15:42:27.114Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 539ms (4774 modules)
+[2025-10-28T15:42:27.144Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-28T15:42:27.362Z] [INFO   ] 2025-10-28T15:42:27.362Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13099459963}
+[2025-10-28T15:42:27.604Z] [INFO   ] 2025-10-28T15:42:27.604Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-28T15:42:27.604Z"}
+[2025-10-28T15:42:27.608Z] [INFO   ] 2025-10-28T15:42:27.608Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-28T15:42:27.608Z"}
+[2025-10-28T15:42:27.608Z] [INFO   ] 2025-10-28T15:42:27.608Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-28T15:42:27.608Z"}
+[2025-10-28T15:42:27.884Z] [INFO   ] 2025-10-28T15:42:27.884Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T15:42:28.156Z] [ERROR  ]  [31m[1m⨯[22m[39m FlowV2AgentPanel is not defined
+ReferenceError: FlowV2AgentPanel is not defined
+    at WorkflowBuilderV2 (webpack-internal:///(ssr)/./components/workflows/WorkflowBuilderV2.tsx:317:97)
+    at Object.react_stack_bottom_frame (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:292649)
+    at renderWithHooks (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:114080)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:128752)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194969)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:215436)
+    at Immediate._onImmediate (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:98974)
+    at process.processImmediate (node:internal/timers:511:21)
+    at process.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-28T15:42:31.430Z] [INFO   ] 2025-10-28T15:42:31.430Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-28T15:42:31.430Z","headers":{"referer":"check-console"}}
+[2025-10-28T15:42:31.534Z] [INFO   ] 2025-10-28T15:42:31.534Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-28T15:42:31.643Z] [INFO   ] 2025-10-28T15:42:31.643Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-28T15:42:34.900Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 567ms (4774 modules)
+[2025-10-28T15:42:34.927Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-28T15:42:35.124Z] [INFO   ] 2025-10-28T15:42:35.124Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13099467725}
+[2025-10-28T15:42:35.369Z] [INFO   ] 2025-10-28T15:42:35.369Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-28T15:42:35.369Z"}
+[2025-10-28T15:42:35.373Z] [INFO   ] 2025-10-28T15:42:35.373Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-28T15:42:35.373Z"}
+[2025-10-28T15:42:35.373Z] [INFO   ] 2025-10-28T15:42:35.373Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-28T15:42:35.373Z"}
+[2025-10-28T15:42:35.596Z] [INFO   ] 2025-10-28T15:42:35.595Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T15:42:35.856Z] [ERROR  ]  [31m[1m⨯[22m[39m FlowV2AgentPanel is not defined
+ReferenceError: FlowV2AgentPanel is not defined
+    at WorkflowBuilderV2 (webpack-internal:///(ssr)/./components/workflows/WorkflowBuilderV2.tsx:317:97)
+    at Object.react_stack_bottom_frame (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:292649)
+    at renderWithHooks (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:114080)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:128752)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194969)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:215436)
+    at Immediate._onImmediate (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:98974)
+    at process.processImmediate (node:internal/timers:511:21)
+    at process.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-28T15:42:39.156Z] [INFO   ] 2025-10-28T15:42:39.156Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-28T15:42:39.156Z","headers":{"referer":"check-console"}}
+[2025-10-28T15:42:39.279Z] [INFO   ] 2025-10-28T15:42:39.279Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-28T15:42:39.376Z] [INFO   ] 2025-10-28T15:42:39.376Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-28T15:42:43.581Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 553ms (4774 modules)
+[2025-10-28T15:42:43.607Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-28T15:42:43.889Z] [INFO   ] 2025-10-28T15:42:43.889Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13099476490}
+[2025-10-28T15:42:44.061Z] [INFO   ] 2025-10-28T15:42:44.061Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-28T15:42:44.061Z"}
+[2025-10-28T15:42:44.065Z] [INFO   ] 2025-10-28T15:42:44.065Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-28T15:42:44.065Z"}
+[2025-10-28T15:42:44.065Z] [INFO   ] 2025-10-28T15:42:44.065Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-28T15:42:44.065Z"}
+[2025-10-28T15:42:44.327Z] [INFO   ] 2025-10-28T15:42:44.327Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T15:42:45.320Z] [INFO   ] 2025-10-28T15:42:45.319Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-28T15:42:45.319Z","headers":{"referer":"check-console"}}
+[2025-10-28T15:42:45.493Z] [INFO   ] 2025-10-28T15:42:45.493Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-28T15:42:45.568Z] [INFO   ] 2025-10-28T15:42:45.568Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/c322cca4-95e5-421f-94a7-8e47231bc0c0/revisions","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13099478169}
+[2025-10-28T15:42:45.643Z] [INFO   ] 2025-10-28T15:42:45.643Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-28T15:42:46.109Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/v2/api/flows/[flowId]/revisions ...
+[2025-10-28T15:42:46.119Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/revisions in 523ms (3859 modules)
+[2025-10-28T15:42:46.679Z] [INFO   ] 2025-10-28T15:42:46.679Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/c322cca4-95e5-421f-94a7-8e47231bc0c0/revisions","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13099479280}
+[2025-10-28T15:42:46.726Z] [INFO   ] 2025-10-28T15:42:46.726Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/c322cca4-95e5-421f-94a7-8e47231bc0c0/revisions/fd0b71a2-ace3-4311-bab4-9a585b27e100","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13099479327}
+[2025-10-28T15:42:47.114Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/revisions/[revisionId] in 355ms (3861 modules)
+[2025-10-28T15:42:47.629Z] [INFO   ] 2025-10-28T15:42:47.629Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/c322cca4-95e5-421f-94a7-8e47231bc0c0/revisions/fd0b71a2-ace3-4311-bab4-9a585b27e100","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13099480230}
+[2025-10-28T15:43:14.559Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1330ms (4783 modules)
+[2025-10-28T15:43:14.581Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-28T15:43:14.841Z] [INFO   ] 2025-10-28T15:43:14.841Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13099507442}
+[2025-10-28T15:43:14.875Z] [INFO   ] 2025-10-28T15:43:14.875Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13099507476}
+[2025-10-28T15:43:15.078Z] [INFO   ] 2025-10-28T15:43:15.077Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T15:43:15.190Z] [INFO   ] 2025-10-28T15:43:15.190Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-28T15:43:15.190Z"}
+[2025-10-28T15:43:15.195Z] [INFO   ] 2025-10-28T15:43:15.195Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-28T15:43:15.195Z"}
+[2025-10-28T15:43:15.195Z] [INFO   ] 2025-10-28T15:43:15.195Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-28T15:43:15.195Z"}
+[2025-10-28T15:43:15.456Z] [INFO   ] 2025-10-28T15:43:15.456Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T15:43:16.261Z] [INFO   ] 2025-10-28T15:43:16.261Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-28T15:43:16.261Z","headers":{"referer":"check-console"}}
+[2025-10-28T15:43:16.378Z] [INFO   ] 2025-10-28T15:43:16.378Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-28T15:43:16.411Z] [INFO   ] 2025-10-28T15:43:16.411Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/c322cca4-95e5-421f-94a7-8e47231bc0c0/revisions","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13099509011}
+[2025-10-28T15:43:16.496Z] [INFO   ] 2025-10-28T15:43:16.496Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-28T15:43:16.874Z] [INFO   ] 2025-10-28T15:43:16.874Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/c322cca4-95e5-421f-94a7-8e47231bc0c0/revisions","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13099509475}
+[2025-10-28T15:43:17.004Z] [INFO   ] 2025-10-28T15:43:17.004Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/c322cca4-95e5-421f-94a7-8e47231bc0c0/revisions/fd0b71a2-ace3-4311-bab4-9a585b27e100","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13099509605}
+[2025-10-28T15:43:17.634Z] [INFO   ] 2025-10-28T15:43:17.633Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/c322cca4-95e5-421f-94a7-8e47231bc0c0/revisions/fd0b71a2-ace3-4311-bab4-9a585b27e100","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13099510234}
+[2025-10-28T15:43:28.339Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 568ms (4783 modules)
+[2025-10-28T15:43:28.575Z] [INFO   ] 2025-10-28T15:43:28.575Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13099521176}
+[2025-10-28T15:43:28.761Z] [INFO   ] 2025-10-28T15:43:28.761Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T15:43:28.767Z] [INFO   ] 2025-10-28T15:43:28.767Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/c322cca4-95e5-421f-94a7-8e47231bc0c0/revisions","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13099521368}
+[2025-10-28T15:43:29.330Z] [INFO   ] 2025-10-28T15:43:29.330Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/c322cca4-95e5-421f-94a7-8e47231bc0c0/revisions/fd0b71a2-ace3-4311-bab4-9a585b27e100","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13099521931}
+[2025-10-28T15:45:43.970Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1407ms (4764 modules)
+[2025-10-28T15:45:44.310Z] [INFO   ] 2025-10-28T15:45:44.310Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13099656911}
+[2025-10-28T15:45:44.361Z] [INFO   ] 2025-10-28T15:45:44.361Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/c322cca4-95e5-421f-94a7-8e47231bc0c0/revisions","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13099656962}
+[2025-10-28T15:45:44.807Z] [INFO   ] 2025-10-28T15:45:44.806Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T15:45:44.812Z] [ERROR  ]  [31m[1m⨯[22m[39m Failed to generate static paths for /workflows/builder/[id]:
+[2025-10-28T15:45:44.816Z] [ERROR  ] Cannot read properties of undefined (reading 'definition')
+TypeError: Cannot read properties of undefined (reading 'definition')
+    at isAppRouteRouteModule (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/checks.js:33:24)
+    at collectSegments (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/segment-config/app/app-segments.js:147:43)
+    at Object.loadStaticPaths (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/static-paths-worker.js:50:65)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+[2025-10-28T15:45:44.825Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/revisions in 275ms (3850 modules)
+[2025-10-28T15:45:45.393Z] [INFO   ] 2025-10-28T15:45:45.392Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/c322cca4-95e5-421f-94a7-8e47231bc0c0/revisions/fd0b71a2-ace3-4311-bab4-9a585b27e100","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13099657993}
+[2025-10-28T15:45:45.641Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/revisions/[revisionId] in 219ms (3852 modules)
+[2025-10-28T15:46:33.883Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 300ms (3855 modules)
+[2025-10-28T15:49:10.204Z] [INFO   ] 2025-10-28T15:49:10.203Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13099862804}
+[2025-10-28T15:49:10.954Z] [INFO   ] 2025-10-28T15:49:10.954Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-28T15:49:10.954Z"}
+[2025-10-28T15:49:10.958Z] [INFO   ] 2025-10-28T15:49:10.958Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-28T15:49:10.958Z"}
+[2025-10-28T15:49:10.958Z] [INFO   ] 2025-10-28T15:49:10.958Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-28T15:49:10.958Z"}
+[2025-10-28T15:49:11.194Z] [INFO   ] 2025-10-28T15:49:11.193Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T15:49:12.179Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-28T15:49:13.043Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 1758ms (3854 modules)
+[2025-10-28T15:49:13.319Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 0ms (3854 modules)
+[2025-10-28T15:49:13.406Z] [INFO   ] 2025-10-28T15:49:13.406Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/c322cca4-95e5-421f-94a7-8e47231bc0c0/revisions","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13099866007}
+[2025-10-28T15:49:13.751Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/revisions in 0ms (3858 modules)
+[2025-10-28T15:49:14.111Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (3861 modules)
+[2025-10-28T15:49:14.266Z] [INFO   ] 2025-10-28T15:49:14.266Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-28T15:49:14.266Z","headers":{"referer":"check-console"}}
+[2025-10-28T15:49:14.534Z] [INFO   ] 2025-10-28T15:49:14.534Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-28T15:49:14.652Z] [INFO   ] 2025-10-28T15:49:14.652Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-28T15:49:14.897Z] [INFO   ] 2025-10-28T15:49:14.897Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/c322cca4-95e5-421f-94a7-8e47231bc0c0/revisions","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13099867498}
+[2025-10-28T15:49:14.914Z] [INFO   ] 2025-10-28T15:49:14.914Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/c322cca4-95e5-421f-94a7-8e47231bc0c0/revisions/fd0b71a2-ace3-4311-bab4-9a585b27e100","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13099867515}
+[2025-10-28T15:49:15.452Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/revisions/[revisionId] in 487ms (3863 modules)
+[2025-10-28T15:49:15.927Z] [INFO   ] 2025-10-28T15:49:15.927Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/c322cca4-95e5-421f-94a7-8e47231bc0c0/revisions/fd0b71a2-ace3-4311-bab4-9a585b27e100","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13099868528}
+[2025-10-28T15:49:21.056Z] [INFO   ]  [37m[1m○[22m[39m Compiling /_not-found ...
+[2025-10-28T15:49:21.374Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_not-found in 841ms (4774 modules)
+[2025-10-28T15:49:21.580Z] [INFO   ] 2025-10-28T15:49:21.580Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-28T15:49:21.580Z"}
+[2025-10-28T15:49:21.581Z] [INFO   ] 2025-10-28T15:49:21.581Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-28T15:49:21.581Z"}
+[2025-10-28T15:49:21.581Z] [INFO   ] 2025-10-28T15:49:21.581Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-28T15:49:21.581Z"}
+[2025-10-28T15:51:32.271Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1803ms (4764 modules)
+[2025-10-28T15:51:32.594Z] [INFO   ] 2025-10-28T15:51:32.593Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13100005194}
+[2025-10-28T15:51:32.811Z] [INFO   ] 2025-10-28T15:51:32.810Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T15:51:33.817Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 262ms (3850 modules)
+[2025-10-28T15:51:40.284Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 485ms (4770 modules)
+[2025-10-28T15:51:40.534Z] [INFO   ] 2025-10-28T15:51:40.534Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13100013135}
+[2025-10-28T15:51:40.694Z] [INFO   ] 2025-10-28T15:51:40.693Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T15:51:50.462Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 892ms (4770 modules)
+[2025-10-28T15:51:50.763Z] [INFO   ] 2025-10-28T15:51:50.763Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13100023364}
+[2025-10-28T15:51:50.898Z] [INFO   ] 2025-10-28T15:51:50.898Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T15:53:50.796Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/builder/IntegrationsSidePanel.tsx
+Error:   [31m×[0m Expected '</', got 'jsx text (
+  [31m│[0m     )'
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/builder/IntegrationsSidePanel.tsx[0m:178:1]
+ [2m175[0m │                 })
+ [2m176[0m │               )}
+ [2m177[0m │             </div>
+ [2m178[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m       </ScrollArea>
+ [2m179[0m │ [35;1m╰[0m[35;1m─[0m[35;1m▶[0m     </div>
+ [2m180[0m │       )
+ [2m181[0m │     }
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/builder/IntegrationsSidePanel.tsx
+./components/workflows/WorkflowBuilderV2.tsx
+[2025-10-28T15:53:56.051Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 580ms (4764 modules)
+[2025-10-28T15:53:56.492Z] [INFO   ] 2025-10-28T15:53:56.492Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13100149093}
+[2025-10-28T15:53:56.716Z] [INFO   ] 2025-10-28T15:53:56.715Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T15:54:03.843Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 580ms (4764 modules)
+[2025-10-28T15:54:04.169Z] [INFO   ] 2025-10-28T15:54:04.169Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13100156770}
+[2025-10-28T15:54:04.375Z] [INFO   ] 2025-10-28T15:54:04.374Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T15:54:11.490Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 190ms (3850 modules)
+[2025-10-28T15:54:18.191Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 394ms (920 modules)
+[2025-10-28T15:54:18.508Z] [INFO   ] 2025-10-28T15:54:18.508Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13100171109}
+[2025-10-28T15:54:18.633Z] [INFO   ] 2025-10-28T15:54:18.633Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T16:02:45.945Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 654ms (920 modules)
+[2025-10-28T16:02:46.487Z] [INFO   ] 2025-10-28T16:02:46.487Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13100679088}
+[2025-10-28T16:02:46.553Z] [INFO   ] 2025-10-28T16:02:46.553Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T16:03:21.119Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 289ms (920 modules)
+[2025-10-28T16:03:21.624Z] [INFO   ] 2025-10-28T16:03:21.624Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13100714225}
+[2025-10-28T16:03:21.708Z] [INFO   ] 2025-10-28T16:03:21.708Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T16:03:42.600Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/WorkflowBuilderV2.tsx:63:1
+[31m[1mModule not found[22m[39m: Can't resolve '[32m../v2/styles/FlowBuilder.anim.css[39m'
+[0m [90m 61 |[39m [36mimport[39m { [33mALL_NODE_COMPONENTS[39m } [36mfrom[39m [32m"@/lib/workflows/availableNodes"[39m
+ [90m 62 |[39m [36mimport[39m [33mImage[39m [36mfrom[39m [32m"next/image"[39m
+[31m[1m>[22m[39m[90m 63 |[39m [36mimport[39m [32m"../v2/styles/FlowBuilder.anim.css"[39m
+ [90m    |[39m [31m[1m^[22m[39m
+ [90m 64 |[39m [36mimport[39m {
+ [90m 65 |[39m   [33mSparkles[39m[33m,[39m
+ [90m 66 |[39m   [33mWand2[39m[33m,[39m[0m
+
+https://nextjs.org/docs/messages/module-not-found
+[2025-10-28T16:03:55.046Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/WorkflowBuilderV2.tsx:63:1
+[31m[1mModule not found[22m[39m: Can't resolve '[32m../v2/styles/FlowBuilder.anim.css[39m'
+[0m [90m 61 |[39m [36mimport[39m { [33mALL_NODE_COMPONENTS[39m } [36mfrom[39m [32m"@/lib/workflows/availableNodes"[39m
+ [90m 62 |[39m [36mimport[39m [33mImage[39m [36mfrom[39m [32m"next/image"[39m
+[31m[1m>[22m[39m[90m 63 |[39m [36mimport[39m [32m"../v2/styles/FlowBuilder.anim.css"[39m
+ [90m    |[39m [31m[1m^[22m[39m
+ [90m 64 |[39m [36mimport[39m {
+ [90m 65 |[39m   [33mSparkles[39m[33m,[39m
+ [90m 66 |[39m   [33mWand2[39m[33m,[39m[0m
+
+https://nextjs.org/docs/messages/module-not-found
+[2025-10-28T16:04:11.752Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/WorkflowBuilderV2.tsx:63:1
+[31m[1mModule not found[22m[39m: Can't resolve '[32m../v2/styles/FlowBuilder.anim.css[39m'
+[0m [90m 61 |[39m [36mimport[39m { [33mALL_NODE_COMPONENTS[39m } [36mfrom[39m [32m"@/lib/workflows/availableNodes"[39m
+ [90m 62 |[39m [36mimport[39m [33mImage[39m [36mfrom[39m [32m"next/image"[39m
+[31m[1m>[22m[39m[90m 63 |[39m [36mimport[39m [32m"../v2/styles/FlowBuilder.anim.css"[39m
+ [90m    |[39m [31m[1m^[22m[39m
+ [90m 64 |[39m [36mimport[39m {
+ [90m 65 |[39m   [33mSparkles[39m[33m,[39m
+ [90m 66 |[39m   [33mWand2[39m[33m,[39m[0m
+
+https://nextjs.org/docs/messages/module-not-found
+[2025-10-28T16:04:12.074Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-28T16:04:12.874Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/WorkflowBuilderV2.tsx:63:1
+[31m[1mModule not found[22m[39m: Can't resolve '[32m../v2/styles/FlowBuilder.anim.css[39m'
+[0m [90m 61 |[39m [36mimport[39m { [33mALL_NODE_COMPONENTS[39m } [36mfrom[39m [32m"@/lib/workflows/availableNodes"[39m
+ [90m 62 |[39m [36mimport[39m [33mImage[39m [36mfrom[39m [32m"next/image"[39m
+[31m[1m>[22m[39m[90m 63 |[39m [36mimport[39m [32m"../v2/styles/FlowBuilder.anim.css"[39m
+ [90m    |[39m [31m[1m^[22m[39m
+ [90m 64 |[39m [36mimport[39m {
+ [90m 65 |[39m   [33mSparkles[39m[33m,[39m
+ [90m 66 |[39m   [33mWand2[39m[33m,[39m[0m
+
+https://nextjs.org/docs/messages/module-not-found
+[2025-10-28T16:04:12.947Z] [INFO   ] 2025-10-28T16:04:12.947Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13100765548}
+[2025-10-28T16:04:13.273Z] [INFO   ] 2025-10-28T16:04:13.273Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13100765874}
+[2025-10-28T16:04:13.550Z] [INFO   ] 2025-10-28T16:04:13.550Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13100766151}
+[2025-10-28T16:04:36.395Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/WorkflowBuilderV2.tsx:63:1
+[31m[1mModule not found[22m[39m: Can't resolve '[32m../v2/styles/FlowBuilder.anim.css[39m'
+[0m [90m 61 |[39m [36mimport[39m { [33mALL_NODE_COMPONENTS[39m } [36mfrom[39m [32m"@/lib/workflows/availableNodes"[39m
+ [90m 62 |[39m [36mimport[39m [33mImage[39m [36mfrom[39m [32m"next/image"[39m
+[31m[1m>[22m[39m[90m 63 |[39m [36mimport[39m [32m"../v2/styles/FlowBuilder.anim.css"[39m
+ [90m    |[39m [31m[1m^[22m[39m
+ [90m 64 |[39m [36mimport[39m {
+ [90m 65 |[39m   [33mSparkles[39m[33m,[39m
+ [90m 66 |[39m   [33mWand2[39m[33m,[39m[0m
+
+https://nextjs.org/docs/messages/module-not-found
+[2025-10-28T16:04:53.760Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/WorkflowBuilderV2.tsx:63:1
+[31m[1mModule not found[22m[39m: Can't resolve '[32m../v2/styles/FlowBuilder.anim.css[39m'
+[0m [90m 61 |[39m [36mimport[39m { [33mALL_NODE_COMPONENTS[39m } [36mfrom[39m [32m"@/lib/workflows/availableNodes"[39m
+ [90m 62 |[39m [36mimport[39m [33mImage[39m [36mfrom[39m [32m"next/image"[39m
+[31m[1m>[22m[39m[90m 63 |[39m [36mimport[39m [32m"../v2/styles/FlowBuilder.anim.css"[39m
+ [90m    |[39m [31m[1m^[22m[39m
+ [90m 64 |[39m [36mimport[39m {
+ [90m 65 |[39m   [33mSparkles[39m[33m,[39m
+ [90m 66 |[39m   [33mWand2[39m[33m,[39m[0m
+
+https://nextjs.org/docs/messages/module-not-found
+[2025-10-28T16:05:06.530Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/WorkflowBuilderV2.tsx:63:1
+[31m[1mModule not found[22m[39m: Can't resolve '[32m../v2/styles/FlowBuilder.anim.css[39m'
+[0m [90m 61 |[39m [36mimport[39m { [33mALL_NODE_COMPONENTS[39m } [36mfrom[39m [32m"@/lib/workflows/availableNodes"[39m
+ [90m 62 |[39m [36mimport[39m [33mImage[39m [36mfrom[39m [32m"next/image"[39m
+[31m[1m>[22m[39m[90m 63 |[39m [36mimport[39m [32m"../v2/styles/FlowBuilder.anim.css"[39m
+ [90m    |[39m [31m[1m^[22m[39m
+ [90m 64 |[39m [36mimport[39m {
+ [90m 65 |[39m   [33mSparkles[39m[33m,[39m
+ [90m 66 |[39m   [33mWand2[39m[33m,[39m[0m
+
+https://nextjs.org/docs/messages/module-not-found
+[2025-10-28T16:05:19.121Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/WorkflowBuilderV2.tsx:63:1
+[31m[1mModule not found[22m[39m: Can't resolve '[32m../v2/styles/FlowBuilder.anim.css[39m'
+[0m [90m 61 |[39m [36mimport[39m { [33mALL_NODE_COMPONENTS[39m } [36mfrom[39m [32m"@/lib/workflows/availableNodes"[39m
+ [90m 62 |[39m [36mimport[39m [33mImage[39m [36mfrom[39m [32m"next/image"[39m
+[31m[1m>[22m[39m[90m 63 |[39m [36mimport[39m [32m"../v2/styles/FlowBuilder.anim.css"[39m
+ [90m    |[39m [31m[1m^[22m[39m
+ [90m 64 |[39m [36mimport[39m {
+ [90m 65 |[39m   [33mSparkles[39m[33m,[39m
+ [90m 66 |[39m   [33mWand2[39m[33m,[39m[0m
+
+https://nextjs.org/docs/messages/module-not-found
+[2025-10-28T16:06:09.074Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/WorkflowBuilderV2.tsx
+Error:   [31m×[0m Expected '</', got 'div'
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/WorkflowBuilderV2.tsx[0m:982:1]
+ [2m979[0m │                         </div>
+ [2m980[0m │                       </div>
+ [2m981[0m │                     )}
+ [2m982[0m │                   </div>
+     · [35;1m                    ───[0m
+ [2m983[0m │                 </ScrollArea>
+ [2m984[0m │ 
+ [2m985[0m │                 {/* Chat input - Fixed at bottom */}
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/WorkflowBuilderV2.tsx
+./app/workflows/builder/[id]/page.tsx
+[2025-10-28T16:06:09.372Z] [INFO   ] 2025-10-28T16:06:09.372Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13100881973}
+[2025-10-28T16:06:09.429Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-28T16:06:09.493Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-28T16:06:09.683Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/WorkflowBuilderV2.tsx
+Error:   [31m×[0m Expected '</', got 'div'
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/WorkflowBuilderV2.tsx[0m:982:1]
+ [2m979[0m │                         </div>
+ [2m980[0m │                       </div>
+ [2m981[0m │                     )}
+ [2m982[0m │                   </div>
+     · [35;1m                    ───[0m
+ [2m983[0m │                 </ScrollArea>
+ [2m984[0m │ 
+ [2m985[0m │                 {/* Chat input - Fixed at bottom */}
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/WorkflowBuilderV2.tsx
+./app/workflows/builder/[id]/page.tsx
+[2025-10-28T16:06:09.699Z] [INFO   ] 2025-10-28T16:06:09.699Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13100882300}
+[2025-10-28T16:06:09.854Z] [INFO   ] 2025-10-28T16:06:09.854Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13100882455}
+[2025-10-28T16:06:33.588Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-28T16:06:33.804Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/WorkflowBuilderV2.tsx
+Error:   [31m×[0m Expected '</', got 'div'
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/WorkflowBuilderV2.tsx[0m:982:1]
+ [2m979[0m │                         </div>
+ [2m980[0m │                       </div>
+ [2m981[0m │                     )}
+ [2m982[0m │                   </div>
+     · [35;1m                    ───[0m
+ [2m983[0m │                 </ScrollArea>
+ [2m984[0m │ 
+ [2m985[0m │                 {/* Chat input - Fixed at bottom */}
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/WorkflowBuilderV2.tsx
+./app/workflows/builder/[id]/page.tsx
+[2025-10-28T16:06:33.916Z] [INFO   ] 2025-10-28T16:06:33.915Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13100906516}
+[2025-10-28T16:08:16.444Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-28T16:08:17.397Z] [INFO   ] 2025-10-28T16:08:17.396Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13101009997}
+[2025-10-28T16:08:18.211Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-28T16:08:19.096Z] [INFO   ] 2025-10-28T16:08:19.096Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13101011697}
+[2025-10-28T16:08:19.301Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/WorkflowBuilderV2.tsx:63:1
+[31m[1mModule not found[22m[39m: Can't resolve '[32m../v2/styles/FlowBuilder.anim.css[39m'
+[0m [90m 61 |[39m [36mimport[39m { [33mALL_NODE_COMPONENTS[39m } [36mfrom[39m [32m"@/lib/workflows/availableNodes"[39m
+ [90m 62 |[39m [36mimport[39m [33mImage[39m [36mfrom[39m [32m"next/image"[39m
+[31m[1m>[22m[39m[90m 63 |[39m [36mimport[39m [32m"../v2/styles/FlowBuilder.anim.css"[39m
+ [90m    |[39m [31m[1m^[22m[39m
+ [90m 64 |[39m [36mimport[39m {
+ [90m 65 |[39m   [33mSparkles[39m[33m,[39m
+ [90m 66 |[39m   [33mWand2[39m[33m,[39m[0m
+
+https://nextjs.org/docs/messages/module-not-found
+[2025-10-28T16:08:19.561Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/WorkflowBuilderV2.tsx:63:1
+[31m[1mModule not found[22m[39m: Can't resolve '[32m../v2/styles/FlowBuilder.anim.css[39m'
+[0m [90m 61 |[39m [36mimport[39m { [33mALL_NODE_COMPONENTS[39m } [36mfrom[39m [32m"@/lib/workflows/availableNodes"[39m
+ [90m 62 |[39m [36mimport[39m [33mImage[39m [36mfrom[39m [32m"next/image"[39m
+[31m[1m>[22m[39m[90m 63 |[39m [36mimport[39m [32m"../v2/styles/FlowBuilder.anim.css"[39m
+ [90m    |[39m [31m[1m^[22m[39m
+ [90m 64 |[39m [36mimport[39m {
+ [90m 65 |[39m   [33mSparkles[39m[33m,[39m
+ [90m 66 |[39m   [33mWand2[39m[33m,[39m[0m
+
+https://nextjs.org/docs/messages/module-not-found
+[2025-10-28T16:08:30.937Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/WorkflowBuilderV2.tsx:63:1
+[31m[1mModule not found[22m[39m: Can't resolve '[32m../v2/styles/FlowBuilder.anim.css[39m'
+[0m [90m 61 |[39m [36mimport[39m { [33mALL_NODE_COMPONENTS[39m } [36mfrom[39m [32m"@/lib/workflows/availableNodes"[39m
+ [90m 62 |[39m [36mimport[39m [33mImage[39m [36mfrom[39m [32m"next/image"[39m
+[31m[1m>[22m[39m[90m 63 |[39m [36mimport[39m [32m"../v2/styles/FlowBuilder.anim.css"[39m
+ [90m    |[39m [31m[1m^[22m[39m
+ [90m 64 |[39m [36mimport[39m {
+ [90m 65 |[39m   [33mSparkles[39m[33m,[39m
+ [90m 66 |[39m   [33mWand2[39m[33m,[39m[0m
+
+https://nextjs.org/docs/messages/module-not-found
+[2025-10-28T16:08:47.651Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_error in 639ms (5126 modules)
+[2025-10-28T16:08:47.718Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-28T16:08:47.952Z] [INFO   ] 2025-10-28T16:08:47.952Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13101040553}
+[2025-10-28T16:08:48.038Z] [INFO   ] 2025-10-28T16:08:48.038Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13101040639}
+[2025-10-28T16:08:48.953Z] [INFO   ] 2025-10-28T16:08:48.953Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-28T16:08:48.953Z"}
+[2025-10-28T16:08:48.958Z] [INFO   ] 2025-10-28T16:08:48.958Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-28T16:08:48.958Z"}
+[2025-10-28T16:08:48.958Z] [INFO   ] 2025-10-28T16:08:48.958Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-28T16:08:48.958Z"}
+[2025-10-28T16:08:49.225Z] [INFO   ] 2025-10-28T16:08:49.224Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T16:08:50.431Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-28T16:08:50.478Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 735ms (4045 modules)
+[2025-10-28T16:08:50.755Z] [INFO   ] 2025-10-28T16:08:50.755Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/c322cca4-95e5-421f-94a7-8e47231bc0c0/revisions","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13101043356}
+[2025-10-28T16:08:50.784Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 0ms (4047 modules)
+[2025-10-28T16:08:51.311Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/revisions in 0ms (4049 modules)
+[2025-10-28T16:08:51.612Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /icon.png in 0ms (4052 modules)
+[2025-10-28T16:08:51.986Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4054 modules)
+[2025-10-28T16:08:52.504Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4054 modules)
+[2025-10-28T16:08:52.528Z] [INFO   ] 2025-10-28T16:08:52.528Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-28T16:08:52.528Z","headers":{"referer":"check-console"}}
+[2025-10-28T16:08:52.829Z] [INFO   ] 2025-10-28T16:08:52.829Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-28T16:08:52.834Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4054 modules)
+[2025-10-28T16:08:52.980Z] [INFO   ] 2025-10-28T16:08:52.980Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-28T16:08:53.545Z] [INFO   ] 2025-10-28T16:08:53.544Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/c322cca4-95e5-421f-94a7-8e47231bc0c0/revisions/fd0b71a2-ace3-4311-bab4-9a585b27e100","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13101046145}
+[2025-10-28T16:08:53.550Z] [INFO   ] 2025-10-28T16:08:53.550Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/c322cca4-95e5-421f-94a7-8e47231bc0c0/revisions","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13101046151}
+[2025-10-28T16:08:54.023Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/revisions/[revisionId] in 424ms (4056 modules)
+[2025-10-28T16:08:55.514Z] [INFO   ] 2025-10-28T16:08:55.514Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/c322cca4-95e5-421f-94a7-8e47231bc0c0/revisions/fd0b71a2-ace3-4311-bab4-9a585b27e100","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13101048115}
+[2025-10-28T16:09:07.119Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 368ms (1076 modules)
+[2025-10-28T16:09:07.369Z] [INFO   ] 2025-10-28T16:09:07.369Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13101059970}
+[2025-10-28T16:09:07.533Z] [INFO   ] 2025-10-28T16:09:07.533Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T16:09:54.191Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 343ms (1075 modules)
+[2025-10-28T16:09:54.501Z] [INFO   ] 2025-10-28T16:09:54.501Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13101107102}
+[2025-10-28T16:09:54.589Z] [INFO   ] 2025-10-28T16:09:54.589Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T16:10:13.267Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 355ms (1075 modules)
+[2025-10-28T16:10:13.538Z] [INFO   ] 2025-10-28T16:10:13.538Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13101126139}
+[2025-10-28T16:10:13.619Z] [INFO   ] 2025-10-28T16:10:13.619Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T16:19:56.230Z] [INFO   ] 2025-10-28T16:19:56.230Z [DEBUG] 🔑 Discord bot token loaded
+[2025-10-28T16:19:56.293Z] [INFO   ] 2025-10-28T16:19:56.293Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-10-28T16:19:56.626Z] [INFO   ] 2025-10-28T16:19:56.626Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-10-28T16:19:56.629Z] [INFO   ] 2025-10-28T16:19:56.629Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-10-28T16:19:56.968Z] [INFO   ] 2025-10-28T16:19:56.968Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"f1227106aab537cc50fde2364cd92632","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-10-28T16:19:56.968Z] [INFO   ] 2025-10-28T16:19:56.968Z [DEBUG] 📋 Initializing invite cache...
+[2025-10-28T16:19:56.972Z] [INFO   ] 2025-10-28T16:19:56.972Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-28T16:19:56.985Z] [INFO   ] 2025-10-28T16:19:56.985Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-28T16:19:57.232Z] [INFO   ] 2025-10-28T16:19:57.232Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-10-28T16:29:04.038Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.1s (5026 modules)
+[2025-10-28T16:29:04.103Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-28T16:29:04.513Z] [INFO   ] 2025-10-28T16:29:04.513Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13102257114}
+[2025-10-28T16:29:04.515Z] [INFO   ] 2025-10-28T16:29:04.515Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13102257116}
+[2025-10-28T16:29:04.826Z] [INFO   ] 2025-10-28T16:29:04.826Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-28T16:29:04.826Z"}
+[2025-10-28T16:29:04.831Z] [INFO   ] 2025-10-28T16:29:04.831Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-28T16:29:04.831Z"}
+[2025-10-28T16:29:04.831Z] [INFO   ] 2025-10-28T16:29:04.831Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-28T16:29:04.831Z"}
+[2025-10-28T16:29:04.939Z] [INFO   ] 2025-10-28T16:29:04.939Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T16:29:05.060Z] [INFO   ] 2025-10-28T16:29:05.060Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T16:29:05.361Z] [ERROR  ]  [31m[1m⨯[22m[39m isAnimatedBuildEnabled is not defined
+ReferenceError: isAnimatedBuildEnabled is not defined
+    at WorkflowBuilderV2 (webpack-internal:///(ssr)/./components/workflows/WorkflowBuilderV2.tsx:362:9)
+    at Object.react_stack_bottom_frame (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:292649)
+    at renderWithHooks (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:114080)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:128752)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194969)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:215436)
+    at Immediate._onImmediate (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:98974)
+    at process.processImmediate (node:internal/timers:511:21)
+    at process.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-28T16:29:05.738Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 328ms (3955 modules)
+[2025-10-28T16:29:05.995Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /icon.png in 0ms (3955 modules)
+[2025-10-28T16:29:06.227Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1ms (3957 modules)
+[2025-10-28T16:29:10.954Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 372ms (3959 modules)
+[2025-10-28T16:29:11.100Z] [INFO   ] 2025-10-28T16:29:11.100Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-28T16:29:11.100Z","headers":{"referer":"check-console"}}
+[2025-10-28T16:29:11.325Z] [INFO   ] 2025-10-28T16:29:11.325Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-28T16:29:11.467Z] [INFO   ] 2025-10-28T16:29:11.467Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-28T16:29:12.139Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 541ms (5034 modules)
+[2025-10-28T16:29:12.167Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-28T16:29:12.358Z] [INFO   ] 2025-10-28T16:29:12.358Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13102264959}
+[2025-10-28T16:29:12.576Z] [INFO   ] 2025-10-28T16:29:12.576Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-28T16:29:12.576Z"}
+[2025-10-28T16:29:12.581Z] [INFO   ] 2025-10-28T16:29:12.581Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-28T16:29:12.581Z"}
+[2025-10-28T16:29:12.581Z] [INFO   ] 2025-10-28T16:29:12.581Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-28T16:29:12.581Z"}
+[2025-10-28T16:29:12.843Z] [INFO   ] 2025-10-28T16:29:12.842Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T16:29:13.125Z] [ERROR  ]  [31m[1m⨯[22m[39m isAnimatedBuildEnabled is not defined
+ReferenceError: isAnimatedBuildEnabled is not defined
+    at WorkflowBuilderV2 (webpack-internal:///(ssr)/./components/workflows/WorkflowBuilderV2.tsx:363:9)
+    at Object.react_stack_bottom_frame (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:292649)
+    at renderWithHooks (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:114080)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:128752)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194969)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:215436)
+    at Immediate._onImmediate (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:98974)
+    at process.processImmediate (node:internal/timers:511:21)
+    at process.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-28T16:29:16.626Z] [INFO   ] 2025-10-28T16:29:16.626Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-28T16:29:16.626Z","headers":{"referer":"check-console"}}
+[2025-10-28T16:29:16.722Z] [INFO   ] 2025-10-28T16:29:16.721Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-28T16:29:16.825Z] [INFO   ] 2025-10-28T16:29:16.825Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-28T16:29:20.004Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 555ms (5034 modules)
+[2025-10-28T16:29:20.036Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-28T16:29:20.189Z] [INFO   ] 2025-10-28T16:29:20.189Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13102272790}
+[2025-10-28T16:29:20.367Z] [INFO   ] 2025-10-28T16:29:20.367Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-28T16:29:20.367Z"}
+[2025-10-28T16:29:20.371Z] [INFO   ] 2025-10-28T16:29:20.371Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-28T16:29:20.371Z"}
+[2025-10-28T16:29:20.371Z] [INFO   ] 2025-10-28T16:29:20.371Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-28T16:29:20.371Z"}
+[2025-10-28T16:29:20.620Z] [INFO   ] 2025-10-28T16:29:20.619Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T16:29:20.878Z] [ERROR  ]  [31m[1m⨯[22m[39m isAnimatedBuildEnabled is not defined
+ReferenceError: isAnimatedBuildEnabled is not defined
+    at WorkflowBuilderV2 (webpack-internal:///(ssr)/./components/workflows/WorkflowBuilderV2.tsx:579:9)
+    at Object.react_stack_bottom_frame (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:292649)
+    at renderWithHooks (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:114080)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:128752)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194969)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:215436)
+    at Immediate._onImmediate (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:98974)
+    at process.processImmediate (node:internal/timers:511:21)
+    at process.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-28T16:29:24.614Z] [INFO   ] 2025-10-28T16:29:24.614Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-28T16:29:24.614Z","headers":{"referer":"check-console"}}
+[2025-10-28T16:29:24.743Z] [INFO   ] 2025-10-28T16:29:24.743Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-28T16:29:24.856Z] [INFO   ] 2025-10-28T16:29:24.855Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-28T16:29:40.134Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 631ms (5034 modules)
+[2025-10-28T16:29:40.166Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-28T16:29:40.361Z] [INFO   ] 2025-10-28T16:29:40.360Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13102292961}
+[2025-10-28T16:29:40.558Z] [INFO   ] 2025-10-28T16:29:40.558Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-28T16:29:40.558Z"}
+[2025-10-28T16:29:40.563Z] [INFO   ] 2025-10-28T16:29:40.563Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-28T16:29:40.563Z"}
+[2025-10-28T16:29:40.563Z] [INFO   ] 2025-10-28T16:29:40.563Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-28T16:29:40.563Z"}
+[2025-10-28T16:29:40.806Z] [INFO   ] 2025-10-28T16:29:40.805Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T16:29:41.197Z] [ERROR  ]  [31m[1m⨯[22m[39m isAnimatedBuildEnabled is not defined
+ReferenceError: isAnimatedBuildEnabled is not defined
+    at WorkflowBuilderV2 (webpack-internal:///(ssr)/./components/workflows/WorkflowBuilderV2.tsx:680:9)
+    at Object.react_stack_bottom_frame (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:292649)
+    at renderWithHooks (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:114080)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:128752)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194969)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:215436)
+    at Immediate._onImmediate (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:98974)
+    at process.processImmediate (node:internal/timers:511:21)
+    at process.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-28T16:29:45.819Z] [INFO   ] 2025-10-28T16:29:45.819Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-28T16:29:45.819Z","headers":{"referer":"check-console"}}
+[2025-10-28T16:29:45.915Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-28T16:29:46.035Z] [INFO   ] 2025-10-28T16:29:46.035Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-28T16:29:46.235Z] [INFO   ] 2025-10-28T16:29:46.235Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-28T16:29:46.610Z] [INFO   ] 2025-10-28T16:29:46.610Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13102299211}
+[2025-10-28T16:29:47.428Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-28T16:29:47.610Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.1s (5034 modules)
+[2025-10-28T16:29:47.784Z] [INFO   ] 2025-10-28T16:29:47.783Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-28T16:29:47.783Z"}
+[2025-10-28T16:29:47.789Z] [INFO   ] 2025-10-28T16:29:47.788Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-28T16:29:47.788Z"}
+[2025-10-28T16:29:47.789Z] [INFO   ] 2025-10-28T16:29:47.789Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-28T16:29:47.789Z"}
+[2025-10-28T16:29:48.007Z] [INFO   ] 2025-10-28T16:29:48.007Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T16:29:48.329Z] [ERROR  ]  [31m[1m⨯[22m[39m isAnimatedBuildEnabled is not defined
+ReferenceError: isAnimatedBuildEnabled is not defined
+    at WorkflowBuilderV2 (webpack-internal:///(ssr)/./components/workflows/WorkflowBuilderV2.tsx:680:9)
+    at Object.react_stack_bottom_frame (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:292649)
+    at renderWithHooks (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:114080)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:128752)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194969)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:215436)
+    at Immediate._onImmediate (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:98974)
+    at process.processImmediate (node:internal/timers:511:21)
+    at process.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-28T16:29:52.599Z] [INFO   ] 2025-10-28T16:29:52.599Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-28T16:29:52.599Z","headers":{"referer":"check-console"}}
+[2025-10-28T16:29:52.701Z] [INFO   ] 2025-10-28T16:29:52.701Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-28T16:29:52.791Z] [INFO   ] 2025-10-28T16:29:52.791Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-28T16:29:54.762Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 623ms (5034 modules)
+[2025-10-28T16:29:54.818Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-28T16:29:54.993Z] [INFO   ] 2025-10-28T16:29:54.993Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13102307594}
+[2025-10-28T16:29:55.164Z] [INFO   ] 2025-10-28T16:29:55.164Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-28T16:29:55.164Z"}
+[2025-10-28T16:29:55.168Z] [INFO   ] 2025-10-28T16:29:55.168Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-28T16:29:55.168Z"}
+[2025-10-28T16:29:55.168Z] [INFO   ] 2025-10-28T16:29:55.168Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-28T16:29:55.168Z"}
+[2025-10-28T16:29:55.368Z] [INFO   ] 2025-10-28T16:29:55.368Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T16:29:55.614Z] [ERROR  ]  [31m[1m⨯[22m[39m isAnimatedBuildEnabled is not defined
+ReferenceError: isAnimatedBuildEnabled is not defined
+    at WorkflowBuilderV2 (webpack-internal:///(ssr)/./components/workflows/WorkflowBuilderV2.tsx:845:21)
+    at Object.react_stack_bottom_frame (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:292649)
+    at renderWithHooks (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:114080)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:128752)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194969)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:215436)
+    at Immediate._onImmediate (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:98974)
+    at process.processImmediate (node:internal/timers:511:21)
+    at process.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-28T16:29:59.599Z] [INFO   ] 2025-10-28T16:29:59.599Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-28T16:29:59.599Z","headers":{"referer":"check-console"}}
+[2025-10-28T16:29:59.702Z] [INFO   ] 2025-10-28T16:29:59.702Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-28T16:29:59.813Z] [INFO   ] 2025-10-28T16:29:59.813Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-28T16:30:10.476Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 544ms (5034 modules)
+[2025-10-28T16:30:10.510Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-28T16:30:10.710Z] [INFO   ] 2025-10-28T16:30:10.710Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13102323311}
+[2025-10-28T16:30:10.908Z] [INFO   ] 2025-10-28T16:30:10.908Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-28T16:30:10.908Z"}
+[2025-10-28T16:30:10.913Z] [INFO   ] 2025-10-28T16:30:10.913Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-28T16:30:10.913Z"}
+[2025-10-28T16:30:10.913Z] [INFO   ] 2025-10-28T16:30:10.913Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-28T16:30:10.913Z"}
+[2025-10-28T16:30:11.145Z] [INFO   ] 2025-10-28T16:30:11.145Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T16:30:11.416Z] [ERROR  ]  [31m[1m⨯[22m[39m isAnimatedBuildEnabled is not defined
+ReferenceError: isAnimatedBuildEnabled is not defined
+    at WorkflowBuilderV2 (webpack-internal:///(ssr)/./components/workflows/WorkflowBuilderV2.tsx:1135:53)
+    at Object.react_stack_bottom_frame (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:292649)
+    at renderWithHooks (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:114080)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:128752)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194969)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:215436)
+    at Immediate._onImmediate (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:98974)
+    at process.processImmediate (node:internal/timers:511:21)
+    at process.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-28T16:30:15.609Z] [INFO   ] 2025-10-28T16:30:15.609Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-28T16:30:15.609Z","headers":{"referer":"check-console"}}
+[2025-10-28T16:30:15.768Z] [INFO   ] 2025-10-28T16:30:15.768Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-28T16:30:15.857Z] [INFO   ] 2025-10-28T16:30:15.857Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-28T16:30:23.100Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 641ms (5034 modules)
+[2025-10-28T16:30:23.155Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-28T16:30:23.375Z] [INFO   ] 2025-10-28T16:30:23.375Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13102335976}
+[2025-10-28T16:30:23.572Z] [INFO   ] 2025-10-28T16:30:23.572Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-28T16:30:23.572Z"}
+[2025-10-28T16:30:23.577Z] [INFO   ] 2025-10-28T16:30:23.577Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-28T16:30:23.577Z"}
+[2025-10-28T16:30:23.577Z] [INFO   ] 2025-10-28T16:30:23.577Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-28T16:30:23.577Z"}
+[2025-10-28T16:30:23.804Z] [INFO   ] 2025-10-28T16:30:23.803Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T16:30:24.016Z] [ERROR  ]  [31m[1m⨯[22m[39m isAnimatedBuildEnabled is not defined
+ReferenceError: isAnimatedBuildEnabled is not defined
+    at WorkflowBuilderV2 (webpack-internal:///(ssr)/./components/workflows/WorkflowBuilderV2.tsx:1794:54)
+    at Object.react_stack_bottom_frame (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:292649)
+    at renderWithHooks (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:114080)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:128752)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194969)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:215436)
+    at Immediate._onImmediate (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:98974)
+    at process.processImmediate (node:internal/timers:511:21)
+    at process.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-28T16:30:28.607Z] [INFO   ] 2025-10-28T16:30:28.607Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-28T16:30:28.607Z","headers":{"referer":"check-console"}}
+[2025-10-28T16:30:28.714Z] [INFO   ] 2025-10-28T16:30:28.714Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-28T16:30:28.799Z] [INFO   ] 2025-10-28T16:30:28.799Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-28T16:30:37.977Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1803ms (5034 modules)
+[2025-10-28T16:30:38.089Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-28T16:30:38.295Z] [INFO   ] 2025-10-28T16:30:38.294Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13102350895}
+[2025-10-28T16:30:38.495Z] [INFO   ] 2025-10-28T16:30:38.495Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-28T16:30:38.495Z"}
+[2025-10-28T16:30:38.500Z] [INFO   ] 2025-10-28T16:30:38.500Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-28T16:30:38.500Z"}
+[2025-10-28T16:30:38.500Z] [INFO   ] 2025-10-28T16:30:38.500Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-28T16:30:38.500Z"}
+[2025-10-28T16:30:38.743Z] [INFO   ] 2025-10-28T16:30:38.742Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T16:30:39.582Z] [INFO   ] 2025-10-28T16:30:39.582Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-28T16:30:39.582Z","headers":{"referer":"check-console"}}
+[2025-10-28T16:30:39.743Z] [INFO   ] 2025-10-28T16:30:39.743Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-28T16:30:39.831Z] [INFO   ] 2025-10-28T16:30:39.831Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-28T16:30:39.902Z] [INFO   ] 2025-10-28T16:30:39.901Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/c322cca4-95e5-421f-94a7-8e47231bc0c0/revisions","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13102352502}
+[2025-10-28T16:30:40.831Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/v2/api/flows/[flowId]/revisions ...
+[2025-10-28T16:30:41.128Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/revisions in 1194ms (3962 modules)
+[2025-10-28T16:30:41.714Z] [INFO   ] 2025-10-28T16:30:41.714Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/c322cca4-95e5-421f-94a7-8e47231bc0c0/revisions","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13102354315}
+[2025-10-28T16:30:41.740Z] [INFO   ] 2025-10-28T16:30:41.740Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/c322cca4-95e5-421f-94a7-8e47231bc0c0/revisions/fd0b71a2-ace3-4311-bab4-9a585b27e100","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13102354341}
+[2025-10-28T16:30:42.099Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/revisions/[revisionId] in 305ms (3964 modules)
+[2025-10-28T16:30:42.704Z] [INFO   ] 2025-10-28T16:30:42.704Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/c322cca4-95e5-421f-94a7-8e47231bc0c0/revisions/fd0b71a2-ace3-4311-bab4-9a585b27e100","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13102355305}
+[2025-10-28T16:30:52.389Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1651ms (5039 modules)
+[2025-10-28T16:30:52.720Z] [INFO   ] 2025-10-28T16:30:52.720Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13102365321}
+[2025-10-28T16:30:52.872Z] [INFO   ] 2025-10-28T16:30:52.872Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T16:30:52.877Z] [INFO   ] 2025-10-28T16:30:52.877Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/c322cca4-95e5-421f-94a7-8e47231bc0c0/revisions","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13102365478}
+[2025-10-28T16:30:53.393Z] [INFO   ] 2025-10-28T16:30:53.393Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/c322cca4-95e5-421f-94a7-8e47231bc0c0/revisions/fd0b71a2-ace3-4311-bab4-9a585b27e100","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13102365994}
+[2025-10-28T16:31:06.507Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 307ms (1075 modules)
+[2025-10-28T16:31:06.818Z] [INFO   ] 2025-10-28T16:31:06.818Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13102379419}
+[2025-10-28T16:31:06.913Z] [INFO   ] 2025-10-28T16:31:06.912Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T16:31:17.449Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 277ms (1075 modules)
+[2025-10-28T16:31:17.717Z] [INFO   ] 2025-10-28T16:31:17.717Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13102390318}
+[2025-10-28T16:31:17.790Z] [INFO   ] 2025-10-28T16:31:17.790Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T16:31:27.613Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 272ms (1075 modules)
+[2025-10-28T16:31:28.009Z] [INFO   ] 2025-10-28T16:31:28.009Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13102400610}
+[2025-10-28T16:31:28.093Z] [INFO   ] 2025-10-28T16:31:28.093Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T16:31:38.832Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 270ms (1075 modules)
+[2025-10-28T16:31:39.075Z] [INFO   ] 2025-10-28T16:31:39.075Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13102411676}
+[2025-10-28T16:31:39.144Z] [INFO   ] 2025-10-28T16:31:39.144Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T16:31:47.221Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 275ms (1075 modules)
+[2025-10-28T16:31:47.591Z] [INFO   ] 2025-10-28T16:31:47.591Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13102420192}
+[2025-10-28T16:31:47.668Z] [INFO   ] 2025-10-28T16:31:47.668Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T16:31:57.916Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 300ms (1075 modules)
+[2025-10-28T16:31:58.150Z] [INFO   ] 2025-10-28T16:31:58.150Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/c322cca4-95e5-421f-94a7-8e47231bc0c0","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13102430751}
+[2025-10-28T16:31:58.226Z] [INFO   ] 2025-10-28T16:31:58.226Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T16:33:35.560Z] [INFO   ] 2025-10-28T16:33:35.560Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-agent","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13102528161}
+[2025-10-28T16:33:36.957Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/ai-agent ...
+[2025-10-28T16:33:38.637Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/ai-agent in 3s (5024 modules)
+[2025-10-28T16:33:39.122Z] [INFO   ] 2025-10-28T16:33:39.122Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-28T16:33:39.122Z"}
+[2025-10-28T16:33:39.125Z] [INFO   ] 2025-10-28T16:33:39.125Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-28T16:33:39.125Z"}
+[2025-10-28T16:33:39.125Z] [INFO   ] 2025-10-28T16:33:39.125Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-28T16:33:39.125Z"}
+[2025-10-28T16:33:39.844Z] [INFO   ] 2025-10-28T16:33:39.844Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-28T16:33:39.906Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 404ms (3964 modules)
+[2025-10-28T16:33:40.181Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (3966 modules)
+
+=== Log Session Ended: 2025-10-28T16:33:41.141Z ===

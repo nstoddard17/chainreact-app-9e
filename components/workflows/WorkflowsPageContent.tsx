@@ -288,7 +288,8 @@ function WorkflowsContent() {
         setExecutionStats(data.stats || {})
       }
     } catch (error: any) {
-      logger.error('Failed to fetch execution stats:', error)
+      // Downgrade to debug level since this is non-critical and may happen during prefetch
+      logger.debug('Failed to fetch execution stats (non-critical):', error)
       // Don't throw - allow page to load without stats
     }
   }

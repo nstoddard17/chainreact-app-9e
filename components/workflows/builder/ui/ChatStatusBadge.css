@@ -1,0 +1,235 @@
+/**
+ * ChatStatusBadge.css
+ *
+ * Styles and animations for the status badge component.
+ * Includes pulse, shimmer, and bounce effects with reduced motion support.
+ */
+
+.chat-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 11px 4px 8px;
+  min-height: 26px;
+  height: auto;
+  border-radius: 14px;
+  border: 1px solid hsl(var(--border));
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.chat-status-badge:not(.build-progress-badge) {
+  background: hsl(var(--accent));
+}
+
+.chat-status-badge.active:not(.build-progress-badge) {
+  background: hsl(var(--accent));
+}
+
+.chat-status-badge.success {
+  background: hsl(142, 76%, 96%);
+  border-color: hsl(142, 76%, 85%);
+}
+
+.chat-status-badge.error {
+  background: hsl(0, 84%, 96%);
+  border-color: hsl(0, 84%, 85%);
+}
+
+.chat-status-badge.waiting {
+  background: hsl(var(--accent));
+  opacity: 0.9;
+}
+
+/* Shimmer effect for active state (but not for build-progress-badge) */
+.chat-status-badge.active:not(.reduced-motion):not(.build-progress-badge)::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    transparent 100%
+  );
+  animation: status-badge-shimmer 2.2s linear infinite;
+}
+
+@keyframes status-badge-shimmer {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+.chat-status-badge-content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+  z-index: 2;
+}
+
+/* Pulsing dot for active state */
+.chat-status-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: hsl(var(--primary));
+  flex-shrink: 0;
+}
+
+.chat-status-badge.active:not(.reduced-motion) .chat-status-badge-dot {
+  animation: pulse 800ms ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(0.8);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Icon for success/error states */
+.chat-status-badge-icon {
+  font-size: 14px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.chat-status-badge-icon:not(.error) {
+  color: hsl(142, 76%, 36%);
+}
+
+.chat-status-badge-icon.error {
+  color: hsl(0, 84%, 46%);
+}
+
+/* Text content */
+.chat-status-badge-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.chat-status-badge-main {
+  font-size: 14px;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.chat-status-badge-sub {
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+/* Reduced motion */
+.chat-status-badge.reduced-motion::before {
+  animation: none !important;
+}
+
+.chat-status-badge.reduced-motion .chat-status-badge-dot {
+  animation: none !important;
+}
+
+/* Build progress badge - Solid blue with shimmer animation */
+.chat-status-badge.build-progress-badge,
+.chat-status-badge.active.build-progress-badge,
+.chat-status-badge.build-progress-badge.active {
+  background: rgba(59, 130, 246, 0.16);
+  background-color: rgba(59, 130, 246, 0.16);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  box-shadow: 0 8px 16px rgba(59, 130, 246, 0.18);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Bright dot for build progress badge - cyan for visibility */
+.chat-status-badge.build-progress-badge .chat-status-badge-dot,
+.chat-status-badge.active.build-progress-badge .chat-status-badge-dot {
+  background: #38bdf8;
+  background-color: #38bdf8;
+  width: 8px;
+  height: 8px;
+  box-shadow: 0 0 6px rgba(56, 189, 248, 0.45);
+}
+
+/* Enhanced pulse animation for build progress */
+.chat-status-badge.build-progress-badge:not(.reduced-motion) .chat-status-badge-dot,
+.chat-status-badge.active.build-progress-badge:not(.reduced-motion) .chat-status-badge-dot {
+  animation: bluePulse 1.2s ease-in-out infinite;
+}
+
+@keyframes bluePulse {
+  0%, 100% {
+    transform: scale(0.75);
+    opacity: 0.7;
+    box-shadow: 0 0 4px rgba(56, 189, 248, 0.35);
+  }
+  50% {
+    transform: scale(1.25);
+    opacity: 1;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.55), 0 0 6px rgba(56, 189, 248, 0.45);
+  }
+}
+
+/* Shimmer wave animation - very visible moving shine effect */
+.chat-status-badge.build-progress-badge::before,
+.chat-status-badge.active.build-progress-badge::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -20%;
+  width: 140%;
+  height: 100%;
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    transparent 30%,
+    rgba(255, 255, 255, 0.42) 45%,
+    rgba(255, 255, 255, 0.5) 50%,
+    rgba(255, 255, 255, 0.42) 55%,
+    transparent 70%,
+    transparent 100%
+  );
+  animation: status-badge-wave 2.6s linear infinite;
+  z-index: 1;
+  pointer-events: none;
+  will-change: transform;
+}
+
+@keyframes status-badge-wave {
+  0% {
+    transform: translateX(-35%) skewX(-15deg);
+  }
+  100% {
+    transform: translateX(35%) skewX(-15deg);
+  }
+}
+
+/* White text for build progress badge */
+.chat-status-badge.build-progress-badge .chat-status-badge-main,
+.chat-status-badge.active.build-progress-badge .chat-status-badge-main {
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.chat-status-badge.build-progress-badge .chat-status-badge-sub,
+.chat-status-badge.active.build-progress-badge .chat-status-badge-sub {
+  color: rgba(29, 78, 216, 0.7);
+}
