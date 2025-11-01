@@ -1,5 +1,62 @@
-import { FileSpreadsheet, Plus, Edit, List, Search, Trash2 } from "lucide-react"
+import { FileSpreadsheet, Plus, Edit, List, Search, Trash2, Eraser, Palette } from "lucide-react"
 import { NodeComponent } from "../../types"
+
+// Import new action schemas
+import { updateCellActionSchema } from "./actions/updateCell.schema"
+import { getCellValueActionSchema } from "./actions/getCellValue.schema"
+import { appendRowActionSchema } from "./actions/appendRow.schema"
+import { clearRangeActionSchema } from "./actions/clearRange.schema"
+import { findRowActionSchema } from "./actions/findRow.schema"
+import { updateRowActionSchema } from "./actions/updateRow.schema"
+import { deleteRowActionSchema } from "./actions/deleteRow.schema"
+import { batchUpdateActionSchema } from "./actions/batchUpdate.schema"
+import { formatRangeActionSchema } from "./actions/formatRange.schema"
+
+// Apply icons to new action schemas
+const updateCell: NodeComponent = {
+  ...updateCellActionSchema,
+  icon: Edit
+}
+
+const getCellValue: NodeComponent = {
+  ...getCellValueActionSchema,
+  icon: Search
+}
+
+const appendRow: NodeComponent = {
+  ...appendRowActionSchema,
+  icon: Plus
+}
+
+const clearRange: NodeComponent = {
+  ...clearRangeActionSchema,
+  icon: Eraser
+}
+
+const findRow: NodeComponent = {
+  ...findRowActionSchema,
+  icon: Search
+}
+
+const updateRow: NodeComponent = {
+  ...updateRowActionSchema,
+  icon: Edit
+}
+
+const deleteRow: NodeComponent = {
+  ...deleteRowActionSchema,
+  icon: Trash2
+}
+
+const batchUpdate: NodeComponent = {
+  ...batchUpdateActionSchema,
+  icon: Edit
+}
+
+const formatRange: NodeComponent = {
+  ...formatRangeActionSchema,
+  icon: Palette
+}
 
 export const googleSheetsNodes: NodeComponent[] = [
   {
@@ -33,6 +90,38 @@ export const googleSheetsNodes: NodeComponent[] = [
         description: "The specific sheet (tab) within the spreadsheet"
       },
     ],
+    outputSchema: [
+      {
+        name: "rowNumber",
+        label: "Row Number",
+        type: "number",
+        description: "The row number where the new data was added"
+      },
+      {
+        name: "values",
+        label: "Row Values",
+        type: "array",
+        description: "Array of cell values from the new row"
+      },
+      {
+        name: "spreadsheetId",
+        label: "Spreadsheet ID",
+        type: "string",
+        description: "The ID of the spreadsheet containing the new row"
+      },
+      {
+        name: "sheetName",
+        label: "Sheet Name",
+        type: "string",
+        description: "Name of the sheet where the row was added"
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "ISO timestamp when the row was added"
+      }
+    ]
   },
   {
     type: "google_sheets_trigger_new_worksheet",
@@ -55,6 +144,50 @@ export const googleSheetsNodes: NodeComponent[] = [
         description: "Choose a spreadsheet from your Google Sheets account"
       },
     ],
+    outputSchema: [
+      {
+        name: "worksheetId",
+        label: "Worksheet ID",
+        type: "string",
+        description: "Unique identifier for the new worksheet"
+      },
+      {
+        name: "worksheetName",
+        label: "Worksheet Name",
+        type: "string",
+        description: "Name/title of the newly created worksheet"
+      },
+      {
+        name: "spreadsheetId",
+        label: "Spreadsheet ID",
+        type: "string",
+        description: "The ID of the parent spreadsheet"
+      },
+      {
+        name: "index",
+        label: "Sheet Index",
+        type: "number",
+        description: "Position of the worksheet in the spreadsheet (0-indexed)"
+      },
+      {
+        name: "rowCount",
+        label: "Row Count",
+        type: "number",
+        description: "Number of rows in the new worksheet"
+      },
+      {
+        name: "columnCount",
+        label: "Column Count",
+        type: "number",
+        description: "Number of columns in the new worksheet"
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "ISO timestamp when the worksheet was created"
+      }
+    ]
   },
   {
     type: "google_sheets_trigger_updated_row",
@@ -87,6 +220,50 @@ export const googleSheetsNodes: NodeComponent[] = [
         description: "The specific sheet (tab) within the spreadsheet"
       },
     ],
+    outputSchema: [
+      {
+        name: "rowNumber",
+        label: "Row Number",
+        type: "number",
+        description: "The row number that was updated"
+      },
+      {
+        name: "values",
+        label: "Updated Values",
+        type: "array",
+        description: "Array of current cell values after the update"
+      },
+      {
+        name: "previousValues",
+        label: "Previous Values",
+        type: "array",
+        description: "Array of cell values before the update"
+      },
+      {
+        name: "changedColumns",
+        label: "Changed Columns",
+        type: "array",
+        description: "Array of column indices that were modified"
+      },
+      {
+        name: "spreadsheetId",
+        label: "Spreadsheet ID",
+        type: "string",
+        description: "The ID of the spreadsheet containing the updated row"
+      },
+      {
+        name: "sheetName",
+        label: "Sheet Name",
+        type: "string",
+        description: "Name of the sheet where the row was updated"
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "ISO timestamp when the row was updated"
+      }
+    ]
   },
   {
     type: "google_sheets_unified_action",
@@ -677,5 +854,15 @@ export const googleSheetsNodes: NodeComponent[] = [
         description: "Number of sheets created in the spreadsheet"
       }
     ]
-  }
+  },
+  // New schema-based actions
+  updateCell,
+  getCellValue,
+  appendRow,
+  clearRange,
+  findRow,
+  updateRow,
+  deleteRow,
+  batchUpdate,
+  formatRange
 ]

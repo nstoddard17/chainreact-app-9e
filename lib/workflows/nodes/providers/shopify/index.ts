@@ -270,12 +270,42 @@ export const shopifyNodes: NodeComponent[] = [
         supportsAI: true,
       },
     ],
-    outputs: [
-      { name: "order_id", label: "Order ID", type: "string" },
-      { name: "order_number", label: "Order Number", type: "number" },
-      { name: "total_price", label: "Total Price", type: "number" },
-      { name: "admin_url", label: "Admin URL", type: "string" },
-      { name: "created_at", label: "Created At", type: "string" },
+    outputSchema: [
+      {
+        name: "order_id",
+        label: "Order ID",
+        type: "string",
+        description: "The unique identifier for the created order",
+        example: "gid://shopify/Order/1234567890"
+      },
+      {
+        name: "order_number",
+        label: "Order Number",
+        type: "number",
+        description: "The order number displayed in Shopify admin",
+        example: 1001
+      },
+      {
+        name: "total_price",
+        label: "Total Price",
+        type: "number",
+        description: "The total price of the order including taxes and shipping",
+        example: 129.99
+      },
+      {
+        name: "admin_url",
+        label: "Admin URL",
+        type: "string",
+        description: "Direct link to view the order in Shopify admin",
+        example: "https://mystore.myshopify.com/admin/orders/1234567890"
+      },
+      {
+        name: "created_at",
+        label: "Created At",
+        type: "string",
+        description: "ISO 8601 timestamp when the order was created",
+        example: "2024-01-15T10:30:00Z"
+      },
     ],
   },
   {
@@ -341,11 +371,35 @@ export const shopifyNodes: NodeComponent[] = [
         description: "Send notification email to customer"
       },
     ],
-    outputs: [
-      { name: "success", label: "Success", type: "boolean" },
-      { name: "order_id", label: "Order ID", type: "string" },
-      { name: "status", label: "New Status", type: "string" },
-      { name: "updated_at", label: "Updated At", type: "string" },
+    outputSchema: [
+      {
+        name: "success",
+        label: "Success",
+        type: "boolean",
+        description: "Whether the order status update was successful",
+        example: true
+      },
+      {
+        name: "order_id",
+        label: "Order ID",
+        type: "string",
+        description: "The unique identifier for the order that was updated",
+        example: "gid://shopify/Order/1234567890"
+      },
+      {
+        name: "status",
+        label: "New Status",
+        type: "string",
+        description: "The new status of the order after the update",
+        example: "fulfilled"
+      },
+      {
+        name: "updated_at",
+        label: "Updated At",
+        type: "string",
+        description: "ISO 8601 timestamp when the order was last updated",
+        example: "2024-01-15T10:30:00Z"
+      },
     ],
   },
   {
@@ -424,12 +478,42 @@ export const shopifyNodes: NodeComponent[] = [
         description: "Starting inventory quantity"
       },
     ],
-    outputs: [
-      { name: "product_id", label: "Product ID", type: "string" },
-      { name: "variant_id", label: "Variant ID", type: "string" },
-      { name: "title", label: "Title", type: "string" },
-      { name: "admin_url", label: "Admin URL", type: "string" },
-      { name: "created_at", label: "Created At", type: "string" },
+    outputSchema: [
+      {
+        name: "product_id",
+        label: "Product ID",
+        type: "string",
+        description: "The unique identifier for the created product",
+        example: "gid://shopify/Product/9876543210"
+      },
+      {
+        name: "variant_id",
+        label: "Variant ID",
+        type: "string",
+        description: "The unique identifier for the default variant of the product",
+        example: "gid://shopify/ProductVariant/1112223334"
+      },
+      {
+        name: "title",
+        label: "Title",
+        type: "string",
+        description: "The title of the created product",
+        example: "Amazing Product"
+      },
+      {
+        name: "admin_url",
+        label: "Admin URL",
+        type: "string",
+        description: "Direct link to view the product in Shopify admin",
+        example: "https://mystore.myshopify.com/admin/products/9876543210"
+      },
+      {
+        name: "created_at",
+        label: "Created At",
+        type: "string",
+        description: "ISO 8601 timestamp when the product was created",
+        example: "2024-01-15T10:30:00Z"
+      },
     ],
   },
   {
@@ -486,11 +570,35 @@ export const shopifyNodes: NodeComponent[] = [
         supportsAI: true,
       },
     ],
-    outputs: [
-      { name: "success", label: "Success", type: "boolean" },
-      { name: "inventory_item_id", label: "Inventory Item ID", type: "string" },
-      { name: "new_quantity", label: "New Quantity", type: "number" },
-      { name: "location_id", label: "Location ID", type: "string" },
+    outputSchema: [
+      {
+        name: "success",
+        label: "Success",
+        type: "boolean",
+        description: "Whether the inventory update was successful",
+        example: true
+      },
+      {
+        name: "inventory_item_id",
+        label: "Inventory Item ID",
+        type: "string",
+        description: "The unique identifier for the inventory item that was updated",
+        example: "gid://shopify/InventoryItem/5556667778"
+      },
+      {
+        name: "new_quantity",
+        label: "New Quantity",
+        type: "number",
+        description: "The updated inventory quantity after the adjustment",
+        example: 150
+      },
+      {
+        name: "location_id",
+        label: "Location ID",
+        type: "string",
+        description: "The unique identifier for the location where inventory was updated",
+        example: "gid://shopify/Location/9998887776"
+      },
     ],
   },
   {
@@ -559,11 +667,35 @@ export const shopifyNodes: NodeComponent[] = [
         description: "Send account activation email"
       },
     ],
-    outputs: [
-      { name: "customer_id", label: "Customer ID", type: "string" },
-      { name: "email", label: "Email", type: "string" },
-      { name: "admin_url", label: "Admin URL", type: "string" },
-      { name: "created_at", label: "Created At", type: "string" },
+    outputSchema: [
+      {
+        name: "customer_id",
+        label: "Customer ID",
+        type: "string",
+        description: "The unique identifier for the created customer",
+        example: "gid://shopify/Customer/1234567890"
+      },
+      {
+        name: "email",
+        label: "Email",
+        type: "string",
+        description: "The email address of the created customer",
+        example: "customer@example.com"
+      },
+      {
+        name: "admin_url",
+        label: "Admin URL",
+        type: "string",
+        description: "Direct link to view the customer in Shopify admin",
+        example: "https://mystore.myshopify.com/admin/customers/1234567890"
+      },
+      {
+        name: "created_at",
+        label: "Created At",
+        type: "string",
+        description: "ISO 8601 timestamp when the customer was created",
+        example: "2024-01-15T10:30:00Z"
+      },
     ],
   },
   {
@@ -605,10 +737,28 @@ export const shopifyNodes: NodeComponent[] = [
         description: "Add to existing note instead of replacing"
       },
     ],
-    outputs: [
-      { name: "success", label: "Success", type: "boolean" },
-      { name: "order_id", label: "Order ID", type: "string" },
-      { name: "note", label: "Updated Note", type: "string" },
+    outputSchema: [
+      {
+        name: "success",
+        label: "Success",
+        type: "boolean",
+        description: "Whether the note was successfully added to the order",
+        example: true
+      },
+      {
+        name: "order_id",
+        label: "Order ID",
+        type: "string",
+        description: "The unique identifier of the order that was updated",
+        example: "gid://shopify/Order/1234567890"
+      },
+      {
+        name: "note",
+        label: "Updated Note",
+        type: "string",
+        description: "The complete note text after the update (includes appended content if applicable)",
+        example: "Customer requested gift wrapping. Special delivery instructions: Leave at front door."
+      },
     ],
   },
 ]

@@ -1,8 +1,59 @@
-import { Database, Plus, Edit, List } from "lucide-react"
+import { Database, Plus, Edit, List, Search, FileText, Trash2, Paperclip, Copy } from "lucide-react"
 import { NodeComponent } from "../../types"
+
+// Import new action schemas
+import { updateMultipleRecordsActionSchema } from "./actions/updateMultipleRecords.schema"
+import { findRecordActionSchema } from "./actions/findRecord.schema"
+import { getRecordActionSchema } from "./actions/getRecord.schema"
+import { deleteRecordActionSchema } from "./actions/deleteRecord.schema"
+import { addAttachmentActionSchema } from "./actions/addAttachment.schema"
+import { duplicateRecordActionSchema } from "./actions/duplicateRecord.schema"
+import { getTableSchemaActionSchema } from "./actions/getTableSchema.schema"
+import { createMultipleRecordsActionSchema } from "./actions/createMultipleRecords.schema"
 
 // Import Airtable action metadata if it exists
 const AIRTABLE_CREATE_RECORD_METADATA = { key: "airtable_action_create_record", name: "Create Record", description: "Create a new record in a table" }
+
+// Apply icons to new action schemas
+const updateMultipleRecords: NodeComponent = {
+  ...updateMultipleRecordsActionSchema,
+  icon: Edit
+}
+
+const findRecord: NodeComponent = {
+  ...findRecordActionSchema,
+  icon: Search
+}
+
+const getRecord: NodeComponent = {
+  ...getRecordActionSchema,
+  icon: FileText
+}
+
+const deleteRecord: NodeComponent = {
+  ...deleteRecordActionSchema,
+  icon: Trash2
+}
+
+const addAttachment: NodeComponent = {
+  ...addAttachmentActionSchema,
+  icon: Paperclip
+}
+
+const duplicateRecord: NodeComponent = {
+  ...duplicateRecordActionSchema,
+  icon: Copy
+}
+
+const getTableSchema: NodeComponent = {
+  ...getTableSchemaActionSchema,
+  icon: Database
+}
+
+const createMultipleRecords: NodeComponent = {
+  ...createMultipleRecordsActionSchema,
+  icon: Plus
+}
 
 export const airtableNodes: NodeComponent[] = [
   {
@@ -453,4 +504,13 @@ export const airtableNodes: NodeComponent[] = [
       }
     ]
   },
+  // New schema-based actions
+  updateMultipleRecords,
+  findRecord,
+  getRecord,
+  deleteRecord,
+  addAttachment,
+  duplicateRecord,
+  getTableSchema,
+  createMultipleRecords,
 ]

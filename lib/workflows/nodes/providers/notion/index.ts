@@ -1,4 +1,4 @@
-import { FileText, MessageSquare, Plus, Database, Search, Edit } from "lucide-react"
+import { FileText, MessageSquare, Plus, Database, Search, Edit, List, FilePlus, Trash2, Code } from "lucide-react"
 import { NodeComponent } from "../../types"
 
 // Import Notion action metadata if it exists
@@ -7,9 +7,68 @@ const NOTION_CREATE_PAGE_METADATA = { key: "notion_action_create_page", name: "C
 // Import unified actions instead of comprehensive actions
 import { notionUnifiedActions } from './unified-actions'
 
+// Import granular page content actions
+import { listPageContentActionSchema } from './actions/listPageContent.schema'
+import { getPageContentActionSchema } from './actions/getPageContent.schema'
+import { appendPageContentActionSchema } from './actions/appendPageContent.schema'
+import { updatePageContentActionSchema } from './actions/updatePageContent.schema'
+import { deletePageContentActionSchema } from './actions/deletePageContent.schema'
+import { searchObjectsActionSchema } from './actions/searchObjects.schema'
+import { makeApiCallActionSchema } from './actions/makeApiCall.schema'
+
+// Apply icons to granular page content actions
+const listPageContent: NodeComponent = {
+  ...listPageContentActionSchema,
+  icon: List
+}
+
+const getPageContent: NodeComponent = {
+  ...getPageContentActionSchema,
+  icon: FileText
+}
+
+const appendPageContent: NodeComponent = {
+  ...appendPageContentActionSchema,
+  icon: FilePlus
+}
+
+const updatePageContent: NodeComponent = {
+  ...updatePageContentActionSchema,
+  icon: Edit
+}
+
+const deletePageContent: NodeComponent = {
+  ...deletePageContentActionSchema,
+  icon: Trash2
+}
+
+const searchObjects: NodeComponent = {
+  ...searchObjectsActionSchema,
+  icon: Search
+}
+
+const makeApiCall: NodeComponent = {
+  ...makeApiCallActionSchema,
+  icon: Code
+}
+
 // Use unified actions instead of individual actions
 export const notionNodes: NodeComponent[] = [
+  // === Unified Actions (Main Workflow Tools) ===
   ...notionUnifiedActions,
+
+  // === Granular Page Content Actions (Advanced Content Management) ===
+  listPageContent,
+  getPageContent,
+  appendPageContent,
+  updatePageContent,
+  deletePageContent,
+
+  // === Advanced Features ===
+  searchObjects,
+  makeApiCall,
+
+  // === Triggers ===
   {
     type: "notion_trigger_new_page",
     title: "New Page in Database",
@@ -52,6 +111,20 @@ export const notionNodes: NodeComponent[] = [
       { name: "url", label: "URL", type: "string", description: "The URL of the page" }
     ]
   },
+]
+
+// Export individual nodes for direct access
+export {
+  // Granular page content actions
+  listPageContent,
+  getPageContent,
+  appendPageContent,
+  updatePageContent,
+  deletePageContent,
+  searchObjects,
+  makeApiCall,
+}
+
   // DEPRECATED: Replaced by notion_action_manage_page with operation="create"
   /*
   {
@@ -412,4 +485,3 @@ export const notionNodes: NodeComponent[] = [
     ]
   },
   */
-]

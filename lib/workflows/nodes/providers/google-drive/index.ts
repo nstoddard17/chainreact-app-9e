@@ -1,5 +1,56 @@
-import { File, FolderPlus, Upload, Download } from "lucide-react"
+import { File, FolderPlus, Upload, Download, Share2, Copy, FolderInput, Trash2, Search, List, Info } from "lucide-react"
 import { NodeComponent } from "../../types"
+
+// Import new action schemas
+import { shareFileActionSchema } from "./actions/shareFile.schema"
+import { copyFileActionSchema } from "./actions/copyFile.schema"
+import { moveFileActionSchema } from "./actions/moveFile.schema"
+import { deleteFileActionSchema } from "./actions/deleteFile.schema"
+import { createFolderActionSchema } from "./actions/createFolder.schema"
+import { searchFilesActionSchema } from "./actions/searchFiles.schema"
+import { listFilesActionSchema } from "./actions/listFiles.schema"
+import { getFileMetadataActionSchema } from "./actions/getFileMetadata.schema"
+
+// Apply icons to new action schemas
+const shareFile: NodeComponent = {
+  ...shareFileActionSchema,
+  icon: Share2
+}
+
+const copyFile: NodeComponent = {
+  ...copyFileActionSchema,
+  icon: Copy
+}
+
+const moveFile: NodeComponent = {
+  ...moveFileActionSchema,
+  icon: FolderInput
+}
+
+const deleteFile: NodeComponent = {
+  ...deleteFileActionSchema,
+  icon: Trash2
+}
+
+const createFolder: NodeComponent = {
+  ...createFolderActionSchema,
+  icon: FolderPlus
+}
+
+const searchFiles: NodeComponent = {
+  ...searchFilesActionSchema,
+  icon: Search
+}
+
+const listFiles: NodeComponent = {
+  ...listFilesActionSchema,
+  icon: List
+}
+
+const getFileMetadata: NodeComponent = {
+  ...getFileMetadataActionSchema,
+  icon: Info
+}
 
 export const googleDriveNodes: NodeComponent[] = [
   {
@@ -191,4 +242,13 @@ export const googleDriveNodes: NodeComponent[] = [
       }
     ]
   },
+  // New schema-based actions
+  shareFile,
+  copyFile,
+  moveFile,
+  deleteFile,
+  createFolder,
+  searchFiles,
+  listFiles,
+  getFileMetadata
 ]

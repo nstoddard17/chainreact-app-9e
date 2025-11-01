@@ -147,6 +147,15 @@ function WorkflowsContent() {
     console.log('🎯 WorkflowsContent mounted - Version: No dropdowns, tabs properly aligned - v4')
   }, [])
 
+  useEffect(() => {
+    // Always try to fetch when user is present - the store handles caching
+    if (user) {
+      fetchWorkflows().catch((error) => {
+        logger.error('[WorkflowsPageContent] Failed to fetch workflows on mount', error)
+      })
+    }
+  }, [user, fetchWorkflows])
+
   const [activeTab, setActiveTab] = useState<ViewTab>('workflows')
   const [workflowsViewMode, setWorkflowsViewMode] = useState<ViewMode>('list')
   const [foldersViewMode, setFoldersViewMode] = useState<ViewMode>('grid')
@@ -368,7 +377,8 @@ function WorkflowsContent() {
 
   const filteredAndSortedWorkflows = (isViewingTrash ? trashedWorkflows : activeWorkflows)
     .filter((w) => {
-      const matchesSearch = w.name.toLowerCase().includes(searchQuery.toLowerCase())
+      const workflowName = (w.name ?? '').toLowerCase()
+      const matchesSearch = workflowName.includes(searchQuery.toLowerCase())
 
       let matchesOwnership = true
       if (ownershipFilter === 'owned') {
@@ -393,11 +403,12 @@ function WorkflowsContent() {
 
       switch (sortField) {
         case 'name':
-          comparison = a.name.localeCompare(b.name)
+          comparison = (a.name ?? '').localeCompare(b.name ?? '')
           break
         case 'updated_at':
-          comparison = new Date(a.updated_at || a.created_at).getTime() -
-                      new Date(b.updated_at || b.created_at).getTime()
+          comparison =
+            new Date(a.updated_at || a.created_at || 0).getTime() -
+            new Date(b.updated_at || b.created_at || 0).getTime()
           break
         case 'status':
           comparison = (a.status || 'draft').localeCompare(b.status || 'draft')

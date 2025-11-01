@@ -1,25 +1,184 @@
-import { Users, MailOpen, UserPlus, Mail, UserX, Tag, List, Search } from "lucide-react"
+import { Users, MailOpen, UserPlus, Mail, UserX, Tag, List, Search, BarChart, Calendar, User, FileText, UserMinus, StickyNote, Filter } from "lucide-react"
 import { NodeComponent } from "../../types"
+
+// Import new action schemas
+import { getCampaignStatsActionSchema } from "./actions/getCampaignStats.schema"
+import { scheduleCampaignActionSchema } from "./actions/scheduleCampaign.schema"
+import { getSubscriberActionSchema } from "./actions/getSubscriber.schema"
+import { getCampaignActionSchema } from "./actions/getCampaign.schema"
+import { unsubscribeSubscriberActionSchema } from "./actions/unsubscribeSubscriber.schema"
+import { addNoteActionSchema } from "./actions/addNote.schema"
+import { createSegmentActionSchema } from "./actions/createSegment.schema"
+
+// Apply icons to new action schemas
+const getCampaignStats: NodeComponent = {
+  ...getCampaignStatsActionSchema,
+  icon: BarChart
+}
+
+const scheduleCampaign: NodeComponent = {
+  ...scheduleCampaignActionSchema,
+  icon: Calendar
+}
+
+const getSubscriber: NodeComponent = {
+  ...getSubscriberActionSchema,
+  icon: User
+}
+
+const getCampaign: NodeComponent = {
+  ...getCampaignActionSchema,
+  icon: FileText
+}
+
+const unsubscribeSubscriber: NodeComponent = {
+  ...unsubscribeSubscriberActionSchema,
+  icon: UserMinus
+}
+
+const addNote: NodeComponent = {
+  ...addNoteActionSchema,
+  icon: StickyNote
+}
+
+const createSegment: NodeComponent = {
+  ...createSegmentActionSchema,
+  icon: Filter
+}
 
 export const mailchimpNodes: NodeComponent[] = [
   // Triggers
   {
     type: "mailchimp_trigger_new_subscriber",
-    title: "New subscriber added",
+    title: "New Subscriber Added",
     description: "Triggers when a new subscriber is added to an audience",
     icon: Users,
     providerId: "mailchimp",
     category: "Email",
     isTrigger: true,
+    producesOutput: true,
+    outputSchema: [
+      {
+        name: "email",
+        label: "Email Address",
+        type: "string",
+        description: "Email address of the new subscriber"
+      },
+      {
+        name: "firstName",
+        label: "First Name",
+        type: "string",
+        description: "Subscriber's first name"
+      },
+      {
+        name: "lastName",
+        label: "Last Name",
+        type: "string",
+        description: "Subscriber's last name"
+      },
+      {
+        name: "status",
+        label: "Subscription Status",
+        type: "string",
+        description: "Current subscription status (subscribed, unsubscribed, pending, etc.)"
+      },
+      {
+        name: "audienceId",
+        label: "Audience ID",
+        type: "string",
+        description: "The ID of the audience the subscriber joined"
+      },
+      {
+        name: "subscriberId",
+        label: "Subscriber ID",
+        type: "string",
+        description: "Unique identifier for the subscriber"
+      },
+      {
+        name: "tags",
+        label: "Tags",
+        type: "array",
+        description: "Tags assigned to this subscriber"
+      },
+      {
+        name: "source",
+        label: "Subscription Source",
+        type: "string",
+        description: "How the subscriber joined (e.g., API, signup form, import)"
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "ISO timestamp when the subscriber was added"
+      }
+    ]
   },
   {
     type: "mailchimp_trigger_email_opened",
-    title: "Email campaign opened",
+    title: "Email Campaign Opened",
     description: "Triggers when a subscriber opens an email campaign",
     icon: MailOpen,
     providerId: "mailchimp",
     category: "Email",
     isTrigger: true,
+    producesOutput: true,
+    outputSchema: [
+      {
+        name: "email",
+        label: "Subscriber Email",
+        type: "string",
+        description: "Email address of the subscriber who opened the campaign"
+      },
+      {
+        name: "campaignId",
+        label: "Campaign ID",
+        type: "string",
+        description: "Unique identifier for the email campaign"
+      },
+      {
+        name: "campaignTitle",
+        label: "Campaign Title",
+        type: "string",
+        description: "Title/subject of the email campaign"
+      },
+      {
+        name: "openTime",
+        label: "Open Time",
+        type: "string",
+        description: "ISO timestamp when the email was opened"
+      },
+      {
+        name: "subscriberId",
+        label: "Subscriber ID",
+        type: "string",
+        description: "Unique identifier for the subscriber"
+      },
+      {
+        name: "audienceId",
+        label: "Audience ID",
+        type: "string",
+        description: "The ID of the audience the subscriber belongs to"
+      },
+      {
+        name: "ipAddress",
+        label: "IP Address",
+        type: "string",
+        description: "IP address from which the email was opened"
+      },
+      {
+        name: "userAgent",
+        label: "User Agent",
+        type: "string",
+        description: "Browser/email client information"
+      },
+      {
+        name: "location",
+        label: "Location",
+        type: "object",
+        description: "Geographic location data (city, country, timezone)"
+      }
+    ]
   },
 
   // Actions
@@ -534,5 +693,13 @@ export const mailchimpNodes: NodeComponent[] = [
         description: "Number of subscribers retrieved"
       }
     ]
-  }
+  },
+  // New schema-based actions
+  getCampaignStats,
+  scheduleCampaign,
+  getSubscriber,
+  getCampaign,
+  unsubscribeSubscriber,
+  addNote,
+  createSegment
 ]

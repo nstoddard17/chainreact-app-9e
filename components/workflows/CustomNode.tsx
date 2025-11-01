@@ -192,6 +192,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
   }) // Track if config section is expanded
   const [slackSectionsOpen, setSlackSectionsOpen] = useState<Record<string, boolean>>(DEFAULT_SLACK_SECTION_STATE)
   const [isPreviewExpanded, setIsPreviewExpanded] = useState(true) // Phase 1: Preview auto-expanded for running/passed/failed nodes
+  const [logoLoadFailed, setLogoLoadFailed] = useState(false)
   const titleInputRef = useRef<HTMLInputElement>(null)
 
   const {
@@ -206,6 +207,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
     note,
     onConfigure,
     onDelete,
+    onDeleteSelected,
     onAddChain,
     onRename,
     onAddAction,
@@ -235,9 +237,11 @@ function CustomNode({ id, data, selected }: NodeProps) {
     testData,
     aiFallbackFields,
     aiProgressConfig,
+    selectedNodeIds,
   } = nodeData
 
   const component = ALL_NODE_COMPONENTS.find((c) => c.type === type)
+
   const fieldMetadataMap = useMemo(() => {
     const map = new Map<string, any>()
     component?.configSchema?.forEach((field: any) => {
@@ -923,11 +927,13 @@ function CustomNode({ id, data, selected }: NodeProps) {
   return (
     <NodeContextMenu
       nodeId={id}
+      selectedNodeIds={selectedNodeIds}
       onTestNode={onTestNode}
       onTestFlowFromHere={onTestFlowFromHere}
       onFreeze={onFreeze}
       onStop={onStop}
       onDelete={onDelete}
+      onDeleteSelected={onDeleteSelected}
     >
       <div
         className={`relative w-[450px] ${backgroundClass} rounded-lg shadow-sm border-2 group ${borderClass} ${shadowClass} ${ringClass} transition-all duration-200 overflow-hidden ${
@@ -1024,22 +1030,14 @@ function CustomNode({ id, data, selected }: NodeProps) {
             <div className="flex items-center justify-center">
               {type === 'chain_placeholder' ? (
                 <Layers className="h-7 w-7 text-muted-foreground flex-shrink-0" />
-              ) : providerId ? (
+              ) : providerId && !logoLoadFailed && !INTERNAL_PROVIDER_IDS.has(providerId) ? (
                 <img
                   src={`/integrations/${providerId}.svg`}
                   alt={`${title || ''} logo`}
                   className={getIntegrationLogoClasses(providerId, "w-7 h-7 object-contain flex-shrink-0")}
-                  onError={(e) => {
+                  onError={() => {
                     logger.error(`Failed to load logo for ${providerId} at path: /integrations/${providerId}.svg`)
-                    // Fallback to icon if image fails
-                    if (component?.icon) {
-                      const parent = e.currentTarget.parentElement
-                      if (parent) {
-                        e.currentTarget.remove()
-                        const iconElement = React.createElement(component.icon, { className: "h-8 w-8 text-foreground" })
-                        // This won't work directly, but shows the intent
-                      }
-                    }
+                    setLogoLoadFailed(true)
                   }}
                   onLoad={() => logger.debug(`Successfully loaded logo for ${providerId}`)}
                 />

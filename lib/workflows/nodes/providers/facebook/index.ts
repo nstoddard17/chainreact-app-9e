@@ -16,7 +16,58 @@ const facebookTriggerNewPost: NodeComponent = {
   providerId: "facebook",
   category: "Social",
   isTrigger: true,
+  producesOutput: true,
   requiredScopes: ["pages_read_engagement"],
+  outputSchema: [
+    {
+      name: "postId",
+      label: "Post ID",
+      type: "string",
+      description: "Unique identifier for the Facebook post"
+    },
+    {
+      name: "message",
+      label: "Post Message",
+      type: "string",
+      description: "Text content of the post"
+    },
+    {
+      name: "pageId",
+      label: "Page ID",
+      type: "string",
+      description: "ID of the Facebook page where the post was published"
+    },
+    {
+      name: "pageName",
+      label: "Page Name",
+      type: "string",
+      description: "Name of the Facebook page"
+    },
+    {
+      name: "createdTime",
+      label: "Created Time",
+      type: "string",
+      description: "ISO timestamp when the post was created"
+    },
+    {
+      name: "postType",
+      label: "Post Type",
+      type: "string",
+      description: "Type of post (link, photo, video, status, etc.)"
+    },
+    {
+      name: "link",
+      label: "Link",
+      type: "string",
+      description: "URL if the post contains a link"
+    },
+    {
+      name: "permalink",
+      label: "Permalink",
+      type: "string",
+      description: "Direct URL to the Facebook post"
+    }
+  ]
 }
 
 const facebookTriggerNewComment: NodeComponent = {
@@ -27,7 +78,64 @@ const facebookTriggerNewComment: NodeComponent = {
   providerId: "facebook",
   category: "Social",
   isTrigger: true,
+  producesOutput: true,
   requiredScopes: ["pages_read_engagement"],
+  outputSchema: [
+    {
+      name: "commentId",
+      label: "Comment ID",
+      type: "string",
+      description: "Unique identifier for the comment"
+    },
+    {
+      name: "message",
+      label: "Comment Text",
+      type: "string",
+      description: "Text content of the comment"
+    },
+    {
+      name: "postId",
+      label: "Post ID",
+      type: "string",
+      description: "ID of the post that was commented on"
+    },
+    {
+      name: "pageId",
+      label: "Page ID",
+      type: "string",
+      description: "ID of the Facebook page"
+    },
+    {
+      name: "authorName",
+      label: "Author Name",
+      type: "string",
+      description: "Name of the person who wrote the comment"
+    },
+    {
+      name: "authorId",
+      label: "Author ID",
+      type: "string",
+      description: "Facebook user ID of the comment author"
+    },
+    {
+      name: "createdTime",
+      label: "Created Time",
+      type: "string",
+      description: "ISO timestamp when the comment was posted"
+    },
+    {
+      name: "permalink",
+      label: "Permalink",
+      type: "string",
+      description: "Direct URL to the comment"
+    },
+    {
+      name: "isReply",
+      label: "Is Reply",
+      type: "boolean",
+      description: "Whether this is a reply to another comment"
+    }
+  ]
 }
 
 // Facebook Actions

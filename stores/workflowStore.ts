@@ -243,7 +243,8 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
     // Use cache only if:
     // 1. We have a recent fetch (within 5 seconds)
     // 2. We're not currently loading (to avoid stale data during transitions)
-    if (timeSinceLastFetch < CACHE_DURATION && !state.loadingList) {
+    // 3. We actually have workflows in the cache (not empty array from failed auth)
+    if (timeSinceLastFetch < CACHE_DURATION && !state.loadingList && state.workflows.length > 0) {
       logger.debug('[WorkflowStore] Using cached workflows (age: ' + Math.round(timeSinceLastFetch / 1000) + 's)')
       return
     }
@@ -276,6 +277,8 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
         }
         throw error
       }
+
+      logger.debug('[WorkflowStore] fetchWorkflows returned rows:', data?.length ?? 0)
 
       // Fetch creator profiles for all unique user_ids
       if (data && data.length > 0) {

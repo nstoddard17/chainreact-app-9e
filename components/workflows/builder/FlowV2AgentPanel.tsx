@@ -32,13 +32,7 @@ import { useIntegrations } from "@/hooks/use-integrations"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 import { getFieldTypeIcon } from "./ui/FieldTypeIcons"
 import "./styles/FlowBuilder.anim.css"
-
-interface AgentMessage {
-  id: string
-  role: "user" | "assistant"
-  content: string
-  timestamp: Date
-}
+import type { ChatMessage } from "@/lib/workflows/ai-agent/chat-service"
 
 interface PanelLayoutProps {
   isOpen: boolean
@@ -50,7 +44,7 @@ interface PanelStateProps {
   buildMachine: BuildStateMachine
   agentInput: string
   isAgentLoading: boolean
-  agentMessages: AgentMessage[]
+  agentMessages: ChatMessage[]
 }
 
 interface PanelActions {
@@ -208,24 +202,38 @@ export function FlowV2AgentPanel({
               {buildMachine.state !== BuildState.IDLE && (
                 <div className="space-y-4 w-full">
                   {/* User message */}
-                  {agentMessages.filter(m => m.role === 'user').map((msg, index) => (
-                    <div key={index} className="flex justify-end w-full">
-                      <div
-                        className="max-w-[80%] rounded-lg px-4 py-3 bg-gray-100 text-gray-900"
-                        style={{
-                          wordBreak: "break-word",
-                          overflowWrap: "anywhere"
+                  {agentMessages.filter(m => m && m.role === 'user').map((msg, index) => {
+                    const text = (msg as any).text ?? (msg as any).content ?? ''
+                    const created = (msg as any).createdAt ?? (msg as any).timestamp ?? null
+                    let formattedTime: string | null = null
+                    if (created) {
+                      const date = created instanceof Date ? created : new Date(created)
+                      if (!Number.isNaN(date.getTime())) {
+                        formattedTime = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                      }
+                    }
+
+                    return (
+                      <div key={index} className="flex justify-end w-full">
+                        <div
+                          className="max-w-[80%] rounded-lg px-4 py-3 bg-gray-100 text-gray-900"
+                          style={{
+                            wordBreak: "break-word",
+                            overflowWrap: "anywhere"
                         }}
                       >
                         <p className="text-sm whitespace-pre-wrap" style={{ wordBreak: "break-word" }}>
-                          {msg.content}
+                          {text}
                         </p>
-                        <p className="text-xs opacity-70 mt-1">
-                          {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </p>
+                        {formattedTime && (
+                          <p className="text-xs opacity-70 mt-1">
+                            {formattedTime}
+                          </p>
+                        )}
                       </div>
                     </div>
-                  ))}
+                    )
+                  })}
 
                   {/* Status Badge - updates as state transitions through planning */}
                   {(buildMachine.state === BuildState.THINKING ||
