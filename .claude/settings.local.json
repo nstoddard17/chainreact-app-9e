@@ -39,6 +39,7 @@
       "Bash(xargs ls:*)",
       "Bash(for file in \"FlowV2AIAgentBuilderContent\" \"FlowV2Inspector\" \"KadabraStyleWorkflowBuilder\" \"AuroraWorkflowsContent\")",
       "Bash(do echo \"=== $file ===\" grep -rn \"import.*$file\" --include=\"*.ts\" --include=\"*.tsx\" components/ app/ hooks/ lib/)",
+      "Bash(npx playwright install chromium)",
       "Bash(node -e:*)",
       "Bash(supabase migration:*)",
       "Bash(supabase db push:*)",

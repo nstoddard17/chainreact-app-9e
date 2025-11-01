@@ -5,6 +5,8 @@ import { supabase } from "@/utils/supabaseClient"
 import { trackBetaTesterActivity } from "@/lib/utils/beta-tester-tracking"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 import { logger } from "@/lib/utils/logger"
+import { WorkflowService } from "@/services/workflow-service"
+import { SessionManager } from "@/lib/auth/session"
 
 export interface WorkflowNode {
   id: string
@@ -148,6 +150,9 @@ export interface Workflow {
   source_template_id?: string | null
   deleted_at?: string | null
   original_folder_id?: string | null
+  workspace_type?: 'personal' | 'team' | 'organization'
+  workspace_id?: string | null
+  user_permission?: 'use' | 'manage' | 'admin'
   validationState?: {
     invalidNodeIds: string[]
     lastValidatedAt?: string
@@ -168,13 +173,17 @@ interface WorkflowState {
   error: string | null
   lastFetchTime: number | null
   fetchPromise: Promise<void> | null
+  // Workspace context
+  workspaceType: 'personal' | 'team' | 'organization'
+  workspaceId: string | null
+  currentUserId: string | null
 }
 
 interface WorkflowActions {
-  fetchWorkflows: (organizationId?: string) => Promise<void>
+  fetchWorkflows: (force?: boolean, workspaceType?: 'personal' | 'team' | 'organization', workspaceId?: string) => Promise<void>
   fetchPersonalWorkflows: () => Promise<void>
   fetchOrganizationWorkflows: (organizationId: string) => Promise<void>
-  createWorkflow: (name: string, description?: string, organizationId?: string) => Promise<Workflow>
+  createWorkflow: (name: string, description?: string, organizationId?: string, folderId?: string) => Promise<Workflow>
   updateWorkflow: (id: string, updates: Partial<Workflow>) => Promise<void>
   deleteWorkflow: (id: string) => Promise<void>
   moveWorkflowToTrash: (id: string) => Promise<void>
@@ -184,6 +193,7 @@ interface WorkflowActions {
   invalidateCache: () => void
   setCurrentWorkflow: (workflow: Workflow | null) => void
   setSelectedNode: (node: WorkflowNode | null) => void
+  setWorkspaceContext: (workspaceType: 'personal' | 'team' | 'organization', workspaceId?: string | null) => void
   addNode: (node: WorkflowNode) => void
   updateNode: (nodeId: string, updates: Partial<WorkflowNode>) => void
   removeNode: (nodeId: string) => void
@@ -220,14 +230,12 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
   error: null,
   lastFetchTime: null,
   fetchPromise: null,
+  // Workspace context - default to personal
+  workspaceType: 'personal',
+  workspaceId: null,
+  currentUserId: null,
 
-  fetchWorkflows: async (organizationId?: string) => {
-    if (!supabase) {
-      logger.warn("Supabase not available")
-      set({ workflows: [], loadingList: false })
-      return
-    }
-
+  fetchWorkflows: async (force = false, workspaceType?: 'personal' | 'team' | 'organization', workspaceId?: string) => {
     const state = get()
 
     // If already fetching, return the existing promise to avoid duplicate requests
@@ -236,15 +244,15 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       return state.fetchPromise
     }
 
+    // Use provided workspace context or fallback to store state
+    const effectiveWorkspaceType = workspaceType || get().workspaceType
+    const effectiveWorkspaceId = workspaceId || get().workspaceId || undefined
+
     // Reduced cache duration to 5 seconds - workflows change frequently
-    const CACHE_DURATION = 5000 // 5 seconds (reduced from 30)
+    const CACHE_DURATION = 5000 // 5 seconds
     const timeSinceLastFetch = state.lastFetchTime ? Date.now() - state.lastFetchTime : Infinity
 
-    // Use cache only if:
-    // 1. We have a recent fetch (within 5 seconds)
-    // 2. We're not currently loading (to avoid stale data during transitions)
-    // 3. We actually have workflows in the cache (not empty array from failed auth)
-    if (timeSinceLastFetch < CACHE_DURATION && !state.loadingList && state.workflows.length > 0) {
+    if (!force && timeSinceLastFetch < CACHE_DURATION && state.workflows.length > 0) {
       logger.debug('[WorkflowStore] Using cached workflows (age: ' + Math.round(timeSinceLastFetch / 1000) + 's)')
       return
     }
@@ -254,132 +262,60 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       logger.debug('[WorkflowStore] Starting fresh workflow fetch')
       set({ loadingList: true, error: null, lastFetchTime: Date.now() })
 
-    try {
-      // Add a reasonable timeout for the request
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
-
-      // RLS will automatically filter to user's workflows
-      // Fetch workflows first, then enrich with creator data client-side
-      const { data, error } = await supabase
-        .from("workflows")
-        .select("*")
-        .order("updated_at", { ascending: false })
-        .abortSignal(controller.signal)
-
-      clearTimeout(timeoutId)
-
-      if (error) {
-        if (error.message?.includes('aborted')) {
-          logger.warn("Workflows fetch timeout - continuing without blocking")
-          set({ workflows: [], loadingList: false, error: null })
-          return
-        }
-        throw error
-      }
-
-      logger.debug('[WorkflowStore] fetchWorkflows returned rows:', data?.length ?? 0)
-
-      // Fetch creator profiles for all unique user_ids
-      if (data && data.length > 0) {
-        const uniqueUserIds = [...new Set(data.map(w => w.user_id).filter(Boolean))]
-
-        if (uniqueUserIds.length > 0) {
-          const { data: profiles } = await supabase
-            .from("user_profiles")
-            .select("id, username, full_name, secondary_email, avatar_url")
-            .in("id", uniqueUserIds)
-
-          // Create a map of user_id to profile
-          const profileMap = new Map()
-          if (profiles && profiles.length > 0) {
-            const resolveAvatarUrl = async (avatarUrl: string | null) => {
-              if (!avatarUrl) return null
-
-              try {
-                let objectPath: string | null = null
-
-                if (avatarUrl.startsWith('http')) {
-                  const supabaseUrl = new URL(avatarUrl)
-                  if (!supabaseUrl.pathname.includes('user-avatars/')) {
-                    return avatarUrl
-                  }
-                  const match = supabaseUrl.pathname.match(/user-avatars\/(.+)$/)
-                  objectPath = match?.[1] ?? null
-                } else if (avatarUrl.includes('user-avatars/')) {
-                  const match = avatarUrl.match(/user-avatars\/(.+)$/)
-                  objectPath = match?.[1] ?? null
-                } else {
-                  return avatarUrl
-                }
-
-                if (!objectPath) {
-                  return avatarUrl
-                }
-
-                const { data: signedData, error: signedError } = await supabase.storage
-                  .from('user-avatars')
-                  .createSignedUrl(objectPath, 60 * 60 * 24 * 7) // 7 days
-
-                if (signedError) {
-                  logger.warn('[WorkflowStore] Failed to sign avatar url', {
-                    objectPath,
-                    error: signedError.message
-                  })
-                  return avatarUrl
-                }
-
-                return signedData?.signedUrl || avatarUrl
-              } catch {
-                return avatarUrl
-              }
-            }
-
-            const signedProfiles = await Promise.all(
-              profiles.map(async profile => ({
-                ...profile,
-                avatar_url: await resolveAvatarUrl(profile.avatar_url),
-                email: profile.secondary_email ?? null
-              }))
-            )
-
-            signedProfiles.forEach(profile => {
-              profileMap.set(profile.id, profile)
-            })
-          }
-
-          // Enrich workflows with creator data
-          const enrichedWorkflows = data.map(workflow => ({
-            ...workflow,
-            creator: profileMap.get(workflow.user_id) || null
-          }))
-
+      try {
+        // Try to get user session, but handle auth failures gracefully
+        let user;
+        try {
+          const sessionData = await SessionManager.getSecureUserAndSession();
+          user = sessionData.user;
+        } catch (authError: any) {
+          logger.debug("User not authenticated, skipping workflow fetch")
           set({
-            workflows: enrichedWorkflows,
+            workflows: [],
             loadingList: false,
-            lastFetchTime: Date.now(),
+            currentUserId: null,
+            error: null,
             fetchPromise: null
           })
           return
         }
-      }
 
-      set({
-        workflows: data || [],
-        loadingList: false,
-        lastFetchTime: Date.now(),
-        fetchPromise: null
-      })
-    } catch (error: any) {
-      logger.error("Error fetching workflows:", error)
-      // Prior behavior: set empty workflows but clear loading and suppress user-facing error
-      set({
-        workflows: [],
-        loadingList: false,
-        error: null,
-        fetchPromise: null
-      })
-    }
+        // If currentUserId is not set, set it now
+        if (!state.currentUserId) {
+          set({ currentUserId: user.id })
+        } else if (user?.id !== state.currentUserId) {
+          logger.warn("User session mismatch detected")
+          set({
+            workflows: [],
+            currentUserId: user.id,
+            error: null,
+          })
+        }
+
+        const workflows = await WorkflowService.fetchWorkflows(force, effectiveWorkspaceType, effectiveWorkspaceId)
+
+        logger.debug('[WorkflowStore] Successfully fetched workflows', {
+          count: workflows.length,
+          workspaceType: effectiveWorkspaceType,
+          workspaceId: effectiveWorkspaceId
+        });
+
+        set({
+          workflows,
+          loadingList: false,
+          lastFetchTime: Date.now(),
+          fetchPromise: null
+        })
+
+      } catch (error: any) {
+        logger.error("Error fetching workflows:", error)
+        set({
+          workflows: [],
+          loadingList: false,
+          error: null,
+          fetchPromise: null
+        })
+      }
     })()
 
     // Store the promise
@@ -440,93 +376,46 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
     await get().fetchWorkflows()
   },
 
-  createWorkflow: async (name: string, description?: string, workspaceId?: string) => {
-    if (!supabase) {
-      throw new Error("Supabase not available")
-    }
-
+  createWorkflow: async (name: string, description?: string, organizationId?: string, folderId?: string) => {
     set({ loadingCreate: true, error: null })
 
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("User not authenticated")
+      const state = get()
+      const effectiveWorkspaceType = state.workspaceType
+      const effectiveWorkspaceId = state.workspaceId
 
-      // Fetch the user's workspace
-      const { data: workspace } = await supabase
-        .from("workspaces")
-        .select("id")
-        .eq("owner_id", user.id)
-        .single()
+      const workflow = await WorkflowService.createWorkflow(
+        name,
+        description,
+        effectiveWorkspaceType,
+        effectiveWorkspaceId || undefined,
+        organizationId,
+        folderId
+      )
 
-      if (!workspace?.id) {
-        throw new Error("User does not have a workspace")
-      }
-
-      // Fetch the user's default folder
-      let targetFolderId = null
-      const { data: defaultFolder } = await supabase
-        .from("workflow_folders")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("is_default", true)
-        .single()
-
-      targetFolderId = defaultFolder?.id || null
-
-      const { data, error} = await supabase
-        .from("workflows")
-        .insert({
-          name,
-          description: description || null,
-          user_id: user.id,
-          workspace_id: workspace.id, // Use workspace_id from user's workspace
-          folder_id: targetFolderId, // Use the default folder
-          nodes: [],
-          connections: [],
-          status: "draft",
-        })
-        .select()
-        .single()
-
-      if (error) throw error
-
+      // Add to local store
       set((state) => ({
-        workflows: [data, ...state.workflows],
+        workflows: [workflow, ...state.workflows],
       }))
 
-      // Log workflow creation
+      // Track beta tester activity
       try {
+        const { user } = await SessionManager.getSecureUserAndSession()
         if (user) {
-          await supabase.from("audit_logs").insert({
-            user_id: user.id,
-            action: "workflow_created",
-            resource_type: "workflow",
-            resource_id: data.id,
-            details: {
-              workflow_id: data.id,
-              workflow_name: data.name,
-              workflow_description: data.description
-            },
-            created_at: new Date().toISOString()
-          })
-
-          // Track beta tester activity
           await trackBetaTesterActivity({
             userId: user.id,
             activityType: 'workflow_created',
             activityData: {
-              workflowId: data.id,
-              workflowName: data.name
+              workflowId: workflow.id,
+              workflowName: workflow.name
             }
           })
         }
-      } catch (auditError) {
-        logger.warn("Failed to log workflow creation:", auditError)
+      } catch (trackError) {
+        logger.warn("Failed to track workflow creation:", trackError)
       }
 
-      return data
+      return workflow
     } catch (error: any) {
       logger.error("Error creating workflow:", error)
       throw error
@@ -851,6 +740,19 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
 
   setSelectedNode: (node: WorkflowNode | null) => {
     set({ selectedNode: node })
+  },
+
+  setWorkspaceContext: (workspaceType: 'personal' | 'team' | 'organization', workspaceId?: string | null) => {
+    logger.debug('[WorkflowStore] Setting workspace context:', {
+      workspaceType,
+      workspaceId
+    });
+    set({
+      workspaceType,
+      workspaceId: workspaceId || null,
+      // Invalidate cache when workspace context changes
+      lastFetchTime: null
+    })
   },
 
   addNode: (node: WorkflowNode) => {
