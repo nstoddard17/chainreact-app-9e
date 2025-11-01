@@ -319,7 +319,7 @@ export function FlowV2BuilderContent({
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             deleteKeyCode={["Delete", "Backspace"]}
-            fitView
+            fitView={buildState !== BuildState.BUILDING_SKELETON && buildState !== BuildState.WAITING_USER}
             fitViewOptions={{
               padding: 0.15,
               includeHiddenNodes: false,

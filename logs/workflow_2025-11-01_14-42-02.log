@@ -1,0 +1,222 @@
+=== Log Session Started: 2025-11-01T19:42:02.911Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-11-01T19:42:02.911Z] [INFO   ] File logging initialized
+[2025-11-01T19:42:02.911Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-01_14-42-02.log
+[2025-11-01T19:42:02.913Z] [INFO   ] 📁 File logging enabled
+[2025-11-01T19:42:02.913Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-01_14-42-02.log
+[2025-11-01T19:42:02.913Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-01_14-42-02.log
+[2025-11-01T19:42:02.913Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-01_14-42-02.log
+[2025-11-01T19:42:02.914Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-01_14-42-02.log
+[2025-11-01T19:42:02.914Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-11-01T19:42:02.914Z] [DEBUG  ] 📁 File logging system initialized
+[2025-11-01T19:42:02.932Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 5.4s
+[2025-11-01T19:42:03.054Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 117ms (233 modules)
+[2025-11-01T19:42:03.508Z] [INFO   ] 2025-11-01T19:42:03.507Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-agent","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13459436108}
+[2025-11-01T19:42:03.917Z] [INFO   ] 2025-11-01T19:42:03.916Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-11-01T19:42:05.975Z] [INFO   ] 2025-11-01T19:42:05.975Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-11-01T19:42:05.975Z] [INFO   ] 2025-11-01T19:42:05.975Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-01T19:42:05.983Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/ai-agent ...
+[2025-11-01T19:42:06.411Z] [INFO   ] 2025-11-01T19:42:06.411Z [DEBUG] Discord Gateway initialization complete
+[2025-11-01T19:42:06.412Z] [INFO   ] 2025-11-01T19:42:06.412Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-11-01T19:42:06.859Z] [INFO   ] 2025-11-01T19:42:06.859Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-01T19:42:06.861Z] [INFO   ] 2025-11-01T19:42:06.861Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-01T19:42:07.006Z] [INFO   ] 2025-11-01T19:42:07.006Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"542caab2c2ebd6a21cf03698cae17573","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-11-01T19:42:07.006Z] [INFO   ] 2025-11-01T19:42:07.006Z [DEBUG] 📋 Initializing invite cache...
+[2025-11-01T19:42:07.025Z] [INFO   ] 2025-11-01T19:42:07.024Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-01T19:42:07.025Z] [INFO   ] 2025-11-01T19:42:07.025Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-01T19:42:07.254Z] [INFO   ] 2025-11-01T19:42:07.254Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-11-01T19:42:09.982Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/ai-agent in 6.5s (4381 modules)
+[2025-11-01T19:42:10.397Z] [INFO   ] 2025-11-01T19:42:10.397Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-01T19:42:10.397Z"}
+[2025-11-01T19:42:10.401Z] [INFO   ] 2025-11-01T19:42:10.401Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-01T19:42:10.401Z"}
+[2025-11-01T19:42:10.401Z] [INFO   ] 2025-11-01T19:42:10.401Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-01T19:42:10.401Z"}
+[2025-11-01T19:42:10.821Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 817ms (710 modules)
+[2025-11-01T19:42:11.032Z] [INFO   ] 2025-11-01T19:42:11.031Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-01T19:42:11.614Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-11-01T19:42:13.189Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 2.1s (4388 modules)
+[2025-11-01T19:42:16.428Z] [INFO   ] 2025-11-01T19:42:16.428Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13459449029}
+[2025-11-01T19:42:17.017Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-11-01T19:42:17.546Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 1075ms (4445 modules)
+[2025-11-01T19:42:17.700Z] [INFO   ] 2025-11-01T19:42:17.700Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-01T19:42:17.700Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-01T19:42:17.829Z] [INFO   ] 2025-11-01T19:42:17.829Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-01T19:42:17.829Z] [INFO   ] 2025-11-01T19:42:17.829Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-01T19:42:17.919Z] [INFO   ] 2025-11-01T19:42:17.919Z [DEBUG] 📊 [API /api/integrations] Query result {"workspaceType":"personal","workspaceId":null,"count":14,"error":null}
+[2025-11-01T19:42:17.919Z] [INFO   ] 2025-11-01T19:42:17.919Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-01T19:42:18.370Z] [INFO   ] 2025-11-01T19:42:18.370Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/7b42a00e-715e-4f62-ab55-d59c4d7b9b5e","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13459450971}
+[2025-11-01T19:42:18.914Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/builder/[id] ...
+[2025-11-01T19:42:20.219Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/builder/[id] in 1806ms (5742 modules)
+[2025-11-01T19:42:21.409Z] [INFO   ] 2025-11-01T19:42:21.408Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-01T19:42:22.016Z] [INFO   ] 2025-11-01T19:42:22.016Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/7b42a00e-715e-4f62-ab55-d59c4d7b9b5e/revisions","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13459454617}
+[2025-11-01T19:42:22.308Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/v2/api/flows/[flowId]/revisions ...
+[2025-11-01T19:42:22.968Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/revisions in 1160ms (5749 modules)
+[2025-11-01T19:42:23.287Z] [INFO   ] 2025-11-01T19:42:23.287Z [DEBUG] [API /api/workflows] GET request {"workspaceType":"personal","workspaceId":null,"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-01T19:42:23.345Z] [INFO   ] 2025-11-01T19:42:23.345Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-01T19:42:23.345Z","url":"http://localhost:3000/api/integrations"}
+[2025-11-01T19:42:23.393Z] [INFO   ] 2025-11-01T19:42:23.393Z [DEBUG] [API /api/workflows] Query result {"workspaceType":"personal","count":13,"error":null}
+[2025-11-01T19:42:23.483Z] [INFO   ] 2025-11-01T19:42:23.483Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-01T19:42:23.483Z] [INFO   ] 2025-11-01T19:42:23.483Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-01T19:42:23.567Z] [INFO   ] 2025-11-01T19:42:23.566Z [DEBUG] 📊 [API /api/integrations] Query result {"workspaceType":"personal","workspaceId":null,"count":14,"error":null}
+[2025-11-01T19:42:23.567Z] [INFO   ] 2025-11-01T19:42:23.567Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-01T19:42:23.621Z] [INFO   ] 2025-11-01T19:42:23.621Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-01T19:42:23.621Z","url":"http://localhost:3000/api/integrations"}
+[2025-11-01T19:42:23.715Z] [INFO   ] 2025-11-01T19:42:23.715Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-01T19:42:23.715Z] [INFO   ] 2025-11-01T19:42:23.715Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-01T19:42:23.796Z] [INFO   ] 2025-11-01T19:42:23.796Z [DEBUG] 📊 [API /api/integrations] Query result {"workspaceType":"personal","workspaceId":null,"count":14,"error":null}
+[2025-11-01T19:42:23.796Z] [INFO   ] 2025-11-01T19:42:23.796Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-01T19:42:24.009Z] [INFO   ] 2025-11-01T19:42:24.009Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/7b42a00e-715e-4f62-ab55-d59c4d7b9b5e/revisions","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13459456610}
+[2025-11-01T19:42:24.032Z] [INFO   ] 2025-11-01T19:42:24.031Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/7b42a00e-715e-4f62-ab55-d59c4d7b9b5e/revisions/e75230d5-9cae-4fb6-8b2e-ff77bf70b5f8","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13459456632}
+[2025-11-01T19:42:24.527Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/revisions/[revisionId] in 444ms (5751 modules)
+[2025-11-01T19:42:25.296Z] [INFO   ] 2025-11-01T19:42:25.296Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/7b42a00e-715e-4f62-ab55-d59c4d7b9b5e/revisions/e75230d5-9cae-4fb6-8b2e-ff77bf70b5f8","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13459457897}
+[2025-11-01T19:42:25.834Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/workflows/[id]/chat ...
+[2025-11-01T19:42:25.843Z] [INFO   ] 2025-11-01T19:42:25.843Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/7b42a00e-715e-4f62-ab55-d59c4d7b9b5e/edits","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13459458444}
+[2025-11-01T19:42:26.971Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/edits in 1684ms (6008 modules)
+[2025-11-01T19:42:27.293Z] [INFO   ] 2025-11-01T19:42:27.292Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-01T19:42:27.292Z","url":"http://localhost:3000/api/integrations"}
+[2025-11-01T19:42:27.380Z] [INFO   ] 2025-11-01T19:42:27.380Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-01T19:42:27.380Z] [INFO   ] 2025-11-01T19:42:27.380Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-01T19:42:27.474Z] [INFO   ] 2025-11-01T19:42:27.474Z [DEBUG] 📊 [API /api/integrations] Query result {"workspaceType":"personal","workspaceId":null,"count":14,"error":null}
+[2025-11-01T19:42:27.475Z] [INFO   ] 2025-11-01T19:42:27.475Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-01T19:42:27.555Z] [INFO   ] 2025-11-01T19:42:27.555Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-01T19:42:27.555Z","url":"http://localhost:3000/api/integrations"}
+[2025-11-01T19:42:27.640Z] [INFO   ] 2025-11-01T19:42:27.640Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-01T19:42:27.641Z] [INFO   ] 2025-11-01T19:42:27.640Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-01T19:42:27.757Z] [INFO   ] 2025-11-01T19:42:27.757Z [DEBUG] 📊 [API /api/integrations] Query result {"workspaceType":"personal","workspaceId":null,"count":14,"error":null}
+[2025-11-01T19:42:27.758Z] [INFO   ] 2025-11-01T19:42:27.758Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-01T19:42:30.651Z] [INFO   ] 2025-11-01T19:42:30.651Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/7b42a00e-715e-4f62-ab55-d59c4d7b9b5e/apply-edits","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13459463252}
+[2025-11-01T19:42:31.191Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/v2/api/flows/[flowId]/apply-edits ...
+[2025-11-01T19:42:31.198Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/apply-edits in 516ms (6010 modules)
+[2025-11-01T19:43:57.343Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1873ms (5741 modules)
+[2025-11-01T19:43:57.410Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-11-01T19:43:57.622Z] [INFO   ] 2025-11-01T19:43:57.622Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/7b42a00e-715e-4f62-ab55-d59c4d7b9b5e","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13459550223}
+[2025-11-01T19:43:57.656Z] [INFO   ] 2025-11-01T19:43:57.656Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/7b42a00e-715e-4f62-ab55-d59c4d7b9b5e","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13459550257}
+[2025-11-01T19:43:58.024Z] [INFO   ] 2025-11-01T19:43:58.024Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-01T19:43:58.168Z] [INFO   ] 2025-11-01T19:43:58.168Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-01T19:43:58.168Z"}
+[2025-11-01T19:43:58.174Z] [INFO   ] 2025-11-01T19:43:58.174Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-01T19:43:58.174Z"}
+[2025-11-01T19:43:58.174Z] [INFO   ] 2025-11-01T19:43:58.174Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-01T19:43:58.174Z"}
+[2025-11-01T19:43:58.487Z] [INFO   ] 2025-11-01T19:43:58.487Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-01T19:43:59.490Z] [INFO   ] 2025-11-01T19:43:59.490Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/7b42a00e-715e-4f62-ab55-d59c4d7b9b5e/revisions","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13459552091}
+[2025-11-01T19:43:59.735Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/revisions in 344ms (4392 modules)
+[2025-11-01T19:44:00.006Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4400 modules)
+[2025-11-01T19:44:00.144Z] [INFO   ] 2025-11-01T19:44:00.144Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-01T19:44:00.144Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-01T19:44:00.267Z] [INFO   ] 2025-11-01T19:44:00.267Z [DEBUG] [API /api/workflows] GET request {"workspaceType":"personal","workspaceId":null,"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-01T19:44:00.333Z] [INFO   ] 2025-11-01T19:44:00.333Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-01T19:44:00.333Z] [INFO   ] 2025-11-01T19:44:00.333Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-01T19:44:00.441Z] [INFO   ] 2025-11-01T19:44:00.441Z [DEBUG] 📊 [API /api/integrations] Query result {"workspaceType":"personal","workspaceId":null,"count":14,"error":null}
+[2025-11-01T19:44:00.441Z] [INFO   ] 2025-11-01T19:44:00.441Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-01T19:44:00.672Z] [INFO   ] 2025-11-01T19:44:00.672Z [DEBUG] [API /api/workflows] Query result {"workspaceType":"personal","count":13,"error":null}
+[2025-11-01T19:44:00.864Z] [INFO   ]  [37m[1m○[22m[39m Compiling /icon.png ...
+[2025-11-01T19:44:00.922Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /icon.png in 686ms (4402 modules)
+[2025-11-01T19:44:01.028Z] [INFO   ] 2025-11-01T19:44:01.027Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/7b42a00e-715e-4f62-ab55-d59c4d7b9b5e/revisions/e09559c5-db54-4ba3-a70d-2156eb8b361d","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13459553628}
+[2025-11-01T19:44:01.460Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/revisions/[revisionId] in 394ms (4404 modules)
+[2025-11-01T19:44:02.371Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/workflows/[id]/chat ...
+[2025-11-01T19:44:02.387Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/workflows/[id]/chat in 533ms (4407 modules)
+[2025-11-01T19:44:02.926Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4409 modules)
+[2025-11-01T19:44:03.121Z] [INFO   ] 2025-11-01T19:44:03.121Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-01T19:44:03.121Z","url":"http://localhost:3000/api/integrations"}
+[2025-11-01T19:44:03.206Z] [INFO   ] 2025-11-01T19:44:03.206Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-01T19:44:03.206Z] [INFO   ] 2025-11-01T19:44:03.206Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-01T19:44:03.303Z] [INFO   ] 2025-11-01T19:44:03.303Z [DEBUG] 📊 [API /api/integrations] Query result {"workspaceType":"personal","workspaceId":null,"count":14,"error":null}
+[2025-11-01T19:44:03.303Z] [INFO   ] 2025-11-01T19:44:03.303Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-01T19:44:03.355Z] [INFO   ] 2025-11-01T19:44:03.355Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-01T19:44:03.355Z","url":"http://localhost:3000/api/integrations"}
+[2025-11-01T19:44:03.433Z] [INFO   ] 2025-11-01T19:44:03.433Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-01T19:44:03.433Z] [INFO   ] 2025-11-01T19:44:03.433Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-01T19:44:03.512Z] [INFO   ] 2025-11-01T19:44:03.512Z [DEBUG] 📊 [API /api/integrations] Query result {"workspaceType":"personal","workspaceId":null,"count":14,"error":null}
+[2025-11-01T19:44:03.512Z] [INFO   ] 2025-11-01T19:44:03.512Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-01T19:44:05.684Z] [INFO   ] 2025-11-01T19:44:05.684Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/7b42a00e-715e-4f62-ab55-d59c4d7b9b5e/edits","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13459558285}
+[2025-11-01T19:44:06.303Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/v2/api/flows/[flowId]/edits ...
+[2025-11-01T19:44:06.351Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/edits in 618ms (4664 modules)
+[2025-11-01T19:47:30.454Z] [INFO   ] 2025-11-01T19:47:30.454Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-agent","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13459763055}
+[2025-11-01T19:47:30.748Z] [INFO   ] 2025-11-01T19:47:30.748Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-01T19:47:30.748Z"}
+[2025-11-01T19:47:30.751Z] [INFO   ] 2025-11-01T19:47:30.751Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-01T19:47:30.751Z"}
+[2025-11-01T19:47:30.751Z] [INFO   ] 2025-11-01T19:47:30.751Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-01T19:47:30.751Z"}
+[2025-11-01T19:47:31.069Z] [INFO   ] 2025-11-01T19:47:31.069Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-01T19:47:34.616Z] [INFO   ] 2025-11-01T19:47:34.616Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-01T19:47:34.616Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-01T19:47:34.780Z] [INFO   ] 2025-11-01T19:47:34.780Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-01T19:47:34.781Z] [INFO   ] 2025-11-01T19:47:34.781Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-01T19:47:34.861Z] [INFO   ] 2025-11-01T19:47:34.861Z [DEBUG] 📊 [API /api/integrations] Query result {"workspaceType":"personal","workspaceId":null,"count":14,"error":null}
+[2025-11-01T19:47:34.862Z] [INFO   ] 2025-11-01T19:47:34.862Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-01T19:47:36.211Z] [INFO   ] 2025-11-01T19:47:36.211Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13459768812}
+[2025-11-01T19:47:36.769Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/v2/api/flows ...
+[2025-11-01T19:47:37.015Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows in 761ms (4399 modules)
+[2025-11-01T19:47:37.580Z] [INFO   ] 2025-11-01T19:47:37.579Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1772af71-7177-4b83-b04e-5e36fa906c8b","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13459770180}
+[2025-11-01T19:47:37.928Z] [INFO   ] 2025-11-01T19:47:37.928Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-01T19:47:38.488Z] [INFO   ] 2025-11-01T19:47:38.488Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/1772af71-7177-4b83-b04e-5e36fa906c8b/revisions","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13459771089}
+[2025-11-01T19:47:38.735Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/revisions in 433ms (4402 modules)
+[2025-11-01T19:47:39.014Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4406 modules)
+[2025-11-01T19:47:39.158Z] [INFO   ] 2025-11-01T19:47:39.158Z [DEBUG] [API /api/workflows] GET request {"workspaceType":"personal","workspaceId":null,"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-01T19:47:39.192Z] [INFO   ] 2025-11-01T19:47:39.192Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-01T19:47:39.192Z","url":"http://localhost:3000/api/integrations"}
+[2025-11-01T19:47:39.240Z] [INFO   ] 2025-11-01T19:47:39.240Z [DEBUG] [API /api/workflows] Query result {"workspaceType":"personal","count":13,"error":null}
+[2025-11-01T19:47:39.321Z] [INFO   ] 2025-11-01T19:47:39.321Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-01T19:47:39.322Z] [INFO   ] 2025-11-01T19:47:39.322Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-01T19:47:39.408Z] [INFO   ] 2025-11-01T19:47:39.408Z [DEBUG] 📊 [API /api/integrations] Query result {"workspaceType":"personal","workspaceId":null,"count":14,"error":null}
+[2025-11-01T19:47:39.408Z] [INFO   ] 2025-11-01T19:47:39.408Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-01T19:47:39.528Z] [INFO   ] 2025-11-01T19:47:39.528Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-01T19:47:39.528Z","url":"http://localhost:3000/api/integrations"}
+[2025-11-01T19:47:39.543Z] [INFO   ] 2025-11-01T19:47:39.543Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/1772af71-7177-4b83-b04e-5e36fa906c8b/revisions","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13459772144}
+[2025-11-01T19:47:39.601Z] [INFO   ] 2025-11-01T19:47:39.601Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/1772af71-7177-4b83-b04e-5e36fa906c8b/revisions/72c6ecc2-df37-46dd-894b-3c2ed600f044","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13459772202}
+[2025-11-01T19:47:39.627Z] [INFO   ] 2025-11-01T19:47:39.627Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-01T19:47:39.628Z] [INFO   ] 2025-11-01T19:47:39.628Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-01T19:47:39.710Z] [INFO   ] 2025-11-01T19:47:39.710Z [DEBUG] 📊 [API /api/integrations] Query result {"workspaceType":"personal","workspaceId":null,"count":14,"error":null}
+[2025-11-01T19:47:39.710Z] [INFO   ] 2025-11-01T19:47:39.710Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-01T19:47:39.987Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/revisions/[revisionId] in 354ms (4408 modules)
+[2025-11-01T19:47:40.439Z] [INFO   ] 2025-11-01T19:47:40.439Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/1772af71-7177-4b83-b04e-5e36fa906c8b/revisions/72c6ecc2-df37-46dd-894b-3c2ed600f044","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13459773040}
+[2025-11-01T19:47:40.848Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/workflows/[id]/chat ...
+[2025-11-01T19:47:41.441Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/workflows/[id]/chat in 1094ms (4410 modules)
+[2025-11-01T19:47:41.838Z] [INFO   ] 2025-11-01T19:47:41.838Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-01T19:47:41.838Z","url":"http://localhost:3000/api/integrations"}
+[2025-11-01T19:47:41.975Z] [INFO   ] 2025-11-01T19:47:41.975Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-01T19:47:41.975Z] [INFO   ] 2025-11-01T19:47:41.975Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-01T19:47:42.063Z] [INFO   ] 2025-11-01T19:47:42.063Z [DEBUG] 📊 [API /api/integrations] Query result {"workspaceType":"personal","workspaceId":null,"count":14,"error":null}
+[2025-11-01T19:47:42.063Z] [INFO   ] 2025-11-01T19:47:42.063Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-01T19:47:42.143Z] [INFO   ] 2025-11-01T19:47:42.143Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/1772af71-7177-4b83-b04e-5e36fa906c8b/edits","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13459774744}
+[2025-11-01T19:47:42.148Z] [INFO   ] 2025-11-01T19:47:42.148Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-01T19:47:42.148Z","url":"http://localhost:3000/api/integrations"}
+[2025-11-01T19:47:42.249Z] [INFO   ] 2025-11-01T19:47:42.249Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-01T19:47:42.249Z] [INFO   ] 2025-11-01T19:47:42.249Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-01T19:47:42.343Z] [INFO   ] 2025-11-01T19:47:42.343Z [DEBUG] 📊 [API /api/integrations] Query result {"workspaceType":"personal","workspaceId":null,"count":14,"error":null}
+[2025-11-01T19:47:42.344Z] [INFO   ] 2025-11-01T19:47:42.344Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-01T19:47:42.675Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/v2/api/flows/[flowId]/edits ...
+[2025-11-01T19:47:42.900Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/edits in 725ms (4665 modules)
+[2025-11-01T19:47:44.764Z] [INFO   ] 2025-11-01T19:47:44.764Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/1772af71-7177-4b83-b04e-5e36fa906c8b/apply-edits","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13459777365}
+[2025-11-01T19:47:45.294Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/v2/api/flows/[flowId]/apply-edits ...
+[2025-11-01T19:47:45.306Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/apply-edits in 513ms (4667 modules)
+[2025-11-01T19:48:16.354Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1556ms (6024 modules)
+[2025-11-01T19:48:16.462Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-11-01T19:48:16.665Z] [INFO   ] 2025-11-01T19:48:16.665Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1772af71-7177-4b83-b04e-5e36fa906c8b","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13459809266}
+[2025-11-01T19:48:16.839Z] [INFO   ] 2025-11-01T19:48:16.839Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-01T19:48:16.925Z] [INFO   ] 2025-11-01T19:48:16.925Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1772af71-7177-4b83-b04e-5e36fa906c8b","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13459809526}
+[2025-11-01T19:48:17.051Z] [INFO   ] 2025-11-01T19:48:17.051Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-01T19:48:17.051Z"}
+[2025-11-01T19:48:17.057Z] [INFO   ] 2025-11-01T19:48:17.057Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-01T19:48:17.057Z"}
+[2025-11-01T19:48:17.057Z] [INFO   ] 2025-11-01T19:48:17.057Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-01T19:48:17.057Z"}
+[2025-11-01T19:48:17.318Z] [INFO   ] 2025-11-01T19:48:17.317Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-01T19:48:18.840Z] [INFO   ]  [37m[1m○[22m[39m Compiling /icon.png ...
+[2025-11-01T19:48:18.881Z] [INFO   ] 2025-11-01T19:48:18.881Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/1772af71-7177-4b83-b04e-5e36fa906c8b/revisions","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13459811482}
+[2025-11-01T19:48:18.910Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /icon.png in 735ms (4669 modules)
+[2025-11-01T19:48:19.301Z] [INFO   ] 2025-11-01T19:48:19.301Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-01T19:48:19.301Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-01T19:48:19.369Z] [INFO   ] 2025-11-01T19:48:19.369Z [DEBUG] [API /api/workflows] GET request {"workspaceType":"personal","workspaceId":null,"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-01T19:48:19.398Z] [INFO   ] 2025-11-01T19:48:19.398Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-01T19:48:19.398Z","url":"http://localhost:3000/api/integrations"}
+[2025-11-01T19:48:19.456Z] [INFO   ] 2025-11-01T19:48:19.456Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-01T19:48:19.456Z] [INFO   ] 2025-11-01T19:48:19.456Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-01T19:48:19.458Z] [INFO   ] 2025-11-01T19:48:19.458Z [DEBUG] [API /api/workflows] Query result {"workspaceType":"personal","count":13,"error":null}
+[2025-11-01T19:48:19.522Z] [INFO   ] 2025-11-01T19:48:19.521Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-01T19:48:19.522Z] [INFO   ] 2025-11-01T19:48:19.522Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-01T19:48:19.535Z] [INFO   ] 2025-11-01T19:48:19.535Z [DEBUG] 📊 [API /api/integrations] Query result {"workspaceType":"personal","workspaceId":null,"count":14,"error":null}
+[2025-11-01T19:48:19.536Z] [INFO   ] 2025-11-01T19:48:19.536Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-01T19:48:19.599Z] [INFO   ] 2025-11-01T19:48:19.599Z [DEBUG] 📊 [API /api/integrations] Query result {"workspaceType":"personal","workspaceId":null,"count":14,"error":null}
+[2025-11-01T19:48:19.600Z] [INFO   ] 2025-11-01T19:48:19.600Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-01T19:48:19.648Z] [INFO   ] 2025-11-01T19:48:19.648Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-01T19:48:19.648Z","url":"http://localhost:3000/api/integrations"}
+[2025-11-01T19:48:19.728Z] [INFO   ] 2025-11-01T19:48:19.728Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-01T19:48:19.728Z] [INFO   ] 2025-11-01T19:48:19.728Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-01T19:48:19.744Z] [INFO   ] 2025-11-01T19:48:19.744Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/1772af71-7177-4b83-b04e-5e36fa906c8b/revisions","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13459812345}
+[2025-11-01T19:48:19.768Z] [INFO   ] 2025-11-01T19:48:19.768Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/1772af71-7177-4b83-b04e-5e36fa906c8b/revisions/da1a9daa-08e6-474d-b066-066091d296fe","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13459812369}
+[2025-11-01T19:48:19.837Z] [INFO   ] 2025-11-01T19:48:19.837Z [DEBUG] 📊 [API /api/integrations] Query result {"workspaceType":"personal","workspaceId":null,"count":14,"error":null}
+[2025-11-01T19:48:19.837Z] [INFO   ] 2025-11-01T19:48:19.837Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-01T19:48:20.341Z] [INFO   ] 2025-11-01T19:48:20.341Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-01T19:48:20.341Z","url":"http://localhost:3000/api/integrations"}
+[2025-11-01T19:48:20.416Z] [INFO   ] 2025-11-01T19:48:20.416Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-01T19:48:20.417Z] [INFO   ] 2025-11-01T19:48:20.416Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-01T19:48:20.488Z] [INFO   ] 2025-11-01T19:48:20.488Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/1772af71-7177-4b83-b04e-5e36fa906c8b/revisions/da1a9daa-08e6-474d-b066-066091d296fe","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13459813089}
+[2025-11-01T19:48:20.520Z] [INFO   ] 2025-11-01T19:48:20.520Z [DEBUG] 📊 [API /api/integrations] Query result {"workspaceType":"personal","workspaceId":null,"count":14,"error":null}
+[2025-11-01T19:48:20.521Z] [INFO   ] 2025-11-01T19:48:20.521Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-01T19:48:20.606Z] [INFO   ] 2025-11-01T19:48:20.606Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-01T19:48:20.606Z","url":"http://localhost:3000/api/integrations"}
+[2025-11-01T19:48:20.691Z] [INFO   ] 2025-11-01T19:48:20.691Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-01T19:48:20.692Z] [INFO   ] 2025-11-01T19:48:20.692Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-01T19:48:20.774Z] [INFO   ] 2025-11-01T19:48:20.774Z [DEBUG] 📊 [API /api/integrations] Query result {"workspaceType":"personal","workspaceId":null,"count":14,"error":null}
+[2025-11-01T19:48:20.774Z] [INFO   ] 2025-11-01T19:48:20.774Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-01T19:48:23.700Z] [INFO   ] 2025-11-01T19:48:23.700Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/1772af71-7177-4b83-b04e-5e36fa906c8b/edits","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13459816301}
+
+=== Log Session Ended: 2025-11-01T19:50:04.135Z ===

@@ -48,7 +48,9 @@
       "Bash(supabase db exec:*)",
       "Bash(node diagnose-workflows.js:*)",
       "Bash(cat:*)",
-      "Bash(supabase db diff:*)"
+      "Bash(supabase db diff:*)",
+      "Bash(kill:*)",
+      "Bash(xargs kill -9)"
     ],
     "deny": [],
     "ask": [],

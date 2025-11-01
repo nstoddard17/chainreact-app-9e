@@ -1,0 +1,29 @@
+=== Log Session Started: 2025-11-01T18:53:33.406Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-11-01T18:53:33.406Z] [INFO   ] File logging initialized
+[2025-11-01T18:53:33.406Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-01_13-53-33.log
+[2025-11-01T18:53:33.409Z] [INFO   ] Deleted old log file: workflow_2025-10-25_13-38-52.log
+[2025-11-01T18:53:33.409Z] [INFO   ] 📁 File logging enabled
+[2025-11-01T18:53:33.409Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-01_13-53-33.log
+[2025-11-01T18:53:33.409Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-01_13-53-33.log
+[2025-11-01T18:53:33.409Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-01_13-53-33.log
+[2025-11-01T18:53:33.409Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-01_13-53-33.log
+[2025-11-01T18:53:33.410Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-11-01T18:53:33.410Z] [DEBUG  ] 📁 File logging system initialized
+[2025-11-01T18:53:33.421Z] [INFO   ]  ✓ Ready in 7.1s
+[2025-11-01T18:53:34.540Z] [INFO   ] 2025-11-01T18:53:34.540Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-11-01T18:53:37.685Z] [INFO   ] 2025-11-01T18:53:37.685Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-11-01T18:53:37.685Z] [INFO   ] 2025-11-01T18:53:37.685Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-01T18:53:38.301Z] [INFO   ] 2025-11-01T18:53:38.301Z [DEBUG] Discord Gateway initialization complete
+[2025-11-01T18:53:38.303Z] [INFO   ] 2025-11-01T18:53:38.303Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-11-01T18:53:38.458Z] [INFO   ] 2025-11-01T18:53:38.458Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-01T18:53:38.459Z] [INFO   ] 2025-11-01T18:53:38.458Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-01T18:53:38.742Z] [INFO   ] 2025-11-01T18:53:38.742Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"bd39b7a52bdd8f4bd1e155d773fa4ccc","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-11-01T18:53:38.742Z] [INFO   ] 2025-11-01T18:53:38.742Z [DEBUG] 📋 Initializing invite cache...
+[2025-11-01T18:53:38.744Z] [INFO   ] 2025-11-01T18:53:38.744Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-01T18:53:38.753Z] [INFO   ] 2025-11-01T18:53:38.753Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-01T18:53:38.974Z] [INFO   ] 2025-11-01T18:53:38.974Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406

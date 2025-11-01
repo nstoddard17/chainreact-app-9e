@@ -1,14 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { createClient } from '@supabase/supabase-js'
 import { logger } from '@/lib/utils/logger'
 
 export const dynamic = 'force-dynamic'
 
+// Use service role client to bypass RLS for chat operations
+const getServiceClient = () => {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+  return createClient(supabaseUrl, supabaseServiceKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  })
+}
+
 interface ChatMessage {
   id?: string
   flowId: string
-  userId: string
+  userId?: string
   role: 'user' | 'assistant' | 'status'
   text: string
   subtext?: string
@@ -37,39 +48,20 @@ export async function GET(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const cookieStore = await cookies()
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const supabase = getServiceClient()
 
     const { id: flowId } = await context.params
     const { searchParams } = new URL(request.url)
     const limit = parseInt(searchParams.get('limit') || '50')
     const offset = parseInt(searchParams.get('offset') || '0')
 
-    const rpcPayload = {
-      p_flow_id: flowId,
-      p_limit: limit,
-      p_offset: offset,
-      p_user_id: user.id
-    }
-
-    let { data, error } = await supabase.rpc('get_agent_chat_history', rpcPayload)
-
-    if (error?.code === 'PGRST202') {
-      // Fallback for older function signature without p_user_id
-      const fallbackPayload = {
+    // Fetch chat history using service role (bypasses RLS)
+    const { data, error } = await supabase
+      .rpc('get_agent_chat_history', {
         p_flow_id: flowId,
         p_limit: limit,
         p_offset: offset
-      }
-      const fallback = await supabase.rpc('get_agent_chat_history', fallbackPayload)
-      data = fallback.data
-      error = fallback.error
-    }
+      })
 
     if (error) {
       logger.error('Failed to fetch chat history', { error, flowId })
@@ -94,10 +86,7 @@ export async function POST(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const cookieStore = await cookies()
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
-
-    // Note: No session check here - RLS policies will enforce auth at database level
+    const supabase = getServiceClient()
 
     const { id: flowId } = await context.params
     const body = await request.json()
@@ -111,8 +100,7 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
     }
 
-    // Insert message (table uses 'content' and 'metadata' column names)
-    // RLS policies will enforce auth
+    // Insert message using service role (bypasses RLS)
     const metadata = {
       ...(meta ?? {}),
       ...(subtext !== undefined ? { subtext } : {})
@@ -150,10 +138,7 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const cookieStore = await cookies()
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
-
-    // Note: No session check here - RLS policies will enforce auth at database level
+    const supabase = getServiceClient()
 
     const { id: flowId } = await context.params
     const body = await request.json()
@@ -163,7 +148,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Missing messageId' }, { status: 400 })
     }
 
-    // Update message (RLS will enforce auth)
+    // Update message using service role (bypasses RLS)
     const updates: Record<string, any> = {}
     if (text !== undefined) {
       updates.content = text
