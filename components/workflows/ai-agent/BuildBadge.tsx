@@ -1,9 +1,11 @@
 "use client"
 
-import React, { useEffect, useState } from 'react'
-import { Badge } from '@/components/ui/badge'
-import { Loader2 } from 'lucide-react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { DESIGN_TOKENS } from '@/lib/workflows/ai-agent/design-tokens'
+import {
+  CanvasBadge,
+  type CanvasBadgeVariant,
+} from '@/components/workflows/builder/ui/CanvasBadge'
 
 interface BuildBadgeProps {
   text: string
@@ -15,61 +17,104 @@ interface BuildBadgeProps {
  * Build Badge - Top-center overlay showing build progress
  */
 export function BuildBadge({ text, subtext, stage }: BuildBadgeProps) {
-  const [visible, setVisible] = useState(true)
+  const [visible, setVisible] = useState(stage !== 'idle')
   const [fadeOut, setFadeOut] = useState(false)
+  const [reducedMotion, setReducedMotion] = useState(false)
 
   useEffect(() => {
+    if (typeof window === 'undefined') return
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const handleChange = () => setReducedMotion(mediaQuery.matches)
+    handleChange()
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', handleChange)
+      return () => mediaQuery.removeEventListener('change', handleChange)
+    }
+    mediaQuery.addListener(handleChange)
+    return () => mediaQuery.removeListener(handleChange)
+  }, [])
+
+  useEffect(() => {
+    let fadeTimer: ReturnType<typeof setTimeout> | null = null
+    let hideTimer: ReturnType<typeof setTimeout> | null = null
+
+    if (stage === 'idle') {
+      setVisible(false)
+      setFadeOut(false)
+      return () => {
+        if (fadeTimer) clearTimeout(fadeTimer)
+        if (hideTimer) clearTimeout(hideTimer)
+      }
+    }
+
+    setVisible(true)
+    setFadeOut(false)
+
     if (stage === 'complete') {
-      // Start fade out after delay
-      const timeout = setTimeout(() => {
+      fadeTimer = setTimeout(() => {
         setFadeOut(true)
-        setTimeout(() => setVisible(false), 300)
+        hideTimer = setTimeout(() => setVisible(false), 300)
       }, DESIGN_TOKENS.BADGE_FADE_OUT_DELAY)
 
-      return () => clearTimeout(timeout)
+      return () => {
+        if (fadeTimer) clearTimeout(fadeTimer)
+        if (hideTimer) clearTimeout(hideTimer)
+      }
+    }
+
+    return () => {
+      if (fadeTimer) clearTimeout(fadeTimer)
+      if (hideTimer) clearTimeout(hideTimer)
     }
   }, [stage])
 
-  if (!visible || stage === 'idle') {
+  const variant: CanvasBadgeVariant = useMemo(() => {
+    switch (stage) {
+      case 'waiting':
+      case 'preparing':
+      case 'testing':
+        return 'waiting'
+      case 'complete':
+        return 'success'
+      case 'idle':
+      case 'building':
+      default:
+        return 'active'
+    }
+  }, [stage])
+
+  const showDots = stage === 'building'
+  const showSpinner = stage === 'building' || stage === 'preparing' || stage === 'testing'
+
+  if (!visible) {
     return null
   }
 
-  const showSpinner = stage === 'building' || stage === 'preparing' || stage === 'testing'
-  const isComplete = stage === 'complete'
-
   return (
     <div
-      className={`absolute top-20 left-1/2 transform -translate-x-1/2 z-50 transition-opacity duration-300 ${
-        fadeOut ? 'opacity-0' : 'opacity-100'
-      }`}
+      className={[
+        'pointer-events-none',
+        'absolute',
+        'top-20',
+        'left-1/2',
+        '-translate-x-1/2',
+        'z-50',
+        'transition-opacity',
+        'duration-300',
+        fadeOut ? 'opacity-0' : 'opacity-100',
+      ].join(' ')}
       role="status"
       aria-live="polite"
       aria-atomic="true"
     >
-      <Badge
-        variant={isComplete ? 'default' : 'secondary'}
-        className={`
-          px-4 py-2 shadow-lg
-          ${isComplete ? 'bg-green-500 hover:bg-green-600' : 'bg-white border-2'}
-        `}
-      >
-        <div className="flex items-center gap-2">
-          {showSpinner && <Loader2 className="w-4 h-4 animate-spin" />}
-          <div className="flex flex-col items-start">
-            <span className="font-medium text-sm">{text}</span>
-            {subtext && (
-              <span className="text-xs opacity-80">{subtext}</span>
-            )}
-          </div>
-          {stage === 'building' && (
-            <div className="flex gap-1 ml-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" style={{ animationDelay: '0ms' }} />
-              <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" style={{ animationDelay: '150ms' }} />
-              <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" style={{ animationDelay: '300ms' }} />
-            </div>
-          )}
-        </div>
-      </Badge>
+      <CanvasBadge
+        text={text}
+        subtext={subtext}
+        variant={variant}
+        showDots={showDots}
+        showSpinner={showSpinner}
+        reducedMotion={reducedMotion}
+      />
     </div>
   )
 }

@@ -238,7 +238,45 @@ export function FlowV2BuilderContent({
   const leftInset = isAgentPanelOpen ? Math.min(agentPanelWidth, containerWidth) : 0
   const availableWidth = Math.max(containerWidth - leftInset - rightPanelWidth, 0)
   const badgeLeft = leftInset + availableWidth / 2
-  const badgeMaxWidth = Math.max(availableWidth - 32, 220)
+  const badgeMaxWidth = availableWidth > 0
+    ? Math.min(Math.max(availableWidth - 32, 200), availableWidth)
+    : 200
+
+  const canvasBadgeText = useMemo(() => {
+    switch (buildState) {
+      case BuildState.THINKING:
+      case BuildState.SUBTASKS:
+      case BuildState.COLLECT_NODES:
+      case BuildState.OUTLINE:
+      case BuildState.PURPOSE:
+        return "Planning workflow"
+      case BuildState.BUILDING_SKELETON:
+        return "Building workflow"
+      case BuildState.WAITING_USER:
+        return "Waiting for your input"
+      case BuildState.PREPARING_NODE:
+        return "Preparing nodes"
+      case BuildState.TESTING_NODE:
+        return "Testing nodes"
+      case BuildState.COMPLETE:
+        return "Flow ready"
+      default:
+        return "Workflow assistant"
+    }
+  }, [buildState])
+
+  const canvasBadgeSubtext = useMemo(() => {
+    if (!badge?.subtext) {
+      if (buildState === BuildState.WAITING_USER) {
+        return "Review the plan to continue"
+      }
+      if (buildState === BuildState.COMPLETE) {
+        return undefined
+      }
+      return undefined
+    }
+    return badge.subtext
+  }, [badge?.subtext, buildState])
 
   const badgeWrapperStyle: React.CSSProperties = {
     position: "absolute",
@@ -247,7 +285,7 @@ export function FlowV2BuilderContent({
     transform: "translateX(-50%)",
     maxWidth: badgeMaxWidth,
     pointerEvents: "none",
-    zIndex: 10,
+    zIndex: 12,
     padding: "0 8px",
   }
 
@@ -328,21 +366,22 @@ export function FlowV2BuilderContent({
         </Panel>
           </ReactFlow>
 
-          {/* Floating Badge - Top center (Canvas phase only) */}
-          {badge && (buildState === BuildState.BUILDING_SKELETON ||
-                     buildState === BuildState.WAITING_USER ||
-                     buildState === BuildState.PREPARING_NODE ||
-                     buildState === BuildState.TESTING_NODE ||
-                     buildState === BuildState.COMPLETE) && (
+          {/* Floating Badge - Top center */}
+          {badge && availableWidth > 80 && (
             <div style={badgeWrapperStyle}>
               <CanvasBadge
-                text={badge.text}
-                subtext={badge.subtext}
+                text={canvasBadgeText}
+                subtext={canvasBadgeSubtext}
                 variant={(() => {
-                  if (buildState === BuildState.COMPLETE) return 'success'
-                  if (buildState === BuildState.WAITING_USER) return 'waiting'
+                  if (badge?.variant === 'green' || buildState === BuildState.COMPLETE) return 'success'
+                  if (badge?.variant === 'red') return 'error'
+                  if (badge?.spinner || buildState === BuildState.WAITING_USER || buildState === BuildState.PREPARING_NODE || buildState === BuildState.TESTING_NODE) {
+                    return 'waiting'
+                  }
                   return 'active'
                 })() as CanvasBadgeVariant}
+                showDots={Boolean(badge?.dots)}
+                showSpinner={Boolean(badge?.spinner)}
                 reducedMotion={typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches}
               />
             </div>
@@ -350,7 +389,7 @@ export function FlowV2BuilderContent({
 
           {/* Integrations Side Panel */}
           <div
-            className={`absolute top-0 right-0 h-full w-[600px] transition-all duration-300 ease-in-out ${
+            className={`absolute top-0 right-0 h-full w-[600px] transition-all duration-300 ease-in-out z-30 ${
               isIntegrationsPanelOpen && !configuringNode
                 ? 'translate-x-0 opacity-100'
                 : 'translate-x-full opacity-0'
@@ -365,7 +404,7 @@ export function FlowV2BuilderContent({
 
           {/* Configuration Side Panel */}
           <div
-            className={`absolute top-0 right-0 h-full w-[600px] transition-all duration-300 ease-in-out ${
+            className={`absolute top-0 right-0 h-full w-[600px] transition-all duration-300 ease-in-out z-30 ${
               configuringNode
                 ? 'translate-x-0 opacity-100'
                 : 'translate-x-full opacity-0'
