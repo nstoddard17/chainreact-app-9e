@@ -30,6 +30,12 @@ export interface Integration {
   metadata?: any
   disconnected_at?: string | null
   disconnect_reason?: string | null
+  // Workspace context fields
+  workspace_type?: 'personal' | 'team' | 'organization'
+  workspace_id?: string | null
+  connected_by?: string
+  // Permission level for current user
+  user_permission?: 'use' | 'manage' | 'admin' | null
   [key: string]: any
 }
 
@@ -47,13 +53,16 @@ export interface IntegrationStore {
   apiKeyIntegrations: Integration[]
   currentUserId: string | null
   lastFetchTime: number | null
+  // Workspace context
+  workspaceType: 'personal' | 'team' | 'organization'
+  workspaceId: string | null
 
   // Actions
   setLoading: (key: string, loading: boolean) => void
   setError: (error: string | null) => void
   clearError: () => void
   initializeProviders: () => Promise<void>
-  fetchIntegrations: (force?: boolean) => Promise<void>
+  fetchIntegrations: (force?: boolean, workspaceType?: 'personal' | 'team' | 'organization', workspaceId?: string) => Promise<void>
   connectIntegration: (providerId: string) => Promise<void>
   disconnectIntegration: (integrationId: string) => Promise<void>
   refreshAllTokens: () => Promise<{ refreshed: number; failed: number }>
@@ -72,6 +81,7 @@ export interface IntegrationStore {
   reconnectIntegration: (integrationId: string) => Promise<void>
   deleteIntegration: (integrationId: string) => Promise<void>
   setCurrentUserId: (userId: string | null) => void
+  setWorkspaceContext: (workspaceType: 'personal' | 'team' | 'organization', workspaceId?: string | null) => void
   checkIntegrationScopes: (providerId: string) => { needsReconnection: boolean; reason: string; missingScopes?: string[] }
 }
 
@@ -142,6 +152,9 @@ export const useIntegrationStore = create<IntegrationStore>()(
     preloadStarted: false,
     currentUserId: null,
     lastFetchTime: null,
+    // Default to personal workspace
+    workspaceType: 'personal',
+    workspaceId: null,
 
     setCurrentUserId: (userId: string | null) => {
       const currentUserId = get().currentUserId
@@ -153,6 +166,12 @@ export const useIntegrationStore = create<IntegrationStore>()(
           get().clearAllData()
         }
       }
+    },
+
+    setWorkspaceContext: (workspaceType: 'personal' | 'team' | 'organization', workspaceId?: string | null) => {
+      set({ workspaceType, workspaceId: workspaceId || null })
+      // Refetch integrations when workspace context changes
+      get().fetchIntegrations(true, workspaceType, workspaceId || undefined)
     },
 
     setLoading: (key: string, loading: boolean) => {
@@ -220,7 +239,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
         }
     },
 
-    fetchIntegrations: async (force = false) => {
+    fetchIntegrations: async (force = false, workspaceType?: 'personal' | 'team' | 'organization', workspaceId?: string) => {
       // If there's already an ongoing fetch, return that promise to prevent duplicate requests
       if (ongoingFetchPromise) {
         logger.debug('⏭️ [IntegrationStore] Fetch already in progress, returning existing promise')
@@ -229,9 +248,15 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
       logger.debug('🔍 [IntegrationStore] fetchIntegrations called', {
         force,
+        workspaceType,
+        workspaceId,
         timestamp: new Date().toISOString()
       })
         const { setLoading, currentUserId, integrations, lastFetchTime } = get()
+
+        // Use provided workspace context or fallback to store state
+        const effectiveWorkspaceType = workspaceType || get().workspaceType
+        const effectiveWorkspaceId = workspaceId || get().workspaceId || undefined
 
         // Reduced cache duration to 5 seconds (matching workflow store) - integrations change frequently
         const CACHE_DURATION = 5000 // 5 seconds (reduced from 60)
@@ -267,7 +292,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
           try {
             setLoading('integrations', true)
             set({ error: null })
-          
+
           // Try to get user session, but handle auth failures gracefully
           let user;
           try {
@@ -299,7 +324,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
             // Continue with new user instead of returning
           }
 
-          const integrations = await IntegrationService.fetchIntegrations(force)
+          const integrations = await IntegrationService.fetchIntegrations(force, effectiveWorkspaceType, effectiveWorkspaceId)
 
           // Clear timeout on successful fetch
           clearTimeout(fetchTimeout)

@@ -4,6 +4,7 @@ import React, { useState, useMemo, useCallback, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useIntegrationStore, Integration } from "@/stores/integrationStore"
 import { useAuthStore } from "@/stores/authStore"
+import { useWorkspaceContext } from "@/hooks/useWorkspaceContext"
 import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
 import { IntegrationCardWrapper } from "@/components/integrations/IntegrationCardWrapper"
 import { RefreshCw, Bell, Check, X, Search, AlertCircle } from "lucide-react"
@@ -43,6 +44,9 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   const lastFetchTimeRef = React.useRef(0)
   const { toast } = useToast()
 
+  // Get workspace context
+  const { workspaceContext } = useWorkspaceContext()
+
   // Use selective subscriptions with shallow comparison to prevent unnecessary re-renders
   const {
     integrations,
@@ -55,7 +59,8 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
     disconnectIntegration,
     reconnectIntegration,
     connectApiKeyIntegration,
-    setLoading
+    setLoading,
+    setWorkspaceContext: setStoreWorkspaceContext
   } = useIntegrationStore(
     useShallow(state => ({
       integrations: state.integrations,
@@ -68,12 +73,21 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
       disconnectIntegration: state.disconnectIntegration,
       reconnectIntegration: state.reconnectIntegration,
       connectApiKeyIntegration: state.connectApiKeyIntegration,
-      setLoading: state.setLoading
+      setLoading: state.setLoading,
+      setWorkspaceContext: state.setWorkspaceContext
     }))
   )
   const [initialFetchSettled, setInitialFetchSettled] = useState(false)
   const { user } = useAuthStore()
   const router = useRouter()
+
+  // Sync workspace context to integration store when it changes
+  useEffect(() => {
+    if (workspaceContext) {
+      logger.debug('Syncing workspace context to integration store:', workspaceContext)
+      setStoreWorkspaceContext(workspaceContext.type, workspaceContext.id)
+    }
+  }, [workspaceContext, setStoreWorkspaceContext])
 
   // Debounced fetch to prevent duplicate calls within 3 seconds
   const debouncedFetchIntegrations = useCallback((force: boolean = false) => {
@@ -84,15 +98,15 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
     // OR if force is true and it's been more than 1000ms (allow rapid force refreshes with 1s cooldown)
     if (force && timeSinceLastFetch > 1000) {
       lastFetchTimeRef.current = now
-      return fetchIntegrations(true)
+      return fetchIntegrations(true, workspaceContext.type, workspaceContext.id || undefined)
     } else if (!force && timeSinceLastFetch > 3000) {
       lastFetchTimeRef.current = now
-      return fetchIntegrations(false)
-    } 
+      return fetchIntegrations(false, workspaceContext.type, workspaceContext.id || undefined)
+    }
       logger.debug(`⏭️ Skipping duplicate fetchIntegrations call (${timeSinceLastFetch}ms since last fetch)`)
       return Promise.resolve()
-    
-  }, [fetchIntegrations])
+
+  }, [fetchIntegrations, workspaceContext])
 
   // Define fetchMetrics early to avoid initialization errors
   const fetchMetrics = useCallback(async () => {
@@ -798,10 +812,18 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   return (
     <NewAppLayout title="Integrations" subtitle="Manage your connections to third-party services.">
       <div className="w-full px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
-        <div className="flex justify-end mb-6 sm:mb-8">
-          <Button 
-            onClick={handleRefresh} 
-            disabled={loading || loadingMetrics} 
+        {/* Workspace context badge */}
+        <div className="flex justify-between items-center mb-4 sm:mb-6">
+          <Badge variant="outline" className="text-xs sm:text-sm py-1 px-3">
+            {workspaceContext.isPersonal ? (
+              <>Personal Workspace</>
+            ) : (
+              <>{workspaceContext.name} ({workspaceContext.type === 'team' ? 'Team' : 'Organization'})</>
+            )}
+          </Badge>
+          <Button
+            onClick={handleRefresh}
+            disabled={loading || loadingMetrics}
             variant="outline"
             className="text-sm sm:text-base"
           >
