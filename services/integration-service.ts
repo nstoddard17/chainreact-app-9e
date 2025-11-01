@@ -3,6 +3,7 @@ import { providerRegistry } from "@/src/domains/integrations/use-cases/provider-
 import { IntegrationError, ErrorType } from "@/src/domains/integrations/entities/integration-error"
 
 import { logger } from '@/lib/utils/logger'
+import { useDebugStore } from '@/stores/debugStore'
 
 export interface Integration {
   id: string
@@ -18,6 +19,12 @@ export interface Integration {
   metadata?: any
   disconnected_at?: string | null
   disconnect_reason?: string | null
+  // Workspace context fields
+  workspace_type?: 'personal' | 'team' | 'organization'
+  workspace_id?: string | null
+  connected_by?: string
+  // Permission level for current user
+  user_permission?: 'use' | 'manage' | 'admin' | null
   [key: string]: any
 }
 
@@ -66,8 +73,16 @@ export class IntegrationService {
 
   /**
    * Fetch user's connected integrations with retry logic
+   *
+   * @param force - Force refresh cache
+   * @param workspaceType - Workspace type ('personal' | 'team' | 'organization')
+   * @param workspaceId - Workspace ID (required for team/organization)
    */
-  static async fetchIntegrations(force = false): Promise<Integration[]> {
+  static async fetchIntegrations(
+    force = false,
+    workspaceType: 'personal' | 'team' | 'organization' = 'personal',
+    workspaceId?: string
+  ): Promise<Integration[]> {
     const { user, session } = await SessionManager.getSecureUserAndSession()
 
     // Retry logic
@@ -83,10 +98,26 @@ export class IntegrationService {
         logger.debug('🌐 [IntegrationService] Making API call', {
           attempt: attempt + 1,
           force,
+          workspaceType,
+          workspaceId,
           timestamp: new Date().toISOString()
         });
-        
-        const response = await fetch("/api/integrations", {
+
+        // Build query parameters
+        const params = new URLSearchParams({
+          workspace_type: workspaceType
+        })
+        if (workspaceId) {
+          params.append('workspace_id', workspaceId)
+        }
+
+        const url = `/api/integrations?${params.toString()}`
+        const startTime = Date.now()
+
+        // Debug logging
+        const requestId = useDebugStore.getState().logApiCall('GET', url, { workspaceType, workspaceId })
+
+        const response = await fetch(url, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -96,18 +127,32 @@ export class IntegrationService {
         })
 
         clearTimeout(timeoutId)
+        const duration = Date.now() - startTime
 
         if (!response.ok) {
+          useDebugStore.getState().logApiError(requestId, new Error(`HTTP ${response.status}: ${response.statusText}`), duration)
           throw new Error(`Failed to fetch integrations: ${response.statusText}`)
         }
 
         const data = await response.json()
         const integrations = data.data || []
+
+        // Debug log successful response
+        useDebugStore.getState().logApiResponse(requestId, response.status, {
+          count: integrations.length,
+          hasPermissions: integrations.filter((i: any) => i.user_permission).length,
+          sample: integrations.slice(0, 2).map((i: any) => ({
+            provider: i.provider,
+            workspace_type: i.workspace_type,
+            user_permission: i.user_permission
+          }))
+        }, duration)
+
         return integrations
       } catch (error: any) {
         clearTimeout(timeoutId)
         lastError = error
-        
+
         // If it's a timeout and we have retries left, try again
         if (error.name === 'AbortError' && attempt < maxRetries) {
           logger.debug(`Integration fetch timeout, retrying... (attempt ${attempt + 1}/${maxRetries})`)
@@ -115,7 +160,7 @@ export class IntegrationService {
           await new Promise(resolve => setTimeout(resolve, 1000))
           continue
         }
-        
+
         // If it's the last attempt or not a timeout, throw the error
         if (error.name === 'AbortError') {
           logger.warn('Integration fetch timed out after all retries - returning empty array')
