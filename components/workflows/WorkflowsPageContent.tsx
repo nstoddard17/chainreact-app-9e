@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Switch } from '@/components/ui/switch'
+import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   DropdownMenu,
@@ -63,6 +64,12 @@ import {
   Lock,
   LayoutGrid,
   List,
+  Shield,
+  Settings,
+  Eye,
+  Users,
+  Building2,
+  User,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDistanceToNow } from 'date-fns'
@@ -1672,12 +1679,88 @@ function WorkflowsContent() {
                           />
                         </td>
                         <td className="px-3 py-4">
-                          <span
-                            onClick={() => router.push(`/workflows/builder/${workflow.id}`)}
-                            className="font-medium text-sm cursor-pointer hover:underline"
-                          >
-                            {workflow.name}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span
+                              onClick={() => router.push(`/workflows/builder/${workflow.id}`)}
+                              className="font-medium text-sm cursor-pointer hover:underline"
+                            >
+                              {workflow.name}
+                            </span>
+                            <div className="flex items-center gap-1 flex-wrap">
+                              {/* Permission Badge */}
+                              {workflow.user_permission && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Badge
+                                        variant="outline"
+                                        className={`text-xs px-1.5 py-0.5 flex items-center gap-0.5 ${
+                                          workflow.user_permission === 'admin'
+                                            ? 'bg-purple-100 text-purple-800'
+                                            : workflow.user_permission === 'manage'
+                                            ? 'bg-blue-100 text-blue-800'
+                                            : 'bg-gray-100 text-gray-800'
+                                        }`}
+                                      >
+                                        {workflow.user_permission === 'admin' ? (
+                                          <Shield className="w-3 h-3" />
+                                        ) : workflow.user_permission === 'manage' ? (
+                                          <Settings className="w-3 h-3" />
+                                        ) : (
+                                          <Eye className="w-3 h-3" />
+                                        )}
+                                        <span className="hidden sm:inline">
+                                          {workflow.user_permission === 'admin' ? 'Admin' : workflow.user_permission === 'manage' ? 'Manage' : 'Use'}
+                                        </span>
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p className="text-xs">
+                                        {workflow.user_permission === 'admin'
+                                          ? 'Full control: edit, manage permissions, delete'
+                                          : workflow.user_permission === 'manage'
+                                          ? 'Can edit and execute workflow'
+                                          : 'Can execute workflow (read-only)'}
+                                      </p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
+                              {/* Workspace Context Badge */}
+                              {workflow.workspace_type && workflow.workspace_type !== 'personal' && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Badge
+                                        variant="outline"
+                                        className={`text-xs px-1.5 py-0.5 flex items-center gap-0.5 ${
+                                          workflow.workspace_type === 'organization'
+                                            ? 'bg-orange-100 text-orange-800'
+                                            : 'bg-green-100 text-green-800'
+                                        }`}
+                                      >
+                                        {workflow.workspace_type === 'organization' ? (
+                                          <Building2 className="w-3 h-3" />
+                                        ) : (
+                                          <Users className="w-3 h-3" />
+                                        )}
+                                        <span className="hidden sm:inline">
+                                          {workflow.workspace_type === 'organization' ? 'Org' : 'Team'}
+                                        </span>
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p className="text-xs">
+                                        {workflow.workspace_type === 'organization'
+                                          ? 'Organization workspace'
+                                          : 'Team workspace'}
+                                      </p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
+                            </div>
+                          </div>
                         </td>
                         <td className="px-3 py-4">
                           <div
@@ -1990,6 +2073,82 @@ function WorkflowsContent() {
                           <h3 className="font-semibold text-slate-900 text-center mb-3 mt-4 line-clamp-1">
                             {workflow.name}
                           </h3>
+
+                          {/* Badges */}
+                          <div className="flex items-center justify-center gap-1 flex-wrap mb-3">
+                            {/* Permission Badge */}
+                            {workflow.user_permission && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Badge
+                                      variant="outline"
+                                      className={`text-xs px-1.5 py-0.5 flex items-center gap-0.5 ${
+                                        workflow.user_permission === 'admin'
+                                          ? 'bg-purple-100 text-purple-800'
+                                          : workflow.user_permission === 'manage'
+                                          ? 'bg-blue-100 text-blue-800'
+                                          : 'bg-gray-100 text-gray-800'
+                                      }`}
+                                    >
+                                      {workflow.user_permission === 'admin' ? (
+                                        <Shield className="w-3 h-3" />
+                                      ) : workflow.user_permission === 'manage' ? (
+                                        <Settings className="w-3 h-3" />
+                                      ) : (
+                                        <Eye className="w-3 h-3" />
+                                      )}
+                                      <span>
+                                        {workflow.user_permission === 'admin' ? 'Admin' : workflow.user_permission === 'manage' ? 'Manage' : 'Use'}
+                                      </span>
+                                    </Badge>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="text-xs">
+                                      {workflow.user_permission === 'admin'
+                                        ? 'Full control: edit, manage permissions, delete'
+                                        : workflow.user_permission === 'manage'
+                                        ? 'Can edit and execute workflow'
+                                        : 'Can execute workflow (read-only)'}
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                            {/* Workspace Context Badge */}
+                            {workflow.workspace_type && workflow.workspace_type !== 'personal' && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Badge
+                                      variant="outline"
+                                      className={`text-xs px-1.5 py-0.5 flex items-center gap-0.5 ${
+                                        workflow.workspace_type === 'organization'
+                                          ? 'bg-orange-100 text-orange-800'
+                                          : 'bg-green-100 text-green-800'
+                                      }`}
+                                    >
+                                      {workflow.workspace_type === 'organization' ? (
+                                        <Building2 className="w-3 h-3" />
+                                      ) : (
+                                        <Users className="w-3 h-3" />
+                                      )}
+                                      <span>
+                                        {workflow.workspace_type === 'organization' ? 'Org' : 'Team'}
+                                      </span>
+                                    </Badge>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="text-xs">
+                                      {workflow.workspace_type === 'organization'
+                                        ? 'Organization workspace'
+                                        : 'Team workspace'}
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </div>
 
                           {/* Workflow Preview */}
                           <div className="flex items-center justify-center mb-4 px-2">

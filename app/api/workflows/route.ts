@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    return jsonResponse(processedWorkflows)
+    return successResponse({ data: processedWorkflows })
   } catch (error: any) {
     logger.error('[API /api/workflows] Exception:', error)
     return errorResponse("Internal server error" , 500)
