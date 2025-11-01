@@ -1,0 +1,247 @@
+/**
+ * CanvasBadge.css
+ *
+ * Styles and animations for the floating canvas badge.
+ * Positioned at top-center with bouncing dots animation.
+ */
+
+.canvas-badge {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 28px;
+  background: rgba(219, 234, 254, 0.92);
+  border: 1px solid rgba(59, 130, 246, 0.26);
+  border-radius: 9999px;
+  box-shadow: 0 10px 24px rgba(59, 130, 246, 0.16);
+  transition: all 0.3s ease;
+  animation: slideDown 0.3s ease;
+  overflow: hidden;
+  backdrop-filter: blur(6px);
+}
+
+.canvas-badge.active,
+.canvas-badge.waiting {
+  background: rgba(219, 234, 254, 0.98);
+  background-color: rgba(219, 234, 254, 0.98);
+  border-color: rgba(59, 130, 246, 0.32);
+  box-shadow: 0 12px 28px rgba(59, 130, 246, 0.18);
+}
+
+/* Shimmer wave animation for active and waiting states */
+.canvas-badge.active::before,
+.canvas-badge.waiting::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -150%;
+  width: 150%;
+  height: 100%;
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    transparent 30%,
+    rgba(255, 255, 255, 0.35) 45%,
+    rgba(255, 255, 255, 0.5) 50%,
+    rgba(255, 255, 255, 0.35) 55%,
+    transparent 70%,
+    transparent 100%
+  );
+  animation: shimmerWave 2s linear infinite;
+  z-index: 1;
+  pointer-events: none;
+  transform: skewX(-15deg);
+}
+
+@keyframes shimmerWave {
+  0% {
+    left: -150%;
+  }
+  100% {
+    left: 150%;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.canvas-badge.success {
+  background: hsl(142, 76%, 96%);
+  border-color: hsl(142, 76%, 75%);
+  animation: slideDown 0.3s ease, fadeOut 0.4s ease 1.2s forwards;
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px);
+  }
+}
+
+.canvas-badge.error {
+  background: hsl(0, 84%, 96%);
+  border-color: hsl(0, 84%, 75%);
+}
+
+
+.canvas-badge-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  position: relative;
+  z-index: 2;
+}
+
+.canvas-badge-text-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.canvas-badge-icon {
+  flex-shrink: 0;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.2);
+}
+
+.canvas-badge-subtext-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.canvas-badge-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1d4ed8;
+  white-space: nowrap;
+}
+
+.canvas-badge.active .canvas-badge-text,
+.canvas-badge.waiting .canvas-badge-text {
+  color: #1d4ed8;
+}
+
+.canvas-badge.success .canvas-badge-text {
+  color: hsl(142, 76%, 26%);
+}
+
+.canvas-badge.error .canvas-badge-text {
+  color: hsl(0, 84%, 36%);
+}
+
+.canvas-badge-subtext {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(37, 99, 235, 0.75);
+  white-space: nowrap;
+}
+
+.canvas-badge.active .canvas-badge-subtext,
+.canvas-badge.waiting .canvas-badge-subtext {
+  color: rgba(37, 99, 235, 0.75);
+}
+
+.canvas-badge-spinner-square {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.canvas-badge-spinner-square rect {
+  stroke: rgba(37, 99, 235, 0.85);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 40 16;
+  stroke-dashoffset: 0;
+  animation: squareDash 1s linear infinite;
+}
+
+.canvas-badge.waiting .canvas-badge-spinner-square rect {
+  stroke: rgba(37, 99, 235, 0.85);
+}
+
+.canvas-badge-spinner-square.paused rect,
+.canvas-badge.reduced-motion .canvas-badge-spinner-square rect {
+  animation: none;
+}
+
+@keyframes squareDash {
+  to {
+    stroke-dashoffset: -56;
+  }
+}
+
+/* Three bouncing dots */
+.canvas-badge-dots {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 6px;
+}
+
+.canvas-badge-dots .dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(59, 130, 246, 0.75);
+  display: block;
+}
+
+.canvas-badge.active .canvas-badge-dots .dot,
+.canvas-badge.waiting .canvas-badge-dots .dot {
+  background: rgba(59, 130, 246, 0.85);
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
+}
+
+.canvas-badge:not(.reduced-motion) .canvas-badge-dots .dot {
+  animation: bounce 450ms ease-in-out infinite;
+}
+
+.canvas-badge:not(.reduced-motion) .canvas-badge-dots .dot:nth-child(2) {
+  animation-delay: 100ms;
+}
+
+.canvas-badge:not(.reduced-motion) .canvas-badge-dots .dot:nth-child(3) {
+  animation-delay: 200ms;
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+/* Reduced motion */
+.canvas-badge.reduced-motion {
+  animation: none;
+}
+
+.canvas-badge.reduced-motion .canvas-badge-dots .dot {
+  animation: none !important;
+}
+
+.canvas-badge.reduced-motion .canvas-badge-spinner-square {
+  animation: none !important;
+}

@@ -9,6 +9,7 @@ import {
   X,
   Minimize2,
   FileSpreadsheet,
+  FileText,
   ExternalLink,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'

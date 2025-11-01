@@ -1,9 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import Image from "next/image"
 import { Input } from "@/components/ui/input"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import {
   X,
@@ -82,7 +80,7 @@ export function IntegrationsSidePanel({ isOpen, onClose, onNodeSelect }: Integra
     <div className="h-full w-full bg-background border-l border-border shadow-lg z-50 flex flex-col">
       {/* Header with Search */}
       <div className="flex items-center gap-3 px-4 py-3 border-b">
-        <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
+        <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 text-muted-foreground hover:text-foreground">
           <ArrowRight className="w-4 h-4" />
         </Button>
         <h2 className="text-base font-semibold whitespace-nowrap">Nodes Catalog</h2>
@@ -117,7 +115,7 @@ export function IntegrationsSidePanel({ isOpen, onClose, onNodeSelect }: Integra
       </div>
 
       {/* Nodes List */}
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-y-auto">
         <div className="p-4 space-y-1">
           {filteredNodes.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
@@ -149,12 +147,11 @@ export function IntegrationsSidePanel({ isOpen, onClose, onNodeSelect }: Integra
                   {/* Icon */}
                   <div className="shrink-0 w-10 h-10 rounded-lg bg-background border border-border flex items-center justify-center p-1.5">
                     {providerLogo ? (
-                      <Image
+                      <img
                         src={providerLogo}
                         alt={node.providerId || ''}
-                        width={28}
-                        height={28}
-                        className="w-full h-full object-contain"
+                        className="object-contain"
+                        style={{ width: '28px', height: 'auto' }}
                       />
                     ) : NodeIcon ? (
                       <NodeIcon className="w-5 h-5 text-foreground" />
@@ -175,7 +172,7 @@ export function IntegrationsSidePanel({ isOpen, onClose, onNodeSelect }: Integra
             })
           )}
         </div>
-      </ScrollArea>
+      </div>
     </div>
   )
 }

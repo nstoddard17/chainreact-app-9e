@@ -17,9 +17,7 @@ import CustomNode from '@/components/workflows/CustomNode'
 import { AddActionNode } from '@/components/workflows/AddActionNode'
 import { ChainPlaceholderNode } from '@/components/workflows/ChainPlaceholderNode'
 import InsertActionNode from '@/components/workflows/InsertActionNode'
-import { CustomEdgeWithButton } from '@/components/workflows/builder/CustomEdgeWithButton'
-import { SimpleStraightEdge } from '@/components/workflows/builder/SimpleStraightEdge'
-import { RoundedEdge } from '@/components/workflows/builder/RoundedEdge'
+import { FlowEdge } from '@/components/workflows/builder/FlowEdges'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { logger } from '@/lib/utils/logger'
 
@@ -154,9 +152,9 @@ export function useWorkflowNodes() {
    * Memoized edge types - prevents re-creation on every render
    */
   const edgeTypes = useMemo(() => ({
-    custom: CustomEdgeWithButton,
-    straight: SimpleStraightEdge,
-    rounded: RoundedEdge,
+    custom: FlowEdge,
+    straight: FlowEdge,
+    rounded: FlowEdge,
   }), [])
 
   return {

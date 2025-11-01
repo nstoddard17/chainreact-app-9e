@@ -359,11 +359,9 @@ const BuilderHeaderComponent = ({
 
   return (
     <>
-      <div className="h-14 border-b bg-background flex items-center justify-between px-6 shrink-0">
-        <div className="flex-1 min-w-0 flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
+      <div className="h-12 border-b bg-white flex items-center justify-between px-6 shrink-0">
+        <div className="flex-1 min-w-0 flex items-center gap-6">
+          <button
             onClick={() => {
               // If currently saving, set pending navigation flag and wait
               if (isSaving) {
@@ -374,15 +372,44 @@ const BuilderHeaderComponent = ({
               router.push('/workflows')
             }}
             disabled={isSaving || pendingNavigation}
-            className="shrink-0"
+            className="group flex items-center gap-2 px-0 py-2 bg-transparent border-none transition-all duration-200 ease-out hover:-translate-x-1 disabled:opacity-50 disabled:cursor-not-allowed"
             title={isSaving || pendingNavigation ? "Saving..." : "Back to workflows"}
           >
             {isSaving || pendingNavigation ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-[#9CA3AF]" />
             ) : (
-              <ArrowLeft className="w-4 h-4" />
+              <>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 14 14"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="flex-shrink-0"
+                >
+                  {/* Simple left arrow with rounded ends */}
+                  <path
+                    d="M 10 7 L 4 7"
+                    stroke="#D1D5DB"
+                    strokeWidth="1.75"
+                    strokeLinecap="round"
+                    className="group-hover:stroke-[#9CA3AF] transition-colors duration-200"
+                  />
+                  <path
+                    d="M 6 5 L 4 7 L 6 9"
+                    stroke="#D1D5DB"
+                    strokeWidth="1.75"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="group-hover:stroke-[#9CA3AF] transition-colors duration-200"
+                  />
+                </svg>
+                <span className="text-sm font-medium text-[#D1D5DB] group-hover:text-[#9CA3AF] transition-colors duration-200">
+                  Back
+                </span>
+              </>
             )}
-          </Button>
+          </button>
 
           {isEditingName ? (
             <input
@@ -401,19 +428,31 @@ const BuilderHeaderComponent = ({
                 }
               }}
               autoFocus
-              className="text-xl font-semibold border-none outline-none ring-0 px-2 py-1 bg-transparent max-w-md"
+              className="text-sm font-semibold border-none outline-none ring-0 px-2 py-1 bg-transparent max-w-md"
               style={{ boxShadow: 'none', border: 'none', height: 'auto' }}
               placeholder="Untitled Workflow"
               maxLength={100}
             />
           ) : (
-            <div
-              onClick={() => setIsEditingName(true)}
-              className="cursor-pointer hover:bg-accent px-2 py-1 rounded-md transition-colors"
-            >
-              <h1 className="text-xl font-semibold truncate">
-                {workflowName || "Untitled Workflow"}
-              </h1>
+            <div className="flex items-center gap-3">
+              <div
+                onClick={() => setIsEditingName(true)}
+                className="cursor-pointer hover:bg-accent px-2 py-1 rounded-md transition-colors"
+              >
+                <h1 className="text-sm font-semibold truncate">
+                  {workflowName || "Untitled Workflow"}
+                </h1>
+              </div>
+              <span
+                className={cn(
+                  "text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap font-medium",
+                  currentWorkflow?.is_active
+                    ? "bg-green-50 text-green-700 border border-green-200"
+                    : "bg-gray-100 text-gray-500"
+                )}
+              >
+                {currentWorkflow?.is_active ? "Scheduled" : "Not scheduled"}
+              </span>
             </div>
           )}
 

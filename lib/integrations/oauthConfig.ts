@@ -543,6 +543,21 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     sendRedirectUriWithRefresh: true,
     redirectUriPath: "/api/integrations/mailchimp/callback",
   },
+  monday: {
+    id: "monday",
+    name: "Monday.com",
+    clientIdEnv: "MONDAY_CLIENT_ID",
+    clientSecretEnv: "MONDAY_CLIENT_SECRET",
+    authEndpoint: "https://auth.monday.com/oauth2/authorize",
+    tokenEndpoint: "https://auth.monday.com/oauth2/token",
+    refreshRequiresClientAuth: true,
+    authMethod: "body",
+    refreshTokenExpirationSupported: false,
+    accessTokenExpiryBuffer: 30,
+    sendRedirectUriWithRefresh: true,
+    redirectUriPath: "/api/integrations/monday/callback",
+    scope: "boards:read boards:write workspaces:read me:read webhooks:write",
+  },
 };
 
 /**

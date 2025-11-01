@@ -119,7 +119,7 @@ export function getCorsHeaders(
     'magnetometer=()',
     'gyroscope=()',
     'accelerometer=()',
-    'ambient-light-sensor=()',
+    // 'ambient-light-sensor=()' removed - no longer recognized by browsers
     'autoplay=()',
     'encrypted-media=()',
     'picture-in-picture=()',

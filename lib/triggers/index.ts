@@ -15,6 +15,7 @@ import { StripeTriggerLifecycle } from './providers/StripeTriggerLifecycle'
 import { ShopifyTriggerLifecycle } from './providers/ShopifyTriggerLifecycle'
 import { NotionTriggerLifecycle } from './providers/NotionTriggerLifecycle'
 import { HubSpotTriggerLifecycle } from './providers/HubSpotTriggerLifecycle'
+import { MondayTriggerLifecycle } from './providers/MondayTriggerLifecycle'
 import { ConditionalTriggerLifecycle } from './providers/ConditionalTriggerLifecycle'
 
 import { logger } from '@/lib/utils/logger'
@@ -105,6 +106,14 @@ triggerLifecycleManager.registerProvider({
   lifecycle: new HubSpotTriggerLifecycle(),
   requiresExternalResources: true,
   description: 'HubSpot webhook subscriptions for CRM object events'
+})
+
+// Register Monday.com provider
+triggerLifecycleManager.registerProvider({
+  providerId: 'monday',
+  lifecycle: new MondayTriggerLifecycle(),
+  requiresExternalResources: true,
+  description: 'Monday.com webhooks for board and item triggers'
 })
 
 // Register Utility Conditional Trigger

@@ -44,7 +44,7 @@ export async function middleware(req: NextRequest) {
       pathname.includes('.')) {
     return NextResponse.next()
   }
-  
+
   const res = NextResponse.next({
     request: {
       headers: req.headers,

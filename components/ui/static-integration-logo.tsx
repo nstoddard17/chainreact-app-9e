@@ -1,7 +1,8 @@
 "use client"
 
 import { memo } from 'react'
-import { getIntegrationLogoClasses } from '@/lib/integrations/logoStyles'
+import { getIntegrationLogoClasses, getIntegrationLogoPath } from '@/lib/integrations/logoStyles'
+import { useTheme } from 'next-themes'
 
 interface StaticIntegrationLogoProps {
   providerId: string
@@ -18,7 +19,8 @@ export const StaticIntegrationLogo = memo(function StaticIntegrationLogo({
   providerName,
   providerColor
 }: StaticIntegrationLogoProps) {
-  const logoPath = `/integrations/${providerId}.svg`
+  const { theme } = useTheme()
+  const logoPath = getIntegrationLogoPath(providerId, theme)
 
   return (
     <div className="w-6 h-6 relative">
