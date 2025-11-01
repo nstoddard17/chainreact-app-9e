@@ -504,11 +504,21 @@ export function planEdits({ prompt, flow }: PlannerInput): PlannerResult {
     const nodeId = generateNodeId(type.replace(/\W+/g, "-"), existingNodeIds)
     const nodeTitle = catalogNode?.title || legacyDefinition?.title || type
     const nodeCostHint = legacyDefinition?.costHint || 0
+    const nodeDescription = catalogNode?.description || legacyDefinition?.description
+
+    // Build preview metadata from outputSchema
+    const previewFields = catalogNode?.outputSchema?.slice(0, 3).map(field => ({
+      name: field.name,
+      label: field.label,
+      type: field.type,
+      example: field.example,
+    })) || []
 
     const newNode: Node = {
       id: nodeId,
       type,
       label: nodeTitle,
+      description: nodeDescription,
       config: defaultConfig,
       inPorts: [],
       outPorts: [],
@@ -520,6 +530,11 @@ export function planEdits({ prompt, flow }: PlannerInput): PlannerResult {
         agentHighlights: Object.keys(defaultConfig),
         ...(catalogNode?.providerId && { providerId: catalogNode.providerId }),
         ...(catalogNode?.isTrigger !== undefined && { isTrigger: catalogNode.isTrigger }),
+        // Preview block metadata - top 3 output fields for UI display
+        ...(previewFields.length > 0 && { previewFields }),
+        // Branch/lane positioning hints
+        lane: 0, // Default to main lane, can be overridden for parallel branches
+        branchIndex: workingFlow.nodes.length, // Sequential index for ordering
       },
     }
     workingFlow.nodes.push(newNode)

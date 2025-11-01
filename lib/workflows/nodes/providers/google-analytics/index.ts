@@ -223,11 +223,35 @@ export const googleAnalyticsNodes: NodeComponent[] = [
         supportsAI: true,
       },
     ],
-    outputs: [
-      { name: "success", label: "Success", type: "boolean" },
-      { name: "event_name", label: "Event Name", type: "string" },
-      { name: "client_id", label: "Client ID", type: "string" },
-      { name: "timestamp", label: "Timestamp", type: "string" },
+    outputSchema: [
+      {
+        name: "success",
+        label: "Success",
+        type: "boolean",
+        description: "Whether the event was successfully sent to Google Analytics",
+        example: true
+      },
+      {
+        name: "event_name",
+        label: "Event Name",
+        type: "string",
+        description: "The name of the event that was sent",
+        example: "purchase"
+      },
+      {
+        name: "client_id",
+        label: "Client ID",
+        type: "string",
+        description: "The client ID used to send the event",
+        example: "123456.7890123456"
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "ISO 8601 timestamp when the event was sent",
+        example: "2024-01-15T10:30:00Z"
+      },
     ],
   },
   {
@@ -283,12 +307,42 @@ export const googleAnalyticsNodes: NodeComponent[] = [
         description: "Optional dimensions to group the data by"
       },
     ],
-    outputs: [
-      { name: "active_users", label: "Active Users", type: "number" },
-      { name: "page_views", label: "Page Views", type: "number" },
-      { name: "event_count", label: "Event Count", type: "number" },
-      { name: "data", label: "Full Data", type: "object" },
-      { name: "timestamp", label: "Timestamp", type: "string" },
+    outputSchema: [
+      {
+        name: "active_users",
+        label: "Active Users",
+        type: "number",
+        description: "Number of users currently active on your site",
+        example: 127
+      },
+      {
+        name: "page_views",
+        label: "Page Views",
+        type: "number",
+        description: "Total page views in the specified time period",
+        example: 1543
+      },
+      {
+        name: "event_count",
+        label: "Event Count",
+        type: "number",
+        description: "Total number of events tracked",
+        example: 892
+      },
+      {
+        name: "data",
+        label: "Full Data",
+        type: "object",
+        description: "Complete real-time data response including all metrics and dimensions",
+        example: { rows: [], totals: {}, metadata: {} }
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "ISO 8601 timestamp when the data was fetched",
+        example: "2024-01-15T10:30:00Z"
+      },
     ],
   },
   {
@@ -398,12 +452,42 @@ export const googleAnalyticsNodes: NodeComponent[] = [
         description: "Maximum number of rows to return (default: 100)"
       },
     ],
-    outputs: [
-      { name: "report_data", label: "Report Data", type: "array" },
-      { name: "total_rows", label: "Total Rows", type: "number" },
-      { name: "date_range", label: "Date Range", type: "object" },
-      { name: "metrics", label: "Metrics", type: "array" },
-      { name: "dimensions", label: "Dimensions", type: "array" },
+    outputSchema: [
+      {
+        name: "report_data",
+        label: "Report Data",
+        type: "array",
+        description: "Array of report rows containing metrics and dimensions for each data point",
+        example: [{ date: "20240115", sessions: 1234, totalUsers: 567 }]
+      },
+      {
+        name: "total_rows",
+        label: "Total Rows",
+        type: "number",
+        description: "Total number of rows in the report",
+        example: 45
+      },
+      {
+        name: "date_range",
+        label: "Date Range",
+        type: "object",
+        description: "Object containing the start and end dates used for the report",
+        example: { startDate: "2024-01-01", endDate: "2024-01-31" }
+      },
+      {
+        name: "metrics",
+        label: "Metrics",
+        type: "array",
+        description: "Array of metric names included in the report",
+        example: ["sessions", "totalUsers", "screenPageViews"]
+      },
+      {
+        name: "dimensions",
+        label: "Dimensions",
+        type: "array",
+        description: "Array of dimension names used to group the data",
+        example: ["date", "country", "deviceCategory"]
+      },
     ],
   },
   {
@@ -453,13 +537,49 @@ export const googleAnalyticsNodes: NodeComponent[] = [
         description: "How far back to look for user activity"
       },
     ],
-    outputs: [
-      { name: "user_id", label: "User ID", type: "string" },
-      { name: "activity", label: "User Activity", type: "array" },
-      { name: "total_events", label: "Total Events", type: "number" },
-      { name: "total_sessions", label: "Total Sessions", type: "number" },
-      { name: "first_seen", label: "First Seen", type: "string" },
-      { name: "last_seen", label: "Last Seen", type: "string" },
+    outputSchema: [
+      {
+        name: "user_id",
+        label: "User ID",
+        type: "string",
+        description: "The user ID that was queried",
+        example: "user_12345"
+      },
+      {
+        name: "activity",
+        label: "User Activity",
+        type: "array",
+        description: "Array of user activity events including pages visited, events triggered, and timestamps",
+        example: [{ eventName: "page_view", pagePath: "/home", timestamp: "2024-01-15T10:30:00Z" }]
+      },
+      {
+        name: "total_events",
+        label: "Total Events",
+        type: "number",
+        description: "Total number of events recorded for this user in the specified date range",
+        example: 47
+      },
+      {
+        name: "total_sessions",
+        label: "Total Sessions",
+        type: "number",
+        description: "Total number of sessions for this user in the specified date range",
+        example: 12
+      },
+      {
+        name: "first_seen",
+        label: "First Seen",
+        type: "string",
+        description: "ISO 8601 timestamp of when this user was first seen",
+        example: "2023-12-01T08:15:00Z"
+      },
+      {
+        name: "last_seen",
+        label: "Last Seen",
+        type: "string",
+        description: "ISO 8601 timestamp of when this user was last seen",
+        example: "2024-01-15T14:22:00Z"
+      },
     ],
   },
 ]

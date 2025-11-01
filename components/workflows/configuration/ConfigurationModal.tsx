@@ -57,13 +57,15 @@ import ConfigurationForm from "./ConfigurationForm"
 import { ConfigurationDataInspector } from "./ConfigurationDataInspector"
 import { VariablePickerSidePanel } from "./VariablePickerSidePanel"
 import { VariableDragProvider } from "./VariableDragContext"
-import { Settings, Zap, Bot, MessageSquare, Mail, Calendar, FileText, Database, Globe, Shield, Bell, ChevronLeft, ChevronRight, ArrowLeft, Sparkles } from "lucide-react"
+import { Settings, Zap, Bot, MessageSquare, Mail, Calendar, FileText, Database, Globe, Shield, Bell, ChevronLeft, ChevronRight, ArrowLeft, Sparkles, Wrench, FileOutput, SlidersHorizontal, TestTube2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { computeAutoMappingEntries } from "./autoMapping"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { SetupTab, OutputTab, AdvancedTab, ResultsTab } from "./tabs"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -232,6 +234,7 @@ export function ConfigurationModal({
   const [isVariablePanelOpen, setIsVariablePanelOpen] = useState(false);
   const [initialOverride, setInitialOverride] = useState<Record<string, any> | null>(null)
   const [formSeedVersion, setFormSeedVersion] = useState(0)
+  const [activeTab, setActiveTab] = useState<'setup' | 'output' | 'advanced' | 'results'>('setup')
 
   useEffect(() => {
     setInitialOverride(null)
@@ -492,73 +495,126 @@ export function ConfigurationModal({
             </DialogHeader>
 
             {nodeInfo && (
-              <div className="flex-1 flex flex-col min-h-0 overflow-hidden max-w-full">
-                {(showValidationAlert || autoMappingEntries.length > 0) && (
-                  <div className="px-4 pt-4 space-y-3">
-                    {showValidationAlert && (
-                      <Alert variant="destructive">
-                        <AlertTitle>Configuration needs attention</AlertTitle>
-                        <AlertDescription>
-                          Please review the required fields highlighted in the form below.
-                        </AlertDescription>
-                      </Alert>
-                    )}
-                    {autoMappingEntries.length > 0 && (
-                      <Alert>
-                        <AlertTitle>Suggested field mappings</AlertTitle>
-                        <AlertDescription className="space-y-2">
-                          <p className="text-sm text-slate-600">
-                            We found matching data from earlier steps for the following empty fields.
-                          </p>
-                          <ul className="space-y-1 text-sm text-slate-600">
-                            {autoMappingEntries.map((entry) => (
-                              <li key={entry.fieldKey} className="flex flex-wrap items-center gap-2">
-                                <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700">
-                                  {entry.fieldKey}
-                                </code>
-                                <span className="text-xs text-slate-400">←</span>
-                                <span className="font-mono text-xs text-slate-700">
-                                  {entry.value}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="secondary"
-                            className="inline-flex items-center gap-2"
-                            onClick={handleApplyAutoMappings}
-                          >
-                            <Sparkles className="h-3.5 w-3.5" />
-                            Fill fields automatically
-                          </Button>
-                        </AlertDescription>
-                      </Alert>
-                    )}
-                  </div>
-                )}
+              <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="flex-1 flex flex-col min-h-0 overflow-hidden max-w-full">
+                {/* Tab Navigation */}
+                <TabsList className="mx-4 mt-3 grid w-auto grid-cols-4 bg-muted/50">
+                  <TabsTrigger value="setup" className="flex items-center gap-2">
+                    <Wrench className="h-4 w-4" />
+                    Setup
+                  </TabsTrigger>
+                  <TabsTrigger value="output" className="flex items-center gap-2">
+                    <FileOutput className="h-4 w-4" />
+                    Output
+                  </TabsTrigger>
+                  <TabsTrigger value="advanced" className="flex items-center gap-2">
+                    <SlidersHorizontal className="h-4 w-4" />
+                    Advanced
+                  </TabsTrigger>
+                  <TabsTrigger value="results" className="flex items-center gap-2">
+                    <TestTube2 className="h-4 w-4" />
+                    Results
+                  </TabsTrigger>
+                </TabsList>
 
-                <ConfigurationDataInspector
-                  workflowData={workflowData}
-                  currentNodeId={currentNodeId}
-                />
+                {/* Setup Tab Content */}
+                <TabsContent value="setup" className="flex-1 flex flex-col min-h-0 overflow-hidden max-w-full m-0 mt-0">
+                  {(showValidationAlert || autoMappingEntries.length > 0) && (
+                    <div className="px-4 pt-4 space-y-3">
+                      {showValidationAlert && (
+                        <Alert variant="destructive">
+                          <AlertTitle>Configuration needs attention</AlertTitle>
+                          <AlertDescription>
+                            Please review the required fields highlighted in the form below.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                      {autoMappingEntries.length > 0 && (
+                        <Alert>
+                          <AlertTitle>Suggested field mappings</AlertTitle>
+                          <AlertDescription className="space-y-2">
+                            <p className="text-sm text-slate-600">
+                              We found matching data from earlier steps for the following empty fields.
+                            </p>
+                            <ul className="space-y-1 text-sm text-slate-600">
+                              {autoMappingEntries.map((entry) => (
+                                <li key={entry.fieldKey} className="flex flex-wrap items-center gap-2">
+                                  <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700">
+                                    {entry.fieldKey}
+                                  </code>
+                                  <span className="text-xs text-slate-400">←</span>
+                                  <span className="font-mono text-xs text-slate-700">
+                                    {entry.value}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="secondary"
+                              className="inline-flex items-center gap-2"
+                              onClick={handleApplyAutoMappings}
+                            >
+                              <Sparkles className="h-3.5 w-3.5" />
+                              Fill fields automatically
+                            </Button>
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </div>
+                  )}
 
-                <ConfigurationForm
-                  key={`${currentNodeId}-${nodeInfo?.type}-${formSeedVersion}`}
-                  nodeInfo={nodeInfo}
-                  initialData={effectiveInitialData}
-                  onSave={handleSubmit}
-                  onCancel={handleClose}
-                  onBack={onBack}
-                  workflowData={workflowData}
-                  currentNodeId={currentNodeId}
-                  integrationName={integrationName}
-                  isConnectedToAIAgent={isConnectedToAIAgent}
-                  isTemplateEditing={isTemplateEditing}
-                  templateDefaults={templateDefaults}
-                />
-              </div>
+                  <ConfigurationDataInspector
+                    workflowData={workflowData}
+                    currentNodeId={currentNodeId}
+                  />
+
+                  <ConfigurationForm
+                    key={`${currentNodeId}-${nodeInfo?.type}-${formSeedVersion}`}
+                    nodeInfo={nodeInfo}
+                    initialData={effectiveInitialData}
+                    onSave={handleSubmit}
+                    onCancel={handleClose}
+                    onBack={onBack}
+                    workflowData={workflowData}
+                    currentNodeId={currentNodeId}
+                    integrationName={integrationName}
+                    isConnectedToAIAgent={isConnectedToAIAgent}
+                    isTemplateEditing={isTemplateEditing}
+                    templateDefaults={templateDefaults}
+                  />
+                </TabsContent>
+
+                {/* Output Tab Content */}
+                <TabsContent value="output" className="flex-1 min-h-0 overflow-hidden m-0 mt-0">
+                  <OutputTab
+                    nodeInfo={nodeInfo}
+                    currentNodeId={currentNodeId}
+                  />
+                </TabsContent>
+
+                {/* Advanced Tab Content */}
+                <TabsContent value="advanced" className="flex-1 min-h-0 overflow-hidden m-0 mt-0">
+                  <AdvancedTab
+                    initialPolicy={effectiveInitialData?.__policy}
+                    initialMetadata={effectiveInitialData?.__metadata}
+                    onChange={(data) => {
+                      // Store advanced settings in initial data for saving
+                      // This will be included when onSave is called
+                    }}
+                  />
+                </TabsContent>
+
+                {/* Results Tab Content */}
+                <TabsContent value="results" className="flex-1 min-h-0 overflow-hidden m-0 mt-0">
+                  <ResultsTab
+                    nodeInfo={nodeInfo}
+                    currentNodeId={currentNodeId}
+                    testData={effectiveInitialData?.__testData}
+                    testResult={effectiveInitialData?.__testResult}
+                  />
+                </TabsContent>
+              </Tabs>
             )}
           </div>
 
