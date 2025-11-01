@@ -57,7 +57,6 @@ import { BuildChoreographer } from "@/lib/workflows/ai-agent/build-choreography"
 import { ChatService, type ChatMessage } from "@/lib/workflows/ai-agent/chat-service"
 import { CostTracker, estimateWorkflowCost } from "@/lib/workflows/ai-agent/cost-tracker"
 import { CostDisplay } from "@/components/workflows/ai-agent/CostDisplay"
-import { BuildBadge } from "@/components/workflows/ai-agent/BuildBadge"
 import { useAuthStore } from "@/stores/authStore"
 
 type PendingChatMessage = {
@@ -259,7 +258,37 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
       setIsChatLoading(true)
       try {
         const messages = await ChatService.getHistory(flowId)
-        setAgentMessages(messages)
+        setAgentMessages(prev => {
+          if (!messages || messages.length === 0) {
+            return prev
+          }
+
+          if (prev.length === 0) {
+            return messages
+          }
+
+          const merged = [...prev]
+          const indexById = new Map<string, number>()
+          merged.forEach((message, index) => {
+            if (message?.id) {
+              indexById.set(message.id, index)
+            }
+          })
+
+          messages.forEach(message => {
+            if (!message) {
+              return
+            }
+            if (message.id && indexById.has(message.id)) {
+              const existingIndex = indexById.get(message.id)!
+              merged[existingIndex] = message
+            } else {
+              merged.push(message)
+            }
+          })
+
+          return merged
+        })
       } catch (error) {
         console.error("Failed to load chat history:", error)
       } finally {
@@ -1180,38 +1209,6 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
     }
   }, [buildMachine.state, buildMachine.progress, builder])
 
-  // Compute badge text and stage for BuildBadge
-  const badgeInfo = useMemo(() => {
-    const { state, progress, plan } = buildMachine
-
-    let text = ""
-    let subtext = ""
-    let stage: "thinking" | "planning" | "building" | "ready" = "thinking"
-
-    if (state === BuildState.THINKING || state === BuildState.SUBTASKS || state === BuildState.COLLECT_NODES) {
-      text = "Thinking..."
-      stage = "thinking"
-    } else if (state === BuildState.OUTLINE || state === BuildState.PURPOSE) {
-      text = "Planning workflow..."
-      stage = "planning"
-    } else if (state === BuildState.BUILDING_SKELETON) {
-      text = "Building flow..."
-      subtext = progress.currentIndex >= 0 && plan[progress.currentIndex]
-        ? `Adding ${plan[progress.currentIndex].title}`
-        : ""
-      stage = "building"
-    } else if (state === BuildState.WAITING_USER || state === BuildState.PREPARING_NODE || state === BuildState.TESTING_NODE) {
-      text = "Setting up nodes..."
-      subtext = `${progress.done} of ${plan.length} configured`
-      stage = "ready"
-    } else if (state === BuildState.COMPLETE) {
-      text = "Flow ready ✅"
-      stage = "ready"
-    }
-
-    return { text, subtext, stage, visible: state !== BuildState.IDLE && state !== BuildState.PLAN_READY }
-  }, [buildMachine])
-
   // Get cost breakdown for CostDisplay
   const costBreakdown = useMemo(() => {
     return costTrackerRef.current?.getCostBreakdown() ?? []
@@ -1270,15 +1267,6 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
                 variant="header"
               />
             </div>
-          )}
-
-          {/* Build Badge Overlay (Top Center) */}
-          {badgeInfo.visible && (
-            <BuildBadge
-              text={badgeInfo.text}
-              subtext={badgeInfo.subtext}
-              stage={badgeInfo.stage}
-            />
           )}
 
           <FlowV2BuilderContent

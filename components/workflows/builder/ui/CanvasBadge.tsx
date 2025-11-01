@@ -6,7 +6,6 @@
  */
 
 import React from 'react'
-import Image from 'next/image'
 import './CanvasBadge.css'
 
 export type CanvasBadgeVariant = 'active' | 'waiting' | 'success' | 'error'
@@ -16,6 +15,8 @@ export interface CanvasBadgeProps {
   subtext?: string
   variant?: CanvasBadgeVariant
   reducedMotion?: boolean
+  showDots?: boolean
+  showSpinner?: boolean
   className?: string
 }
 
@@ -33,31 +34,34 @@ export function CanvasBadge({
   subtext,
   variant = 'active',
   reducedMotion = false,
+  showDots = false,
+  showSpinner = false,
   className = '',
 }: CanvasBadgeProps) {
-  const showDots = variant === 'active' && text.includes('…')
-  const showWaitingSpinner = variant === 'waiting'
-  const showIcon = variant === 'active' || variant === 'waiting'
-  const waitingSpinner = showWaitingSpinner ? (
-    <svg
-      className={`canvas-badge-spinner-square ${reducedMotion ? 'paused' : ''}`}
-      viewBox="0 0 20 20"
-      width="18"
-      height="18"
-      aria-hidden="true"
-    >
-      <rect
-        x="3"
-        y="3"
-        width="14"
-        height="14"
-        rx="3"
-        ry="3"
-        fill="none"
-        vectorEffect="non-scaling-stroke"
-      />
-    </svg>
-  ) : null
+  const shouldShowDots = showDots && !reducedMotion
+  const renderSpinner = () => {
+    if (!showSpinner) return null
+    return (
+      <svg
+        className={`canvas-badge-spinner-square ${reducedMotion ? 'paused' : ''}`}
+        viewBox="0 0 20 20"
+        width="18"
+        height="18"
+        aria-hidden="true"
+      >
+        <rect
+          x="3"
+          y="3"
+          width="14"
+          height="14"
+          rx="3"
+          ry="3"
+          fill="none"
+          vectorEffect="non-scaling-stroke"
+        />
+      </svg>
+    )
+  }
 
   return (
     <div
@@ -67,19 +71,9 @@ export function CanvasBadge({
     >
       <div className="canvas-badge-content">
         <div className="canvas-badge-text-wrapper">
-          {showIcon && (
-            <Image
-              src="/logo.png"
-              alt="ChainReact"
-              width={18}
-              height={18}
-              className="canvas-badge-icon"
-              priority
-            />
-          )}
           <span className="canvas-badge-text">{text}</span>
-          {!subtext && waitingSpinner}
-          {showDots && !reducedMotion && (
+          {!subtext && renderSpinner()}
+          {shouldShowDots && (
             <div className="canvas-badge-dots" aria-hidden="true">
               <span className="dot" />
               <span className="dot" />
@@ -90,7 +84,7 @@ export function CanvasBadge({
         {subtext && (
           <div className="canvas-badge-subtext-wrapper">
             <span className="canvas-badge-subtext">{subtext}</span>
-            {waitingSpinner}
+            {renderSpinner()}
           </div>
         )}
       </div>
