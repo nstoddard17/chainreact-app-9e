@@ -57,7 +57,8 @@
       "Bash(for pkg in \"better-sqlite3\" \"drizzle-orm\" \"knex\" \"kysely\" \"mysql2\" \"@planetscale\" \"@vercel/postgres\" \"@libsql\" \"pglite\" \"sql.js\" \"sqlite3\" \"@upstash/redis\" \"@neondatabase\" \"@tidbcloud\" \"@xata\")",
       "Bash(do echo \"=== Checking $pkg ===\")",
       "Bash(done)",
-      "Bash(tee:*)"
+      "Bash(tee:*)",
+      "Bash(psql:*)"
     ],
     "deny": [],
     "ask": [],

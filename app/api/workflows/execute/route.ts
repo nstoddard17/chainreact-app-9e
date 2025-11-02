@@ -171,6 +171,48 @@ export async function POST(request: Request) {
       nodesCount: workflow.nodes?.length || 0
     })
 
+    // ============================================================================
+    // CHECK: Team suspension status
+    // ============================================================================
+    if (workflow.team_id) {
+      const { data: team, error: teamError } = await supabase
+        .from("teams")
+        .select("id, name, suspended_at, suspension_reason, grace_period_ends_at")
+        .eq("id", workflow.team_id)
+        .single()
+
+      if (teamError) {
+        logger.error("Error fetching team:", teamError)
+        // Continue execution if team lookup fails - don't block workflow
+      } else if (team) {
+        // Check if team is suspended
+        if (team.suspended_at) {
+          logger.warn(`Workflow execution blocked: Team "${team.name}" is suspended (reason: ${team.suspension_reason})`)
+          return errorResponse(
+            `This workflow belongs to team "${team.name}" which has been suspended due to: ${team.suspension_reason}`,
+            403,
+            {
+              suspendedAt: team.suspended_at,
+              suspensionReason: team.suspension_reason,
+              teamId: team.id,
+              teamName: team.name
+            }
+          )
+        }
+
+        // Check if team is in grace period
+        if (team.grace_period_ends_at && !team.suspended_at) {
+          const gracePeriodEnd = new Date(team.grace_period_ends_at)
+          const daysRemaining = Math.ceil((gracePeriodEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+
+          logger.warn(`Workflow executing in grace period: Team "${team.name}" has ${daysRemaining} days until suspension`)
+
+          // Allow execution but log warning
+          // In the future, we could add a warning to the execution result
+        }
+      }
+    }
+
     // Get the current user - either from auth session or x-user-id header (for webhooks)
     const userIdFromHeader = request.headers.get('x-user-id')
     let userId: string
