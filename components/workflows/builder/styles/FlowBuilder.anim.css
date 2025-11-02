@@ -211,6 +211,18 @@
   border-color: inherit !important;
 }
 
+/* Force all nodes to align at top edge consistently */
+.react-flow__node-custom {
+  align-items: flex-start !important;
+  vertical-align: top !important;
+}
+
+/* Ensure skeleton nodes have consistent baseline */
+.node-skeleton {
+  align-self: flex-start !important;
+  vertical-align: top !important;
+}
+
 /* Floating badge */
 .floating-badge {
   position: fixed;
