@@ -151,6 +151,64 @@ export async function GET(request: NextRequest) {
 
     results.push(...orgsWithCounts)
 
+    // Get standalone teams (teams without organization_id)
+    const { data: standaloneTeams, error: standaloneTeamsError } = await serviceClient
+      .from("team_members")
+      .select(`
+        team:teams(
+          id,
+          name,
+          slug,
+          description,
+          created_at,
+          updated_at,
+          organization_id
+        ),
+        role
+      `)
+      .eq("user_id", user.id)
+
+    if (standaloneTeamsError) {
+      logger.error("Error fetching standalone teams:", standaloneTeamsError)
+      // Continue - standalone teams are optional
+    }
+
+    // Filter for teams without organization_id and format them
+    const standaloneTeamResults = standaloneTeams
+      ?.filter((tm: any) => tm.team && !tm.team.organization_id)
+      ?.map((tm: any) => {
+        const team = tm.team
+        return {
+          id: team.id,
+          name: team.name,
+          slug: team.slug,
+          description: team.description,
+          created_at: team.created_at,
+          updated_at: team.updated_at,
+          user_role: tm.role,
+          member_count: 1, // Will be updated below
+          team_count: 0,
+          is_team: true // Mark as standalone team
+        }
+      }) || []
+
+    // Get member counts for standalone teams
+    const standaloneTeamsWithCounts = await Promise.all(
+      standaloneTeamResults.map(async (team: any) => {
+        const { count: memberCount } = await serviceClient
+          .from("team_members")
+          .select("user_id", { count: 'exact', head: true })
+          .eq("team_id", team.id)
+
+        return {
+          ...team,
+          member_count: memberCount || 1
+        }
+      })
+    )
+
+    results.push(...standaloneTeamsWithCounts)
+
     return jsonResponse({ organizations: results })
   } catch (error) {
     logger.error("Unexpected error:", error)

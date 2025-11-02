@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@/utils/supabaseClient"
-import { User, Bell, Shield, Palette, Loader2, ChevronRight, Sparkles, Briefcase, Users, Building2, Check, X } from "lucide-react"
+import { User, Bell, Shield, Palette, Loader2, ChevronRight, Sparkles, Briefcase, Users, Building2, Check, X, Settings } from "lucide-react"
 import { useTheme } from "next-themes"
 import { TwoFactorSetup } from "@/components/settings/TwoFactorSetup"
 import { cn } from "@/lib/utils"
@@ -18,6 +18,7 @@ import { useSignedAvatarUrl } from "@/hooks/useSignedAvatarUrl"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useWorkspaces } from "@/hooks/useWorkspaces"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 
 type SettingsSection = 'profile' | 'workspace' | 'notifications' | 'security' | 'appearance'
 
@@ -71,6 +72,17 @@ export function SettingsContent() {
   const { updateDefaultWorkspace, clearDefaultWorkspace } = useAuthStore()
   const [defaultWorkspaceValue, setDefaultWorkspaceValue] = useState<string>("")
   const [savingDefaultWorkspace, setSavingDefaultWorkspace] = useState(false)
+
+  // Workflow creation preferences state
+  const [workflowCreationMode, setWorkflowCreationMode] = useState<'default' | 'ask' | 'follow_switcher'>(
+    profile?.workflow_creation_mode || 'ask'
+  )
+  const [defaultWorkspaceForCreation, setDefaultWorkspaceForCreation] = useState<string>(
+    profile?.default_workspace_type
+      ? `${profile.default_workspace_type}:${profile.default_workspace_id || ''}`
+      : 'personal:'
+  )
+  const [savingPreferences, setSavingPreferences] = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -157,25 +169,28 @@ export function SettingsContent() {
   const fetchWorkspace = async () => {
     try {
       setWorkspaceLoading(true)
-      // Get current workspace ID from localStorage
-      const workspaceId = localStorage.getItem('current_workspace_id')
-      if (!workspaceId) {
-        // No workspace ID means user is in personal workspace
-        // Set workspace to null and use profile data instead
+
+      // IMPORTANT: This is the PERSONAL workspace settings page
+      // Always fetch the user's personal workspace, NOT the current workspace switcher selection
+      const response = await fetch('/api/organizations')
+      if (!response.ok) throw new Error('Failed to fetch workspaces')
+
+      const data = await response.json()
+      const allWorkspaces = data.organizations || []
+
+      // Find the personal workspace (has is_workspace: true)
+      const personalWorkspace = allWorkspaces.find((ws: any) => ws.is_workspace === true)
+
+      if (personalWorkspace) {
+        setWorkspace(personalWorkspace)
+        setWorkspaceName(personalWorkspace.name || "")
+        setWorkspaceDescription(personalWorkspace.description || "")
+      } else {
+        // No personal workspace found - use profile data
         setWorkspace(null)
         setWorkspaceName(profile?.full_name || profile?.username || "Personal Workspace")
         setWorkspaceDescription("Your personal workspace")
-        setWorkspaceLoading(false)
-        return
       }
-
-      const response = await fetch(`/api/organizations/${workspaceId}`)
-      if (!response.ok) throw new Error('Failed to fetch workspace')
-
-      const data = await response.json()
-      setWorkspace(data)
-      setWorkspaceName(data.name || "")
-      setWorkspaceDescription(data.description || "")
     } catch (error) {
       console.error('Error fetching workspace:', error)
       toast({ title: "Error", description: "Failed to load workspace settings", variant: "destructive" })
@@ -287,6 +302,33 @@ export function SettingsContent() {
         description: "Failed to disable 2FA",
         variant: "destructive",
       })
+    }
+  }
+
+  const handleSaveWorkflowPreferences = async () => {
+    setSavingPreferences(true)
+    try {
+      const [workspaceType, workspaceId] = defaultWorkspaceForCreation.split(':')
+
+      await updateProfile({
+        workflow_creation_mode: workflowCreationMode,
+        default_workspace_type: workflowCreationMode === 'default' ? (workspaceType as 'personal' | 'team' | 'organization') : profile?.default_workspace_type || null,
+        default_workspace_id: workflowCreationMode === 'default' ? (workspaceId || null) : profile?.default_workspace_id || null
+      })
+
+      toast({
+        title: "Preferences saved",
+        description: "Your workflow creation preferences have been updated",
+      })
+    } catch (error) {
+      console.error('Error saving preferences:', error)
+      toast({
+        title: "Error",
+        description: "Failed to save preferences",
+        variant: "destructive",
+      })
+    } finally {
+      setSavingPreferences(false)
     }
   }
 
@@ -422,7 +464,7 @@ export function SettingsContent() {
 
   const navigationItems = [
     { id: 'profile' as const, label: 'Profile', icon: User, description: 'Manage your personal information' },
-    { id: 'workspace' as const, label: 'Workspace', icon: Briefcase, description: 'Your personal workspace settings' },
+    { id: 'workspace' as const, label: 'Workspace', icon: Briefcase, description: 'Workspace and workflow settings' },
     { id: 'notifications' as const, label: 'Notifications', icon: Bell, description: 'Configure notification preferences' },
     { id: 'security' as const, label: 'Security', icon: Shield, description: 'Password and authentication settings' },
     { id: 'appearance' as const, label: 'Appearance', icon: Palette, description: 'Customize your theme' },
@@ -788,6 +830,68 @@ export function SettingsContent() {
                     Clear Default Workspace
                   </Button>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* Workflow Creation Preferences Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Workflow Creation Preferences</CardTitle>
+                <CardDescription>
+                  Choose how new workflows should be created
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <RadioGroup
+                  value={workflowCreationMode}
+                  onValueChange={(value) => setWorkflowCreationMode(value as 'default' | 'ask' | 'follow_switcher')}
+                >
+                  <div className="space-y-4">
+                    {/* Option 1: Use default workspace */}
+                    <div className="flex items-start space-x-3 p-4 border rounded-lg hover:bg-accent/50 transition-colors">
+                      <RadioGroupItem value="default" id="mode-default" className="mt-0.5" />
+                      <div className="flex-1 space-y-2">
+                        <Label htmlFor="mode-default" className="text-base font-medium cursor-pointer">
+                          Use default workspace
+                        </Label>
+                        <p className="text-sm text-muted-foreground">
+                          Always create new workflows in the workspace selected above
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Option 2: Ask me every time */}
+                    <div className="flex items-start space-x-3 p-4 border rounded-lg hover:bg-accent/50 transition-colors">
+                      <RadioGroupItem value="ask" id="mode-ask" className="mt-0.5" />
+                      <div className="flex-1">
+                        <Label htmlFor="mode-ask" className="text-base font-medium cursor-pointer">
+                          Ask me every time
+                        </Label>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Show workspace and folder selection dialog before creating workflows
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Option 3: Use current workspace switcher */}
+                    <div className="flex items-start space-x-3 p-4 border rounded-lg hover:bg-accent/50 transition-colors">
+                      <RadioGroupItem value="follow_switcher" id="mode-follow" className="mt-0.5" />
+                      <div className="flex-1">
+                        <Label htmlFor="mode-follow" className="text-base font-medium cursor-pointer">
+                          Use current workspace switcher
+                        </Label>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Create workflows in whatever workspace is currently selected in the header
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </RadioGroup>
+
+                <Button onClick={handleSaveWorkflowPreferences} disabled={savingPreferences}>
+                  {savingPreferences && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Save Preferences
+                </Button>
               </CardContent>
             </Card>
           </div>
@@ -1231,6 +1335,7 @@ export function SettingsContent() {
             </Card>
           </div>
         )}
+
       </main>
     </div>
 
