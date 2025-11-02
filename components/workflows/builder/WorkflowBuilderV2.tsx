@@ -1089,15 +1089,19 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
           const metadata = (plannerNode?.metadata ?? {}) as any
           const catalogNode = ALL_NODE_COMPONENTS.find(c => c.type === plannerNode.type)
 
+          const nodePosition = {
+            x: BASE_X + (i * H_SPACING),
+            y: BASE_Y,
+          }
+
           return {
             id: plannerNode.id,
             type: 'custom',
-            position: {
-              x: BASE_X + (i * H_SPACING),
-              y: BASE_Y,
-            },
+            position: nodePosition,
+            positionAbsolute: nodePosition, // Force absolute positioning
             selected: false,
-            draggable: true,
+            draggable: false, // Prevent any dragging/repositioning
+            connectable: true,
             data: {
               label: plannerNode.label ?? plannerNode.type,
               title: plannerNode.label ?? plannerNode.type,
@@ -1113,6 +1117,15 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
               costHint: plannerNode.costHint ?? 0,
             },
             className: 'node-skeleton',
+            style: {
+              // Force exact alignment - override any CSS causing offset
+              margin: 0,
+              marginTop: 0,
+              marginBottom: 0,
+              verticalAlign: 'top',
+              alignSelf: 'flex-start',
+              top: 0,
+            },
           }
         }).filter(Boolean)
 
@@ -1133,12 +1146,56 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
 
         console.log('[handleBuild] Adding all nodes:', {
           count: allNodes.length,
-          positions: allNodes.map(n => ({ id: n.id, x: n.position.x, y: n.position.y }))
+          positions: allNodes.map(n => ({ id: n.id, x: n.position.x, y: n.position.y })),
+          edges: allEdges.map(e => ({ id: e.id, source: e.source, target: e.target }))
         })
 
         // Set everything at once
         builder.setNodes(allNodes)
         builder.setEdges(allEdges)
+
+        // Force positions to stay fixed - check multiple times
+        // React Flow sometimes repositions nodes after initial render
+        const fixPositions = () => {
+          const currentNodes = reactFlowInstanceRef.current?.getNodes()
+          if (!currentNodes) return false
+
+          console.log('[handleBuild] Position check:',
+            currentNodes.map(n => ({ id: n.id, x: n.position.x, y: n.position.y }))
+          )
+
+          // Check if any Y positions changed
+          const needsFixing = currentNodes.some(node => {
+            const originalNode = allNodes.find(n => n.id === node.id)
+            return originalNode && Math.abs(node.position.y - originalNode.position.y) > 5
+          })
+
+          if (needsFixing) {
+            console.log('[handleBuild] ⚠️ Positions changed! Forcing back to Y=' + BASE_Y)
+            const fixedNodes = currentNodes.map(node => {
+              const originalNode = allNodes.find(n => n.id === node.id)
+              if (originalNode) {
+                return {
+                  ...node,
+                  position: {
+                    ...node.position,
+                    y: BASE_Y, // Force all nodes to same Y
+                  }
+                }
+              }
+              return node
+            })
+            builder.setNodes(fixedNodes)
+            return true
+          }
+          return false
+        }
+
+        // Check positions at 100ms, 300ms, 600ms, and 1000ms
+        setTimeout(() => fixPositions(), 100)
+        setTimeout(() => fixPositions(), 300)
+        setTimeout(() => fixPositions(), 600)
+        setTimeout(() => fixPositions(), 1000)
 
         setBuildMachine(prev => ({
           ...prev,
