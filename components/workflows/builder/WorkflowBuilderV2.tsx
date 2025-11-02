@@ -1226,28 +1226,9 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
 
         transitionTo(BuildState.WAITING_USER)
 
-        // STEP 8: After transitioning to WAITING_USER, transition first node from skeleton → ready
-        await new Promise(resolve => setTimeout(resolve, 200))
-
-        if (firstNode && reactFlowInstanceRef.current) {
-          console.log('[handleBuild Animation] Transitioning first node to ready state')
-          setNodeState(reactFlowInstanceRef.current, firstNode.id, 'ready')
-          builder.setNodes(prevNodes => prevNodes.map(node => {
-            if (node.id === firstNode.id) {
-              return {
-                ...node,
-                selected: false, // Keep node unselected (no blue border)
-                data: {
-                  ...node.data,
-                  state: 'ready',
-                  aiStatus: 'awaiting_user',
-                },
-                className: 'node-ready',
-              }
-            }
-            return node
-          }))
-        }
+        // STEP 8: Keep all nodes in skeleton state
+        // They will transition to ready when user clicks Continue on each one
+        console.log('[handleBuild] All nodes staying in skeleton state until user interaction')
       }, 100) // Small delay to let React update
 
     } catch (error: any) {
@@ -1630,6 +1611,32 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
       builder.setNodes(updatedNodes)
     }
   }, [buildMachine.state, buildMachine.progress, builder])
+
+  // Clear node selection during build states to prevent accidental mass deletion
+  useEffect(() => {
+    const isBuildActive =
+      buildMachine.state === BuildState.BUILDING_SKELETON ||
+      buildMachine.state === BuildState.WAITING_USER ||
+      buildMachine.state === BuildState.PREPARING_NODE ||
+      buildMachine.state === BuildState.CONFIGURING_NODE ||
+      buildMachine.state === BuildState.TESTING_NODE
+
+    if (isBuildActive && builder?.nodes && builder.setNodes) {
+      // Check if any nodes are actually selected before updating
+      const hasSelectedNodes = builder.nodes.some(node => node.selected === true)
+
+      if (hasSelectedNodes) {
+        console.log('[WorkflowBuilderV2] Clearing node selection during build state:', buildMachine.state)
+        const updatedNodes = builder.nodes.map(node => ({
+          ...node,
+          selected: false,
+        }))
+        builder.setNodes(updatedNodes)
+      }
+    }
+    // Only depend on buildMachine.state to avoid infinite loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buildMachine.state])
 
   // Get cost breakdown for CostDisplay
   const costBreakdown = useMemo(() => {

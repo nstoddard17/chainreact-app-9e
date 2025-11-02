@@ -123,6 +123,18 @@
   filter: grayscale(1);
 }
 
+/* Skeleton nodes - keep grey filter on icons */
+.node-skeleton.node-grey img,
+.node-skeleton.node-grey svg {
+  filter: grayscale(1);
+}
+
+/* Ready nodes - remove grey filter from icons to show colors */
+.node-grey:not(.node-skeleton) img,
+.node-grey:not(.node-skeleton) svg {
+  filter: none !important;
+}
+
 /* Active node highlighting */
 @keyframes node-glow {
   0%, 100% {

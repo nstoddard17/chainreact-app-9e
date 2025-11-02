@@ -323,17 +323,20 @@ function CustomNode({ id, data, selected }: NodeProps) {
       isActiveStatus,
       autoExpand,
       aiStatus,
+      nodeState,
+      isSkeletonState,
       isConfigExpanded,
       configKeys: config ? Object.keys(config) : [],
       configValues: config,
       aiProgressConfig
     })
 
-    if (!isConfigExpanded && (autoExpand || hasConfig || hasTestData || isActiveStatus)) {
+    // Don't auto-expand skeleton nodes - they should stay collapsed
+    if (!isConfigExpanded && !isSkeletonState && (autoExpand || hasConfig || hasTestData || isActiveStatus)) {
       console.log('[CUSTOMNODE] 📈 Expanding node:', id)
       setIsConfigExpanded(true)
     }
-  }, [autoExpand, config, testData, aiStatus, isConfigExpanded, aiProgressConfig, id, title])
+  }, [autoExpand, config, testData, aiStatus, isConfigExpanded, aiProgressConfig, id, title, nodeState, isSkeletonState])
   
   const handleStartEditTitle = () => {
     setEditedTitle(title || component?.title || 'Unnamed Action')
@@ -839,6 +842,11 @@ function CustomNode({ id, data, selected }: NodeProps) {
   const { borderClass, shadowClass, backgroundClass, ringClass } = aiOutline
 
   const idleStatus = React.useMemo(() => {
+    // Never show status badges for skeleton nodes
+    if (isSkeletonState) {
+      return null
+    }
+
     if (aiStatus === 'ready' || aiStatus === 'complete') {
       return { text: 'Successful', tone: 'success' as const }
     }
@@ -858,7 +866,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
       return { text: 'Pending', tone: 'pending' as const }
     }
     return null
-  }, [aiStatus, executionStatus])
+  }, [aiStatus, executionStatus, isSkeletonState])
 
   const statusIndicator = React.useMemo(() => {
     if (!aiStatus) return null
@@ -959,25 +967,46 @@ function CustomNode({ id, data, selected }: NodeProps) {
         onDeleteSelected={onDeleteSelected}
       >
         <div className="relative w-[450px]" data-testid={`node-${id}-skeleton`}>
-          <div className="pointer-events-none select-none rounded-lg border border-slate-200 bg-slate-50 shadow-sm overflow-hidden">
-            <div className="flex items-start gap-3 px-4 py-4">
-              <div className="h-10 w-10 rounded-full bg-slate-200" />
-              <div className="flex-1 space-y-2">
-                <div className="h-4 w-1/2 rounded bg-slate-200" />
-                <div className="h-3 w-4/5 rounded bg-slate-100" />
-              </div>
-              <span className="inline-flex items-center gap-1 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                Skeleton
-              </span>
-            </div>
-            <div className="px-4 pb-5">
-              <div className="space-y-2 animate-pulse">
-                <div className="h-3 w-full rounded bg-slate-100" />
-                <div className="h-3 w-11/12 rounded bg-slate-100" />
-                <div className="h-3 w-4/5 rounded bg-slate-100" />
-              </div>
-              <div className="mt-5 h-24 rounded-md border border-dashed border-slate-200 bg-white/70 flex items-center justify-center text-xs font-medium text-slate-400 uppercase tracking-wider">
-                Preparing workflow step…
+          <div className="pointer-events-none select-none rounded-lg border border-slate-200 bg-slate-50/50 shadow-sm overflow-hidden">
+            <div className="p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="grid grid-cols-[40px_1fr] gap-2.5 items-center flex-1 min-w-0">
+                  {/* Logo - Greyed out */}
+                  <div className="flex items-center justify-center opacity-30">
+                    {type === 'chain_placeholder' ? (
+                      <Layers className="h-7 w-7 text-muted-foreground flex-shrink-0" />
+                    ) : providerId && !logoLoadFailed && !INTERNAL_PROVIDER_IDS.has(providerId) ? (
+                      <img
+                        src={`/integrations/${providerId}.svg`}
+                        alt={`${title || ''} logo`}
+                        className={getIntegrationLogoClasses(providerId, "w-7 h-7 object-contain flex-shrink-0")}
+                        onError={() => {
+                          logger.error(`Failed to load logo for ${providerId} at path: /integrations/${providerId}.svg`)
+                          setLogoLoadFailed(true)
+                        }}
+                        onLoad={() => logger.debug(`Successfully loaded logo for ${providerId}`)}
+                      />
+                    ) : (
+                      component?.icon && React.createElement(component.icon, { className: "h-7 w-7 text-foreground flex-shrink-0" })
+                    )}
+                  </div>
+                  {/* Content */}
+                  <div className="min-w-0 pr-2">
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="text-lg font-semibold text-slate-400 whitespace-nowrap overflow-hidden text-ellipsis flex-1">
+                          {title || (component && component.title) || 'Unnamed Action'}
+                        </h3>
+                        <span className="inline-flex items-center rounded-full bg-slate-200 text-slate-500 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 flex-shrink-0">
+                          Skeleton
+                        </span>
+                      </div>
+                      {description && (
+                        <p className="text-sm text-slate-400 leading-snug line-clamp-2">{description || (component && component.description)}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
