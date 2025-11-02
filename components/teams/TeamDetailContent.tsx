@@ -17,6 +17,7 @@ import {
 } from "lucide-react"
 import { useWorkflowStore } from "@/stores/workflowStore"
 import { useIntegrationStore } from "@/stores/integrationStore"
+import { hasPermission, type TeamRole } from "@/lib/types/roles"
 
 interface Team {
   id: string
@@ -45,8 +46,16 @@ export default function TeamDetailContent({ team }: TeamDetailContentProps) {
   const workflows = useWorkflowStore(state => state.workflows)
   const fetchIntegrations = useIntegrationStore(state => state.fetchIntegrations)
 
-  const userRole = team.team_members?.[0]?.role || 'member'
-  const canManageTeam = ['owner', 'admin'].includes(userRole)
+  const userRole = (team.team_members?.[0]?.role || 'member') as TeamRole
+
+  // Check specific permissions based on role
+  const canManageSettings = hasPermission(userRole, 'manage_settings', false)
+  const canManageMembers = hasPermission(userRole, 'manage_members', false) ||
+                          hasPermission(userRole, 'invite_members', false)
+  const canCreateWorkflows = hasPermission(userRole, 'create_workflows', false) ||
+                            hasPermission(userRole, 'manage_workflows', false) ||
+                            userRole === 'owner' ||
+                            userRole === 'admin'
 
   useEffect(() => {
     const initializeTeamWorkspace = async () => {
@@ -109,7 +118,7 @@ export default function TeamDetailContent({ team }: TeamDetailContentProps) {
             Back to Teams
           </Button>
 
-          {canManageTeam && (
+          {canManageSettings && (
             <Button
               variant="outline"
               onClick={() => router.push(`/teams/${team.slug}/settings`)}
@@ -227,42 +236,49 @@ export default function TeamDetailContent({ team }: TeamDetailContentProps) {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
-                <CardDescription>
-                  Common tasks for this team
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={handleCreateWorkflow}
-                >
-                  <Workflow className="w-4 h-4 mr-2" />
-                  Create Team Workflow
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={handleViewMembers}
-                >
-                  <Users className="w-4 h-4 mr-2" />
-                  Manage Team Members
-                </Button>
-                {canManageTeam && (
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start"
-                    onClick={() => router.push(`/teams/${team.slug}/settings`)}
-                  >
-                    <Settings className="w-4 h-4 mr-2" />
-                    Team Settings
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
+            {/* Only show Quick Actions card if user has at least one permission */}
+            {(canCreateWorkflows || canManageMembers || canManageSettings) && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Quick Actions</CardTitle>
+                  <CardDescription>
+                    Common tasks for this team
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {canCreateWorkflows && (
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start"
+                      onClick={handleCreateWorkflow}
+                    >
+                      <Workflow className="w-4 h-4 mr-2" />
+                      Create Team Workflow
+                    </Button>
+                  )}
+                  {canManageMembers && (
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start"
+                      onClick={handleViewMembers}
+                    >
+                      <Users className="w-4 h-4 mr-2" />
+                      Manage Team Members
+                    </Button>
+                  )}
+                  {canManageSettings && (
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start"
+                      onClick={() => router.push(`/teams/${team.slug}/settings`)}
+                    >
+                      <Settings className="w-4 h-4 mr-2" />
+                      Team Settings
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="activity" className="mt-6">
