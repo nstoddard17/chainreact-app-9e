@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { useWorkflowStore } from '@/stores/workflowStore'
@@ -11,6 +11,8 @@ import { useSignedAvatarUrl } from '@/hooks/useSignedAvatarUrl'
 import { UpgradePlanModal } from '@/components/plan-restrictions'
 import ShareWorkflowDialog from '@/components/workflows/ShareWorkflowDialog'
 import { WorkspaceGroupView } from '@/components/workflows/WorkspaceGroupView'
+import { useWorkflowCreation } from '@/hooks/useWorkflowCreation'
+import { WorkspaceSelectionModal } from '@/components/workflows/WorkspaceSelectionModal'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -169,18 +171,38 @@ function WorkflowsContent() {
   const { getConnectedProviders } = useIntegrationStore()
   const { checkActionLimit } = usePlanRestrictions()
   const { toast } = useToast()
+  const {
+    initiateWorkflowCreation,
+    showWorkspaceModal,
+    handleWorkspaceSelected,
+    handleCancelWorkspaceSelection
+  } = useWorkflowCreation()
 
   // Version update: No dropdowns, tabs properly aligned - v4
+  // Prevent React 18 Strict Mode double-fetch
+  const hasFetchedRef = useRef(false)
+
   useEffect(() => {
     console.log('🎯 WorkflowsContent mounted - Version: No dropdowns, tabs properly aligned - v4')
   }, [])
 
   useEffect(() => {
     // Always try to fetch when user is present - the store handles caching
-    if (user) {
+    // Use ref to prevent React 18 Strict Mode from double-fetching
+    logger.debug('[WorkflowsPageContent] useEffect triggered', {
+      hasUser: !!user,
+      hasFetched: hasFetchedRef.current,
+      willFetch: !!(user && !hasFetchedRef.current)
+    })
+
+    if (user && !hasFetchedRef.current) {
+      hasFetchedRef.current = true
+      logger.info('[WorkflowsPageContent] Fetching workflows on mount')
       fetchWorkflows().catch((error) => {
         logger.error('[WorkflowsPageContent] Failed to fetch workflows on mount', error)
       })
+    } else if (!user) {
+      logger.debug('[WorkflowsPageContent] User not ready yet, skipping fetch')
     }
   }, [user, fetchWorkflows])
 
@@ -1577,7 +1599,7 @@ function WorkflowsContent() {
               className="h-9 gap-2 whitespace-nowrap"
               onClick={() => {
                 if (activeTab === 'workflows') {
-                  router.push('/workflows/ai-agent')
+                  initiateWorkflowCreation(() => router.push('/workflows/ai-agent'))
                 } else {
                   setCreateFolderDialog(true)
                 }
@@ -2453,6 +2475,8 @@ function WorkflowsContent() {
                     const workflowCount = folder.is_trash
                       ? trashedWorkflows.length
                       : activeWorkflows.filter(w => w.folder_id === folder.id).length
+                    // Count subfolders within this folder
+                    const subfolderCount = folders.filter(f => f.parent_folder_id === folder.id).length
                     const isDefaultFolder = folder.is_default === true
                     const isTrashFolder = folder.is_trash === true
                     return (
@@ -2495,7 +2519,15 @@ function WorkflowsContent() {
                               <h3 className="font-semibold text-slate-900 flex items-center gap-2">
                                 {folder.name}
                               </h3>
-                              <p className="text-xs text-slate-600">{workflowCount} workflows</p>
+                              <div className="flex items-center gap-2 text-xs text-slate-600">
+                                <span>{workflowCount} workflow{workflowCount !== 1 ? 's' : ''}</span>
+                                {subfolderCount > 0 && (
+                                  <>
+                                    <span>•</span>
+                                    <span>{subfolderCount} folder{subfolderCount !== 1 ? 's' : ''}</span>
+                                  </>
+                                )}
+                              </div>
                             </div>
                           </div>
                           <DropdownMenu>
@@ -2624,6 +2656,8 @@ function WorkflowsContent() {
                       const workflowCount = folder.is_trash
                         ? trashedWorkflows.length
                         : activeWorkflows.filter(w => w.folder_id === folder.id).length
+                      // Count subfolders within this folder
+                      const subfolderCount = folders.filter(f => f.parent_folder_id === folder.id).length
                       const isDefaultFolder = folder.is_default === true
                       const isTrashFolder = folder.is_trash === true
 
@@ -2672,7 +2706,15 @@ function WorkflowsContent() {
                             </span>
                           </td>
                           <td className="px-3 py-4">
-                            <span className="text-sm">{workflowCount} workflows</span>
+                            <div className="flex items-center gap-2 text-sm">
+                              <span>{workflowCount} workflow{workflowCount !== 1 ? 's' : ''}</span>
+                              {subfolderCount > 0 && (
+                                <>
+                                  <span className="text-slate-400">•</span>
+                                  <span className="text-slate-600">{subfolderCount} folder{subfolderCount !== 1 ? 's' : ''}</span>
+                                </>
+                              )}
+                            </div>
                           </td>
                           <td className="px-3 py-4">
                             <span className="text-sm">
@@ -2789,7 +2831,7 @@ function WorkflowsContent() {
                     : 'Create your first workflow to get started'}
                 </p>
                 {!searchQuery && (
-                  <Button className="mt-4" onClick={() => router.push('/workflows/ai-agent')}>
+                  <Button className="mt-4" onClick={() => initiateWorkflowCreation(() => router.push('/workflows/ai-agent'))}>
                     <Plus className="w-4 h-4 mr-2" />
                     Create Workflow
                   </Button>
@@ -3388,6 +3430,14 @@ function WorkflowsContent() {
         open={upgradeModalOpen}
         onOpenChange={setUpgradeModalOpen}
         requiredPlan={requiredPlan}
+      />
+
+      {/* Workspace Selection Modal - Pre-flight before AI Agent Builder */}
+      <WorkspaceSelectionModal
+        open={showWorkspaceModal}
+        onOpenChange={(open) => !open && handleCancelWorkspaceSelection()}
+        onWorkspaceSelected={handleWorkspaceSelected}
+        onCancel={handleCancelWorkspaceSelection}
       />
     </>
   )
