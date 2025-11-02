@@ -200,3 +200,51 @@ Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
 [2025-11-02T14:34:43.864Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 3s (5741 modules)
 [2025-11-02T14:34:44.127Z] [INFO   ] 2025-11-02T14:34:44.127Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/34eeb990-5e01-4959-9e12-d8e18484c381","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13527396728}
 [2025-11-02T14:34:44.406Z] [INFO   ] 2025-11-02T14:34:44.406Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-02T14:36:40.609Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1711ms (5741 modules)
+[2025-11-02T14:36:40.934Z] [INFO   ] 2025-11-02T14:36:40.934Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/34eeb990-5e01-4959-9e12-d8e18484c381","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13527513535}
+[2025-11-02T14:36:41.191Z] [INFO   ] 2025-11-02T14:36:41.191Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-02T14:37:23.475Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 296ms (4390 modules)
+[2025-11-02T14:39:44.292Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1640ms (5741 modules)
+[2025-11-02T14:39:44.604Z] [INFO   ] 2025-11-02T14:39:44.604Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/34eeb990-5e01-4959-9e12-d8e18484c381","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13527697205}
+[2025-11-02T14:39:45.427Z] [INFO   ] 2025-11-02T14:39:45.427Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-02T14:42:25.185Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-11-02T14:42:25.398Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1368ms (4390 modules)
+[2025-11-02T15:00:08.007Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.2s (5741 modules)
+[2025-11-02T15:00:08.359Z] [INFO   ] 2025-11-02T15:00:08.359Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/34eeb990-5e01-4959-9e12-d8e18484c381","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13528920960}
+[2025-11-02T15:00:08.759Z] [INFO   ] 2025-11-02T15:00:08.759Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-02T15:02:23.258Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-11-02T15:02:23.310Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 906ms (4390 modules)
+[2025-11-02T15:08:05.450Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1583ms (5747 modules)
+[2025-11-02T15:08:05.856Z] [INFO   ] 2025-11-02T15:08:05.856Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/34eeb990-5e01-4959-9e12-d8e18484c381","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13529398457}
+[2025-11-02T15:08:06.441Z] [INFO   ] 2025-11-02T15:08:06.440Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-02T15:08:38.968Z] [INFO   ] 2025-11-02T15:08:38.968Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/34eeb990-5e01-4959-9e12-d8e18484c381","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13529431568}
+[2025-11-02T15:08:39.609Z] [INFO   ] 2025-11-02T15:08:39.609Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-02T15:08:39.609Z"}
+[2025-11-02T15:08:39.619Z] [INFO   ] 2025-11-02T15:08:39.619Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-02T15:08:39.619Z"}
+[2025-11-02T15:08:39.619Z] [INFO   ] 2025-11-02T15:08:39.619Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-02T15:08:39.619Z"}
+[2025-11-02T15:08:40.184Z] [INFO   ] 2025-11-02T15:08:40.183Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-02T15:08:42.014Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-11-02T15:08:42.016Z] [INFO   ] 2025-11-02T15:08:42.016Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/34eeb990-5e01-4959-9e12-d8e18484c381/revisions","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13529434617}
+[2025-11-02T15:08:42.296Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/revisions in 801ms (4392 modules)
+[2025-11-02T15:08:43.980Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4402 modules)
+[2025-11-02T15:08:44.074Z] [INFO   ] 2025-11-02T15:08:44.074Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-02T15:08:44.074Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-02T15:08:44.158Z] [INFO   ] 2025-11-02T15:08:44.158Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-02T15:08:44.159Z] [INFO   ] 2025-11-02T15:08:44.159Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-02T15:08:44.272Z] [INFO   ] 2025-11-02T15:08:44.272Z [DEBUG] [API /api/workflows] GET request {"filterContext":"ALL (unified view)","workspaceId":null,"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-02T15:08:44.307Z] [INFO   ] 2025-11-02T15:08:44.307Z [DEBUG] 📊 [API /api/integrations] Query result {"workspaceType":"personal","workspaceId":null,"count":14,"error":null}
+[2025-11-02T15:08:44.307Z] [INFO   ] 2025-11-02T15:08:44.307Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-02T15:08:44.591Z] [INFO   ] 2025-11-02T15:08:44.591Z [DEBUG] [API /api/workflows] Query result {"filterContext":"ALL","count":13,"error":null}
+[2025-11-02T15:08:44.634Z] [INFO   ] 2025-11-02T15:08:44.634Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/34eeb990-5e01-4959-9e12-d8e18484c381/revisions/2d9008ee-2e22-4473-9d98-2232b570e469","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13529437235}
+[2025-11-02T15:08:44.933Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/revisions/[revisionId] in 273ms (4404 modules)
+[2025-11-02T15:08:45.676Z] [INFO   ] 2025-11-02T15:08:45.676Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/34eeb990-5e01-4959-9e12-d8e18484c381/edits","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13529438277}
+[2025-11-02T15:08:45.710Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/edits in 411ms (4407 modules)
+[2025-11-02T15:08:46.771Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4664 modules)
+[2025-11-02T15:08:47.308Z] [INFO   ] 2025-11-02T15:08:47.308Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-02T15:08:47.308Z","url":"http://localhost:3000/api/integrations"}
+[2025-11-02T15:08:47.399Z] [INFO   ] 2025-11-02T15:08:47.399Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-02T15:08:47.411Z] [INFO   ] 2025-11-02T15:08:47.410Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-02T15:08:47.554Z] [INFO   ] 2025-11-02T15:08:47.543Z [DEBUG] 📊 [API /api/integrations] Query result {"workspaceType":"personal","workspaceId":null,"count":14,"error":null}
+[2025-11-02T15:08:47.556Z] [INFO   ] 2025-11-02T15:08:47.556Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-02T15:08:47.836Z] [INFO   ] 2025-11-02T15:08:47.836Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-02T15:08:47.836Z","url":"http://localhost:3000/api/integrations"}
+[2025-11-02T15:08:47.924Z] [INFO   ] 2025-11-02T15:08:47.924Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-02T15:08:47.925Z] [INFO   ] 2025-11-02T15:08:47.924Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-02T15:08:48.025Z] [INFO   ] 2025-11-02T15:08:48.025Z [DEBUG] 📊 [API /api/integrations] Query result {"workspaceType":"personal","workspaceId":null,"count":14,"error":null}
+[2025-11-02T15:08:48.025Z] [INFO   ] 2025-11-02T15:08:48.025Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
