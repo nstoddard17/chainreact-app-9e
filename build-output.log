@@ -1,0 +1,91 @@
+
+> my-v0-project@1.0.0 build
+> next build
+
+   ▲ Next.js 15.5.2
+   - Environments: .env.local
+   - Experiments (use with caution):
+     · optimizePackageImports
+
+   Creating an optimized production build ...
+
+
+Source path: C:\Users\marcu\source\repos\nstoddard17\chainreact-app-9e\app\globals.css
+Setting up new context...
+Finding changed files: 43.915ms
+Reading changed files: 1.365s
+Sorting candidates: 42.499ms
+Generate rules: 509.898ms
+Build stylesheet: 7.93ms
+Potential classes:  58294
+Active contexts:  1
+JIT TOTAL: 2.169s
+
+
+
+
+Source path: C:\Users\marcu\source\repos\nstoddard17\chainreact-app-9e\components\workflows\ai-agent\agent-flow.css
+
+
+Source path: C:\Users\marcu\source\repos\nstoddard17\chainreact-app-9e\components\workflows\builder\styles\FlowBuilder.anim.css
+JIT TOTAL: 2.294ms
+
+
+
+
+(node:22640) Warning: Label 'JIT TOTAL' already exists for console.time()
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:22640) Warning: No such label 'JIT TOTAL' for console.timeEnd()
+
+
+Source path: C:\Users\marcu\source\repos\nstoddard17\chainreact-app-9e\node_modules\@xyflow\react\dist\style.css
+JIT TOTAL: 1.116ms
+
+
+
+
+Source path: C:\Users\marcu\source\repos\nstoddard17\chainreact-app-9e\components\workflows\builder\styles\tokens.css
+JIT TOTAL: 1.293ms
+
+
+
+
+Source path: C:\Users\marcu\source\repos\nstoddard17\chainreact-app-9e\components\workflows\builder\styles\handle-variations.css
+
+
+Source path: C:\Users\marcu\source\repos\nstoddard17\chainreact-app-9e\components\workflows\builder\styles\node-states.css
+
+
+Source path: C:\Users\marcu\source\repos\nstoddard17\chainreact-app-9e\components\workflows\builder\ui\CanvasBadge.css
+
+
+Source path: C:\Users\marcu\source\repos\nstoddard17\chainreact-app-9e\components\workflows\builder\ui\ChatStatusBadge.css
+JIT TOTAL: 2.516ms
+
+
+
+
+
+
+
+
+(node:22640) Warning: Label 'JIT TOTAL' already exists for console.time()
+(node:22640) Warning: Label 'JIT TOTAL' already exists for console.time()
+(node:22640) Warning: Label 'JIT TOTAL' already exists for console.time()
+(node:22640) Warning: No such label 'JIT TOTAL' for console.timeEnd()
+(node:22640) Warning: No such label 'JIT TOTAL' for console.timeEnd()
+(node:22640) Warning: No such label 'JIT TOTAL' for console.timeEnd()
+ ✓ Compiled successfully in 37.6s
+   Skipping validation of types
+   Skipping linting
+   Collecting page data ...
+ ⚠ Using edge runtime on a page currently disables static generation for that page
+   Generating static pages (0/379) ...
+Error occurred prerendering page "/support". Read more: https://nextjs.org/docs/messages/prerender-error
+ReferenceError: User is not defined
+    at <unknown> (C:\Users\marcu\source\repos\nstoddard17\chainreact-app-9e\.next\server\chunks\50218.js:1:28187)
+    at w (C:\Users\marcu\source\repos\nstoddard17\chainreact-app-9e\.next\server\chunks\50218.js:1:28201) {
+  digest: '3658293268'
+}
+Export encountered an error on /support/page: /support, exiting the build.
+ ⨯ Next.js build worker exited with code: 1 and signal: null

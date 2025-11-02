@@ -82,7 +82,7 @@ export function HomepageHeader() {
           )}
 
           <Link href="/waitlist">
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+            <Button className="bg-white hover:bg-gray-50 dark:bg-white dark:hover:bg-gray-50 text-gray-900 dark:text-white hover:text-gray-900 dark:hover:text-gray-900 border border-gray-200 dark:border-gray-200 shadow-sm">
               Get Started
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
@@ -133,7 +133,7 @@ export function HomepageHeader() {
           ))}
           <Link
             href="/waitlist"
-            className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors"
+            className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white dark:bg-white text-gray-900 dark:text-white font-semibold hover:bg-gray-50 dark:hover:bg-gray-50 hover:text-gray-900 dark:hover:text-gray-900 border border-gray-200 dark:border-gray-200 shadow-sm transition-colors"
           >
             Get Started
             <ArrowRight className="w-4 h-4" />

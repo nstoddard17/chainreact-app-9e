@@ -3,8 +3,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import { supabase } from '@/utils/supabaseClient'
-
-import { logger } from '@/lib/utils/logger'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 
 // Broadcast channel for cross-tab communication
@@ -87,7 +85,6 @@ export function useSingleTabPresence() {
 
   // Elect self as leader
   const becomeLeader = useCallback(async () => {
-    logger.debug(`Tab ${tabId} becoming leader`)
     setIsLeaderTab(true)
     isLeaderTabRef.current = true
     
@@ -122,7 +119,7 @@ export function useSingleTabPresence() {
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState()
         const userCount = Object.keys(state).length
-        
+
         // Only update local state, don't call API on every sync
         if (userCount !== lastOnlineCount.current) {
           lastOnlineCount.current = userCount
@@ -132,7 +129,7 @@ export function useSingleTabPresence() {
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
           setIsConnected(true)
-          
+
           // Track presence
           await channel.track({
             user_id: user.id,
@@ -180,7 +177,6 @@ export function useSingleTabPresence() {
 
   // Resign from leadership
   const resignLeader = useCallback(async () => {
-    logger.debug(`Tab ${tabId} resigning leadership`)
     setIsLeaderTab(false)
     isLeaderTabRef.current = false
     
@@ -216,11 +212,10 @@ export function useSingleTabPresence() {
   const checkLeaderAlive = useCallback(() => {
     const now = Date.now()
     const timeSinceLastHeartbeat = now - lastLeaderHeartbeat.current
-    
+
     if (timeSinceLastHeartbeat > LEADER_TIMEOUT) {
       // Leader is dead, start election
-      logger.debug(`Tab ${tabId} detected dead leader, starting election`)
-      
+
       // Announce election
       if (broadcastChannel.current && user?.id) {
         const message: TabMessage = {
@@ -231,13 +226,14 @@ export function useSingleTabPresence() {
         }
         broadcastChannel.current.postMessage(message)
       }
-      
+
       // Become leader after a random delay (to handle race conditions)
+      const delay = Math.random() * 500
       setTimeout(() => {
         if (!isLeaderTabRef.current) {
           becomeLeader()
         }
-      }, Math.random() * 500)
+      }, delay)
     }
   }, [tabId, user?.id, becomeLeader])
 
@@ -255,7 +251,6 @@ export function useSingleTabPresence() {
         // If we're the leader but another tab is sending heartbeats, yield
         if (isLeaderTabRef.current && message.tabId !== tabId) {
           if (message.timestamp > Date.now() - LEADER_HEARTBEAT_INTERVAL * 2) {
-            logger.debug(`Tab ${tabId} yielding to ${message.tabId}`)
             resignLeader()
           }
         }
@@ -321,11 +316,12 @@ export function useSingleTabPresence() {
 
   // Initialize
   useEffect(() => {
-    if (!user?.id) return
+    if (!user?.id) {
+      return
+    }
 
     // Skip initialization during hot reload to prevent election storms
     if (isHotReload) {
-      console.debug('Skipping presence initialization during hot reload')
       return
     }
 
@@ -345,7 +341,6 @@ export function useSingleTabPresence() {
       }, LEADER_TIMEOUT / 2)
     } else {
       // Fallback: if BroadcastChannel not supported, always be leader
-      logger.debug('BroadcastChannel not supported, using single tab mode')
       becomeLeader()
     }
 

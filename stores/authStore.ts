@@ -43,6 +43,9 @@ interface Profile {
   ai_agent_preference?: 'always_show' | 'always_skip' | 'ask_later'
   ai_agent_skip_count?: number
   ai_agent_preference_updated_at?: string
+  default_workspace_type?: 'personal' | 'team' | 'organization' | null
+  default_workspace_id?: string | null
+  workflow_creation_mode?: 'default' | 'ask' | 'follow_switcher'
 }
 
 interface AuthState {
@@ -55,6 +58,8 @@ interface AuthState {
   initialize: () => Promise<void>
   signOut: () => Promise<void>
   updateProfile: (updates: Partial<Profile>) => Promise<void>
+  updateDefaultWorkspace: (workspaceType: 'personal' | 'team' | 'organization' | null, workspaceId?: string | null) => Promise<void>
+  clearDefaultWorkspace: () => Promise<void>
   signIn: (email: string, password: string) => Promise<void>
   signUp: (email: string, password: string, metadata?: Record<string, any>) => Promise<void>
   signInWithGoogle: () => Promise<void>
@@ -246,6 +251,7 @@ export const useAuthStore = create<AuthState>()(
               company: raw.company ?? undefined,
               job_title: raw.job_title ?? undefined,
               role: raw.role ?? undefined,
+              plan: raw.plan ?? undefined,
               admin: raw.admin ?? false,
               secondary_email: raw.secondary_email ?? undefined,
               phone_number: raw.phone_number ?? undefined,
@@ -320,7 +326,7 @@ export const useAuthStore = create<AuthState>()(
                 logger.debug('🔍 Service profile unavailable, attempting direct fetch for user ID:', user.id)
                 const fetchResult = await supabase
                   .from('user_profiles')
-                  .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, admin, email, created_at, updated_at')
+                  .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, plan, admin, email, created_at, updated_at')
                   .eq('id', user.id)
                   .single()
 
@@ -372,7 +378,7 @@ export const useAuthStore = create<AuthState>()(
                   const createResult = await supabase
                     .from('user_profiles')
                     .insert(createProfileData)
-                    .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, admin, email, created_at, updated_at')
+                    .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, plan, admin, email, created_at, updated_at')
                     .single()
 
                   logger.debug('📊 [AUTH] Profile creation result', {
@@ -856,6 +862,16 @@ export const useAuthStore = create<AuthState>()(
             } catch (e) {
               // Admin store might not exist, ignore
             }
+
+            try {
+              const { useBillingStore } = await import("./billingStore")
+              const billingStore = useBillingStore.getState()
+              if (billingStore.clearAllData) {
+                billingStore.clearAllData()
+              }
+            } catch (e) {
+              // Billing store might not exist, ignore
+            }
           } catch (error) {
             logger.error("Error clearing stores:", error)
           }
@@ -980,6 +996,75 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
+      updateDefaultWorkspace: async (workspaceType: 'personal' | 'team' | 'organization' | null, workspaceId?: string | null) => {
+        try {
+          const { user, profile } = get()
+          if (!user) throw new Error("No user logged in")
+
+          logger.debug('[AuthStore] Updating default workspace:', { workspaceType, workspaceId })
+
+          const response = await fetch('/api/user/default-workspace', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              workspace_type: workspaceType,
+              workspace_id: workspaceId
+            })
+          })
+
+          if (!response.ok) {
+            const error = await response.json()
+            throw new Error(error.error || 'Failed to update default workspace')
+          }
+
+          // Update local profile state
+          set({
+            profile: {
+              ...profile,
+              default_workspace_type: workspaceType,
+              default_workspace_id: workspaceId || null
+            } as Profile
+          })
+
+          logger.info('[AuthStore] Default workspace updated successfully')
+        } catch (error: any) {
+          logger.error('[AuthStore] Error updating default workspace:', error)
+          throw error
+        }
+      },
+
+      clearDefaultWorkspace: async () => {
+        try {
+          const { user, profile } = get()
+          if (!user) throw new Error("No user logged in")
+
+          logger.debug('[AuthStore] Clearing default workspace')
+
+          const response = await fetch('/api/user/default-workspace', {
+            method: 'DELETE'
+          })
+
+          if (!response.ok) {
+            const error = await response.json()
+            throw new Error(error.error || 'Failed to clear default workspace')
+          }
+
+          // Update local profile state
+          set({
+            profile: {
+              ...profile,
+              default_workspace_type: null,
+              default_workspace_id: null
+            } as Profile
+          })
+
+          logger.info('[AuthStore] Default workspace cleared successfully')
+        } catch (error: any) {
+          logger.error('[AuthStore] Error clearing default workspace:', error)
+          throw error
+        }
+      },
+
       signIn: async (email: string, password: string) => {
         logger.debug('🔐 Starting sign in process for:', email)
 
@@ -1043,27 +1128,20 @@ export const useAuthStore = create<AuthState>()(
             set({ user, profile: null, loading: false, initialized: true })
 
             // Fetch profile data in background after successful login
-            supabase
-              .from('user_profiles')
-              .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, admin, created_at, updated_at')
-              .eq('id', data.user.id)
-              .single()
-              .then(({ data: profileData, error }) => {
-                if (profileData && !error) {
-                  const updatedUser = { ...user }
-                  updatedUser.first_name = profileData.first_name
-                  updatedUser.last_name = profileData.last_name
-                  updatedUser.full_name = profileData.full_name || user.name
-
-                  set({ user: updatedUser, profile: profileData })
-                  logger.debug('Profile loaded successfully in background')
-                } else if (error) {
-                  logger.warn('Profile fetch error in background:', error)
-                }
-              })
-              .catch(profileError => {
+            // Use the shared fetchProfile function to ensure consistent behavior and cache bypass
+            const fetchProfileAsync = async () => {
+              try {
+                const { useAuthStore } = await import('./authStore')
+                const store = useAuthStore.getState()
+                // Force fresh fetch by bypassing cache (set lastProfileFetch to 0)
+                store.lastProfileFetch = 0
+                await store.fetchProfile(data.user.id)
+                logger.debug('Profile loaded successfully in background with cache bypass')
+              } catch (profileError) {
                 logger.warn('Profile fetch failed in background:', profileError)
-              })
+              }
+            }
+            fetchProfileAsync()
 
             // Update integration store with new user ID after successful login
             setTimeout(async () => {

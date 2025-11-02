@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useAuthStore } from "@/stores/authStore"
 import { Button } from "@/components/ui/button"
@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { CreateTeamDialog } from "./CreateTeamDialog"
 import { logger } from "@/lib/utils/logger"
+import { useDebugStore } from "@/stores/debugStore"
 
 interface Team {
   id: string
@@ -61,14 +62,19 @@ interface Invitation {
 export function TeamsPublicView() {
   const router = useRouter()
   const { user, profile } = useAuthStore()
+  const { logApiCall, logApiResponse, logApiError, logEvent } = useDebugStore()
   const [teams, setTeams] = useState<Team[]>([])
   const [invitations, setInvitations] = useState<Invitation[]>([])
   const [loading, setLoading] = useState(true)
   const [processingInvitation, setProcessingInvitation] = useState<string | null>(null)
   const [createTeamDialogOpen, setCreateTeamDialogOpen] = useState(false)
 
+  // Prevent double-fetch on mount (React 18 Strict Mode calls effects twice)
+  const hasFetchedRef = useRef(false)
+
   useEffect(() => {
-    if (user) {
+    if (user && !hasFetchedRef.current) {
+      hasFetchedRef.current = true
       fetchUserTeams()
       fetchInvitations()
     }
@@ -76,6 +82,8 @@ export function TeamsPublicView() {
 
   const fetchUserTeams = async () => {
     setLoading(true)
+    const startTime = Date.now()
+    const requestId = logApiCall('GET', '/api/teams/my-teams')
 
     try {
       // Fetch teams where user is a member - backend handles all logic
@@ -83,24 +91,46 @@ export function TeamsPublicView() {
       const timeoutId = setTimeout(() => controller.abort(), 8000) // 8 second timeout
 
       try {
+        logEvent('info', 'Teams', 'Fetching user teams...')
         const response = await fetch('/api/teams/my-teams', { signal: controller.signal })
+        const duration = Date.now() - startTime
+
+        logEvent('info', 'Teams', `Response status: ${response.status}`, { status: response.status })
 
         if (!response.ok) {
-          throw new Error('Failed to fetch teams')
+          const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+          logApiError(requestId, new Error(errorData.error || 'Failed to fetch teams'), duration)
+          logEvent('error', 'Teams', 'API error response', errorData)
+          throw new Error(errorData.error || `Failed to fetch teams (${response.status})`)
         }
 
-        const { teams } = await response.json()
-        setTeams(teams || [])
+        const data = await response.json()
+        logApiResponse(requestId, response.status, { count: data.teams?.length || 0 }, duration)
+        logEvent('info', 'Teams', `Successfully fetched ${data.teams?.length || 0} teams`)
+        setTeams(data.teams || [])
       } catch (error: any) {
+        const duration = Date.now() - startTime
         if (error.name === 'AbortError') {
+          logApiError(requestId, new Error('Request timed out'), duration)
+          logEvent('error', 'Teams', 'Request timed out after 8 seconds')
           throw new Error('Request timed out. Please try again.')
         }
+        logApiError(requestId, error, duration)
+        logEvent('error', 'Teams', 'Fetch error', {
+          message: error?.message,
+          name: error?.name,
+          stack: error?.stack
+        })
         throw error
       } finally {
         clearTimeout(timeoutId)
       }
     } catch (error: any) {
-      logger.error('Error fetching teams:', error)
+      logEvent('error', 'Teams', 'Error fetching teams', {
+        message: error?.message,
+        name: error?.name,
+        stack: error?.stack
+      })
       toast.error(error.message || 'Failed to load teams')
       setTeams([])
     } finally {

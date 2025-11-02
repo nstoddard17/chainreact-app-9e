@@ -55,21 +55,28 @@ export async function GET() {
         })
 
         // Get online users from Supabase Realtime Presence channel
-        // Create a temporary channel to query presence state
-        const channel = supabase.channel('presence-room-query', {
+        // Query the SAME channel that users are tracked in (presence-room)
+        // Use service client to bypass RLS and access presence data
+        const channel = adminSupabase.channel('presence-room', {
             config: {
                 presence: {
-                    key: user.id,
+                    key: `admin-query-${user.id}`,
                 },
             },
         });
 
         // Subscribe to the channel to get presence state
         const presenceData = await new Promise<any[]>((resolve) => {
-            const timeout = setTimeout(() => resolve([]), 3000);
+            const timeout = setTimeout(() => {
+                logger.error('[Admin Users] ⚠️ Presence query timed out after 3s - no sync event received')
+                resolve([])
+            }, 3000);
+
+            let syncReceived = false
 
             channel
                 .on('presence', { event: 'sync' }, () => {
+                    syncReceived = true
                     clearTimeout(timeout);
                     const state = channel.presenceState();
                     const users = Object.values(state).flat();
@@ -82,8 +89,23 @@ export async function GET() {
                             user_id: user.id,
                             query_only: true,
                         });
+                    } else if (status === 'CHANNEL_ERROR') {
+                        logger.error('[Admin Users] Channel error occurred')
+                        clearTimeout(timeout)
+                        resolve([])
+                    } else if (status === 'TIMED_OUT') {
+                        logger.error('[Admin Users] Channel subscription timed out')
+                        clearTimeout(timeout)
+                        resolve([])
                     }
                 });
+
+            // Log if we never get a sync after 4 seconds
+            setTimeout(() => {
+                if (!syncReceived) {
+                    logger.error('[Admin Users] No sync event after 4 seconds - possible channel issue')
+                }
+            }, 4000)
         });
 
         // Clean up the channel
@@ -91,7 +113,7 @@ export async function GET() {
             await channel.untrack();
             await channel.unsubscribe();
         } catch (e) {
-            // Ignore cleanup errors
+            logger.error('[Admin Users] Error cleaning up presence channel:', e)
         }
 
         // Extract user IDs from presence data
@@ -100,6 +122,11 @@ export async function GET() {
                 .filter((p: any) => p.user_id && !p.query_only)
                 .map((p: any) => p.user_id)
         )
+
+        logger.debug('[Admin Users] Online users detected:', {
+            onlineCount: onlineUserIds.size,
+            onlineUserIds: Array.from(onlineUserIds)
+        })
 
         // Format the data for the component with real email addresses
         const usersWithOnlineStatus = profiles?.map((profile: any) => ({
