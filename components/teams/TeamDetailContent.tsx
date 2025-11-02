@@ -8,17 +8,29 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
   Users,
   Settings,
   ArrowLeft,
   Workflow,
   UserPlus,
   Calendar,
+  LogOut,
+  Loader2,
 } from "lucide-react"
 import { useWorkflowStore } from "@/stores/workflowStore"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { hasPermission, type TeamRole } from "@/lib/types/roles"
 import { TeamActivityFeed } from "@/components/teams/TeamActivityFeed"
+import { TransferOwnershipDialog } from "@/components/teams/TransferOwnershipDialog"
+import { toast } from "sonner"
 
 interface Team {
   id: string
@@ -41,6 +53,10 @@ export default function TeamDetailContent({ team }: TeamDetailContentProps) {
   const [activeTab, setActiveTab] = useState("overview")
   const [memberCount, setMemberCount] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false)
+  const [leaving, setLeaving] = useState(false)
+  const [currentUserId, setCurrentUserId] = useState<string>("")
+  const [transferOwnershipOpen, setTransferOwnershipOpen] = useState(false)
 
   const setWorkspaceContext = useWorkflowStore(state => state.setWorkspaceContext)
   const fetchWorkflows = useWorkflowStore(state => state.fetchWorkflows)
@@ -65,11 +81,12 @@ export default function TeamDetailContent({ team }: TeamDetailContentProps) {
       // Switch to this team's workspace
       setWorkspaceContext('team', team.id)
 
-      // Fetch team data
+      // Fetch team data and get current user
       await Promise.all([
-        fetchWorkflows(true),
+        fetchWorkflows(true, 'team', team.id), // Pass team context and ID
         fetchIntegrations(true),
-        fetchMemberCount()
+        fetchMemberCount(),
+        getCurrentUser()
       ])
 
       setLoading(false)
@@ -77,6 +94,18 @@ export default function TeamDetailContent({ team }: TeamDetailContentProps) {
 
     initializeTeamWorkspace()
   }, [team.id])
+
+  const getCurrentUser = async () => {
+    try {
+      const response = await fetch('/api/auth/session')
+      if (response.ok) {
+        const data = await response.json()
+        setCurrentUserId(data.user?.id || '')
+      }
+    } catch (error) {
+      console.error('Error getting current user:', error)
+    }
+  }
 
   const fetchMemberCount = async () => {
     try {
@@ -101,6 +130,37 @@ export default function TeamDetailContent({ team }: TeamDetailContentProps) {
   const handleCreateWorkflow = () => {
     router.push('/workflows')
   }
+
+  const handleLeaveTeam = async () => {
+    try {
+      setLeaving(true)
+
+      const response = await fetch(`/api/teams/${team.id}/members/${currentUserId}`, {
+        method: 'DELETE'
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to leave team')
+      }
+
+      toast.success('You have left the team')
+      setLeaveDialogOpen(false)
+
+      // Redirect to teams page
+      router.push('/teams')
+      router.refresh()
+    } catch (error: any) {
+      console.error('Error leaving team:', error)
+      toast.error(error.message || 'Failed to leave team')
+    } finally {
+      setLeaving(false)
+    }
+  }
+
+  // Check if user is owner and if there are other members
+  const isOwner = userRole === 'owner'
+  const canLeaveTeam = !isOwner || memberCount === 1
 
   return (
     <NewAppLayout
@@ -296,6 +356,139 @@ export default function TeamDetailContent({ team }: TeamDetailContentProps) {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Leave Team Section */}
+        <Card className="border-red-200 dark:border-red-900">
+          <CardHeader>
+            <CardTitle className="text-red-600 dark:text-red-400">Danger Zone</CardTitle>
+            <CardDescription>
+              Irreversible actions for this team
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Transfer Ownership (Owner only) */}
+            {isOwner && memberCount > 1 && (
+              <div className="flex items-center justify-between pb-4 border-b border-red-100 dark:border-red-900">
+                <div className="space-y-1">
+                  <div className="font-medium">Transfer Ownership</div>
+                  <div className="text-sm text-slate-500">
+                    Transfer team ownership to another member
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => setTransferOwnershipOpen(true)}
+                >
+                  Transfer Ownership
+                </Button>
+              </div>
+            )}
+
+            {/* Leave Team */}
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <div className="font-medium">Leave Team</div>
+                <div className="text-sm text-slate-500">
+                  {isOwner && memberCount > 1
+                    ? "You must transfer ownership before leaving this team"
+                    : isOwner
+                    ? "As the last member, leaving will delete this team"
+                    : "Remove yourself from this team"}
+                </div>
+              </div>
+              <Button
+                variant="destructive"
+                onClick={() => setLeaveDialogOpen(true)}
+                disabled={!canLeaveTeam}
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Leave Team
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Leave Team Confirmation Dialog */}
+        <Dialog open={leaveDialogOpen} onOpenChange={setLeaveDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Leave {team.name}?</DialogTitle>
+              <DialogDescription>
+                {isOwner && memberCount === 1 ? (
+                  <div className="space-y-2 mt-2">
+                    <p className="text-red-600 dark:text-red-400 font-medium">
+                      Warning: This will permanently delete the team
+                    </p>
+                    <p>
+                      As the last member and owner, leaving this team will permanently delete it along with:
+                    </p>
+                    <ul className="list-disc list-inside space-y-1 text-sm">
+                      <li>All team workflows</li>
+                      <li>All team folders</li>
+                      <li>All team activity history</li>
+                      <li>All team settings</li>
+                    </ul>
+                    <p className="mt-2">This action cannot be undone.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 mt-2">
+                    <p>
+                      You will be removed from this team and will lose access to:
+                    </p>
+                    <ul className="list-disc list-inside space-y-1 text-sm">
+                      <li>Team workflows</li>
+                      <li>Team folders</li>
+                      <li>Team activity</li>
+                      <li>Team settings</li>
+                    </ul>
+                    <p className="mt-2">
+                      You can be re-invited by a team admin or owner.
+                    </p>
+                  </div>
+                )}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setLeaveDialogOpen(false)}
+                disabled={leaving}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleLeaveTeam}
+                disabled={leaving}
+              >
+                {leaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Leaving...
+                  </>
+                ) : (
+                  <>
+                    <LogOut className="w-4 h-4 mr-2" />
+                    {isOwner && memberCount === 1 ? "Delete Team" : "Leave Team"}
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Transfer Ownership Dialog */}
+        <TransferOwnershipDialog
+          open={transferOwnershipOpen}
+          onOpenChange={setTransferOwnershipOpen}
+          teamId={team.id}
+          teamName={team.name}
+          currentUserId={currentUserId}
+          onSuccess={() => {
+            // Refresh the page to update ownership status
+            router.refresh()
+          }}
+        />
       </div>
     </NewAppLayout>
   )
