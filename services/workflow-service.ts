@@ -17,15 +17,16 @@ export interface ApiResponse<T = any> {
 export class WorkflowService {
 
   /**
-   * Fetch user's workflows with workspace context
+   * Fetch user's workflows with OPTIONAL workspace filtering (unified view by default)
    *
    * @param force - Force refresh cache
-   * @param workspaceType - Workspace type ('personal' | 'team' | 'organization')
-   * @param workspaceId - Workspace ID (required for team/organization)
+   * @param filterContext - OPTIONAL filter by workspace type ('personal' | 'team' | 'organization' | null)
+   *                        If null/undefined, fetches ALL workflows user has access to (unified view)
+   * @param workspaceId - Workspace ID (required if filterContext is team/organization)
    */
   static async fetchWorkflows(
     force = false,
-    workspaceType: 'personal' | 'team' | 'organization' = 'personal',
+    filterContext?: 'personal' | 'team' | 'organization' | null,
     workspaceId?: string
   ): Promise<Workflow[]> {
     const { user, session } = await SessionManager.getSecureUserAndSession()
@@ -40,27 +41,28 @@ export class WorkflowService {
       const timeoutId = setTimeout(() => controller.abort(), 45000) // 45 second timeout
 
       try {
-        logger.debug('🌐 [WorkflowService] Making API call', {
+        logger.debug('🌐 [WorkflowService] Making API call (unified view)', {
           attempt: attempt + 1,
           force,
-          workspaceType,
+          filterContext: filterContext || 'ALL (unified)',
           workspaceId,
           timestamp: new Date().toISOString()
         });
 
-        // Build query parameters
-        const params = new URLSearchParams({
-          workspace_type: workspaceType
-        })
+        // Build query parameters - OPTIONAL filtering
+        const params = new URLSearchParams()
+        if (filterContext) {
+          params.append('filter_context', filterContext)
+        }
         if (workspaceId) {
           params.append('workspace_id', workspaceId)
         }
 
-        const url = `/api/workflows?${params.toString()}`
+        const url = `/api/workflows${params.toString() ? '?' + params.toString() : ''}`
         const startTime = Date.now()
 
         // Debug logging
-        const requestId = useDebugStore.getState().logApiCall('GET', url, { workspaceType, workspaceId })
+        const requestId = useDebugStore.getState().logApiCall('GET', url, { filterContext, workspaceId })
 
         const response = await fetch(url, {
           method: "GET",
@@ -96,7 +98,7 @@ export class WorkflowService {
         logger.debug('✅ [WorkflowService] Successfully fetched workflows', {
           count: workflows.length,
           duration: `${duration}ms`,
-          workspaceType,
+          filterContext: filterContext || 'ALL',
           workspaceId
         });
 

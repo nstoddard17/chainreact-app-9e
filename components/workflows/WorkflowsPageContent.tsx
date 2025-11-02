@@ -7,7 +7,10 @@ import { useWorkflowStore } from '@/stores/workflowStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useIntegrationStore } from '@/stores/integrationStore'
 import { usePlanRestrictions } from '@/hooks/use-plan-restrictions'
+import { useSignedAvatarUrl } from '@/hooks/useSignedAvatarUrl'
 import { UpgradePlanModal } from '@/components/plan-restrictions'
+import ShareWorkflowDialog from '@/components/workflows/ShareWorkflowDialog'
+import { WorkspaceGroupView } from '@/components/workflows/WorkspaceGroupView'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -56,6 +59,7 @@ import {
   FolderInput,
   ChevronDown,
   ChevronUp,
+  ChevronRight,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
@@ -70,6 +74,7 @@ import {
   Users,
   Building2,
   User,
+  Home,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDistanceToNow } from 'date-fns'
@@ -141,6 +146,22 @@ const validateWorkflow = (workflow: any) => {
   return { isValid: issues.length === 0, issues }
 }
 
+// Helper component for avatar with signed URL support
+function WorkflowAvatar({ avatarUrl, name, initials, className }: { avatarUrl: string | null, name: string, initials: string, className?: string }) {
+  const { signedUrl } = useSignedAvatarUrl(avatarUrl || undefined)
+
+  return (
+    <Avatar className={className}>
+      {signedUrl && (
+        <AvatarImage src={signedUrl} alt={name} />
+      )}
+      <AvatarFallback className="text-xs bg-slate-200 text-slate-900 dark:bg-slate-700 dark:text-slate-100">
+        {initials}
+      </AvatarFallback>
+    </Avatar>
+  )
+}
+
 function WorkflowsContent() {
   const router = useRouter()
   const { workflows, loadingList, fetchWorkflows, updateWorkflow, deleteWorkflow, moveWorkflowToTrash, restoreWorkflowFromTrash, emptyTrash, invalidateCache } = useWorkflowStore()
@@ -166,11 +187,13 @@ function WorkflowsContent() {
   const [activeTab, setActiveTab] = useState<ViewTab>('workflows')
   const [workflowsViewMode, setWorkflowsViewMode] = useState<ViewMode>('list')
   const [foldersViewMode, setFoldersViewMode] = useState<ViewMode>('grid')
+  const [showWorkspaceGroups, setShowWorkspaceGroups] = useState(false) // NEW: Toggle for workspace grouping
   const [searchQuery, setSearchQuery] = useState('')
   const [ownershipFilter, setOwnershipFilter] = useState<OwnershipFilter>('all')
   const [ownershipMenuOpen, setOwnershipMenuOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [selectedFolderFilter, setSelectedFolderFilter] = useState<string | null>(null)
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null) // For nested folder navigation
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; workflowIds: string[]; contextLabel: string }>({
     open: false,
@@ -243,6 +266,13 @@ function WorkflowsContent() {
   const [loadingTeams, setLoadingTeams] = useState(false)
   const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([])
   const [shareLoading, setShareLoading] = useState(false)
+
+  // Permission management dialog state
+  const [permissionDialog, setPermissionDialog] = useState<{ open: boolean; workflowId: string; workflowName: string }>({
+    open: false,
+    workflowId: '',
+    workflowName: ''
+  })
 
   const updateLoadingState = (key: string, value: boolean) => {
     setLoading(prev => {
@@ -382,6 +412,30 @@ function WorkflowsContent() {
   // Check if user is viewing the trash folder
   const isViewingTrash = selectedFolderFilter === trashFolder?.id
 
+  // Build folder path for breadcrumb (from root to current folder)
+  const buildFolderPath = (folderId: string | null): WorkflowFolder[] => {
+    if (!folderId) return []
+
+    const path: WorkflowFolder[] = []
+    let currentId: string | null = folderId
+
+    // Traverse up the folder tree
+    while (currentId) {
+      const folder = folders.find(f => f.id === currentId)
+      if (!folder) break
+      path.unshift(folder) // Add to beginning of array
+      currentId = folder.parent_folder_id
+    }
+
+    return path
+  }
+
+  // Get current folder path for breadcrumb display
+  const folderPath = buildFolderPath(currentFolderId)
+
+  // Filter folders to show only children of current folder (for Folders tab)
+  const visibleFolders = folders.filter(f => f.parent_folder_id === currentFolderId)
+
   const filteredAndSortedWorkflows = (isViewingTrash ? trashedWorkflows : activeWorkflows)
     .filter((w) => {
       const workflowName = (w.name ?? '').toLowerCase()
@@ -428,7 +482,7 @@ function WorkflowsContent() {
     })
 
   // Filter folders based on search query
-  const filteredFolders = folders.filter((folder) => {
+  const filteredFolders = visibleFolders.filter((folder) => {
     if (!searchQuery) return true
     return folder.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
            (folder.description && folder.description.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -634,6 +688,17 @@ function WorkflowsContent() {
     setOpenDropdownId(null) // Close any open dropdown
     setSelectedTeamIds([])
     setShareDialog({ open: true, workflowIds })
+  }
+
+  const openPermissionDialogForWorkflow = (workflowId: string) => {
+    const workflow = workflows.find(w => w.id === workflowId)
+    if (!workflow) return
+    setOpenDropdownId(null) // Close any open dropdown
+    setPermissionDialog({
+      open: true,
+      workflowId: workflow.id,
+      workflowName: workflow.name
+    })
   }
 
   const openDeleteDialogForWorkflows = (workflowIds: string[]) => {
@@ -1129,6 +1194,7 @@ function WorkflowsContent() {
         body: JSON.stringify({
           name: newFolderName.trim(),
           description: newFolderDescription.trim() || null,
+          parent_folder_id: currentFolderId || null,
         })
       }, 8000)
 
@@ -1456,6 +1522,22 @@ function WorkflowsContent() {
               </Button>
             </div>
 
+            {/* Workspace Grouping Toggle */}
+            {activeTab === 'workflows' && (
+              <Button
+                variant={showWorkspaceGroups ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowWorkspaceGroups(!showWorkspaceGroups)}
+                className="h-9 gap-2"
+                title={showWorkspaceGroups ? "Show all workflows" : "Group by workspace"}
+              >
+                <Folder className="w-4 h-4" />
+                <span className="text-sm">
+                  {showWorkspaceGroups ? 'Grouped' : 'Group by Workspace'}
+                </span>
+              </Button>
+            )}
+
             {/* Ownership Filter */}
             {activeTab === 'workflows' && (
               <DropdownMenu open={ownershipMenuOpen} onOpenChange={setOwnershipMenuOpen}>
@@ -1504,6 +1586,46 @@ function WorkflowsContent() {
               <Plus className="w-4 h-4" />
               {activeTab === 'workflows' ? 'Create workflow' : 'Create folder'}
             </Button>
+            </div>
+          </div>
+
+          {/* Folder Breadcrumb Navigation */}
+          <div className="border-b border-slate-200 px-6 py-3">
+            <div className="flex items-center gap-2 text-sm">
+              <button
+                onClick={() => {
+                  setCurrentFolderId(null)
+                  setSelectedFolderFilter(null)
+                }}
+                className="flex items-center gap-1.5 text-blue-600 hover:underline transition-all font-medium group"
+              >
+                <Home className="w-4 h-4" />
+                {profile?.full_name || profile?.username || 'DaBoss'}'s {activeTab === 'workflows' ? 'Workflows' : 'Folders'}
+              </button>
+              {folderPath.map((folder, index) => (
+                <div key={folder.id} className="flex items-center gap-2">
+                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                  <button
+                    onClick={() => {
+                      setCurrentFolderId(folder.id)
+                      setSelectedFolderFilter(folder.id)
+                    }}
+                    className={cn(
+                      "group/breadcrumb flex items-center gap-1.5 transition-all",
+                      index === folderPath.length - 1
+                        ? "text-slate-900 font-semibold cursor-default" // Current folder
+                        : "text-blue-600 hover:underline font-medium" // Parent folders
+                    )}
+                  >
+                    <Folder className={cn(
+                      "w-4 h-4 transition-transform",
+                      index !== folderPath.length - 1 && "group-hover/breadcrumb:scale-110 group-hover/breadcrumb:rotate-12"
+                    )} />
+                    {folder.name}
+                    {folder.is_default && ' (default)'}
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -1594,7 +1716,31 @@ function WorkflowsContent() {
           {/* Content Area */}
           <div className="flex-1 overflow-auto">
             {activeTab === 'workflows' ? (
-              workflowsViewMode === 'list' ? (
+              showWorkspaceGroups ? (
+                // Workspace Grouped View
+                <div className="px-6 py-4">
+                  <WorkspaceGroupView
+                    workflows={filteredAndSortedWorkflows}
+                    renderWorkflowCard={(workflow) => (
+                      <div className="bg-white border border-slate-200 rounded-lg p-4 hover:border-slate-300 transition-colors">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-medium text-slate-900 truncate">{workflow.name}</h3>
+                            <p className="text-sm text-slate-500 truncate">{workflow.description || 'No description'}</p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => router.push(`/workflows/${workflow.id}`)}
+                          >
+                            Open
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  />
+                </div>
+              ) : workflowsViewMode === 'list' ? (
               <table className="w-full">
                 <thead className="sticky top-0 bg-slate-50 border-b border-slate-200 z-10">
                   <tr>
@@ -1814,14 +1960,12 @@ function WorkflowsContent() {
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <div className="flex items-center">
-                                  <Avatar className="h-7 w-7">
-                                    {creatorInfo.avatar && (
-                                      <AvatarImage src={creatorInfo.avatar} alt={creatorInfo.name} />
-                                    )}
-                                    <AvatarFallback className="text-xs bg-slate-200 text-slate-700">
-                                      {creatorInfo.initials}
-                                    </AvatarFallback>
-                                  </Avatar>
+                                  <WorkflowAvatar
+                                    avatarUrl={creatorInfo.avatar}
+                                    name={creatorInfo.name}
+                                    initials={creatorInfo.initials}
+                                    className="h-7 w-7"
+                                  />
                                 </div>
                               </TooltipTrigger>
                               <TooltipContent side="top">
@@ -1912,11 +2056,11 @@ function WorkflowsContent() {
                                   <DropdownMenuItem
                                     onSelect={(event) => {
                                       event.preventDefault()
-                                      openShareDialogForWorkflows([workflow.id])
+                                      openPermissionDialogForWorkflow(workflow.id)
                                     }}
                                   >
                                     <Share2 className="w-4 h-4 mr-2" />
-                                    Share
+                                    Manage permissions
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem
@@ -2046,11 +2190,11 @@ function WorkflowsContent() {
                                     <DropdownMenuItem
                                       onSelect={(event) => {
                                         event.preventDefault()
-                                        openShareDialogForWorkflows([workflow.id])
+                                        openPermissionDialogForWorkflow(workflow.id)
                                       }}
                                     >
                                       <Share2 className="w-4 h-4 mr-2" />
-                                      Share
+                                      Manage permissions
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem
@@ -2239,14 +2383,12 @@ function WorkflowsContent() {
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <div className="flex items-center">
-                                    <Avatar className="h-6 w-6">
-                                      {creatorInfo.avatar && (
-                                        <AvatarImage src={creatorInfo.avatar} alt={creatorInfo.name} />
-                                      )}
-                                      <AvatarFallback className="text-xs bg-slate-200 text-slate-700">
-                                        {creatorInfo.initials}
-                                      </AvatarFallback>
-                                    </Avatar>
+                                    <WorkflowAvatar
+                                      avatarUrl={creatorInfo.avatar}
+                                      name={creatorInfo.name}
+                                      initials={creatorInfo.initials}
+                                      className="h-6 w-6"
+                                    />
                                   </div>
                                 </TooltipTrigger>
                                 <TooltipContent side="top">
@@ -2317,25 +2459,29 @@ function WorkflowsContent() {
                       <div
                         key={folder.id}
                         className="group relative bg-white rounded-xl border-2 border-slate-200 p-5 hover:shadow-lg hover:border-blue-300 transition-all cursor-pointer"
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          // Single click: navigate into folder, stay on Folders tab
+                          logger.debug('[Folders] Clicking folder:', folder.name, folder.id)
+                          setCurrentFolderId(folder.id)
                           setSelectedFolderFilter(folder.id)
-                          setActiveTab('workflows')
+                          // Stay on Folders tab so users can create subfolders
                         }}
                       >
                         <div className="flex items-start justify-between mb-3">
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-3 flex-1">
                             <div
-                              className="w-10 h-10 rounded-lg flex items-center justify-center relative"
+                              className="w-10 h-10 rounded-lg flex items-center justify-center relative transition-all duration-200 group-hover:scale-110"
                               style={{ backgroundColor: `${folder.color}20` }}
                             >
                               {isTrashFolder ? (
                                 <Trash2
-                                  className="w-5 h-5"
+                                  className="w-5 h-5 transition-transform group-hover:rotate-12"
                                   style={{ color: folder.color }}
                                 />
                               ) : (
                                 <Folder
-                                  className="w-5 h-5"
+                                  className="w-5 h-5 transition-transform group-hover:rotate-12"
                                   style={{ color: folder.color }}
                                 />
                               )}
@@ -2345,7 +2491,7 @@ function WorkflowsContent() {
                                 </div>
                               )}
                             </div>
-                            <div>
+                            <div className="flex-1">
                               <h3 className="font-semibold text-slate-900 flex items-center gap-2">
                                 {folder.name}
                               </h3>
@@ -2485,25 +2631,29 @@ function WorkflowsContent() {
                         <tr
                           key={folder.id}
                           className="group hover:bg-slate-50 transition-colors cursor-pointer"
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            // Single click: navigate into folder, stay on Folders tab
+                            logger.debug('[Folders List] Clicking folder:', folder.name, folder.id)
+                            setCurrentFolderId(folder.id)
                             setSelectedFolderFilter(folder.id)
-                            setActiveTab('workflows')
+                            // Stay on Folders tab so users can create subfolders
                           }}
                         >
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
                               <div
-                                className="w-8 h-8 rounded-lg flex items-center justify-center relative flex-shrink-0"
+                                className="w-8 h-8 rounded-lg flex items-center justify-center relative flex-shrink-0 transition-all duration-200 group-hover:scale-110"
                                 style={{ backgroundColor: `${folder.color}20` }}
                               >
                                 {isTrashFolder ? (
                                   <Trash2
-                                    className="w-4 h-4"
+                                    className="w-4 h-4 transition-transform group-hover:rotate-12"
                                     style={{ color: folder.color }}
                                   />
                                 ) : (
                                   <Folder
-                                    className="w-4 h-4"
+                                    className="w-4 h-4 transition-transform group-hover:rotate-12"
                                     style={{ color: folder.color }}
                                   />
                                 )}
@@ -3224,6 +3374,14 @@ function WorkflowsContent() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Share Workflow Dialog */}
+      <ShareWorkflowDialog
+        open={permissionDialog.open}
+        onOpenChange={(open) => setPermissionDialog({ ...permissionDialog, open })}
+        workflowId={permissionDialog.workflowId}
+        workflowName={permissionDialog.workflowName}
+      />
 
       {/* Upgrade Plan Modal */}
       <UpgradePlanModal

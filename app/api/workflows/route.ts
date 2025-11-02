@@ -10,13 +10,18 @@ export const revalidate = 0
 /**
  * GET /api/workflows
  *
- * Fetches workflows for the current user based on workspace context.
+ * Fetches ALL workflows the user has access to (unified view).
+ * This includes:
+ * - Personal workflows (user_id = current user)
+ * - Team workflows (user is team member)
+ * - Organization workflows (user is organization member)
+ * - Shared workflows (via workflow_permissions)
  *
- * Query Parameters:
- * - workspace_type: 'personal' | 'team' | 'organization' (default: 'personal')
- * - workspace_id: UUID of team or organization (required for team/org)
+ * Query Parameters (OPTIONAL - for filtering):
+ * - filter_context: 'personal' | 'team' | 'organization' (optional filter)
+ * - workspace_id: UUID of team or organization (required if filter_context is team/org)
  *
- * Returns workflows that the user has permission to access.
+ * Returns all workflows in a unified view, grouped by frontend.
  */
 export async function GET(request: NextRequest) {
   const cookieStore = await cookies()
@@ -32,57 +37,132 @@ export async function GET(request: NextRequest) {
       return errorResponse("Not authenticated" , 401)
     }
 
-    // Parse workspace context from query parameters
+    // Parse OPTIONAL filter parameters
     const { searchParams } = new URL(request.url)
-    const workspaceType = searchParams.get('workspace_type') || 'personal'
+    const filterContext = searchParams.get('filter_context') // OPTIONAL
     const workspaceId = searchParams.get('workspace_id')
 
     logger.debug('[API /api/workflows] GET request', {
-      workspaceType,
+      filterContext: filterContext || 'ALL (unified view)',
       workspaceId,
       userId: user.id
     })
 
-    // Validate workspace parameters
-    if ((workspaceType === 'team' || workspaceType === 'organization') && !workspaceId) {
-      return errorResponse('workspace_id is required for team/organization context', 400)
-    }
-
-    if (!['personal', 'team', 'organization'].includes(workspaceType)) {
-      return errorResponse('Invalid workspace_type. Must be personal, team, or organization', 400)
-    }
-
-    // Use service role client to query workflows with permissions
+    // Use service role client to query workflows
     const supabaseService = await createSupabaseServiceClient()
 
-    let query = supabaseService
-      .from("workflows")
-      .select(`
-        *,
-        permissions:workflow_permissions(permission, user_id)
-      `)
+    let workflows: any[] = []
 
-    // Filter by workspace context
-    if (workspaceType === 'personal') {
-      query = query
-        .eq('workspace_type', 'personal')
+    // Apply OPTIONAL filter if provided
+    if (filterContext && filterContext !== 'all') {
+      let query = supabaseService
+        .from("workflows")
+        .select(`
+          *,
+          permissions:workflow_permissions(permission, user_id)
+        `)
+
+      if (filterContext === 'personal') {
+        query = query
+          .eq('workspace_type', 'personal')
+          .eq('user_id', user.id)
+      } else if (filterContext === 'team' && workspaceId) {
+        query = query
+          .eq('workspace_type', 'team')
+          .eq('workspace_id', workspaceId)
+      } else if (filterContext === 'organization' && workspaceId) {
+        query = query
+          .eq('workspace_type', 'organization')
+          .eq('workspace_id', workspaceId)
+      }
+
+      query = query.order("updated_at", { ascending: false })
+      const { data, error } = await query
+
+      if (error) {
+        logger.error('[API /api/workflows] Database error:', error)
+        return errorResponse(error.message, 500)
+      }
+
+      workflows = data || []
+    } else {
+      // NO FILTER - Fetch ALL workflows user has access to
+      // Fetch in parallel: personal, team, and organization workflows
+
+      const queries = []
+
+      // 1. Personal workflows
+      queries.push(
+        supabaseService
+          .from("workflows")
+          .select(`
+            *,
+            permissions:workflow_permissions(permission, user_id)
+          `)
+          .eq('workspace_type', 'personal')
+          .eq('user_id', user.id)
+      )
+
+      // 2. Team workflows
+      const { data: teamMemberships } = await supabaseService
+        .from('team_members')
+        .select('team_id')
         .eq('user_id', user.id)
-    } else if (workspaceType === 'team') {
-      query = query
-        .eq('workspace_type', 'team')
-        .eq('workspace_id', workspaceId)
-    } else if (workspaceType === 'organization') {
-      query = query
-        .eq('workspace_type', 'organization')
-        .eq('workspace_id', workspaceId)
+
+      const teamIds = teamMemberships?.map(m => m.team_id) || []
+
+      if (teamIds.length > 0) {
+        queries.push(
+          supabaseService
+            .from("workflows")
+            .select(`
+              *,
+              permissions:workflow_permissions(permission, user_id)
+            `)
+            .eq('workspace_type', 'team')
+            .in('workspace_id', teamIds)
+        )
+      }
+
+      // 3. Organization workflows
+      const { data: orgMemberships } = await supabaseService
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', user.id)
+
+      const orgIds = orgMemberships?.map(m => m.organization_id) || []
+
+      if (orgIds.length > 0) {
+        queries.push(
+          supabaseService
+            .from("workflows")
+            .select(`
+              *,
+              permissions:workflow_permissions(permission, user_id)
+            `)
+            .eq('workspace_type', 'organization')
+            .in('workspace_id', orgIds)
+        )
+      }
+
+      // Execute all queries in parallel
+      const results = await Promise.all(queries)
+
+      // Combine results
+      workflows = results.flatMap(result => result.data || [])
+
+      // Sort by updated_at
+      workflows.sort((a, b) => {
+        const aTime = new Date(a.updated_at).getTime()
+        const bTime = new Date(b.updated_at).getTime()
+        return bTime - aTime // Descending
+      })
     }
 
-    query = query.order("updated_at", { ascending: false })
-
-    const { data: workflows, error } = await query
+    const error = null
 
     logger.debug('[API /api/workflows] Query result', {
-      workspaceType,
+      filterContext: filterContext || 'ALL',
       count: workflows?.length || 0,
       error
     })
@@ -96,7 +176,6 @@ export async function GET(request: NextRequest) {
     const processedWorkflows = workflows?.map((workflow: any) => {
       const { permissions, ...workflowData } = workflow
 
-      // permissions is an array from the LEFT JOIN
       // Find the permission for the current user
       const userPermission = Array.isArray(permissions)
         ? permissions.find((p: any) => p.user_id === user.id)?.permission
@@ -111,7 +190,7 @@ export async function GET(request: NextRequest) {
     return successResponse({ data: processedWorkflows })
   } catch (error: any) {
     logger.error('[API /api/workflows] Exception:', error)
-    return errorResponse("Internal server error" , 500)
+    return errorResponse(error.message || "Internal server error", 500)
   }
 }
 

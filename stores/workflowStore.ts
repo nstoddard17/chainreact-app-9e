@@ -180,9 +180,10 @@ interface WorkflowState {
 }
 
 interface WorkflowActions {
-  fetchWorkflows: (force?: boolean, workspaceType?: 'personal' | 'team' | 'organization', workspaceId?: string) => Promise<void>
+  fetchWorkflows: (force?: boolean, filterContext?: 'personal' | 'team' | 'organization' | null, workspaceId?: string) => Promise<void>
   fetchPersonalWorkflows: () => Promise<void>
   fetchOrganizationWorkflows: (organizationId: string) => Promise<void>
+  getGroupedWorkflows: () => GroupedWorkflows
   createWorkflow: (name: string, description?: string, organizationId?: string, folderId?: string) => Promise<Workflow>
   updateWorkflow: (id: string, updates: Partial<Workflow>) => Promise<void>
   deleteWorkflow: (id: string) => Promise<void>
@@ -218,6 +219,12 @@ interface WorkflowActions {
   addWorkflowToStore: (workflow: Workflow) => void
 }
 
+export interface GroupedWorkflows {
+  personal: Workflow[]
+  teams: Record<string, Workflow[]> // team_id -> workflows
+  organizations: Record<string, Workflow[]> // org_id -> workflows
+}
+
 export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, get) => ({
   workflows: [],
   currentWorkflow: null,
@@ -235,7 +242,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
   workspaceId: null,
   currentUserId: null,
 
-  fetchWorkflows: async (force = false, workspaceType?: 'personal' | 'team' | 'organization', workspaceId?: string) => {
+  fetchWorkflows: async (force = false, filterContext?: 'personal' | 'team' | 'organization' | null, workspaceId?: string) => {
     const state = get()
 
     // If already fetching, return the existing promise to avoid duplicate requests
@@ -243,10 +250,6 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       logger.debug('[WorkflowStore] Already fetching, waiting for existing request')
       return state.fetchPromise
     }
-
-    // Use provided workspace context or fallback to store state
-    const effectiveWorkspaceType = workspaceType || get().workspaceType
-    const effectiveWorkspaceId = workspaceId || get().workspaceId || undefined
 
     // Reduced cache duration to 5 seconds - workflows change frequently
     const CACHE_DURATION = 5000 // 5 seconds
@@ -259,7 +262,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
 
     // Create the fetch promise
     const fetchPromise = (async () => {
-      logger.debug('[WorkflowStore] Starting fresh workflow fetch')
+      logger.debug('[WorkflowStore] Starting fresh workflow fetch (unified view)')
       set({ loadingList: true, error: null, lastFetchTime: Date.now() })
 
       try {
@@ -292,12 +295,13 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
           })
         }
 
-        const workflows = await WorkflowService.fetchWorkflows(force, effectiveWorkspaceType, effectiveWorkspaceId)
+        // Fetch ALL workflows (unified view) - pass null/undefined to get everything
+        const workflows = await WorkflowService.fetchWorkflows(force, filterContext || null, workspaceId)
 
-        logger.debug('[WorkflowStore] Successfully fetched workflows', {
+        logger.debug('[WorkflowStore] Successfully fetched workflows (unified view)', {
           count: workflows.length,
-          workspaceType: effectiveWorkspaceType,
-          workspaceId: effectiveWorkspaceId
+          filterContext: filterContext || 'ALL',
+          workspaceId
         });
 
         set({
@@ -326,54 +330,41 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
   },
 
   fetchPersonalWorkflows: async () => {
-    if (!supabase) {
-      logger.warn("Supabase not available")
-      set({ workflows: [], loadingList: false })
-      return
-    }
-
-    set({ loadingList: true, error: null })
-
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        set({ workflows: [], loadingList: false })
-        return
-      }
-
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 30000)
-
-      const { data, error } = await supabase
-        .from("workflows")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("updated_at", { ascending: false })
-        .abortSignal(controller.signal)
-
-      clearTimeout(timeoutId)
-
-      if (error) {
-        if (error.message?.includes('aborted')) {
-          logger.warn("Personal workflows fetch timeout - continuing without blocking")
-          set({ workflows: [], loadingList: false, error: null })
-          return
-        }
-        throw error
-      }
-
-      set({ workflows: data || [], loadingList: false })
-    } catch (error: any) {
-      logger.error("Error fetching personal workflows:", error)
-      set({ workflows: [], loadingList: false, error: null })
-    }
+    // Fetch workflows with personal workspace context
+    await get().fetchWorkflows(false, 'personal')
   },
 
   fetchOrganizationWorkflows: async (organizationId: string) => {
-    // TEMP: organization_id column doesn't exist yet (pending workspace migration)
-    // For now, just fetch all user workflows
-    logger.warn("fetchOrganizationWorkflows called but organization_id column doesn't exist yet - falling back to regular fetch")
-    await get().fetchWorkflows()
+    // Fetch workflows with organization workspace context
+    await get().fetchWorkflows(false, 'organization', organizationId)
+  },
+
+  getGroupedWorkflows: () => {
+    const { workflows } = get()
+
+    const grouped: GroupedWorkflows = {
+      personal: [],
+      teams: {},
+      organizations: {}
+    }
+
+    workflows.forEach(workflow => {
+      if (workflow.workspace_type === 'personal') {
+        grouped.personal.push(workflow)
+      } else if (workflow.workspace_type === 'team' && workflow.workspace_id) {
+        if (!grouped.teams[workflow.workspace_id]) {
+          grouped.teams[workflow.workspace_id] = []
+        }
+        grouped.teams[workflow.workspace_id].push(workflow)
+      } else if (workflow.workspace_type === 'organization' && workflow.workspace_id) {
+        if (!grouped.organizations[workflow.workspace_id]) {
+          grouped.organizations[workflow.workspace_id] = []
+        }
+        grouped.organizations[workflow.workspace_id].push(workflow)
+      }
+    })
+
+    return grouped
   },
 
   createWorkflow: async (name: string, description?: string, organizationId?: string, folderId?: string) => {
@@ -437,77 +428,24 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       const oldStatus = currentWorkflow?.status
       const newStatus = updates.status
 
-      logger.debug(`📤 [WorkflowStore] Sending update request for ${id}:`, {
+      logger.debug(`[WorkflowStore] Updating workflow ${id}:`, {
         oldStatus,
         newStatus,
         updates
       })
 
-      // Use API endpoint to handle RLS-protected updates
-      const response = await fetch(`/api/workflows/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updates),
-      })
+      // Use WorkflowService to update
+      await WorkflowService.updateWorkflow(id, updates)
 
-      logger.debug(`📥 [WorkflowStore] API Response status:`, response.status)
-
-      if (!response.ok) {
-        const error = await response.json()
-        logger.error(`❌ [WorkflowStore] Update failed:`, error)
-        throw new Error(error.error || 'Failed to update workflow')
-      }
-
-      const data = await response.json()
-      logger.debug(`✅ [WorkflowStore] API returned updated workflow:`, {
-        id: data.id,
-        status: data.status,
-        name: data.name
-      })
-
+      // Update local store - merge updates with existing workflow
       set((state) => ({
-        workflows: state.workflows.map((w) => (w.id === id ? { ...w, ...data } : w)),
+        workflows: state.workflows.map((w) => (w.id === id ? { ...w, ...updates } : w)),
         currentWorkflow:
-          state.currentWorkflow?.id === id ? { ...state.currentWorkflow, ...data } : state.currentWorkflow,
+          state.currentWorkflow?.id === id ? { ...state.currentWorkflow, ...updates } : state.currentWorkflow,
       }))
 
-      // Log workflow update
-      if (supabase) {
-        try {
-          const { data: { user } } = await supabase.auth.getUser()
-          if (user) {
-            const logDetails: any = {
-              workflow_id: id,
-              workflow_name: data.name,
-              workflow_description: data.description,
-              updated_fields: Object.keys(updates)
-            }
+      logger.debug(`[WorkflowStore] Successfully updated workflow ${id}`)
 
-            // Add status change details if status was updated
-            if (oldStatus && newStatus && oldStatus !== newStatus) {
-              logDetails.status_change = {
-                old_status: oldStatus,
-                new_status: newStatus
-              }
-            }
-
-            await supabase.from("audit_logs").insert({
-              user_id: user.id,
-              action: oldStatus !== newStatus ? "workflow_status_changed" : "workflow_updated",
-              resource_type: "workflow",
-              resource_id: id,
-              details: logDetails,
-              created_at: new Date().toISOString()
-            })
-          }
-        } catch (auditError) {
-          logger.warn("Failed to log workflow update:", auditError)
-        }
-      }
-
-      return data
     } catch (error: any) {
       logger.error("Error updating workflow:", error)
       throw error
@@ -521,7 +459,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
   },
 
   deleteWorkflow: async (id: string) => {
-    // Get workflow details before deletion for rollback and logging
+    // Get workflow details before deletion for logging
     const workflowToDelete = get().workflows.find(w => w.id === id)
 
     if (!workflowToDelete) {
@@ -536,72 +474,34 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
     }))
 
     // Handle backend deletion asynchronously (non-blocking)
-    // This allows multiple deletions to happen in parallel
     const deleteAsync = async () => {
       try {
-        const response = await fetch(`/api/workflows/${id}`, {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json'
+        // Use WorkflowService to delete
+        await WorkflowService.deleteWorkflow(id)
+
+        // Track beta tester activity
+        try {
+          const { user } = await SessionManager.getSecureUserAndSession()
+          if (user) {
+            await trackBetaTesterActivity({
+              userId: user.id,
+              activityType: 'workflow_deleted',
+              activityData: {
+                workflowId: id,
+                workflowName: workflowToDelete.name
+              }
+            })
           }
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}))
-          throw new Error(errorData.error || 'Failed to delete workflow')
-        }
-
-        // Log workflow deletion in background
-        if (supabase) {
-          try {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (user) {
-              // Audit log
-              await supabase.from("audit_logs").insert({
-                user_id: user.id,
-                action: "workflow_deleted",
-                resource_type: "workflow",
-                resource_id: id,
-                details: {
-                  workflow_id: id,
-                  workflow_name: workflowToDelete.name,
-                  workflow_description: workflowToDelete.description
-                },
-                created_at: new Date().toISOString()
-              })
-
-              // Track beta tester activity
-              await trackBetaTesterActivity({
-                userId: user.id,
-                activityType: 'workflow_deleted',
-                activityData: {
-                  workflowId: id,
-                  workflowName: workflowToDelete.name
-                }
-              })
-            }
-          } catch (auditError: any) {
-            const errorMessage = auditError?.message || auditError?.toString() || 'Unknown error'
-            logger.warn("Failed to log workflow deletion:", errorMessage)
-          }
+        } catch (trackError) {
+          logger.warn("Failed to track workflow deletion:", trackError)
         }
 
         logger.info("Workflow deleted successfully:", id)
       } catch (error: any) {
-        // Properly extract error message for logging
-        const errorMessage = error?.message || error?.toString() || 'Unknown error'
-        logger.error("Error deleting workflow from backend:", errorMessage, {
+        logger.error("Error deleting workflow from backend:", error.message, {
           workflowId: id,
-          workflowName: workflowToDelete.name,
-          error: error?.stack || error
+          workflowName: workflowToDelete.name
         })
-
-        // Don't rollback - keep the workflow deleted from UI
-        // The backend deletion failed but we don't want to restore it to the UI
-        // This provides better UX - the workflow stays deleted visually
-
-        // Note: Not throwing error to prevent rollback
-        // throw error
       } finally {
         // Remove from deleting state
         set((state) => ({
@@ -611,14 +511,9 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
     }
 
     // Execute deletion asynchronously - don't await (non-blocking)
-    // This allows multiple deletions in parallel
     deleteAsync().catch((error) => {
-      // This catch block shouldn't be reached anymore since we're not throwing errors
-      // But keeping it just in case for unexpected errors
-      const errorMessage = error?.message || error?.toString() || 'Unknown error'
-      logger.error("Unexpected error in async workflow deletion:", errorMessage, {
-        workflowId: id,
-        error: error?.stack || error
+      logger.error("Unexpected error in async workflow deletion:", error.message, {
+        workflowId: id
       })
     })
 
