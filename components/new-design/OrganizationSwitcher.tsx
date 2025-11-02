@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Check, ChevronsUpDown, Building2, Loader2, Settings, User, Crown, Star, Shield } from "lucide-react"
+import { Check, ChevronsUpDown, Home, Loader2, Settings, Crown, Star, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -219,8 +219,18 @@ export function OrganizationSwitcher() {
       // NOTE: We do NOT call fetchWorkflows() because workflows are shown in unified view
       // The workspace switcher only affects:
       // 1. Which workspace new workflows are created in (via workspaceContext)
-      // 2. Task quota widget (updated automatically via workspace state)
+      // 2. Task quota widget (updated automatically via workspace-context-changed event)
       // 3. Available integrations (fetched above)
+
+      // Dispatch workspace-context-changed event for sidebar task widget
+      window.dispatchEvent(new CustomEvent('workspace-context-changed', {
+        detail: {
+          type: workspaceType,
+          id: isWorkspace ? null : org.id,
+          name: org.name,
+          isPersonal: isWorkspace
+        }
+      }))
 
       toast.success(`Switched to ${org.name}`)
       logger.info('[OrganizationSwitcher] Workspace switched successfully (unified view)')
@@ -244,7 +254,7 @@ export function OrganizationSwitcher() {
   if (!currentOrg) {
     return (
       <Button variant="ghost" size="sm" disabled className="gap-2">
-        <User className="w-4 h-4" />
+        <Home className="w-4 h-4" />
         <span className="hidden sm:inline">No Workspace</span>
       </Button>
     )
@@ -265,24 +275,18 @@ export function OrganizationSwitcher() {
           >
             {switching ? (
               <Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" />
-            ) : isPersonalWorkspace ? (
-              <User className="w-4 h-4 flex-shrink-0" />
             ) : (
-              <Building2 className="w-4 h-4 flex-shrink-0" />
+              <Home className="w-4 h-4 flex-shrink-0" />
             )}
             <span className="hidden sm:inline truncate">{currentOrg.name}</span>
             <ChevronsUpDown className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-[280px]">
-          {/* Organizations Section */}
+          {/* Clean workspace list - names only, simple and uncluttered */}
           {organizations.length > 0 && (
             <>
-              <DropdownMenuLabel className="text-xs text-muted-foreground">
-                WORKSPACES & ORGANIZATIONS
-              </DropdownMenuLabel>
               {organizations.map((org) => {
-                const isWorkspace = (org as any).is_workspace || (org.team_count === 0 && org.member_count === 1)
                 return (
                   <DropdownMenuItem
                     key={org.id}
@@ -291,32 +295,8 @@ export function OrganizationSwitcher() {
                     disabled={switching}
                   >
                     <div className="flex items-center gap-2 flex-1 min-w-0">
-                      {isWorkspace ? (
-                        <User className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
-                      ) : (
-                        <Building2 className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{org.name}</p>
-                        <p className="text-xs text-muted-foreground flex items-center gap-1">
-                          {isWorkspace ? (
-                            'Personal workspace'
-                          ) : (
-                            <>
-                              {org.member_count} {org.member_count === 1 ? 'member' : 'members'}
-                              {' • '}
-                              {org.team_count} {org.team_count === 1 ? 'team' : 'teams'}
-                            </>
-                          )}
-                          {org.integration_count !== undefined && (
-                            <span className="inline-flex items-center gap-0.5 ml-1">
-                              {!isWorkspace && ' • '}
-                              <Check className="w-3 h-3" />
-                              {org.integration_count}
-                            </span>
-                          )}
-                        </p>
-                      </div>
+                      <Home className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
+                      <p className="font-medium truncate">{org.name}</p>
                     </div>
                     {currentOrg.id === org.id && (
                       <Check className="w-4 h-4 flex-shrink-0 text-primary" />
