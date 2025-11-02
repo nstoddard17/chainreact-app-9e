@@ -14,7 +14,10 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { toast } from "sonner"
 import { useAuthStore } from "@/stores/authStore"
+import { useWorkflowStore } from "@/stores/workflowStore"
+import { useIntegrationStore } from "@/stores/integrationStore"
 import { type UserRole } from "@/lib/utils/roles"
+import { logger } from "@/lib/utils/logger"
 
 interface Organization {
   id: string
@@ -47,9 +50,12 @@ interface Team {
 export function OrganizationSwitcher() {
   const router = useRouter()
   const { user, profile } = useAuthStore()
+  const { setWorkspaceContext, fetchWorkflows } = useWorkflowStore()
+  const { fetchIntegrations } = useIntegrationStore()
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [currentOrg, setCurrentOrg] = useState<Organization | null>(null)
   const [loading, setLoading] = useState(true)
+  const [switching, setSwitching] = useState(false)
 
   // Get user role for badge icon
   const isAdmin = profile?.admin === true
@@ -165,9 +171,45 @@ export function OrganizationSwitcher() {
     }
   }, [currentOrg])
 
-  const handleSwitchOrganization = (org: Organization) => {
-    setCurrentOrg(org)
-    toast.success(`Switched to ${org.name}`)
+  const handleSwitchOrganization = async (org: Organization) => {
+    setSwitching(true)
+
+    try {
+      // Determine workspace type
+      const isWorkspace = (org as any).is_workspace || (org.team_count === 0 && org.member_count === 1)
+      const workspaceType: 'personal' | 'team' | 'organization' = isWorkspace
+        ? 'personal'
+        : (org.team_count > 0 ? 'organization' : 'team')
+
+      logger.debug('[OrganizationSwitcher] Switching workspace (unified view - no filtering):', {
+        orgId: org.id,
+        workspaceType,
+        isWorkspace
+      })
+
+      // Set workspace context for CREATION only (not filtering)
+      setWorkspaceContext(workspaceType, isWorkspace ? null : org.id)
+
+      // Update current org
+      setCurrentOrg(org)
+
+      // Refresh integrations (integrations ARE workspace-specific)
+      await fetchIntegrations(true)
+
+      // NOTE: We do NOT call fetchWorkflows() because workflows are shown in unified view
+      // The workspace switcher only affects:
+      // 1. Which workspace new workflows are created in (via workspaceContext)
+      // 2. Task quota widget (updated automatically via workspace state)
+      // 3. Available integrations (fetched above)
+
+      toast.success(`Switched to ${org.name}`)
+      logger.info('[OrganizationSwitcher] Workspace switched successfully (unified view)')
+    } catch (error: any) {
+      logger.error('[OrganizationSwitcher] Failed to switch workspace:', error)
+      toast.error('Failed to switch workspace')
+    } finally {
+      setSwitching(false)
+    }
   }
 
   if (loading) {
@@ -199,8 +241,11 @@ export function OrganizationSwitcher() {
             variant="ghost"
             size="sm"
             className="gap-2 max-w-[200px]"
+            disabled={switching}
           >
-            {isPersonalWorkspace ? (
+            {switching ? (
+              <Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" />
+            ) : isPersonalWorkspace ? (
               <User className="w-4 h-4 flex-shrink-0" />
             ) : (
               <Building2 className="w-4 h-4 flex-shrink-0" />
@@ -223,6 +268,7 @@ export function OrganizationSwitcher() {
                     key={org.id}
                     onClick={() => handleSwitchOrganization(org)}
                     className="flex items-center justify-between cursor-pointer"
+                    disabled={switching}
                   >
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       {isWorkspace ? (
