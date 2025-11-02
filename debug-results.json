@@ -1,0 +1,174 @@
+{
+  "nodes": [
+    {
+      "id": "node-gmail_trigger_new_email-1",
+      "rect": {
+        "x": 790,
+        "y": 334,
+        "width": 450,
+        "height": 91.25,
+        "top": 334,
+        "right": 1240,
+        "bottom": 425.25,
+        "left": 790
+      },
+      "styles": {
+        "overflow": "visible",
+        "position": "relative",
+        "transform": "none"
+      },
+      "handles": [
+        {
+          "id": "source",
+          "position": "right",
+          "type": "target",
+          "rect": {
+            "x": 1229,
+            "y": 359.625,
+            "width": 18,
+            "height": 40
+          },
+          "styles": {
+            "position": "absolute",
+            "left": "437px",
+            "right": "-9px",
+            "top": "43.625px",
+            "zIndex": "10",
+            "width": "18px",
+            "height": "40px",
+            "transform": "matrix(1, 0, 0, 1, 0, -20)",
+            "visibility": "visible",
+            "display": "block",
+            "background": "rgba(0, 0, 0, 0) linear-gradient(rgba(248, 250, 252, 0.95), rgba(236, 242, 250, 0.95)) repeat scroll 0% 0% / auto padding-box border-box"
+          },
+          "isVisible": true,
+          "isClipped": {
+            "left": false,
+            "right": true,
+            "top": false,
+            "bottom": false
+          },
+          "hasClipping": true
+        }
+      ]
+    },
+    {
+      "id": "node-slack_action_send_message-1-skeleton",
+      "rect": {
+        "x": 1290,
+        "y": 334,
+        "width": 450,
+        "height": 79.25,
+        "top": 334,
+        "right": 1740,
+        "bottom": 413.25,
+        "left": 1290
+      },
+      "styles": {
+        "overflow": "visible",
+        "position": "relative",
+        "transform": "none"
+      },
+      "handles": [
+        {
+          "id": "target",
+          "position": "left",
+          "type": "target",
+          "rect": {
+            "x": 1283,
+            "y": 353.625,
+            "width": 18,
+            "height": 40
+          },
+          "styles": {
+            "position": "absolute",
+            "left": "-9px",
+            "right": "437px",
+            "top": "37.625px",
+            "zIndex": "10",
+            "width": "18px",
+            "height": "40px",
+            "transform": "matrix(1, 0, 0, 1, 0, -20)",
+            "visibility": "visible",
+            "display": "block",
+            "background": "rgba(0, 0, 0, 0) linear-gradient(rgba(248, 250, 252, 0.95), rgba(236, 242, 250, 0.95)) repeat scroll 0% 0% / auto padding-box border-box"
+          },
+          "isVisible": true,
+          "isClipped": {
+            "left": true,
+            "right": false,
+            "top": false,
+            "bottom": false
+          },
+          "hasClipping": true
+        },
+        {
+          "id": "source",
+          "position": "right",
+          "type": "target",
+          "rect": {
+            "x": 1729,
+            "y": 353.625,
+            "width": 18,
+            "height": 40
+          },
+          "styles": {
+            "position": "absolute",
+            "left": "437px",
+            "right": "-9px",
+            "top": "37.625px",
+            "zIndex": "10",
+            "width": "18px",
+            "height": "40px",
+            "transform": "matrix(1, 0, 0, 1, 0, -20)",
+            "visibility": "visible",
+            "display": "block",
+            "background": "rgba(0, 0, 0, 0) linear-gradient(rgba(248, 250, 252, 0.95), rgba(236, 242, 250, 0.95)) repeat scroll 0% 0% / auto padding-box border-box"
+          },
+          "isVisible": true,
+          "isClipped": {
+            "left": false,
+            "right": true,
+            "top": false,
+            "bottom": false
+          },
+          "hasClipping": true
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "gmail_trigger_new_email-1-slack_action_send_message-1",
+      "path": "M 1977.0000287224266,395.625 L 2017.8999997587764,375.8875005385455",
+      "start": {
+        "x": 1977.0000287224266,
+        "y": 395.625
+      },
+      "end": {
+        "x": 2017.8999997587764,
+        "y": 375.8875005385455
+      },
+      "verticalOffset": -19.73749946145449
+    },
+    {
+      "id": null,
+      "path": "M 1977.0000287224266,395.625 L 2017.8999997587764,375.8875005385455",
+      "start": {
+        "x": 1977.0000287224266,
+        "y": 395.625
+      },
+      "end": {
+        "x": 2017.8999997587764,
+        "y": 375.8875005385455
+      },
+      "verticalOffset": -19.73749946145449
+    }
+  ],
+  "reactFlow": {
+    "width": 1280,
+    "height": 672,
+    "position": "relative",
+    "viewportTransform": "matrix(1, 0, 0, 1, -730, -64)"
+  }
+}

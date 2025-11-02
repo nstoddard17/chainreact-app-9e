@@ -1,0 +1,17 @@
+
+Running 1 test using 1 worker
+
+📧 Loaded test credentials for: stoddard.nathaniel900@gmail.com
+
+🔐 Step 1: Logging in...
+
+🚀 Step 2: Creating new workflow (AI agent should appear)...
+
+📝 Step 3: Looking for AI prompt input...
+   ❌ Could not find prompt input. Taking screenshot...
+
+❌ Could not find AI prompt input. Aborting.
+   Check debug-*.png screenshots to see what the page looks like.
+  ✓  1 [chromium] › tests/debug-handles.spec.ts:6:1 › Debug AI Agent handle connections (16.1s)
+
+  1 passed (17.5s)
