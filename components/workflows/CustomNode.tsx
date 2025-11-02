@@ -745,7 +745,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
   const hasTestEntries = testDataEntries.length > 0
   // Hide auto-configured fields in skeleton and ready states
   // Only show when AI is actively populating (after Continue is clicked)
-  const showConfigSection = hasConfigEntries || ['preparing', 'creating', 'configuring', 'configured', 'testing', 'testing_successful'].includes(aiStatus || '')
+  const showConfigSection = ['preparing', 'creating', 'configuring', 'configured', 'testing', 'testing_successful'].includes(aiStatus || '')
   const displayConfigEntries = useMemo(() => {
     if (configEntries.length > 0) return configEntries
     if (progressConfigEntries.length > 0) {
@@ -1029,7 +1029,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
               className="!w-[18px] !h-10 !rounded-r-full !rounded-l-none !transition-all !duration-200"
               style={{
                 visibility: isTrigger ? "hidden" : "visible",
-                left: "-9px",
+                left: "0px",
                 top: "44px",
                 zIndex: 5,
                 background: handleStyle.background,
@@ -1050,7 +1050,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
             position={Position.Right}
             className="!w-[18px] !h-10 !rounded-l-full !rounded-r-none !transition-all !duration-200"
             style={{
-              right: "-9px",
+              right: "0px",
               top: "44px",
               zIndex: 5,
               background: handleStyle.background,
