@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { Check, ChevronsUpDown, Home, Loader2, Settings, Crown, Star, Shield } from "lucide-react"
+import { Check, ChevronsUpDown, Home, Loader2, Settings, Crown, Star, Shield, User, Users, Building } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -56,6 +56,7 @@ export function OrganizationSwitcher() {
   const [currentOrg, setCurrentOrg] = useState<Organization | null>(null)
   const [loading, setLoading] = useState(true)
   const [switching, setSwitching] = useState(false)
+  const isInitialLoadRef = useRef(true)
 
   // Get user role for badge icon
   const isAdmin = profile?.admin === true
@@ -186,8 +187,16 @@ export function OrganizationSwitcher() {
   useEffect(() => {
     if (currentOrg) {
       localStorage.setItem('current_workspace_id', currentOrg.id)
-      // Dispatch event so other components can react
-      window.dispatchEvent(new CustomEvent('organization-changed', { detail: currentOrg }))
+
+      // Only dispatch event for actual workspace switches, not initial load
+      // This prevents race conditions with workflows page initial fetch
+      if (!isInitialLoadRef.current) {
+        logger.debug('[OrganizationSwitcher] Workspace changed, dispatching organization-changed event')
+        window.dispatchEvent(new CustomEvent('organization-changed', { detail: currentOrg }))
+      } else {
+        logger.debug('[OrganizationSwitcher] Initial load, skipping organization-changed event dispatch')
+        isInitialLoadRef.current = false
+      }
     }
   }, [currentOrg])
 
@@ -260,8 +269,12 @@ export function OrganizationSwitcher() {
     )
   }
 
-  // Check if current selection is a personal workspace (has is_workspace flag or team_count === 0 && member_count === 1)
-  const isPersonalWorkspace = (currentOrg as any).is_workspace || (currentOrg.team_count === 0 && currentOrg.member_count === 1)
+  // Check if current selection is a personal workspace, standalone team, or organization
+  const isPersonalWorkspace = (currentOrg as any).is_workspace === true
+  const isStandaloneTeam = (currentOrg as any).is_team === true
+
+  // Determine icon for current workspace
+  const CurrentIcon = isPersonalWorkspace ? Home : isStandaloneTeam ? Users : Building
 
   return (
     <>
@@ -276,7 +289,7 @@ export function OrganizationSwitcher() {
             {switching ? (
               <Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" />
             ) : (
-              <Home className="w-4 h-4 flex-shrink-0" />
+              <CurrentIcon className="w-4 h-4 flex-shrink-0" />
             )}
             <span className="hidden sm:inline truncate">{currentOrg.name}</span>
             <ChevronsUpDown className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
@@ -287,6 +300,11 @@ export function OrganizationSwitcher() {
           {organizations.length > 0 && (
             <>
               {organizations.map((org) => {
+                // Determine workspace type and icon
+                const isPersonalWorkspace = (org as any).is_workspace === true
+                const isStandaloneTeam = (org as any).is_team === true
+                const WorkspaceIcon = isPersonalWorkspace ? Home : isStandaloneTeam ? Users : Building
+
                 return (
                   <DropdownMenuItem
                     key={org.id}
@@ -295,7 +313,7 @@ export function OrganizationSwitcher() {
                     disabled={switching}
                   >
                     <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <Home className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
+                      <WorkspaceIcon className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
                       <p className="font-medium truncate">{org.name}</p>
                     </div>
                     {currentOrg.id === org.id && (
@@ -316,6 +334,14 @@ export function OrganizationSwitcher() {
             >
               <Settings className="w-4 h-4 mr-2" />
               <span>Workspace Settings</span>
+            </DropdownMenuItem>
+          ) : isStandaloneTeam ? (
+            <DropdownMenuItem
+              onClick={() => router.push(`/team-settings?team=${currentOrg.id}`)}
+              className="cursor-pointer"
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              <span>Team Settings</span>
             </DropdownMenuItem>
           ) : (
             <DropdownMenuItem

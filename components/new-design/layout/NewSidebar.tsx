@@ -4,12 +4,15 @@ import { useState, useEffect } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import Image from "next/image"
 import { useAuthStore } from "@/stores/authStore"
+import { useDebugStore } from "@/stores/debugStore"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
 import { useSignedAvatarUrl } from "@/hooks/useSignedAvatarUrl"
 import { useWorkspaceContext } from "@/hooks/useWorkspaceContext"
+import { useWorkflowCreation } from "@/hooks/useWorkflowCreation"
+import { WorkspaceSelectionModal } from "@/components/workflows/WorkspaceSelectionModal"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -65,11 +68,18 @@ export function NewSidebar() {
   const pathname = usePathname()
   const { profile, signOut, user } = useAuthStore()
   const { workspaceContext, isPersonalWorkspace } = useWorkspaceContext()
+  const {
+    initiateWorkflowCreation,
+    showWorkspaceModal,
+    handleWorkspaceSelected,
+    handleCancelWorkspaceSelection
+  } = useWorkflowCreation()
   const [creditsModalOpen, setCreditsModalOpen] = useState(false)
   const [upgradePlanModalOpen, setUpgradePlanModalOpen] = useState(false)
   const [freeCreditsModalOpen, setFreeCreditsModalOpen] = useState(false)
   const [socialPostUrl, setSocialPostUrl] = useState("")
   const { toast } = useToast()
+  const [isMounted, setIsMounted] = useState(false)
 
   // Task quota state - switches between personal and organization
   const [tasksUsed, setTasksUsed] = useState(0)
@@ -85,9 +95,16 @@ export function NewSidebar() {
     ? `${typeof window !== 'undefined' ? window.location.origin : ''}/signup?ref=${profile.id}`
     : ""
 
+  // Set mounted state to prevent hydration mismatch
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
   // Fetch task quota based on workspace context
   useEffect(() => {
     const fetchQuota = async () => {
+      const { logEvent, logApiCall, logApiResponse, logApiError } = useDebugStore.getState()
+
       if (!user || !profile) return
 
       setIsLoadingQuota(true)
@@ -99,32 +116,50 @@ export function NewSidebar() {
           setTasksLimit(profile?.tasks_limit || 100)
           setCanViewBilling(true) // User can always see their own quota
         } else {
-          // Team/Organization workspace - check permissions and fetch org quota
-          const response = await fetch(`/api/organizations/${workspaceContext.id}`)
+          // Team/Organization workspace - check permissions and fetch quota
+          // Determine the correct API endpoint based on workspace type
+          const apiEndpoint = workspaceContext.type === 'team'
+            ? `/api/teams/${workspaceContext.id}`
+            : `/api/organizations/${workspaceContext.id}`
+
+          const response = await fetch(apiEndpoint)
 
           if (!response.ok) {
-            // No permission to view org billing - hide widget
+            // No permission to view billing or team doesn't exist - hide widget
             setCanViewBilling(false)
             return
           }
 
           const data = await response.json()
-          const org = data.organization || data
+
+          // API returns team data directly (not wrapped), organizations return { organization: {...} }
+          const workspace = data.organization || data
 
           // Check if user has billing/admin permissions
-          const userRole = org.user_role || 'member'
+          const userRole = workspace.user_role || 'member'
           const hasBillingPermission = ['owner', 'admin', 'finance'].includes(userRole)
 
           if (hasBillingPermission) {
-            setTasksUsed(org.tasks_used || 0)
-            setTasksLimit(org.tasks_limit || 10000)
-            setCanViewBilling(true)
+            // Check if workspace has quota data (organizations have it, standalone teams might not)
+            if (workspace.tasks_used !== undefined || workspace.tasks_limit !== undefined) {
+              setTasksUsed(workspace.tasks_used || 0)
+              setTasksLimit(workspace.tasks_limit || 10000)
+              setCanViewBilling(true)
+            } else {
+              // Team doesn't have quota data yet - fall back to personal quota
+              setTasksUsed(profile?.tasks_used || 0)
+              setTasksLimit(profile?.tasks_limit || 100)
+              setCanViewBilling(true)
+            }
           } else {
-            // Regular member - hide widget (no permission to see org billing)
+            // Regular member - hide widget (no permission to see billing)
             setCanViewBilling(false)
           }
         }
-      } catch (error) {
+      } catch (error: any) {
+        logEvent('error', 'QuotaWidget', 'Failed to fetch quota', {
+          error: error.message
+        })
         console.error('Error fetching quota:', error)
         // On error, fall back to personal quota
         setTasksUsed(profile?.tasks_used || 0)
@@ -139,7 +174,9 @@ export function NewSidebar() {
   }, [workspaceContext, isPersonalWorkspace, user, profile])
 
   const mainNav: NavItem[] = [
-    { label: "Workflows", href: "/workflows", icon: Home },
+    // Home icon only for personal workspace, Zap icon for team/org workspaces
+    // Use Zap as default until mounted to prevent hydration mismatch
+    { label: "Workflows", href: "/workflows", icon: isMounted && isPersonalWorkspace ? Home : Zap },
     { label: "Templates", href: "/templates", icon: Layers },
     { label: "Apps", href: "/apps", icon: Layout },
     { label: "AI Assistant", href: "/ai-assistant", icon: Sparkles },
@@ -194,7 +231,7 @@ export function NewSidebar() {
       {/* New Workflow Button */}
       <div className="px-3 pt-2 pb-2">
         <Button
-          onClick={() => router.push('/workflows/ai-agent')}
+          onClick={() => initiateWorkflowCreation(() => router.push('/workflows/ai-agent'))}
           className="w-full justify-center gap-2 h-10"
           size="default"
         >
@@ -346,7 +383,17 @@ export function NewSidebar() {
               <Button
                 size="sm"
                 className="w-full h-8"
-                onClick={() => router.push('/organization-settings?tab=billing')}
+                onClick={() => {
+                  // Route to appropriate settings page based on workspace type
+                  if (workspaceContext.type === 'team') {
+                    router.push(`/team-settings?section=billing&team=${workspaceContext.id}`)
+                  } else if (workspaceContext.type === 'organization') {
+                    router.push('/organization-settings?tab=billing')
+                  } else {
+                    // Personal workspace - go to personal billing
+                    router.push('/settings?tab=billing')
+                  }
+                }}
               >
                 <BarChart3 className="w-3 h-3 mr-1" />
                 View Billing
@@ -720,6 +767,14 @@ export function NewSidebar() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Workspace Selection Modal - shown before creating workflow */}
+      <WorkspaceSelectionModal
+        open={showWorkspaceModal}
+        onOpenChange={(open) => !open && handleCancelWorkspaceSelection()}
+        onWorkspaceSelected={handleWorkspaceSelected}
+        onCancel={handleCancelWorkspaceSelection}
+      />
     </div>
   )
 }
