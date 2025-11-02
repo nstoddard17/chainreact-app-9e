@@ -117,7 +117,7 @@ export default function UserRoleManagement() {
       } else {
         logger.error('Failed to fetch users:', data.error)
       }
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Error fetching users:', error)
     } finally {
       setLoading(false)

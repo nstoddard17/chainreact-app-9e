@@ -42,6 +42,218 @@ When debugging ANY issue:
 
 This is a large codebase with many moving parts. Jumping to conclusions will break things.
 
+## 🚨 CRITICAL: API Efficiency - MANDATORY
+**ALWAYS OPTIMIZE API CALLS. PERFORMANCE IS NOT OPTIONAL.**
+
+When creating or reviewing API endpoints and client-side data fetching:
+
+### Rule 1: Minimize HTTP Requests
+- **Combine related data** - If client needs A and B, create one endpoint that returns both
+- **Use query parameters** - Allow clients to request optional data (`?include_invitations=true`)
+- **Never make sequential calls** - If data is related, fetch it in parallel or in one query
+
+**❌ WRONG:**
+```typescript
+// Client makes 2 separate calls
+const members = await fetch('/api/teams/123/members')
+const invitations = await fetch('/api/teams/123/invitations')
+```
+
+**✅ CORRECT:**
+```typescript
+// Client makes 1 call, server returns both
+const data = await fetch('/api/teams/123/members?include_invitations=true')
+// Returns: { members: [...], invitations: [...] }
+```
+
+### Rule 2: Optimize Database Queries
+**CRITICAL: Split complex joins into simple queries, then merge in memory**
+
+- **Break apart nested joins** - Complex joins cause timeouts; split into simple queries
+- **Use Promise.all()** - Fetch independent data in parallel, not sequentially
+- **Batch lookups** - Get all IDs first, then fetch related data in one query with `.in()`
+- **Avoid N+1 queries** - Never loop and query; collect IDs and query once
+- **Merge in memory** - Simple queries + memory merge is faster than complex database joins
+
+**❌ WRONG:**
+```typescript
+// Complex nested join - SLOW and prone to timeouts
+const { data } = await db
+  .from('team_members')
+  .select(`
+    *,
+    team:teams(
+      *,
+      organization:organizations(*)
+    ),
+    user:users(*)
+  `)
+  .eq('user_id', userId)
+```
+
+**✅ CORRECT:**
+```typescript
+// Step 1: Get team memberships (simple query, fast)
+const memberships = await db
+  .from('team_members')
+  .select('team_id, role, joined_at')
+  .eq('user_id', userId)
+
+// Step 2: Get related data in parallel
+const teamIds = memberships.map(m => m.team_id)
+const [teams, users] = await Promise.all([
+  db.from('teams').select('*').in('id', teamIds),
+  db.from('users').select('*').in('id', userIds)
+])
+
+// Step 3: Merge in memory (instant)
+const result = memberships.map(m => ({
+  ...m,
+  team: teams.find(t => t.id === m.team_id),
+  user: users.find(u => u.id === m.user_id)
+}))
+```
+
+**Why split queries?**
+- ✅ Database joins require complex index lookups → can timeout
+- ✅ Simple queries use primary keys → always fast
+- ✅ Parallel fetching is faster than sequential joins
+- ✅ Memory operations are nearly instant (microseconds)
+- ✅ More reliable and predictable performance
+- ✅ Easier to debug and optimize individual queries
+
+**Real Example:**
+- `/api/teams/my-teams` had 8-second timeouts with nested join
+- Split into 3 simple queries → no more timeouts, 2x faster
+
+### Rule 3: Prevent React Double-Fetch
+- **Always use useRef** - Prevent React 18 Strict Mode double-execution
+- **Check hasFetchedRef** - Before making API calls in useEffect
+
+**❌ WRONG:**
+```typescript
+useEffect(() => {
+  fetchData()  // Called twice in Strict Mode
+}, [user])
+```
+
+**✅ CORRECT:**
+```typescript
+const hasFetchedRef = useRef(false)
+useEffect(() => {
+  if (!hasFetchedRef.current) {
+    hasFetchedRef.current = true
+    fetchData()  // Called once
+  }
+}, [user])
+```
+
+### Rule 4: Network Call Timeouts
+- **Always use timeouts** - Use `fetchWithTimeout` utility (8s default, 30s for payments)
+- **Use AbortController** - Allow cancellation of in-flight requests
+- See "Network Call Requirements" section for full details
+
+### Performance Checklist
+Before committing ANY API code:
+- [ ] Can multiple calls be combined into one?
+- [ ] Are database queries executed in parallel where possible?
+- [ ] Is there a single batch query for user profiles/related data?
+- [ ] Does the client prevent double-fetch with useRef?
+- [ ] Are all network calls protected with timeouts?
+- [ ] Would this scale to 100+ users/items?
+
+**Real Example from Codebase:**
+- **Before:** Team members page made 2 API calls (members + invitations), 4 database queries total
+- **After:** 1 API call with `?include_invitations=true`, parallel fetching, single profile query
+- **Result:** 50% fewer HTTP requests, 2x faster page load
+
+## 🚨 CRITICAL: Light & Dark Mode Color Schema Design - MANDATORY
+**ALWAYS DESIGN FOR BOTH LIGHT AND DARK MODES SIMULTANEOUSLY.**
+
+When implementing any UI component with colors (badges, pills, buttons, cards, etc.):
+
+### Design Principle
+- **NEVER** design for only one mode and assume it will work in the other
+- **ALWAYS** test and verify colors in BOTH light AND dark modes
+- **COLORS MUST BE DISTINCT AND VISIBLE** in both modes
+- Each color should have a clear purpose and be visually distinct from others
+
+### Color Schema Requirements
+
+**Light Mode:**
+- Use light/pastel backgrounds (e.g., `bg-blue-100`, `bg-green-100`)
+- Use dark text for contrast (e.g., `text-blue-800`, `text-green-800`)
+- Use medium borders (e.g., `border-blue-300`, `border-green-300`)
+
+**Dark Mode:**
+- Use semi-transparent OR solid darker backgrounds (e.g., `dark:bg-blue-500/20` or `dark:bg-blue-700`)
+- Use light text for contrast (e.g., `dark:text-blue-300`, `dark:text-white`)
+- Use medium opacity borders (e.g., `dark:border-blue-500/40`)
+
+### Common Mistakes to Avoid
+
+❌ **WRONG**: Designing colors that look good only in one mode
+```typescript
+// This will be invisible or hard to read in one mode
+badgeColor: 'bg-white text-black'  // No dark mode support
+```
+
+❌ **WRONG**: Using default component variants without checking both modes
+```typescript
+// Default Badge variant may override custom colors
+<Badge className="bg-blue-100">  // Gets overridden by default variant
+```
+
+✅ **CORRECT**: Explicitly define both light and dark mode colors
+```typescript
+badgeColor: 'bg-blue-100 text-blue-800 dark:bg-blue-700 dark:text-blue-100 border border-blue-300 dark:border-blue-600'
+```
+
+✅ **CORRECT**: Use outline variant when applying custom colors to Badge
+```typescript
+<Badge variant="outline" className={customColors}>
+```
+
+### Testing Checklist
+Before marking any UI work as complete:
+- [ ] Viewed component in light mode - colors are visible and distinct
+- [ ] Viewed component in dark mode - colors are visible and distinct
+- [ ] Toggled between modes - no jarring transitions or invisible text
+- [ ] All color variations tested (success, warning, error, info, etc.)
+- [ ] Text has sufficient contrast in both modes (WCAG AA minimum)
+
+### Real Example from This Codebase
+
+**Issue**: Role badges in admin panel showed distinct colors in dark mode but appeared as black/white pills in light mode.
+
+**Root Cause**: Badge component's default variant applied `bg-primary` which overrode the custom light mode colors.
+
+**Fix**:
+1. Added `variant="outline"` to RoleBadge component to prevent default override
+2. Verified all role colors render correctly in BOTH modes
+3. Ensured each role has a distinct, visible color in both light and dark modes
+
+**Color Pattern Used**:
+```typescript
+// Each role gets a unique color with proper light/dark support
+free: 'bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-300'
+pro: 'bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-300'
+enterprise: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-700 dark:text-emerald-100'
+admin: 'bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-300'
+```
+
+### When to Use Each Approach
+
+**Semi-transparent backgrounds** (`bg-color-500/20`):
+- When you want the background to blend slightly with the container
+- Good for subtle badges and tags
+- Works well with varied background colors
+
+**Solid backgrounds** (`bg-color-700`):
+- When you need strong visual presence
+- For important status indicators
+- When the badge needs to stand out prominently
+
 ## 🚨 CRITICAL: Search Exhaustively - NEVER Stop at First Instance
 **THIS IS A CRITICAL FAILURE PATTERN THAT MUST BE ELIMINATED.**
 
@@ -138,6 +350,148 @@ grep -rn "pattern" # Should return nothing
 - It's temporary debugging code
 
 **Default action for "remove" = DELETE completely.**
+
+## 🚨 CRITICAL: Admin Debug Panel Logging - MANDATORY
+**ALL DEBUGGING LOGS MUST GO TO THE ADMIN DEBUG PANEL, NOT CONSOLE.LOG**
+
+### Why This Matters
+The Admin Debug Panel is a persistent, floating panel that:
+- Only shows for admin users (`user_profiles.admin = true`)
+- Persists across all pages in the app
+- Provides live event logging with timestamps
+- Allows export of debug data
+- Shows real-time state snapshots
+- Is accessible via the Bug icon in the bottom-right corner
+
+### When to Use Debug Panel Logging
+**ALWAYS use debug panel logging when:**
+- Debugging ANY issue reported by the user
+- Adding temporary logging to troubleshoot problems
+- Tracking API calls and responses
+- Monitoring state changes
+- Investigating errors or unexpected behavior
+
+**Files:**
+- Debug Store: `/stores/debugStore.ts`
+- Global Panel: `/components/debug/GlobalAdminDebugPanel.tsx`
+
+### How to Use Debug Panel Logging
+
+**1. Import the debug store:**
+```typescript
+import { useDebugStore } from "@/stores/debugStore"
+```
+
+**2. Get logging functions (in components):**
+```typescript
+const { logEvent, logApiCall, logApiResponse, logApiError } = useDebugStore()
+```
+
+**3. Log events:**
+```typescript
+// General events
+logEvent('info', 'Category', 'Message', { optional: 'data' })
+logEvent('error', 'Category', 'Error message', { error: errorObj })
+logEvent('warning', 'Category', 'Warning message')
+
+// API calls
+const requestId = logApiCall('GET', '/api/endpoint', { params })
+logApiResponse(requestId, 200, { data }, duration)
+logApiError(requestId, error, duration)
+
+// State changes
+logEvent('state_change', 'StoreName', 'What changed', { newValue })
+```
+
+**Event Types:**
+- `'info'` - General information
+- `'error'` - Errors
+- `'warning'` - Warnings
+- `'api_call'` - API request started
+- `'api_response'` - API request succeeded
+- `'api_error'` - API request failed
+- `'state_change'` - State/store updated
+- `'user_action'` - User interaction
+
+**4. Example - API Call Logging:**
+```typescript
+const fetchData = async () => {
+  const startTime = Date.now()
+  const requestId = logApiCall('GET', '/api/data')
+
+  try {
+    logEvent('info', 'DataFetch', 'Starting data fetch...')
+
+    const response = await fetch('/api/data')
+    const duration = Date.now() - startTime
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      logApiError(requestId, new Error(errorData.error), duration)
+      logEvent('error', 'DataFetch', 'API returned error', errorData)
+      throw new Error(errorData.error)
+    }
+
+    const data = await response.json()
+    logApiResponse(requestId, response.status, { count: data.length }, duration)
+    logEvent('info', 'DataFetch', `Successfully fetched ${data.length} items`)
+
+    return data
+  } catch (error: any) {
+    const duration = Date.now() - startTime
+    logApiError(requestId, error, duration)
+    logEvent('error', 'DataFetch', 'Fetch failed', {
+      message: error?.message,
+      stack: error?.stack
+    })
+    throw error
+  }
+}
+```
+
+**5. Server-Side Logging (API Routes):**
+Use the standard logger which already goes to the debug panel for admin users:
+```typescript
+import { logger } from "@/lib/utils/logger"
+
+// In API routes
+logger.debug('[API Name] Debug info', { data })
+logger.error('[API Name] Error occurred', { error: error.message, details: error.details })
+logger.info('[API Name] Operation completed', { result })
+```
+
+### DO NOT Use console.log
+**❌ WRONG:**
+```typescript
+console.log('Fetching teams...')
+console.error('Error:', error)
+```
+
+**✅ CORRECT:**
+```typescript
+logEvent('info', 'Teams', 'Fetching teams...')
+logEvent('error', 'Teams', 'Error fetching teams', { error })
+```
+
+### Viewing Debug Logs
+1. User must be admin (`user_profiles.admin = true`)
+2. Click the Bug icon in bottom-right corner
+3. Panel shows all logged events with timestamps
+4. Filter by category or event type
+5. Export logs for sharing
+6. Clear logs when done
+
+### Enforcement Checklist
+When debugging ANY issue:
+- [ ] Import `useDebugStore` in component
+- [ ] Use `logEvent()` for general logging
+- [ ] Use `logApiCall/Response/Error()` for API calls
+- [ ] Include category and descriptive messages
+- [ ] Include relevant data in the data parameter
+- [ ] NO `console.log()` or `console.error()` for debugging
+- [ ] Test that logs appear in admin debug panel
+
+**Violation of this rule makes debugging impossible for the admin user.**
 
 ## 🚨 CRITICAL: Network Call Requirements - MANDATORY
 **ALL NETWORK CALLS MUST FOLLOW THESE PATTERNS TO PREVENT STUCK LOADING SCREENS.**

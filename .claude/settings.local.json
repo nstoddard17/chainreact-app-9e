@@ -51,7 +51,13 @@
       "Bash(supabase db diff:*)",
       "Bash(kill:*)",
       "Bash(xargs kill -9)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(powershell:*)",
+      "Bash(awk:*)",
+      "Bash(for pkg in \"better-sqlite3\" \"drizzle-orm\" \"knex\" \"kysely\" \"mysql2\" \"@planetscale\" \"@vercel/postgres\" \"@libsql\" \"pglite\" \"sql.js\" \"sqlite3\" \"@upstash/redis\" \"@neondatabase\" \"@tidbcloud\" \"@xata\")",
+      "Bash(do echo \"=== Checking $pkg ===\")",
+      "Bash(done)",
+      "Bash(tee:*)"
     ],
     "deny": [],
     "ask": [],

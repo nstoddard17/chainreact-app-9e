@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
 import { Button } from "@/components/ui/button"
@@ -91,45 +91,54 @@ export function TeamMembersContent({ team, userRole }: TeamMembersContentProps) 
 
   const canManageMembers = ['owner', 'admin', 'manager'].includes(userRole)
 
+  // Prevent double-fetch on mount (React 18 Strict Mode)
+  const hasFetchedRef = useRef(false)
+
   useEffect(() => {
-    fetchMembers()
-    if (canManageMembers) {
-      fetchInvitations()
+    if (!hasFetchedRef.current) {
+      hasFetchedRef.current = true
+      fetchMembersAndInvitations()
     }
   }, [team.id, canManageMembers])
 
-  const fetchMembers = async () => {
+  const fetchMembersAndInvitations = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`/api/teams/${team.id}/members`)
-      if (!response.ok) throw new Error('Failed to fetch team members')
+      setInvitationsLoading(true)
 
-      const { members } = await response.json()
-      setMembers(members || [])
+      // Fetch both members and invitations in a single API call
+      const url = canManageMembers
+        ? `/api/teams/${team.id}/members?include_invitations=true`
+        : `/api/teams/${team.id}/members`
+
+      const response = await fetch(url)
+      if (!response.ok) throw new Error('Failed to fetch team data')
+
+      const data = await response.json()
+      setMembers(data.members || [])
+
+      // Set invitations only if they were included in the response
+      if (data.invitations) {
+        setInvitations(data.invitations)
+      }
     } catch (error) {
-      logger.error('Error fetching team members:', error)
-      toast.error('Failed to load team members')
+      logger.error('Error fetching team data:', error)
+      toast.error('Failed to load team data')
       setMembers([])
+      setInvitations([])
     } finally {
       setLoading(false)
+      setInvitationsLoading(false)
     }
   }
 
-  const fetchInvitations = async () => {
-    try {
-      setInvitationsLoading(true)
-      const response = await fetch(`/api/teams/${team.id}/invitations`)
-      if (!response.ok) throw new Error('Failed to fetch invitations')
+  // Keep separate fetch functions for refresh actions
+  const fetchMembers = async () => {
+    await fetchMembersAndInvitations()
+  }
 
-      const { invitations } = await response.json()
-      setInvitations(invitations || [])
-    } catch (error) {
-      logger.error('Error fetching invitations:', error)
-      toast.error('Failed to load invitations')
-      setInvitations([])
-    } finally {
-      setInvitationsLoading(false)
-    }
+  const fetchInvitations = async () => {
+    await fetchMembersAndInvitations()
   }
 
   const handleInviteMember = async () => {

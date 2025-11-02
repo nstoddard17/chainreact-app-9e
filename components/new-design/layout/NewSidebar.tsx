@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import Image from "next/image"
 import { useAuthStore } from "@/stores/authStore"
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
 import { useSignedAvatarUrl } from "@/hooks/useSignedAvatarUrl"
+import { useWorkspaceContext } from "@/hooks/useWorkspaceContext"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -63,11 +64,18 @@ export function NewSidebar() {
   const router = useRouter()
   const pathname = usePathname()
   const { profile, signOut, user } = useAuthStore()
+  const { workspaceContext, isPersonalWorkspace } = useWorkspaceContext()
   const [creditsModalOpen, setCreditsModalOpen] = useState(false)
   const [upgradePlanModalOpen, setUpgradePlanModalOpen] = useState(false)
   const [freeCreditsModalOpen, setFreeCreditsModalOpen] = useState(false)
   const [socialPostUrl, setSocialPostUrl] = useState("")
   const { toast } = useToast()
+
+  // Task quota state - switches between personal and organization
+  const [tasksUsed, setTasksUsed] = useState(0)
+  const [tasksLimit, setTasksLimit] = useState(100)
+  const [canViewBilling, setCanViewBilling] = useState(false)
+  const [isLoadingQuota, setIsLoadingQuota] = useState(false)
 
   // Check if user is admin
   const isAdmin = profile?.admin === true
@@ -76,6 +84,59 @@ export function NewSidebar() {
   const userReferralLink = profile?.id
     ? `${typeof window !== 'undefined' ? window.location.origin : ''}/signup?ref=${profile.id}`
     : ""
+
+  // Fetch task quota based on workspace context
+  useEffect(() => {
+    const fetchQuota = async () => {
+      if (!user || !profile) return
+
+      setIsLoadingQuota(true)
+
+      try {
+        if (isPersonalWorkspace) {
+          // Personal workspace - always show personal quota
+          setTasksUsed(profile?.tasks_used || 0)
+          setTasksLimit(profile?.tasks_limit || 100)
+          setCanViewBilling(true) // User can always see their own quota
+        } else {
+          // Team/Organization workspace - check permissions and fetch org quota
+          const response = await fetch(`/api/organizations/${workspaceContext.id}`)
+
+          if (!response.ok) {
+            // No permission to view org billing - hide widget
+            setCanViewBilling(false)
+            return
+          }
+
+          const data = await response.json()
+          const org = data.organization || data
+
+          // Check if user has billing/admin permissions
+          const userRole = org.user_role || 'member'
+          const hasBillingPermission = ['owner', 'admin', 'finance'].includes(userRole)
+
+          if (hasBillingPermission) {
+            setTasksUsed(org.tasks_used || 0)
+            setTasksLimit(org.tasks_limit || 10000)
+            setCanViewBilling(true)
+          } else {
+            // Regular member - hide widget (no permission to see org billing)
+            setCanViewBilling(false)
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching quota:', error)
+        // On error, fall back to personal quota
+        setTasksUsed(profile?.tasks_used || 0)
+        setTasksLimit(profile?.tasks_limit || 100)
+        setCanViewBilling(isPersonalWorkspace)
+      } finally {
+        setIsLoadingQuota(false)
+      }
+    }
+
+    fetchQuota()
+  }, [workspaceContext, isPersonalWorkspace, user, profile])
 
   const mainNav: NavItem[] = [
     { label: "Workflows", href: "/workflows", icon: Home },
@@ -229,56 +290,71 @@ export function NewSidebar() {
         )}
       </div>
 
-      {/* Tasks Widget */}
-      <div className="px-3 pb-3">
-        <div className="bg-white dark:bg-gray-900 rounded-lg border p-3 space-y-2">
-          <div className="space-y-1">
-            <div className="flex items-center gap-1.5">
-              <Zap className="w-4 h-4 text-primary" />
-              <span className="text-sm font-medium">Tasks This Month</span>
-              <button
-                onClick={() => setCreditsModalOpen(true)}
-                className="hover:bg-accent rounded-full p-0.5 transition-colors"
-              >
-                <Info className="w-3.5 h-3.5 text-muted-foreground cursor-pointer" />
-              </button>
-            </div>
+      {/* Tasks Widget - Workspace-aware with permission-based visibility */}
+      {canViewBilling && (
+        <div className="px-3 pb-3">
+          <div className="bg-white dark:bg-gray-900 rounded-lg border p-3 space-y-2">
             <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">
-                  {profile?.tasks_used || 0} / {profile?.tasks_limit || 100} used
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {Math.round(((profile?.tasks_used || 0) / (profile?.tasks_limit || 100)) * 100)}%
-                </span>
+              <div className="flex items-center gap-1.5">
+                <Zap className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium">Tasks This Month</span>
+                <button
+                  onClick={() => setCreditsModalOpen(true)}
+                  className="hover:bg-accent rounded-full p-0.5 transition-colors"
+                >
+                  <Info className="w-3.5 h-3.5 text-muted-foreground cursor-pointer" />
+                </button>
               </div>
-              <div className="w-full bg-muted rounded-full h-1.5">
-                <div
-                  className="bg-primary rounded-full h-1.5 transition-all"
-                  style={{ width: `${Math.min(((profile?.tasks_used || 0) / (profile?.tasks_limit || 100)) * 100, 100)}%` }}
-                />
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">
+                    {isLoadingQuota ? "Loading..." : `${tasksUsed} / ${tasksLimit} used`}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {Math.round((tasksUsed / tasksLimit) * 100)}%
+                  </span>
+                </div>
+                <div className="w-full bg-muted rounded-full h-1.5">
+                  <div
+                    className="bg-primary rounded-full h-1.5 transition-all"
+                    style={{ width: `${Math.min((tasksUsed / tasksLimit) * 100, 100)}%` }}
+                  />
+                </div>
               </div>
             </div>
+            {isPersonalWorkspace ? (
+              <>
+                <Button
+                  size="sm"
+                  className="w-full h-8"
+                  onClick={() => setUpgradePlanModalOpen(true)}
+                >
+                  <Crown className="w-3 h-3 mr-1" />
+                  Upgrade Plan
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full h-8"
+                  onClick={() => setFreeCreditsModalOpen(true)}
+                >
+                  <Gift className="w-3 h-3 mr-1" />
+                  Get Free Tasks
+                </Button>
+              </>
+            ) : (
+              <Button
+                size="sm"
+                className="w-full h-8"
+                onClick={() => router.push('/organization-settings?tab=billing')}
+              >
+                <BarChart3 className="w-3 h-3 mr-1" />
+                View Billing
+              </Button>
+            )}
           </div>
-          <Button
-            size="sm"
-            className="w-full h-8"
-            onClick={() => setUpgradePlanModalOpen(true)}
-          >
-            <Crown className="w-3 h-3 mr-1" />
-            Upgrade Plan
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="w-full h-8"
-            onClick={() => setFreeCreditsModalOpen(true)}
-          >
-            <Gift className="w-3 h-3 mr-1" />
-            Get Free Tasks
-          </Button>
         </div>
-      </div>
+      )}
 
       {/* User Profile */}
       <div className="p-3">

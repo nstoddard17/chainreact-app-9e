@@ -24,7 +24,7 @@ import { useToast } from "@/hooks/use-toast"
  * - Real-time state snapshots
  */
 export function GlobalAdminDebugPanel() {
-  const { profile } = useAuthStore()
+  const { user, profile, initialized } = useAuthStore()
   const { events, clearEvents } = useDebugStore()
   const { integrations, providers, workspaceType, workspaceId } = useIntegrationStore()
   const { workspaceContext } = useWorkspaceContext()
@@ -48,8 +48,9 @@ export function GlobalAdminDebugPanel() {
     }
   }, [events.length, isOpen, isMinimized])
 
-  // Only show for admin users
-  if (!profile?.admin) {
+  // Only show for authenticated admin users
+  // Wait for auth to initialize to avoid showing panel during auth loading
+  if (!initialized || !user || !profile?.admin) {
     return null
   }
 
@@ -100,14 +101,26 @@ export function GlobalAdminDebugPanel() {
     })),
   }
 
-  const copyToClipboard = (content: string) => {
+  const copyToClipboard = (content: string, description: string = "Debug data has been copied") => {
     navigator.clipboard.writeText(content)
     setCopied(true)
     toast({
       title: "Copied to clipboard",
-      description: "Debug data has been copied",
+      description,
     })
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const copyEvent = (event: DebugEvent) => {
+    const eventText = `[${new Date(event.timestamp).toLocaleTimeString()}] [${event.type}] [${event.category}] ${event.message}${event.data ? '\n' + JSON.stringify(event.data, null, 2) : ''}${event.duration ? `\nDuration: ${event.duration}ms` : ''}`
+    copyToClipboard(eventText, "Event copied to clipboard")
+  }
+
+  const copyAllLogs = () => {
+    const allLogsText = events.map(event =>
+      `[${new Date(event.timestamp).toLocaleTimeString()}] [${event.type}] [${event.category}] ${event.message}${event.data ? '\n' + JSON.stringify(event.data, null, 2) : ''}${event.duration ? `\nDuration: ${event.duration}ms` : ''}`
+    ).join('\n\n---\n\n')
+    copyToClipboard(allLogsText, `${events.length} events copied to clipboard`)
   }
 
   const exportLogs = () => {
@@ -247,6 +260,16 @@ export function GlobalAdminDebugPanel() {
                       <Button
                         variant="outline"
                         size="sm"
+                        onClick={copyAllLogs}
+                        disabled={events.length === 0}
+                        className="h-7 text-xs"
+                      >
+                        <Copy className="w-3 h-3 mr-1" />
+                        Copy All
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={exportLogs}
                         disabled={events.length === 0}
                         className="h-7 text-xs"
@@ -277,7 +300,7 @@ export function GlobalAdminDebugPanel() {
                         {events.map((event) => (
                           <div
                             key={event.id}
-                            className="border-l-2 border-slate-700 pl-2 py-1.5 hover:bg-slate-900/50 transition-colors"
+                            className="border-l-2 border-slate-700 pl-2 py-1.5 hover:bg-slate-900/50 transition-colors group relative"
                           >
                             <div className="flex items-start gap-2 mb-0.5">
                               <span className="text-slate-500 text-[9px] font-normal min-w-[70px]">
@@ -292,6 +315,14 @@ export function GlobalAdminDebugPanel() {
                               <span className="text-slate-400 text-[9px]">
                                 [{event.category}]
                               </span>
+                              {/* Copy button - shows on hover */}
+                              <button
+                                onClick={() => copyEvent(event)}
+                                className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-slate-500 hover:text-slate-300"
+                                title="Copy this event"
+                              >
+                                <Copy className="w-3 h-3" />
+                              </button>
                             </div>
                             <div className="text-slate-200 text-[10px] ml-[72px]">
                               {event.message}
