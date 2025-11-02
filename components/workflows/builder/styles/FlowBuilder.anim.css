@@ -135,6 +135,16 @@
   filter: none !important;
 }
 
+/* Ready node (awaiting user input) */
+.node-ready {
+  filter: none !important;
+  opacity: 1 !important;
+}
+
+.node-ready * {
+  filter: none !important;
+}
+
 /* Active node highlighting */
 .node-active {
   filter: none !important;

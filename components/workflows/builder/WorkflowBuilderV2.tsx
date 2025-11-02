@@ -1144,15 +1144,38 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
           })
         }
 
-        console.log('[handleBuild] Adding all nodes:', {
+        console.log('[handleBuild] Preparing to add nodes one at a time:', {
           count: allNodes.length,
           positions: allNodes.map(n => ({ id: n.id, x: n.position.x, y: n.position.y })),
           edges: allEdges.map(e => ({ id: e.id, source: e.source, target: e.target }))
         })
 
-        // Set everything at once
-        builder.setNodes(allNodes)
-        builder.setEdges(allEdges)
+        // STEP 4: Add nodes one at a time with animation
+        const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+        // Start with empty nodes and edges
+        builder.setNodes([])
+        builder.setEdges([])
+
+        // Add nodes one at a time
+        for (let i = 0; i < allNodes.length; i++) {
+          const node = allNodes[i]
+          console.log(`[handleBuild] Adding node ${i + 1}/${allNodes.length}:`, node.id)
+
+          // Add the node
+          builder.setNodes(prev => [...prev, node])
+
+          // Add edge if this isn't the first node
+          if (i > 0) {
+            const edge = allEdges[i - 1]
+            builder.setEdges(prev => [...prev, edge])
+          }
+
+          // Wait 400ms before adding next node
+          await wait(400)
+        }
+
+        console.log('[handleBuild] All nodes added, waiting before zoom animation')
 
         // Force positions to stay fixed - check multiple times
         // React Flow sometimes repositions nodes after initial render
@@ -1202,8 +1225,8 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
           nodesCache: allNodes,
         }))
 
-        // STEP 5: Keep nodes where we positioned them - don't move viewport
-        await new Promise(resolve => setTimeout(resolve, 500))
+        // STEP 5: Wait a moment after all nodes added
+        await wait(500)
 
         // Log actual node positions after render
         if (reactFlowInstanceRef.current) {
@@ -1214,6 +1237,26 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
         }
 
         const firstNode = allNodes[0]
+
+        // STEP 6: Zoom to first node with animation
+        console.log('[handleBuild] Starting zoom animation to first node')
+        if (reactFlowInstanceRef.current && firstNode) {
+          const instance = reactFlowInstanceRef.current
+
+          // Calculate zoom level and position to center on first node
+          // Account for agent panel width
+          const nodeCenterX = firstNode.position.x + 225 // Half of node width (450px)
+          const nodeCenterY = firstNode.position.y + 50 // Rough center of node height
+
+          // Zoom to first node with smooth animation
+          instance.setCenter(nodeCenterX, nodeCenterY, {
+            zoom: 1.2, // Zoom in slightly
+            duration: 1000, // 1 second animation
+          })
+
+          // Wait for zoom animation to complete
+          await wait(1200)
+        }
 
         // STEP 7: Update status and transition to WAITING_USER
         // This will trigger the first node pill to expand in the Flow Plan
@@ -1226,9 +1269,31 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
 
         transitionTo(BuildState.WAITING_USER)
 
-        // STEP 8: Keep all nodes in skeleton state
-        // They will transition to ready when user clicks Continue on each one
-        console.log('[handleBuild] All nodes staying in skeleton state until user interaction')
+        // STEP 8: Transition first node to ready state
+        console.log('[handleBuild] Transitioning first node to ready state')
+        const firstPlanNode = buildMachine.plan[0]
+        const firstReactNodeId = firstPlanNode ? buildMachine.nodeMapping?.[firstPlanNode.id] : null
+
+        if (firstReactNodeId && reactFlowInstanceRef.current) {
+          setNodeState(reactFlowInstanceRef.current, firstReactNodeId, 'ready')
+          builder.setNodes((current: any[]) => {
+            const working = current && current.length > 0 ? current : (buildMachine.nodesCache ?? [])
+            return working.map(node => {
+              if (node.id === firstReactNodeId) {
+                return {
+                  ...node,
+                  data: {
+                    ...node.data,
+                    state: 'ready',
+                    aiStatus: 'awaiting_user',
+                  },
+                  className: 'node-ready',
+                }
+              }
+              return node
+            })
+          })
+        }
       }, 100) // Small delay to let React update
 
     } catch (error: any) {
@@ -1566,7 +1631,7 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
     transitionTo(BuildState.PLAN_READY)
   }, [transitionTo])
 
-  // Apply node styling based on build state
+  // Apply node styling based on node state (not build progress)
   useEffect(() => {
     if (!builder?.nodes || buildMachine.state === BuildState.IDLE) {
       return
@@ -1574,29 +1639,30 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
 
     const { state, progress } = buildMachine
 
-    // Apply CSS classes to nodes based on build state
+    // Apply CSS classes based on actual node state
     const updatedNodes = builder.nodes.map((node, index) => {
+      const nodeState = node.data?.state || 'ready'
       let className = ''
 
       if (state === BuildState.BUILDING_SKELETON) {
         // All nodes are grey during skeleton building
-        className = 'node-grey'
-      } else if (
-        state === BuildState.WAITING_USER ||
-        state === BuildState.PREPARING_NODE ||
-        state === BuildState.TESTING_NODE
-      ) {
-        // During node setup/testing
-        if (index < progress.currentIndex) {
-          className = 'node-done' // Completed nodes
-        } else if (index === progress.currentIndex) {
-          className = 'node-active' // Current node being configured
-        } else {
-          className = 'node-grey' // Future nodes
+        className = 'node-skeleton node-grey'
+      } else {
+        // Use node's actual state to determine styling
+        if (nodeState === 'skeleton') {
+          className = 'node-skeleton node-grey'
+        } else if (nodeState === 'ready') {
+          // Ready node waiting for user interaction
+          if (index === progress.currentIndex) {
+            className = 'node-ready' // Current node ready for configuration
+          } else {
+            className = 'node-ready' // Ready but not current
+          }
+        } else if (nodeState === 'running') {
+          className = 'node-active' // Node is being configured/tested
+        } else if (nodeState === 'passed' || nodeState === 'failed') {
+          className = 'node-done' // Node completed (never changes back)
         }
-      } else if (state === BuildState.COMPLETE) {
-        // All nodes are done
-        className = 'node-done'
       }
 
       return {
