@@ -1,5 +1,5 @@
 import { Suspense } from "react"
-import { createSupabaseServerClient } from "@/utils/supabase/server"
+import { createSupabaseServerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 import { redirect, notFound } from "next/navigation"
 import { TeamMembersContent } from "@/components/teams/TeamMembersContent"
 import { Loader2 } from "lucide-react"
@@ -24,18 +24,30 @@ export default async function TeamMembersPage({ params }: Props) {
     redirect("/auth/login")
   }
 
-  // Get team by slug and check user access
-  const { data: team } = await supabase
+  // Use service client to bypass RLS for the join query
+  // This is safe because we're explicitly filtering by user.id
+  const serviceSupabase = await createSupabaseServiceClient()
+
+  // Get team by slug first
+  const { data: team } = await serviceSupabase
     .from("teams")
-    .select(`
-      *,
-      members:team_members!inner(role)
-    `)
+    .select("*")
     .eq("slug", slug)
-    .eq("team_members.user_id", user.id)
     .single()
 
   if (!team) {
+    notFound()
+  }
+
+  // Check if user is a member of this team
+  const { data: membership } = await serviceSupabase
+    .from("team_members")
+    .select("role")
+    .eq("team_id", team.id)
+    .eq("user_id", user.id)
+    .single()
+
+  if (!membership) {
     notFound()
   }
 
@@ -45,7 +57,7 @@ export default async function TeamMembersPage({ params }: Props) {
         <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
       </div>
     }>
-      <TeamMembersContent team={team} userRole={team.members[0]?.role} />
+      <TeamMembersContent team={team} userRole={membership.role} />
     </Suspense>
   )
 }

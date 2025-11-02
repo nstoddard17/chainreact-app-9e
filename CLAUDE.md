@@ -42,6 +42,131 @@ When debugging ANY issue:
 
 This is a large codebase with many moving parts. Jumping to conclusions will break things.
 
+## 🚨 CRITICAL: API Efficiency - MANDATORY
+**ALWAYS OPTIMIZE API CALLS. PERFORMANCE IS NOT OPTIONAL.**
+
+When creating or reviewing API endpoints and client-side data fetching:
+
+### Rule 1: Minimize HTTP Requests
+- **Combine related data** - If client needs A and B, create one endpoint that returns both
+- **Use query parameters** - Allow clients to request optional data (`?include_invitations=true`)
+- **Never make sequential calls** - If data is related, fetch it in parallel or in one query
+
+**❌ WRONG:**
+```typescript
+// Client makes 2 separate calls
+const members = await fetch('/api/teams/123/members')
+const invitations = await fetch('/api/teams/123/invitations')
+```
+
+**✅ CORRECT:**
+```typescript
+// Client makes 1 call, server returns both
+const data = await fetch('/api/teams/123/members?include_invitations=true')
+// Returns: { members: [...], invitations: [...] }
+```
+
+### Rule 2: Optimize Database Queries
+**CRITICAL: Split complex joins into simple queries, then merge in memory**
+
+- **Break apart nested joins** - Complex joins cause timeouts; split into simple queries
+- **Use Promise.all()** - Fetch independent data in parallel, not sequentially
+- **Batch lookups** - Get all IDs first, then fetch related data in one query with `.in()`
+- **Avoid N+1 queries** - Never loop and query; collect IDs and query once
+- **Merge in memory** - Simple queries + memory merge is faster than complex database joins
+
+**❌ WRONG:**
+```typescript
+// Complex nested join - SLOW and prone to timeouts
+const { data } = await db
+  .from('team_members')
+  .select(`
+    *,
+    team:teams(
+      *,
+      organization:organizations(*)
+    ),
+    user:users(*)
+  `)
+  .eq('user_id', userId)
+```
+
+**✅ CORRECT:**
+```typescript
+// Step 1: Get team memberships (simple query, fast)
+const memberships = await db
+  .from('team_members')
+  .select('team_id, role, joined_at')
+  .eq('user_id', userId)
+
+// Step 2: Get related data in parallel
+const teamIds = memberships.map(m => m.team_id)
+const [teams, users] = await Promise.all([
+  db.from('teams').select('*').in('id', teamIds),
+  db.from('users').select('*').in('id', userIds)
+])
+
+// Step 3: Merge in memory (instant)
+const result = memberships.map(m => ({
+  ...m,
+  team: teams.find(t => t.id === m.team_id),
+  user: users.find(u => u.id === m.user_id)
+}))
+```
+
+**Why split queries?**
+- ✅ Database joins require complex index lookups → can timeout
+- ✅ Simple queries use primary keys → always fast
+- ✅ Parallel fetching is faster than sequential joins
+- ✅ Memory operations are nearly instant (microseconds)
+- ✅ More reliable and predictable performance
+- ✅ Easier to debug and optimize individual queries
+
+**Real Example:**
+- `/api/teams/my-teams` had 8-second timeouts with nested join
+- Split into 3 simple queries → no more timeouts, 2x faster
+
+### Rule 3: Prevent React Double-Fetch
+- **Always use useRef** - Prevent React 18 Strict Mode double-execution
+- **Check hasFetchedRef** - Before making API calls in useEffect
+
+**❌ WRONG:**
+```typescript
+useEffect(() => {
+  fetchData()  // Called twice in Strict Mode
+}, [user])
+```
+
+**✅ CORRECT:**
+```typescript
+const hasFetchedRef = useRef(false)
+useEffect(() => {
+  if (!hasFetchedRef.current) {
+    hasFetchedRef.current = true
+    fetchData()  // Called once
+  }
+}, [user])
+```
+
+### Rule 4: Network Call Timeouts
+- **Always use timeouts** - Use `fetchWithTimeout` utility (8s default, 30s for payments)
+- **Use AbortController** - Allow cancellation of in-flight requests
+- See "Network Call Requirements" section for full details
+
+### Performance Checklist
+Before committing ANY API code:
+- [ ] Can multiple calls be combined into one?
+- [ ] Are database queries executed in parallel where possible?
+- [ ] Is there a single batch query for user profiles/related data?
+- [ ] Does the client prevent double-fetch with useRef?
+- [ ] Are all network calls protected with timeouts?
+- [ ] Would this scale to 100+ users/items?
+
+**Real Example from Codebase:**
+- **Before:** Team members page made 2 API calls (members + invitations), 4 database queries total
+- **After:** 1 API call with `?include_invitations=true`, parallel fetching, single profile query
+- **Result:** 50% fewer HTTP requests, 2x faster page load
+
 ## 🚨 CRITICAL: Light & Dark Mode Color Schema Design - MANDATORY
 **ALWAYS DESIGN FOR BOTH LIGHT AND DARK MODES SIMULTANEOUSLY.**
 
