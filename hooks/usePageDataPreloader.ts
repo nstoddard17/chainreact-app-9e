@@ -157,16 +157,23 @@ export function usePageDataPreloader(
         const results = await Promise.allSettled(
           loaders.map(({ name, loader }) => {
             logger.info('usePageDataPreloader', `Starting ${name} for ${pageType}`)
-            return loader().catch((loaderError: any) => {
-              // Log error but don't reject - allow other loaders to continue
-              if (loaderError?.message?.includes('timeout') || loaderError?.message?.includes('aborted')) {
-                logger.warn('usePageDataPreloader', `${name} timed out but continuing with cached data`, loaderError)
-              } else {
-                logger.error('usePageDataPreloader', `${name} failed but continuing`, loaderError)
-              }
-              // Return null to indicate this loader failed gracefully
-              return null
-            })
+            const startTime = Date.now()
+            return loader()
+              .then(() => {
+                const duration = Date.now() - startTime
+                logger.info('usePageDataPreloader', `✅ ${name} completed in ${duration}ms`)
+              })
+              .catch((loaderError: any) => {
+                const duration = Date.now() - startTime
+                // Log error but don't reject - allow other loaders to continue
+                if (loaderError?.message?.includes('timeout') || loaderError?.message?.includes('aborted')) {
+                  logger.warn('usePageDataPreloader', `⏱️ ${name} timed out after ${duration}ms - continuing with cached data`, loaderError)
+                } else {
+                  logger.error('usePageDataPreloader', `❌ ${name} failed after ${duration}ms - continuing`, loaderError)
+                }
+                // Return null to indicate this loader failed gracefully
+                return null
+              })
           })
         )
 
