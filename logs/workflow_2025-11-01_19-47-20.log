@@ -124,3 +124,7 @@ Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
 [2025-11-02T00:48:41.856Z] [INFO   ] 2025-11-02T00:48:41.856Z [DEBUG] 📊 [API /api/integrations] Query result {"workspaceType":"personal","workspaceId":null,"count":14,"error":null}
 [2025-11-02T00:48:41.856Z] [INFO   ] 2025-11-02T00:48:41.856Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
 [2025-11-02T00:48:44.931Z] [INFO   ] 2025-11-02T00:48:44.930Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/5f213be8-f424-4702-a393-6597cf12ce08/edits","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13477837531}
+[2025-11-02T00:51:50.303Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2s (5760 modules)
+[2025-11-02T00:51:50.606Z] [INFO   ] 2025-11-02T00:51:50.606Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/5f213be8-f424-4702-a393-6597cf12ce08","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13478023207}
+[2025-11-02T00:51:50.914Z] [INFO   ] 2025-11-02T00:51:50.914Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-02T00:53:40.271Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 497ms (4390 modules)

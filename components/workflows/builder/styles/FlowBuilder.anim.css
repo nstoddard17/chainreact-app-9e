@@ -136,19 +136,9 @@
 }
 
 /* Active node highlighting */
-@keyframes node-glow {
-  0%, 100% {
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
-  }
-  50% {
-    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3), 0 0 12px rgba(59, 130, 246, 0.4);
-  }
-}
-
 .node-active {
   filter: none !important;
   opacity: 1 !important;
-  animation: node-glow 2s ease-in-out infinite;
   position: relative;
   z-index: 10;
 }
