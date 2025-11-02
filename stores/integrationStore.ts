@@ -344,25 +344,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
           const previousIntegrations = get().integrations
           handleIntegrationStatusChanges(previousIntegrations, integrations)
 
-          // Debug log state change
-          useDebugStore.getState().logStateChange(
-            'IntegrationStore',
-            'Integrations fetched and updated',
-            {
-              count: integrations.length,
-              previousCount: previousIntegrations.length,
-              workspaceType: effectiveWorkspaceType,
-              workspaceId: effectiveWorkspaceId,
-              withPermissions: integrations.filter(i => i.user_permission).length,
-              permissionBreakdown: {
-                admin: integrations.filter(i => i.user_permission === 'admin').length,
-                manage: integrations.filter(i => i.user_permission === 'manage').length,
-                use: integrations.filter(i => i.user_permission === 'use').length,
-                null: integrations.filter(i => !i.user_permission).length,
-              }
-            }
-          )
-
           set({
             integrations,
             lastFetchTime: Date.now()

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
+import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 import { jsonResponse, errorResponse } from "@/lib/utils/api-response"
+import { logger } from "@/lib/utils/logger"
 
 export const dynamic = 'force-dynamic'
 
@@ -14,13 +15,30 @@ export async function GET(
 
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
+      logger.error('[Teams API] Unauthorized - no user', { authError })
       return errorResponse("Unauthorized", 401)
     }
 
     const { id: teamId } = await params
 
-    // Get team details
-    const { data: team, error } = await supabase
+    // Use service client to bypass RLS for membership check
+    // This is safe because we're already authenticated and checking against the authenticated user's ID
+    const serviceClient = await createSupabaseServiceClient()
+
+    // First, verify user is a member of this team (bypass RLS to avoid circular policy issues)
+    const { data: membership, error: membershipError } = await serviceClient
+      .from('team_members')
+      .select('role')
+      .eq('team_id', teamId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (membershipError || !membership) {
+      return errorResponse("Team not found", 404)
+    }
+
+    // Now fetch team details using the same service client (bypasses RLS to get billing fields)
+    const { data: team, error } = await serviceClient
       .from('teams')
       .select('*')
       .eq('id', teamId)
@@ -33,24 +51,42 @@ export async function GET(
       throw error
     }
 
-    // Get member count
-    const { count } = await supabase
+    // Get member count (use service client to ensure we get accurate count)
+    const { count } = await serviceClient
       .from('team_members')
       .select('id', { count: 'exact', head: true })
       .eq('team_id', teamId)
 
-    // Get current user's role in this team
-    const { data: membership } = await supabase
-      .from('team_members')
-      .select('role')
-      .eq('team_id', teamId)
-      .eq('user_id', user.id)
-      .single()
+    // For standalone teams, inherit billing from owner's profile
+    // For org teams, they'll inherit from the organization
+    let billingInfo = null
+    if (!team.organization_id && team.created_by) {
+      // Standalone team - fetch owner's billing info
+      const { data: ownerProfile } = await serviceClient
+        .from('user_profiles')
+        .select('plan, credits')
+        .eq('id', team.created_by)
+        .single()
+
+      if (ownerProfile) {
+        billingInfo = {
+          plan: ownerProfile.plan || 'free',
+          credits: ownerProfile.credits || 0,
+          billing_source: 'owner' // Indicates billing is inherited from owner
+        }
+      }
+    } else if (team.organization_id) {
+      // Organization team - indicate billing comes from org
+      billingInfo = {
+        billing_source: 'organization' // Frontend should fetch org billing
+      }
+    }
 
     return jsonResponse({
       ...team,
       member_count: count || 0,
-      user_role: membership?.role || null
+      user_role: membership.role,
+      billing: billingInfo
     })
   } catch (error: any) {
     console.error('Error fetching team:', error)
@@ -61,7 +97,7 @@ export async function GET(
 // PUT - Update team
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createSupabaseRouteHandlerClient()
@@ -71,7 +107,7 @@ export async function PUT(
       return errorResponse("Unauthorized", 401)
     }
 
-    const teamId = params.id
+    const { id: teamId } = await params
     const body = await request.json()
     const { name, description } = body
 
@@ -107,7 +143,7 @@ export async function PUT(
 // DELETE - Delete team
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createSupabaseRouteHandlerClient()
@@ -117,7 +153,7 @@ export async function DELETE(
       return errorResponse("Unauthorized", 401)
     }
 
-    const teamId = params.id
+    const { id: teamId } = await params
 
     // Delete the team (cascade will handle members and workflow shares)
     const { error: deleteError } = await supabase

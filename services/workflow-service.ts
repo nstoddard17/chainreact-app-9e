@@ -59,10 +59,6 @@ export class WorkflowService {
         }
 
         const url = `/api/workflows${params.toString() ? '?' + params.toString() : ''}`
-        const startTime = Date.now()
-
-        // Debug logging
-        const requestId = useDebugStore.getState().logApiCall('GET', url, { filterContext, workspaceId })
 
         const response = await fetch(url, {
           method: "GET",
@@ -74,33 +70,13 @@ export class WorkflowService {
         })
 
         clearTimeout(timeoutId)
-        const duration = Date.now() - startTime
 
         if (!response.ok) {
-          useDebugStore.getState().logApiError(requestId, new Error(`HTTP ${response.status}: ${response.statusText}`), duration)
           throw new Error(`Failed to fetch workflows: ${response.statusText}`)
         }
 
         const data = await response.json()
         const workflows = data.data || []
-
-        // Debug log successful response
-        useDebugStore.getState().logApiResponse(requestId, response.status, {
-          count: workflows.length,
-          hasPermissions: workflows.filter((w: any) => w.user_permission).length,
-          sample: workflows.slice(0, 2).map((w: any) => ({
-            name: w.name,
-            workspace_type: w.workspace_type,
-            user_permission: w.user_permission
-          }))
-        }, duration)
-
-        logger.debug('✅ [WorkflowService] Successfully fetched workflows', {
-          count: workflows.length,
-          duration: `${duration}ms`,
-          filterContext: filterContext || 'ALL',
-          workspaceId
-        });
 
         return workflows
 
@@ -176,12 +152,6 @@ export class WorkflowService {
         timestamp: new Date().toISOString()
       });
 
-      const requestId = useDebugStore.getState().logApiCall('POST', '/api/workflows', {
-        name,
-        workspaceType,
-        workspaceId
-      })
-
       const response = await fetch('/api/workflows', {
         method: "POST",
         headers: {
@@ -202,7 +172,6 @@ export class WorkflowService {
       clearTimeout(timeoutId)
 
       if (!response.ok) {
-        useDebugStore.getState().logApiError(requestId, new Error(`HTTP ${response.status}: ${response.statusText}`))
         throw new Error(`Failed to create workflow: ${response.statusText}`)
       }
 
@@ -212,16 +181,6 @@ export class WorkflowService {
       if (!workflow) {
         throw new Error('No workflow returned from API')
       }
-
-      useDebugStore.getState().logApiResponse(requestId, response.status, {
-        workflowId: workflow.id,
-        name: workflow.name
-      })
-
-      logger.debug('✅ [WorkflowService] Successfully created workflow', {
-        workflowId: workflow.id,
-        name: workflow.name
-      });
 
       return workflow
 

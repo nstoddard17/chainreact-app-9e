@@ -54,6 +54,11 @@ interface Team {
   organization_id?: string
   member_count: number
   user_role?: string
+  billing?: {
+    plan?: string
+    credits?: number
+    billing_source?: 'owner' | 'organization'
+  }
 }
 
 type SettingsSection = 'general' | 'billing'
@@ -518,22 +523,53 @@ export function TeamSettingsContent() {
             <Card>
               <CardHeader>
                 <CardTitle>Current Plan</CardTitle>
-                <CardDescription>Your team's subscription is managed through Stripe</CardDescription>
+                <CardDescription>
+                  {currentTeam?.billing?.billing_source === 'owner'
+                    ? 'Team inherits billing from the owner\'s personal account'
+                    : 'Your team\'s subscription is managed through Stripe'}
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="flex items-center justify-between p-6 border rounded-lg bg-muted/50">
                   <div>
-                    <h3 className="font-semibold text-lg">Free Plan</h3>
+                    <h3 className="font-semibold text-lg">
+                      {currentTeam?.billing?.plan
+                        ? `${currentTeam.billing.plan.charAt(0).toUpperCase() + currentTeam.billing.plan.slice(1)} Plan`
+                        : 'Free Plan'}
+                    </h3>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Basic features for small teams
+                      {currentTeam?.billing?.billing_source === 'owner'
+                        ? 'Managed by team owner'
+                        : currentTeam?.billing?.plan === 'pro'
+                        ? 'Advanced features for growing teams'
+                        : currentTeam?.billing?.plan === 'enterprise'
+                        ? 'Full platform access with premium support'
+                        : 'Basic features for small teams'}
                     </p>
+                    {currentTeam?.billing?.credits !== undefined && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {currentTeam.billing.credits.toLocaleString()} credits remaining
+                      </p>
+                    )}
                   </div>
                   <Button
-                    onClick={() => router.push('/settings/billing')}
+                    onClick={() => {
+                      // Route to appropriate billing page
+                      if (currentTeam?.billing?.billing_source === 'owner') {
+                        // For standalone teams, route to personal settings
+                        router.push('/settings?tab=billing')
+                      } else if (currentTeam?.organization_id) {
+                        // For org teams, route to org settings
+                        router.push('/organization-settings?tab=billing')
+                      } else {
+                        // Fallback to personal settings
+                        router.push('/settings?tab=billing')
+                      }
+                    }}
                     className="gap-2"
                   >
                     <CreditCard className="w-4 h-4" />
-                    Upgrade Plan
+                    {currentTeam?.billing?.plan === 'free' || !currentTeam?.billing?.plan ? 'Upgrade Plan' : 'Manage Plan'}
                   </Button>
                 </div>
 
@@ -546,14 +582,23 @@ export function TeamSettingsContent() {
                     </div>
                     <div className="flex items-center gap-2 text-sm">
                       <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                      <span>Up to 5 team members</span>
+                      <span>{currentTeam?.billing?.plan === 'enterprise' ? 'Unlimited' : currentTeam?.billing?.plan === 'pro' ? 'Up to 25' : 'Up to 5'} team members</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm">
                       <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                      <span>Community support</span>
+                      <span>{currentTeam?.billing?.plan === 'enterprise' ? 'Priority support' : currentTeam?.billing?.plan === 'pro' ? 'Email support' : 'Community support'}</span>
                     </div>
                   </div>
                 </div>
+
+                {currentTeam?.billing?.billing_source === 'owner' && (
+                  <div className="p-4 border rounded-lg bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900">
+                    <p className="text-sm text-blue-900 dark:text-blue-200">
+                      <strong>Note:</strong> This team uses the owner's personal plan and quota.
+                      To upgrade, the team owner should manage their plan in personal settings.
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
