@@ -182,7 +182,7 @@ export function SocialProofSection() {
             <Button
               size="lg"
               onClick={() => router.push('/waitlist')}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium"
+              className="bg-white hover:bg-gray-50 dark:bg-white dark:hover:bg-gray-50 text-gray-900 dark:text-white hover:text-gray-900 dark:hover:text-gray-900 border border-gray-200 dark:border-gray-200 shadow-sm px-6 py-3 rounded-lg font-medium"
             >
               Get Early Access
               <ArrowRight className="w-4 h-4 ml-2" />

@@ -43,6 +43,8 @@ interface Profile {
   ai_agent_preference?: 'always_show' | 'always_skip' | 'ask_later'
   ai_agent_skip_count?: number
   ai_agent_preference_updated_at?: string
+  default_workspace_type?: 'personal' | 'team' | 'organization' | null
+  default_workspace_id?: string | null
 }
 
 interface AuthState {
@@ -55,6 +57,8 @@ interface AuthState {
   initialize: () => Promise<void>
   signOut: () => Promise<void>
   updateProfile: (updates: Partial<Profile>) => Promise<void>
+  updateDefaultWorkspace: (workspaceType: 'personal' | 'team' | 'organization' | null, workspaceId?: string | null) => Promise<void>
+  clearDefaultWorkspace: () => Promise<void>
   signIn: (email: string, password: string) => Promise<void>
   signUp: (email: string, password: string, metadata?: Record<string, any>) => Promise<void>
   signInWithGoogle: () => Promise<void>
@@ -976,6 +980,75 @@ export const useAuthStore = create<AuthState>()(
         } catch (error: any) {
           logger.error("Profile update error:", error)
           set({ error: error.message })
+          throw error
+        }
+      },
+
+      updateDefaultWorkspace: async (workspaceType: 'personal' | 'team' | 'organization' | null, workspaceId?: string | null) => {
+        try {
+          const { user, profile } = get()
+          if (!user) throw new Error("No user logged in")
+
+          logger.debug('[AuthStore] Updating default workspace:', { workspaceType, workspaceId })
+
+          const response = await fetch('/api/user/default-workspace', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              workspace_type: workspaceType,
+              workspace_id: workspaceId
+            })
+          })
+
+          if (!response.ok) {
+            const error = await response.json()
+            throw new Error(error.error || 'Failed to update default workspace')
+          }
+
+          // Update local profile state
+          set({
+            profile: {
+              ...profile,
+              default_workspace_type: workspaceType,
+              default_workspace_id: workspaceId || null
+            } as Profile
+          })
+
+          logger.info('[AuthStore] Default workspace updated successfully')
+        } catch (error: any) {
+          logger.error('[AuthStore] Error updating default workspace:', error)
+          throw error
+        }
+      },
+
+      clearDefaultWorkspace: async () => {
+        try {
+          const { user, profile } = get()
+          if (!user) throw new Error("No user logged in")
+
+          logger.debug('[AuthStore] Clearing default workspace')
+
+          const response = await fetch('/api/user/default-workspace', {
+            method: 'DELETE'
+          })
+
+          if (!response.ok) {
+            const error = await response.json()
+            throw new Error(error.error || 'Failed to clear default workspace')
+          }
+
+          // Update local profile state
+          set({
+            profile: {
+              ...profile,
+              default_workspace_type: null,
+              default_workspace_id: null
+            } as Profile
+          })
+
+          logger.info('[AuthStore] Default workspace cleared successfully')
+        } catch (error: any) {
+          logger.error('[AuthStore] Error clearing default workspace:', error)
           throw error
         }
       },
