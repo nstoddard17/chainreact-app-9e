@@ -1,8 +1,7 @@
 import { Suspense } from "react"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
-import { cookies } from "next/headers"
 import { redirect, notFound } from "next/navigation"
-import OrganizationContent from "@/components/teams/OrganizationContent"
+import TeamDetailContent from "@/components/teams/TeamDetailContent"
 
 // Force dynamic rendering since teams uses auth and real-time data
 export const dynamic = 'force-dynamic'
@@ -11,7 +10,7 @@ interface Props {
   params: Promise<{ slug: string }>
 }
 
-export default async function OrganizationPage({ params }: Props) {
+export default async function TeamDetailPage({ params }: Props) {
   const { slug } = await params
   const supabase = await createSupabaseServerClient()
 
@@ -24,24 +23,24 @@ export default async function OrganizationPage({ params }: Props) {
     redirect("/auth/login")
   }
 
-  // Check if organization exists and user has access
-  const { data: organization } = await supabase
-    .from("organizations")
+  // Check if team exists and user has access
+  const { data: team } = await supabase
+    .from("teams")
     .select(`
       *,
-      members:organization_members!inner(role)
+      team_members!inner(role, joined_at)
     `)
     .eq("slug", slug)
-    .eq("organization_members.user_id", user.id)
+    .eq("team_members.user_id", user.id)
     .single()
 
-  if (!organization) {
+  if (!team) {
     notFound()
   }
 
   return (
     <Suspense fallback={null}>
-      <OrganizationContent organization={organization} />
+      <TeamDetailContent team={team} />
     </Suspense>
   )
 }
