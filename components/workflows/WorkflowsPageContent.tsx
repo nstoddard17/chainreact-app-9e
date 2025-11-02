@@ -13,6 +13,7 @@ import ShareWorkflowDialog from '@/components/workflows/ShareWorkflowDialog'
 import { WorkspaceGroupView } from '@/components/workflows/WorkspaceGroupView'
 import { useWorkflowCreation } from '@/hooks/useWorkflowCreation'
 import { WorkspaceSelectionModal } from '@/components/workflows/WorkspaceSelectionModal'
+import { ConnectedNodesDisplay } from '@/components/workflows/ConnectedNodesDisplay'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -1786,6 +1787,9 @@ function WorkflowsContent() {
                       </button>
                     </th>
                     <th className="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                      Connected Nodes
+                    </th>
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                       Folder
                     </th>
                     <th className="px-3 py-3 text-left">
@@ -1929,6 +1933,9 @@ function WorkflowsContent() {
                               )}
                             </div>
                           </div>
+                        </td>
+                        <td className="px-3 py-4">
+                          <ConnectedNodesDisplay nodes={workflow.nodes || []} />
                         </td>
                         <td className="px-3 py-4">
                           <div

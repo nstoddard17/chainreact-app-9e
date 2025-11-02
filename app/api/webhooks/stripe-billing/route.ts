@@ -446,6 +446,67 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription, supa
     } else {
       logger.debug("[Stripe Webhook] Successfully downgraded user role to 'free'")
     }
+
+    // ========================================================================
+    // NEW: Trigger grace period for user's teams
+    // ========================================================================
+    await handleUserDowngrade(userId, supabase)
+  }
+}
+
+/**
+ * Handle user downgrade: Set grace period for all teams owned by this user
+ */
+async function handleUserDowngrade(userId: string, supabase: any) {
+  logger.info(`[Stripe Webhook] Handling downgrade for user ${userId}`)
+
+  try {
+    // Find all teams where this user is the creator/owner
+    const { data: ownedTeams, error: teamsError } = await supabase
+      .from("teams")
+      .select("id, name, created_by")
+      .eq("created_by", userId)
+      .is("suspended_at", null) // Only active teams
+
+    if (teamsError) {
+      logger.error("[Stripe Webhook] Error fetching user's teams:", teamsError)
+      return
+    }
+
+    if (!ownedTeams || ownedTeams.length === 0) {
+      logger.info("[Stripe Webhook] User has no teams to suspend")
+      return
+    }
+
+    logger.info(`[Stripe Webhook] Found ${ownedTeams.length} teams owned by user ${userId}`)
+
+    // Calculate grace period end date (5 days from now)
+    const gracePeriodEndsAt = new Date()
+    gracePeriodEndsAt.setDate(gracePeriodEndsAt.getDate() + 5)
+
+    // Set grace period for each team
+    for (const team of ownedTeams) {
+      const { error: updateError } = await supabase
+        .from("teams")
+        .update({
+          grace_period_ends_at: gracePeriodEndsAt.toISOString(),
+          suspension_reason: "owner_downgraded",
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", team.id)
+
+      if (updateError) {
+        logger.error(`[Stripe Webhook] Failed to set grace period for team ${team.id}:`, updateError)
+      } else {
+        logger.info(`[Stripe Webhook] Set 5-day grace period for team "${team.name}" (${team.id})`)
+        // Note: The database trigger will automatically create the notification
+      }
+    }
+
+    logger.info(`[Stripe Webhook] Grace period set for ${ownedTeams.length} teams. Suspension will occur on ${gracePeriodEndsAt.toISOString()}`)
+  } catch (error: any) {
+    logger.error("[Stripe Webhook] Error handling user downgrade:", error)
+    // Don't throw - this is supplementary to the main subscription cancellation
   }
 }
 
