@@ -2,18 +2,18 @@
  * FlowEdges.tsx
  *
  * Consistent edge styling for all workflows.
- * Features: 1.5px stroke, subtle color, smooth curves, small arrowheads.
+ * Features: 1.5px stroke, subtle color, straight lines, small arrowheads.
  */
 
 import React from 'react'
-import { BaseEdge, EdgeLabelRenderer, getBezierPath, type EdgeProps } from '@xyflow/react'
+import { type EdgeProps } from '@xyflow/react'
 
 /**
  * Custom Flow Edge Component
  *
  * Style:
  * - Stroke: 1.5px, color #d0d6e0 (neutral grey)
- * - Path: Smooth bezier curve (slight S-curve)
+ * - Path: Straight line from handle to handle
  * - Arrowhead: Small triangle on target
  * - Hover: Darker stroke (#9ca3af)
  * - Hit area: Widened for easier interaction
@@ -30,26 +30,26 @@ export function FlowEdge({
   markerEnd,
   selected,
 }: EdgeProps) {
-  const [edgePath, labelX, labelY] = getBezierPath({
-    sourceX,
-    sourceY,
-    sourcePosition,
-    targetX,
-    targetY,
-    targetPosition,
-  })
+  // Create a simple horizontal line directly from source to target
+  // This ensures the line goes straight from half-moon to half-moon
+  const edgePath = `M ${sourceX},${sourceY} L ${targetX},${targetY}`
 
+  console.log('[FlowEdge] Rendering STRAIGHT edge:', { id, sourceX, sourceY, targetX, targetY, path: edgePath })
+
+  // Render the edge path directly without BaseEdge to avoid any modifications
   return (
-    <>
-      <BaseEdge
+    <g className="react-flow__edge">
+      {/* Main visible path */}
+      <path
         id={id}
-        path={edgePath}
-        markerEnd={markerEnd}
+        d={edgePath}
+        fill="none"
+        stroke={selected ? '#9ca3af' : '#d0d6e0'}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        markerEnd={markerEnd ? 'url(#react-flow__arrowclosed)' : undefined}
         style={{
-          stroke: selected ? '#9ca3af' : '#d0d6e0',
-          strokeWidth: 1.5,
-          strokeLinecap: 'round',
-          strokeLinejoin: 'round',
           transition: 'stroke 120ms ease-out',
           ...style,
         }}
@@ -61,8 +61,9 @@ export function FlowEdge({
         stroke="transparent"
         strokeWidth={10}
         className="react-flow__edge-interaction"
+        style={{ pointerEvents: 'all' }}
       />
-    </>
+    </g>
   )
 }
 

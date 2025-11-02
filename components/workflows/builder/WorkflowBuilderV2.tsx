@@ -1130,14 +1130,16 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
           }
         }).filter(Boolean)
 
-        // Create all edges
+        // Create all edges - connect half-moon to half-moon directly
         const allEdges = []
         for (let i = 1; i < allNodes.length; i++) {
           allEdges.push({
             id: `${allNodes[i-1].id}-${allNodes[i].id}`,
             source: allNodes[i-1].id,
             target: allNodes[i].id,
-            type: 'custom',
+            sourceHandle: 'source',
+            targetHandle: 'target',
+            type: 'straight', // Use straight edge to go directly between handles
             style: {
               stroke: '#94a3b8',
               strokeWidth: 2,

@@ -964,10 +964,10 @@ function CustomNode({ id, data, selected }: NodeProps) {
         onDeleteSelected={onDeleteSelected}
       >
         <div
-          className="relative w-[450px] bg-slate-50/50 rounded-lg shadow-sm border-2 border-slate-200 group transition-all duration-200 overflow-hidden"
+          className="relative w-[450px] bg-slate-50/80 rounded-lg shadow-sm border-2 border-slate-200 group transition-all duration-200 overflow-hidden"
           data-testid={`node-${id}-skeleton`}
           style={{
-            opacity: 0.7,
+            opacity: 0.95,
             width: '450px',
             maxWidth: '450px',
             minWidth: '450px',
@@ -1020,6 +1020,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
           {/* Input handle - Half-moon on left side */}
           {!isTrigger && (
             <Handle
+              id="target"
               type="target"
               position={Position.Left}
               className="!w-[18px] !h-10 !rounded-r-full !rounded-l-none !transition-all !duration-200"
@@ -1041,6 +1042,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
 
           {/* Output handle - Half-moon on right side */}
           <Handle
+            id="source"
             type="source"
             position={Position.Right}
             className="!w-[18px] !h-10 !rounded-l-full !rounded-r-none !transition-all !duration-200"
@@ -1561,6 +1563,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
       {/* Input handle - Half-moon on left side - Blends with node state */}
       {!isTrigger && (
         <Handle
+          id="target"
           type="target"
           position={Position.Left}
           className="!w-[18px] !h-10 !rounded-r-full !rounded-l-none !transition-all !duration-200"
@@ -1582,6 +1585,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
 
       {/* Output handle - Half-moon on right side - Blends with node state */}
       <Handle
+        id="source"
         type="source"
         position={Position.Right}
         className="!w-[18px] !h-10 !rounded-l-full !rounded-r-none !transition-all !duration-200"
