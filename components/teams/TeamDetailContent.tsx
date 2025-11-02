@@ -18,6 +18,7 @@ import {
 import { useWorkflowStore } from "@/stores/workflowStore"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { hasPermission, type TeamRole } from "@/lib/types/roles"
+import { TeamActivityFeed } from "@/components/teams/TeamActivityFeed"
 
 interface Team {
   id: string
@@ -290,9 +291,7 @@ export default function TeamDetailContent({ team }: TeamDetailContentProps) {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-sm text-slate-500 text-center py-8">
-                  Activity feed coming soon
-                </div>
+                <TeamActivityFeed teamId={team.id} />
               </CardContent>
             </Card>
           </TabsContent>
