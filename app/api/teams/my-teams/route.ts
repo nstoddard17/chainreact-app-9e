@@ -63,23 +63,18 @@ export async function GET(request: NextRequest) {
     // Step 2: Get team details and member counts in parallel
     const teamIds = teamMemberships.map(tm => tm.team_id)
 
-    const [teamsResult, countsResult] = await Promise.all([
+    const [teamsResult, allMembersResult] = await Promise.all([
       // Get team details
       serviceSupabase
         .from('teams')
         .select('id, name, slug, description, organization_id, created_at')
         .in('id', teamIds),
 
-      // Get member counts for all teams at once
-      Promise.all(
-        teamIds.map(async (teamId) => {
-          const { count } = await serviceSupabase
-            .from('team_members')
-            .select('id', { count: 'exact', head: true })
-            .eq('team_id', teamId)
-          return { teamId, count: count || 0 }
-        })
-      )
+      // Get all members for all teams in ONE query (batch lookup)
+      serviceSupabase
+        .from('team_members')
+        .select('team_id')
+        .in('team_id', teamIds)
     ])
 
     if (teamsResult.error) {
@@ -87,13 +82,22 @@ export async function GET(request: NextRequest) {
       throw teamsResult.error
     }
 
-    logger.debug('[My Teams API] Teams and counts fetched:', {
+    if (allMembersResult.error) {
+      logger.error('[My Teams API] Error fetching members:', allMembersResult.error)
+      throw allMembersResult.error
+    }
+
+    logger.debug('[My Teams API] Teams and members fetched:', {
       teamsCount: teamsResult.data?.length || 0,
+      membersCount: allMembersResult.data?.length || 0,
       elapsed: Date.now() - startTime
     })
 
-    // Step 3: Merge everything together
-    const countMap = new Map(countsResult.map(c => [c.teamId, c.count]))
+    // Step 3: Count members per team in memory (fast)
+    const countMap = new Map<string, number>()
+    allMembersResult.data?.forEach(member => {
+      countMap.set(member.team_id, (countMap.get(member.team_id) || 0) + 1)
+    })
 
     const teams = teamMemberships
       .map((tm: any) => {
