@@ -77,6 +77,20 @@
   z-index: 5;
 }
 
+/* ===== Skeleton Node Stacking ===== */
+
+/* Ensure skeleton node content stays behind handles */
+.node-skeleton > *:not(.react-flow__handle) {
+  position: relative;
+  z-index: 2;
+}
+
+/* Ensure skeleton handles stay on top */
+.node-skeleton > .react-flow__handle {
+  position: absolute !important;
+  z-index: 10 !important; /* Higher than running to ensure visibility during build animation */
+}
+
 /* ===== Status Badge Styling ===== */
 
 /* Ready state badge */
