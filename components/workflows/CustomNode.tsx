@@ -997,8 +997,8 @@ function CustomNode({ id, data, selected }: NodeProps) {
                         <h3 className="text-lg font-semibold text-slate-400 whitespace-nowrap overflow-hidden text-ellipsis flex-1">
                           {title || (component && component.title) || 'Unnamed Action'}
                         </h3>
-                        <span className="inline-flex items-center rounded-full bg-slate-200 text-slate-500 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 flex-shrink-0">
-                          Skeleton
+                        <span className="inline-flex items-center rounded-full bg-orange-100 text-orange-700 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 flex-shrink-0">
+                          Setup Required
                         </span>
                       </div>
                       {description && (
