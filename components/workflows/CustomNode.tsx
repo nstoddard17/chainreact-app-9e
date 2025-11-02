@@ -745,7 +745,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
   const hasTestEntries = testDataEntries.length > 0
   // Hide auto-configured fields in skeleton and ready states
   // Only show when AI is actively populating (after Continue is clicked)
-  const showConfigSection = hasConfigEntries || ['preparing', 'creating', 'configuring', 'configured', 'testing', 'testing_successful'].includes(aiStatus || '')
+  const showConfigSection = ['preparing', 'creating', 'configuring', 'configured', 'testing', 'testing_successful'].includes(aiStatus || '')
   const displayConfigEntries = useMemo(() => {
     if (configEntries.length > 0) return configEntries
     if (progressConfigEntries.length > 0) {
