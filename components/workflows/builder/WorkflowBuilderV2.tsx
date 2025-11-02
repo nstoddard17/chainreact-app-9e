@@ -1071,14 +1071,15 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
         builder.setEdges([])
 
         // Positioning - nodes in horizontal row
-        // Place nodes AFTER the agent panel with generous offset
-        const BASE_X = agentPanelWidth + 250 // Agent panel width + 250px margin (further right)
-        const BASE_Y = 200 // Vertical center
+        // Place nodes AFTER the agent panel with generous offset and centered vertically
+        const BASE_X = agentPanelWidth + 400 // Agent panel width + 400px margin (more right, better centered)
+        const BASE_Y = 350 // Vertical center - more in middle of viewport
         const H_SPACING = 500 // Wide spacing between nodes
 
         console.log('[handleBuild] Node positioning:', {
           agentPanelWidth,
           BASE_X,
+          BASE_Y,
           firstNodeX: BASE_X,
           secondNodeX: BASE_X + H_SPACING
         })
@@ -1089,15 +1090,19 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
           const metadata = (plannerNode?.metadata ?? {}) as any
           const catalogNode = ALL_NODE_COMPONENTS.find(c => c.type === plannerNode.type)
 
+          const nodePosition = {
+            x: BASE_X + (i * H_SPACING),
+            y: BASE_Y,
+          }
+
           return {
             id: plannerNode.id,
             type: 'custom',
-            position: {
-              x: BASE_X + (i * H_SPACING),
-              y: BASE_Y,
-            },
+            position: nodePosition,
+            positionAbsolute: nodePosition, // Force absolute positioning
             selected: false,
-            draggable: true,
+            draggable: false, // Prevent any dragging/repositioning
+            connectable: true,
             data: {
               label: plannerNode.label ?? plannerNode.type,
               title: plannerNode.label ?? plannerNode.type,
@@ -1113,17 +1118,28 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
               costHint: plannerNode.costHint ?? 0,
             },
             className: 'node-skeleton',
+            style: {
+              // Force exact alignment - override any CSS causing offset
+              margin: 0,
+              marginTop: 0,
+              marginBottom: 0,
+              verticalAlign: 'top',
+              alignSelf: 'flex-start',
+              top: 0,
+            },
           }
         }).filter(Boolean)
 
-        // Create all edges
+        // Create all edges - connect half-moon to half-moon directly
         const allEdges = []
         for (let i = 1; i < allNodes.length; i++) {
           allEdges.push({
             id: `${allNodes[i-1].id}-${allNodes[i].id}`,
             source: allNodes[i-1].id,
             target: allNodes[i].id,
-            type: 'custom',
+            sourceHandle: 'source',
+            targetHandle: 'target',
+            type: 'custom', // Align with FlowEdge styling used in ready state
             style: {
               stroke: '#94a3b8',
               strokeWidth: 2,
@@ -1131,22 +1147,89 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
           })
         }
 
-        console.log('[handleBuild] Adding all nodes:', {
+        console.log('[handleBuild] Preparing to add nodes one at a time:', {
           count: allNodes.length,
-          positions: allNodes.map(n => ({ id: n.id, x: n.position.x, y: n.position.y }))
+          positions: allNodes.map(n => ({ id: n.id, x: n.position.x, y: n.position.y })),
+          edges: allEdges.map(e => ({ id: e.id, source: e.source, target: e.target }))
         })
 
-        // Set everything at once
-        builder.setNodes(allNodes)
-        builder.setEdges(allEdges)
+        // STEP 4: Add nodes one at a time with animation
+        const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+        // Start with empty nodes and edges
+        builder.setNodes([])
+        builder.setEdges([])
+
+        // Add nodes one at a time
+        for (let i = 0; i < allNodes.length; i++) {
+          const node = allNodes[i]
+          console.log(`[handleBuild] Adding node ${i + 1}/${allNodes.length}:`, node.id)
+
+          // Add the node
+          builder.setNodes(prev => [...prev, node])
+
+          // Add edge if this isn't the first node
+          if (i > 0) {
+            const edge = allEdges[i - 1]
+            builder.setEdges(prev => [...prev, edge])
+          }
+
+          // Wait 700ms before adding next node (slower, more visible)
+          await wait(700)
+        }
+
+        console.log('[handleBuild] All nodes added, waiting before zoom animation')
+
+        // Force positions to stay fixed - check multiple times
+        // React Flow sometimes repositions nodes after initial render
+        const fixPositions = () => {
+          const currentNodes = reactFlowInstanceRef.current?.getNodes()
+          if (!currentNodes) return false
+
+          console.log('[handleBuild] Position check:',
+            currentNodes.map(n => ({ id: n.id, x: n.position.x, y: n.position.y }))
+          )
+
+          // Check if any Y positions changed
+          const needsFixing = currentNodes.some(node => {
+            const originalNode = allNodes.find(n => n.id === node.id)
+            return originalNode && Math.abs(node.position.y - originalNode.position.y) > 5
+          })
+
+          if (needsFixing) {
+            console.log('[handleBuild] ⚠️ Positions changed! Forcing back to Y=' + BASE_Y)
+            const fixedNodes = currentNodes.map(node => {
+              const originalNode = allNodes.find(n => n.id === node.id)
+              if (originalNode) {
+                return {
+                  ...node,
+                  position: {
+                    ...node.position,
+                    y: BASE_Y, // Force all nodes to same Y
+                  }
+                }
+              }
+              return node
+            })
+            builder.setNodes(fixedNodes)
+            return true
+          }
+          return false
+        }
+
+        // Check positions at 100ms, 300ms, 600ms, and 1000ms
+        setTimeout(() => fixPositions(), 100)
+        setTimeout(() => fixPositions(), 300)
+        setTimeout(() => fixPositions(), 600)
+        setTimeout(() => fixPositions(), 1000)
 
         setBuildMachine(prev => ({
           ...prev,
           nodesCache: allNodes,
         }))
 
-        // STEP 5: Keep nodes where we positioned them - don't move viewport
-        await new Promise(resolve => setTimeout(resolve, 500))
+        // STEP 5: Wait longer after all nodes added so user sees them all in skeleton state
+        await wait(1000)
 
         // Log actual node positions after render
         if (reactFlowInstanceRef.current) {
@@ -1158,8 +1241,86 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
 
         const firstNode = allNodes[0]
 
-        // STEP 7: Update status and transition to WAITING_USER
-        // This will trigger the first node pill to expand in the Flow Plan
+        // STEP 6: Transition first node to ready state after all nodes visible
+        console.log('[handleBuild] Transitioning first node to ready state')
+        const firstPlanNode = buildMachine.plan[0]
+        // Use allNodes[0].id directly instead of relying on state mapping
+        const firstReactNodeId = allNodes[0]?.id
+
+        console.log('[handleBuild] First node transition:', {
+          firstPlanNode: firstPlanNode?.id,
+          firstReactNodeId,
+          firstNodeFromArray: allNodes[0]?.id,
+          hasBuilder: !!builder,
+          hasInstance: !!reactFlowInstanceRef.current
+        })
+
+        if (firstReactNodeId && reactFlowInstanceRef.current) {
+          console.log('[handleBuild] ✨ TRANSITIONING NODE FROM SKELETON TO READY:', firstReactNodeId)
+
+          setNodeState(reactFlowInstanceRef.current, firstReactNodeId, 'ready')
+          builder.setNodes((current: any[]) => {
+            const working = current && current.length > 0 ? current : (buildMachine.nodesCache ?? [])
+            const updated = working.map(node => {
+              if (node.id === firstReactNodeId) {
+                console.log('[handleBuild] 🎯 Updating node data:', {
+                  nodeId: node.id,
+                  oldState: node.data?.state,
+                  newState: 'ready',
+                  oldAiStatus: node.data?.aiStatus,
+                  newAiStatus: 'awaiting_user'
+                })
+                return {
+                  ...node,
+                  data: {
+                    ...node.data,
+                    state: 'ready',
+                    aiStatus: 'awaiting_user',
+                  },
+                  className: 'node-ready',
+                }
+              }
+              return node
+            })
+            console.log('[handleBuild] Updated nodes count:', updated.length)
+            return updated
+          })
+
+          // Wait longer for state transition to be visible before zoom
+          await wait(600)
+        } else {
+          console.log('[handleBuild] ⚠️ Cannot transition first node - missing ID or instance')
+        }
+
+        // STEP 7: Zoom to first node with animation
+        console.log('[handleBuild] Starting zoom animation to first node')
+        if (reactFlowInstanceRef.current && firstNode) {
+          const instance = reactFlowInstanceRef.current
+
+          // Pan to the LEFT (negative adjustment) so nodes appear more to the RIGHT
+          // This keeps them out from under the agent panel
+          const nodeCenterX = firstNode.position.x - 150 // Pan 150px to the left
+          const nodeCenterY = firstNode.position.y + 50 // Vertical center
+
+          console.log('[handleBuild] Zoom calculation:', {
+            agentPanelWidth,
+            nodeCenterX,
+            nodeCenterY,
+            nodePosition: firstNode.position,
+            panAdjustment: '-150px to left'
+          })
+
+          // Zoom to first node with smooth animation
+          instance.setCenter(nodeCenterX, nodeCenterY, {
+            zoom: 1.0, // Keep at 1x zoom to ensure all nodes stay visible
+            duration: 1200, // 1.2 second animation (smooth)
+          })
+
+          // Wait for zoom animation to complete
+          await wait(1400)
+        }
+
+        // STEP 8: Update status and transition to WAITING_USER
         await persistOrQueueStatus("Flow ready ✅")
 
         setBuildMachine(prev => ({
@@ -1168,29 +1329,6 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
         }))
 
         transitionTo(BuildState.WAITING_USER)
-
-        // STEP 8: After transitioning to WAITING_USER, transition first node from skeleton → ready
-        await new Promise(resolve => setTimeout(resolve, 200))
-
-        if (firstNode && reactFlowInstanceRef.current) {
-          console.log('[handleBuild Animation] Transitioning first node to ready state')
-          setNodeState(reactFlowInstanceRef.current, firstNode.id, 'ready')
-          builder.setNodes(prevNodes => prevNodes.map(node => {
-            if (node.id === firstNode.id) {
-              return {
-                ...node,
-                selected: false, // Keep node unselected (no blue border)
-                data: {
-                  ...node.data,
-                  state: 'ready',
-                  aiStatus: 'awaiting_user',
-                },
-                className: 'node-ready',
-              }
-            }
-            return node
-          }))
-        }
       }, 100) // Small delay to let React update
 
     } catch (error: any) {
@@ -1528,7 +1666,7 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
     transitionTo(BuildState.PLAN_READY)
   }, [transitionTo])
 
-  // Apply node styling based on build state
+  // Apply node styling based on node state (not build progress)
   useEffect(() => {
     if (!builder?.nodes || buildMachine.state === BuildState.IDLE) {
       return
@@ -1536,29 +1674,30 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
 
     const { state, progress } = buildMachine
 
-    // Apply CSS classes to nodes based on build state
+    // Apply CSS classes based on actual node state
     const updatedNodes = builder.nodes.map((node, index) => {
+      const nodeState = node.data?.state || 'ready'
       let className = ''
 
       if (state === BuildState.BUILDING_SKELETON) {
         // All nodes are grey during skeleton building
-        className = 'node-grey'
-      } else if (
-        state === BuildState.WAITING_USER ||
-        state === BuildState.PREPARING_NODE ||
-        state === BuildState.TESTING_NODE
-      ) {
-        // During node setup/testing
-        if (index < progress.currentIndex) {
-          className = 'node-done' // Completed nodes
-        } else if (index === progress.currentIndex) {
-          className = 'node-active' // Current node being configured
-        } else {
-          className = 'node-grey' // Future nodes
+        className = 'node-skeleton node-grey'
+      } else {
+        // Use node's actual state to determine styling
+        if (nodeState === 'skeleton') {
+          className = 'node-skeleton node-grey'
+        } else if (nodeState === 'ready') {
+          // Ready node waiting for user interaction
+          if (index === progress.currentIndex) {
+            className = 'node-ready' // Current node ready for configuration
+          } else {
+            className = 'node-ready' // Ready but not current
+          }
+        } else if (nodeState === 'running') {
+          className = 'node-active' // Node is being configured/tested
+        } else if (nodeState === 'passed' || nodeState === 'failed') {
+          className = 'node-done' // Node completed (never changes back)
         }
-      } else if (state === BuildState.COMPLETE) {
-        // All nodes are done
-        className = 'node-done'
       }
 
       return {
@@ -1573,6 +1712,32 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
       builder.setNodes(updatedNodes)
     }
   }, [buildMachine.state, buildMachine.progress, builder])
+
+  // Clear node selection during build states to prevent accidental mass deletion
+  useEffect(() => {
+    const isBuildActive =
+      buildMachine.state === BuildState.BUILDING_SKELETON ||
+      buildMachine.state === BuildState.WAITING_USER ||
+      buildMachine.state === BuildState.PREPARING_NODE ||
+      buildMachine.state === BuildState.CONFIGURING_NODE ||
+      buildMachine.state === BuildState.TESTING_NODE
+
+    if (isBuildActive && builder?.nodes && builder.setNodes) {
+      // Check if any nodes are actually selected before updating
+      const hasSelectedNodes = builder.nodes.some(node => node.selected === true)
+
+      if (hasSelectedNodes) {
+        console.log('[WorkflowBuilderV2] Clearing node selection during build state:', buildMachine.state)
+        const updatedNodes = builder.nodes.map(node => ({
+          ...node,
+          selected: false,
+        }))
+        builder.setNodes(updatedNodes)
+      }
+    }
+    // Only depend on buildMachine.state to avoid infinite loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buildMachine.state])
 
   // Get cost breakdown for CostDisplay
   const costBreakdown = useMemo(() => {

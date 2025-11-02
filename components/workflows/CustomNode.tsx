@@ -176,11 +176,8 @@ function CustomNode({ id, data, selected }: NodeProps) {
           boxShadow: '0 6px 16px rgba(59, 130, 246, 0.20)',
         }
       case 'skeleton':
-        return {
-          background: 'linear-gradient(180deg, rgba(255, 248, 240, 0.95), rgba(255, 241, 224, 0.95))',
-          borderColor: 'rgba(253, 186, 116, 0.4)',
-          boxShadow: '0 4px 10px rgba(253, 186, 116, 0.15)',
-        }
+        // Skeleton nodes use same grey half-moons as ready nodes
+        return baseStyle
       case 'passed':
         return {
           background: 'linear-gradient(180deg, rgba(229, 250, 239, 0.95), rgba(209, 241, 223, 0.95))',
@@ -323,17 +320,20 @@ function CustomNode({ id, data, selected }: NodeProps) {
       isActiveStatus,
       autoExpand,
       aiStatus,
+      nodeState,
+      isSkeletonState,
       isConfigExpanded,
       configKeys: config ? Object.keys(config) : [],
       configValues: config,
       aiProgressConfig
     })
 
-    if (!isConfigExpanded && (autoExpand || hasConfig || hasTestData || isActiveStatus)) {
+    // Don't auto-expand skeleton nodes - they should stay collapsed
+    if (!isConfigExpanded && !isSkeletonState && (autoExpand || hasConfig || hasTestData || isActiveStatus)) {
       console.log('[CUSTOMNODE] 📈 Expanding node:', id)
       setIsConfigExpanded(true)
     }
-  }, [autoExpand, config, testData, aiStatus, isConfigExpanded, aiProgressConfig, id, title])
+  }, [autoExpand, config, testData, aiStatus, isConfigExpanded, aiProgressConfig, id, title, nodeState, isSkeletonState])
   
   const handleStartEditTitle = () => {
     setEditedTitle(title || component?.title || 'Unnamed Action')
@@ -839,10 +839,18 @@ function CustomNode({ id, data, selected }: NodeProps) {
   const { borderClass, shadowClass, backgroundClass, ringClass } = aiOutline
 
   const idleStatus = React.useMemo(() => {
+    // Never show status badges for skeleton nodes
+    if (isSkeletonState) {
+      return null
+    }
+
     if (aiStatus === 'ready' || aiStatus === 'complete') {
       return { text: 'Successful', tone: 'success' as const }
     }
     if (aiStatus === 'awaiting_user') {
+      if (nodeState === 'ready') {
+        return null
+      }
       return { text: 'Awaiting input', tone: 'info' as const }
     }
     if (!aiStatus) {
@@ -858,7 +866,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
       return { text: 'Pending', tone: 'pending' as const }
     }
     return null
-  }, [aiStatus, executionStatus])
+  }, [aiStatus, executionStatus, isSkeletonState, nodeState])
 
   const statusIndicator = React.useMemo(() => {
     if (!aiStatus) return null
@@ -958,38 +966,70 @@ function CustomNode({ id, data, selected }: NodeProps) {
         onDelete={onDelete}
         onDeleteSelected={onDeleteSelected}
       >
-        <div className="relative w-[450px]" data-testid={`node-${id}-skeleton`}>
-          <div className="pointer-events-none select-none rounded-lg border border-slate-200 bg-slate-50 shadow-sm overflow-hidden">
-            <div className="flex items-start gap-3 px-4 py-4">
-              <div className="h-10 w-10 rounded-full bg-slate-200" />
-              <div className="flex-1 space-y-2">
-                <div className="h-4 w-1/2 rounded bg-slate-200" />
-                <div className="h-3 w-4/5 rounded bg-slate-100" />
-              </div>
-              <span className="inline-flex items-center gap-1 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                Skeleton
-              </span>
-            </div>
-            <div className="px-4 pb-5">
-              <div className="space-y-2 animate-pulse">
-                <div className="h-3 w-full rounded bg-slate-100" />
-                <div className="h-3 w-11/12 rounded bg-slate-100" />
-                <div className="h-3 w-4/5 rounded bg-slate-100" />
-              </div>
-              <div className="mt-5 h-24 rounded-md border border-dashed border-slate-200 bg-white/70 flex items-center justify-center text-xs font-medium text-slate-400 uppercase tracking-wider">
-                Preparing workflow step…
+        <div
+          className="relative w-[450px] bg-slate-50/80 rounded-lg shadow-sm border-2 border-slate-200 group transition-all duration-200 overflow-hidden"
+          data-testid={`node-${id}-skeleton`}
+          style={{
+            opacity: 0.95,
+            width: '450px',
+            maxWidth: '450px',
+            minWidth: '450px',
+            boxSizing: 'border-box',
+            flex: 'none',
+          }}
+        >
+          <div className="p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="grid grid-cols-[40px_1fr] gap-2.5 items-center flex-1 min-w-0">
+                {/* Logo - Fixed position, vertically centered */}
+                <div className="flex items-center justify-center opacity-30">
+                  {type === 'chain_placeholder' ? (
+                    <Layers className="h-7 w-7 text-muted-foreground flex-shrink-0" />
+                  ) : providerId && !logoLoadFailed && !INTERNAL_PROVIDER_IDS.has(providerId) ? (
+                    <img
+                      src={`/integrations/${providerId}.svg`}
+                      alt={`${title || ''} logo`}
+                      className={getIntegrationLogoClasses(providerId, "w-7 h-7 object-contain flex-shrink-0")}
+                      onError={() => {
+                        logger.error(`Failed to load logo for ${providerId} at path: /integrations/${providerId}.svg`)
+                        setLogoLoadFailed(true)
+                      }}
+                      onLoad={() => logger.debug(`Successfully loaded logo for ${providerId}`)}
+                    />
+                  ) : (
+                    component?.icon && React.createElement(component.icon, { className: "h-7 w-7 text-foreground flex-shrink-0" })
+                  )}
+                </div>
+                {/* Content - Flows independently */}
+                <div className="min-w-0 pr-2">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-1.5">
+                      <h3 className="text-lg font-semibold text-slate-400 whitespace-nowrap overflow-hidden text-ellipsis flex-1">
+                        {title || (component && component.title) || 'Unnamed Action'}
+                      </h3>
+                      <span className="inline-flex items-center rounded-full bg-orange-100 text-orange-700 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 flex-shrink-0">
+                        Setup Required
+                      </span>
+                    </div>
+                    {description && (
+                      <p className="text-sm text-slate-400 leading-snug line-clamp-2">{description || (component && component.description)}</p>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
+          {/* Input handle - Half-moon on left side */}
           {!isTrigger && (
             <Handle
+              id="target"
               type="target"
               position={Position.Left}
-              className="!w-[18px] !h-10 !rounded-r-full !rounded-l-none"
+              className="!w-[18px] !h-10 !rounded-r-full !rounded-l-none !transition-all !duration-200"
               style={{
                 visibility: isTrigger ? "hidden" : "visible",
-                left: "0px",
+                left: "-9px",
                 top: "44px",
                 zIndex: 5,
                 background: handleStyle.background,
@@ -1003,12 +1043,14 @@ function CustomNode({ id, data, selected }: NodeProps) {
             />
           )}
 
+          {/* Output handle - Half-moon on right side */}
           <Handle
+            id="source"
             type="source"
             position={Position.Right}
-            className="!w-[18px] !h-10 !rounded-l-full !rounded-r-none"
+            className="!w-[18px] !h-10 !rounded-l-full !rounded-r-none !transition-all !duration-200"
             style={{
-              right: "0px",
+              right: "-9px",
               top: "44px",
               zIndex: 5,
               background: handleStyle.background,
@@ -1524,6 +1566,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
       {/* Input handle - Half-moon on left side - Blends with node state */}
       {!isTrigger && (
         <Handle
+          id="target"
           type="target"
           position={Position.Left}
           className="!w-[18px] !h-10 !rounded-r-full !rounded-l-none !transition-all !duration-200"
@@ -1545,6 +1588,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
 
       {/* Output handle - Half-moon on right side - Blends with node state */}
       <Handle
+        id="source"
         type="source"
         position={Position.Right}
         className="!w-[18px] !h-10 !rounded-l-full !rounded-r-none !transition-all !duration-200"

@@ -10,6 +10,29 @@
   --fx-shimmer-duration: 2.5s;
   --fx-bounce-duration: 450ms; /* Kadabra spec: 450ms for three-dot bounce */
   --fx-fade-duration: 0.3s;
+  --fx-node-bounce-duration: 0.6s; /* Bounce animation for new nodes */
+}
+
+/* Node bounce animation when added to workflow */
+@keyframes nodeBounce {
+  0% {
+    transform: scale(0.3) translateY(-20px);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.05) translateY(5px);
+  }
+  70% {
+    transform: scale(0.95) translateY(-2px);
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+.react-flow__node-custom {
+  animation: nodeBounce var(--fx-node-bounce-duration) cubic-bezier(0.68, -0.55, 0.265, 1.55);
 }
 
 /* Shimmer effect for staged chips */
@@ -123,20 +146,32 @@
   filter: grayscale(1);
 }
 
-/* Active node highlighting */
-@keyframes node-glow {
-  0%, 100% {
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
-  }
-  50% {
-    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3), 0 0 12px rgba(59, 130, 246, 0.4);
-  }
+/* Skeleton nodes - keep grey filter on icons */
+.node-skeleton.node-grey img,
+.node-skeleton.node-grey svg {
+  filter: grayscale(1);
 }
 
+/* Ready nodes - remove grey filter from icons to show colors */
+.node-grey:not(.node-skeleton) img,
+.node-grey:not(.node-skeleton) svg {
+  filter: none !important;
+}
+
+/* Ready node (awaiting user input) */
+.node-ready {
+  filter: none !important;
+  opacity: 1 !important;
+}
+
+.node-ready * {
+  filter: none !important;
+}
+
+/* Active node highlighting */
 .node-active {
   filter: none !important;
   opacity: 1 !important;
-  animation: node-glow 2s ease-in-out infinite;
   position: relative;
   z-index: 10;
 }
@@ -209,6 +244,18 @@
 .react-flow__node-custom.selected > * {
   box-shadow: none !important;
   border-color: inherit !important;
+}
+
+/* Force all nodes to align at top edge consistently */
+.react-flow__node-custom {
+  align-items: flex-start !important;
+  vertical-align: top !important;
+}
+
+/* Ensure skeleton nodes have consistent baseline */
+.node-skeleton {
+  align-self: flex-start !important;
+  vertical-align: top !important;
 }
 
 /* Floating badge */

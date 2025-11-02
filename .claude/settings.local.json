@@ -50,7 +50,8 @@
       "Bash(cat:*)",
       "Bash(supabase db diff:*)",
       "Bash(kill:*)",
-      "Bash(xargs kill -9)"
+      "Bash(xargs kill -9)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": [],
