@@ -1071,14 +1071,15 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
         builder.setEdges([])
 
         // Positioning - nodes in horizontal row
-        // Place nodes AFTER the agent panel with generous offset
-        const BASE_X = agentPanelWidth + 250 // Agent panel width + 250px margin (further right)
-        const BASE_Y = 200 // Vertical center
+        // Place nodes AFTER the agent panel with generous offset and centered vertically
+        const BASE_X = agentPanelWidth + 400 // Agent panel width + 400px margin (more right, better centered)
+        const BASE_Y = 350 // Vertical center - more in middle of viewport
         const H_SPACING = 500 // Wide spacing between nodes
 
         console.log('[handleBuild] Node positioning:', {
           agentPanelWidth,
           BASE_X,
+          BASE_Y,
           firstNodeX: BASE_X,
           secondNodeX: BASE_X + H_SPACING
         })
@@ -1171,8 +1172,8 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
             builder.setEdges(prev => [...prev, edge])
           }
 
-          // Wait 400ms before adding next node
-          await wait(400)
+          // Wait 700ms before adding next node (slower, more visible)
+          await wait(700)
         }
 
         console.log('[handleBuild] All nodes added, waiting before zoom animation')
@@ -1238,38 +1239,7 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
 
         const firstNode = allNodes[0]
 
-        // STEP 6: Zoom to first node with animation
-        console.log('[handleBuild] Starting zoom animation to first node')
-        if (reactFlowInstanceRef.current && firstNode) {
-          const instance = reactFlowInstanceRef.current
-
-          // Calculate zoom level and position to center on first node
-          // Account for agent panel width
-          const nodeCenterX = firstNode.position.x + 225 // Half of node width (450px)
-          const nodeCenterY = firstNode.position.y + 50 // Rough center of node height
-
-          // Zoom to first node with smooth animation
-          instance.setCenter(nodeCenterX, nodeCenterY, {
-            zoom: 1.2, // Zoom in slightly
-            duration: 1000, // 1 second animation
-          })
-
-          // Wait for zoom animation to complete
-          await wait(1200)
-        }
-
-        // STEP 7: Update status and transition to WAITING_USER
-        // This will trigger the first node pill to expand in the Flow Plan
-        await persistOrQueueStatus("Flow ready ✅")
-
-        setBuildMachine(prev => ({
-          ...prev,
-          progress: { ...prev.progress, currentIndex: 0, total: buildMachine.plan.length },
-        }))
-
-        transitionTo(BuildState.WAITING_USER)
-
-        // STEP 8: Transition first node to ready state
+        // STEP 6: Transition first node to ready state BEFORE zoom
         console.log('[handleBuild] Transitioning first node to ready state')
         const firstPlanNode = buildMachine.plan[0]
         const firstReactNodeId = firstPlanNode ? buildMachine.nodeMapping?.[firstPlanNode.id] : null
@@ -1293,7 +1263,48 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
               return node
             })
           })
+
+          // Wait a moment for state to update visually
+          await wait(300)
         }
+
+        // STEP 7: Zoom to first node with animation
+        console.log('[handleBuild] Starting zoom animation to first node')
+        if (reactFlowInstanceRef.current && firstNode) {
+          const instance = reactFlowInstanceRef.current
+
+          // Pan to the LEFT (negative adjustment) so nodes appear more to the RIGHT
+          // This keeps them out from under the agent panel
+          const nodeCenterX = firstNode.position.x - 150 // Pan 150px to the left
+          const nodeCenterY = firstNode.position.y + 50 // Vertical center
+
+          console.log('[handleBuild] Zoom calculation:', {
+            agentPanelWidth,
+            nodeCenterX,
+            nodeCenterY,
+            nodePosition: firstNode.position,
+            panAdjustment: '-150px to left'
+          })
+
+          // Zoom to first node with smooth animation
+          instance.setCenter(nodeCenterX, nodeCenterY, {
+            zoom: 1.0, // Keep at 1x zoom to ensure all nodes stay visible
+            duration: 1200, // 1.2 second animation (smooth)
+          })
+
+          // Wait for zoom animation to complete
+          await wait(1400)
+        }
+
+        // STEP 8: Update status and transition to WAITING_USER
+        await persistOrQueueStatus("Flow ready ✅")
+
+        setBuildMachine(prev => ({
+          ...prev,
+          progress: { ...prev.progress, currentIndex: 0, total: buildMachine.plan.length },
+        }))
+
+        transitionTo(BuildState.WAITING_USER)
       }, 100) // Small delay to let React update
 
     } catch (error: any) {
