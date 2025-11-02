@@ -967,7 +967,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
         onDeleteSelected={onDeleteSelected}
       >
         <div
-          className="node-skeleton relative w-[450px] bg-slate-50/80 rounded-lg shadow-sm border-2 border-slate-200 group transition-all duration-200"
+          className="relative w-[450px] bg-slate-50/80 rounded-lg shadow-sm border-2 border-slate-200 group transition-all duration-200 overflow-hidden"
           data-testid={`node-${id}-skeleton`}
           style={{
             opacity: 0.95,
@@ -976,7 +976,6 @@ function CustomNode({ id, data, selected }: NodeProps) {
             minWidth: '450px',
             boxSizing: 'border-box',
             flex: 'none',
-            overflow: 'visible',
           }}
         >
           <div className="p-3">
@@ -1030,10 +1029,9 @@ function CustomNode({ id, data, selected }: NodeProps) {
               className="!w-[18px] !h-10 !rounded-r-full !rounded-l-none !transition-all !duration-200"
               style={{
                 visibility: isTrigger ? "hidden" : "visible",
-                left: "-9px",
-                top: "50%",
-                transform: "translateY(-50%)",
-                zIndex: 10,
+                left: "0px",
+                top: "44px",
+                zIndex: 5,
                 background: handleStyle.background,
                 borderRight: `1.5px solid ${handleStyle.borderColor}`,
                 borderTop: 'none',
@@ -1052,10 +1050,9 @@ function CustomNode({ id, data, selected }: NodeProps) {
             position={Position.Right}
             className="!w-[18px] !h-10 !rounded-l-full !rounded-r-none !transition-all !duration-200"
             style={{
-              right: "-9px",
-              top: "50%",
-              transform: "translateY(-50%)",
-              zIndex: 10,
+              right: "0px",
+              top: "44px",
+              zIndex: 5,
               background: handleStyle.background,
               borderLeft: `1.5px solid ${handleStyle.borderColor}`,
               borderTop: 'none',
@@ -1082,7 +1079,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
       onDeleteSelected={onDeleteSelected}
     >
       <div
-        className={`relative w-[450px] ${backgroundClass} rounded-lg shadow-sm border-2 group ${borderClass} ${shadowClass} ${ringClass} transition-all duration-200 ${
+        className={`relative w-[450px] ${backgroundClass} rounded-lg shadow-sm border-2 group ${borderClass} ${shadowClass} ${ringClass} transition-all duration-200 overflow-hidden ${
           nodeHasConfiguration() ? "cursor-pointer" : ""
         } ${getExecutionStatusStyle()} ${
           nodeState === 'running' ? 'node-running' :
@@ -1098,7 +1095,6 @@ function CustomNode({ id, data, selected }: NodeProps) {
           minWidth: '450px',
           boxSizing: 'border-box',
           flex: 'none',
-          overflow: 'visible',
         }}
       >
       {/* Phase 1: Status Badge - Top Right Corner - Click to toggle preview details */}
@@ -1576,10 +1572,9 @@ function CustomNode({ id, data, selected }: NodeProps) {
           className="!w-[18px] !h-10 !rounded-r-full !rounded-l-none !transition-all !duration-200"
           style={{
             visibility: data.isTrigger ? "hidden" : "visible",
-            left: "-9px",
-            top: "50%",
-            transform: "translateY(-50%)",
-            zIndex: 10,
+            left: "0px",
+            top: "44px",
+            zIndex: 5,
             background: handleStyle.background,
             borderRight: `1.5px solid ${handleStyle.borderColor}`,
             borderTop: 'none',
@@ -1598,10 +1593,9 @@ function CustomNode({ id, data, selected }: NodeProps) {
         position={Position.Right}
         className="!w-[18px] !h-10 !rounded-l-full !rounded-r-none !transition-all !duration-200"
         style={{
-          right: "-9px",
-          top: "50%",
-          transform: "translateY(-50%)",
-          zIndex: 10,
+          right: "0px",
+          top: "44px",
+          zIndex: 5,
           background: handleStyle.background,
           borderLeft: `1.5px solid ${handleStyle.borderColor}`,
           borderTop: 'none',
