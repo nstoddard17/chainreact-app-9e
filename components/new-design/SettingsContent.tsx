@@ -11,13 +11,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@/utils/supabaseClient"
-import { User, Bell, Shield, Palette, Loader2, Sparkles } from "lucide-react"
+import { User, Bell, Shield, Palette, Loader2, Sparkles, Settings as SettingsIcon } from "lucide-react"
 import { useTheme } from "next-themes"
 import { TwoFactorSetup } from "@/components/settings/TwoFactorSetup"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useWorkspaces } from "@/hooks/useWorkspaces"
 
 export function SettingsContent() {
   const { profile, updateProfile, user } = useAuthStore()
-  const { toast } = useToast()
+  const { toast} = useToast()
   const supabase = createClient()
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
@@ -34,6 +37,18 @@ export function SettingsContent() {
   const [show2FASetup, setShow2FASetup] = useState(false)
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false)
   const [twoFactorLoading, setTwoFactorLoading] = useState(true)
+
+  // Workspace preferences state
+  const { workspaces, loading: workspacesLoading } = useWorkspaces()
+  const [workflowCreationMode, setWorkflowCreationMode] = useState<'default' | 'ask' | 'follow_switcher'>(
+    profile?.workflow_creation_mode || 'ask'
+  )
+  const [defaultWorkspace, setDefaultWorkspace] = useState<string>(
+    profile?.default_workspace_type
+      ? `${profile.default_workspace_type}:${profile.default_workspace_id || ''}`
+      : 'personal:'
+  )
+  const [savingPreferences, setSavingPreferences] = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -202,6 +217,32 @@ export function SettingsContent() {
     }
   }
 
+  const handleSaveWorkspacePreferences = async () => {
+    setSavingPreferences(true)
+    try {
+      const [workspaceType, workspaceId] = defaultWorkspace.split(':')
+
+      await updateProfile({
+        workflow_creation_mode: workflowCreationMode,
+        default_workspace_type: workspaceType as 'personal' | 'team' | 'organization',
+        default_workspace_id: workspaceId || null
+      })
+
+      toast({
+        title: "Preferences saved",
+        description: "Your workflow creation preferences have been updated.",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save preferences. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setSavingPreferences(false)
+    }
+  }
+
   return (
     <>
     <Tabs defaultValue="profile" className="space-y-6">
@@ -221,6 +262,10 @@ export function SettingsContent() {
         <TabsTrigger value="appearance">
           <Palette className="w-4 h-4 mr-2" />
           Appearance
+        </TabsTrigger>
+        <TabsTrigger value="preferences">
+          <SettingsIcon className="w-4 h-4 mr-2" />
+          Preferences
         </TabsTrigger>
       </TabsList>
 
@@ -748,6 +793,104 @@ export function SettingsContent() {
                 ))}
               </div>
             )}
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+      {/* Preferences Tab */}
+      <TabsContent value="preferences" className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Workflow Creation Defaults</CardTitle>
+            <CardDescription>
+              Choose how new workflows should be created
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <RadioGroup value={workflowCreationMode} onValueChange={(value) => setWorkflowCreationMode(value as 'default' | 'ask' | 'follow_switcher')}>
+              <div className="space-y-4">
+                {/* Option 1: Use default workspace */}
+                <div className="flex items-start space-x-3 p-4 rounded-lg border hover:bg-accent/50 transition-colors">
+                  <RadioGroupItem value="default" id="mode-default" className="mt-1" />
+                  <div className="flex-1 space-y-2">
+                    <Label htmlFor="mode-default" className="text-base font-medium cursor-pointer">
+                      Use default workspace
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      Always create workflows in your default workspace (fastest)
+                    </p>
+                    {workflowCreationMode === 'default' && (
+                      <div className="pt-3 space-y-2">
+                        <Label htmlFor="default-workspace-select" className="text-sm">
+                          Default Workspace
+                        </Label>
+                        <Select
+                          value={defaultWorkspace}
+                          onValueChange={setDefaultWorkspace}
+                          disabled={workspacesLoading}
+                        >
+                          <SelectTrigger id="default-workspace-select" className="w-full">
+                            <SelectValue placeholder="Select workspace" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {workspaces.map((workspace) => {
+                              const value = `${workspace.type}:${workspace.id || ''}`
+                              return (
+                                <SelectItem key={value} value={value}>
+                                  {workspace.name}
+                                </SelectItem>
+                              )
+                            })}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Option 2: Ask every time */}
+                <div className="flex items-start space-x-3 p-4 rounded-lg border hover:bg-accent/50 transition-colors">
+                  <RadioGroupItem value="ask" id="mode-ask" className="mt-1" />
+                  <div className="flex-1 space-y-2">
+                    <Label htmlFor="mode-ask" className="text-base font-medium cursor-pointer">
+                      Ask me every time
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      Show workspace selector for each new workflow (most control)
+                    </p>
+                  </div>
+                </div>
+
+                {/* Option 3: Follow workspace switcher */}
+                <div className="flex items-start space-x-3 p-4 rounded-lg border hover:bg-accent/50 transition-colors">
+                  <RadioGroupItem value="follow_switcher" id="mode-follow" className="mt-1" />
+                  <div className="flex-1 space-y-2">
+                    <Label htmlFor="mode-follow" className="text-base font-medium cursor-pointer">
+                      Use current workspace switcher
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      Create workflows in whatever workspace is currently selected (dynamic)
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </RadioGroup>
+
+            <div className="pt-4">
+              <Button
+                onClick={handleSaveWorkspacePreferences}
+                disabled={savingPreferences}
+              >
+                {savingPreferences ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Preferences'
+                )}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </TabsContent>

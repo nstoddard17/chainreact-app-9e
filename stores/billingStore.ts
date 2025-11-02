@@ -63,6 +63,7 @@ interface BillingActions {
   changePlan: (newPlanId: string, billingCycle: string) => Promise<any>
   createPortalSession: () => Promise<string>
   checkUsageLimits: (resourceType: string) => boolean
+  clearAllData: () => void
 }
 
 export const useBillingStore = create<BillingState & BillingActions>((set, get) => ({
@@ -423,5 +424,16 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
       default:
         return true
     }
+  },
+
+  clearAllData: () => {
+    set({
+      plans: [],
+      currentSubscription: null,
+      usage: null,
+      loading: false,
+      error: null,
+      lastFetchTime: null,
+    })
   },
 }))
