@@ -213,9 +213,15 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
   }, [])
 
   const replaceMessageByLocalId = useCallback((localId: string, saved: ChatMessage) => {
-    setAgentMessages(prev =>
-      prev.map(message => (message.id === localId ? saved : message))
-    )
+    console.log('🔄 [Chat Debug] replaceMessageByLocalId called')
+    console.log('  Replacing local ID:', localId)
+    console.log('  With DB message:', { id: saved.id, role: saved.role, text: saved.text?.substring(0, 50) })
+    setAgentMessages(prev => {
+      const replaced = prev.map(message => (message.id === localId ? saved : message))
+      const foundMatch = prev.some(m => m.id === localId)
+      console.log('  Found match:', foundMatch, '| Messages before:', prev.length, '| After:', replaced.length)
+      return replaced
+    })
   }, [setAgentMessages])
 
   const enqueuePendingMessage = useCallback((message: PendingChatMessage) => {
@@ -258,41 +264,104 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
 
   // Load chat history on mount (only for saved workflows with auth ready)
   useEffect(() => {
+    console.log('📌 [Chat Debug] useEffect triggered - loadChatHistory dependency changed')
+    console.log('  Dependencies:', { flowId, hasFlow: !!flowState?.flow, revisionId: flowState?.revisionId, authInitialized })
+
     if (!flowId || !flowState?.flow || !flowState?.revisionId || !authInitialized) {
+      console.log('  → Skipping loadChatHistory (dependencies not ready)')
       return
     }
 
+    console.log('  → Dependencies ready, loading chat history...')
     const loadChatHistory = async () => {
       setIsChatLoading(true)
       try {
         const messages = await ChatService.getHistory(flowId)
+        console.log('🔍 [Chat Debug] loadChatHistory called')
+        console.log('  Loaded from DB:', messages.length, 'messages')
+        messages.forEach((msg, i) => {
+          console.log(`  [DB-${i}]`, {
+            id: msg.id,
+            role: msg.role,
+            text: msg.text?.substring(0, 50),
+            createdAt: msg.createdAt
+          })
+        })
+
         setAgentMessages(prev => {
+          console.log('  Current state:', prev.length, 'messages')
+          prev.forEach((msg, i) => {
+            console.log(`  [State-${i}]`, {
+              id: msg.id,
+              role: msg.role,
+              text: msg.text?.substring(0, 50),
+              createdAt: msg.createdAt
+            })
+          })
+
           if (!messages || messages.length === 0) {
+            console.log('  → No new messages, keeping current state')
             return prev
           }
 
           if (prev.length === 0) {
+            console.log('  → Empty state, replacing with DB messages')
             return messages
           }
 
+          console.log('  → Merging messages...')
           const merged = [...prev]
           const indexById = new Map<string, number>()
+          const seenContent = new Map<string, number>()
+
           merged.forEach((message, index) => {
             if (message?.id) {
               indexById.set(message.id, index)
             }
+            // Also track by content for dedupe when IDs don't match (local vs DB IDs)
+            if (message?.text && message?.role) {
+              const contentKey = `${message.role}:${message.text}:${message.createdAt || ''}`
+              seenContent.set(contentKey, index)
+              console.log(`    Tracking [${index}]: ID="${message.id}" contentKey="${contentKey.substring(0, 60)}..."`)
+            }
           })
 
-          messages.forEach(message => {
+          messages.forEach((message, msgIndex) => {
             if (!message) {
               return
             }
+
+            // Check for existing message by ID first
             if (message.id && indexById.has(message.id)) {
               const existingIndex = indexById.get(message.id)!
+              console.log(`    ✓ [DB-${msgIndex}] Matched by ID at [${existingIndex}], replacing`)
               merged[existingIndex] = message
-            } else {
-              merged.push(message)
+              return
             }
+
+            // Check for duplicate by content (handles local ID vs DB ID mismatch)
+            const contentKey = `${message.role}:${message.text}:${message.createdAt || ''}`
+            if (seenContent.has(contentKey)) {
+              const existingIndex = seenContent.get(contentKey)!
+              console.log(`    ✓ [DB-${msgIndex}] Matched by content at [${existingIndex}], replacing`)
+              console.log(`      Old ID: "${merged[existingIndex].id}" → New ID: "${message.id}"`)
+              merged[existingIndex] = message
+              return
+            }
+
+            // No duplicate found, add it
+            console.log(`    + [DB-${msgIndex}] No match found, adding as new (ID: ${message.id})`)
+            merged.push(message)
+          })
+
+          console.log('  Final merged state:', merged.length, 'messages')
+          merged.forEach((msg, i) => {
+            console.log(`  [Merged-${i}]`, {
+              id: msg.id,
+              role: msg.role,
+              text: msg.text?.substring(0, 50),
+              createdAt: msg.createdAt
+            })
           })
 
           return merged
@@ -382,8 +451,31 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
       const pending = [...pendingChatMessagesRef.current]
       pendingChatMessagesRef.current = []
 
+      console.log('🚀 [Chat Debug] Flushing pending messages:', pending.length)
+
+      // Get current messages to check for duplicates
+      const currentMessages = agentMessages
+
       for (const item of pending) {
         if (cancelled) return
+
+        // Check if message already exists (by content, to avoid duplicates)
+        const alreadyExists = currentMessages.some(
+          msg => msg.role === item.role && msg.text === item.text
+        )
+
+        if (alreadyExists) {
+          console.log('  ⏭️  Skipping pending message (already exists):', {
+            role: item.role,
+            text: item.text.substring(0, 50)
+          })
+          continue
+        }
+
+        console.log('  💾 Saving pending message:', {
+          role: item.role,
+          text: item.text.substring(0, 50)
+        })
 
         try {
           let saved: ChatMessage | null = null
@@ -509,9 +601,15 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
           createdAt: createdAtIso,
         }
 
-        setAgentMessages(prev => [...prev, initialMessage])
+        console.log('💬 [Chat Debug] Adding user message to state (from URL prompt)')
+        console.log('  Message:', { id: initialLocalId, role: 'user', text: prompt.substring(0, 50) })
+        setAgentMessages(prev => {
+          console.log('  Previous messages:', prev.length)
+          return [...prev, initialMessage]
+        })
 
         if (!chatPersistenceEnabled || !flowState?.flow) {
+          console.log('  → Chat persistence disabled, enqueueing as pending')
           enqueuePendingMessage({
             localId: initialLocalId,
             role: 'user',
@@ -519,9 +617,11 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
             createdAt: createdAtIso,
           })
         } else {
+          console.log('  → Saving to database...')
           ChatService.addUserPrompt(flowId, prompt)
             .then((saved) => {
               if (saved) {
+                console.log('  ✓ Saved to DB, replacing local ID with DB ID:', saved.id)
                 replaceMessageByLocalId(initialLocalId, saved)
               }
             })

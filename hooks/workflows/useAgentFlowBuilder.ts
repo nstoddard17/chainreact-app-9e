@@ -76,7 +76,13 @@ export function useAgentFlowBuilder({
   useEffect(() => {
     const loadHistory = async () => {
       const messages = await ChatService.getHistory(flowId)
-      setState(prev => ({ ...prev, messages }))
+      setState(prev => {
+        // Deduplicate by ID - keep existing messages that aren't in the new history
+        const existingIds = new Set(messages.map(m => m.id).filter(Boolean))
+        const existingMessages = prev.messages.filter(m => !m.id || !existingIds.has(m.id))
+
+        return { ...prev, messages }
+      })
     }
     loadHistory()
   }, [flowId])
@@ -87,10 +93,17 @@ export function useAgentFlowBuilder({
   const addUserPrompt = useCallback(async (prompt: string) => {
     const message = await ChatService.addUserPrompt(flowId, prompt)
     if (message) {
-      setState(prev => ({
-        ...prev,
-        messages: [message, ...prev.messages]
-      }))
+      setState(prev => {
+        // Deduplicate - only add if message ID doesn't already exist
+        const exists = prev.messages.some(m => m.id === message.id)
+        if (exists) {
+          return prev
+        }
+        return {
+          ...prev,
+          messages: [message, ...prev.messages]
+        }
+      })
     }
     return message
   }, [flowId])
@@ -104,10 +117,17 @@ export function useAgentFlowBuilder({
   ) => {
     const message = await ChatService.addAssistantResponse(flowId, text, meta)
     if (message) {
-      setState(prev => ({
-        ...prev,
-        messages: [message, ...prev.messages]
-      }))
+      setState(prev => {
+        // Deduplicate - only add if message ID doesn't already exist
+        const exists = prev.messages.some(m => m.id === message.id)
+        if (exists) {
+          return prev
+        }
+        return {
+          ...prev,
+          messages: [message, ...prev.messages]
+        }
+      })
     }
     return message
   }, [flowId])
