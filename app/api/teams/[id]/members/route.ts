@@ -13,7 +13,11 @@ export async function GET(
   try {
     const supabase = await createSupabaseRouteHandlerClient()
     const serviceClient = await createSupabaseServiceClient()
-    
+
+    // Check if client wants invitations included (for performance optimization)
+    const { searchParams } = new URL(request.url)
+    const includeInvitations = searchParams.get('include_invitations') === 'true'
+
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
@@ -32,35 +36,63 @@ export async function GET(
       return errorResponse("Access denied" , 403)
     }
 
-    // Get team members
-    const { data: teamMembers, error } = await serviceClient
-      .from("team_members")
-      .select('user_id, role, joined_at')
-      .eq("team_id", teamId)
+    const canManageMembers = ['owner', 'admin', 'manager'].includes(teamMember.role)
 
-    if (error) {
-      logger.error("Error fetching team members:", error)
+    // Fetch members and invitations in parallel
+    const [membersResult, invitationsResult] = await Promise.all([
+      // Get team members
+      serviceClient
+        .from("team_members")
+        .select('user_id, role, joined_at')
+        .eq("team_id", teamId),
+
+      // Get invitations only if user can manage members and client requested them
+      (includeInvitations && canManageMembers)
+        ? serviceClient
+            .from("team_invitations")
+            .select('id, role, status, invited_at, expires_at, invitee_id')
+            .eq("team_id", teamId)
+            .eq("status", "pending")
+            .order("invited_at", { ascending: false })
+        : Promise.resolve({ data: null, error: null })
+    ])
+
+    if (membersResult.error) {
+      logger.error("Error fetching team members:", membersResult.error)
       return errorResponse("Failed to fetch team members" , 500)
     }
 
-    // Get user profiles separately
-    const userIds = teamMembers?.map(m => m.user_id) || []
+    // Get all user IDs (members + invitees)
+    const memberIds = membersResult.data?.map(m => m.user_id) || []
+    const inviteeIds = invitationsResult.data?.map(inv => inv.invitee_id) || []
+    const allUserIds = [...new Set([...memberIds, ...inviteeIds])]
+
+    // Fetch all profiles at once
     const { data: profiles, error: profileError } = await serviceClient
       .from("user_profiles")
       .select('id, email, full_name, username')
-      .in('id', userIds)
+      .in('id', allUserIds)
 
     if (profileError) {
       logger.error("Error fetching user profiles:", profileError)
     }
 
     // Merge members with profile data
-    const members = teamMembers?.map(member => ({
+    const members = membersResult.data?.map(member => ({
       ...member,
       user: profiles?.find(p => p.id === member.user_id) || { email: 'Unknown' }
     })) || []
 
-    return jsonResponse({ members })
+    // Merge invitations with profile data (only if requested)
+    const invitations = invitationsResult.data?.map(inv => ({
+      ...inv,
+      invitee: profiles?.find(p => p.id === inv.invitee_id) || { email: 'Unknown' }
+    })) || []
+
+    return jsonResponse({
+      members,
+      ...(includeInvitations && canManageMembers ? { invitations } : {})
+    })
   } catch (error) {
     logger.error("Unexpected error:", error)
     return errorResponse("Internal server error" , 500)
