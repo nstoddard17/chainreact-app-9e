@@ -1029,7 +1029,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
               className="!w-[18px] !h-10 !rounded-r-full !rounded-l-none !transition-all !duration-200"
               style={{
                 visibility: isTrigger ? "hidden" : "visible",
-                left: "-9px",
+                left: "0px",
                 top: "44px",
                 zIndex: 5,
                 background: handleStyle.background,
@@ -1050,7 +1050,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
             position={Position.Right}
             className="!w-[18px] !h-10 !rounded-l-full !rounded-r-none !transition-all !duration-200"
             style={{
-              right: "-9px",
+              right: "0px",
               top: "44px",
               zIndex: 5,
               background: handleStyle.background,
