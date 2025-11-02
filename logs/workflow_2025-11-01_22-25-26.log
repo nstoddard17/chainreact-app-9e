@@ -345,3 +345,83 @@ Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
 [2025-11-02T03:34:14.934Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.7s (6021 modules)
 [2025-11-02T03:34:15.200Z] [INFO   ] 2025-11-02T03:34:15.200Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/d7e5f04b-f859-438f-b467-957c3b969533","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13487767801}
 [2025-11-02T03:34:15.437Z] [INFO   ] 2025-11-02T03:34:15.437Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-02T03:34:40.813Z] [INFO   ] 2025-11-02T03:34:40.813Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/d7e5f04b-f859-438f-b467-957c3b969533","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13487793414}
+[2025-11-02T03:34:41.160Z] [INFO   ] 2025-11-02T03:34:41.160Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-02T03:34:41.160Z"}
+[2025-11-02T03:34:41.181Z] [INFO   ] 2025-11-02T03:34:41.181Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-02T03:34:41.181Z"}
+[2025-11-02T03:34:41.181Z] [INFO   ] 2025-11-02T03:34:41.181Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-02T03:34:41.181Z"}
+[2025-11-02T03:34:41.559Z] [INFO   ] 2025-11-02T03:34:41.558Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-02T03:34:44.024Z] [INFO   ] 2025-11-02T03:34:44.024Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/d7e5f04b-f859-438f-b467-957c3b969533/revisions","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13487796625}
+[2025-11-02T03:34:44.068Z] [INFO   ] 2025-11-02T03:34:44.068Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-02T03:34:44.068Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-02T03:34:44.200Z] [INFO   ] 2025-11-02T03:34:44.200Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-02T03:34:44.201Z] [INFO   ] 2025-11-02T03:34:44.201Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-02T03:34:44.246Z] [INFO   ] 2025-11-02T03:34:44.246Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-02T03:34:44.246Z","url":"http://localhost:3000/api/integrations"}
+[2025-11-02T03:34:44.538Z] [INFO   ] 2025-11-02T03:34:44.538Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-02T03:34:44.538Z] [INFO   ] 2025-11-02T03:34:44.538Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-02T03:34:44.585Z] [INFO   ] 2025-11-02T03:34:44.584Z [DEBUG] 📊 [API /api/integrations] Query result {"workspaceType":"personal","workspaceId":null,"count":14,"error":null}
+[2025-11-02T03:34:44.585Z] [INFO   ] 2025-11-02T03:34:44.585Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-02T03:34:44.622Z] [INFO   ] 2025-11-02T03:34:44.622Z [DEBUG] [API /api/workflows] GET request {"filterContext":"ALL (unified view)","workspaceId":null,"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-02T03:34:44.629Z] [INFO   ] 2025-11-02T03:34:44.629Z [DEBUG] 📊 [API /api/integrations] Query result {"workspaceType":"personal","workspaceId":null,"count":14,"error":null}
+[2025-11-02T03:34:44.630Z] [INFO   ] 2025-11-02T03:34:44.629Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-02T03:34:44.739Z] [INFO   ] 2025-11-02T03:34:44.739Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-02T03:34:44.739Z","url":"http://localhost:3000/api/integrations"}
+[2025-11-02T03:34:44.869Z] [INFO   ] 2025-11-02T03:34:44.869Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-02T03:34:44.870Z] [INFO   ] 2025-11-02T03:34:44.869Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-02T03:34:44.957Z] [INFO   ] 2025-11-02T03:34:44.957Z [DEBUG] 📊 [API /api/integrations] Query result {"workspaceType":"personal","workspaceId":null,"count":14,"error":null}
+[2025-11-02T03:34:44.958Z] [INFO   ] 2025-11-02T03:34:44.958Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-02T03:34:44.986Z] [INFO   ] 2025-11-02T03:34:44.986Z [DEBUG] [API /api/workflows] Query result {"filterContext":"ALL","count":13,"error":null}
+[2025-11-02T03:34:45.050Z] [INFO   ] 2025-11-02T03:34:45.049Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/d7e5f04b-f859-438f-b467-957c3b969533/revisions","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13487797650}
+[2025-11-02T03:34:45.092Z] [INFO   ] 2025-11-02T03:34:45.092Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/d7e5f04b-f859-438f-b467-957c3b969533/revisions/57ff2a8c-4821-434e-b4d8-c77830c25387","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13487797693}
+[2025-11-02T03:34:45.856Z] [INFO   ] 2025-11-02T03:34:45.856Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-02T03:34:45.856Z","url":"http://localhost:3000/api/integrations"}
+[2025-11-02T03:34:45.906Z] [INFO   ] 2025-11-02T03:34:45.906Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/d7e5f04b-f859-438f-b467-957c3b969533/revisions/57ff2a8c-4821-434e-b4d8-c77830c25387","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13487798507}
+[2025-11-02T03:34:45.946Z] [INFO   ] 2025-11-02T03:34:45.946Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-02T03:34:45.946Z] [INFO   ] 2025-11-02T03:34:45.946Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-02T03:34:46.022Z] [INFO   ] 2025-11-02T03:34:46.022Z [DEBUG] 📊 [API /api/integrations] Query result {"workspaceType":"personal","workspaceId":null,"count":14,"error":null}
+[2025-11-02T03:34:46.023Z] [INFO   ] 2025-11-02T03:34:46.023Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-02T03:34:46.121Z] [INFO   ] 2025-11-02T03:34:46.121Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-02T03:34:46.121Z","url":"http://localhost:3000/api/integrations"}
+[2025-11-02T03:34:46.192Z] [INFO   ] 2025-11-02T03:34:46.192Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-02T03:34:46.192Z] [INFO   ] 2025-11-02T03:34:46.192Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-02T03:34:46.280Z] [INFO   ] 2025-11-02T03:34:46.280Z [DEBUG] 📊 [API /api/integrations] Query result {"workspaceType":"personal","workspaceId":null,"count":14,"error":null}
+[2025-11-02T03:34:46.281Z] [INFO   ] 2025-11-02T03:34:46.281Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-02T03:34:46.880Z] [INFO   ] 2025-11-02T03:34:46.880Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/d7e5f04b-f859-438f-b467-957c3b969533/edits","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13487799481}
+[2025-11-02T03:36:43.843Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.6s (5741 modules)
+[2025-11-02T03:36:44.154Z] [INFO   ] 2025-11-02T03:36:44.153Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/d7e5f04b-f859-438f-b467-957c3b969533","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13487916754}
+[2025-11-02T03:36:44.475Z] [INFO   ] 2025-11-02T03:36:44.475Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-02T03:39:43.937Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-11-02T03:39:43.983Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1092ms (4390 modules)
+[2025-11-02T07:22:48.259Z] [INFO   ] 2025-11-02T07:22:48.258Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-02T07:22:48.333Z] [INFO   ] 2025-11-02T07:22:48.333Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-11-02T07:22:48.678Z] [INFO   ] 2025-11-02T07:22:48.678Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-02T07:22:48.680Z] [INFO   ] 2025-11-02T07:22:48.680Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-02T07:22:48.849Z] [INFO   ] 2025-11-02T07:22:48.849Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"3b7a5ac9e4ef9c3c8510e2c273042932","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-11-02T07:22:48.850Z] [INFO   ] 2025-11-02T07:22:48.850Z [DEBUG] 📋 Initializing invite cache...
+[2025-11-02T07:22:48.854Z] [INFO   ] 2025-11-02T07:22:48.854Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-02T07:22:48.863Z] [INFO   ] 2025-11-02T07:22:48.863Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-02T07:22:49.048Z] [INFO   ] 2025-11-02T07:22:49.048Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-11-02T08:08:12.869Z] [INFO   ] 2025-11-02T08:08:12.868Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-02T08:08:12.948Z] [INFO   ] 2025-11-02T08:08:12.939Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-11-02T08:08:13.316Z] [INFO   ] 2025-11-02T08:08:13.316Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-02T08:08:13.317Z] [INFO   ] 2025-11-02T08:08:13.317Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-02T08:08:13.573Z] [INFO   ] 2025-11-02T08:08:13.573Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"890af6b3786ff5694f4903c84c2b46d2","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-11-02T08:08:13.573Z] [INFO   ] 2025-11-02T08:08:13.573Z [DEBUG] 📋 Initializing invite cache...
+[2025-11-02T08:08:13.577Z] [INFO   ] 2025-11-02T08:08:13.576Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-02T08:08:13.585Z] [INFO   ] 2025-11-02T08:08:13.584Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-02T08:08:13.756Z] [INFO   ] 2025-11-02T08:08:13.756Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-11-02T11:17:35.620Z] [INFO   ] 2025-11-02T11:17:35.619Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-02T11:17:35.684Z] [INFO   ] 2025-11-02T11:17:35.684Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-11-02T11:17:36.073Z] [INFO   ] 2025-11-02T11:17:36.073Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-02T11:17:36.074Z] [INFO   ] 2025-11-02T11:17:36.074Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-02T11:17:36.247Z] [INFO   ] 2025-11-02T11:17:36.246Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"ef0be5020a6abc8cd7d1255d64533d9c","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-11-02T11:17:36.247Z] [INFO   ] 2025-11-02T11:17:36.247Z [DEBUG] 📋 Initializing invite cache...
+[2025-11-02T11:17:36.256Z] [INFO   ] 2025-11-02T11:17:36.255Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-02T11:17:36.260Z] [INFO   ] 2025-11-02T11:17:36.260Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-02T11:17:36.475Z] [INFO   ] 2025-11-02T11:17:36.475Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-11-02T11:52:04.926Z] [INFO   ] 2025-11-02T11:52:04.923Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-02T11:52:04.981Z] [INFO   ] 2025-11-02T11:52:04.981Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-11-02T11:52:05.344Z] [INFO   ] 2025-11-02T11:52:05.344Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-02T11:52:05.345Z] [INFO   ] 2025-11-02T11:52:05.345Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-02T11:52:05.596Z] [INFO   ] 2025-11-02T11:52:05.596Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"17020f11d6449b37bfc151f9cdb93e22","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-11-02T11:52:05.597Z] [INFO   ] 2025-11-02T11:52:05.597Z [DEBUG] 📋 Initializing invite cache...
+[2025-11-02T11:52:05.601Z] [INFO   ] 2025-11-02T11:52:05.601Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-02T11:52:05.609Z] [INFO   ] 2025-11-02T11:52:05.609Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-02T11:52:05.818Z] [INFO   ] 2025-11-02T11:52:05.818Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+
+=== Log Session Ended: 2025-11-02T14:18:01.857Z ===

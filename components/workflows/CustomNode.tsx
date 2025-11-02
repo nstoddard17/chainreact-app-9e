@@ -848,6 +848,9 @@ function CustomNode({ id, data, selected }: NodeProps) {
       return { text: 'Successful', tone: 'success' as const }
     }
     if (aiStatus === 'awaiting_user') {
+      if (nodeState === 'ready') {
+        return null
+      }
       return { text: 'Awaiting input', tone: 'info' as const }
     }
     if (!aiStatus) {
@@ -863,7 +866,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
       return { text: 'Pending', tone: 'pending' as const }
     }
     return null
-  }, [aiStatus, executionStatus, isSkeletonState])
+  }, [aiStatus, executionStatus, isSkeletonState, nodeState])
 
   const statusIndicator = React.useMemo(() => {
     if (!aiStatus) return null
@@ -1026,7 +1029,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
               className="!w-[18px] !h-10 !rounded-r-full !rounded-l-none !transition-all !duration-200"
               style={{
                 visibility: isTrigger ? "hidden" : "visible",
-                left: "0px",
+                left: "-9px",
                 top: "44px",
                 zIndex: 5,
                 background: handleStyle.background,
@@ -1047,7 +1050,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
             position={Position.Right}
             className="!w-[18px] !h-10 !rounded-l-full !rounded-r-none !transition-all !duration-200"
             style={{
-              right: "0px",
+              right: "-9px",
               top: "44px",
               zIndex: 5,
               background: handleStyle.background,

@@ -1139,7 +1139,7 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
             target: allNodes[i].id,
             sourceHandle: 'source',
             targetHandle: 'target',
-            type: 'straight', // Use straight edge to go directly between handles
+            type: 'custom', // Align with FlowEdge styling used in ready state
             style: {
               stroke: '#94a3b8',
               strokeWidth: 2,
