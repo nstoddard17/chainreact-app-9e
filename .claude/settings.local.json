@@ -58,7 +58,9 @@
       "Bash(do echo \"=== Checking $pkg ===\")",
       "Bash(done)",
       "Bash(tee:*)",
-      "Bash(psql:*)"
+      "Bash(psql:*)",
+      "Bash(dir:*)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": [],

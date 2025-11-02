@@ -3,6 +3,8 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useOrganizationStore } from "@/stores/organizationStore"
+import { useWorkflowStore } from "@/stores/workflowStore"
+import { useIntegrationStore } from "@/stores/integrationStore"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -33,6 +35,11 @@ export default function CreateOrganizationDialog({ open, onOpenChange }: Props) 
   const [description, setDescription] = useState("")
   const [loading, setLoading] = useState(false)
 
+  // Get workspace context setters
+  const setWorkspaceContext = useWorkflowStore(state => state.setWorkspaceContext)
+  const fetchWorkflows = useWorkflowStore(state => state.fetchWorkflows)
+  const fetchIntegrations = useIntegrationStore(state => state.fetchIntegrations)
+
   const generateSlug = (name: string) => {
     return name
       .toLowerCase()
@@ -58,9 +65,18 @@ export default function CreateOrganizationDialog({ open, onOpenChange }: Props) 
         description: description.trim(),
       })
       logger.debug('Dialog: Organization created successfully:', result)
-      
+
       // Show success message
       toast.success(`Organization "${result.name}" created successfully!`)
+
+      // Automatically switch to the new organization's workspace
+      setWorkspaceContext('organization', result.id)
+
+      // Refresh workflows and integrations in the new workspace context
+      await Promise.all([
+        fetchWorkflows(true), // Force refresh
+        fetchIntegrations(true)
+      ])
 
       // Close dialog and reset form
       onOpenChange(false)
