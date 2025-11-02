@@ -176,11 +176,8 @@ function CustomNode({ id, data, selected }: NodeProps) {
           boxShadow: '0 6px 16px rgba(59, 130, 246, 0.20)',
         }
       case 'skeleton':
-        return {
-          background: 'linear-gradient(180deg, rgba(255, 248, 240, 0.95), rgba(255, 241, 224, 0.95))',
-          borderColor: 'rgba(253, 186, 116, 0.4)',
-          boxShadow: '0 4px 10px rgba(253, 186, 116, 0.15)',
-        }
+        // Skeleton nodes use same grey half-moons as ready nodes
+        return baseStyle
       case 'passed':
         return {
           background: 'linear-gradient(180deg, rgba(229, 250, 239, 0.95), rgba(209, 241, 223, 0.95))',
@@ -966,56 +963,66 @@ function CustomNode({ id, data, selected }: NodeProps) {
         onDelete={onDelete}
         onDeleteSelected={onDeleteSelected}
       >
-        <div className="relative w-[450px]" data-testid={`node-${id}-skeleton`}>
-          <div className="pointer-events-none select-none rounded-lg border border-slate-200 bg-slate-50/50 shadow-sm overflow-hidden">
-            <div className="p-3">
-              <div className="flex items-center justify-between gap-2">
-                <div className="grid grid-cols-[40px_1fr] gap-2.5 items-center flex-1 min-w-0">
-                  {/* Logo - Greyed out */}
-                  <div className="flex items-center justify-center opacity-30">
-                    {type === 'chain_placeholder' ? (
-                      <Layers className="h-7 w-7 text-muted-foreground flex-shrink-0" />
-                    ) : providerId && !logoLoadFailed && !INTERNAL_PROVIDER_IDS.has(providerId) ? (
-                      <img
-                        src={`/integrations/${providerId}.svg`}
-                        alt={`${title || ''} logo`}
-                        className={getIntegrationLogoClasses(providerId, "w-7 h-7 object-contain flex-shrink-0")}
-                        onError={() => {
-                          logger.error(`Failed to load logo for ${providerId} at path: /integrations/${providerId}.svg`)
-                          setLogoLoadFailed(true)
-                        }}
-                        onLoad={() => logger.debug(`Successfully loaded logo for ${providerId}`)}
-                      />
-                    ) : (
-                      component?.icon && React.createElement(component.icon, { className: "h-7 w-7 text-foreground flex-shrink-0" })
-                    )}
-                  </div>
-                  {/* Content */}
-                  <div className="min-w-0 pr-2">
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-1.5">
-                        <h3 className="text-lg font-semibold text-slate-400 whitespace-nowrap overflow-hidden text-ellipsis flex-1">
-                          {title || (component && component.title) || 'Unnamed Action'}
-                        </h3>
-                        <span className="inline-flex items-center rounded-full bg-orange-100 text-orange-700 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 flex-shrink-0">
-                          Setup Required
-                        </span>
-                      </div>
-                      {description && (
-                        <p className="text-sm text-slate-400 leading-snug line-clamp-2">{description || (component && component.description)}</p>
-                      )}
+        <div
+          className="relative w-[450px] bg-slate-50/50 rounded-lg shadow-sm border-2 border-slate-200 group transition-all duration-200 overflow-hidden"
+          data-testid={`node-${id}-skeleton`}
+          style={{
+            opacity: 0.7,
+            width: '450px',
+            maxWidth: '450px',
+            minWidth: '450px',
+            boxSizing: 'border-box',
+            flex: 'none',
+          }}
+        >
+          <div className="p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="grid grid-cols-[40px_1fr] gap-2.5 items-center flex-1 min-w-0">
+                {/* Logo - Fixed position, vertically centered */}
+                <div className="flex items-center justify-center opacity-30">
+                  {type === 'chain_placeholder' ? (
+                    <Layers className="h-7 w-7 text-muted-foreground flex-shrink-0" />
+                  ) : providerId && !logoLoadFailed && !INTERNAL_PROVIDER_IDS.has(providerId) ? (
+                    <img
+                      src={`/integrations/${providerId}.svg`}
+                      alt={`${title || ''} logo`}
+                      className={getIntegrationLogoClasses(providerId, "w-7 h-7 object-contain flex-shrink-0")}
+                      onError={() => {
+                        logger.error(`Failed to load logo for ${providerId} at path: /integrations/${providerId}.svg`)
+                        setLogoLoadFailed(true)
+                      }}
+                      onLoad={() => logger.debug(`Successfully loaded logo for ${providerId}`)}
+                    />
+                  ) : (
+                    component?.icon && React.createElement(component.icon, { className: "h-7 w-7 text-foreground flex-shrink-0" })
+                  )}
+                </div>
+                {/* Content - Flows independently */}
+                <div className="min-w-0 pr-2">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-1.5">
+                      <h3 className="text-lg font-semibold text-slate-400 whitespace-nowrap overflow-hidden text-ellipsis flex-1">
+                        {title || (component && component.title) || 'Unnamed Action'}
+                      </h3>
+                      <span className="inline-flex items-center rounded-full bg-orange-100 text-orange-700 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 flex-shrink-0">
+                        Setup Required
+                      </span>
                     </div>
+                    {description && (
+                      <p className="text-sm text-slate-400 leading-snug line-clamp-2">{description || (component && component.description)}</p>
+                    )}
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
+          {/* Input handle - Half-moon on left side */}
           {!isTrigger && (
             <Handle
               type="target"
               position={Position.Left}
-              className="!w-[18px] !h-10 !rounded-r-full !rounded-l-none"
+              className="!w-[18px] !h-10 !rounded-r-full !rounded-l-none !transition-all !duration-200"
               style={{
                 visibility: isTrigger ? "hidden" : "visible",
                 left: "0px",
@@ -1032,10 +1039,11 @@ function CustomNode({ id, data, selected }: NodeProps) {
             />
           )}
 
+          {/* Output handle - Half-moon on right side */}
           <Handle
             type="source"
             position={Position.Right}
-            className="!w-[18px] !h-10 !rounded-l-full !rounded-r-none"
+            className="!w-[18px] !h-10 !rounded-l-full !rounded-r-none !transition-all !duration-200"
             style={{
               right: "0px",
               top: "44px",
