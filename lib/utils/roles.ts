@@ -17,7 +17,7 @@ export const ROLES: Record<UserRole, RoleInfo> = {
     name: 'free',
     displayName: 'Free',
     color: 'text-green-600 dark:text-green-400',
-    badgeColor: 'bg-green-500 text-white dark:bg-green-600 dark:text-white border border-green-600 dark:border-green-500',
+    badgeColor: 'bg-green-100 text-green-800 border border-green-300 dark:bg-emerald-400/25 dark:text-emerald-200 dark:border-transparent dark:ring-1 dark:ring-inset dark:ring-emerald-400/60',
     description: 'Basic features for individual users',
     features: [
       'Up to 3 workflows',
@@ -39,7 +39,7 @@ export const ROLES: Record<UserRole, RoleInfo> = {
     name: 'pro',
     displayName: 'Pro',
     color: 'text-blue-600 dark:text-blue-400',
-    badgeColor: 'bg-blue-500 text-white dark:bg-blue-600 dark:text-white border border-blue-600 dark:border-blue-500',
+    badgeColor: 'bg-blue-100 text-blue-800 border border-blue-300 dark:bg-blue-900 dark:text-blue-200 dark:border-transparent dark:ring-1 dark:ring-inset dark:ring-blue-400/60',
     description: 'Advanced features for power users',
     features: [
       'Up to 20 workflows',
@@ -62,7 +62,7 @@ export const ROLES: Record<UserRole, RoleInfo> = {
     name: 'beta-pro',
     displayName: 'Beta Tester',
     color: 'text-purple-600 dark:text-purple-400',
-    badgeColor: 'bg-gradient-to-r from-purple-500 to-blue-500 text-white border border-purple-600 dark:border-purple-500',
+    badgeColor: 'bg-violet-100 text-violet-800 border border-violet-300 dark:bg-violet-600 dark:text-white dark:border-transparent dark:ring-1 dark:ring-inset dark:ring-violet-500',
     description: 'Beta testing Pro features with generous limits',
     features: [
       'Up to 50 workflows (Beta)',
@@ -88,7 +88,7 @@ export const ROLES: Record<UserRole, RoleInfo> = {
     name: 'business',
     displayName: 'Business',
     color: 'text-purple-600 dark:text-purple-400',
-    badgeColor: 'bg-indigo-500 text-white dark:bg-indigo-600 dark:text-white border border-indigo-600 dark:border-indigo-500',
+    badgeColor: 'bg-indigo-100 text-indigo-800 border border-indigo-300 dark:bg-indigo-400/25 dark:text-indigo-200 dark:border-transparent dark:ring-1 dark:ring-inset dark:ring-indigo-400/60',
     description: 'Team collaboration and advanced features',
     features: [
       'Unlimited workflows',
@@ -112,7 +112,7 @@ export const ROLES: Record<UserRole, RoleInfo> = {
     name: 'enterprise',
     displayName: 'Enterprise',
     color: 'text-emerald-600 dark:text-emerald-400',
-    badgeColor: 'bg-pink-500 text-white dark:bg-pink-600 dark:text-white border border-pink-600 dark:border-pink-500',
+    badgeColor: 'bg-purple-100 text-purple-800 border border-purple-300 dark:bg-purple-400/30 dark:text-purple-900 dark:border-transparent dark:ring-1 dark:ring-inset dark:ring-purple-400/60',
     description: 'Full enterprise features and support',
     features: [
       'Everything in Business',
@@ -136,7 +136,7 @@ export const ROLES: Record<UserRole, RoleInfo> = {
     name: 'admin',
     displayName: 'Admin',
     color: 'text-red-600 dark:text-red-400',
-    badgeColor: 'bg-red-500 text-white dark:bg-red-600 dark:text-white border border-red-600 dark:border-red-500',
+    badgeColor: 'bg-red-100 text-red-800 border border-red-300 dark:bg-red-400/25 dark:text-red-200 dark:border-transparent dark:ring-1 dark:ring-inset dark:ring-red-400/60',
     description: 'Full system access and privileges',
     features: [
       'All features',

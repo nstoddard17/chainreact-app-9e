@@ -10,12 +10,14 @@ import { Switch } from "@/components/ui/switch"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@/utils/supabaseClient"
-import { User, Bell, Shield, Palette, Loader2, ChevronRight, Sparkles, Briefcase } from "lucide-react"
+import { User, Bell, Shield, Palette, Loader2, ChevronRight, Sparkles, Briefcase, Users, Building2, Check, X } from "lucide-react"
 import { useTheme } from "next-themes"
 import { TwoFactorSetup } from "@/components/settings/TwoFactorSetup"
 import { cn } from "@/lib/utils"
 import { useSignedAvatarUrl } from "@/hooks/useSignedAvatarUrl"
 import { useSearchParams, useRouter } from "next/navigation"
+import { useWorkspaces } from "@/hooks/useWorkspaces"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 type SettingsSection = 'profile' | 'workspace' | 'notifications' | 'security' | 'appearance'
 
@@ -64,6 +66,12 @@ export function SettingsContent() {
   const [workspaceDescription, setWorkspaceDescription] = useState("")
   const [workspaceSaving, setWorkspaceSaving] = useState(false)
 
+  // Default workspace state
+  const { workspaces } = useWorkspaces()
+  const { updateDefaultWorkspace, clearDefaultWorkspace } = useAuthStore()
+  const [defaultWorkspaceValue, setDefaultWorkspaceValue] = useState<string>("")
+  const [savingDefaultWorkspace, setSavingDefaultWorkspace] = useState(false)
+
   useEffect(() => {
     setMounted(true)
     check2FAStatus()
@@ -86,6 +94,16 @@ export function SettingsContent() {
       }
     }
   }, [sectionParam])
+
+  // Sync default workspace value from profile
+  useEffect(() => {
+    if (profile?.default_workspace_type) {
+      const value = `${profile.default_workspace_type}:${profile.default_workspace_id || ''}`
+      setDefaultWorkspaceValue(value)
+    } else {
+      setDefaultWorkspaceValue("")
+    }
+  }, [profile?.default_workspace_type, profile?.default_workspace_id])
 
   // Debug: Log profile changes
   useEffect(() => {
@@ -189,6 +207,54 @@ export function SettingsContent() {
       toast({ title: "Error", description: "Failed to save workspace settings", variant: "destructive" })
     } finally {
       setWorkspaceSaving(false)
+    }
+  }
+
+  const handleDefaultWorkspaceChange = async (value: string) => {
+    try {
+      setSavingDefaultWorkspace(true)
+
+      if (!value) {
+        // Clear default workspace
+        await clearDefaultWorkspace()
+        toast({ title: "Success", description: "Default workspace cleared" })
+      } else {
+        // Parse and save default workspace
+        const [workspaceType, workspaceId] = value.split(':')
+        await updateDefaultWorkspace(
+          workspaceType as 'personal' | 'team' | 'organization',
+          workspaceId || null
+        )
+
+        const selectedWorkspace = workspaces.find(w =>
+          w.type === workspaceType && (w.id || '') === (workspaceId || '')
+        )
+        toast({
+          title: "Success",
+          description: `Default workspace set to ${selectedWorkspace?.name || 'selected workspace'}`
+        })
+      }
+
+      setDefaultWorkspaceValue(value)
+    } catch (error) {
+      console.error('Error updating default workspace:', error)
+      toast({ title: "Error", description: "Failed to update default workspace", variant: "destructive" })
+    } finally {
+      setSavingDefaultWorkspace(false)
+    }
+  }
+
+  const handleClearDefaultWorkspace = async () => {
+    try {
+      setSavingDefaultWorkspace(true)
+      await clearDefaultWorkspace()
+      setDefaultWorkspaceValue("")
+      toast({ title: "Success", description: "Default workspace cleared" })
+    } catch (error) {
+      console.error('Error clearing default workspace:', error)
+      toast({ title: "Error", description: "Failed to clear default workspace", variant: "destructive" })
+    } finally {
+      setSavingDefaultWorkspace(false)
     }
   }
 
@@ -629,6 +695,101 @@ export function SettingsContent() {
                 </CardContent>
               </Card>
             )}
+
+            {/* Default Workspace Settings - Show for all users */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Default Workspace</CardTitle>
+                <CardDescription>Set your preferred workspace for creating new workflows</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Current Default Display */}
+                {profile?.default_workspace_type ? (
+                  <div className="p-4 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      {profile.default_workspace_type === 'personal' ? (
+                        <User className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                      ) : profile.default_workspace_type === 'team' ? (
+                        <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                      ) : (
+                        <Building2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                      )}
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                          Current Default: {workspaces.find(w =>
+                            w.type === profile.default_workspace_type &&
+                            (w.id || '') === (profile.default_workspace_id || '')
+                          )?.name || profile.default_workspace_type}
+                        </p>
+                        <p className="text-xs text-blue-700 dark:text-blue-300">
+                          New workflows will be created here automatically
+                        </p>
+                      </div>
+                      <Check className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg">
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      No default workspace set. You'll be asked each time you create a workflow.
+                    </p>
+                  </div>
+                )}
+
+                {/* Workspace Selector */}
+                <div className="space-y-2">
+                  <Label htmlFor="default-workspace">Change Default Workspace</Label>
+                  <Select
+                    value={defaultWorkspaceValue}
+                    onValueChange={handleDefaultWorkspaceChange}
+                    disabled={savingDefaultWorkspace}
+                  >
+                    <SelectTrigger id="default-workspace">
+                      <SelectValue placeholder="Select workspace" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {workspaces.map((workspace) => {
+                        const value = `${workspace.type}:${workspace.id || ''}`
+                        const icon = workspace.type === 'personal'
+                          ? <User className="w-4 h-4" />
+                          : workspace.type === 'team'
+                          ? <Users className="w-4 h-4" />
+                          : <Building2 className="w-4 h-4" />
+
+                        return (
+                          <SelectItem key={value} value={value}>
+                            <div className="flex items-center gap-2">
+                              {icon}
+                              <span>{workspace.name}</span>
+                            </div>
+                          </SelectItem>
+                        )
+                      })}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Choose where new workflows should be created by default
+                  </p>
+                </div>
+
+                {/* Clear Default Button */}
+                {profile?.default_workspace_type && (
+                  <Button
+                    variant="outline"
+                    onClick={handleClearDefaultWorkspace}
+                    disabled={savingDefaultWorkspace}
+                    className="w-full"
+                  >
+                    {savingDefaultWorkspace ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <X className="w-4 h-4 mr-2" />
+                    )}
+                    Clear Default Workspace
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
           </div>
         )}
 

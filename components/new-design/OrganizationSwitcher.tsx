@@ -119,7 +119,27 @@ export function OrganizationSwitcher() {
     try {
       setLoading(true)
       const response = await fetch('/api/organizations')
-      if (!response.ok) throw new Error('Failed to fetch organizations')
+
+      // If response is not ok, handle gracefully
+      if (!response.ok) {
+        // Try to get error details
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        console.error('[OrganizationSwitcher] API error:', {
+          status: response.status,
+          error: errorData
+        })
+
+        // If it's a server error (500) related to teams, just return empty array
+        // User may not have any organizations yet
+        if (response.status === 500) {
+          console.warn('[OrganizationSwitcher] Treating 500 error as no organizations (user may not have any yet)')
+          setOrganizations([])
+          setLoading(false)
+          return
+        }
+
+        throw new Error(`Failed to fetch organizations: ${response.status} - ${errorData.error || 'Unknown error'}`)
+      }
 
       const data = await response.json()
       let allOrgs = Array.isArray(data.organizations) ? data.organizations : (Array.isArray(data) ? data : [])

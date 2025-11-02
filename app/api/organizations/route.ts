@@ -15,12 +15,17 @@ export async function GET(request: NextRequest) {
       return errorResponse("Unauthorized", 401)
     }
 
-    // Get personal workspace
-    const { data: workspace } = await serviceClient
+    // Get personal workspace (may not exist)
+    const { data: workspace, error: workspaceError } = await serviceClient
       .from("workspaces")
       .select("*")
       .eq("owner_id", user.id)
-      .single()
+      .maybeSingle()
+
+    if (workspaceError) {
+      logger.error("Error fetching workspace:", workspaceError)
+      // Continue - workspace is optional
+    }
 
     // Get organizations where user is a member of at least one team
     const { data: userTeams, error: teamsError } = await serviceClient

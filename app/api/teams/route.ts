@@ -12,8 +12,11 @@ export async function GET(request: NextRequest) {
 
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
+      logger.error('[Teams API] Auth error:', authError)
       return errorResponse("Unauthorized", 401)
     }
+
+    logger.debug('[Teams API] Fetching teams for user:', { userId: user.id })
 
     // Get organization_id from query params (optional)
     const { searchParams } = new URL(request.url)
@@ -33,16 +36,32 @@ export async function GET(request: NextRequest) {
 
     // Filter by organization if specified
     if (organizationId) {
+      logger.debug('[Teams API] Filtering by organization:', organizationId)
       query = query.eq('organization_id', organizationId)
     }
 
     const { data: teams, error } = await query.order('created_at', { ascending: false })
 
-    if (error) throw error
+    if (error) {
+      logger.error('[Teams API] Supabase query error:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      })
+      throw error
+    }
 
+    logger.debug('[Teams API] Successfully fetched teams:', { count: teams?.length || 0 })
     return jsonResponse({ teams: teams || [] })
   } catch (error: any) {
-    console.error('Error fetching teams:', error)
+    logger.error('[Teams API] Error fetching teams:', {
+      message: error?.message,
+      details: error?.details,
+      hint: error?.hint,
+      code: error?.code,
+      stack: error?.stack
+    })
     return errorResponse(error.message || "Failed to fetch teams", 500)
   }
 }

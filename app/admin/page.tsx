@@ -26,27 +26,16 @@ export default function AdminPage() {
   // If user is admin, show admin badge; otherwise show their role badge
   const userRole = isAdmin ? 'admin' : ((profile?.role as UserRole) || 'free')
 
-  // Debug logging
-  console.log('🔍 Admin Page Debug:', {
-    hasProfile: !!profile,
-    admin: profile?.admin,
-    adminType: typeof profile?.admin,
-    isAdmin,
-    profileData: profile
-  })
-
   useEffect(() => {
     if (profile?.admin === true) {
-      console.log('✅ Admin verified, fetching user stats...')
       fetchUserStats().catch(error => {
-        console.error('❌ Failed to fetch user stats:', error)
+        console.error('Failed to fetch user stats:', error)
       })
     }
   }, [profile, fetchUserStats])
 
   // Show loading while profile loads
   if (!profile) {
-    console.log('⏳ Waiting for profile to load...')
     return (
       <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center">
         <LightningLoader size="lg" color="primary" />
@@ -56,7 +45,6 @@ export default function AdminPage() {
 
   // After profile loads, check if admin
   if (profile.admin !== true) {
-    console.log('🚫 Access denied - not admin', { admin: profile.admin, profile })
     return (
       <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center">
         <div className="text-center">
@@ -73,8 +61,6 @@ export default function AdminPage() {
       </div>
     )
   }
-
-  console.log('✅ Admin access granted!', { admin: profile.admin })
 
   return (
     <NewAppLayout title="Admin Panel" subtitle="System administration and user management">
@@ -210,7 +196,7 @@ export default function AdminPage() {
             </div>
 
             {/* Admin Stats - Second Row */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card className="bg-card rounded-2xl shadow-lg border border-border">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Beta Testers</CardTitle>
@@ -237,21 +223,6 @@ export default function AdminPage() {
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Users with enterprise plan
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-card rounded-2xl shadow-lg border border-border">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Admin Users</CardTitle>
-                  <Zap className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {loading ? "Loading..." : userStats.adminUsers}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    System administrators
                   </p>
                 </CardContent>
               </Card>
