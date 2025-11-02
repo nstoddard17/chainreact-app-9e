@@ -1228,8 +1228,8 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
           nodesCache: allNodes,
         }))
 
-        // STEP 5: Wait a moment after all nodes added
-        await wait(500)
+        // STEP 5: Wait longer after all nodes added so user sees them all in skeleton state
+        await wait(1000)
 
         // Log actual node positions after render
         if (reactFlowInstanceRef.current) {
@@ -1241,17 +1241,35 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
 
         const firstNode = allNodes[0]
 
-        // STEP 6: Transition first node to ready state BEFORE zoom
+        // STEP 6: Transition first node to ready state after all nodes visible
         console.log('[handleBuild] Transitioning first node to ready state')
         const firstPlanNode = buildMachine.plan[0]
-        const firstReactNodeId = firstPlanNode ? buildMachine.nodeMapping?.[firstPlanNode.id] : null
+        // Use allNodes[0].id directly instead of relying on state mapping
+        const firstReactNodeId = allNodes[0]?.id
+
+        console.log('[handleBuild] First node transition:', {
+          firstPlanNode: firstPlanNode?.id,
+          firstReactNodeId,
+          firstNodeFromArray: allNodes[0]?.id,
+          hasBuilder: !!builder,
+          hasInstance: !!reactFlowInstanceRef.current
+        })
 
         if (firstReactNodeId && reactFlowInstanceRef.current) {
+          console.log('[handleBuild] ✨ TRANSITIONING NODE FROM SKELETON TO READY:', firstReactNodeId)
+
           setNodeState(reactFlowInstanceRef.current, firstReactNodeId, 'ready')
           builder.setNodes((current: any[]) => {
             const working = current && current.length > 0 ? current : (buildMachine.nodesCache ?? [])
-            return working.map(node => {
+            const updated = working.map(node => {
               if (node.id === firstReactNodeId) {
+                console.log('[handleBuild] 🎯 Updating node data:', {
+                  nodeId: node.id,
+                  oldState: node.data?.state,
+                  newState: 'ready',
+                  oldAiStatus: node.data?.aiStatus,
+                  newAiStatus: 'awaiting_user'
+                })
                 return {
                   ...node,
                   data: {
@@ -1264,10 +1282,14 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
               }
               return node
             })
+            console.log('[handleBuild] Updated nodes count:', updated.length)
+            return updated
           })
 
-          // Wait a moment for state to update visually
-          await wait(300)
+          // Wait longer for state transition to be visible before zoom
+          await wait(600)
+        } else {
+          console.log('[handleBuild] ⚠️ Cannot transition first node - missing ID or instance')
         }
 
         // STEP 7: Zoom to first node with animation
