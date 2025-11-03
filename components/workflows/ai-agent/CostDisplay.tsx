@@ -233,10 +233,18 @@ function CostBreakdownDisplay({
  * Format cost for display
  */
 function formatCost(cost: number): string {
-  if (cost < 0.01) {
+  // Ensure cost is a valid number
+  const numericCost = typeof cost === 'number' ? cost : parseFloat(String(cost))
+
+  if (isNaN(numericCost)) {
+    return '$0.00'
+  }
+
+  if (numericCost < 0.01) {
     return '< $0.01'
   }
-  return `$${cost.toFixed(2)}`
+
+  return `$${numericCost.toFixed(2)}`
 }
 
 /**
