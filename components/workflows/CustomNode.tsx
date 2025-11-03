@@ -96,27 +96,6 @@ const SLACK_CONFIG_SECTIONS: SlackConfigSection[] = [
     tooltip: 'Channel, body, and attachments that make up the primary Slack message.',
     defaultOpen: true,
     fields: ['channel', 'message', 'attachments']
-  },
-  {
-    key: 'status',
-    title: 'Status Card (optional)',
-    tooltip: 'Add a colored status block for release or incident updates.',
-    defaultOpen: false,
-    fields: ['statusTitle', 'statusMessage', 'statusColor', 'statusFields']
-  },
-  {
-    key: 'approval',
-    title: 'Approval Card (optional)',
-    tooltip: 'Adds Approve/Deny buttons and routes decisions back into the workflow.',
-    defaultOpen: false,
-    fields: ['messageType', 'approvalTitle', 'approvalDescription', 'approvalApproveText', 'approvalDenyText']
-  },
-  {
-    key: 'advanced',
-    title: 'Delivery Options',
-    tooltip: 'Threading, link previews, username/icon overrides, polls, and custom blocks.',
-    defaultOpen: false,
-    fields: ['threadTimestamp', 'linkNames', 'unfurlLinks', 'unfurlMedia', 'asUser', 'username', 'icon', 'buttonConfig', 'pollQuestion', 'pollOptions', 'customBlocks']
   }
 ]
 
@@ -556,7 +535,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
     const options = savedDynamicOptions?.[fieldName]
     if (!options) return undefined
     const match = options.find((opt: any) => opt?.value === rawValue)
-    return match?.label
+    return match?.label || (match as any)?.name
   }
 
   const getSchemaOptionLabel = (fieldName: string | undefined, rawValue: any): string | undefined => {
@@ -631,20 +610,32 @@ function CustomNode({ id, data, selected }: NodeProps) {
       return '✨ AI will generate'
     }
 
-    if (stringValue.includes('{{')) {
+    // For message/text fields, show the full content (including variables)
+    // Don't convert to "From trigger.from" - show the actual message template
+    const isMessageField = fieldKey && ['message', 'body', 'text', 'content', 'description'].includes(fieldKey.toLowerCase())
+
+    // Try to resolve IDs to friendly names BEFORE checking for variables
+    if (fieldKey && !isMessageField) {
+      const labelFromSaved = getSavedOptionLabel(fieldKey, value)
+      if (labelFromSaved) return labelFromSaved
+      const labelFromSchema = getSchemaOptionLabel(fieldKey, value)
+      if (labelFromSchema) return labelFromSchema
+    }
+
+    // For message fields, return the full text as-is (don't convert variables)
+    if (isMessageField) {
+      return stringValue.length > 200 ? `${stringValue.substring(0, 200)}...` : stringValue
+    }
+
+    // For non-message fields with variables, show variable reference
+    if (stringValue.includes('{{') && !isMessageField) {
       const varMatch = stringValue.match(/\{\{([^}]+)\}\}/)
       if (varMatch) {
         return `📎 From ${varMatch[1]}`
       }
     }
 
-    if (fieldKey) {
-      const labelFromSchema = getSchemaOptionLabel(fieldKey, value)
-      if (labelFromSchema) return labelFromSchema
-      const labelFromSaved = getSavedOptionLabel(fieldKey, value)
-      if (labelFromSaved) return labelFromSaved
-    }
-
+    // Format simple tokens (like statuses, IDs without friendly names)
     if (/^[a-z0-9_-]+$/i.test(stringValue) && !stringValue.includes('.')) {
       return formatSimpleToken(stringValue)
     }
@@ -743,15 +734,64 @@ function CustomNode({ id, data, selected }: NodeProps) {
   const testDataEntries = useMemo(() => Object.entries(testData || {}), [testData])
   const hasConfigEntries = configEntries.length > 0
   const hasTestEntries = testDataEntries.length > 0
-  // Hide auto-configured fields in skeleton and ready states
-  // Only show when AI is actively populating (after Continue is clicked)
-  const showConfigSection = ['preparing', 'creating', 'configuring', 'configured', 'testing', 'testing_successful'].includes(aiStatus || '')
+  // Show auto-configured fields during and after AI configuration
+  // Keep them visible even after node is marked as successful ('ready' or 'complete')
+  const showConfigSection = ['preparing', 'creating', 'configuring', 'configured', 'testing', 'testing_successful', 'ready', 'complete'].includes(aiStatus || '')
   const displayConfigEntries = useMemo(() => {
-    if (configEntries.length > 0) return configEntries
-    if (progressConfigEntries.length > 0) {
-      return progressConfigEntries.map(field => [field.key, field.value] as [string, any])
-    }
-    return [] as [string, any][]
+    let entries = configEntries.length > 0 ? configEntries :
+                  progressConfigEntries.length > 0 ? progressConfigEntries.map(field => [field.key, field.value] as [string, any]) :
+                  [] as [string, any][]
+
+    // Filter all nodes: only show non-empty, meaningful fields (hide connection, empty values, AI placeholders)
+    // First pass: collect all entries into a map for dependency checking
+    const entriesMap = new Map(entries)
+
+    entries = entries.filter(([key, value]) => {
+      const keyLower = key.toLowerCase()
+
+      // Always hide connection field (internal, shown in config modal only)
+      if (keyLower.includes('connection') || keyLower.includes('integration')) return false
+
+      // Hide dependent fields when their parent field is empty/placeholder
+      // Hide "Subject Exact Match" when there's no real subject
+      if (keyLower.includes('subjectexactmatch') || keyLower === 'subjectexactmatch') {
+        const subject = entriesMap.get('subject')
+        if (!subject || subject === '' || (typeof subject === 'string' && subject.toLowerCase().startsWith('ai'))) {
+          return false
+        }
+      }
+
+      // Hide "AI Filter Confidence" when there's no real AI Content Filter
+      if (keyLower.includes('aifilterconfidence') || keyLower.includes('confidence')) {
+        const aiFilter = entriesMap.get('aiContentFilter') || entriesMap.get('aicontentfilter')
+        if (!aiFilter || aiFilter === '' || (typeof aiFilter === 'string' && aiFilter.toLowerCase().includes('automatically generated'))) {
+          return false
+        }
+      }
+
+      // Hide empty/default values
+      if (!value || value === '' || value === 'any') return false
+      if (Array.isArray(value) && value.length === 0) return false
+      if (typeof value === 'object' && Object.keys(value).length === 0) return false
+
+      // Hide AI placeholder/suggestion values
+      if (typeof value === 'string') {
+        const valueLower = value.toLowerCase()
+        // Common AI placeholder patterns
+        if (valueLower.startsWith('ai suggestion')) return false
+        if (valueLower.startsWith('ai draft')) return false
+        if (valueLower.includes('automatically generated')) return false
+        if (valueLower.includes('optional) for this workflow')) return false
+        if (valueLower === 'placeholder') return false
+        if (valueLower === 'auto-generated') return false
+        // Hide {{AI_FIELD:...}} placeholders
+        if (valueLower.includes('{{ai_field:')) return false
+      }
+
+      return true
+    })
+
+    return entries
   }, [configEntries, progressConfigEntries])
   const configEntryMap = useMemo(() => Object.fromEntries(displayConfigEntries), [displayConfigEntries])
   const compactConfigEntries = useMemo(() => (
@@ -845,7 +885,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
     }
 
     if (aiStatus === 'ready' || aiStatus === 'complete') {
-      return { text: 'Successful', tone: 'success' as const }
+      return null // No text below badge when successful
     }
     if (aiStatus === 'awaiting_user') {
       if (nodeState === 'ready') {
@@ -1098,32 +1138,35 @@ function CustomNode({ id, data, selected }: NodeProps) {
         }}
       >
       {/* Phase 1: Status Badge - Top Right Corner - Click to toggle preview details */}
-      <div
-        className={statusBadge.className}
-        onClick={(e) => {
-          e.stopPropagation() // Prevent double-click from opening config
-          if (nodeState === 'passed' || nodeState === 'failed' || nodeState === 'running') {
-            setIsPreviewExpanded(!isPreviewExpanded)
-          }
-        }}
-        style={{
-          position: 'absolute',
-          top: '8px',
-          right: '8px',
-          fontSize: '10px',
-          padding: '4px 8px',
-          borderRadius: '4px',
-          fontWeight: 600,
-          textAlign: 'center',
-          lineHeight: 1,
-          zIndex: 10,
-          cursor: (nodeState === 'passed' || nodeState === 'failed' || nodeState === 'running') ? 'pointer' : 'default',
-        }}
-        title={(nodeState === 'passed' || nodeState === 'failed' || nodeState === 'running') ?
-          (isPreviewExpanded ? 'Click to hide details' : 'Click to show details') : undefined}
-      >
-        {statusBadge.text}
-      </div>
+      {/* Hide badge during AI configuration states - show inline status instead */}
+      {!['preparing', 'creating', 'configuring', 'configured', 'testing', 'retesting', 'fixing', 'testing_successful'].includes(aiStatus || '') && (
+        <div
+          className={statusBadge.className}
+          onClick={(e) => {
+            e.stopPropagation() // Prevent double-click from opening config
+            if (nodeState === 'passed' || nodeState === 'failed' || nodeState === 'running') {
+              setIsPreviewExpanded(!isPreviewExpanded)
+            }
+          }}
+          style={{
+            position: 'absolute',
+            top: '8px',
+            right: '8px',
+            fontSize: '10px',
+            padding: '4px 8px',
+            borderRadius: '4px',
+            fontWeight: 600,
+            textAlign: 'center',
+            lineHeight: 1,
+            zIndex: 10,
+            cursor: (nodeState === 'passed' || nodeState === 'failed' || nodeState === 'running') ? 'pointer' : 'default',
+          }}
+          title={(nodeState === 'passed' || nodeState === 'failed' || nodeState === 'running') ?
+            (isPreviewExpanded ? 'Click to hide details' : 'Click to show details') : undefined}
+        >
+          {statusBadge.text}
+        </div>
+      )}
 
       {/* Execution status indicator */}
       {getExecutionStatusIndicator()}
@@ -1289,8 +1332,14 @@ function CustomNode({ id, data, selected }: NodeProps) {
           <div className="rounded-xl border border-border/60 bg-background/70 shadow-sm">
             <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border/50">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Auto-configured fields</p>
-                <p className="text-[11px] text-muted-foreground/80">Populated live while the agent configures this node.</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {isTrigger ? 'Trigger Conditions' : 'Auto-configured fields'}
+                </p>
+                <p className="text-[11px] text-muted-foreground/80">
+                  {isTrigger
+                    ? 'This workflow runs when these conditions match'
+                    : 'Populated live while the agent configures this node.'}
+                </p>
               </div>
               <Button
                 variant="ghost"
@@ -1332,6 +1381,17 @@ function CustomNode({ id, data, selected }: NodeProps) {
                     renderLabel={renderLabelWithTooltip}
                     onFieldClick={handleFieldFocusRequest}
                   />
+                ) : compactConfigEntries.length === 0 && isTrigger && !showConfigSkeleton ? (
+                  // Empty state for triggers with no filters configured
+                  <div className="px-3 py-4">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <div className="flex-shrink-0">⚡</div>
+                      <div>
+                        <p className="text-xs font-medium">Triggers on ALL events</p>
+                        <p className="text-xs text-muted-foreground/80 mt-0.5">No filters configured - workflow runs for every new item</p>
+                      </div>
+                    </div>
+                  </div>
                 ) : (
                   compactConfigEntries.map(([key, value], index) => {
                     const liveValue = (testData || {})[key]
@@ -1646,6 +1706,37 @@ function SlackAutoConfigSummary({
   const renderFieldRow = (fieldKey: string) => {
     const configuredDisplay = configDisplayOverrides.get(fieldKey)
     const resolvedValue = configuredDisplay ?? configEntryMap[fieldKey] ?? configValues[fieldKey]
+
+    // Filter out empty/AI placeholder values (same logic as displayConfigEntries)
+    const shouldHideField = () => {
+      // Hide empty/default values
+      if (!resolvedValue || resolvedValue === '' || resolvedValue === 'any') return true
+      if (Array.isArray(resolvedValue) && resolvedValue.length === 0) return true
+      if (typeof resolvedValue === 'object' && Object.keys(resolvedValue).length === 0) return true
+
+      // Hide boolean fields in optional sections (defaults like unfurlLinks: true)
+      if (typeof resolvedValue === 'boolean') return true
+
+      // Hide AI placeholder/suggestion values
+      if (typeof resolvedValue === 'string') {
+        const valueLower = resolvedValue.toLowerCase()
+        if (valueLower.startsWith('ai suggestion')) return true
+        if (valueLower.startsWith('ai draft')) return true
+        if (valueLower.includes('automatically generated')) return true
+        if (valueLower.includes('optional) for this workflow')) return true
+        if (valueLower === 'placeholder') return true
+        if (valueLower === 'auto-generated') return true
+        if (valueLower.includes('{{ai_field:')) return true
+        // Hide 'simple' default value for messageType
+        if (fieldKey === 'messageType' && valueLower === 'simple') return true
+      }
+
+      return false
+    }
+
+    // Don't render if field should be hidden
+    if (shouldHideField()) return null
+
     const hasConfiguredValue = configuredDisplay !== undefined
       ? configuredDisplay.trim().length > 0
       : hasRenderableValue(resolvedValue)
@@ -1707,6 +1798,40 @@ function SlackAutoConfigSummary({
     <div className="divide-y divide-border/60">
       {sections.map((section) => {
         const isOpen = sectionsState[section.key] ?? section.defaultOpen
+
+        // Filter out null fields (hidden fields)
+        const visibleFields = section.fields.filter(fieldKey => {
+          const configuredDisplay = configDisplayOverrides.get(fieldKey)
+          const resolvedValue = configuredDisplay ?? configEntryMap[fieldKey] ?? configValues[fieldKey]
+
+          // Use same filtering logic
+          if (!resolvedValue || resolvedValue === '' || resolvedValue === 'any') return false
+          if (Array.isArray(resolvedValue) && resolvedValue.length === 0) return false
+          if (typeof resolvedValue === 'object' && Object.keys(resolvedValue).length === 0) return false
+
+          // Hide boolean fields (they're usually defaults like unfurlLinks: true)
+          // Only show booleans if they're in essential fields (not optional sections)
+          if (typeof resolvedValue === 'boolean' && section.key !== 'basics') return false
+
+          if (typeof resolvedValue === 'string') {
+            const valueLower = resolvedValue.toLowerCase()
+            if (valueLower.startsWith('ai suggestion')) return false
+            if (valueLower.startsWith('ai draft')) return false
+            if (valueLower.includes('automatically generated')) return false
+            if (valueLower.includes('optional) for this workflow')) return false
+            if (valueLower === 'placeholder') return false
+            if (valueLower === 'auto-generated') return false
+            if (valueLower.includes('{{ai_field:')) return false
+            // Hide 'simple' default value for messageType
+            if (fieldKey === 'messageType' && valueLower === 'simple') return false
+          }
+
+          return true
+        })
+
+        // Hide section if no visible fields
+        if (visibleFields.length === 0) return null
+
         return (
           <div key={section.key}>
             <div className="flex items-center justify-between gap-2 px-3 py-2 bg-muted/40">
@@ -1739,7 +1864,7 @@ function SlackAutoConfigSummary({
             </div>
             {isOpen && (
               <div className="border-t border-border/60">
-                {section.fields.map(fieldKey => renderFieldRow(fieldKey))}
+                {visibleFields.map(fieldKey => renderFieldRow(fieldKey))}
               </div>
             )}
           </div>

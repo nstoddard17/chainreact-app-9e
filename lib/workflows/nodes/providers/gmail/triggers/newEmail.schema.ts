@@ -3,7 +3,7 @@ import { NodeComponent } from "../../../types"
 export const newEmailTriggerSchema: NodeComponent = {
   type: "gmail_trigger_new_email",
   title: "New Email",
-  description: "Triggers when a new email is received.",
+  description: "Triggers when a new email is received. Supports AI-powered semantic filtering to trigger on emails about specific topics.",
   isTrigger: true,
   providerId: "gmail",
   category: "Communication",
@@ -17,8 +17,8 @@ export const newEmailTriggerSchema: NodeComponent = {
       dynamic: "gmail-recent-recipients",
       required: false,
       loadOnMount: true, // Load recipients immediately when modal opens
-      placeholder: "Enter sender email address",
-      description: "Filter emails by sender address. Leave blank to trigger on emails from any sender."
+      placeholder: "Leave blank for any sender",
+      description: "Filter by sender email address. Leave blank to trigger on emails from ANY sender."
     },
     {
       name: "subjectExactMatch",
@@ -32,8 +32,8 @@ export const newEmailTriggerSchema: NodeComponent = {
       name: "subject",
       label: "Subject",
       type: "text",
-      placeholder: "Optional: filter by subject",
-      description: "Filter emails by subject line"
+      placeholder: "Leave blank for any subject",
+      description: "Filter by exact keywords in subject line. For semantic matching (e.g., 'about returns'), use AI Content Filter below instead."
     },
     {
       name: "hasAttachment",
@@ -61,6 +61,29 @@ export const newEmailTriggerSchema: NodeComponent = {
         { value: "TRASH", label: "Trash" }
       ]
     },
+    {
+      name: "aiContentFilter",
+      label: "AI Content Filter (Optional)",
+      type: "textarea",
+      required: false,
+      placeholder: "e.g., 'emails about our return policy' or 'customer complaints about shipping'",
+      description: "🤖 Use AI to filter emails by meaning and context, not just keywords. Describe what the email should be about. Leave blank to trigger on any email matching the filters above.",
+      rows: 3
+    },
+    {
+      name: "aiFilterConfidence",
+      label: "AI Filter Strictness",
+      type: "select",
+      required: false,
+      defaultValue: "medium",
+      options: [
+        { value: "low", label: "Relaxed (50%+ match)" },
+        { value: "medium", label: "Balanced (70%+ match)" },
+        { value: "high", label: "Strict (90%+ match)" }
+      ],
+      description: "How closely must the email match your AI content filter? Only used if AI Content Filter is set.",
+      dependsOn: "aiContentFilter"
+    }
   ],
   outputSchema: [
     {

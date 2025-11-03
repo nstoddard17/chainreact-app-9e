@@ -37,6 +37,7 @@ import {
   getInitialState,
   getBadgeForState,
 } from "@/src/lib/workflows/builder/BuildState"
+import { actionTestService } from "@/lib/workflows/testing/ActionTestService"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 import type { NodeComponent } from "@/lib/workflows/nodes/types"
 import "./styles/FlowBuilder.anim.css"
@@ -262,6 +263,16 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
     costTrackerRef.current = new CostTracker()
   }, [])
 
+  // Cleanup: Clear pending messages on unmount if workflow was never saved
+  useEffect(() => {
+    return () => {
+      if (!chatPersistenceEnabled && pendingChatMessagesRef.current.length > 0) {
+        console.log('🧹 [Chat Debug] Clearing pending messages on unmount (workflow never saved)')
+        pendingChatMessagesRef.current = []
+      }
+    }
+  }, [chatPersistenceEnabled])
+
   // Load chat history on mount (only for saved workflows with auth ready)
   useEffect(() => {
     console.log('📌 [Chat Debug] useEffect triggered - loadChatHistory dependency changed')
@@ -388,17 +399,16 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
     }
 
     if (!chatPersistenceEnabled) {
-      const flow = flowState.flow
-      const hasExistingContent =
-        revisionCount > 1 ||
-        agentMessages.length > 0 ||
-        Boolean(flow && (flow.nodes?.length ?? 0) > 0) ||
-        Boolean(flow && (flow.edges?.length ?? 0) > 0) ||
-        Boolean(flow && flow.name && flow.name.trim() !== "Untitled Flow")
+      // Only enable chat persistence if the workflow has been saved at least once
+      // This prevents saving messages for workflows that never get saved
+      const workflowHasBeenSaved = Boolean(flowState.revisionId)
 
-      if (hasExistingContent) {
+      if (workflowHasBeenSaved) {
+        console.log('✅ [Chat Debug] Enabling chat persistence (workflow has been saved)')
         setChatPersistenceEnabled(true)
         return
+      } else {
+        console.log('⏸️  [Chat Debug] Chat persistence disabled (workflow not yet saved)')
       }
     }
 
@@ -1557,14 +1567,18 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
       }
 
       if (reactFlowInstanceRef.current) {
+        // Extract savedDynamicOptions from userConfig (special key set by FlowV2AgentPanel)
+        const { __savedDynamicOptions__, ...regularConfig } = userConfig
+
         applyNodeUpdate(node => ({
           ...node,
           data: {
             ...node.data,
             config: {
               ...(node.data?.config ?? {}),
-              ...userConfig,
+              ...regularConfig, // Apply regular config (without __savedDynamicOptions__)
             },
+            savedDynamicOptions: __savedDynamicOptions__ || node.data?.savedDynamicOptions, // Add savedDynamicOptions to node data
             aiStatus: 'preparing',
             state: 'ready',
             aiProgressConfig: progressEntries,
@@ -1596,6 +1610,9 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
               displayValue,
             })
 
+            // Extract savedDynamicOptions from userConfig
+            const { __savedDynamicOptions__, ...regularConfig } = userConfig
+
             applyNodeUpdate(node => ({
               ...node,
               data: {
@@ -1604,9 +1621,10 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
                 aiProgressConfig: [...progressEntries],
                 config: {
                   ...(node.data?.config ?? {}),
-                  ...userConfig,
+                  ...regularConfig,
                   [field.name]: aiValue,
                 },
+                savedDynamicOptions: __savedDynamicOptions__ || node.data?.savedDynamicOptions,
               },
             }))
 
@@ -1636,10 +1654,64 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
         setNodeState(reactFlowInstanceRef.current, reactFlowNode.id, 'running')
         await wait(500)
 
-        const testSuccess = true
-        await wait(600)
+        // Execute REAL test for actions, validate for triggers
+        let testResult
+        const catalog = ALL_NODE_COMPONENTS.find(c => c.type === planNode.nodeType)
+        const isTrigger = catalog?.isTrigger || false
 
-        if (testSuccess) {
+        try {
+          if (isTrigger) {
+            // For triggers: just validate configuration
+            // Webhooks are created on workflow activation, not during testing
+            console.log('[WorkflowBuilderV2] 📋 Validating trigger configuration:', planNode.nodeId)
+
+            // Check if connection exists
+            const connectionId = userConfig.connection
+            if (!connectionId) {
+              throw new Error('No integration connected')
+            }
+
+            testResult = {
+              success: true,
+              message: '✅ Trigger configuration validated',
+              testData: { validated: true, trigger: true }
+            }
+
+            await wait(600) // Brief pause to show testing state
+          } else {
+            // For actions: execute REAL API call
+            console.log('[WorkflowBuilderV2] 🧪 Executing real action test:', planNode.nodeId)
+
+            // Use the complete config from the node, which includes both user config and AI-generated values
+            const completeConfig = reactFlowNode.data.config || userConfig
+
+            testResult = await actionTestService.testAction({
+              userId: builder.userId!,
+              workflowId: builder.id!,
+              nodeId: planNode.nodeId,
+              nodeType: planNode.nodeType,
+              providerId: planNode.providerId || '',
+              config: completeConfig,
+              integrationId: completeConfig.connection || userConfig.__savedDynamicOptions__?.integrationId || ''
+            })
+          }
+
+          console.log('[WorkflowBuilderV2] Test result:', testResult)
+
+        } catch (error: any) {
+          console.error('[WorkflowBuilderV2] Test failed:', error)
+          testResult = {
+            success: false,
+            message: error.message || 'Test failed',
+            error: {
+              code: error.code || 'TEST_FAILED',
+              message: error.message,
+              details: error
+            }
+          }
+        }
+
+        if (testResult.success) {
           setNodeState(reactFlowInstanceRef.current, reactFlowNode.id, 'passed')
           applyNodeUpdate(node => ({
             ...node,
@@ -1647,6 +1719,7 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
               ...node.data,
               aiStatus: 'ready',
               state: 'passed',
+              testResult: testResult.testData // Store test data
             },
           }))
         } else {
@@ -1657,9 +1730,18 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
               ...node.data,
               aiStatus: 'error',
               state: 'failed',
+              testError: testResult.error // Store error for display
             },
           }))
-          throw new Error('Node test failed')
+
+          // Show error to user
+          toast({
+            title: "Test Failed",
+            description: testResult.message,
+            variant: "destructive"
+          })
+
+          throw new Error(testResult.message)
         }
       }
 
@@ -1705,15 +1787,9 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
           })
         }
 
-        // STEP 9: Pan to next node with safe zoom (maintain zoom from before)
-        if (reactFlowInstanceRef.current && nextReactNodeId) {
-          const totalNodes = builder.nodes?.length ?? buildMachine.plan.length
-          const safeZoom = calculateSafeZoom(totalNodes, 5)
-          panToNode(reactFlowInstanceRef.current, nextReactNodeId, {
-            zoom: safeZoom,
-            duration: 600,
-          })
-        }
+        // STEP 9: No camera panning - keep viewport where user positioned it
+        // Camera was positioned perfectly after "Build", so we maintain that view
+        // during the guided setup flow
       }
     } catch (error: any) {
       toast({
