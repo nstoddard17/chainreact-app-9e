@@ -176,7 +176,16 @@ export const useIntegrationStore = create<IntegrationStore>()(
         previousType: get().workspaceType,
         previousId: get().workspaceId
       })
-      set({ workspaceType, workspaceId: workspaceId || null })
+
+      // CRITICAL: Clear cache and integrations when workspace changes
+      // to prevent showing stale data from previous workspace
+      set({
+        workspaceType,
+        workspaceId: workspaceId || null,
+        integrations: [], // Clear existing integrations immediately
+        lastFetchTime: null // Clear cache timestamp
+      })
+
       // Refetch integrations when workspace context changes (force=true to bypass cache)
       get().fetchIntegrations(true, workspaceType, workspaceId || undefined)
     },

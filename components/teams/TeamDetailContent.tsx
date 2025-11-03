@@ -27,6 +27,7 @@ import {
 } from "lucide-react"
 import { useWorkflowStore } from "@/stores/workflowStore"
 import { useIntegrationStore } from "@/stores/integrationStore"
+import { useAuthStore } from "@/stores/authStore"
 import { hasPermission, type TeamRole } from "@/lib/types/roles"
 import { TeamActivityFeed } from "@/components/teams/TeamActivityFeed"
 import { TransferOwnershipDialog } from "@/components/teams/TransferOwnershipDialog"
@@ -55,13 +56,13 @@ export default function TeamDetailContent({ team }: TeamDetailContentProps) {
   const [loading, setLoading] = useState(true)
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false)
   const [leaving, setLeaving] = useState(false)
-  const [currentUserId, setCurrentUserId] = useState<string>("")
   const [transferOwnershipOpen, setTransferOwnershipOpen] = useState(false)
 
   const setWorkspaceContext = useWorkflowStore(state => state.setWorkspaceContext)
   const fetchWorkflows = useWorkflowStore(state => state.fetchWorkflows)
   const workflows = useWorkflowStore(state => state.workflows)
   const fetchIntegrations = useIntegrationStore(state => state.fetchIntegrations)
+  const user = useAuthStore(state => state.user)
 
   const userRole = (team.team_members?.[0]?.role || 'member') as TeamRole
 
@@ -81,12 +82,11 @@ export default function TeamDetailContent({ team }: TeamDetailContentProps) {
       // Switch to this team's workspace
       setWorkspaceContext('team', team.id)
 
-      // Fetch team data and get current user
+      // Fetch team data
       await Promise.all([
         fetchWorkflows(true, 'team', team.id), // Pass team context and ID
         fetchIntegrations(true),
-        fetchMemberCount(),
-        getCurrentUser()
+        fetchMemberCount()
       ])
 
       setLoading(false)
@@ -94,18 +94,6 @@ export default function TeamDetailContent({ team }: TeamDetailContentProps) {
 
     initializeTeamWorkspace()
   }, [team.id])
-
-  const getCurrentUser = async () => {
-    try {
-      const response = await fetch('/api/auth/session')
-      if (response.ok) {
-        const data = await response.json()
-        setCurrentUserId(data.user?.id || '')
-      }
-    } catch (error) {
-      console.error('Error getting current user:', error)
-    }
-  }
 
   const fetchMemberCount = async () => {
     try {
@@ -132,10 +120,15 @@ export default function TeamDetailContent({ team }: TeamDetailContentProps) {
   }
 
   const handleLeaveTeam = async () => {
+    if (!user?.id) {
+      toast.error('You must be logged in to leave a team')
+      return
+    }
+
     try {
       setLeaving(true)
 
-      const response = await fetch(`/api/teams/${team.id}/members/${currentUserId}`, {
+      const response = await fetch(`/api/teams/${team.id}/members/${user.id}`, {
         method: 'DELETE'
       })
 
@@ -483,7 +476,7 @@ export default function TeamDetailContent({ team }: TeamDetailContentProps) {
           onOpenChange={setTransferOwnershipOpen}
           teamId={team.id}
           teamName={team.name}
-          currentUserId={currentUserId}
+          currentUserId={user?.id || ''}
           onSuccess={() => {
             // Refresh the page to update ownership status
             router.refresh()
