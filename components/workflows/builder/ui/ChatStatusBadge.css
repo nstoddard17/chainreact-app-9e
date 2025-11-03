@@ -14,10 +14,50 @@
   min-height: 36px;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  overflow: hidden;
 }
 
 .chat-status-badge.reduced-motion {
   transition: none;
+}
+
+/* Shimmer wave animation for active and waiting states */
+.chat-status-badge.active::before,
+.chat-status-badge.waiting::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -150%;
+  width: 150%;
+  height: 100%;
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    transparent 30%,
+    rgba(37, 99, 235, 0.25) 40%,
+    rgba(37, 99, 235, 0.45) 50%,
+    rgba(37, 99, 235, 0.25) 60%,
+    transparent 70%,
+    transparent 100%
+  );
+  animation: shimmerWave 2s linear infinite;
+  z-index: 0;
+  pointer-events: none;
+  transform: skewX(-15deg);
+}
+
+.chat-status-badge.reduced-motion.active::before,
+.chat-status-badge.reduced-motion.waiting::before {
+  animation: none;
+}
+
+@keyframes shimmerWave {
+  0% {
+    left: -150%;
+  }
+  100% {
+    left: 150%;
+  }
 }
 
 .chat-status-badge-content {
@@ -25,6 +65,8 @@
   align-items: center;
   gap: 10px;
   width: 100%;
+  position: relative;
+  z-index: 1;
 }
 
 .chat-status-badge-dot {

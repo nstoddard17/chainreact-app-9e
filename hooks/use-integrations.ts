@@ -7,7 +7,8 @@ import { toast } from "./use-toast"
 import { logger } from '@/lib/utils/logger'
 
 export interface Integration {
-  id: string
+  id: string // Provider ID (e.g., "gmail", "slack")
+  integrationId?: string // Database integration UUID (only when connected)
   name: string
   description: string
   icon: string
@@ -88,6 +89,7 @@ export function useIntegrations(): UseIntegrationsReturn {
         const connected = connectedIntegrations.find((conn: any) => conn.provider === integration.id)
         return {
           ...integration,
+          integrationId: connected?.id, // Database UUID for API calls
           isConnected: !!connected,
           status: connected ? "connected" : "disconnected",
           connectedAt: connected?.created_at,
