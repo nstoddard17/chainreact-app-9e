@@ -312,34 +312,51 @@ export function FlowV2AgentPanel({
 
   // Helper: Get account-specific display name for a connection
   const getConnectionDisplayName = (connection: any, providerId: string): string => {
-    // Try to get account-specific information from the integration
-    // This data is stored in additional fields during OAuth callback
+    // DEBUG: Log the full connection object to see what fields we have
+    console.log('[getConnectionDisplayName] providerId:', providerId)
+    console.log('[getConnectionDisplayName] connection:', connection)
+    console.log('[getConnectionDisplayName] connection keys:', Object.keys(connection))
+    console.log('[getConnectionDisplayName] has metadata?:', !!connection.metadata)
+    console.log('[getConnectionDisplayName] has email?:', !!connection.email)
+    console.log('[getConnectionDisplayName] metadata:', connection.metadata)
+
+    // Account info is stored in metadata (new) or top-level (old, backward compat)
+    const email = connection.metadata?.email || connection.email
+    const accountName = connection.metadata?.account_name || connection.account_name
+    const teamName = connection.team_name // Slack stores this at top level
+
+    console.log('[getConnectionDisplayName] extracted email:', email)
+    console.log('[getConnectionDisplayName] extracted accountName:', accountName)
+    console.log('[getConnectionDisplayName] extracted teamName:', teamName)
 
     // For Slack: show team name
-    if (providerId === 'slack' && connection.team_name) {
-      return `${connection.team_name} (Slack)`
+    if (providerId === 'slack' && teamName) {
+      return `${teamName} (Slack)`
     }
 
     // For Gmail/Google: show email
-    if ((providerId === 'gmail' || providerId === 'google-drive') && connection.email) {
-      return connection.email
+    if ((providerId === 'gmail' || providerId === 'google-drive') && email) {
+      console.log('[getConnectionDisplayName] returning email for Gmail:', email)
+      return email
     }
 
     // For Microsoft products: show email
-    if ((providerId === 'microsoft-outlook' || providerId === 'microsoft-onedrive' || providerId === 'microsoft-teams') && connection.email) {
-      return connection.email
+    if ((providerId === 'microsoft-outlook' || providerId === 'microsoft-onedrive' || providerId === 'microsoft-teams') && email) {
+      return email
     }
 
     // For other providers: show account name or email if available
-    if (connection.account_name) {
-      return connection.account_name
+    if (accountName) {
+      return accountName
     }
-    if (connection.email) {
-      return connection.email
+    if (email) {
+      return email
     }
 
     // Fallback to connection name or provider name
-    return connection.name || `${getProviderDisplayName(providerId)} Account`
+    const fallback = connection.name || `${getProviderDisplayName(providerId)} Account`
+    console.log('[getConnectionDisplayName] using fallback:', fallback)
+    return fallback
   }
 
   // Helper: Handle OAuth popup for connecting integration
@@ -371,8 +388,6 @@ export function FlowV2AgentPanel({
       // Get connections before OAuth - store IDs not just objects
       const connectionsBefore = getProviderConnections(providerId)
       const connectionIdsBefore = connectionsBefore.map(c => c.integrationId || c.id)
-      console.log('[OAuth Setup] Starting OAuth for', providerId)
-      console.log('[OAuth Setup] Connections before:', connectionsBefore.length, 'IDs:', connectionIdsBefore)
 
       // Open OAuth in popup
       const width = 600
@@ -392,31 +407,23 @@ export function FlowV2AgentPanel({
 
       // Process OAuth result (called from any listener)
       const processOAuthResult = async (data: any) => {
-        console.log('[OAuth] Processing result:', data)
-
         // Handle both old format (OAUTH_SUCCESS/OAUTH_ERROR) and new format (oauth-complete)
         const isSuccess = data.type === 'OAUTH_SUCCESS' ||
                          (data.type === 'oauth-complete' && data.success)
 
         if (isSuccess) {
           // Refresh integrations to get the new connection
-          console.log('[OAuth] Success! Refreshing integrations...')
           await refreshIntegrations()
 
           // Check if this account was already connected by comparing integration IDs
           const connectionsAfter = getProviderConnections(providerId)
           const connectionIdsAfter = connectionsAfter.map(c => c.integrationId || c.id)
 
-          console.log('[OAuth] Connections after:', connectionsAfter.length, 'IDs:', connectionIdsAfter)
-          console.log('[OAuth] IDs before:', connectionIdsBefore)
-          console.log('[OAuth] IDs after:', connectionIdsAfter)
-
           // Check if all IDs are the same (upsert happened = duplicate account)
           const hasNewId = connectionIdsAfter.some(id => !connectionIdsBefore.includes(id))
 
           if (!hasNewId && connectionIdsAfter.length > 0) {
             // No new ID = duplicate account (upsert happened)
-            console.log('[OAuth] 🔄 Duplicate account detected (upsert)')
             const existingConnection = connectionsAfter[0]
             if (existingConnection) {
               setDuplicateMessages(prev => ({
@@ -429,12 +436,10 @@ export function FlowV2AgentPanel({
             }
           } else {
             // New ID found = new connection
-            console.log('[OAuth] ✨ New connection detected')
             const newConnection = connectionsAfter.find(c =>
               !connectionIdsBefore.includes(c.integrationId || c.id)
             )
             if (newConnection) {
-              console.log('[OAuth] Auto-selecting new connection:', newConnection.integrationId || newConnection.id)
               handleFieldChange(nodeId, 'connection', newConnection.integrationId || newConnection.id)
             }
           }
@@ -445,9 +450,7 @@ export function FlowV2AgentPanel({
       let broadcastChannel: BroadcastChannel | null = null
       try {
         broadcastChannel = new BroadcastChannel('oauth_channel')
-        console.log('[OAuth] 📡 Listening on BroadcastChannel')
         broadcastChannel.onmessage = async (event) => {
-          console.log('[OAuth] 📡 BroadcastChannel message received:', event.data)
           if (event.data.type === 'oauth-complete' || event.data.type === 'OAUTH_SUCCESS' || event.data.type === 'OAUTH_ERROR') {
             broadcastChannel?.close()
             popup?.close()
@@ -455,20 +458,17 @@ export function FlowV2AgentPanel({
           }
         }
       } catch (e) {
-        console.log('[OAuth] BroadcastChannel not available:', e)
+        // BroadcastChannel not available
       }
 
       // Method 2: Poll localStorage (fallback for COOP scenarios)
-      console.log('[OAuth] 🔍 Polling localStorage for OAuth response')
       const storageCheckInterval = setInterval(() => {
-        // Check for OAuth response in localStorage
         const keys = Object.keys(localStorage).filter(k => k.startsWith('oauth_response_'))
         for (const key of keys) {
           try {
             const data = JSON.parse(localStorage.getItem(key) || '{}')
             if (data.timestamp && Date.now() - new Date(data.timestamp).getTime() < 60000) {
-              console.log('[OAuth] 💾 Found OAuth response in localStorage:', data)
-              localStorage.removeItem(key) // Clean up
+              localStorage.removeItem(key)
               clearInterval(storageCheckInterval)
               broadcastChannel?.close()
               popup?.close()
@@ -483,19 +483,13 @@ export function FlowV2AgentPanel({
 
       // Method 3: Listen for postMessage (traditional method)
       const handleMessage = async (event: MessageEvent) => {
-        console.log('[OAuth Handler] Received postMessage:', event.data.type, event.origin)
-
-        if (event.origin !== window.location.origin) {
-          console.log('[OAuth Handler] ❌ Origin mismatch, ignoring')
-          return
-        }
+        if (event.origin !== window.location.origin) return
 
         const isOAuthMessage = event.data.type === 'OAUTH_SUCCESS' ||
                                event.data.type === 'OAUTH_ERROR' ||
                                event.data.type === 'oauth-complete'
 
         if (isOAuthMessage) {
-          console.log('[OAuth] ✉️ postMessage received:', event.data)
           window.removeEventListener('message', handleMessage)
           clearInterval(storageCheckInterval)
           broadcastChannel?.close()
@@ -510,7 +504,6 @@ export function FlowV2AgentPanel({
       const checkClosed = setInterval(() => {
         try {
           if (popup.closed) {
-            console.log('[OAuth] Popup closed, cleaning up listeners')
             clearInterval(checkClosed)
             clearInterval(storageCheckInterval)
             window.removeEventListener('message', handleMessage)
@@ -518,7 +511,6 @@ export function FlowV2AgentPanel({
           }
         } catch (e) {
           // COOP policy may block access to popup.closed - ignore this error
-          // The popup will clean up when it receives a response anyway
         }
       }, 1000)
 
