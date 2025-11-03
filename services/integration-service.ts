@@ -112,6 +112,12 @@ export class IntegrationService {
         }
 
         const url = `/api/integrations?${params.toString()}`
+        logger.debug('🌐 [IntegrationService] Fetching URL', {
+          url,
+          workspaceType,
+          workspaceId
+        });
+
         const response = await fetch(url, {
           method: "GET",
           headers: {
@@ -129,6 +135,18 @@ export class IntegrationService {
 
         const data = await response.json()
         const integrations = data.data || []
+
+        logger.debug('🌐 [IntegrationService] API Response', {
+          url,
+          count: integrations.length,
+          workspace: data.workspace,
+          firstFew: integrations.slice(0, 3).map((i: any) => ({
+            id: i.id,
+            provider: i.provider,
+            workspace_type: i.workspace_type,
+            workspace_id: i.workspace_id
+          }))
+        });
 
         return integrations
       } catch (error: any) {
