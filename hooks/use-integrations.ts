@@ -7,7 +7,8 @@ import { toast } from "./use-toast"
 import { logger } from '@/lib/utils/logger'
 
 export interface Integration {
-  id: string
+  id: string // Provider ID (e.g., "gmail", "slack")
+  integrationId?: string // Database integration UUID (only when connected)
   name: string
   description: string
   icon: string
@@ -18,6 +19,20 @@ export interface Integration {
   lastSync?: string
   scopes?: string[]
   error?: string
+  // Account identification (from database)
+  metadata?: {
+    email?: string
+    account_name?: string
+    google_id?: string
+    picture?: string
+    [key: string]: any // Allow other metadata fields
+  }
+  // Slack-specific (top-level in database)
+  team_name?: string
+  team_id?: string
+  // Legacy fields (backward compatibility)
+  email?: string
+  account_name?: string
 }
 
 export interface UseIntegrationsReturn {
@@ -88,11 +103,18 @@ export function useIntegrations(): UseIntegrationsReturn {
         const connected = connectedIntegrations.find((conn: any) => conn.provider === integration.id)
         return {
           ...integration,
+          integrationId: connected?.id, // Database UUID for API calls
           isConnected: !!connected,
           status: connected ? "connected" : "disconnected",
           connectedAt: connected?.created_at,
           lastSync: connected?.last_sync,
           error: connected?.error_message,
+          // Pass through account identification fields
+          metadata: connected?.metadata,
+          team_name: connected?.team_name,
+          team_id: connected?.team_id,
+          email: connected?.email,
+          account_name: connected?.account_name,
         }
       })
 

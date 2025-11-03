@@ -21,7 +21,6 @@ import { Plus, ArrowRight, Trash2 } from "lucide-react"
 import { IntegrationsSidePanel } from "./IntegrationsSidePanel"
 import { Copy } from "./ui/copy"
 import { BuildState, type BadgeInfo } from "@/src/lib/workflows/builder/BuildState"
-import { CanvasBadge, type CanvasBadgeVariant } from "./ui/CanvasBadge"
 import { defaultEdgeOptions } from "./FlowEdges"
 import "./styles/tokens.css"
 import "./styles/FlowBuilder.anim.css"
@@ -237,57 +236,6 @@ export function FlowV2BuilderContent({
   const rightPanelWidth = configuringNode ? 600 : (isIntegrationsPanelOpen ? 600 : 0)
   const leftInset = isAgentPanelOpen ? Math.min(agentPanelWidth, containerWidth) : 0
   const availableWidth = Math.max(containerWidth - leftInset - rightPanelWidth, 0)
-  const badgeLeft = leftInset + availableWidth / 2
-  const badgeMaxWidth = availableWidth > 0
-    ? Math.min(Math.max(availableWidth - 32, 200), availableWidth)
-    : 200
-
-  const canvasBadgeText = useMemo(() => {
-    switch (buildState) {
-      case BuildState.THINKING:
-      case BuildState.SUBTASKS:
-      case BuildState.COLLECT_NODES:
-      case BuildState.OUTLINE:
-      case BuildState.PURPOSE:
-        return "Planning workflow"
-      case BuildState.BUILDING_SKELETON:
-        return "Building workflow"
-      case BuildState.WAITING_USER:
-        return "Waiting for your input"
-      case BuildState.PREPARING_NODE:
-        return "Preparing nodes"
-      case BuildState.TESTING_NODE:
-        return "Testing nodes"
-      case BuildState.COMPLETE:
-        return "Flow ready"
-      default:
-        return "Workflow assistant"
-    }
-  }, [buildState])
-
-  const canvasBadgeSubtext = useMemo(() => {
-    if (!badge?.subtext) {
-      if (buildState === BuildState.WAITING_USER) {
-        return "Review the plan to continue"
-      }
-      if (buildState === BuildState.COMPLETE) {
-        return undefined
-      }
-      return undefined
-    }
-    return badge.subtext
-  }, [badge?.subtext, buildState])
-
-  const badgeWrapperStyle: React.CSSProperties = {
-    position: "absolute",
-    top: 16,
-    left: badgeLeft || 0,
-    transform: "translateX(-50%)",
-    maxWidth: badgeMaxWidth,
-    pointerEvents: "none",
-    zIndex: 12,
-    padding: "0 8px",
-  }
 
   return (
     <ContextMenu>
@@ -319,7 +267,13 @@ export function FlowV2BuilderContent({
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             deleteKeyCode={["Delete", "Backspace"]}
-            fitView={buildState !== BuildState.BUILDING_SKELETON && buildState !== BuildState.WAITING_USER}
+            fitView={
+              buildState !== BuildState.BUILDING_SKELETON &&
+              buildState !== BuildState.WAITING_USER &&
+              buildState !== BuildState.PREPARING_NODE &&
+              buildState !== BuildState.TESTING_NODE &&
+              buildState !== BuildState.COMPLETE  // Don't auto-fit when workflow completes
+            }
             fitViewOptions={{
               padding: 0.15,
               includeHiddenNodes: false,
@@ -366,26 +320,6 @@ export function FlowV2BuilderContent({
         </Panel>
           </ReactFlow>
 
-          {/* Floating Badge - Top center */}
-          {badge && availableWidth > 80 && (
-            <div style={badgeWrapperStyle}>
-              <CanvasBadge
-                text={canvasBadgeText}
-                subtext={canvasBadgeSubtext}
-                variant={(() => {
-                  if (badge?.variant === 'green' || buildState === BuildState.COMPLETE) return 'success'
-                  if (badge?.variant === 'red') return 'error'
-                  if (badge?.spinner || buildState === BuildState.WAITING_USER || buildState === BuildState.PREPARING_NODE || buildState === BuildState.TESTING_NODE) {
-                    return 'waiting'
-                  }
-                  return 'active'
-                })() as CanvasBadgeVariant}
-                showDots={Boolean(badge?.dots)}
-                showSpinner={Boolean(badge?.spinner)}
-                reducedMotion={typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches}
-              />
-            </div>
-          )}
 
           {/* Integrations Side Panel */}
           <div

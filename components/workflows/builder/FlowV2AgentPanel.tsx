@@ -7,7 +7,7 @@
  * Contains chat interface, staged chips, plan list, and build controls.
  */
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useCallback, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
@@ -33,6 +33,8 @@ import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 import { getFieldTypeIcon } from "./ui/FieldTypeIcons"
 import "./styles/FlowBuilder.anim.css"
 import type { ChatMessage } from "@/lib/workflows/ai-agent/chat-service"
+import { useDynamicOptions } from "../configuration/hooks/useDynamicOptions"
+import type { DynamicOptionsState } from "../configuration/utils/types"
 
 interface PanelLayoutProps {
   isOpen: boolean
@@ -87,7 +89,28 @@ export function FlowV2AgentPanel({
   const [viewportDimensions, setViewportDimensions] = useState<{ height: number; width: number }>({ height: 0, width: 0 })
 
   // Fetch user's integrations for connection dropdown
-  const { integrations, loading: integrationsLoading } = useIntegrations()
+  const { integrations, loading: integrationsLoading, refreshIntegrations } = useIntegrations()
+
+  // Track duplicate connection messages per node
+  const [duplicateMessages, setDuplicateMessages] = useState<Record<string, { show: boolean; connectionName: string }>>({})
+
+  // Track dynamic options for each node in the plan
+  const [nodesDynamicOptions, setNodesDynamicOptions] = useState<Record<string, DynamicOptionsState>>({})
+
+  // Track which fields are loading for each node
+  const [loadingFieldsByNode, setLoadingFieldsByNode] = useState<Record<string, Set<string>>>({})
+
+  // Track validation errors for required fields
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({})
+
+  // Track which nodes are currently loading to prevent duplicate requests (infinite loop prevention)
+  const loadingNodesRef = useRef<Set<string>>(new Set())
+
+  // Ref for chat messages container to control scroll behavior
+  const chatMessagesRef = useRef<HTMLDivElement>(null)
+
+  // Track previous build state to detect COMPLETE transition
+  const prevBuildStateRef = useRef<BuildState>(buildMachine.state)
 
   // Set viewport dimensions after mount to avoid SSR/client mismatch
   useEffect(() => {
@@ -95,6 +118,105 @@ export function FlowV2AgentPanel({
       setViewportDimensions({ height: window.innerHeight, width: window.innerWidth })
     }
   }, [])
+
+  // Prevent scroll movement when transitioning to COMPLETE state
+  useEffect(() => {
+    const prevState = prevBuildStateRef.current
+    const currentState = buildMachine.state
+
+    console.log('[FlowV2AgentPanel] 🔄 Build state changed:', { prevState, currentState })
+
+    // If transitioning to COMPLETE, prevent any scrolling
+    if (currentState === BuildState.COMPLETE && prevState !== BuildState.COMPLETE) {
+      const container = chatMessagesRef.current
+      if (!container) {
+        console.log('[FlowV2AgentPanel] ⚠️ No container ref found for scroll lock')
+        return
+      }
+
+      console.log('[FlowV2AgentPanel] 🔒 Locking scroll at position:', container.scrollTop)
+
+      // Save current scroll position
+      const savedScrollTop = container.scrollTop
+
+      // Save original overflow style
+      const originalOverflow = container.style.overflow
+
+      // Completely disable scrolling via CSS
+      container.style.overflow = 'hidden'
+      container.style.scrollBehavior = 'auto'
+
+      // Create a scroll lock function as backup
+      const lockScroll = (e: Event) => {
+        console.log('[FlowV2AgentPanel] 📍 Scroll detected, preventing! Current:', container.scrollTop, 'Saved:', savedScrollTop)
+        e.preventDefault()
+        e.stopPropagation()
+        container.scrollTop = savedScrollTop
+      }
+
+      // Add scroll event listener to prevent any scroll changes
+      container.addEventListener('scroll', lockScroll, { passive: false, capture: true })
+
+      // Also set scroll position immediately
+      container.scrollTop = savedScrollTop
+
+      // Use multiple strategies to ensure scroll stays locked
+      const timeoutId = setTimeout(() => {
+        if (container) container.scrollTop = savedScrollTop
+      }, 0)
+
+      const rafId = requestAnimationFrame(() => {
+        if (container) container.scrollTop = savedScrollTop
+      })
+
+      // Clean up after 1 second (enough time for React to finish rendering)
+      const cleanupId = setTimeout(() => {
+        console.log('[FlowV2AgentPanel] 🔓 Releasing scroll lock')
+        container.removeEventListener('scroll', lockScroll, { capture: true } as any)
+        container.style.overflow = originalOverflow
+        container.style.scrollBehavior = ''
+      }, 1000)
+
+      return () => {
+        clearTimeout(timeoutId)
+        clearTimeout(cleanupId)
+        cancelAnimationFrame(rafId)
+        container.removeEventListener('scroll', lockScroll, { capture: true } as any)
+        container.style.overflow = originalOverflow
+        container.style.scrollBehavior = ''
+      }
+    }
+
+    // Update previous state
+    prevBuildStateRef.current = currentState
+  }, [buildMachine.state])
+
+  // Helper: Get default connection for a provider
+  // Returns the connection ID that should be selected by default
+  // Priority: 1) User's manual selection, 2) Default connection (future), 3) Single connection auto-select
+  const getDefaultConnection = (providerId: string, nodeId: string, providerConnections: any[]) => {
+    // Priority 1: User has already selected a connection
+    const userSelection = nodeConfigs[nodeId]?.connection
+    if (userSelection) {
+      return userSelection
+    }
+
+    // Priority 2: Check if there's a marked default connection (future support)
+    const defaultConnection = providerConnections.find(conn => conn.isDefault)
+    if (defaultConnection?.integrationId) {
+      console.log('[FlowV2AgentPanel] Using default connection:', defaultConnection.integrationId)
+      return defaultConnection.integrationId
+    }
+
+    // Priority 3: Auto-select if there's only one connection
+    if (providerConnections.length === 1 && providerConnections[0].integrationId) {
+      console.log('[FlowV2AgentPanel] Auto-selecting single connection:', providerConnections[0].integrationId)
+      return providerConnections[0].integrationId
+    }
+
+    // No default - user must select
+    return ''
+  }
 
   // Helper: Get node component schema by type
   const getNodeSchema = (nodeType: string) => {
@@ -120,6 +242,65 @@ export function FlowV2AgentPanel({
   // Helper: Update field configuration for a node
   const handleFieldChange = (nodeId: string, fieldName: string, value: any) => {
     onNodeConfigChange(nodeId, fieldName, value)
+
+    // Clear validation error for this field when user changes it
+    setFieldErrors(prev => {
+      const nodeErrors = prev[nodeId] || []
+      if (nodeErrors.length === 0) return prev
+
+      // Get the plan node to find field definition
+      const planNode = buildMachine.plan?.find(n => n.id === nodeId)
+      if (!planNode) return prev
+
+      const requiredFields = getRequiredUserFields(planNode.nodeType)
+
+      // Find the field label to match against error messages
+      let fieldLabel = fieldName
+      if (fieldName === 'connection') {
+        fieldLabel = 'Connection'
+      } else {
+        const field = requiredFields.find(f => f.name === fieldName)
+        fieldLabel = field?.label || fieldName
+      }
+
+      // Filter out errors that match this field's label
+      const updatedErrors = nodeErrors.filter(err =>
+        !err.toLowerCase().includes(fieldLabel.toLowerCase())
+      )
+
+      if (updatedErrors.length === 0) {
+        const { [nodeId]: _, ...rest } = prev
+        return rest
+      }
+      return { ...prev, [nodeId]: updatedErrors }
+    })
+  }
+
+  // Helper: Validate all required fields for current node
+  const validateRequiredFields = (planNode: any, requiresConnection: boolean): { isValid: boolean; missingFields: string[] } => {
+    const requiredFields = getRequiredUserFields(planNode.nodeType)
+    const config = nodeConfigs[planNode.id] || {}
+    const missingFields: string[] = []
+
+    // Check connection if required
+    if (requiresConnection && !config.connection) {
+      missingFields.push('connection')
+    }
+
+    // Check all other required fields
+    requiredFields.forEach(field => {
+      if (field.required && field.name !== 'connection') {
+        const value = config[field.name]
+        if (!value || value === '') {
+          missingFields.push(field.name)
+        }
+      }
+    })
+
+    return {
+      isValid: missingFields.length === 0,
+      missingFields
+    }
   }
 
   // Helper: Get connected integrations for a provider
@@ -128,6 +309,366 @@ export function FlowV2AgentPanel({
       int.id.toLowerCase() === providerId.toLowerCase() && int.isConnected
     )
   }
+
+  // Helper: Get account-specific display name for a connection
+  const getConnectionDisplayName = (connection: any, providerId: string): string => {
+    // DEBUG: Log the full connection object to see what fields we have
+    console.log('[getConnectionDisplayName] providerId:', providerId)
+    console.log('[getConnectionDisplayName] connection:', connection)
+    console.log('[getConnectionDisplayName] connection keys:', Object.keys(connection))
+    console.log('[getConnectionDisplayName] has metadata?:', !!connection.metadata)
+    console.log('[getConnectionDisplayName] has email?:', !!connection.email)
+    console.log('[getConnectionDisplayName] metadata:', connection.metadata)
+
+    // Account info is stored in metadata (new) or top-level (old, backward compat)
+    const email = connection.metadata?.email || connection.email
+    const accountName = connection.metadata?.account_name || connection.account_name
+    const teamName = connection.team_name // Slack stores this at top level
+
+    console.log('[getConnectionDisplayName] extracted email:', email)
+    console.log('[getConnectionDisplayName] extracted accountName:', accountName)
+    console.log('[getConnectionDisplayName] extracted teamName:', teamName)
+
+    // For Slack: show team name
+    if (providerId === 'slack' && teamName) {
+      return `${teamName} (Slack)`
+    }
+
+    // For Gmail/Google: show email
+    if ((providerId === 'gmail' || providerId === 'google-drive') && email) {
+      console.log('[getConnectionDisplayName] returning email for Gmail:', email)
+      return email
+    }
+
+    // For Microsoft products: show email
+    if ((providerId === 'microsoft-outlook' || providerId === 'microsoft-onedrive' || providerId === 'microsoft-teams') && email) {
+      return email
+    }
+
+    // For other providers: show account name or email if available
+    if (accountName) {
+      return accountName
+    }
+    if (email) {
+      return email
+    }
+
+    // Fallback to connection name or provider name
+    const fallback = connection.name || `${getProviderDisplayName(providerId)} Account`
+    console.log('[getConnectionDisplayName] using fallback:', fallback)
+    return fallback
+  }
+
+  // Helper: Handle OAuth popup for connecting integration
+  const handleConnectIntegration = async (providerId: string, nodeId: string) => {
+    try {
+      // Clear any existing duplicate message for this node
+      setDuplicateMessages(prev => {
+        const { [nodeId]: _, ...rest } = prev
+        return rest
+      })
+
+      // Generate OAuth URL
+      const response = await fetch("/api/integrations/auth/generate-url", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ provider: providerId }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        console.error('OAuth URL generation failed:', errorData)
+        throw new Error(errorData.error || errorData.message || "Failed to generate OAuth URL")
+      }
+
+      const { authUrl } = await response.json()
+
+      // Get connections before OAuth - store IDs not just objects
+      const connectionsBefore = getProviderConnections(providerId)
+      const connectionIdsBefore = connectionsBefore.map(c => c.integrationId || c.id)
+
+      // Open OAuth in popup
+      const width = 600
+      const height = 700
+      const left = (window.screen.width - width) / 2
+      const top = (window.screen.height - height) / 2
+
+      const popup = window.open(
+        authUrl,
+        'oauth-popup',
+        `width=${width},height=${height},left=${left},top=${top}`
+      )
+
+      if (!popup) {
+        throw new Error('Popup blocked. Please allow popups for this site.')
+      }
+
+      // Process OAuth result (called from any listener)
+      const processOAuthResult = async (data: any) => {
+        // Handle both old format (OAUTH_SUCCESS/OAUTH_ERROR) and new format (oauth-complete)
+        const isSuccess = data.type === 'OAUTH_SUCCESS' ||
+                         (data.type === 'oauth-complete' && data.success)
+
+        if (isSuccess) {
+          // Refresh integrations to get the new connection
+          await refreshIntegrations()
+
+          // Check if this account was already connected by comparing integration IDs
+          const connectionsAfter = getProviderConnections(providerId)
+          const connectionIdsAfter = connectionsAfter.map(c => c.integrationId || c.id)
+
+          // Check if all IDs are the same (upsert happened = duplicate account)
+          const hasNewId = connectionIdsAfter.some(id => !connectionIdsBefore.includes(id))
+
+          if (!hasNewId && connectionIdsAfter.length > 0) {
+            // No new ID = duplicate account (upsert happened)
+            const existingConnection = connectionsAfter[0]
+            if (existingConnection) {
+              setDuplicateMessages(prev => ({
+                ...prev,
+                [nodeId]: {
+                  show: true,
+                  connectionName: getConnectionDisplayName(existingConnection, providerId)
+                }
+              }))
+            }
+          } else {
+            // New ID found = new connection
+            const newConnection = connectionsAfter.find(c =>
+              !connectionIdsBefore.includes(c.integrationId || c.id)
+            )
+            if (newConnection) {
+              handleFieldChange(nodeId, 'connection', newConnection.integrationId || newConnection.id)
+            }
+          }
+        }
+      }
+
+      // Method 1: Listen for BroadcastChannel (works when postMessage is blocked by COOP)
+      let broadcastChannel: BroadcastChannel | null = null
+      try {
+        broadcastChannel = new BroadcastChannel('oauth_channel')
+        broadcastChannel.onmessage = async (event) => {
+          if (event.data.type === 'oauth-complete' || event.data.type === 'OAUTH_SUCCESS' || event.data.type === 'OAUTH_ERROR') {
+            broadcastChannel?.close()
+            popup?.close()
+            await processOAuthResult(event.data)
+          }
+        }
+      } catch (e) {
+        // BroadcastChannel not available
+      }
+
+      // Method 2: Poll localStorage (fallback for COOP scenarios)
+      const storageCheckInterval = setInterval(() => {
+        const keys = Object.keys(localStorage).filter(k => k.startsWith('oauth_response_'))
+        for (const key of keys) {
+          try {
+            const data = JSON.parse(localStorage.getItem(key) || '{}')
+            if (data.timestamp && Date.now() - new Date(data.timestamp).getTime() < 60000) {
+              localStorage.removeItem(key)
+              clearInterval(storageCheckInterval)
+              broadcastChannel?.close()
+              popup?.close()
+              processOAuthResult(data)
+              break
+            }
+          } catch (e) {
+            // Invalid JSON, skip
+          }
+        }
+      }, 500)
+
+      // Method 3: Listen for postMessage (traditional method)
+      const handleMessage = async (event: MessageEvent) => {
+        if (event.origin !== window.location.origin) return
+
+        const isOAuthMessage = event.data.type === 'OAUTH_SUCCESS' ||
+                               event.data.type === 'OAUTH_ERROR' ||
+                               event.data.type === 'oauth-complete'
+
+        if (isOAuthMessage) {
+          window.removeEventListener('message', handleMessage)
+          clearInterval(storageCheckInterval)
+          broadcastChannel?.close()
+          popup?.close()
+          await processOAuthResult(event.data)
+        }
+      }
+
+      window.addEventListener('message', handleMessage)
+
+      // Cleanup if popup is closed manually (note: popup.closed may be blocked by COOP)
+      const checkClosed = setInterval(() => {
+        try {
+          if (popup.closed) {
+            clearInterval(checkClosed)
+            clearInterval(storageCheckInterval)
+            window.removeEventListener('message', handleMessage)
+            broadcastChannel?.close()
+          }
+        } catch (e) {
+          // COOP policy may block access to popup.closed - ignore this error
+        }
+      }, 1000)
+
+    } catch (error) {
+      console.error('Error connecting integration:', error)
+      alert(error instanceof Error ? error.message : 'Failed to connect integration')
+    }
+  }
+
+  // Helper: Load dynamic options for a node's fields when connection is selected
+  const loadDynamicOptionsForNode = useCallback(async (nodeId: string, nodeType: string, providerId: string, connectionId: string) => {
+    // Prevent duplicate requests for the same node
+    if (loadingNodesRef.current.has(nodeId)) {
+      console.log(`[FlowV2AgentPanel] ⏭️ Skipping duplicate load for ${nodeId}`)
+      return
+    }
+
+    const schema = getNodeSchema(nodeType)
+    if (!schema?.configSchema) return
+
+    // Find all fields with dynamic options
+    const dynamicFields = schema.configSchema.filter(field =>
+      field.dynamic && field.name !== 'connection'
+    )
+
+    if (dynamicFields.length === 0) return
+
+    // Mark this node as loading immediately (prevents duplicate requests)
+    loadingNodesRef.current.add(nodeId)
+
+    // Also set a placeholder in state to prevent useEffect from retriggering
+    setNodesDynamicOptions(prev => ({
+      ...prev,
+      [nodeId]: prev[nodeId] || {} // Create empty object if it doesn't exist
+    }))
+
+    console.log('[FlowV2AgentPanel] Loading dynamic options for node:', nodeId, 'fields:', dynamicFields.map(f => f.name))
+
+    // Mark fields as loading
+    setLoadingFieldsByNode(prev => ({
+      ...prev,
+      [nodeId]: new Set(dynamicFields.map(f => f.name))
+    }))
+
+    // Load options for each dynamic field
+    const loadPromises = dynamicFields.map(async (field) => {
+      try {
+        // Get the dataType from field.dynamic
+        let dataType = typeof field.dynamic === 'string' ? field.dynamic : String(field.dynamic || '')
+
+        // Slack API expects underscores, but schemas use hyphens
+        // Gmail API expects exactly what's in the schema (mix of hyphens and underscores)
+        if (providerId === 'slack') {
+          dataType = dataType.replace(/-/g, '_')
+        }
+
+        console.log(`[FlowV2AgentPanel] Loading ${field.name} for ${providerId}, dataType: ${dataType}, connectionId: ${connectionId}`)
+
+        // Call the API to load options (POST request with JSON body)
+        const response = await fetch(`/api/integrations/${providerId}/data`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            integrationId: connectionId,
+            dataType: dataType,
+            options: {}
+          })
+        })
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error(`Failed to load options for ${field.name}:`, response.status, errorText)
+          return { fieldName: field.name, options: [] }
+        }
+
+        const result = await response.json()
+        console.log(`[FlowV2AgentPanel] Received data for ${field.name}:`, result)
+
+        // Extract options from response (API returns { data: [...], success: true })
+        const options = Array.isArray(result.data) ? result.data : result.data || []
+
+        return { fieldName: field.name, options }
+      } catch (error) {
+        console.error(`Error loading options for ${field.name}:`, error)
+        return { fieldName: field.name, options: [] }
+      }
+    })
+
+    const results = await Promise.all(loadPromises)
+
+    // Update options for this node
+    const newOptions: DynamicOptionsState = {}
+    results.forEach(({ fieldName, options }) => {
+      newOptions[fieldName] = options
+    })
+
+    setNodesDynamicOptions(prev => ({
+      ...prev,
+      [nodeId]: { ...prev[nodeId], ...newOptions }
+    }))
+
+    // Save dynamic options to nodeConfigs so the workflow builder can access them
+    // Use a special key that the workflow builder will recognize and move to savedDynamicOptions
+    onNodeConfigChange(nodeId, '__savedDynamicOptions__', { ...newOptions })
+
+    // Clear loading state
+    setLoadingFieldsByNode(prev => ({
+      ...prev,
+      [nodeId]: new Set()
+    }))
+
+    // Remove from loading ref (allow future reloads if needed)
+    loadingNodesRef.current.delete(nodeId)
+
+    console.log('[FlowV2AgentPanel] ✅ Finished loading dynamic options for node:', nodeId, newOptions)
+  }, [getNodeSchema, onNodeConfigChange])
+
+  // Auto-save default connections to nodeConfigs when they're auto-selected
+  useEffect(() => {
+    const planNodes = buildMachine.plan || []
+
+    planNodes.forEach(planNode => {
+      if (!planNode.providerId) return
+
+      const providerConnections = getProviderConnections(planNode.providerId)
+      const defaultConnectionValue = getDefaultConnection(planNode.providerId, planNode.id, providerConnections)
+      const currentConnection = nodeConfigs[planNode.id]?.connection
+
+      // If we have a default connection and it's not already saved, save it
+      if (defaultConnectionValue && !currentConnection) {
+        console.log(`[FlowV2AgentPanel] Auto-saving connection for ${planNode.id}:`, defaultConnectionValue)
+        onNodeConfigChange(planNode.id, 'connection', defaultConnectionValue)
+      }
+    })
+  }, [buildMachine.plan, nodeConfigs, integrations, getDefaultConnection, getProviderConnections, onNodeConfigChange])
+
+  // Watch for connection changes and auto-load dynamic fields
+  useEffect(() => {
+    const planNodes = buildMachine.plan || []
+
+    console.log('[FlowV2AgentPanel] Checking for dynamic fields to load...')
+    console.log('[FlowV2AgentPanel] nodeConfigs:', nodeConfigs)
+    console.log('[FlowV2AgentPanel] nodesDynamicOptions:', nodesDynamicOptions)
+
+    planNodes.forEach(planNode => {
+      const connectionId = nodeConfigs[planNode.id]?.connection
+
+      console.log(`[FlowV2AgentPanel] Node ${planNode.id}: connectionId=${connectionId}, providerId=${planNode.providerId}, hasOptions=${!!nodesDynamicOptions[planNode.id]}`)
+
+      // If connection is set and we haven't loaded options yet
+      if (connectionId && planNode.providerId && !nodesDynamicOptions[planNode.id]) {
+        console.log(`[FlowV2AgentPanel] ✅ Loading dynamic options for ${planNode.id}`)
+        loadDynamicOptionsForNode(planNode.id, planNode.nodeType, planNode.providerId, connectionId)
+      }
+    })
+  }, [buildMachine.plan, nodeConfigs, nodesDynamicOptions, loadDynamicOptionsForNode])
 
   // BuilderHeader is 56px tall (from tokens.css --header-height)
   // The panel sits below it, so we must subtract header height
@@ -190,7 +731,7 @@ export function FlowV2AgentPanel({
           )}
 
           {/* Chat messages */}
-          <div className="flex-1 overflow-y-auto w-full overflow-x-hidden min-h-0 px-4">
+          <div ref={chatMessagesRef} className="flex-1 overflow-y-auto w-full overflow-x-hidden min-h-0 px-4">
             <div className="space-y-4 py-4 pb-8 w-full min-h-0">
               {/* Animated Build UI */}
               {buildMachine.state !== BuildState.IDLE && (
@@ -295,7 +836,7 @@ export function FlowV2AgentPanel({
                                   const NodeIcon = planNode.icon
 
                                   const showExpanded = isActive && buildMachine.state === BuildState.WAITING_USER
-                                  const requiresConnection = planNode.providerId && planNode.providerId !== 'ai' && planNode.providerId !== 'logic' && planNode.providerId !== 'mapper'
+                                  const requiresConnection = !!(planNode.providerId && planNode.providerId !== 'ai' && planNode.providerId !== 'logic' && planNode.providerId !== 'mapper')
 
                                   return (
                                     <div key={planNode.id} className={`plan-item ${isDone ? 'done' : ''} ${isActive ? 'active' : ''} ${showExpanded ? 'expanded' : ''} w-full overflow-visible min-w-0`}>
@@ -338,13 +879,17 @@ export function FlowV2AgentPanel({
                                       {showExpanded && (() => {
                                         const requiredFields = getRequiredUserFields(planNode.nodeType)
                                         const providerConnections = planNode.providerId ? getProviderConnections(planNode.providerId) : []
+                                        const defaultConnectionValue = getDefaultConnection(planNode.providerId || '', planNode.id, providerConnections)
+                                        const hasAutoSelectedConnection = defaultConnectionValue && !nodeConfigs[planNode.id]?.connection
 
                                         return (
                                           <div className="w-full mt-4 space-y-3 border-t border-border pt-4">
                                             {requiresConnection && (
                                               <div className="space-y-2">
                                                 <p className="text-sm text-muted-foreground">
-                                                  Let's connect the service first — pick a saved connection or make a new one
+                                                  {defaultConnectionValue && providerConnections.length === 1
+                                                    ? `Using your ${getProviderDisplayName(planNode.providerId || '')} connection`
+                                                    : "Let's connect the service first — pick a saved connection or make a new one"}
                                                 </p>
 
                                                 <div className="space-y-2">
@@ -354,28 +899,41 @@ export function FlowV2AgentPanel({
                                                   {/* Dropdown and Connect button in same row */}
                                                   <div className="flex gap-2">
                                                     <select
-                                                      className="flex-1 px-3 py-2 text-sm border border-input rounded-md bg-background"
-                                                      value={nodeConfigs[planNode.id]?.connection || ''}
+                                                      className={`flex-1 px-3 py-2 text-sm border rounded-md bg-background ${
+                                                        fieldErrors[planNode.id]?.some(err => err.toLowerCase().includes('connection'))
+                                                          ? 'border-red-500 focus:border-red-600 focus:ring-red-500'
+                                                          : 'border-input'
+                                                      }`}
+                                                      value={defaultConnectionValue}
                                                       onChange={(e) => handleFieldChange(planNode.id, 'connection', e.target.value)}
                                                     >
                                                       <option value="">Select an option...</option>
                                                       {providerConnections.map(conn => (
-                                                        <option key={conn.id} value={conn.id}>
-                                                          {conn.name || `${getProviderDisplayName(planNode.providerId || '')} Account`}
+                                                        <option key={conn.integrationId || conn.id} value={conn.integrationId || conn.id}>
+                                                          {getConnectionDisplayName(conn, planNode.providerId || '')}
                                                         </option>
                                                       ))}
                                                     </select>
                                                     <Button
-                                                      variant="default"
+                                                      variant="primary"
                                                       size="sm"
-                                                      className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0 shadow-sm whitespace-nowrap"
+                                                      className="whitespace-nowrap"
                                                       onClick={() => {
-                                                        window.open(`/integrations?provider=${planNode.providerId}`, '_blank')
+                                                        handleConnectIntegration(planNode.providerId || '', planNode.id)
                                                       }}
                                                     >
                                                       + Connect
                                                     </Button>
                                                   </div>
+
+                                                  {/* Duplicate account message */}
+                                                  {duplicateMessages[planNode.id]?.show && (
+                                                    <div className="px-3 py-2 bg-yellow-50 border border-yellow-200 rounded-md">
+                                                      <p className="text-xs text-yellow-800">
+                                                        This account is already connected as <span className="font-medium">{duplicateMessages[planNode.id].connectionName}</span>
+                                                      </p>
+                                                    </div>
+                                                  )}
                                                 </div>
                                               </div>
                                             )}
@@ -383,6 +941,13 @@ export function FlowV2AgentPanel({
                                             {/* Required field dropdowns */}
                                             {requiredFields.filter(f => f.name !== 'connection').map((field) => {
                                               const FieldIcon = getFieldTypeIcon(field.type)
+                                              const isLoading = loadingFieldsByNode[planNode.id]?.has(field.name) || false
+
+                                              // Get options from dynamically loaded data OR fallback to defaultOptions
+                                              const dynamicOptionsForField = nodesDynamicOptions[planNode.id]?.[field.name] || []
+                                              const optionsToDisplay = dynamicOptionsForField.length > 0
+                                                ? dynamicOptionsForField
+                                                : (field.defaultOptions || [])
 
                                               return (
                                                 <div key={field.name} className="space-y-2">
@@ -390,17 +955,26 @@ export function FlowV2AgentPanel({
                                                     <FieldIcon className="w-4 h-4 text-muted-foreground" />
                                                     {field.label || field.name}
                                                     {field.required && <span className="text-red-500">*</span>}
+                                                    {isLoading && <span className="text-xs text-muted-foreground">(Loading...)</span>}
                                                   </label>
                                                   <select
-                                                    className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background"
+                                                    className={`w-full px-3 py-2 text-sm border rounded-md bg-background ${
+                                                      fieldErrors[planNode.id]?.some(err =>
+                                                        err.toLowerCase().includes(field.label?.toLowerCase() || field.name.toLowerCase())
+                                                      )
+                                                        ? 'border-red-500 focus:border-red-600 focus:ring-red-500'
+                                                        : 'border-input'
+                                                    }`}
                                                     value={nodeConfigs[planNode.id]?.[field.name] || ''}
                                                     onChange={(e) => handleFieldChange(planNode.id, field.name, e.target.value)}
+                                                    disabled={isLoading}
                                                   >
-                                                    <option value="">{field.placeholder || 'Select an option...'}</option>
-                                                    {/* TODO: Fetch dynamic options based on field.dynamic value */}
-                                                    {field.defaultOptions?.map(opt => (
+                                                    <option value="">
+                                                      {isLoading ? 'Loading options...' : (field.placeholder || 'Select an option...')}
+                                                    </option>
+                                                    {optionsToDisplay.map(opt => (
                                                       <option key={typeof opt === 'string' ? opt : opt.value} value={typeof opt === 'string' ? opt : opt.value}>
-                                                        {typeof opt === 'string' ? opt : opt.label}
+                                                        {typeof opt === 'string' ? opt : (opt.label || (opt as any).name)}
                                                       </option>
                                                     ))}
                                                   </select>
@@ -412,27 +986,73 @@ export function FlowV2AgentPanel({
                                             })}
 
                                             {/* Continue/Skip buttons - moved up closer to fields */}
-                                            <div className="flex gap-2">
-                                              <Button
-                                                onClick={() => {
-                                                  console.log('[Continue Button] Clicked!')
-                                                  console.log('[Continue Button] planNode:', planNode)
-                                                  console.log('[Continue Button] nodeConfigs for this node:', nodeConfigs[planNode.id])
-                                                  onContinueNode()
-                                                }}
-                                                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-                                                size="default"
-                                              >
-                                                Continue
-                                              </Button>
-                                              <Button
-                                                onClick={onSkipNode}
-                                                variant="outline"
-                                                className="flex-1 bg-white hover:bg-gray-50"
-                                                size="default"
-                                              >
-                                                Skip
-                                              </Button>
+                                            <div className="space-y-2">
+                                              {/* Show validation errors */}
+                                              {fieldErrors[planNode.id] && fieldErrors[planNode.id].length > 0 && (
+                                                <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-md">
+                                                  <p className="text-xs font-medium text-red-700">Please fill in all required fields:</p>
+                                                  <ul className="mt-1 text-xs text-red-600 list-disc list-inside">
+                                                    {fieldErrors[planNode.id].map(err => (
+                                                      <li key={err}>{err}</li>
+                                                    ))}
+                                                  </ul>
+                                                </div>
+                                              )}
+
+                                              <div className="flex gap-2">
+                                                <Button
+                                                  onClick={() => {
+                                                    console.log('[Continue Button] Clicked!')
+                                                    console.log('[Continue Button] planNode:', planNode)
+                                                    console.log('[Continue Button] nodeConfigs for this node:', nodeConfigs[planNode.id])
+
+                                                    // Validate all required fields before continuing
+                                                    const validation = validateRequiredFields(planNode, requiresConnection)
+
+                                                    if (!validation.isValid) {
+                                                      console.log('[Continue Button] ❌ Validation failed:', validation.missingFields)
+
+                                                      // Set error messages for missing fields
+                                                      const errorMessages = validation.missingFields.map(fieldName => {
+                                                        if (fieldName === 'connection') {
+                                                          return 'Connection'
+                                                        }
+                                                        const field = requiredFields.find(f => f.name === fieldName)
+                                                        return field?.label || fieldName
+                                                      })
+
+                                                      setFieldErrors(prev => ({
+                                                        ...prev,
+                                                        [planNode.id]: errorMessages
+                                                      }))
+
+                                                      return
+                                                    }
+
+                                                    // Clear errors and continue
+                                                    setFieldErrors(prev => {
+                                                      const { [planNode.id]: _, ...rest } = prev
+                                                      return rest
+                                                    })
+
+                                                    console.log('[Continue Button] ✅ Validation passed, continuing...')
+                                                    onContinueNode()
+                                                  }}
+                                                  variant="primary"
+                                                  size="default"
+                                                  className="flex-1"
+                                                >
+                                                  Continue
+                                                </Button>
+                                                <Button
+                                                  onClick={onSkipNode}
+                                                  variant="secondary"
+                                                  size="default"
+                                                  className="flex-1"
+                                                >
+                                                  Skip
+                                                </Button>
+                                              </div>
                                             </div>
                                           </div>
                                         )
@@ -447,7 +1067,7 @@ export function FlowV2AgentPanel({
                       </div>
 
                       {buildMachine.state === BuildState.PLAN_READY && (
-                        <Button onClick={onBuild} className="w-full bg-blue-600 hover:bg-blue-700 text-white" size="lg">
+                        <Button onClick={onBuild} variant="primary" size="lg" className="w-full">
                           {Copy.planReadyCta}
                         </Button>
                       )}
@@ -456,16 +1076,19 @@ export function FlowV2AgentPanel({
                         <div className="space-y-2 w-full overflow-hidden min-w-0">
                           <Button
                             onClick={onCancelBuild}
-                            className="w-full bg-red-500/10 hover:bg-red-500/20 text-red-600 border border-red-200"
+                            variant="destructive"
                             size="lg"
+                            className="w-full"
                           >
                             {Copy.cancel}
                           </Button>
                           <Button
                             onClick={onUndoToPreviousStage}
-                            className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200"
+                            variant="ghost"
+                            className="text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 gap-2"
                             size="sm"
                           >
+                            <ArrowLeft className="h-4 w-4" />
                             {Copy.undo}
                           </Button>
                         </div>
@@ -480,14 +1103,11 @@ export function FlowV2AgentPanel({
                               {getStateLabel(BuildState.COMPLETE)}
                             </div>
                             <div className="text-sm text-muted-foreground break-words">
-                              Your flow is configured and ready to use. You can now publish or test it.
+                              Your flow is configured and tested. You can now publish it to make it live.
                             </div>
                             <div className="flex gap-2 flex-wrap">
-                              <Button variant="default" className="flex-1">
-                                Publish
-                              </Button>
-                              <Button variant="outline" className="flex-1">
-                                Test all
+                              <Button variant="success" size="lg" className="w-full">
+                                Publish Workflow
                               </Button>
                             </div>
                           </div>

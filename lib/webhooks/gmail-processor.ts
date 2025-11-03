@@ -4,6 +4,7 @@ import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine
 import { google } from 'googleapis'
 import { getDecryptedAccessToken } from '@/lib/workflows/actions/core/getDecryptedAccessToken'
 import { logInfo, logError, logSuccess, logWarning } from '@/lib/logging/backendLogger'
+import Anthropic from '@anthropic-ai/sdk'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -25,6 +26,8 @@ type GmailTriggerFilters = {
   subject: string
   subjectExactMatch?: boolean
   hasAttachment: 'any' | 'yes' | 'no'
+  aiContentFilter?: string
+  aiFilterConfidence?: 'low' | 'medium' | 'high'
 }
 
 function buildGmailDedupeKey(workflowId: string, dedupeId: string) {
@@ -129,7 +132,10 @@ function resolveGmailTriggerFilters(triggerNode: any): GmailTriggerFilters {
   return {
     from: normalizeFromFilters(rawConfig, savedOptions),
     subject: normalizeSubjectFilter(rawConfig),
-    hasAttachment: normalizeAttachmentFilter(rawConfig)
+    subjectExactMatch: rawConfig?.subjectExactMatch ?? true, // Default to exact match
+    hasAttachment: normalizeAttachmentFilter(rawConfig),
+    aiContentFilter: rawConfig?.aiContentFilter?.trim() || undefined,
+    aiFilterConfidence: rawConfig?.aiFilterConfidence || 'medium'
   }
 }
 
@@ -606,7 +612,101 @@ async function fetchEmailDetails(
   }
 }
 
-function checkEmailMatchesFilters(email: any, filters: GmailTriggerFilters): boolean {
+/**
+ * Use AI to classify email content and determine if it matches the user's intent
+ */
+async function classifyEmailWithAI(
+  email: any,
+  intent: string,
+  confidence: 'low' | 'medium' | 'high' = 'medium'
+): Promise<{ matches: boolean; confidence: number; reasoning: string }> {
+  const thresholds = {
+    low: 50,
+    medium: 70,
+    high: 90
+  }
+  const requiredConfidence = thresholds[confidence]
+
+  try {
+    const anthropic = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY
+    })
+
+    const systemPrompt = `You are an email classification assistant. Analyze email content and determine if it matches the user's intent.
+
+Respond with JSON:
+{
+  "matches": boolean,
+  "confidence": number (0-100),
+  "reasoning": string (brief explanation)
+}
+
+Understand context, tone, and implied meaning - not just keywords.`
+
+    const userPrompt = `**User Intent:** ${intent}
+
+**Email Subject:** ${email.subject || '(No subject)'}
+
+**Email Body:**
+${email.body || '(Empty email)'}
+
+---
+
+Does this email match the user's intent? Respond with JSON only.`
+
+    const response = await anthropic.messages.create({
+      model: 'claude-3-5-sonnet-20241022',
+      max_tokens: 512,
+      temperature: 0.3,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }]
+    })
+
+    const content = response.content[0]
+    if (content.type !== 'text') {
+      throw new Error('Unexpected response type from Claude')
+    }
+
+    // Parse JSON response
+    let jsonText = content.text.trim()
+    if (jsonText.startsWith('```json')) {
+      jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '')
+    } else if (jsonText.startsWith('```')) {
+      jsonText = jsonText.replace(/```\n?/g, '')
+    }
+
+    const result = JSON.parse(jsonText)
+
+    // Apply threshold
+    if (result.confidence < requiredConfidence) {
+      return {
+        matches: false,
+        confidence: result.confidence,
+        reasoning: `${result.reasoning} (Below ${requiredConfidence}% threshold)`
+      }
+    }
+
+    // SECURITY: Log classification result without email content
+    logger.debug('🤖 AI Email Classification:', {
+      matches: result.matches,
+      confidence: result.confidence,
+      threshold: requiredConfidence
+    })
+
+    return result
+
+  } catch (error: any) {
+    logger.error('AI email classification failed:', error)
+    // Fail open - don't block emails if AI fails
+    return {
+      matches: true,
+      confidence: 0,
+      reasoning: `AI classification error: ${error.message}`
+    }
+  }
+}
+
+async function checkEmailMatchesFilters(email: any, filters: GmailTriggerFilters): Promise<boolean> {
   // SECURITY: Don't log email content (PII)
   logger.debug('🔍 Checking email against filters:', {
     email: { hasFrom: !!email.from, subjectLength: email.subject?.length || 0, hasAttachments: email.hasAttachments },
@@ -660,6 +760,24 @@ function checkEmailMatchesFilters(email: any, filters: GmailTriggerFilters): boo
       return false
     }
     logger.debug(`✅ Attachment filter matched: ${shouldHaveAttachment ? 'has' : 'no'} attachments`)
+  }
+
+  // AI Content Filter - semantic email classification
+  if (filters.aiContentFilter && filters.aiContentFilter.trim() !== '') {
+    logger.debug('🤖 AI Content Filter enabled, classifying email...')
+
+    const aiResult = await classifyEmailWithAI(
+      email,
+      filters.aiContentFilter,
+      filters.aiFilterConfidence || 'medium'
+    )
+
+    if (!aiResult.matches) {
+      logger.debug(`❌ AI filter mismatch: ${aiResult.reasoning}`)
+      return false
+    }
+
+    logger.debug(`✅ AI filter matched (${aiResult.confidence}%): ${aiResult.reasoning}`)
   }
 
   logger.debug('✅ All filters matched!')
@@ -915,7 +1033,7 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
 
         logger.debug(`Checking trigger node ${triggerNode.id} filters:`, filters)
 
-        if (checkEmailMatchesFilters(emailDetails, filters)) {
+        if (await checkEmailMatchesFilters(emailDetails, filters)) {
           matchFound = true
           break
         }
