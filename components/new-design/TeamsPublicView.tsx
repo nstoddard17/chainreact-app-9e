@@ -82,59 +82,104 @@ export function TeamsPublicView() {
 
   const fetchUserTeams = async () => {
     setLoading(true)
-    const startTime = Date.now()
-    const requestId = logApiCall('GET', '/api/teams/my-teams')
+    const MAX_RETRIES = 2
+    const INITIAL_TIMEOUT = 8000
+    let lastError: Error | null = null
 
-    try {
-      // Fetch teams where user is a member - backend handles all logic
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 8000) // 8 second timeout
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      const isRetry = attempt > 0
+      const timeoutMs = INITIAL_TIMEOUT + (attempt * 2000) // Increase timeout on retries: 8s, 10s, 12s
+      const startTime = Date.now()
+      const requestId = logApiCall('GET', '/api/teams/my-teams')
 
       try {
-        logEvent('info', 'Teams', 'Fetching user teams...')
-        const response = await fetch('/api/teams/my-teams', { signal: controller.signal })
-        const duration = Date.now() - startTime
-
-        logEvent('info', 'Teams', `Response status: ${response.status}`, { status: response.status })
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-          logApiError(requestId, new Error(errorData.error || 'Failed to fetch teams'), duration)
-          logEvent('error', 'Teams', 'API error response', errorData)
-          throw new Error(errorData.error || `Failed to fetch teams (${response.status})`)
+        if (isRetry) {
+          logEvent('info', 'Teams', `Retry attempt ${attempt}/${MAX_RETRIES} (timeout: ${timeoutMs}ms)`)
+          // Small delay before retry (exponential backoff)
+          await new Promise(resolve => setTimeout(resolve, attempt * 1000)) // 1s, 2s
+        } else {
+          logEvent('info', 'Teams', 'Fetching user teams...')
         }
 
-        const data = await response.json()
-        logApiResponse(requestId, response.status, { count: data.teams?.length || 0 }, duration)
-        logEvent('info', 'Teams', `Successfully fetched ${data.teams?.length || 0} teams`)
-        setTeams(data.teams || [])
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+        try {
+          const response = await fetch('/api/teams/my-teams', { signal: controller.signal })
+          const duration = Date.now() - startTime
+
+          logEvent('info', 'Teams', `Response status: ${response.status}`, {
+            status: response.status,
+            attempt: attempt + 1
+          })
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+            logApiError(requestId, new Error(errorData.error || 'Failed to fetch teams'), duration)
+            logEvent('error', 'Teams', 'API error response', errorData)
+
+            // Don't retry on 4xx errors (client errors)
+            if (response.status >= 400 && response.status < 500 && response.status !== 408) {
+              throw new Error(errorData.error || `Failed to fetch teams (${response.status})`)
+            }
+
+            // Retry on 5xx (server errors) or 408 (timeout)
+            lastError = new Error(errorData.error || `Server error (${response.status})`)
+            throw lastError
+          }
+
+          const data = await response.json()
+          logApiResponse(requestId, response.status, { count: data.teams?.length || 0 }, duration)
+
+          if (isRetry) {
+            logEvent('info', 'Teams', `✓ Retry successful! Fetched ${data.teams?.length || 0} teams on attempt ${attempt + 1}`)
+          } else {
+            logEvent('info', 'Teams', `Successfully fetched ${data.teams?.length || 0} teams`)
+          }
+
+          setTeams(data.teams || [])
+          setLoading(false)
+          return // Success! Exit the retry loop
+
+        } catch (error: any) {
+          const duration = Date.now() - startTime
+
+          if (error.name === 'AbortError') {
+            logApiError(requestId, new Error('Request timed out'), duration)
+            logEvent('error', 'Teams', `Request timed out after ${timeoutMs}ms (attempt ${attempt + 1})`)
+            lastError = new Error('Request timed out')
+          } else {
+            logApiError(requestId, error, duration)
+            logEvent('error', 'Teams', 'Fetch error', {
+              message: error?.message,
+              name: error?.name,
+              attempt: attempt + 1
+            })
+            lastError = error
+          }
+
+          // If this was the last attempt, throw
+          if (attempt === MAX_RETRIES) {
+            throw lastError
+          }
+          // Otherwise, continue to next retry
+        } finally {
+          clearTimeout(timeoutId)
+        }
       } catch (error: any) {
-        const duration = Date.now() - startTime
-        if (error.name === 'AbortError') {
-          logApiError(requestId, new Error('Request timed out'), duration)
-          logEvent('error', 'Teams', 'Request timed out after 8 seconds')
-          throw new Error('Request timed out. Please try again.')
+        // Only show error on final attempt
+        if (attempt === MAX_RETRIES) {
+          logEvent('error', 'Teams', `All ${MAX_RETRIES + 1} attempts failed`, {
+            message: error?.message,
+            name: error?.name
+          })
+          toast.error(error.message || 'Failed to load teams after multiple attempts')
+          setTeams([])
+          setLoading(false)
+          return
         }
-        logApiError(requestId, error, duration)
-        logEvent('error', 'Teams', 'Fetch error', {
-          message: error?.message,
-          name: error?.name,
-          stack: error?.stack
-        })
-        throw error
-      } finally {
-        clearTimeout(timeoutId)
+        // Continue to next retry
       }
-    } catch (error: any) {
-      logEvent('error', 'Teams', 'Error fetching teams', {
-        message: error?.message,
-        name: error?.name,
-        stack: error?.stack
-      })
-      toast.error(error.message || 'Failed to load teams')
-      setTeams([])
-    } finally {
-      setLoading(false)
     }
   }
 

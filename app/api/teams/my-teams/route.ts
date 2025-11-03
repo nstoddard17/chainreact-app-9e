@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { jsonResponse, errorResponse } from "@/lib/utils/api-response"
 import { logger } from "@/lib/utils/logger"
+import { queryWithTimeout } from "@/lib/utils/fetch-with-timeout"
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 10 // Vercel: max 10 seconds for this endpoint
 
 // GET - Get all teams the current user is a member of
 export async function GET(request: NextRequest) {
@@ -31,11 +33,14 @@ export async function GET(request: NextRequest) {
     const serviceSupabase = await createSupabaseServiceClient()
 
     // Split query into two separate calls to avoid slow joins
-    // Step 1: Get user's team memberships
-    const { data: teamMemberships, error: membershipError } = await serviceSupabase
-      .from('team_members')
-      .select('team_id, role, joined_at')
-      .eq('user_id', user.id)
+    // Step 1: Get user's team memberships (with 6s timeout)
+    const { data: teamMemberships, error: membershipError } = await queryWithTimeout(
+      serviceSupabase
+        .from('team_members')
+        .select('team_id, role, joined_at')
+        .eq('user_id', user.id),
+      6000 // 6 second timeout
+    )
 
     if (membershipError) {
       logger.error('[My Teams API] Error fetching team memberships:', {
@@ -60,25 +65,26 @@ export async function GET(request: NextRequest) {
       elapsed: Date.now() - startTime
     })
 
-    // Step 2: Get team details and member counts in parallel
+    // Step 2: Get team details and member counts in parallel (with 6s timeout each)
     const teamIds = teamMemberships.map(tm => tm.team_id)
 
-    const [teamsResult, countsResult] = await Promise.all([
+    const [teamsResult, allMembersResult] = await Promise.all([
       // Get team details
-      serviceSupabase
-        .from('teams')
-        .select('id, name, slug, description, organization_id, created_at')
-        .in('id', teamIds),
+      queryWithTimeout(
+        serviceSupabase
+          .from('teams')
+          .select('id, name, slug, description, organization_id, created_at')
+          .in('id', teamIds),
+        6000
+      ),
 
-      // Get member counts for all teams at once
-      Promise.all(
-        teamIds.map(async (teamId) => {
-          const { count } = await serviceSupabase
-            .from('team_members')
-            .select('id', { count: 'exact', head: true })
-            .eq('team_id', teamId)
-          return { teamId, count: count || 0 }
-        })
+      // Get all members for all teams in ONE query (batch lookup)
+      queryWithTimeout(
+        serviceSupabase
+          .from('team_members')
+          .select('team_id')
+          .in('team_id', teamIds),
+        6000
       )
     ])
 
@@ -87,13 +93,22 @@ export async function GET(request: NextRequest) {
       throw teamsResult.error
     }
 
-    logger.debug('[My Teams API] Teams and counts fetched:', {
+    if (allMembersResult.error) {
+      logger.error('[My Teams API] Error fetching members:', allMembersResult.error)
+      throw allMembersResult.error
+    }
+
+    logger.debug('[My Teams API] Teams and members fetched:', {
       teamsCount: teamsResult.data?.length || 0,
+      membersCount: allMembersResult.data?.length || 0,
       elapsed: Date.now() - startTime
     })
 
-    // Step 3: Merge everything together
-    const countMap = new Map(countsResult.map(c => [c.teamId, c.count]))
+    // Step 3: Count members per team in memory (fast)
+    const countMap = new Map<string, number>()
+    allMembersResult.data?.forEach(member => {
+      countMap.set(member.team_id, (countMap.get(member.team_id) || 0) + 1)
+    })
 
     const teams = teamMemberships
       .map((tm: any) => {
@@ -127,14 +142,30 @@ export async function GET(request: NextRequest) {
 
     return jsonResponse({ teams })
   } catch (error: any) {
+    const elapsed = Date.now() - startTime
+
+    // Check if this is a timeout error
+    const isTimeout = error?.message?.includes('timeout') ||
+                     error?.message?.includes('timed out') ||
+                     elapsed > 7500 // Close to 8s client timeout
+
     logger.error('[My Teams API] Error fetching teams:', {
       message: error?.message,
       details: error?.details,
       hint: error?.hint,
       code: error?.code,
-      stack: error?.stack,
-      name: error?.name
+      name: error?.name,
+      isTimeout,
+      elapsed
     })
+
+    if (isTimeout) {
+      return errorResponse(
+        "Request timed out. Database query took too long. Please try again or contact support if this persists.",
+        504 // Gateway Timeout
+      )
+    }
+
     return errorResponse(error.message || "Failed to fetch teams", 500)
   }
 }
