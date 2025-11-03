@@ -836,8 +836,8 @@ export function FlowV2AgentPanel({
           {/* Chat messages */}
           <div ref={chatMessagesRef} className="flex-1 overflow-y-auto w-full overflow-x-hidden min-h-0 px-4">
             <div className="space-y-4 py-4 pb-8 w-full min-h-0">
-              {/* User messages - shown even in IDLE state for provider selection */}
-              {agentMessages.filter(m => m && m.role === 'user').map((msg, index) => {
+              {/* User messages - only shown in IDLE state (to prevent duplicates during build) */}
+              {buildMachine.state === BuildState.IDLE && agentMessages.filter(m => m && m.role === 'user').map((msg, index) => {
                 const text = (msg as any).text ?? (msg as any).content ?? ''
                 const created = (msg as any).createdAt ?? (msg as any).timestamp ?? null
                 let formattedTime: string | null = null
@@ -870,8 +870,8 @@ export function FlowV2AgentPanel({
                 )
               })}
 
-              {/* Assistant messages - only shown if they have text content */}
-              {agentMessages.filter(m => {
+              {/* Assistant messages - only shown in IDLE state if they have text content */}
+              {buildMachine.state === BuildState.IDLE && agentMessages.filter(m => {
                 if (!m || m.role !== 'assistant') return false
                 const text = (m as any).text ?? (m as any).content ?? ''
                 return text.trim().length > 0
