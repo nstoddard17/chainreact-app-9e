@@ -368,8 +368,11 @@ export function FlowV2AgentPanel({
 
       const { authUrl } = await response.json()
 
-      // Get connections before OAuth
+      // Get connections before OAuth - store IDs not just objects
       const connectionsBefore = getProviderConnections(providerId)
+      const connectionIdsBefore = connectionsBefore.map(c => c.integrationId || c.id)
+      console.log('[OAuth Setup] Starting OAuth for', providerId)
+      console.log('[OAuth Setup] Connections before:', connectionsBefore.length, 'IDs:', connectionIdsBefore)
 
       // Open OAuth in popup
       const width = 600
@@ -387,55 +390,137 @@ export function FlowV2AgentPanel({
         throw new Error('Popup blocked. Please allow popups for this site.')
       }
 
-      // Listen for OAuth completion
-      const handleMessage = async (event: MessageEvent) => {
-        if (event.origin !== window.location.origin) return
+      // Process OAuth result (called from any listener)
+      const processOAuthResult = async (data: any) => {
+        console.log('[OAuth] Processing result:', data)
 
-        if (event.data.type === 'OAUTH_SUCCESS' || event.data.type === 'OAUTH_ERROR') {
-          window.removeEventListener('message', handleMessage)
-          popup?.close()
+        // Handle both old format (OAUTH_SUCCESS/OAUTH_ERROR) and new format (oauth-complete)
+        const isSuccess = data.type === 'OAUTH_SUCCESS' ||
+                         (data.type === 'oauth-complete' && data.success)
 
-          if (event.data.type === 'OAUTH_SUCCESS') {
-            // Refresh integrations to get the new connection
-            await refreshIntegrations()
+        if (isSuccess) {
+          // Refresh integrations to get the new connection
+          console.log('[OAuth] Success! Refreshing integrations...')
+          await refreshIntegrations()
 
-            // Check if this account was already connected
-            const connectionsAfter = getProviderConnections(providerId)
+          // Check if this account was already connected by comparing integration IDs
+          const connectionsAfter = getProviderConnections(providerId)
+          const connectionIdsAfter = connectionsAfter.map(c => c.integrationId || c.id)
 
-            if (connectionsAfter.length === connectionsBefore.length) {
-              // Same number of connections = duplicate account
-              const existingConnection = connectionsAfter[0]
-              if (existingConnection) {
-                setDuplicateMessages(prev => ({
-                  ...prev,
-                  [nodeId]: {
-                    show: true,
-                    connectionName: getConnectionDisplayName(existingConnection, providerId)
-                  }
-                }))
-              }
-            } else {
-              // New connection added - auto-select it
-              const newConnection = connectionsAfter.find(c =>
-                !connectionsBefore.find(b => b.integrationId === c.integrationId)
-              )
-              if (newConnection) {
-                handleFieldChange(nodeId, 'connection', newConnection.integrationId || newConnection.id)
-              }
+          console.log('[OAuth] Connections after:', connectionsAfter.length, 'IDs:', connectionIdsAfter)
+          console.log('[OAuth] IDs before:', connectionIdsBefore)
+          console.log('[OAuth] IDs after:', connectionIdsAfter)
+
+          // Check if all IDs are the same (upsert happened = duplicate account)
+          const hasNewId = connectionIdsAfter.some(id => !connectionIdsBefore.includes(id))
+
+          if (!hasNewId && connectionIdsAfter.length > 0) {
+            // No new ID = duplicate account (upsert happened)
+            console.log('[OAuth] 🔄 Duplicate account detected (upsert)')
+            const existingConnection = connectionsAfter[0]
+            if (existingConnection) {
+              setDuplicateMessages(prev => ({
+                ...prev,
+                [nodeId]: {
+                  show: true,
+                  connectionName: getConnectionDisplayName(existingConnection, providerId)
+                }
+              }))
+            }
+          } else {
+            // New ID found = new connection
+            console.log('[OAuth] ✨ New connection detected')
+            const newConnection = connectionsAfter.find(c =>
+              !connectionIdsBefore.includes(c.integrationId || c.id)
+            )
+            if (newConnection) {
+              console.log('[OAuth] Auto-selecting new connection:', newConnection.integrationId || newConnection.id)
+              handleFieldChange(nodeId, 'connection', newConnection.integrationId || newConnection.id)
             }
           }
         }
       }
 
-      window.addEventListener('message', handleMessage)
+      // Method 1: Listen for BroadcastChannel (works when postMessage is blocked by COOP)
+      let broadcastChannel: BroadcastChannel | null = null
+      try {
+        broadcastChannel = new BroadcastChannel('oauth_channel')
+        console.log('[OAuth] 📡 Listening on BroadcastChannel')
+        broadcastChannel.onmessage = async (event) => {
+          console.log('[OAuth] 📡 BroadcastChannel message received:', event.data)
+          if (event.data.type === 'oauth-complete' || event.data.type === 'OAUTH_SUCCESS' || event.data.type === 'OAUTH_ERROR') {
+            broadcastChannel?.close()
+            popup?.close()
+            await processOAuthResult(event.data)
+          }
+        }
+      } catch (e) {
+        console.log('[OAuth] BroadcastChannel not available:', e)
+      }
 
-      // Cleanup if popup is closed manually
-      const checkClosed = setInterval(() => {
-        if (popup.closed) {
-          clearInterval(checkClosed)
-          window.removeEventListener('message', handleMessage)
+      // Method 2: Poll localStorage (fallback for COOP scenarios)
+      console.log('[OAuth] 🔍 Polling localStorage for OAuth response')
+      const storageCheckInterval = setInterval(() => {
+        // Check for OAuth response in localStorage
+        const keys = Object.keys(localStorage).filter(k => k.startsWith('oauth_response_'))
+        for (const key of keys) {
+          try {
+            const data = JSON.parse(localStorage.getItem(key) || '{}')
+            if (data.timestamp && Date.now() - new Date(data.timestamp).getTime() < 60000) {
+              console.log('[OAuth] 💾 Found OAuth response in localStorage:', data)
+              localStorage.removeItem(key) // Clean up
+              clearInterval(storageCheckInterval)
+              broadcastChannel?.close()
+              popup?.close()
+              processOAuthResult(data)
+              break
+            }
+          } catch (e) {
+            // Invalid JSON, skip
+          }
         }
       }, 500)
+
+      // Method 3: Listen for postMessage (traditional method)
+      const handleMessage = async (event: MessageEvent) => {
+        console.log('[OAuth Handler] Received postMessage:', event.data.type, event.origin)
+
+        if (event.origin !== window.location.origin) {
+          console.log('[OAuth Handler] ❌ Origin mismatch, ignoring')
+          return
+        }
+
+        const isOAuthMessage = event.data.type === 'OAUTH_SUCCESS' ||
+                               event.data.type === 'OAUTH_ERROR' ||
+                               event.data.type === 'oauth-complete'
+
+        if (isOAuthMessage) {
+          console.log('[OAuth] ✉️ postMessage received:', event.data)
+          window.removeEventListener('message', handleMessage)
+          clearInterval(storageCheckInterval)
+          broadcastChannel?.close()
+          popup?.close()
+          await processOAuthResult(event.data)
+        }
+      }
+
+      window.addEventListener('message', handleMessage)
+
+      // Cleanup if popup is closed manually (note: popup.closed may be blocked by COOP)
+      const checkClosed = setInterval(() => {
+        try {
+          if (popup.closed) {
+            console.log('[OAuth] Popup closed, cleaning up listeners')
+            clearInterval(checkClosed)
+            clearInterval(storageCheckInterval)
+            window.removeEventListener('message', handleMessage)
+            broadcastChannel?.close()
+          }
+        } catch (e) {
+          // COOP policy may block access to popup.closed - ignore this error
+          // The popup will clean up when it receives a response anyway
+        }
+      }, 1000)
 
     } catch (error) {
       console.error('Error connecting integration:', error)
