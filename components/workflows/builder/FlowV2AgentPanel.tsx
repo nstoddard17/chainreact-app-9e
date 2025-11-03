@@ -35,6 +35,9 @@ import "./styles/FlowBuilder.anim.css"
 import type { ChatMessage } from "@/lib/workflows/ai-agent/chat-service"
 import { useDynamicOptions } from "../configuration/hooks/useDynamicOptions"
 import type { DynamicOptionsState } from "../configuration/utils/types"
+import { ProviderSelectionUI } from "../ai-agent/ProviderSelectionUI"
+import { ProviderBadge } from "../ai-agent/ProviderBadge"
+import { getProviderOptions } from "@/lib/workflows/ai-agent/providerDisambiguation"
 
 interface PanelLayoutProps {
   isOpen: boolean
@@ -48,6 +51,8 @@ interface PanelStateProps {
   isAgentLoading: boolean
   agentMessages: ChatMessage[]
   nodeConfigs: Record<string, Record<string, any>>
+  awaitingProviderSelection?: boolean
+  providerCategory?: any
 }
 
 interface PanelActions {
@@ -59,6 +64,9 @@ interface PanelActions {
   onUndoToPreviousStage: () => void
   onCancelBuild: () => void
   onNodeConfigChange: (nodeId: string, fieldName: string, value: any) => void
+  onProviderSelect?: (providerId: string) => void
+  onProviderConnect?: (providerId: string) => void
+  onProviderChange?: (providerId: string) => void
 }
 
 interface FlowV2AgentPanelProps {
@@ -73,7 +81,15 @@ export function FlowV2AgentPanel({
   actions,
 }: FlowV2AgentPanelProps) {
   const { isOpen, onClose, width } = layout
-  const { buildMachine, agentInput, isAgentLoading, agentMessages, nodeConfigs } = state
+  const {
+    buildMachine,
+    agentInput,
+    isAgentLoading,
+    agentMessages,
+    nodeConfigs,
+    awaitingProviderSelection,
+    providerCategory,
+  } = state
   const {
     onInputChange,
     onSubmit,
@@ -83,6 +99,9 @@ export function FlowV2AgentPanel({
     onUndoToPreviousStage,
     onCancelBuild,
     onNodeConfigChange,
+    onProviderSelect,
+    onProviderConnect,
+    onProviderChange,
   } = actions
 
   // Use state for viewport dimensions to avoid hydration mismatch
@@ -817,6 +836,81 @@ export function FlowV2AgentPanel({
           {/* Chat messages */}
           <div ref={chatMessagesRef} className="flex-1 overflow-y-auto w-full overflow-x-hidden min-h-0 px-4">
             <div className="space-y-4 py-4 pb-8 w-full min-h-0">
+              {/* User messages - shown even in IDLE state for provider selection */}
+              {agentMessages.filter(m => m && m.role === 'user').map((msg, index) => {
+                const text = (msg as any).text ?? (msg as any).content ?? ''
+                const created = (msg as any).createdAt ?? (msg as any).timestamp ?? null
+                let formattedTime: string | null = null
+                if (created) {
+                  const date = created instanceof Date ? created : new Date(created)
+                  if (!Number.isNaN(date.getTime())) {
+                    formattedTime = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                  }
+                }
+
+                return (
+                  <div key={`user-${index}`} className="flex justify-end w-full">
+                    <div
+                      className="max-w-[80%] rounded-lg px-4 py-3 bg-gray-100 text-gray-900"
+                      style={{
+                        wordBreak: "break-word",
+                        overflowWrap: "anywhere"
+                    }}
+                  >
+                    <p className="text-sm whitespace-pre-wrap" style={{ wordBreak: "break-word" }}>
+                      {text}
+                    </p>
+                    {formattedTime && (
+                      <p className="text-xs opacity-70 mt-1">
+                        {formattedTime}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                )
+              })}
+
+              {/* Assistant messages - shown even in IDLE state for provider selection */}
+              {agentMessages.filter(m => m && m.role === 'assistant').map((msg, index) => {
+                const text = (msg as any).text ?? (msg as any).content ?? ''
+                const meta = (msg as any).meta ?? {}
+
+                return (
+                  <div key={`assistant-${index}`} className="flex w-full flex-col gap-2">
+                    <div className="max-w-[80%] rounded-lg px-4 py-3 bg-blue-50 text-gray-900 dark:bg-blue-900/20 dark:text-gray-100">
+                      <p className="text-sm whitespace-pre-wrap" style={{ wordBreak: "break-word" }}>
+                        {text}
+                      </p>
+
+                      {/* Provider selection UI - shown when asking user to select */}
+                      {meta.providerSelection && onProviderSelect && onProviderConnect && (
+                        <div className="mt-3">
+                          <ProviderSelectionUI
+                            categoryName={meta.providerSelection.category.displayName}
+                            providers={meta.providerSelection.providers}
+                            onSelect={onProviderSelect}
+                            onConnect={onProviderConnect}
+                          />
+                        </div>
+                      )}
+
+                      {/* Provider badge - shown when auto-selected provider */}
+                      {meta.autoSelectedProvider && onProviderChange && (
+                        <div className="mt-3">
+                          <ProviderBadge
+                            categoryName={meta.autoSelectedProvider.category.displayName}
+                            selectedProvider={meta.autoSelectedProvider.provider}
+                            allProviders={meta.autoSelectedProvider.allProviders}
+                            onProviderChange={onProviderChange}
+                            onConnect={onProviderConnect || (() => {})}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+
               {/* Animated Build UI */}
               {buildMachine.state !== BuildState.IDLE && (
                 <div className="space-y-4 w-full">
@@ -902,6 +996,29 @@ export function FlowV2AgentPanel({
                             <div className="space-y-3 staged-text-item">
                               <div className="text-sm break-words">{getStateLabel(BuildState.PLAN_READY)}</div>
                               <div className="text-sm font-bold break-words">Flow plan:</div>
+
+                              {/* Provider Badge - shown when provider was auto-selected or manually chosen */}
+                              {(() => {
+                                // Find the most recent assistant message with autoSelectedProvider metadata
+                                const assistantMessages = agentMessages.filter(m => m && m.role === 'assistant')
+                                const lastMessage = assistantMessages[assistantMessages.length - 1]
+                                const meta = (lastMessage as any)?.meta ?? {}
+
+                                if (meta.autoSelectedProvider && onProviderChange && onProviderConnect) {
+                                  return (
+                                    <div className="pt-1">
+                                      <ProviderBadge
+                                        categoryName={meta.autoSelectedProvider.category.displayName}
+                                        selectedProvider={meta.autoSelectedProvider.provider}
+                                        allProviders={meta.autoSelectedProvider.allProviders}
+                                        onProviderChange={onProviderChange}
+                                        onConnect={onProviderConnect}
+                                      />
+                                    </div>
+                                  )
+                                }
+                                return null
+                              })()}
 
                               {/* Status badge shown during build directly below Flow plan: */}
                               {buildMachine.state === BuildState.BUILDING_SKELETON && (

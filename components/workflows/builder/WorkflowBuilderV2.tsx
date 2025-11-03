@@ -45,6 +45,15 @@ import { Sparkles } from "lucide-react"
 import { FlowV2BuilderContent } from "./FlowV2BuilderContent"
 import { FlowV2AgentPanel } from "./FlowV2AgentPanel"
 import { NodeStateTestPanel } from "./NodeStateTestPanel"
+import { ProviderSelectionUI } from "../ai-agent/ProviderSelectionUI"
+import { ProviderBadge } from "../ai-agent/ProviderBadge"
+import {
+  detectVagueTerms,
+  getProviderOptions,
+  replaceVagueTermWithProvider,
+  type ProviderCategory,
+} from "@/lib/workflows/ai-agent/providerDisambiguation"
+import { useIntegrationStore } from "@/stores/integrationStore"
 import {
   applyDagreLayout,
   needsLayout,
@@ -164,6 +173,7 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
   const promptParam = searchParams?.get("prompt") ?? searchParams?.get("initialPrompt") ?? null
 
   const adapter = useFlowV2LegacyAdapter(flowId)
+  const { integrations } = useIntegrationStore()
   const builder = adapter.flowState
   const actions = adapter.actions
   const flowState = builder?.flowState
@@ -187,6 +197,12 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
   const [agentMessages, setAgentMessages] = useState<ChatMessage[]>([])
   const [isAgentLoading, setIsAgentLoading] = useState(false)
   const [agentStatus, setAgentStatus] = useState("")
+
+  // Provider disambiguation state
+  const [awaitingProviderSelection, setAwaitingProviderSelection] = useState(false)
+  const [pendingPrompt, setPendingPrompt] = useState<string>("")
+  const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null)
+  const [providerCategory, setProviderCategory] = useState<any>(null)
 
   // Build state machine (Kadabra-style animated build)
   const [buildMachine, setBuildMachine] = useState<BuildStateMachine>(getInitialState())
@@ -574,6 +590,243 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
     window.localStorage.setItem("reactAgentPanelOpen", String(agentOpen))
   }, [agentOpen])
 
+  // Build state machine handlers (defined early for use in URL prompt handler)
+  const transitionTo = useCallback((nextState: BuildState) => {
+    setBuildMachine(prev => {
+      const badge = getBadgeForState(
+        nextState,
+        prev.plan[prev.progress.currentIndex]?.title
+      )
+      return { ...prev, state: nextState, badge }
+    })
+  }, [])
+
+  // Helper function for plan generation (extracted to avoid duplication)
+  const continueWithPlanGeneration = useCallback(async (
+    result: any,
+    originalPrompt: string,
+    providerMeta?: { category: any; provider: any; allProviders: any[] }
+  ) => {
+    // Generate plan from edits
+    const plan: PlanNode[] = (result.edits || [])
+      .filter((edit: any) => edit.op === 'addNode')
+      .map((edit: any, index: number) => {
+        const nodeType = edit.node?.type || 'unknown'
+        const nodeComponent = ALL_NODE_COMPONENTS.find(n => n.type === nodeType)
+
+        // Get Kadabra-style display name
+        const displayTitle = getKadabraStyleNodeName(
+          nodeType,
+          nodeComponent?.providerId,
+          nodeComponent?.title
+        )
+
+        return {
+          id: `node-${index}`,
+          title: displayTitle,
+          description: nodeComponent?.description || `${nodeComponent?.title || nodeType} node`,
+          nodeType,
+          providerId: nodeComponent?.providerId,
+          icon: nodeComponent?.icon,
+          requires: {
+            secretNames: [],
+            params: [],
+          },
+        }
+      })
+
+    // Use simple text instead of verbose rationale
+    const assistantText = `I've created a ${plan.length}-step workflow for you.`
+    const assistantMeta: Record<string, any> = {
+      plan: { edits: result.edits, nodeCount: plan.length }
+    }
+
+    // Include provider metadata if auto-selected
+    if (providerMeta) {
+      assistantMeta.autoSelectedProvider = providerMeta
+    }
+
+    setBuildMachine(prev => ({
+      ...prev,
+      plan,
+      edits: result.edits,
+      stagedText: {
+        purpose: result.rationale || `Create a workflow to ${originalPrompt}`,
+        subtasks: plan.map(p => p.title),
+        relevantNodes: plan.map(p => ({
+          title: p.title,
+          description: `${p.providerId || 'Generic'} node`,
+          providerId: p.providerId,
+        })),
+      },
+      progress: { currentIndex: -1, done: 0, total: plan.length },
+    }))
+
+    const assistantLocalId = generateLocalId()
+    const assistantCreatedAt = new Date().toISOString()
+    const localAssistantMessage: ChatMessage = {
+      id: assistantLocalId,
+      flowId,
+      role: 'assistant',
+      text: assistantText,
+      meta: assistantMeta,
+      createdAt: assistantCreatedAt,
+    }
+
+    setAgentMessages(prev => [...prev, localAssistantMessage])
+
+    if (!chatPersistenceEnabled || !flowState?.flow) {
+      enqueuePendingMessage({
+        localId: assistantLocalId,
+        role: 'assistant',
+        text: assistantText,
+        meta: assistantMeta,
+        createdAt: assistantCreatedAt,
+      })
+    } else {
+      ChatService.addAssistantResponse(flowId, assistantText, assistantMeta)
+        .then((saved) => {
+          if (saved) {
+            replaceMessageByLocalId(assistantLocalId, saved)
+          }
+        })
+        .catch((error) => {
+          console.error("Failed to save assistant response:", error)
+        })
+    }
+
+    // Calculate cost estimate
+    if (builder?.nodes) {
+      try {
+        const estimate = await estimateWorkflowCost(builder.nodes)
+        setCostEstimate(estimate)
+      } catch (error) {
+        console.error("Failed to estimate cost:", error)
+      }
+    }
+
+    // Update workflow name if AI generated one
+    console.log('[WorkflowBuilderV2] Checking if we should update workflow name:', {
+      hasWorkflowName: !!result.workflowName,
+      workflowName: result.workflowName,
+      hasUpdateFunction: !!actions?.updateFlowName
+    })
+
+    if (result.workflowName && actions?.updateFlowName) {
+      console.log('[WorkflowBuilderV2] Updating workflow name from "New Workflow" to:', result.workflowName)
+      try {
+        await actions.updateFlowName(result.workflowName)
+        console.log('[WorkflowBuilderV2] ✅ updateFlowName API call succeeded')
+
+        // Update local UI state to show the new name immediately
+        setWorkflowName(result.workflowName)
+        setNameDirty(false)
+        console.log('[WorkflowBuilderV2] ✅ Local state updated - workflowName:', result.workflowName, 'nameDirty:', false)
+      } catch (error) {
+        console.error('[WorkflowBuilderV2] ❌ Failed to update workflow name:', error)
+        // Non-critical, continue anyway
+      }
+    } else {
+      console.log('[WorkflowBuilderV2] ❌ Skipping workflow name update - missing workflowName or updateFlowName function')
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 500))
+    transitionTo(BuildState.PLAN_READY)
+    setIsAgentLoading(false)
+  }, [actions, builder, chatPersistenceEnabled, enqueuePendingMessage, flowId, flowState?.flow, generateLocalId, replaceMessageByLocalId, transitionTo])
+
+  // Provider selection handlers
+  const handleProviderSelect = useCallback(async (providerId: string) => {
+    if (!pendingPrompt || !providerCategory || !actions) return
+
+    console.log('[Provider Selection] User selected provider:', providerId)
+
+    // Reset selection state
+    setAwaitingProviderSelection(false)
+    setIsAgentLoading(true)
+
+    // Replace vague term with specific provider in prompt
+    const modifiedPrompt = replaceVagueTermWithProvider(
+      pendingPrompt,
+      providerCategory.vagueTerm,
+      providerId
+    )
+
+    console.log('[Provider Selection] Modified prompt:', modifiedPrompt)
+
+    // Get provider metadata
+    const providerOptions = getProviderOptions(
+      providerCategory,
+      integrations.map(i => ({ provider: i.provider, id: i.id, status: i.status }))
+    )
+    const selectedProvider = providerOptions.find(p => p.id === providerId)
+
+    // Prepare provider metadata to include in plan message
+    const providerMetadata = selectedProvider ? {
+      category: providerCategory,
+      provider: selectedProvider,
+      allProviders: providerOptions
+    } : undefined
+
+    // Clear pending state
+    setPendingPrompt("")
+    setProviderCategory(null)
+
+    // Start planning with modified prompt
+    transitionTo(BuildState.THINKING)
+
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      transitionTo(BuildState.SUBTASKS)
+
+      await new Promise(resolve => setTimeout(resolve, 800))
+      transitionTo(BuildState.COLLECT_NODES)
+
+      await new Promise(resolve => setTimeout(resolve, 800))
+      transitionTo(BuildState.OUTLINE)
+
+      await new Promise(resolve => setTimeout(resolve, 800))
+      transitionTo(BuildState.PURPOSE)
+
+      const result = await actions.askAgent(modifiedPrompt)
+      console.log('[Provider Selection] Received result from askAgent:', {
+        workflowName: result.workflowName,
+        editsCount: result.edits?.length,
+      })
+
+      // Pass provider metadata to include in plan message
+      await continueWithPlanGeneration(result, modifiedPrompt, providerMetadata)
+    } catch (error: any) {
+      toast({
+        title: "Failed to create plan",
+        description: error?.message || "Unable to generate workflow plan",
+        variant: "destructive",
+      })
+      transitionTo(BuildState.IDLE)
+      setIsAgentLoading(false)
+    }
+  }, [actions, continueWithPlanGeneration, flowId, generateLocalId, integrations, pendingPrompt, providerCategory, toast, transitionTo])
+
+  const handleProviderConnect = useCallback((providerId: string) => {
+    console.log('[Provider Connect] User clicked connect for:', providerId)
+    // TODO: Open OAuth flow for this provider
+    toast({
+      title: "Connect Provider",
+      description: `Opening connection flow for ${providerId}...`,
+    })
+    // After successful connection, user can retry provider selection
+  }, [toast])
+
+  const handleProviderChange = useCallback(async (providerId: string) => {
+    console.log('[Provider Change] User changed provider to:', providerId)
+    // Re-generate plan with new provider
+    // This would be similar to handleProviderSelect but re-runs the plan
+    toast({
+      title: "Provider Changed",
+      description: "Regenerating workflow with new provider...",
+    })
+  }, [toast])
+
   // Handle prompt parameter from URL (e.g., from AI agent page)
   useEffect(() => {
     if (!actions) return
@@ -643,12 +896,95 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
         setAgentInput("")
         setIsAgentLoading(true)
 
-        // Start the animated build process
-        transitionTo(BuildState.THINKING)
-
         // Run the agent query
         ;(async () => {
           try {
+            // Check for vague provider terms
+            const vagueTermResult = detectVagueTerms(prompt)
+            let finalPrompt = prompt
+            let providerMetadata: { category: any; provider: any; allProviders: any[] } | undefined
+
+            if (vagueTermResult.found && vagueTermResult.category) {
+              console.log('[URL Prompt Handler] Detected vague term:', vagueTermResult.category.vagueTerm)
+
+              const providerOptions = getProviderOptions(
+                vagueTermResult.category,
+                integrations.map(i => ({ provider: i.provider, id: i.id, status: i.status }))
+              )
+
+              const connectedProviders = providerOptions.filter(p => p.isConnected)
+              console.log('[URL Prompt Handler] Connected providers:', connectedProviders.length)
+
+              if (connectedProviders.length === 0) {
+                // No providers - stop and show selection UI
+                console.log('[URL Prompt Handler] No providers connected, showing selection UI')
+                setAwaitingProviderSelection(true)
+                setPendingPrompt(prompt)
+                setProviderCategory(vagueTermResult.category)
+                setIsAgentLoading(false)
+
+                const askMessage: ChatMessage = {
+                  id: generateLocalId(),
+                  flowId,
+                  role: 'assistant',
+                  text: `To continue, please connect one of your ${vagueTermResult.category.displayName.toLowerCase()} apps.`,
+                  meta: {
+                    providerSelection: {
+                      category: vagueTermResult.category,
+                      providers: providerOptions,
+                      reason: 'no_providers_connected'
+                    }
+                  },
+                  createdAt: new Date().toISOString(),
+                }
+                setAgentMessages(prev => [...prev, askMessage])
+                return
+              } else if (connectedProviders.length === 1) {
+                // Auto-select the only provider
+                const selectedProvider = connectedProviders[0]
+                console.log('[URL Prompt Handler] Auto-selecting provider:', selectedProvider.displayName)
+
+                finalPrompt = replaceVagueTermWithProvider(
+                  prompt,
+                  vagueTermResult.category.vagueTerm,
+                  selectedProvider.id
+                )
+
+                providerMetadata = {
+                  category: vagueTermResult.category,
+                  provider: selectedProvider,
+                  allProviders: providerOptions
+                }
+              } else {
+                // Multiple providers - stop and show selection UI
+                console.log('[URL Prompt Handler] Multiple providers connected, showing selection UI')
+                setAwaitingProviderSelection(true)
+                setPendingPrompt(prompt)
+                setProviderCategory(vagueTermResult.category)
+                setIsAgentLoading(false)
+
+                const askMessage: ChatMessage = {
+                  id: generateLocalId(),
+                  flowId,
+                  role: 'assistant',
+                  text: `I found multiple ${vagueTermResult.category.displayName.toLowerCase()} apps connected. Which one would you like to use?`,
+                  meta: {
+                    providerSelection: {
+                      category: vagueTermResult.category,
+                      providers: providerOptions,
+                      reason: 'multiple_providers'
+                    }
+                  },
+                  createdAt: new Date().toISOString(),
+                }
+                setAgentMessages(prev => [...prev, askMessage])
+                return
+              }
+            }
+
+            // Start the animated build process
+            transitionTo(BuildState.THINKING)
+
             await new Promise(resolve => setTimeout(resolve, 1000))
             transitionTo(BuildState.SUBTASKS)
 
@@ -661,113 +997,15 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
             await new Promise(resolve => setTimeout(resolve, 800))
             transitionTo(BuildState.PURPOSE)
 
-            const result = await actions.askAgent(prompt)
+            const result = await actions.askAgent(finalPrompt)
             console.log('[URL Prompt Handler] Received result from askAgent:', {
               workflowName: result.workflowName,
               editsCount: result.edits?.length,
               rationale: result.rationale
             })
 
-            const plan: PlanNode[] = (result.edits || [])
-              .filter((edit: any) => edit.op === 'addNode')
-              .map((edit: any, index: number) => {
-                const nodeType = edit.node?.type || 'unknown'
-                const nodeComponent = ALL_NODE_COMPONENTS.find(n => n.type === nodeType)
-
-                return {
-                  id: `node-${index}`,
-                  title: nodeComponent?.title || edit.node?.label || nodeType,
-                  description: nodeComponent?.description || `${nodeComponent?.title || nodeType} node`,
-                  nodeType,
-                  providerId: nodeComponent?.providerId,
-                  icon: nodeComponent?.icon,
-                  requires: {
-                    secretNames: [],
-                    params: [],
-                  },
-                }
-              })
-
-            setBuildMachine(prev => ({
-              ...prev,
-              plan,
-              edits: result.edits,
-              stagedText: {
-                purpose: result.rationale || `Create a workflow to ${prompt}`,
-                subtasks: plan.map(p => p.title),
-                relevantNodes: plan.map(p => ({
-                  title: p.title,
-                  description: `${p.providerId || 'Generic'} node`,
-                  providerId: p.providerId,
-                })),
-              },
-              progress: { currentIndex: -1, done: 0, total: plan.length },
-            }))
-
-            const assistantText = result.rationale || `I've created a plan with ${plan.length} steps to ${prompt}`
-            const assistantMeta = { plan: { edits: result.edits, nodeCount: plan.length } }
-
-            const assistantLocalId = generateLocalId()
-            const assistantCreatedAt = new Date().toISOString()
-            const localAssistantMessage: ChatMessage = {
-              id: assistantLocalId,
-              flowId,
-              role: 'assistant',
-              text: assistantText,
-              meta: assistantMeta,
-              createdAt: assistantCreatedAt,
-            }
-
-            setAgentMessages(prev => [...prev, localAssistantMessage])
-
-            if (!chatPersistenceEnabled || !flowState?.flow) {
-              enqueuePendingMessage({
-                localId: assistantLocalId,
-                role: 'assistant',
-                text: assistantText,
-                meta: assistantMeta,
-                createdAt: assistantCreatedAt,
-              })
-            } else {
-              ChatService.addAssistantResponse(flowId, assistantText, assistantMeta)
-                .then((saved) => {
-                  if (saved) {
-                    replaceMessageByLocalId(assistantLocalId, saved)
-                  }
-                })
-                .catch((error) => {
-                  console.error("Failed to save assistant response:", error)
-                })
-            }
-
-            // Update workflow name if AI generated one
-            console.log('[URL Prompt Handler] Checking if we should update workflow name:', {
-              hasWorkflowName: !!result.workflowName,
-              workflowName: result.workflowName,
-              hasUpdateFunction: !!actions.updateFlowName
-            })
-
-            if (result.workflowName && actions.updateFlowName) {
-              console.log('[URL Prompt Handler] Updating workflow name from "New Workflow" to:', result.workflowName)
-              try {
-                await actions.updateFlowName(result.workflowName)
-                console.log('[URL Prompt Handler] ✅ updateFlowName API call succeeded')
-
-                // Update local UI state to show the new name immediately
-                setWorkflowName(result.workflowName)
-                setNameDirty(false)
-                console.log('[URL Prompt Handler] ✅ Local state updated - workflowName:', result.workflowName, 'nameDirty:', false)
-              } catch (error) {
-                console.error('[URL Prompt Handler] ❌ Failed to update workflow name:', error)
-                // Non-critical, continue anyway
-              }
-            } else {
-              console.log('[URL Prompt Handler] ❌ Skipping workflow name update - missing workflowName or updateFlowName function')
-            }
-
-            await new Promise(resolve => setTimeout(resolve, 500))
-            transitionTo(BuildState.PLAN_READY)
-            setIsAgentLoading(false)
+            // Use helper function to generate plan and update UI (with provider metadata if auto-selected)
+            await continueWithPlanGeneration(result, finalPrompt, providerMetadata)
           } catch (error: any) {
             toast({
               title: "Failed to create plan",
@@ -781,7 +1019,20 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
       }
     }, 300)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [actions, chatPersistenceEnabled, enqueuePendingMessage, flowId, flowState?.flow, generateLocalId, promptParam, replaceMessageByLocalId])
+  }, [
+    actions,
+    chatPersistenceEnabled,
+    continueWithPlanGeneration,
+    enqueuePendingMessage,
+    flowId,
+    flowState?.flow,
+    generateLocalId,
+    integrations,
+    promptParam,
+    replaceMessageByLocalId,
+    toast,
+    transitionTo,
+  ])
 
   // React Flow props
   const reactFlowProps = useMemo(() => {
@@ -948,17 +1199,6 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
     [toast]
   )
 
-  // Build state machine handlers
-  const transitionTo = useCallback((nextState: BuildState) => {
-    setBuildMachine(prev => {
-      const badge = getBadgeForState(
-        nextState,
-        prev.plan[prev.progress.currentIndex]?.title
-      )
-      return { ...prev, state: nextState, badge }
-    })
-  }, [])
-
   const handleAgentSubmit = useCallback(async () => {
     if (!agentInput.trim() || !actions) return
 
@@ -997,6 +1237,133 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
         })
     }
 
+    // STEP 1: Check for vague provider terms
+    const vagueTermResult = detectVagueTerms(userPrompt)
+
+    if (vagueTermResult.found && vagueTermResult.category) {
+      console.log('[Provider Disambiguation] Detected vague term:', vagueTermResult.category.vagueTerm)
+
+      // Get provider options for this category
+      const providerOptions = getProviderOptions(
+        vagueTermResult.category,
+        integrations.map(i => ({ provider: i.provider, id: i.id, status: i.status }))
+      )
+
+      const connectedProviders = providerOptions.filter(p => p.isConnected)
+      console.log('[Provider Disambiguation] Connected providers:', connectedProviders.length)
+
+      if (connectedProviders.length === 0) {
+        // No providers connected - ask user to connect
+        console.log('[Provider Disambiguation] No providers connected, showing selection UI')
+        setAwaitingProviderSelection(true)
+        setPendingPrompt(userPrompt)
+        setProviderCategory(vagueTermResult.category)
+        setIsAgentLoading(false)
+
+        // Add assistant message asking user to connect a provider
+        const askMessage: ChatMessage = {
+          id: generateLocalId(),
+          flowId,
+          role: 'assistant',
+          text: `To continue, please connect one of your ${vagueTermResult.category.displayName.toLowerCase()} apps.`,
+          meta: {
+            providerSelection: {
+              category: vagueTermResult.category,
+              providers: providerOptions,
+              reason: 'no_providers_connected'
+            }
+          },
+          createdAt: new Date().toISOString(),
+        }
+        setAgentMessages(prev => [...prev, askMessage])
+        return
+      } else if (connectedProviders.length === 1) {
+        // Exactly 1 provider - auto-select and continue with modified prompt
+        const selectedProvider = connectedProviders[0]
+        console.log('[Provider Disambiguation] Auto-selecting provider:', selectedProvider.displayName)
+
+        // Replace vague term with specific provider in prompt
+        const modifiedPrompt = replaceVagueTermWithProvider(
+          userPrompt,
+          vagueTermResult.category.vagueTerm,
+          selectedProvider.id
+        )
+
+        console.log('[Provider Disambiguation] Modified prompt:', modifiedPrompt)
+
+        // Prepare provider metadata to include in plan message
+        const providerMetadata = {
+          category: vagueTermResult.category,
+          provider: selectedProvider,
+          allProviders: providerOptions
+        }
+
+        // Start animated build progression
+        transitionTo(BuildState.THINKING)
+
+        try {
+          // Simulate staged progression through planning states
+          await new Promise(resolve => setTimeout(resolve, 1000))
+          transitionTo(BuildState.SUBTASKS)
+
+          await new Promise(resolve => setTimeout(resolve, 800))
+          transitionTo(BuildState.COLLECT_NODES)
+
+          await new Promise(resolve => setTimeout(resolve, 800))
+          transitionTo(BuildState.OUTLINE)
+
+          await new Promise(resolve => setTimeout(resolve, 800))
+          transitionTo(BuildState.PURPOSE)
+
+          // Call actual askAgent API with MODIFIED prompt
+          const result = await actions.askAgent(modifiedPrompt)
+          console.log('[WorkflowBuilderV2] Received result from askAgent:', {
+            workflowName: result.workflowName,
+            editsCount: result.edits?.length,
+            rationale: result.rationale
+          })
+
+          // Pass provider metadata to include in plan message
+          await continueWithPlanGeneration(result, modifiedPrompt, providerMetadata)
+        } catch (error: any) {
+          toast({
+            title: "Failed to create plan",
+            description: error?.message || "Unable to generate workflow plan",
+            variant: "destructive",
+          })
+          transitionTo(BuildState.IDLE)
+          setIsAgentLoading(false)
+        }
+        return
+      } else {
+        // 2+ providers connected - ask user to choose
+        console.log('[Provider Disambiguation] Multiple providers connected, showing selection UI')
+        setAwaitingProviderSelection(true)
+        setPendingPrompt(userPrompt)
+        setProviderCategory(vagueTermResult.category)
+        setIsAgentLoading(false)
+
+        // Add assistant message asking user to select
+        const askMessage: ChatMessage = {
+          id: generateLocalId(),
+          flowId,
+          role: 'assistant',
+          text: `I found multiple ${vagueTermResult.category.displayName.toLowerCase()} apps connected. Which one would you like to use?`,
+          meta: {
+            providerSelection: {
+              category: vagueTermResult.category,
+              providers: providerOptions,
+              reason: 'multiple_providers'
+            }
+          },
+          createdAt: new Date().toISOString(),
+        }
+        setAgentMessages(prev => [...prev, askMessage])
+        return
+      }
+    }
+
+    // No vague terms detected - proceed normally
     // Start animated build progression
     transitionTo(BuildState.THINKING)
 
@@ -1022,127 +1389,8 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
         rationale: result.rationale
       })
 
-      // Generate plan from edits
-      const plan: PlanNode[] = (result.edits || [])
-        .filter((edit: any) => edit.op === 'addNode')
-        .map((edit: any, index: number) => {
-          const nodeType = edit.node?.type || 'unknown'
-          const nodeComponent = ALL_NODE_COMPONENTS.find(n => n.type === nodeType)
-
-          // Get Kadabra-style display name
-          const displayTitle = getKadabraStyleNodeName(
-            nodeType,
-            nodeComponent?.providerId,
-            nodeComponent?.title
-          )
-
-          return {
-            id: `node-${index}`,
-            title: displayTitle,
-            description: nodeComponent?.description || `${nodeComponent?.title || nodeType} node`,
-            nodeType,
-            providerId: nodeComponent?.providerId,
-            icon: nodeComponent?.icon,
-            requires: {
-              // TODO: Extract from node definition
-              secretNames: [],
-              params: [],
-            },
-          }
-        })
-
-      const assistantText = result.rationale || `I've created a plan with ${plan.length} steps to ${userPrompt}`
-      const assistantMeta = {
-        plan: { edits: result.edits, nodeCount: plan.length }
-      }
-
-      setBuildMachine(prev => ({
-        ...prev,
-        plan,
-        edits: result.edits,
-        stagedText: {
-          purpose: result.rationale || `Create a workflow to ${userPrompt}`,
-          subtasks: plan.map(p => p.title),
-          relevantNodes: plan.map(p => ({
-            title: p.title,
-            description: `${p.providerId || 'Generic'} node`,
-            providerId: p.providerId,
-          })),
-        },
-        progress: { currentIndex: -1, done: 0, total: plan.length },
-      }))
-
-      const assistantLocalId = generateLocalId()
-      const assistantCreatedAt = new Date().toISOString()
-      const localAssistantMessage: ChatMessage = {
-        id: assistantLocalId,
-        flowId,
-        role: 'assistant',
-        text: assistantText,
-        meta: assistantMeta,
-        createdAt: assistantCreatedAt,
-      }
-
-      setAgentMessages(prev => [...prev, localAssistantMessage])
-
-      if (!chatPersistenceEnabled || !flowState?.flow) {
-        enqueuePendingMessage({
-          localId: assistantLocalId,
-          role: 'assistant',
-          text: assistantText,
-          meta: assistantMeta,
-          createdAt: assistantCreatedAt,
-        })
-      } else {
-        ChatService.addAssistantResponse(flowId, assistantText, assistantMeta)
-          .then((saved) => {
-            if (saved) {
-              replaceMessageByLocalId(assistantLocalId, saved)
-            }
-          })
-          .catch((error) => {
-            console.error("Failed to save assistant response:", error)
-          })
-      }
-
-      // Calculate cost estimate
-      if (builder?.nodes) {
-        try {
-          const estimate = await estimateWorkflowCost(builder.nodes)
-          setCostEstimate(estimate)
-        } catch (error) {
-          console.error("Failed to estimate cost:", error)
-        }
-      }
-
-      // Update workflow name if AI generated one
-      console.log('[WorkflowBuilderV2] Checking if we should update workflow name:', {
-        hasWorkflowName: !!result.workflowName,
-        workflowName: result.workflowName,
-        hasUpdateFunction: !!actions.updateFlowName
-      })
-
-      if (result.workflowName && actions.updateFlowName) {
-        console.log('[WorkflowBuilderV2] Updating workflow name from "New Workflow" to:', result.workflowName)
-        try {
-          await actions.updateFlowName(result.workflowName)
-          console.log('[WorkflowBuilderV2] ✅ updateFlowName API call succeeded')
-
-          // Update local UI state to show the new name immediately
-          setWorkflowName(result.workflowName)
-          setNameDirty(false)
-          console.log('[WorkflowBuilderV2] ✅ Local state updated - workflowName:', result.workflowName, 'nameDirty:', false)
-        } catch (error) {
-          console.error('[WorkflowBuilderV2] ❌ Failed to update workflow name:', error)
-          // Non-critical, continue anyway
-        }
-      } else {
-        console.log('[WorkflowBuilderV2] ❌ Skipping workflow name update - missing workflowName or updateFlowName function')
-      }
-
-      await new Promise(resolve => setTimeout(resolve, 500))
-      transitionTo(BuildState.PLAN_READY)
-      setIsAgentLoading(false)
+      // Use helper function to generate plan and update UI
+      await continueWithPlanGeneration(result, userPrompt)
 
     } catch (error: any) {
       toast({
@@ -1153,7 +1401,21 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
       transitionTo(BuildState.IDLE)
       setIsAgentLoading(false)
     }
-  }, [agentInput, actions, builder, chatPersistenceEnabled, enqueuePendingMessage, flowState?.flow, toast, transitionTo, generateLocalId, replaceMessageByLocalId])
+  }, [
+    agentInput,
+    actions,
+    builder,
+    chatPersistenceEnabled,
+    continueWithPlanGeneration,
+    enqueuePendingMessage,
+    flowId,
+    flowState?.flow,
+    generateLocalId,
+    integrations,
+    replaceMessageByLocalId,
+    toast,
+    transitionTo,
+  ])
 
   const handleBuild = useCallback(async () => {
     if (!actions || !buildMachine.edits || buildMachine.state !== BuildState.PLAN_READY) return
@@ -2034,6 +2296,8 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
               isAgentLoading,
               agentMessages,
               nodeConfigs,
+              awaitingProviderSelection,
+              providerCategory,
             }}
             actions={{
               onInputChange: value => setAgentInput(value),
@@ -2044,6 +2308,9 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
               onUndoToPreviousStage: handleUndoToPreviousStage,
               onCancelBuild: handleCancelBuild,
               onNodeConfigChange: handleNodeConfigChange,
+              onProviderSelect: handleProviderSelect,
+              onProviderConnect: handleProviderConnect,
+              onProviderChange: handleProviderChange,
             }}
           />
 
