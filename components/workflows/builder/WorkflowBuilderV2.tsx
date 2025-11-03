@@ -614,12 +614,8 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
         const nodeType = edit.node?.type || 'unknown'
         const nodeComponent = ALL_NODE_COMPONENTS.find(n => n.type === nodeType)
 
-        // Get Kadabra-style display name
-        const displayTitle = getKadabraStyleNodeName(
-          nodeType,
-          nodeComponent?.providerId,
-          nodeComponent?.title
-        )
+        // Use actual node title instead of Kadabra-style names
+        const displayTitle = nodeComponent?.title || nodeType
 
         return {
           id: `node-${index}`,
@@ -635,8 +631,8 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
         }
       })
 
-    // Use simple text instead of verbose rationale
-    const assistantText = `I've created a ${plan.length}-step workflow for you.`
+    // Silent plan - no assistant message (workflow speaks for itself)
+    const assistantText = ''
     const assistantMeta: Record<string, any> = {
       plan: { edits: result.edits, nodeCount: plan.length }
     }

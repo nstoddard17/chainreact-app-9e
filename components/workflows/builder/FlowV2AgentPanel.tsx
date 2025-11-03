@@ -870,10 +870,13 @@ export function FlowV2AgentPanel({
                 )
               })}
 
-              {/* Assistant messages - shown even in IDLE state for provider selection */}
-              {agentMessages.filter(m => m && m.role === 'assistant').map((msg, index) => {
+              {/* Assistant messages - only shown if they have text content */}
+              {agentMessages.filter(m => {
+                if (!m || m.role !== 'assistant') return false
+                const text = (m as any).text ?? (m as any).content ?? ''
+                return text.trim().length > 0
+              }).map((msg, index) => {
                 const text = (msg as any).text ?? (msg as any).content ?? ''
-                const meta = (msg as any).meta ?? {}
 
                 return (
                   <div key={`assistant-${index}`} className="flex w-full flex-col gap-2">
@@ -881,31 +884,6 @@ export function FlowV2AgentPanel({
                       <p className="text-sm whitespace-pre-wrap" style={{ wordBreak: "break-word" }}>
                         {text}
                       </p>
-
-                      {/* Provider selection UI - shown when asking user to select */}
-                      {meta.providerSelection && onProviderSelect && onProviderConnect && (
-                        <div className="mt-3">
-                          <ProviderSelectionUI
-                            categoryName={meta.providerSelection.category.displayName}
-                            providers={meta.providerSelection.providers}
-                            onSelect={onProviderSelect}
-                            onConnect={onProviderConnect}
-                          />
-                        </div>
-                      )}
-
-                      {/* Provider badge - shown when auto-selected provider */}
-                      {meta.autoSelectedProvider && onProviderChange && (
-                        <div className="mt-3">
-                          <ProviderBadge
-                            categoryName={meta.autoSelectedProvider.category.displayName}
-                            selectedProvider={meta.autoSelectedProvider.provider}
-                            allProviders={meta.autoSelectedProvider.allProviders}
-                            onProviderChange={onProviderChange}
-                            onConnect={onProviderConnect || (() => {})}
-                          />
-                        </div>
-                      )}
                     </div>
                   </div>
                 )
@@ -997,13 +975,28 @@ export function FlowV2AgentPanel({
                               <div className="text-sm break-words">{getStateLabel(BuildState.PLAN_READY)}</div>
                               <div className="text-sm font-bold break-words">Flow plan:</div>
 
-                              {/* Provider Badge - shown when provider was auto-selected or manually chosen */}
+                              {/* Provider Selection or Badge - shown when provider needs to be selected or was auto-selected */}
                               {(() => {
-                                // Find the most recent assistant message with autoSelectedProvider metadata
+                                // Find the most recent assistant message with provider metadata
                                 const assistantMessages = agentMessages.filter(m => m && m.role === 'assistant')
                                 const lastMessage = assistantMessages[assistantMessages.length - 1]
                                 const meta = (lastMessage as any)?.meta ?? {}
 
+                                // Show provider selection UI if user needs to choose
+                                if (meta.providerSelection && onProviderSelect && onProviderConnect) {
+                                  return (
+                                    <div className="pt-2 pb-1">
+                                      <ProviderSelectionUI
+                                        categoryName={meta.providerSelection.category.displayName}
+                                        providers={meta.providerSelection.providers}
+                                        onSelect={onProviderSelect}
+                                        onConnect={onProviderConnect}
+                                      />
+                                    </div>
+                                  )
+                                }
+
+                                // Show provider badge if auto-selected
                                 if (meta.autoSelectedProvider && onProviderChange && onProviderConnect) {
                                   return (
                                     <div className="pt-1">

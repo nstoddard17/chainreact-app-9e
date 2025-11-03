@@ -1,8 +1,19 @@
 import React, { useState, useRef, useEffect } from 'react'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Check, ArrowRight } from 'lucide-react'
 import type { ProviderOption } from '@/lib/workflows/ai-agent/providerDisambiguation'
+
+/**
+ * Maps provider IDs to their actual icon filenames
+ */
+function getProviderIconPath(providerId: string): string {
+  const iconMap: Record<string, string> = {
+    'outlook': 'microsoft-outlook',
+    'yahoo-mail': 'yahoo-mail',
+  }
+  return `/integrations/${iconMap[providerId] || providerId}.svg`
+}
 
 interface ProviderBadgeProps {
   categoryName: string // "Email", "Calendar"
@@ -39,95 +50,118 @@ export function ProviderBadge({
   const otherProviders = allProviders.filter(p => p.id !== selectedProvider.id)
 
   return (
-    <div className="relative inline-block" ref={dropdownRef}>
-      <div className="inline-flex items-center gap-2 px-3 py-2 bg-muted/50 border border-border rounded-lg">
-        <span className="text-sm text-muted-foreground">{categoryName} provider:</span>
-        <div className="flex items-center gap-2">
+    <div className="relative inline-block w-full" ref={dropdownRef}>
+      <button
+        className="group w-full flex items-center gap-3 px-4 py-3 bg-primary/5 hover:bg-primary/10 border-2 border-primary/20 hover:border-primary/30 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
+        onClick={() => setShowDropdown(!showDropdown)}
+      >
+        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-background border border-border shadow-sm shrink-0">
           <Image
-            src={`/integrations/${selectedProvider.id}.svg`}
+            src={getProviderIconPath(selectedProvider.id)}
             alt={selectedProvider.displayName}
-            width={20}
-            height={20}
+            width={28}
+            height={28}
             className="shrink-0"
           />
-          <span className="font-medium text-sm">{selectedProvider.displayName}</span>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-6 px-2 text-xs ml-2"
-          onClick={() => setShowDropdown(!showDropdown)}
-        >
-          Change
-          <ChevronDown className="w-3 h-3 ml-1" />
-        </Button>
-      </div>
+        <div className="flex-1 text-left min-w-0">
+          <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{categoryName} Provider</div>
+          <div className="font-semibold text-sm text-foreground">{selectedProvider.displayName}</div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-xs font-semibold text-primary uppercase tracking-wide">Change</span>
+          <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
+        </div>
+      </button>
 
       {/* Dropdown */}
       {showDropdown && (
-        <div className="absolute top-full left-0 mt-2 w-64 bg-popover border border-border rounded-lg shadow-lg z-50 p-2">
-          <div className="space-y-1">
-            {/* Current selection */}
-            <div className="px-2 py-1 bg-primary/10 rounded flex items-center gap-2">
-              <Image
-                src={`/integrations/${selectedProvider.id}.svg`}
-                alt={selectedProvider.displayName}
-                width={20}
-                height={20}
-                className="shrink-0"
-              />
-              <span className="text-sm font-medium flex-1">{selectedProvider.displayName}</span>
-              <span className="text-xs text-primary">Current</span>
-            </div>
+        <div className="absolute top-full left-0 mt-2 w-full bg-popover border-2 border-border rounded-lg shadow-xl z-50 p-3">
+          <div className="space-y-2">
+            {/* Connected providers section */}
+            {otherProviders.filter(p => p.isConnected).length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-2">Connected</p>
+                {/* Current selection */}
+                <button
+                  className="w-full group relative px-3 py-2.5 bg-primary/10 hover:bg-primary/15 rounded-lg flex items-center gap-3 text-left border border-primary/20 transition-colors"
+                  onClick={() => setShowDropdown(false)}
+                >
+                  <div className="flex items-center justify-center w-8 h-8 rounded-md bg-background/60 border border-border/50 shrink-0">
+                    <Image
+                      src={getProviderIconPath(selectedProvider.id)}
+                      alt={selectedProvider.displayName}
+                      width={22}
+                      height={22}
+                      className="shrink-0"
+                    />
+                  </div>
+                  <span className="text-sm font-semibold flex-1">{selectedProvider.displayName}</span>
+                  <Check className="w-4 h-4 text-primary" strokeWidth={2.5} />
+                </button>
 
-            {/* Other connected providers */}
-            {otherProviders.filter(p => p.isConnected).map(provider => (
-              <button
-                key={provider.id}
-                className="w-full px-2 py-1.5 hover:bg-muted rounded flex items-center gap-2 text-left"
-                onClick={() => {
-                  onProviderChange(provider.id)
-                  setShowDropdown(false)
-                }}
-              >
-                <Image
-                  src={`/integrations/${provider.id}.svg`}
-                  alt={provider.displayName}
-                  width={20}
-                  height={20}
-                  className="shrink-0"
-                />
-                <span className="text-sm flex-1">{provider.displayName}</span>
-                <span className="text-xs text-green-600 dark:text-green-400">✓</span>
-              </button>
-            ))}
+                {/* Other connected providers */}
+                {otherProviders.filter(p => p.isConnected).map(provider => (
+                  <button
+                    key={provider.id}
+                    className="w-full group px-3 py-2.5 hover:bg-muted rounded-lg flex items-center gap-3 text-left transition-colors"
+                    onClick={() => {
+                      onProviderChange(provider.id)
+                      setShowDropdown(false)
+                    }}
+                  >
+                    <div className="flex items-center justify-center w-8 h-8 rounded-md bg-muted border border-border shrink-0">
+                      <Image
+                        src={getProviderIconPath(provider.id)}
+                        alt={provider.displayName}
+                        width={22}
+                        height={22}
+                        className="shrink-0"
+                      />
+                    </div>
+                    <span className="text-sm font-medium flex-1">{provider.displayName}</span>
+                    <Check className="w-3.5 h-3.5 text-green-600 dark:text-green-400" strokeWidth={2.5} />
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Divider if there are unconnected providers */}
             {otherProviders.some(p => !p.isConnected) && otherProviders.some(p => p.isConnected) && (
-              <div className="border-t border-border my-1" />
+              <div className="border-t border-border my-2" />
             )}
 
             {/* Unconnected providers */}
-            {otherProviders.filter(p => !p.isConnected).map(provider => (
-              <button
-                key={provider.id}
-                className="w-full px-2 py-1.5 hover:bg-muted rounded flex items-center gap-2 text-left opacity-60 hover:opacity-100"
-                onClick={() => {
-                  onConnect(provider.id)
-                  setShowDropdown(false)
-                }}
-              >
-                <Image
-                  src={`/integrations/${provider.id}.svg`}
-                  alt={provider.displayName}
-                  width={20}
-                  height={20}
-                  className="shrink-0"
-                />
-                <span className="text-sm flex-1">{provider.displayName}</span>
-                <span className="text-xs text-primary">Connect →</span>
-              </button>
-            ))}
+            {otherProviders.filter(p => !p.isConnected).length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-2">Available</p>
+                {otherProviders.filter(p => !p.isConnected).map(provider => (
+                  <button
+                    key={provider.id}
+                    className="w-full group px-3 py-2.5 hover:bg-muted/50 rounded-lg flex items-center gap-3 text-left border border-dashed border-border hover:border-primary transition-all"
+                    onClick={() => {
+                      onConnect(provider.id)
+                      setShowDropdown(false)
+                    }}
+                  >
+                    <div className="flex items-center justify-center w-8 h-8 rounded-md bg-muted/50 border border-border shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
+                      <Image
+                        src={getProviderIconPath(provider.id)}
+                        alt={provider.displayName}
+                        width={22}
+                        height={22}
+                        className="shrink-0"
+                      />
+                    </div>
+                    <span className="text-sm font-medium flex-1">{provider.displayName}</span>
+                    <div className="flex items-center gap-1.5 text-primary">
+                      <span className="text-xs font-semibold uppercase tracking-wide">Connect</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
