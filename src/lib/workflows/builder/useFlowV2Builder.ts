@@ -531,18 +531,24 @@ export function useFlowV2Builder(flowId: string, _options?: UseFlowV2BuilderOpti
 
   const updateFlowName = useCallback(
     async (name: string) => {
+      console.log('[useFlowV2Builder] updateFlowName called with:', name)
       const baseFlow = await ensureFlow()
       const trimmed = name.trim()
+      console.log('[useFlowV2Builder] Current flow name:', baseFlow.name, '| New trimmed name:', trimmed)
+
       if (!trimmed || baseFlow.name === trimmed) {
+        console.log('[useFlowV2Builder] ⚠️ Skipping update - name is empty or unchanged')
         return
       }
 
       const nextFlow = cloneFlow(baseFlow)
       nextFlow.name = trimmed
       nextFlow.version = (nextFlow.version ?? 0) + 1
+      console.log('[useFlowV2Builder] Preparing to update flow name to:', trimmed, '| New version:', nextFlow.version)
 
       setSaving(true)
       try {
+        console.log('[useFlowV2Builder] Calling /apply-edits API...')
         const payload = await fetchJson<{ flow: Flow; revisionId?: string; version?: number }>(
           `/workflows/v2/api/flows/${flowId}/apply-edits`,
           {
@@ -554,11 +560,13 @@ export function useFlowV2Builder(flowId: string, _options?: UseFlowV2BuilderOpti
             }),
           }
         )
+        console.log('[useFlowV2Builder] ✅ API call succeeded, received flow with name:', payload.flow.name)
 
         const updatedFlow = FlowSchema.parse(payload.flow)
         flowRef.current = updatedFlow
         revisionIdRef.current = payload.revisionId ?? revisionIdRef.current
         updateReactFlowGraph(updatedFlow)
+        console.log('[useFlowV2Builder] ✅ Updated refs and graph')
 
         setFlowState((prev) => ({
           ...prev,
@@ -567,6 +575,7 @@ export function useFlowV2Builder(flowId: string, _options?: UseFlowV2BuilderOpti
           version: updatedFlow.version ?? payload.version ?? prev.version,
           revisionCount: (prev.revisionCount ?? 0) + 1,
         }))
+        console.log('[useFlowV2Builder] ✅ Updated flowState with new name:', updatedFlow.name)
       } finally {
         setSaving(false)
       }

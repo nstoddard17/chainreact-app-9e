@@ -12,8 +12,8 @@ const blankFlow = FlowSchema.parse({
 })
 
 describe("planEdits", () => {
-  it("adds AI and notify nodes for Slack prompt", () => {
-    const result = planEdits({ prompt: "Create HTTP -> AI(JSON) -> Slack summary", flow: blankFlow })
+  it("adds AI and notify nodes for Slack prompt", async () => {
+    const result = await planEdits({ prompt: "Create HTTP -> AI(JSON) -> Slack summary", flow: blankFlow })
     const types = result.edits
       .filter((edit) => edit.op === "addNode")
       .map((edit) => edit.node.type)

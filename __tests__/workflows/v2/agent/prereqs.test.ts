@@ -12,8 +12,8 @@ describe("planner prerequisites", () => {
     interface: { inputs: [], outputs: [] },
   })
 
-  test("detects missing Slack secret", () => {
-    const result = planEdits({ prompt: "Send summary to Slack", flow: blankFlow })
+  test("detects missing Slack secret", async () => {
+    const result = await planEdits({ prompt: "Send summary to Slack", flow: blankFlow })
     expect(result.prerequisites).toEqual(
       expect.arrayContaining(["secret:SLACK_WEBHOOK"])
     )

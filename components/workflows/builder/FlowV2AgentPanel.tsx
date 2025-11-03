@@ -103,6 +103,12 @@ export function FlowV2AgentPanel({
   // Track validation errors for required fields
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({})
 
+  // Track expired connections per node (connectionId -> isExpired)
+  const [expiredConnections, setExpiredConnections] = useState<Record<string, boolean>>({})
+
+  // Track which connections are being reconnected (to avoid showing duplicate message during reconnect)
+  const [reconnectingConnections, setReconnectingConnections] = useState<Record<string, boolean>>({})
+
   // Track which nodes are currently loading to prevent duplicate requests (infinite loop prevention)
   const loadingNodesRef = useRef<Set<string>>(new Set())
 
@@ -243,6 +249,17 @@ export function FlowV2AgentPanel({
   const handleFieldChange = (nodeId: string, fieldName: string, value: any) => {
     onNodeConfigChange(nodeId, fieldName, value)
 
+    // If user manually changes connection, clear reconnecting flag for old connection
+    if (fieldName === 'connection') {
+      const oldConnection = nodeConfigs[nodeId]?.connection
+      if (oldConnection && oldConnection !== value) {
+        setReconnectingConnections(prev => {
+          const { [oldConnection]: _, ...rest } = prev
+          return rest
+        })
+      }
+    }
+
     // Clear validation error for this field when user changes it
     setFieldErrors(prev => {
       const nodeErrors = prev[nodeId] || []
@@ -277,17 +294,17 @@ export function FlowV2AgentPanel({
   }
 
   // Helper: Validate all required fields for current node
-  const validateRequiredFields = (planNode: any, requiresConnection: boolean): { isValid: boolean; missingFields: string[] } => {
+  const validateRequiredFields = (planNode: any, requiresConnection: boolean): { isValid: boolean; missingFields: string[]; needsSetup: boolean } => {
     const requiredFields = getRequiredUserFields(planNode.nodeType)
     const config = nodeConfigs[planNode.id] || {}
     const missingFields: string[] = []
 
-    // Check connection if required
+    // Check connection if required (now just for warning, not blocking)
     if (requiresConnection && !config.connection) {
       missingFields.push('connection')
     }
 
-    // Check all other required fields
+    // Check all other required fields (now just for warning, not blocking)
     requiredFields.forEach(field => {
       if (field.required && field.name !== 'connection') {
         const value = config[field.name]
@@ -299,7 +316,8 @@ export function FlowV2AgentPanel({
 
     return {
       isValid: missingFields.length === 0,
-      missingFields
+      missingFields,
+      needsSetup: missingFields.length > 0 // Track if node needs setup
     }
   }
 
@@ -426,13 +444,30 @@ export function FlowV2AgentPanel({
             // No new ID = duplicate account (upsert happened)
             const existingConnection = connectionsAfter[0]
             if (existingConnection) {
-              setDuplicateMessages(prev => ({
-                ...prev,
-                [nodeId]: {
-                  show: true,
-                  connectionName: getConnectionDisplayName(existingConnection, providerId)
-                }
-              }))
+              const connectionId = existingConnection.integrationId || existingConnection.id
+
+              // Check if this was a reconnection attempt
+              const wasReconnecting = reconnectingConnections[connectionId]
+
+              // Clear reconnecting flag
+              setReconnectingConnections(prev => {
+                const { [connectionId]: _, ...rest } = prev
+                return rest
+              })
+
+              // Only show duplicate message if this was NOT a reconnection
+              if (!wasReconnecting) {
+                setDuplicateMessages(prev => ({
+                  ...prev,
+                  [nodeId]: {
+                    show: true,
+                    connectionName: getConnectionDisplayName(existingConnection, providerId)
+                  }
+                }))
+              }
+
+              // DON'T clear expired flag here - wait until data loads successfully
+              // The expired banner will stay visible until loadDynamicOptionsForNode succeeds
             }
           } else {
             // New ID found = new connection
@@ -440,7 +475,16 @@ export function FlowV2AgentPanel({
               !connectionIdsBefore.includes(c.integrationId || c.id)
             )
             if (newConnection) {
-              handleFieldChange(nodeId, 'connection', newConnection.integrationId || newConnection.id)
+              const connectionId = newConnection.integrationId || newConnection.id
+
+              // Clear reconnecting flag if it was set
+              setReconnectingConnections(prev => {
+                const { [connectionId]: _, ...rest } = prev
+                return rest
+              })
+
+              // DON'T clear expired flag here - wait until data loads successfully
+              handleFieldChange(nodeId, 'connection', connectionId)
             }
           }
         }
@@ -583,9 +627,27 @@ export function FlowV2AgentPanel({
         })
 
         if (!response.ok) {
-          const errorText = await response.text()
-          console.error(`Failed to load options for ${field.name}:`, response.status, errorText)
-          return { fieldName: field.name, options: [] }
+          // Try to parse error as JSON to check for expired token
+          try {
+            const errorData = await response.json()
+
+            // Silently handle expired/disconnected integrations
+            if (errorData.details?.needsReconnection || errorData.details?.currentStatus === 'expired') {
+              // Token expired - mark connection as expired
+              console.log(`[FlowV2AgentPanel] Connection ${connectionId} is expired`)
+              setExpiredConnections(prev => ({ ...prev, [connectionId]: true }))
+              return { fieldName: field.name, options: [], expired: true }
+            }
+
+            // Other errors - log them
+            console.error(`Failed to load options for ${field.name}:`, response.status, errorData)
+            return { fieldName: field.name, options: [] }
+          } catch (e) {
+            // Not JSON - log as text
+            const errorText = await response.text()
+            console.error(`Failed to load options for ${field.name}:`, response.status, errorText)
+            return { fieldName: field.name, options: [] }
+          }
         }
 
         const result = await response.json()
@@ -618,6 +680,22 @@ export function FlowV2AgentPanel({
     // Use a special key that the workflow builder will recognize and move to savedDynamicOptions
     onNodeConfigChange(nodeId, '__savedDynamicOptions__', { ...newOptions })
 
+    // Check if we successfully loaded data (any field has options)
+    const hasSuccessfulLoad = results.some((r: any) => !(r.expired) && r.options && r.options.length > 0)
+
+    // If successful, clear expired flag for this connection - reconnection verified!
+    if (hasSuccessfulLoad && connectionId) {
+      console.log(`[FlowV2AgentPanel] ✅ Connection ${connectionId} verified - clearing expired flag`)
+      setExpiredConnections(prev => {
+        const { [connectionId]: _, ...rest } = prev
+        return rest
+      })
+
+      // Refresh integrations to update the node's visual state (remove red border/disconnected icon)
+      await refreshIntegrations()
+      console.log(`[FlowV2AgentPanel] ✅ Refreshed integrations - node should update visually`)
+    }
+
     // Clear loading state
     setLoadingFieldsByNode(prev => ({
       ...prev,
@@ -628,7 +706,7 @@ export function FlowV2AgentPanel({
     loadingNodesRef.current.delete(nodeId)
 
     console.log('[FlowV2AgentPanel] ✅ Finished loading dynamic options for node:', nodeId, newOptions)
-  }, [getNodeSchema, onNodeConfigChange])
+  }, [getNodeSchema, onNodeConfigChange, refreshIntegrations])
 
   // Auto-save default connections to nodeConfigs when they're auto-selected
   useEffect(() => {
@@ -650,14 +728,20 @@ export function FlowV2AgentPanel({
   }, [buildMachine.plan, nodeConfigs, integrations, getDefaultConnection, getProviderConnections, onNodeConfigChange])
 
   // Watch for connection changes and auto-load dynamic fields
+  // ONLY load when we're in WAITING_USER state for a specific node
   useEffect(() => {
+    // Don't load options until we're actually configuring nodes (WAITING_USER state)
+    if (buildMachine.state !== BuildState.WAITING_USER) {
+      console.log('[FlowV2AgentPanel] Skipping dynamic options load - not in WAITING_USER state')
+      return
+    }
+
     const planNodes = buildMachine.plan || []
+    const currentNodeIndex = buildMachine.progress.currentIndex
 
-    console.log('[FlowV2AgentPanel] Checking for dynamic fields to load...')
-    console.log('[FlowV2AgentPanel] nodeConfigs:', nodeConfigs)
-    console.log('[FlowV2AgentPanel] nodesDynamicOptions:', nodesDynamicOptions)
-
-    planNodes.forEach(planNode => {
+    // Only load options for the CURRENT node being configured
+    if (currentNodeIndex >= 0 && currentNodeIndex < planNodes.length) {
+      const planNode = planNodes[currentNodeIndex]
       const connectionId = nodeConfigs[planNode.id]?.connection
 
       console.log(`[FlowV2AgentPanel] Node ${planNode.id}: connectionId=${connectionId}, providerId=${planNode.providerId}, hasOptions=${!!nodesDynamicOptions[planNode.id]}`)
@@ -667,8 +751,8 @@ export function FlowV2AgentPanel({
         console.log(`[FlowV2AgentPanel] ✅ Loading dynamic options for ${planNode.id}`)
         loadDynamicOptionsForNode(planNode.id, planNode.nodeType, planNode.providerId, connectionId)
       }
-    })
-  }, [buildMachine.plan, nodeConfigs, nodesDynamicOptions, loadDynamicOptionsForNode])
+    }
+  }, [buildMachine.state, buildMachine.plan, buildMachine.progress.currentIndex, nodeConfigs, nodesDynamicOptions, loadDynamicOptionsForNode])
 
   // BuilderHeader is 56px tall (from tokens.css --header-height)
   // The panel sits below it, so we must subtract header height
@@ -934,6 +1018,37 @@ export function FlowV2AgentPanel({
                                                       </p>
                                                     </div>
                                                   )}
+
+                                                  {/* Expired connection warning */}
+                                                  {defaultConnectionValue && expiredConnections[defaultConnectionValue] && (
+                                                    <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-md">
+                                                      <div className="flex items-start gap-2">
+                                                        <div className="flex-1">
+                                                          <p className="text-xs font-medium text-red-800">
+                                                            Connection Expired
+                                                          </p>
+                                                          <p className="text-xs text-red-700 mt-1">
+                                                            This {getProviderDisplayName(planNode.providerId || '')} account token has expired. Please reconnect to continue.
+                                                          </p>
+                                                        </div>
+                                                        <Button
+                                                          variant="destructive"
+                                                          size="sm"
+                                                          className="whitespace-nowrap shrink-0"
+                                                          onClick={() => {
+                                                            // Mark this connection as being reconnected (don't clear expired flag yet)
+                                                            setReconnectingConnections(prev => ({
+                                                              ...prev,
+                                                              [defaultConnectionValue]: true
+                                                            }))
+                                                            handleConnectIntegration(planNode.providerId || '', planNode.id)
+                                                          }}
+                                                        >
+                                                          Reconnect
+                                                        </Button>
+                                                      </div>
+                                                    </div>
+                                                  )}
                                                 </div>
                                               </div>
                                             )}
@@ -1002,17 +1117,18 @@ export function FlowV2AgentPanel({
                                               <div className="flex gap-2">
                                                 <Button
                                                   onClick={() => {
-                                                    console.log('[Continue Button] Clicked!')
-                                                    console.log('[Continue Button] planNode:', planNode)
-                                                    console.log('[Continue Button] nodeConfigs for this node:', nodeConfigs[planNode.id])
+                                                    // Check if connection is expired first
+                                                    if (defaultConnectionValue && expiredConnections[defaultConnectionValue]) {
+                                                      // Don't continue if connection is expired
+                                                      console.log('[Continue] Blocked - connection is expired')
+                                                      return
+                                                    }
 
-                                                    // Validate all required fields before continuing
+                                                    // Validate all required fields (non-blocking now)
                                                     const validation = validateRequiredFields(planNode, requiresConnection)
 
                                                     if (!validation.isValid) {
-                                                      console.log('[Continue Button] ❌ Validation failed:', validation.missingFields)
-
-                                                      // Set error messages for missing fields
+                                                      // Show warnings for missing fields but don't block
                                                       const errorMessages = validation.missingFields.map(fieldName => {
                                                         if (fieldName === 'connection') {
                                                           return 'Connection'
@@ -1026,18 +1142,24 @@ export function FlowV2AgentPanel({
                                                         [planNode.id]: errorMessages
                                                       }))
 
-                                                      return
+                                                      // Mark node as needing setup in config
+                                                      onNodeConfigChange(planNode.id, '__needsSetup__', true)
+                                                      onNodeConfigChange(planNode.id, '__missingFields__', validation.missingFields)
+                                                    } else {
+                                                      // Clear setup flag if all fields are valid
+                                                      onNodeConfigChange(planNode.id, '__needsSetup__', false)
+                                                      onNodeConfigChange(planNode.id, '__missingFields__', [])
                                                     }
 
-                                                    // Clear errors and continue
+                                                    // Clear errors and continue anyway
                                                     setFieldErrors(prev => {
                                                       const { [planNode.id]: _, ...rest } = prev
                                                       return rest
                                                     })
 
-                                                    console.log('[Continue Button] ✅ Validation passed, continuing...')
                                                     onContinueNode()
                                                   }}
+                                                  disabled={defaultConnectionValue && expiredConnections[defaultConnectionValue]}
                                                   variant="primary"
                                                   size="default"
                                                   className="flex-1"
