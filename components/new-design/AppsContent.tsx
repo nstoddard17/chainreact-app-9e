@@ -51,11 +51,6 @@ export function AppsContent() {
   // Sync workspace context to integration store when it changes
   useEffect(() => {
     if (workspaceContext) {
-      logger.info('[AppsContent] Workspace context changed, updating store', {
-        type: workspaceContext.type,
-        id: workspaceContext.id,
-        name: workspaceContext.name
-      })
       setStoreWorkspaceContext(workspaceContext.type, workspaceContext.id)
     }
   }, [workspaceContext, setStoreWorkspaceContext])
@@ -74,15 +69,6 @@ export function AppsContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
-  // Debug: Log when integrations change
-  useEffect(() => {
-    logger.info('[AppsContent] Integrations updated', {
-      count: integrations.length,
-      workspaceType: workspaceContext?.type,
-      workspaceId: workspaceContext?.id,
-      connectedCount: integrations.filter(i => i.status === 'connected').length
-    })
-  }, [integrations, workspaceContext])
 
 
   const getConnectionStatus = (providerId: string) => {

@@ -69,13 +69,14 @@ const data = await fetch('/api/teams/123/members?include_invitations=true')
 ```
 
 ### Rule 2: Optimize Database Queries
-**CRITICAL: Split complex joins into simple queries, then merge in memory**
+**CRITICAL: Split complex joins into simple parallel queries, then merge in memory**
 
 - **Break apart nested joins** - Complex joins cause timeouts; split into simple queries
-- **Use Promise.all()** - Fetch independent data in parallel, not sequentially
+- **ALWAYS use Promise.all()** - Fetch independent data in PARALLEL, never sequentially
 - **Batch lookups** - Get all IDs first, then fetch related data in one query with `.in()`
 - **Avoid N+1 queries** - Never loop and query; collect IDs and query once
-- **Merge in memory** - Simple queries + memory merge is faster than complex database joins
+- **Merge in memory** - Simple parallel queries + memory merge is faster than database joins
+- **Use Map for O(1) lookups** - Build lookup maps for instant merging
 
 **❌ WRONG:**
 ```typescript
@@ -93,6 +94,15 @@ const { data } = await db
   .eq('user_id', userId)
 ```
 
+**❌ ALSO WRONG:**
+```typescript
+// Split queries but SEQUENTIAL - still slow!
+const memberships = await db.from('team_members').select('*')
+const teams = await db.from('teams').select('*')  // Waits for memberships
+const users = await db.from('users').select('*')  // Waits for teams
+// Total time: query1 + query2 + query3
+```
+
 **✅ CORRECT:**
 ```typescript
 // Step 1: Get team memberships (simple query, fast)
@@ -101,32 +111,37 @@ const memberships = await db
   .select('team_id, role, joined_at')
   .eq('user_id', userId)
 
-// Step 2: Get related data in parallel
+// Step 2: Get related data in PARALLEL using Promise.all()
 const teamIds = memberships.map(m => m.team_id)
 const [teams, users] = await Promise.all([
   db.from('teams').select('*').in('id', teamIds),
   db.from('users').select('*').in('id', userIds)
 ])
+// Total time: max(query2, query3) - runs simultaneously!
 
-// Step 3: Merge in memory (instant)
+// Step 3: Merge in memory using Map for O(1) lookups (instant)
+const teamMap = new Map(teams.map(t => [t.id, t]))
+const userMap = new Map(users.map(u => [u.id, u]))
+
 const result = memberships.map(m => ({
   ...m,
-  team: teams.find(t => t.id === m.team_id),
-  user: users.find(u => u.id === m.user_id)
+  team: teamMap.get(m.team_id),
+  user: userMap.get(m.user_id)
 }))
 ```
 
-**Why split queries?**
+**Why split queries AND run in parallel?**
 - ✅ Database joins require complex index lookups → can timeout
 - ✅ Simple queries use primary keys → always fast
-- ✅ Parallel fetching is faster than sequential joins
+- ✅ **Promise.all() runs queries simultaneously** → faster than sequential OR joins
 - ✅ Memory operations are nearly instant (microseconds)
 - ✅ More reliable and predictable performance
 - ✅ Easier to debug and optimize individual queries
+- ✅ Map lookups are O(1) instead of O(n) with .find()
 
-**Real Example:**
-- `/api/teams/my-teams` had 8-second timeouts with nested join
-- Split into 3 simple queries → no more timeouts, 2x faster
+**Real Examples:**
+- `/api/teams/my-teams` had 8-second timeouts with nested join → Split into 3 parallel queries → no timeouts, 2x faster
+- `/api/integrations` had slow LEFT JOIN with permissions → Split into 2 parallel queries → 2x faster page load
 
 ### Rule 3: Prevent React Double-Fetch
 - **Always use useRef** - Prevent React 18 Strict Mode double-execution
@@ -158,8 +173,10 @@ useEffect(() => {
 ### Performance Checklist
 Before committing ANY API code:
 - [ ] Can multiple calls be combined into one?
-- [ ] Are database queries executed in parallel where possible?
-- [ ] Is there a single batch query for user profiles/related data?
+- [ ] Are independent database queries executed in PARALLEL with Promise.all()?
+- [ ] Are complex JOINs split into simple parallel queries + memory merge?
+- [ ] Is there a single batch query for user profiles/related data (using .in())?
+- [ ] Are Map objects used for O(1) lookups instead of .find()?
 - [ ] Does the client prevent double-fetch with useRef?
 - [ ] Are all network calls protected with timeouts?
 - [ ] Would this scale to 100+ users/items?
