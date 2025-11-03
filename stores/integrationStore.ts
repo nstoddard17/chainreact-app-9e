@@ -170,13 +170,15 @@ export const useIntegrationStore = create<IntegrationStore>()(
     },
 
     setWorkspaceContext: (workspaceType: 'personal' | 'team' | 'organization', workspaceId?: string | null) => {
-      logger.info('🔄 [IntegrationStore] Workspace context changed, refetching integrations', {
+      // CRITICAL: Clear cache and integrations when workspace changes
+      // to prevent showing stale data from previous workspace
+      set({
         workspaceType,
         workspaceId: workspaceId || null,
-        previousType: get().workspaceType,
-        previousId: get().workspaceId
+        integrations: [], // Clear existing integrations immediately
+        lastFetchTime: null // Clear cache timestamp
       })
-      set({ workspaceType, workspaceId: workspaceId || null })
+
       // Refetch integrations when workspace context changes (force=true to bypass cache)
       get().fetchIntegrations(true, workspaceType, workspaceId || undefined)
     },
@@ -249,25 +251,16 @@ export const useIntegrationStore = create<IntegrationStore>()(
     fetchIntegrations: async (force = false, workspaceType?: 'personal' | 'team' | 'organization', workspaceId?: string) => {
       const fetchStartTime = Date.now()
 
-      logger.info('🔍 [IntegrationStore] fetchIntegrations called', {
-        force,
-        workspaceType,
-        workspaceId,
-        timestamp: new Date().toISOString()
-      })
-
       // If there's already an ongoing fetch
       if (ongoingFetchPromise) {
         // If force=true (e.g., workspace switch), abort the existing request and start fresh
         if (force) {
-          logger.warn('🛑 [IntegrationStore] Force refresh requested - aborting existing fetch and starting new one')
           if (currentAbortController) {
             currentAbortController.abort()
           }
           ongoingFetchPromise = null
         } else {
           // Otherwise, return the existing promise to prevent duplicate requests
-          logger.debug('⏭️ [IntegrationStore] Fetch already in progress, returning existing promise')
           return ongoingFetchPromise
         }
       }
@@ -369,10 +362,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
           })
 
           const fetchDuration = Date.now() - fetchStartTime
-          logger.info('✅ [IntegrationStore] Fetch completed successfully', {
-            count: integrations.length,
-            duration: `${fetchDuration}ms`
-          })
           } catch (error: any) {
             clearTimeout(fetchTimeout)
             const fetchDuration = Date.now() - fetchStartTime

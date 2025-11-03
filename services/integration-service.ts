@@ -95,14 +95,6 @@ export class IntegrationService {
       const timeoutId = setTimeout(() => controller.abort(), 45000) // 45 second timeout
 
       try {
-        logger.debug('🌐 [IntegrationService] Making API call', {
-          attempt: attempt + 1,
-          force,
-          workspaceType,
-          workspaceId,
-          timestamp: new Date().toISOString()
-        });
-
         // Build query parameters
         const params = new URLSearchParams({
           workspace_type: workspaceType
