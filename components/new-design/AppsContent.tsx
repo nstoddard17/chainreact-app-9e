@@ -51,22 +51,38 @@ export function AppsContent() {
   // Sync workspace context to integration store when it changes
   useEffect(() => {
     if (workspaceContext) {
+      logger.info('[AppsContent] Workspace context changed, updating store', {
+        type: workspaceContext.type,
+        id: workspaceContext.id,
+        name: workspaceContext.name
+      })
       setStoreWorkspaceContext(workspaceContext.type, workspaceContext.id)
     }
   }, [workspaceContext, setStoreWorkspaceContext])
 
+  // PagePreloader already fetches integrations and providers
+  // We just need to initialize providers once when component mounts
   useEffect(() => {
-    if (user && workspaceContext) {
-      const loadData = async () => {
-        await Promise.all([
-          initializeProviders(),
-          fetchIntegrations(false, workspaceContext.type, workspaceContext.id || undefined)
-        ])
+    if (user) {
+      const loadProviders = async () => {
+        await initializeProviders()
         setInitialLoadComplete(true)
       }
-      loadData()
+      loadProviders()
     }
-  }, [user, workspaceContext, initializeProviders, fetchIntegrations])
+    // Only run once on mount when user is available
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user])
+
+  // Debug: Log when integrations change
+  useEffect(() => {
+    logger.info('[AppsContent] Integrations updated', {
+      count: integrations.length,
+      workspaceType: workspaceContext?.type,
+      workspaceId: workspaceContext?.id,
+      connectedCount: integrations.filter(i => i.status === 'connected').length
+    })
+  }, [integrations, workspaceContext])
 
 
   const getConnectionStatus = (providerId: string) => {

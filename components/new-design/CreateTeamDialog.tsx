@@ -16,6 +16,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Loader2, Users } from "lucide-react"
 import { toast } from "sonner"
+import { useWorkflowStore } from "@/stores/workflowStore"
+import { useIntegrationStore } from "@/stores/integrationStore"
 
 interface CreateTeamDialogProps {
   open: boolean
@@ -29,6 +31,11 @@ export function CreateTeamDialog({ open, onOpenChange, organizationId, onTeamCre
   const [creating, setCreating] = useState(false)
   const [teamName, setTeamName] = useState("")
   const [teamDescription, setTeamDescription] = useState("")
+
+  // Get workspace context setters
+  const setWorkspaceContext = useWorkflowStore(state => state.setWorkspaceContext)
+  const fetchWorkflows = useWorkflowStore(state => state.fetchWorkflows)
+  const fetchIntegrations = useIntegrationStore(state => state.fetchIntegrations)
 
   const handleCreateTeam = async () => {
     if (!teamName.trim()) {
@@ -65,6 +72,15 @@ export function CreateTeamDialog({ open, onOpenChange, organizationId, onTeamCre
 
       const { team } = await teamResponse.json()
       toast.success(`Team "${teamName}" created successfully!`)
+
+      // Automatically switch to the new team's workspace
+      setWorkspaceContext('team', team.id)
+
+      // Refresh workflows and integrations in the new workspace context
+      await Promise.all([
+        fetchWorkflows(true), // Force refresh
+        fetchIntegrations(true)
+      ])
 
       // Reset form and close dialog
       setTeamName("")
