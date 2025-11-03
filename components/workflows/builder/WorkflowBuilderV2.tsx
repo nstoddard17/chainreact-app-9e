@@ -173,7 +173,7 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
   const promptParam = searchParams?.get("prompt") ?? searchParams?.get("initialPrompt") ?? null
 
   const adapter = useFlowV2LegacyAdapter(flowId)
-  const { integrations } = useIntegrationStore()
+  const { integrations, fetchIntegrations } = useIntegrationStore()
   const builder = adapter.flowState
   const actions = adapter.actions
   const flowState = builder?.flowState
@@ -907,9 +907,20 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
             if (vagueTermResult.found && vagueTermResult.category) {
               console.log('[URL Prompt Handler] Detected vague term:', vagueTermResult.category.vagueTerm)
 
+              // CRITICAL: Fetch fresh integrations before checking connection status
+              let freshIntegrations = integrations
+              try {
+                await fetchIntegrations(true) // force=true to bypass cache
+                // Get the fresh integrations directly from store after fetch completes
+                freshIntegrations = useIntegrationStore.getState().integrations
+                console.log('[URL Prompt Handler] Refreshed integrations:', freshIntegrations.length)
+              } catch (error) {
+                console.error('[URL Prompt Handler] Failed to refresh integrations:', error)
+              }
+
               const providerOptions = getProviderOptions(
                 vagueTermResult.category,
-                integrations.map(i => ({ provider: i.provider, id: i.id, status: i.status }))
+                freshIntegrations.map(i => ({ provider: i.provider, id: i.id, status: i.status }))
               )
 
               const connectedProviders = providerOptions.filter(p => p.isConnected)
@@ -1243,10 +1254,23 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
     if (vagueTermResult.found && vagueTermResult.category) {
       console.log('[Provider Disambiguation] Detected vague term:', vagueTermResult.category.vagueTerm)
 
+      // CRITICAL: Fetch fresh integrations before checking connection status
+      // This ensures we have the latest connection state
+      let freshIntegrations = integrations
+      try {
+        await fetchIntegrations(true) // force=true to bypass cache
+        // Get the fresh integrations directly from store after fetch completes
+        freshIntegrations = useIntegrationStore.getState().integrations
+        console.log('[Provider Disambiguation] Refreshed integrations:', freshIntegrations.length)
+      } catch (error) {
+        console.error('[Provider Disambiguation] Failed to refresh integrations:', error)
+        // Continue with cached integrations if fetch fails
+      }
+
       // Get provider options for this category
       const providerOptions = getProviderOptions(
         vagueTermResult.category,
-        integrations.map(i => ({ provider: i.provider, id: i.id, status: i.status }))
+        freshIntegrations.map(i => ({ provider: i.provider, id: i.id, status: i.status }))
       )
 
       const connectedProviders = providerOptions.filter(p => p.isConnected)

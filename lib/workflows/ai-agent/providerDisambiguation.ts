@@ -119,6 +119,24 @@ export interface ProviderOption {
 }
 
 /**
+ * Helper to check if a status represents a connected/usable integration
+ * Matches the logic in integrationStore.ts getConnectedProviders()
+ */
+function isConnectedStatus(status?: string): boolean {
+  if (!status) return false
+  const v = status.toLowerCase()
+  // Include 'expired' as connected because user just needs to reauthorize
+  // The OAuth flow will handle token refresh automatically
+  return v === 'connected' ||
+         v === 'authorized' ||
+         v === 'active' ||
+         v === 'valid' ||
+         v === 'ok' ||
+         v === 'ready' ||
+         v === 'expired'  // Include expired - can be refreshed
+}
+
+/**
  * Gets provider options for a category, marking which are connected
  */
 export function getProviderOptions(
@@ -127,7 +145,7 @@ export function getProviderOptions(
 ): ProviderOption[] {
   return category.providers.map(providerId => {
     const integration = connectedIntegrations.find(
-      i => i.provider === providerId && i.status === 'connected'
+      i => i.provider === providerId && isConnectedStatus(i.status)
     )
 
     return {

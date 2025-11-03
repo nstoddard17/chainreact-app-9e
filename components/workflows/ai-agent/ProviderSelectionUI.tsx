@@ -10,6 +10,19 @@ interface ProviderSelectionUIProps {
   onConnect: (providerId: string) => void
 }
 
+/**
+ * Maps provider IDs to their actual icon filenames
+ */
+function getProviderIconPath(providerId: string): string {
+  const iconMap: Record<string, string> = {
+    'outlook': 'microsoft-outlook',
+    'yahoo-mail': 'yahoo-mail',
+    // Add more mappings here as needed
+  }
+
+  return `/integrations/${iconMap[providerId] || providerId}.svg`
+}
+
 export function ProviderSelectionUI({
   categoryName,
   providers,
@@ -29,7 +42,7 @@ export function ProviderSelectionUI({
       {connectedProviders.length > 0 && (
         <div className="space-y-2 w-full">
           <p className="text-xs text-muted-foreground">Connected:</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 w-full">
+          <div className="flex flex-col gap-2 w-full">
             {connectedProviders.map(provider => (
               <Button
                 key={provider.id}
@@ -38,7 +51,7 @@ export function ProviderSelectionUI({
                 onClick={() => onSelect(provider.id)}
               >
                 <Image
-                  src={`/integrations/${provider.id}.svg`}
+                  src={getProviderIconPath(provider.id)}
                   alt={provider.displayName}
                   width={24}
                   height={24}
@@ -60,7 +73,7 @@ export function ProviderSelectionUI({
           <p className="text-xs text-muted-foreground">
             {connectedProviders.length > 0 ? 'Or connect another:' : 'Available:'}
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 w-full">
+          <div className="flex flex-col gap-2 w-full">
             {availableProviders.map(provider => (
               <Button
                 key={provider.id}
@@ -70,7 +83,7 @@ export function ProviderSelectionUI({
               >
                 <div className="flex items-center gap-3 min-w-0 flex-1">
                   <Image
-                    src={`/integrations/${provider.id}.svg`}
+                    src={getProviderIconPath(provider.id)}
                     alt={provider.displayName}
                     width={24}
                     height={24}
