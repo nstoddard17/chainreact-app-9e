@@ -5,6 +5,7 @@ import { createHash } from "crypto"
 // Import the full node catalog for integration-specific nodes
 import { ALL_NODE_COMPONENTS } from "../../../../../lib/workflows/nodes"
 import type { NodeComponent } from "../../../../../lib/workflows/nodes/types"
+import OpenAI from "openai"
 
 export interface PlannerInput {
   prompt: string
@@ -24,6 +25,11 @@ export interface PlannerResult {
   deterministicHash: string
   workflowName?: string
 }
+
+// Initialize OpenAI client for workflow name generation
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY!,
+})
 
 // Create a lookup map for quick node access
 const NODE_CATALOG_MAP = new Map<string, NodeComponent>(
@@ -415,7 +421,7 @@ export function checkPrerequisites(flow: Flow): string[] {
   return Array.from(new Set(requirements))
 }
 
-export function planEdits({ prompt, flow }: PlannerInput): PlannerResult {
+export async function planEdits({ prompt, flow }: PlannerInput): Promise<PlannerResult> {
   const edits: Edit[] = []
   const prerequisites: string[] = []
   const rationaleParts: string[] = []
@@ -631,8 +637,9 @@ export function planEdits({ prompt, flow }: PlannerInput): PlannerResult {
   const combinedPrereqs = Array.from(new Set([...prerequisites, ...checkPrerequisites(workingFlow)]))
   const deterministicHash = computeDeterministicHash(edits)
 
-  // Generate workflow name from prompt
-  const workflowName = generateWorkflowName(prompt, planTemplate)
+  // Generate workflow name from prompt using AI
+  const workflowName = await generateWorkflowNameWithAI(prompt, planTemplate)
+  console.log('[Planner] Generated workflow name:', workflowName, 'from prompt:', prompt)
 
   return {
     edits,
@@ -643,29 +650,75 @@ export function planEdits({ prompt, flow }: PlannerInput): PlannerResult {
   }
 }
 
-// Generate a concise workflow name from the user prompt
-function generateWorkflowName(prompt: string, planTemplate: PlanTemplate | null): string {
+// Generate a professional, concise workflow name using AI
+async function generateWorkflowNameWithAI(prompt: string, planTemplate: PlanTemplate | null): Promise<string> {
+  console.log('[generateWorkflowNameWithAI] Input prompt:', prompt)
   const maxLength = 50
 
-  // Clean up the prompt
-  let name = prompt.trim()
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini", // Cheap, fast model
+      messages: [
+        {
+          role: "system",
+          content: `You are a professional workflow naming assistant. Create a concise, professional workflow name based on the user's request.
 
-  // Remove common starter phrases
-  name = name.replace(/^(create|build|make|setup|set up|i want to|i need to|please|can you|help me)\s+/i, '')
-  name = name.replace(/\s+(workflow|automation|flow|please|for me|thanks?)$/i, '')
+Rules:
+- Maximum ${maxLength} characters
+- Use title case (e.g., "Send Email to Slack")
+- Be descriptive but brief
+- Focus on the action/outcome
+- No quotes, no periods, no extra punctuation
+- Return ONLY the name, nothing else`
+        },
+        {
+          role: "user",
+          content: `Create a workflow name for this request: "${prompt}"`
+        }
+      ],
+      temperature: 0.3, // Lower temperature for more consistent names
+      max_tokens: 20, // Short response
+    })
 
-  // Capitalize first letter
-  name = name.charAt(0).toUpperCase() + name.slice(1)
+    let name = response.choices[0]?.message?.content?.trim() || ''
+    console.log('[generateWorkflowNameWithAI] AI generated name:', name)
 
-  // Truncate if too long
-  if (name.length > maxLength) {
-    name = name.substring(0, maxLength).trim() + '...'
+    // Remove any quotes that might have been added
+    name = name.replace(/^["']|["']$/g, '')
+
+    // Ensure it's not too long
+    if (name.length > maxLength) {
+      name = name.substring(0, maxLength).trim() + '...'
+      console.log('[generateWorkflowNameWithAI] Truncated to:', name)
+    }
+
+    // Fallback if AI returned empty or very short
+    if (name.length < 3) {
+      const fallback = planTemplate?.description || 'New Workflow'
+      console.log('[generateWorkflowNameWithAI] AI name too short, using fallback:', fallback)
+      return fallback
+    }
+
+    console.log('[generateWorkflowNameWithAI] Final name:', name)
+    return name
+  } catch (error) {
+    console.error('[generateWorkflowNameWithAI] Error generating name with AI:', error)
+
+    // Fallback to simple text manipulation if AI fails
+    let name = prompt.trim()
+    name = name.replace(/^(create|build|make|setup|set up|i want to|i need to|please|can you|help me)\s+/i, '')
+    name = name.replace(/\s+(workflow|automation|flow|please|for me|thanks?)$/i, '')
+    name = name.charAt(0).toUpperCase() + name.slice(1)
+
+    if (name.length > maxLength) {
+      name = name.substring(0, maxLength).trim() + '...'
+    }
+
+    if (name.length < 5) {
+      return planTemplate?.description || 'New Workflow'
+    }
+
+    console.log('[generateWorkflowNameWithAI] Using fallback name:', name)
+    return name
   }
-
-  // Fallback to generic name if empty or too short
-  if (name.length < 5) {
-    return planTemplate?.description || 'New Workflow'
-  }
-
-  return name
 }

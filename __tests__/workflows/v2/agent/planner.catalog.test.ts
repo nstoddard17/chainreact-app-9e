@@ -14,7 +14,7 @@ function createEmptyFlow(): Flow {
 
 describe("Planner - Catalog Validation", () => {
   describe("Allow-list enforcement", () => {
-    it("should only emit node types from ALLOWED_NODE_TYPES", () => {
+    it("should only emit node types from ALLOWED_NODE_TYPES", async () => {
       const flow = createEmptyFlow()
       const prompts = [
         "when I get an email, send it to Slack",
@@ -31,8 +31,8 @@ describe("Planner - Catalog Validation", () => {
         "notify.dispatch",
       ]
 
-      prompts.forEach((prompt) => {
-        const result = planEdits({ prompt, flow })
+      for (const prompt of prompts) {
+        const result = await planEdits({ prompt, flow })
 
         const addNodeEdits = result.edits.filter((e) => e.op === "addNode")
         addNodeEdits.forEach((edit) => {
@@ -40,10 +40,10 @@ describe("Planner - Catalog Validation", () => {
             expect(allowedTypes).toContain(edit.node.type)
           }
         })
-      })
+      }
     })
 
-    it("should reject unknown node types in validation", () => {
+    it("should reject unknown node types in validation", async () => {
       const flow = createEmptyFlow()
 
       // Add a node with an unknown type
@@ -76,11 +76,11 @@ describe("Planner - Catalog Validation", () => {
 
   describe("Deterministic synonym mapping", () => {
     describe("Email → Slack pattern", () => {
-      it("should map 'when I get an email, send it to Slack' deterministically", () => {
+      it("should map 'when I get an email, send it to Slack' deterministically", async () => {
         const flow = createEmptyFlow()
         const prompt = "when I get an email, send it to Slack"
 
-        const result = planEdits({ prompt, flow })
+        const result = await planEdits({ prompt, flow })
 
         // Should include http.trigger (fallback for email), mapper, and notify.dispatch
         const nodeTypes = result.edits
@@ -96,12 +96,12 @@ describe("Planner - Catalog Validation", () => {
         expect(result.prerequisites).toContain("secret:SLACK_WEBHOOK")
       })
 
-      it("should return same hash for same email→Slack prompt", () => {
+      it("should return same hash for same email→Slack prompt", async () => {
         const flow = createEmptyFlow()
         const prompt = "when I get an email, send it to Slack"
 
-        const result1 = planEdits({ prompt, flow: createEmptyFlow() })
-        const result2 = planEdits({ prompt, flow: createEmptyFlow() })
+        const result1 = await planEdits({ prompt, flow: createEmptyFlow() })
+        const result2 = await planEdits({ prompt, flow: createEmptyFlow() })
 
         expect(result1.deterministicHash).toBe(result2.deterministicHash)
         expect(result1.deterministicHash).toHaveLength(16)
@@ -109,11 +109,11 @@ describe("Planner - Catalog Validation", () => {
     })
 
     describe("Schedule → Fetch → Summarize → Slack pattern", () => {
-      it("should map 'every hour fetch https://example.com and post summary to Slack' deterministically", () => {
+      it("should map 'every hour fetch https://example.com and post summary to Slack' deterministically", async () => {
         const flow = createEmptyFlow()
         const prompt = "every hour fetch https://example.com and post summary to Slack"
 
-        const result = planEdits({ prompt, flow })
+        const result = await planEdits({ prompt, flow })
 
         const nodeTypes = result.edits
           .filter((e) => e.op === "addNode")
@@ -134,22 +134,22 @@ describe("Planner - Catalog Validation", () => {
         expect(result.rationale).toContain("Schedule trigger")
       })
 
-      it("should return same hash for same schedule prompt", () => {
+      it("should return same hash for same schedule prompt", async () => {
         const prompt = "every hour fetch https://example.com and post summary to Slack"
 
-        const result1 = planEdits({ prompt, flow: createEmptyFlow() })
-        const result2 = planEdits({ prompt, flow: createEmptyFlow() })
+        const result1 = await planEdits({ prompt, flow: createEmptyFlow() })
+        const result2 = await planEdits({ prompt, flow: createEmptyFlow() })
 
         expect(result1.deterministicHash).toBe(result2.deterministicHash)
       })
     })
 
     describe("Webhook → Mapper → Slack pattern", () => {
-      it("should map 'when a webhook is received, parse JSON and send to Slack' deterministically", () => {
+      it("should map 'when a webhook is received, parse JSON and send to Slack' deterministically", async () => {
         const flow = createEmptyFlow()
         const prompt = "when a webhook is received, parse JSON and send to Slack"
 
-        const result = planEdits({ prompt, flow })
+        const result = await planEdits({ prompt, flow })
 
         const nodeTypes = result.edits
           .filter((e) => e.op === "addNode")
@@ -163,17 +163,17 @@ describe("Planner - Catalog Validation", () => {
         expect(result.prerequisites).toContain("secret:SLACK_WEBHOOK")
       })
 
-      it("should handle variations of webhook prompts consistently", () => {
+      it("should handle variations of webhook prompts consistently", async () => {
         const prompts = [
           "when a webhook is received, parse JSON and send to Slack",
           "when webhook received, post to Slack",
           "on webhook trigger, send to Slack",
         ]
 
-        const hashes = prompts.map((prompt) => {
-          const result = planEdits({ prompt, flow: createEmptyFlow() })
+        const hashes = await Promise.all(prompts.map(async (prompt) => {
+          const result = await planEdits({ prompt, flow: createEmptyFlow() })
           return result.deterministicHash
-        })
+        }))
 
         // All should produce the same plan
         expect(hashes[0]).toBe(hashes[1])
@@ -183,16 +183,16 @@ describe("Planner - Catalog Validation", () => {
   })
 
   describe("Prerequisites enumeration", () => {
-    it("should enumerate 'secret:SLACK_WEBHOOK' when Slack.Post used without explicit secret", () => {
+    it("should enumerate 'secret:SLACK_WEBHOOK' when Slack.Post used without explicit secret", async () => {
       const flow = createEmptyFlow()
       const prompt = "when webhook received, post to Slack"
 
-      const result = planEdits({ prompt, flow })
+      const result = await planEdits({ prompt, flow })
 
       expect(result.prerequisites).toContain("secret:SLACK_WEBHOOK")
     })
 
-    it("should detect missing Slack webhook in checkPrerequisites", () => {
+    it("should detect missing Slack webhook in checkPrerequisites", async () => {
       const flow = createEmptyFlow()
       flow.nodes.push({
         id: "notify-1",
@@ -213,7 +213,7 @@ describe("Planner - Catalog Validation", () => {
       expect(prereqs).toContain("secret:SLACK_WEBHOOK")
     })
 
-    it("should not require secret if webhook is already configured", () => {
+    it("should not require secret if webhook is already configured", async () => {
       const flow = createEmptyFlow()
       flow.nodes.push({
         id: "notify-1",
@@ -236,30 +236,30 @@ describe("Planner - Catalog Validation", () => {
   })
 
   describe("Determinism guarantee", () => {
-    it("should produce identical edits for identical prompts", () => {
+    it("should produce identical edits for identical prompts", async () => {
       const prompt = "when I get an email, send it to Slack"
 
-      const result1 = planEdits({ prompt, flow: createEmptyFlow() })
-      const result2 = planEdits({ prompt, flow: createEmptyFlow() })
+      const result1 = await planEdits({ prompt, flow: createEmptyFlow() })
+      const result2 = await planEdits({ prompt, flow: createEmptyFlow() })
 
       expect(result1.edits).toEqual(result2.edits)
       expect(result1.deterministicHash).toBe(result2.deterministicHash)
       expect(result1.prerequisites).toEqual(result2.prerequisites)
     })
 
-    it("should produce different hashes for different prompts", () => {
+    it("should produce different hashes for different prompts", async () => {
       const prompt1 = "when webhook received, post to Slack"
       const prompt2 = "fetch https://example.com and summarize to Slack"
 
-      const result1 = planEdits({ prompt: prompt1, flow: createEmptyFlow() })
-      const result2 = planEdits({ prompt: prompt2, flow: createEmptyFlow() })
+      const result1 = await planEdits({ prompt: prompt1, flow: createEmptyFlow() })
+      const result2 = await planEdits({ prompt: prompt2, flow: createEmptyFlow() })
 
       expect(result1.deterministicHash).not.toBe(result2.deterministicHash)
     })
 
-    it("should have 16-character deterministic hash", () => {
+    it("should have 16-character deterministic hash", async () => {
       const prompt = "when webhook received, post to Slack"
-      const result = planEdits({ prompt, flow: createEmptyFlow() })
+      const result = await planEdits({ prompt, flow: createEmptyFlow() })
 
       expect(result.deterministicHash).toHaveLength(16)
       expect(result.deterministicHash).toMatch(/^[a-f0-9]{16}$/)
@@ -267,7 +267,7 @@ describe("Planner - Catalog Validation", () => {
   })
 
   describe("Validation gate", () => {
-    it("should not return unknown node types in edits", () => {
+    it("should not return unknown node types in edits", async () => {
       const prompts = [
         "when I get an email, send it to Slack",
         "every hour fetch https://example.com and post summary to Slack",
@@ -283,20 +283,20 @@ describe("Planner - Catalog Validation", () => {
         "notify.dispatch",
       ]
 
-      prompts.forEach((prompt) => {
-        const result = planEdits({ prompt, flow: createEmptyFlow() })
+      for (const prompt of prompts) {
+        const result = await planEdits({ prompt, flow: createEmptyFlow() })
 
         result.edits.forEach((edit) => {
           if (edit.op === "addNode") {
             expect(allowedTypes).toContain(edit.node.type)
           }
         })
-      })
+      }
     })
 
-    it("should return error rationale if unable to map to valid nodes", () => {
+    it("should return error rationale if unable to map to valid nodes", async () => {
       const prompt = "do something completely unrecognized with blockchain quantum AI"
-      const result = planEdits({ prompt, flow: createEmptyFlow() })
+      const result = await planEdits({ prompt, flow: createEmptyFlow() })
 
       // Should either map to a fallback or return error
       if (result.edits.length === 0) {
@@ -320,9 +320,9 @@ describe("Planner - Catalog Validation", () => {
   })
 
   describe("Config patches", () => {
-    it("should emit setConfig with normalized keys for HTTP.Request", () => {
+    it("should emit setConfig with normalized keys for HTTP.Request", async () => {
       const prompt = "fetch https://example.com and post to Slack"
-      const result = planEdits({ prompt, flow: createEmptyFlow() })
+      const result = await planEdits({ prompt, flow: createEmptyFlow() })
 
       const httpConfigEdit = result.edits.find(
         (e) => e.op === "setConfig" &&
@@ -336,9 +336,9 @@ describe("Planner - Catalog Validation", () => {
       }
     })
 
-    it("should emit setConfig with normalized keys for AI.Generate", () => {
+    it("should emit setConfig with normalized keys for AI.Generate", async () => {
       const prompt = "fetch https://example.com and summarize to Slack"
-      const result = planEdits({ prompt, flow: createEmptyFlow() })
+      const result = await planEdits({ prompt, flow: createEmptyFlow() })
 
       const aiConfigEdit = result.edits.find(
         (e) => e.op === "setConfig" &&
@@ -352,9 +352,9 @@ describe("Planner - Catalog Validation", () => {
       }
     })
 
-    it("should emit setConfig with normalized keys for Slack.Post (notify.dispatch)", () => {
+    it("should emit setConfig with normalized keys for Slack.Post (notify.dispatch)", async () => {
       const prompt = "when webhook received, post to Slack"
-      const result = planEdits({ prompt, flow: createEmptyFlow() })
+      const result = await planEdits({ prompt, flow: createEmptyFlow() })
 
       const slackConfigEdit = result.edits.find(
         (e) => e.op === "setConfig" &&
@@ -370,14 +370,14 @@ describe("Planner - Catalog Validation", () => {
   })
 
   describe("Edge cases", () => {
-    it("should handle empty prompt gracefully", () => {
-      const result = planEdits({ prompt: "", flow: createEmptyFlow() })
+    it("should handle empty prompt gracefully", async () => {
+      const result = await planEdits({ prompt: "", flow: createEmptyFlow() })
 
       expect(result.edits.length).toBeGreaterThanOrEqual(0)
       expect(result.deterministicHash).toHaveLength(16)
     })
 
-    it("should handle flow with existing nodes", () => {
+    it("should handle flow with existing nodes", async () => {
       const flow = createEmptyFlow()
       flow.nodes.push({
         id: "existing-trigger",
@@ -391,7 +391,7 @@ describe("Planner - Catalog Validation", () => {
         costHint: 0,
       })
 
-      const result = planEdits({ prompt: "when webhook received, post to Slack", flow })
+      const result = await planEdits({ prompt: "when webhook received, post to Slack", flow })
 
       // Should not duplicate the trigger
       const triggers = result.edits.filter(
@@ -400,9 +400,9 @@ describe("Planner - Catalog Validation", () => {
       expect(triggers.length).toBe(0) // Should reuse existing
     })
 
-    it("should handle prompt with special characters", () => {
+    it("should handle prompt with special characters", async () => {
       const prompt = "when webhook is received!!! parse JSON & send to Slack???"
-      const result = planEdits({ prompt, flow: createEmptyFlow() })
+      const result = await planEdits({ prompt, flow: createEmptyFlow() })
 
       expect(result.edits.length).toBeGreaterThan(0)
       expect(result.deterministicHash).toHaveLength(16)
@@ -410,16 +410,16 @@ describe("Planner - Catalog Validation", () => {
   })
 
   describe("Fallback notes", () => {
-    it("should include fallback note when using HTTP trigger instead of Email trigger", () => {
+    it("should include fallback note when using HTTP trigger instead of Email trigger", async () => {
       const prompt = "when I get an email, send it to Slack"
-      const result = planEdits({ prompt, flow: createEmptyFlow() })
+      const result = await planEdits({ prompt, flow: createEmptyFlow() })
 
       expect(result.rationale).toContain("Email connector not implemented")
     })
 
-    it("should include fallback note when using HTTP trigger instead of Schedule trigger", () => {
+    it("should include fallback note when using HTTP trigger instead of Schedule trigger", async () => {
       const prompt = "every hour fetch https://example.com and post summary to Slack"
-      const result = planEdits({ prompt, flow: createEmptyFlow() })
+      const result = await planEdits({ prompt, flow: createEmptyFlow() })
 
       expect(result.rationale).toContain("Schedule trigger")
     })

@@ -662,6 +662,11 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
             transitionTo(BuildState.PURPOSE)
 
             const result = await actions.askAgent(prompt)
+            console.log('[URL Prompt Handler] Received result from askAgent:', {
+              workflowName: result.workflowName,
+              editsCount: result.edits?.length,
+              rationale: result.rationale
+            })
 
             const plan: PlanNode[] = (result.edits || [])
               .filter((edit: any) => edit.op === 'addNode')
@@ -733,6 +738,31 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
                 .catch((error) => {
                   console.error("Failed to save assistant response:", error)
                 })
+            }
+
+            // Update workflow name if AI generated one
+            console.log('[URL Prompt Handler] Checking if we should update workflow name:', {
+              hasWorkflowName: !!result.workflowName,
+              workflowName: result.workflowName,
+              hasUpdateFunction: !!actions.updateFlowName
+            })
+
+            if (result.workflowName && actions.updateFlowName) {
+              console.log('[URL Prompt Handler] Updating workflow name from "New Workflow" to:', result.workflowName)
+              try {
+                await actions.updateFlowName(result.workflowName)
+                console.log('[URL Prompt Handler] ✅ updateFlowName API call succeeded')
+
+                // Update local UI state to show the new name immediately
+                setWorkflowName(result.workflowName)
+                setNameDirty(false)
+                console.log('[URL Prompt Handler] ✅ Local state updated - workflowName:', result.workflowName, 'nameDirty:', false)
+              } catch (error) {
+                console.error('[URL Prompt Handler] ❌ Failed to update workflow name:', error)
+                // Non-critical, continue anyway
+              }
+            } else {
+              console.log('[URL Prompt Handler] ❌ Skipping workflow name update - missing workflowName or updateFlowName function')
             }
 
             await new Promise(resolve => setTimeout(resolve, 500))
@@ -986,6 +1016,11 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
 
       // Call actual askAgent API
       const result = await actions.askAgent(userPrompt)
+      console.log('[WorkflowBuilderV2] Received result from askAgent:', {
+        workflowName: result.workflowName,
+        editsCount: result.edits?.length,
+        rationale: result.rationale
+      })
 
       // Generate plan from edits
       const plan: PlanNode[] = (result.edits || [])
@@ -1081,13 +1116,28 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
       }
 
       // Update workflow name if AI generated one
+      console.log('[WorkflowBuilderV2] Checking if we should update workflow name:', {
+        hasWorkflowName: !!result.workflowName,
+        workflowName: result.workflowName,
+        hasUpdateFunction: !!actions.updateFlowName
+      })
+
       if (result.workflowName && actions.updateFlowName) {
+        console.log('[WorkflowBuilderV2] Updating workflow name from "New Workflow" to:', result.workflowName)
         try {
           await actions.updateFlowName(result.workflowName)
+          console.log('[WorkflowBuilderV2] ✅ updateFlowName API call succeeded')
+
+          // Update local UI state to show the new name immediately
+          setWorkflowName(result.workflowName)
+          setNameDirty(false)
+          console.log('[WorkflowBuilderV2] ✅ Local state updated - workflowName:', result.workflowName, 'nameDirty:', false)
         } catch (error) {
-          console.error('Failed to update workflow name:', error)
+          console.error('[WorkflowBuilderV2] ❌ Failed to update workflow name:', error)
           // Non-critical, continue anyway
         }
+      } else {
+        console.log('[WorkflowBuilderV2] ❌ Skipping workflow name update - missing workflowName or updateFlowName function')
       }
 
       await new Promise(resolve => setTimeout(resolve, 500))
@@ -1109,39 +1159,11 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
     if (!actions || !buildMachine.edits || buildMachine.state !== BuildState.PLAN_READY) return
 
     try {
-      // STEP 1: Check integration connections FIRST
-      const addNodeEdits = buildMachine.edits.filter(e => e.op === 'addNode')
-      const requiredIntegrations = new Set<string>()
-
-      // Collect all provider IDs from plan nodes
-      buildMachine.plan.forEach(planNode => {
-        if (planNode.providerId && !['ai', 'logic', 'core', 'manual', 'schedule'].includes(planNode.providerId)) {
-          requiredIntegrations.add(planNode.providerId)
-        }
-      })
-
-      // Check if all required integrations are connected
-      const missingIntegrations: string[] = []
-      requiredIntegrations.forEach(providerId => {
-        if (!isIntegrationConnected(providerId)) {
-          missingIntegrations.push(providerId)
-        }
-      })
-
-      // If integrations missing, show error and don't proceed
-      if (missingIntegrations.length > 0) {
-        toast({
-          title: "Missing Integrations",
-          description: `Please connect: ${missingIntegrations.join(', ')}`,
-          variant: "destructive",
-        })
-        return
-      }
-
       transitionTo(BuildState.BUILDING_SKELETON)
       await persistOrQueueStatus("Building workflow...")
 
-      // STEP 2: Create mapping of plan nodes to ReactFlow node IDs AND cache the nodes
+      // STEP 1: Create mapping of plan nodes to ReactFlow node IDs AND cache the nodes
+      const addNodeEdits = buildMachine.edits.filter(e => e.op === 'addNode')
       const nodeMapping: Record<string, string> = {}
       const nodesCache: any[] = []
       addNodeEdits.forEach((edit, index) => {
@@ -1163,13 +1185,13 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
 
       console.log('[handleBuild] Cached nodes count:', nodesCache.length)
 
-      // STEP 3: Add nodes ONE AT A TIME with animation
+      // STEP 2: Add nodes ONE AT A TIME with animation
       // Extract node edits (connect edges will be created sequentially)
       const nodeEdits = buildMachine.edits.filter((e: any) => e.op === 'addNode')
 
       console.log('[handleBuild] Adding', nodeEdits.length, 'nodes sequentially with animation')
 
-      // STEP 4: Animate nodes appearing one by one
+      // STEP 3: Animate nodes appearing one by one
       setTimeout(async () => {
         if (!reactFlowInstanceRef.current || !builder?.setNodes || !builder?.setEdges) {
           console.error('[handleBuild Animation] Missing required refs')

@@ -47,7 +47,9 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
     return NextResponse.json({ ok: false, errors: parsed.error.format() }, { status: 400 })
   }
 
-  const result = planEdits({ prompt: parsed.data.prompt, flow: parsed.data.flow })
+  const result = await planEdits({ prompt: parsed.data.prompt, flow: parsed.data.flow })
+
+  console.log('[API /edits] Returning result with workflowName:', result.workflowName)
 
   return NextResponse.json({
     ok: true,
