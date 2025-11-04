@@ -309,7 +309,7 @@ export function TeamMembersContent({ team, userRole }: TeamMembersContentProps) 
           </TabsList>
 
           {/* Active Members Tab */}
-          <TabsContent value="members">
+          <TabsContent value="members" className="mt-2">
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -415,7 +415,7 @@ export function TeamMembersContent({ team, userRole }: TeamMembersContentProps) 
 
           {/* Pending Invitations Tab */}
           {canManageMembers && (
-            <TabsContent value="invitations">
+            <TabsContent value="invitations" className="mt-2">
               {invitationsLoading ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />

@@ -1190,7 +1190,7 @@ export default function IntegrationWebhookManager() {
                                 </div>
                               </TabsContent>
                               
-                              <TabsContent value="executions">
+                              <TabsContent value="executions" className="mt-2">
                                 <div className="space-y-4">
                                   <div className="flex items-center justify-between">
                                     <h4 className="font-medium">Recent Executions</h4>

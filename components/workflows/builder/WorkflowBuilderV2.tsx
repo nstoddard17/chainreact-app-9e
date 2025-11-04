@@ -40,6 +40,8 @@ import {
 import { actionTestService } from "@/lib/workflows/testing/ActionTestService"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 import type { NodeComponent } from "@/lib/workflows/nodes/types"
+import { getNodeByType } from "@/lib/workflows/nodes/registry"
+import { ConfigurationModal } from "@/components/workflows/configuration"
 import "./styles/FlowBuilder.anim.css"
 import { Sparkles } from "lucide-react"
 import { FlowV2BuilderContent } from "./FlowV2BuilderContent"
@@ -72,6 +74,9 @@ import { CostTracker, estimateWorkflowCost } from "@/lib/workflows/ai-agent/cost
 import { CostDisplay } from "@/components/workflows/ai-agent/CostDisplay"
 import { useAuthStore } from "@/stores/authStore"
 import { useIntegrationSelection } from "@/hooks/workflows/useIntegrationSelection"
+import { swapProviderInPlan, canSwapProviders } from "@/lib/workflows/ai-agent/providerSwapping"
+import { matchTemplate, logTemplateMatch, logTemplateMiss } from "@/lib/workflows/ai-agent/templateMatching"
+import { logPrompt, updatePrompt } from "@/lib/workflows/ai-agent/promptAnalytics"
 
 type PendingChatMessage = {
   localId: string
@@ -82,11 +87,14 @@ type PendingChatMessage = {
   createdAt?: string
 }
 
-// Agent panel dimensions (Expanded for better visibility: 1120px ± 4)
-const DEFAULT_AGENT_PANEL_WIDTH = 1120
-const AGENT_PANEL_MIN_WIDTH = 1116 // 1120 - 4
-const AGENT_PANEL_MAX_WIDTH = 1124 // 1120 + 4
-const AGENT_PANEL_MARGIN = 48
+// Agent panel dimensions - Responsive to screen size
+// Mobile (< 640px): 100% width - margin
+// Tablet (640-1024px): 400px
+// Desktop (1024-1600px): 420px (design spec)
+// Large Desktop (≥ 1600px): 25% of viewport, max 600px
+const AGENT_PANEL_MARGIN = 16 // Margin on each side
+const AGENT_PANEL_MIN_WIDTH = 300 // Mobile minimum
+const AGENT_PANEL_MAX_WIDTH = 600 // Large desktop maximum
 
 // Kadabra-style node display name mapping
 const NODE_DISPLAY_NAME_MAP: Record<string, string> = {
@@ -144,24 +152,135 @@ function getKadabraStyleNodeName(nodeType: string, providerId?: string, title?: 
   return title || nodeType
 }
 
+/**
+ * Compute responsive agent panel width based on viewport size
+ * Mobile (< 640px): Full width minus margins
+ * Tablet (640-1024px): 400px
+ * Desktop (1024-1600px): 420px (design spec)
+ * Large Desktop (>= 1600px): 25% of viewport, max 600px
+ */
 function computeReactAgentPanelWidth(win?: { innerWidth: number }) {
   if (!win) {
-    return DEFAULT_AGENT_PANEL_WIDTH
+    return AGENT_PANEL_MAX_WIDTH // Default to desktop size during SSR
   }
 
   const viewportWidth = win.innerWidth
 
-  if (viewportWidth >= DEFAULT_AGENT_PANEL_WIDTH + AGENT_PANEL_MARGIN) {
-    return DEFAULT_AGENT_PANEL_WIDTH
+  // Mobile: Use full width minus margins
+  if (viewportWidth < 640) {
+    const availableWidth = viewportWidth - (AGENT_PANEL_MARGIN * 2)
+    return Math.max(AGENT_PANEL_MIN_WIDTH, availableWidth)
   }
 
-  const availableWidth = viewportWidth - AGENT_PANEL_MARGIN
-  const clamped = Math.min(
-    AGENT_PANEL_MAX_WIDTH,
-    Math.max(AGENT_PANEL_MIN_WIDTH, availableWidth)
-  )
+  // Tablet: Fixed 400px
+  if (viewportWidth < 1024) {
+    return 400
+  }
 
-  return clamped
+  // Desktop standard: 420px (design spec)
+  if (viewportWidth < 1600) {
+    return 420
+  }
+
+  // Large Desktop: Scale to 25% of viewport, max 600px
+  const scaledWidth = Math.floor(viewportWidth * 0.25)
+  return Math.min(scaledWidth, 600)
+}
+
+/**
+ * Try template matching first, fallback to LLM if no match
+ * Cost: $0.00 for template match, ~$0.03 for LLM fallback
+ */
+async function planWorkflowWithTemplates(
+  actions: any,
+  prompt: string,
+  providerId?: string,
+  userId?: string,
+  workflowId?: string
+): Promise<{ result: any; usedTemplate: boolean; promptId?: string }> {
+  // Try template matching first (now async)
+  const match = await matchTemplate(prompt, providerId)
+
+  if (match) {
+    // Template match! Create fake "result" object that looks like askAgent response
+    logTemplateMatch(match.template.id, prompt)
+
+    // Log prompt analytics
+    const promptId = await logPrompt({
+      userId: userId || '',
+      workflowId,
+      prompt,
+      templateId: match.template.id,
+      usedTemplate: true,
+      templateSource: match.template.id.startsWith('dynamic-') ? 'dynamic' : 'built_in',
+      usedLlm: false,
+      llmCost: 0.0,
+      detectedProvider: providerId,
+      planNodes: match.plan.length,
+      planGenerated: true,
+    })
+
+    // Convert template plan to edits format
+    const edits = match.plan.map((node) => ({
+      op: 'addNode',
+      node: {
+        id: node.id,
+        type: node.nodeType,
+        data: {
+          title: node.title,
+          type: node.nodeType,
+          providerId: node.providerId,
+        },
+      },
+    }))
+
+    return {
+      result: {
+        workflowName: match.template.description,
+        edits,
+        rationale: `Created from template: ${match.template.description}`,
+      },
+      usedTemplate: true,
+      promptId: promptId || undefined,
+    }
+  }
+
+  // No template match - use LLM (costs money)
+  logTemplateMiss(prompt)
+
+  // Log prompt analytics (LLM usage)
+  const promptId = await logPrompt({
+    userId: userId || '',
+    workflowId,
+    prompt,
+    usedTemplate: false,
+    usedLlm: true,
+    llmCost: 0.03,
+    detectedProvider: providerId,
+    planGenerated: false, // Will be updated after LLM responds
+  })
+
+  const result = await actions.askAgent(prompt)
+
+  // Update prompt with plan details
+  if (promptId && result.edits) {
+    await updatePrompt({
+      promptId,
+      planBuilt: false, // Not built yet, just planned
+    })
+
+    // Analyze for clustering (async, don't wait)
+    // TODO: Re-enable when analyzePromptForClustering is implemented
+    // analyzePromptForClustering(promptId, prompt).catch(error => {
+    //   console.warn('[PromptAnalytics] Clustering analysis failed:', error)
+    // })
+  }
+
+  return {
+    result,
+    usedTemplate: false,
+    promptId: promptId || undefined,
+  }
 }
 
 interface WorkflowBuilderV2Props {
@@ -178,7 +297,7 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
   const actions = adapter.actions
   const flowState = builder?.flowState
   const { toast } = useToast()
-  const { initialized: authInitialized } = useAuthStore()
+  const { initialized: authInitialized, user } = useAuthStore()
   const { isIntegrationConnected } = useIntegrationSelection()
 
   // State management
@@ -192,6 +311,20 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
   const [agentPanelWidth, setAgentPanelWidth] = useState(() =>
     computeReactAgentPanelWidth(typeof window === "undefined" ? undefined : window)
   )
+
+  // Update agent panel width on window resize for dynamic responsiveness
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const handleResize = () => {
+      const newWidth = computeReactAgentPanelWidth(window)
+      setAgentPanelWidth(newWidth)
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
   const [agentOpen, setAgentOpen] = useState(true)
   const [agentInput, setAgentInput] = useState("")
   const [agentMessages, setAgentMessages] = useState<ChatMessage[]>([])
@@ -784,10 +917,15 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
       await new Promise(resolve => setTimeout(resolve, 800))
       transitionTo(BuildState.PURPOSE)
 
-      const result = await actions.askAgent(modifiedPrompt)
+      const { result, usedTemplate, promptId } = await planWorkflowWithTemplates(
+        actions, modifiedPrompt, providerId, user?.id, flowId
+      )
       console.log('[Provider Selection] Received result from askAgent:', {
         workflowName: result.workflowName,
         editsCount: result.edits?.length,
+        usedTemplate,
+        cost: usedTemplate ? '$0.00 (template)' : '~$0.03 (LLM)',
+        promptId
       })
 
       // Pass provider metadata to include in plan message
@@ -803,25 +941,99 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
     }
   }, [actions, continueWithPlanGeneration, flowId, generateLocalId, integrations, pendingPrompt, providerCategory, toast, transitionTo])
 
-  const handleProviderConnect = useCallback((providerId: string) => {
+  const handleProviderConnect = useCallback(async (providerId: string) => {
     console.log('[Provider Connect] User clicked connect for:', providerId)
-    // TODO: Open OAuth flow for this provider
-    toast({
-      title: "Connect Provider",
-      description: `Opening connection flow for ${providerId}...`,
-    })
-    // After successful connection, user can retry provider selection
-  }, [toast])
 
-  const handleProviderChange = useCallback(async (providerId: string) => {
-    console.log('[Provider Change] User changed provider to:', providerId)
-    // Re-generate plan with new provider
-    // This would be similar to handleProviderSelect but re-runs the plan
+    try {
+      // Use integration store's connect function which opens OAuth popup
+      await useIntegrationStore.getState().connectIntegration(providerId)
+
+      // Integration store will refresh integrations automatically on success
+      // After connection, automatically proceed with the provider selection
+      console.log('[Provider Connect] Connection successful, proceeding with provider selection')
+
+      // Give a small delay for integrations to refresh
+      setTimeout(() => {
+        // Now that provider is connected, proceed with selection
+        handleProviderSelect(providerId)
+      }, 500)
+
+    } catch (error: any) {
+      console.error('[Provider Connect] Connection failed:', error)
+      toast({
+        title: "Connection Failed",
+        description: error?.message || `Failed to connect ${providerId}`,
+        variant: "destructive",
+      })
+    }
+  }, [toast, handleProviderSelect])
+
+  const handleProviderChange = useCallback(async (newProviderId: string) => {
+    console.log('[Provider Change] User changed provider to:', newProviderId)
+
+    // Find current provider from chat messages
+    const assistantMessages = agentMessages.filter(m => m && m.role === 'assistant')
+    const lastMessage = assistantMessages[assistantMessages.length - 1]
+    const meta = (lastMessage as any)?.meta ?? {}
+    const currentProvider = meta.autoSelectedProvider?.provider
+
+    if (!currentProvider) {
+      console.warn('[Provider Change] No current provider found')
+      return
+    }
+
+    const oldProviderId = currentProvider.id
+
+    // Validate swap
+    if (!canSwapProviders(oldProviderId, newProviderId)) {
+      toast({
+        title: "Cannot Change Provider",
+        description: "These providers are not compatible",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Show updating toast (instant feedback)
     toast({
-      title: "Provider Changed",
-      description: "Regenerating workflow with new provider...",
+      title: "Provider Updated",
+      description: `Switched to ${newProviderId}`,
     })
-  }, [toast])
+
+    // Swap providers in plan (instant, no API call)
+    const updatedPlan = swapProviderInPlan(buildMachine.plan, oldProviderId, newProviderId)
+
+    // Update build machine with new plan
+    setBuildMachine(prev => ({
+      ...prev,
+      plan: updatedPlan,
+    }))
+
+    // Update provider metadata in chat message
+    const updatedMessages = agentMessages.map((msg, index) => {
+      // Update the last assistant message with new provider
+      if (index === assistantMessages.length - 1 && msg.role === 'assistant') {
+        const providerOptions = meta.autoSelectedProvider?.allProviders || []
+        const newProvider = providerOptions.find((p: any) => p.id === newProviderId)
+
+        return {
+          ...msg,
+          meta: {
+            ...meta,
+            autoSelectedProvider: {
+              ...meta.autoSelectedProvider,
+              provider: newProvider || { id: newProviderId, displayName: newProviderId },
+            },
+          },
+        }
+      }
+      return msg
+    })
+
+    setAgentMessages(updatedMessages)
+
+    console.log('[Provider Change] ✅ Provider swapped instantly (no LLM call, cost: $0.00)')
+  }, [agentMessages, buildMachine.plan, toast])
 
   // Handle prompt parameter from URL (e.g., from AI agent page)
   useEffect(() => {
@@ -1004,11 +1216,16 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
             await new Promise(resolve => setTimeout(resolve, 800))
             transitionTo(BuildState.PURPOSE)
 
-            const result = await actions.askAgent(finalPrompt)
+            const { result, usedTemplate, promptId } = await planWorkflowWithTemplates(
+              actions, finalPrompt, selectedProvider?.id, user?.id, flowId
+            )
             console.log('[URL Prompt Handler] Received result from askAgent:', {
               workflowName: result.workflowName,
               editsCount: result.edits?.length,
-              rationale: result.rationale
+              rationale: result.rationale,
+              usedTemplate,
+              cost: usedTemplate ? '$0.00 (template)' : '~$0.03 (LLM)',
+              promptId
             })
 
             // Use helper function to generate plan and update UI (with provider metadata if auto-selected)
@@ -1196,6 +1413,44 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
     await handleDeleteNodes([nodeId])
   }, [handleDeleteNodes])
 
+  // Handle node configuration (double-click or manual trigger)
+  const handleNodeConfigure = useCallback((nodeId: string) => {
+    const node = reactFlowProps?.nodes?.find((n: any) => n.id === nodeId)
+    if (node) {
+      console.log('🔧 [WorkflowBuilder] Opening configuration for node:', nodeId, node)
+      setConfiguringNode(node)
+    } else {
+      console.warn('🔧 [WorkflowBuilder] Node not found for configuration:', nodeId)
+    }
+  }, [reactFlowProps?.nodes])
+
+  // Handle saving node configuration
+  const handleSaveNodeConfig = useCallback(async (nodeId: string, config: Record<string, any>) => {
+    console.log('💾 [WorkflowBuilder] Saving configuration for node:', nodeId, config)
+
+    if (!actions) {
+      console.warn('💾 [WorkflowBuilder] No actions available to save config')
+      return
+    }
+
+    try {
+      // Update the node with the new config
+      await actions.updateNode(nodeId, { config })
+
+      toast({
+        title: "Configuration saved",
+        description: "Node configuration has been updated successfully.",
+      })
+    } catch (error: any) {
+      console.error('💾 [WorkflowBuilder] Error saving config:', error)
+      toast({
+        title: "Failed to save configuration",
+        description: error?.message ?? "Unable to save node configuration",
+        variant: "destructive",
+      })
+    }
+  }, [actions, toast])
+
   // Placeholder handlers (to be implemented)
   const comingSoon = useCallback(
     () =>
@@ -1335,12 +1590,17 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
           await new Promise(resolve => setTimeout(resolve, 800))
           transitionTo(BuildState.PURPOSE)
 
-          // Call actual askAgent API with MODIFIED prompt
-          const result = await actions.askAgent(modifiedPrompt)
+          // Call actual askAgent API with MODIFIED prompt (template matching first)
+          const { result, usedTemplate, promptId } = await planWorkflowWithTemplates(
+            actions, modifiedPrompt, selectedProvider.id, user?.id, flowId
+          )
           console.log('[WorkflowBuilderV2] Received result from askAgent:', {
             workflowName: result.workflowName,
             editsCount: result.edits?.length,
-            rationale: result.rationale
+            rationale: result.rationale,
+            usedTemplate,
+            cost: usedTemplate ? '$0.00 (template)' : '~$0.03 (LLM)',
+            promptId
           })
 
           // Pass provider metadata to include in plan message
@@ -1401,12 +1661,17 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
       await new Promise(resolve => setTimeout(resolve, 800))
       transitionTo(BuildState.PURPOSE)
 
-      // Call actual askAgent API
-      const result = await actions.askAgent(userPrompt)
+      // Call actual askAgent API (template matching first)
+      const { result, usedTemplate, promptId } = await planWorkflowWithTemplates(
+        actions, userPrompt, undefined, user?.id, flowId
+      )
       console.log('[WorkflowBuilderV2] Received result from askAgent:', {
         workflowName: result.workflowName,
         editsCount: result.edits?.length,
-        rationale: result.rationale
+        rationale: result.rationale,
+        usedTemplate,
+        cost: usedTemplate ? '$0.00 (template)' : '~$0.03 (LLM)',
+        promptId
       })
 
       // Use helper function to generate plan and update UI
@@ -2298,8 +2563,7 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
             isIntegrationsPanelOpen={isIntegrationsPanelOpen}
             setIsIntegrationsPanelOpen={setIsIntegrationsPanelOpen}
             onNodeSelect={handleNodeSelectFromPanel}
-            configuringNode={configuringNode}
-            setConfiguringNode={setConfiguringNode}
+            onNodeConfigure={handleNodeConfigure}
             onUndoToPreviousStage={handleUndoToPreviousStage}
             onCancelBuild={handleCancelBuild}
           />
@@ -2347,10 +2611,46 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
             </Button>
           )}
 
-          {/* Node State Test Panel - Phase 1 Testing */}
-          <NodeStateTestPanel />
+          {/* Node State Test Panel - Phase 1 Testing - Removed for cleaner UI */}
+          {/* <NodeStateTestPanel /> */}
         </div>
       </BuilderLayout>
+
+      {/* Configuration Modal - Renders outside layout for proper z-index */}
+      {configuringNode && (() => {
+        const nodeType = configuringNode?.data?.type || configuringNode?.type
+        const nodeInfo = nodeType ? getNodeByType(nodeType) : null
+
+        // Debug logging
+        console.log('🔧 [WorkflowBuilder] Opening config for node:', {
+          nodeId: configuringNode?.id,
+          nodeType,
+          nodeInfo: nodeInfo ? { type: nodeInfo.type, title: (nodeInfo as any).title, label: (nodeInfo as any).label } : null,
+          nodeData: configuringNode?.data,
+        })
+
+        return (
+          <ConfigurationModal
+            isOpen={!!configuringNode}
+            onClose={() => setConfiguringNode(null)}
+            onSave={(config) => {
+              handleSaveNodeConfig(configuringNode.id, config)
+              setConfiguringNode(null)
+            }}
+            nodeInfo={nodeInfo}
+            integrationName={configuringNode?.data?.providerId || nodeType || 'Unknown'}
+            initialData={configuringNode?.data?.config || {}}
+            workflowData={{
+              nodes: reactFlowProps?.nodes ?? [],
+              edges: reactFlowProps?.edges ?? [],
+              id: flowId,
+              name: workflowName,
+            }}
+            currentNodeId={configuringNode?.id}
+            nodeTitle={configuringNode?.data?.title || null}
+          />
+        )
+      })()}
     </TooltipProvider>
   )
 }

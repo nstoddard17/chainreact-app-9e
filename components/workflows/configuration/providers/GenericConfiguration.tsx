@@ -553,28 +553,8 @@ export function GenericConfiguration({
     logger.debug('✅ [GenericConfiguration] onSubmit completed');
   };
 
-  // Show connection required state
-  if (needsConnection) {
-    // Special handling for Microsoft Excel - it requires OneDrive connection
-    const isExcel = nodeInfo?.providerId === 'microsoft-excel';
-    const displayName = isExcel ? 'OneDrive' : (integrationName || 'Integration');
-    const message = isExcel
-      ? 'Microsoft Excel requires OneDrive connection for access to your workbooks.'
-      : `Please connect your ${integrationName || 'integration'} account to use this action.`;
-
-    return (
-      <div className="flex flex-col items-center justify-center h-64 text-center">
-        <AlertTriangle className="h-12 w-12 text-yellow-500 mb-4" />
-        <h3 className="text-lg font-semibold mb-2">Connection Required</h3>
-        <p className="text-sm text-slate-600 mb-4">
-          {message}
-        </p>
-        <Button onClick={onConnectIntegration} variant="default">
-          {isExcel ? 'Connect OneDrive to use Excel' : `Connect ${displayName}`}
-        </Button>
-      </div>
-    );
-  }
+  // ServiceConnectionSelector in SetupTab now handles connection UI
+  // No need for duplicate connection warning here
 
   return (
     <ConfigurationContainer

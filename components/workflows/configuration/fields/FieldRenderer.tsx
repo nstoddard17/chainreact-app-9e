@@ -29,6 +29,11 @@ import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
+// Phase 1: Enhanced Configuration Components
+import { FieldLabel } from "./FieldLabel";
+import { generatePlaceholder, generateHelpText, generateExamples, getKeyboardHint } from "@/lib/workflows/configuration/placeholderHelpers";
+import { EmptyStateCard } from "../EmptyStateCard";
+
 // Integration-specific field components
 import { GmailEmailField } from "./gmail/GmailEmailField";
 import { GmailAttachmentField } from "./gmail/GmailAttachmentField";
@@ -42,6 +47,7 @@ import { GoogleDriveFileField } from "./googledrive/GoogleDriveFileField";
 // Shared field components
 import { GenericSelectField } from "./shared/GenericSelectField";
 import { GenericTextInput } from "./shared/GenericTextInput";
+import { ConnectButton } from "./shared/ConnectButton";
 
 // Notion-specific field components
 import { NotionBlockFields } from "./notion/NotionBlockFields";
@@ -99,7 +105,7 @@ interface FieldProps {
 const getFieldIcon = (fieldName: string, fieldType: string) => {
   const name = fieldName.toLowerCase();
   const type = fieldType.toLowerCase();
-  
+
   if (name.includes('email') || name.includes('from') || name.includes('to')) return <Mail className="h-4 w-4" />
   if (name.includes('subject') || name.includes('title')) return <Hash className="h-4 w-4" />
   if (name.includes('date') || name.includes('time')) return <Calendar className="h-4 w-4" />
@@ -109,8 +115,39 @@ const getFieldIcon = (fieldName: string, fieldType: string) => {
   if (name.includes('trigger') || name.includes('event')) return <Bell className="h-4 w-4" />
   if (name.includes('action') || name.includes('task')) return <Zap className="h-4 w-4" />
   if (type === 'file' || name.includes('file') || name.includes('attachment')) return <FileText className="h-4 w-4" />
-  
+
   return <Hash className="h-4 w-4" />
+}
+
+/**
+ * Helper to determine if field should use Connect mode vs Variable Picker
+ * Connect mode: For simple fields that need ONE variable (subject, email, status, etc.)
+ * Variable Picker: For rich text fields that need text + multiple variables (message, body, etc.)
+ */
+const shouldUseConnectMode = (field: ConfigField | NodeField) => {
+  const fieldName = field.name?.toLowerCase() || ''
+  const fieldLabel = field.label?.toLowerCase() || ''
+
+  // Rich text fields - keep variable picker (allow multiple variables + text)
+  const richTextFields = ['message', 'body', 'content', 'description', 'text', 'notes']
+  if (richTextFields.some(rt => fieldName.includes(rt) || fieldLabel.includes(rt))) {
+    return false
+  }
+
+  // Simple fields - use connect mode (single variable reference)
+  const simpleFields = [
+    'subject', 'title', 'name',
+    'to', 'from', 'email', 'cc', 'bcc',
+    'status', 'priority', 'assignee',
+    'repository', 'label', 'milestone',
+    'repo', 'branch', 'tag'
+  ]
+  if (simpleFields.some(sf => fieldName.includes(sf) || fieldLabel.includes(sf))) {
+    return true
+  }
+
+  // Default: use connect mode for text and email type fields
+  return field.type === 'text' || field.type === 'email'
 }
 
 /**
@@ -152,6 +189,36 @@ export function FieldRenderer({
 
   // State for refresh button - must be at top level of component
   const [isRefreshingField, setIsRefreshingField] = useState(false);
+
+  // State for Connect mode - check if value is already a connected variable
+  const isConnectedValue = (val: any) => {
+    if (typeof val !== 'string') return false
+    const trimmed = val.trim()
+    return trimmed.startsWith('{{') && trimmed.endsWith('}}') && !trimmed.includes(' ')
+  }
+
+  const [isConnectedMode, setIsConnectedMode] = useState(() =>
+    shouldUseConnectMode(field) && isConnectedValue(value)
+  );
+
+  // Update connected mode when value changes externally
+  useEffect(() => {
+    if (shouldUseConnectMode(field)) {
+      setIsConnectedMode(isConnectedValue(value))
+    }
+  }, [value]);
+
+  // Handle connect button toggle
+  const handleConnectToggle = () => {
+    if (isConnectedMode) {
+      // Disconnect: Switch back to text input and clear value
+      setIsConnectedMode(false)
+      onChange('')
+    } else {
+      // Connect: Switch to dropdown mode
+      setIsConnectedMode(true)
+    }
+  };
 
   // Refresh handler for dynamic fields - must be at top level of component
   const handleRefreshField = async () => {
@@ -213,6 +280,7 @@ export function FieldRenderer({
       if (field.dynamic.includes('discord')) return 'discord';
       if (field.dynamic.includes('slack')) return 'slack';
       if (field.dynamic.includes('google-drive')) return 'google-drive';
+      if (field.dynamic.includes('github')) return 'github';
     }
     
     // Detect from field name patterns
@@ -241,57 +309,72 @@ export function FieldRenderer({
   const integrationProvider = getIntegrationProvider(field);
 
   
+  // Get provider ID for context-aware placeholder generation
+  const getProviderId = (): string => {
+    return nodeInfo?.providerId || '';
+  };
+
   /**
-   * Renders the label with optional tooltip
+   * Renders the enhanced label with integrated help system
    */
   const renderLabel = () => {
+    const providerId = getProviderId();
+    const helpText = field.tooltip || field.description || generateHelpText({
+      fieldName: field.name,
+      fieldType: field.type,
+      integrationId: providerId,
+      required: field.required
+    });
+    const examples = generateExamples({
+      fieldName: field.name,
+      fieldType: field.type,
+      integrationId: providerId
+    });
+    const keyboardHint = getKeyboardHint({
+      fieldName: field.name,
+      fieldType: field.type
+    });
 
     return (
-      <div className="flex items-center gap-2 mb-3">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-muted rounded-md text-muted-foreground">
-            {getFieldIcon(field.name, field.type)}
-          </div>
-          <Label
-            htmlFor={field.name}
-            className={cn(
-              "text-sm font-medium text-slate-700",
-              field.required && "after:content-['*'] after:ml-0.5 after:text-red-500"
-            )}
-          >
-            {field.label || field.name}
-          </Label>
+      <div className="flex items-center gap-2 mb-2">
+        {/* Field Icon */}
+        <div className="p-1.5 bg-muted rounded-md text-muted-foreground flex-shrink-0">
+          {getFieldIcon(field.name, field.type)}
         </div>
 
-        {(field.tooltip || field.description) && tooltipsEnabled && (
-          <TooltipProvider delayDuration={0}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
-              </TooltipTrigger>
-              <TooltipContent
-                side="right"
-                className="max-w-xs bg-slate-900 text-white border-slate-700"
-                sideOffset={8}
-              >
-                <p className="text-xs">{field.tooltip || field.description}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
+        {/* Enhanced Field Label */}
+        <FieldLabel
+          name={field.name}
+          label={field.label || field.name}
+          required={field.required}
+          helpText={tooltipsEnabled ? helpText : undefined}
+          examples={tooltipsEnabled && examples.length > 0 ? examples : undefined}
+          supportsVariables={field.type !== 'boolean' && field.type !== 'number' && field.type !== 'checkbox'}
+          keyboardHint={tooltipsEnabled ? keyboardHint : undefined}
+        />
 
-        {field.required && (
-          <span className="text-xs text-red-500 font-medium">Required</span>
-        )}
-
-        {/* AI Toggle Button - rendered alongside label */}
+        {/* AI Toggle Button - rendered at the end */}
         {aiToggleButton && (
-          <div className="ml-auto">
+          <div className="ml-auto flex-shrink-0">
             {aiToggleButton}
           </div>
         )}
       </div>
     );
+  };
+
+  /**
+   * Get smart placeholder for field
+   */
+  const getSmartPlaceholder = (): string => {
+    const providerId = getProviderId();
+    // Always generate smart placeholder (override field.placeholder)
+    return generatePlaceholder({
+      fieldName: field.name,
+      fieldType: field.type,
+      integrationId: providerId,
+      required: field.required
+    });
   };
 
   // Handles checkbox changes
@@ -670,7 +753,8 @@ export function FieldRenderer({
               field={{
                 ...field,
                 rows: 15, // Make it larger for better preview
-                disabled: true // Keep it read-only
+                disabled: true, // Keep it read-only
+                placeholder: getSmartPlaceholder()
               }}
               value={value}
               onChange={onChange}
@@ -772,23 +856,29 @@ export function FieldRenderer({
             );
           }
         }
-        
+
         return (
           <GenericTextInput
             field={{
               ...field,
               workflowId: parentValues?.workflowId || workflowData?.id || 'temp',
-              nodeId: nodeInfo?.id || currentNodeId || `temp-${Date.now()}`
+              nodeId: nodeInfo?.id || currentNodeId || `temp-${Date.now()}`,
+              placeholder: getSmartPlaceholder()
             }}
             value={value}
             onChange={onChange}
             error={error}
             dynamicOptions={fieldOptions}
             onDynamicLoad={onDynamicLoad}
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
             workflowNodes={workflowData?.nodes}
             aiFields={aiFields}
             setAiFields={setAiFields}
             isConnectedToAIAgent={isConnectedToAIAgent}
+            enableConnectMode={shouldUseConnectMode(field)}
+            isConnectedMode={isConnectedMode}
+            onConnectToggle={handleConnectToggle}
           />
         );
 
@@ -810,17 +900,23 @@ export function FieldRenderer({
             field={{
               ...field,
               workflowId: parentValues?.workflowId || workflowData?.id || 'temp',
-              nodeId: nodeInfo?.id || currentNodeId || `temp-${Date.now()}`
+              nodeId: nodeInfo?.id || currentNodeId || `temp-${Date.now()}`,
+              placeholder: getSmartPlaceholder()
             }}
             value={value}
             onChange={onChange}
             error={error}
             dynamicOptions={fieldOptions}
             onDynamicLoad={onDynamicLoad}
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
             workflowNodes={workflowData?.nodes}
             aiFields={aiFields}
             setAiFields={setAiFields}
             isConnectedToAIAgent={isConnectedToAIAgent}
+            enableConnectMode={shouldUseConnectMode(field)}
+            isConnectedMode={isConnectedMode}
+            onConnectToggle={handleConnectToggle}
           />
         );
 
@@ -965,19 +1061,66 @@ export function FieldRenderer({
           ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
           : fieldOptions;
 
+        // Determine if we should show empty state
+        const shouldShowEmptyState = field.dynamic &&
+                                      comboboxOptions.length === 0 &&
+                                      !loadingDynamic &&
+                                      !value;
+
+        // Determine empty state type based on field context
+        const getEmptyStateType = (): React.ComponentProps<typeof EmptyStateCard>['type'] => {
+          const fieldNameLower = field.name.toLowerCase();
+          const labelLower = field.label?.toLowerCase() || '';
+
+          if (fieldNameLower.includes('file') || labelLower.includes('file')) return 'files';
+          if (fieldNameLower.includes('table') || fieldNameLower.includes('spreadsheet')) return 'tables';
+          if (fieldNameLower.includes('email')) return 'emails';
+          if (fieldNameLower.includes('calendar') || fieldNameLower.includes('event')) return 'calendar';
+          if (fieldNameLower.includes('image') || fieldNameLower.includes('photo')) return 'images';
+          if (fieldNameLower.includes('database') || fieldNameLower.includes('record')) return 'database';
+          if (fieldNameLower.includes('link') || fieldNameLower.includes('url')) return 'links';
+          if (fieldNameLower.includes('contact') || fieldNameLower.includes('person')) return 'contacts';
+          if (fieldNameLower.includes('tag') || fieldNameLower.includes('category')) return 'tags';
+          return 'generic';
+        };
+
+        // Check if this is an integration field and get provider name for better messaging
+        const isIntegrationField = field.dynamic && typeof field.dynamic === 'string';
+        const providerName = nodeInfo?.providerId || integrationProvider || 'the integration';
+        const providerDisplayName = providerName.charAt(0).toUpperCase() + providerName.slice(1).replace(/-/g, ' ');
+
         return (
           <div className="space-y-2">
-            {!field.hideLabel && (
-              <Label htmlFor={field.name} className="text-sm font-medium text-slate-700">
-                {field.label || field.name}
-                {field.required && <span className="text-red-500 ml-1">*</span>}
-              </Label>
-            )}
-            {field.description && (
-              <p className="text-xs text-muted-foreground">{field.description}</p>
-            )}
-            {/* Always show Combobox, even while loading, so saved values are visible */}
-            <div className="flex items-center gap-2">
+            {/* Show EmptyStateCard when no options and not loading */}
+            {shouldShowEmptyState ? (
+              <EmptyStateCard
+                type={getEmptyStateType()}
+                title={isIntegrationField ? `${providerDisplayName} Not Connected` : undefined}
+                description={isIntegrationField
+                  ? `Connect your ${providerDisplayName} account using the connection selector above to load ${field.label?.toLowerCase() || 'options'}.`
+                  : field.dependsOn
+                    ? `No ${field.label?.toLowerCase() || 'options'} found. Make sure you've selected a ${field.dependsOn}.`
+                    : `No ${field.label?.toLowerCase() || 'options'} found. Try refreshing or creating new items.`
+                }
+                suggestion={isIntegrationField ? null : undefined}
+                {...(!isIntegrationField && {
+                  actionLabel: 'Refresh',
+                  onAction: () => {
+                    // Trigger refresh if onDynamicLoad is available
+                    if (onDynamicLoad) {
+                      const dependencyValue = field.dependsOn ? parentValues?.[field.dependsOn] : undefined;
+                      if (field.dependsOn && dependencyValue) {
+                        onDynamicLoad(field.name, field.dependsOn, dependencyValue, true);
+                      } else if (!field.dependsOn) {
+                        onDynamicLoad(field.name, undefined, undefined, true);
+                      }
+                    }
+                  }
+                })}
+              />
+            ) : (
+              /* Always show Combobox, even while loading, so saved values are visible */
+              <div className="flex items-center gap-2">
               <div className="flex-1">
                 <Combobox
                   value={value || ""}
@@ -1071,7 +1214,8 @@ export function FieldRenderer({
                   </Tooltip>
                 </TooltipProvider>
               )}
-            </div>
+              </div>
+            )}
             {error && (
               <p className="text-xs text-red-500 mt-1">{error}</p>
             )}
@@ -1389,12 +1533,18 @@ export function FieldRenderer({
             field={{
               ...field,
               workflowId: workflowData?.id,
-              nodeId: currentNodeId
+              nodeId: currentNodeId,
+              placeholder: getSmartPlaceholder()
             }}
             value={value}
             onChange={onChange}
             error={error}
             workflowNodes={workflowData?.nodes}
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
+            enableConnectMode={shouldUseConnectMode(field)}
+            isConnectedMode={isConnectedMode}
+            onConnectToggle={handleConnectToggle}
           />
         );
 
@@ -1651,15 +1801,21 @@ export function FieldRenderer({
             field={{
               ...field,
               workflowId: workflowData?.id,
-              nodeId: currentNodeId
+              nodeId: currentNodeId,
+              placeholder: getSmartPlaceholder()
             }}
             value={value}
             onChange={onChange}
             error={error}
             workflowNodes={workflowData?.nodes}
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
             aiFields={aiFields}
             setAiFields={setAiFields}
             isConnectedToAIAgent={isConnectedToAIAgent}
+            enableConnectMode={shouldUseConnectMode(field)}
+            isConnectedMode={isConnectedMode}
+            onConnectToggle={handleConnectToggle}
           />
         );
     }
@@ -1668,20 +1824,120 @@ export function FieldRenderer({
   // Render the field content
   const fieldContent = renderFieldByType();
 
-  return (
-    <Card className="transition-all duration-200 w-full" style={{ maxWidth: '100%' }}>
-      <CardContent className="p-4 overflow-hidden">
-        {field.type !== "button-toggle" && field.type !== "combobox" && field.type !== "boolean" && !field.hideLabel && renderLabel()}
-        <div className="min-w-0 overflow-hidden w-full">
+  // New inline label design - no cards, grid layout
+  // Only exclude label for button-toggle and boolean (which have inline labels), and fields with hideLabel flag
+  const shouldShowLabel = field.type !== "button-toggle" && field.type !== "boolean" && !field.hideLabel;
+
+  // For fields without separate labels (boolean, button-toggle), use full width
+  if (!shouldShowLabel) {
+    return (
+      <div className="py-3.5 border-b border-border/30 last:border-0">
+        <div className="space-y-1">
           {fieldContent}
+          {error && (
+            <p className="text-xs text-red-500 flex items-center gap-1">
+              <HelpCircle className="h-3 w-3" />
+              {error}
+            </p>
+          )}
         </div>
-        {error && field.type === "combobox" && (
-          <p className="text-sm text-red-500 mt-2 flex items-center gap-1">
+      </div>
+    );
+  }
+
+  // Stacked layout - label above input
+  // Generate help text for tooltip
+  const providerId = getProviderId();
+  const helpText = field.tooltip || field.description || generateHelpText({
+    fieldName: field.name,
+    fieldType: field.type,
+    integrationId: providerId,
+    required: field.required
+  });
+  const examples = generateExamples({
+    fieldName: field.name,
+    fieldType: field.type,
+    integrationId: providerId
+  });
+  const hasTooltipContent = helpText || examples.length > 0;
+
+  // Determine if we should show the Connect button inline with label
+  const showConnectButtonInLabel = shouldUseConnectMode(field) && workflowData && currentNodeId;
+
+  return (
+    <div className="py-3.5 border-b border-border/30 last:border-0">
+      {/* Label with tooltip and Connect button */}
+      <div className="flex items-center gap-2 mb-1.5">
+        <label
+          htmlFor={field.name}
+          className="text-sm font-medium text-foreground flex items-center gap-1.5"
+        >
+          {field.label || field.name}
+          {field.required && <span className="text-red-500">*</span>}
+        </label>
+
+        {/* Help tooltip icon - always show if we have content */}
+        {hasTooltipContent && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={(e) => e.preventDefault()}
+                >
+                  <HelpCircle className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-xs">
+                <div className="space-y-2">
+                  {helpText && <p className="text-sm">{helpText}</p>}
+                  {examples.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground mb-1">Examples:</p>
+                      <ul className="text-xs space-y-0.5 list-disc list-inside">
+                        {examples.map((example, i) => (
+                          <li key={i} className="font-mono">{example}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+
+        {/* Spacer to push buttons to the right */}
+        <div className="flex-1" />
+
+        {/* Connect Button - shown inline with label for simple fields */}
+        {showConnectButtonInLabel && (
+          <ConnectButton
+            isConnected={isConnectedMode}
+            onClick={handleConnectToggle}
+            disabled={false}
+          />
+        )}
+
+        {/* AI Toggle Button */}
+        {aiToggleButton && (
+          <div>
+            {aiToggleButton}
+          </div>
+        )}
+      </div>
+
+      {/* Input field */}
+      <div className="space-y-1">
+        {fieldContent}
+        {error && (
+          <p className="text-xs text-red-500 flex items-center gap-1">
             <HelpCircle className="h-3 w-3" />
             {error}
           </p>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

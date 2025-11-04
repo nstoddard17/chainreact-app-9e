@@ -19,6 +19,7 @@ import { TeamsOptionsLoader } from './teams/TeamsOptionsLoader';
 import { GoogleCalendarOptionsLoader } from './google-calendar/GoogleCalendarOptionsLoader';
 import { MicrosoftExcelOptionsLoader } from './microsoft-excel/MicrosoftExcelOptionsLoader';
 import { AIOptionsLoader } from './ai/AIOptionsLoader';
+import { GitHubOptionsLoader } from './github/GitHubOptionsLoader';
 
 import { logger } from '@/lib/utils/logger'
 
@@ -78,6 +79,9 @@ class ProviderRegistryImpl implements IProviderRegistry {
 
     // Register AI Agent loader
     this.register('ai', new AIOptionsLoader());
+
+    // Register GitHub loader
+    this.register('github', new GitHubOptionsLoader());
 
     // Additional providers can be registered here as they're implemented
     // this.register('gmail', new GmailOptionsLoader());

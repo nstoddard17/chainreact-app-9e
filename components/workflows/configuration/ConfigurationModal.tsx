@@ -50,14 +50,11 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from "react"
-import { Dialog, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
-import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { ConfigurationModalProps } from "./utils/types"
 import ConfigurationForm from "./ConfigurationForm"
 import { ConfigurationDataInspector } from "./ConfigurationDataInspector"
-import { VariablePickerSidePanel } from "./VariablePickerSidePanel"
 import { VariableDragProvider } from "./VariableDragContext"
-import { Settings, Zap, Bot, MessageSquare, Mail, Calendar, FileText, Database, Globe, Shield, Bell, ChevronLeft, ChevronRight, ArrowLeft, Sparkles, Wrench, FileOutput, SlidersHorizontal, TestTube2 } from "lucide-react"
+import { Settings, Zap, Bot, MessageSquare, Mail, Calendar, FileText, Database, Globe, Shield, Bell, ArrowLeft, Sparkles, Wrench, FileOutput, SlidersHorizontal, TestTube2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
@@ -66,35 +63,10 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { computeAutoMappingEntries } from "./autoMapping"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { SetupTab, OutputTab, AdvancedTab, ResultsTab } from "./tabs"
+import { getProviderBrandName } from "@/lib/integrations/brandNames"
+import { StaticIntegrationLogo } from "@/components/ui/static-integration-logo"
 
 import { logger } from '@/lib/utils/logger'
-
-/**
- * Custom DialogContent without built-in close button
- */
-const CustomDialogContent = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
-  <DialogPrimitive.Portal>
-    <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-    <DialogPrimitive.Content
-      ref={ref}
-      className={cn(
-        "fixed right-0 top-0 z-50 h-full w-[90vw] max-w-[1200px] gap-0 border-l bg-background p-0 shadow-2xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right overflow-hidden",
-        className
-      )}
-      onDragOver={(e) => {
-        e.preventDefault();
-        logger.debug('🔵 [Dialog] Allowing drag over in dialog');
-      }}
-      {...props}
-    >
-      {children}
-    </DialogPrimitive.Content>
-  </DialogPrimitive.Portal>
-))
-CustomDialogContent.displayName = DialogPrimitive.Content.displayName
 
 /**
  * Label component for Pro features
@@ -133,7 +105,7 @@ const FreeLabel = () => (
 );
 
 /**
- * Get icon for node type
+ * Get icon for node type (fallback for non-integration nodes)
  */
 const getNodeIcon = (nodeType: string) => {
   if (nodeType.includes('gmail')) return <Mail className="h-5 w-5" />
@@ -231,10 +203,28 @@ export function ConfigurationModal({
   }, [workflowData, currentNodeId]);
 
   const { toast } = useToast();
-  const [isVariablePanelOpen, setIsVariablePanelOpen] = useState(false);
   const [initialOverride, setInitialOverride] = useState<Record<string, any> | null>(null)
   const [formSeedVersion, setFormSeedVersion] = useState(0)
   const [activeTab, setActiveTab] = useState<'setup' | 'output' | 'advanced' | 'results'>('setup')
+
+  // Viewport dimensions for panel height calculation (to sit below header)
+  const [viewportHeight, setViewportHeight] = useState(0)
+  const [viewportWidth, setViewportWidth] = useState(0)
+
+  // Set viewport dimensions after mount to avoid SSR/client mismatch
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setViewportHeight(window.innerHeight)
+      setViewportWidth(window.innerWidth)
+
+      const handleResize = () => {
+        setViewportHeight(window.innerHeight)
+        setViewportWidth(window.innerWidth)
+      }
+      window.addEventListener('resize', handleResize)
+      return () => window.removeEventListener('resize', handleResize)
+    }
+  }, [])
 
   useEffect(() => {
     setInitialOverride(null)
@@ -398,11 +388,25 @@ export function ConfigurationModal({
   // Generate title for the modal
   const getModalTitle = () => {
     if (!nodeInfo) return "Configure Node";
-    
+
     const trimmedCustomTitle = typeof nodeTitle === 'string' ? nodeTitle.trim() : ''
 
-    let title = trimmedCustomTitle || (nodeInfo as any).label || (nodeInfo as any).title || nodeInfo.type || "Configure Node";
-    
+    // Priority 1: Use custom nodeTitle if provided
+    if (trimmedCustomTitle) return trimmedCustomTitle;
+
+    // Priority 2: Use nodeInfo.title (e.g., "Create Issue", "Send Email")
+    if ((nodeInfo as any).title) {
+      return (nodeInfo as any).title;
+    }
+
+    // Priority 3: Use nodeInfo.label if available
+    if ((nodeInfo as any).label) {
+      return (nodeInfo as any).label;
+    }
+
+    // Priority 4: Format the node type nicely
+    let title = nodeInfo.type || "Configure Node";
+
     // Clean up title if needed
     if (title.includes("_action_")) {
       title = title
@@ -412,7 +416,7 @@ export function ConfigurationModal({
         .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
         .join(" ");
     }
-    
+
     if (title.includes("_trigger_")) {
       title = title
         .replace(/_trigger_/g, " ")
@@ -421,7 +425,7 @@ export function ConfigurationModal({
         .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
         .join(" ");
     }
-    
+
     return title;
   };
 
@@ -444,22 +448,35 @@ export function ConfigurationModal({
     return () => clearTimeout(timer)
   }, [isOpen, focusField])
 
+  // Header height (BuilderHeader is h-12 = 48px tall)
+  const headerHeight = 48
+  const panelHeight = viewportHeight > 0 ? viewportHeight - headerHeight : undefined
+
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <VariableDragProvider>
-        <CustomDialogContent
-          ref={dialogContentRef}
-          className="bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl"
-          onPointerDownOutside={(e) => {
-            // Prevent dialog from closing when clicking outside if there are form elements
-            const target = e.target as HTMLElement;
-            if (target.closest('input, textarea, select')) {
-              e.preventDefault();
-            }
-          }}>
+    <VariableDragProvider>
+      <div
+        ref={dialogContentRef}
+        className={`fixed right-0 bg-white dark:bg-slate-950 border-l border-border shadow-2xl z-40 transition-transform duration-300 ease-in-out overflow-hidden ${
+          isOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
+        style={{
+          top: `${headerHeight}px`,
+          // Responsive width:
+          // - Mobile (< 640px): 100vw (full width)
+          // - Tablet (640-1024px): 95vw
+          // - Desktop (> 1024px): 90vw, max 1200px
+          width: viewportWidth === 0 ? '90vw' : viewportWidth < 640 ? '100vw' : viewportWidth < 1024 ? '95vw' : '90vw',
+          maxWidth: viewportWidth === 0 ? '1200px' : viewportWidth < 640 ? '100vw' : '1200px',
+          height: panelHeight ? `${panelHeight}px` : `calc(100vh - ${headerHeight}px)`,
+          maxHeight: panelHeight ? `${panelHeight}px` : `calc(100vh - ${headerHeight}px)`,
+        }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          logger.debug('🔵 [ConfigPanel] Allowing drag over in panel');
+        }}>
         {/* Modal Container - Split Layout */}
         <div
-          className="modal-container flex flex-col lg:flex-row h-full max-h-[95vh] overflow-hidden"
+          className="modal-container flex flex-col lg:flex-row h-full overflow-hidden"
           onMouseDown={(e) => {
             // Prevent text selection in modal background but allow in form elements or draggable elements
             const target = e.target as HTMLElement;
@@ -472,45 +489,70 @@ export function ConfigurationModal({
           }}>
           {/* Main Configuration Area - Left Column */}
           <div className="modal-main-column config-content-area flex flex-col flex-1 min-w-0 max-w-full overflow-hidden" style={{ isolation: 'isolate' }}>
-            <DialogHeader className="pb-3 border-b border-slate-200 px-4 pt-4 flex-shrink-0">
+            {/* Panel Header */}
+            <div className="pb-3 border-b border-border/30 px-4 pt-3 flex-shrink-0 bg-white dark:bg-slate-950">
               <div className="flex items-center gap-3">
                 <Button variant="ghost" size="icon" onClick={handleClose} className="h-8 w-8 flex-shrink-0">
                   <ArrowLeft className="w-4 h-4" />
                 </Button>
                 <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <div className="p-1.5 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg text-white flex-shrink-0">
-                    {React.cloneElement(getNodeIcon(nodeInfo?.type || ''), { className: 'h-5 w-5' })}
-                  </div>
+                  {/* Integration Logo or Fallback Icon */}
+                  {nodeInfo?.providerId ? (
+                    <div className="flex-shrink-0">
+                      <StaticIntegrationLogo
+                        providerId={nodeInfo.providerId}
+                        providerName={getProviderBrandName(nodeInfo.providerId)}
+                      />
+                    </div>
+                  ) : (
+                    <div className="p-1.5 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg text-white flex-shrink-0">
+                      {React.cloneElement(getNodeIcon(nodeInfo?.type || ''), { className: 'h-5 w-5' })}
+                    </div>
+                  )}
                   <div className="flex-1 min-w-0">
-                    <DialogTitle className="text-lg font-semibold text-slate-900 flex items-center gap-2 truncate">
+                    <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2 truncate">
                       {getModalTitle()}
                       {getNodeTypeBadge(nodeInfo?.type || '')}
-                    </DialogTitle>
-                    <DialogDescription className="text-sm text-slate-600 mt-0.5 truncate">
-                      {integrationName ? `Configure your ${integrationName} integration settings` : 'Configure your workflow node settings'}
-                    </DialogDescription>
+                    </h2>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5 truncate">
+                      {nodeInfo?.providerId
+                        ? `Configure your ${getProviderBrandName(nodeInfo.providerId)} integration settings`
+                        : 'Configure your workflow node settings'}
+                    </p>
                   </div>
                 </div>
               </div>
-            </DialogHeader>
+            </div>
 
             {nodeInfo && (
               <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="flex-1 flex flex-col min-h-0 overflow-hidden max-w-full">
-                {/* Tab Navigation */}
-                <TabsList className="mx-4 mt-3 grid w-auto grid-cols-4 bg-muted/50">
-                  <TabsTrigger value="setup" className="flex items-center gap-2">
+                {/* Tab Navigation - Minimal Underline Style */}
+                <TabsList className="px-4 pt-3 border-b border-border bg-transparent w-full flex justify-start gap-0 rounded-none h-auto">
+                  <TabsTrigger
+                    value="setup"
+                    className="flex items-center gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:font-semibold data-[state=active]:shadow-none bg-transparent hover:bg-muted/50 transition-colors px-5 py-3 text-sm font-medium text-muted-foreground"
+                  >
                     <Wrench className="h-4 w-4" />
                     Setup
                   </TabsTrigger>
-                  <TabsTrigger value="output" className="flex items-center gap-2">
+                  <TabsTrigger
+                    value="output"
+                    className="flex items-center gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:font-semibold data-[state=active]:shadow-none bg-transparent hover:bg-muted/50 transition-colors px-5 py-3 text-sm font-medium text-muted-foreground"
+                  >
                     <FileOutput className="h-4 w-4" />
                     Output
                   </TabsTrigger>
-                  <TabsTrigger value="advanced" className="flex items-center gap-2">
+                  <TabsTrigger
+                    value="advanced"
+                    className="flex items-center gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:font-semibold data-[state=active]:shadow-none bg-transparent hover:bg-muted/50 transition-colors px-5 py-3 text-sm font-medium text-muted-foreground"
+                  >
                     <SlidersHorizontal className="h-4 w-4" />
                     Advanced
                   </TabsTrigger>
-                  <TabsTrigger value="results" className="flex items-center gap-2">
+                  <TabsTrigger
+                    value="results"
+                    className="flex items-center gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:font-semibold data-[state=active]:shadow-none bg-transparent hover:bg-muted/50 transition-colors px-5 py-3 text-sm font-medium text-muted-foreground"
+                  >
                     <TestTube2 className="h-4 w-4" />
                     Results
                   </TabsTrigger>
@@ -569,7 +611,7 @@ export function ConfigurationModal({
                     currentNodeId={currentNodeId}
                   />
 
-                  <ConfigurationForm
+                  <SetupTab
                     key={`${currentNodeId}-${nodeInfo?.type}-${formSeedVersion}`}
                     nodeInfo={nodeInfo}
                     initialData={effectiveInitialData}
@@ -586,7 +628,7 @@ export function ConfigurationModal({
                 </TabsContent>
 
                 {/* Output Tab Content */}
-                <TabsContent value="output" className="flex-1 min-h-0 overflow-hidden m-0 mt-0">
+                <TabsContent value="output" className="flex-1 min-h-0 overflow-hidden mt-0 p-0">
                   <OutputTab
                     nodeInfo={nodeInfo}
                     currentNodeId={currentNodeId}
@@ -594,7 +636,7 @@ export function ConfigurationModal({
                 </TabsContent>
 
                 {/* Advanced Tab Content */}
-                <TabsContent value="advanced" className="flex-1 min-h-0 overflow-hidden m-0 mt-0">
+                <TabsContent value="advanced" className="flex-1 min-h-0 overflow-hidden mt-0 p-0">
                   <AdvancedTab
                     initialPolicy={effectiveInitialData?.__policy}
                     initialMetadata={effectiveInitialData?.__metadata}
@@ -606,7 +648,7 @@ export function ConfigurationModal({
                 </TabsContent>
 
                 {/* Results Tab Content */}
-                <TabsContent value="results" className="flex-1 min-h-0 overflow-hidden m-0 mt-0">
+                <TabsContent value="results" className="flex-1 min-h-0 overflow-hidden mt-0 p-0">
                   <ResultsTab
                     nodeInfo={nodeInfo}
                     currentNodeId={currentNodeId}
@@ -618,56 +660,8 @@ export function ConfigurationModal({
             )}
           </div>
 
-          {/* Variable Picker Side Panel - Desktop: Right Column, Tablet: Slide-in */}
-          {workflowData && !nodeInfo?.isTrigger && (
-            <>
-              {/* Desktop view - always visible */}
-              <div className="modal-sidebar-column variable-picker-area hidden lg:flex w-80 xl:w-96 flex-shrink-0 border-l border-slate-200 h-full overflow-hidden" style={{ isolation: 'isolate' }}>
-                <VariablePickerSidePanel
-                  workflowData={workflowData}
-                  currentNodeId={currentNodeId}
-                  currentNodeType={nodeInfo?.type}
-                  workflowId={workflowData?.id}
-                />
-              </div>
-
-              {/* Tablet/Mobile: Toggle button */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsVariablePanelOpen(!isVariablePanelOpen)}
-                className="lg:hidden fixed right-0 top-1/2 -translate-y-1/2 z-50 bg-blue-500 hover:bg-blue-600 text-white rounded-l-lg rounded-r-none px-2 py-6 shadow-lg"
-              >
-                {isVariablePanelOpen ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
-              </Button>
-
-              {/* Tablet/Mobile: Slide-in panel */}
-              <div
-                className={cn(
-                  "lg:hidden fixed right-0 top-0 h-full w-80 bg-white shadow-2xl z-40 transition-transform duration-300 ease-in-out",
-                  isVariablePanelOpen ? "translate-x-0" : "translate-x-full"
-                )}
-              >
-                <VariablePickerSidePanel
-                  workflowData={workflowData}
-                  currentNodeId={currentNodeId}
-                  currentNodeType={nodeInfo?.type}
-                  workflowId={workflowData?.id}
-                />
-              </div>
-
-              {/* Overlay for tablet/mobile when panel is open */}
-              {isVariablePanelOpen && (
-                <div
-                  className="lg:hidden fixed inset-0 bg-black/50 z-30"
-                  onClick={() => setIsVariablePanelOpen(false)}
-                />
-              )}
-            </>
-          )}
         </div>
-      </CustomDialogContent>
-      </VariableDragProvider>
-    </Dialog>
+      </div>
+    </VariableDragProvider>
   );
 }

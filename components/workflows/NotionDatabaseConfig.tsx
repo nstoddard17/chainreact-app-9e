@@ -688,11 +688,11 @@ export function NotionDatabaseConfig({ value, onChange, fieldName }: NotionDatab
           )}
         </TabsContent>
 
-        <TabsContent value="icon">
+        <TabsContent value="icon" className="mt-2">
           {renderIconCoverConfig("icon")}
         </TabsContent>
 
-        <TabsContent value="cover">
+        <TabsContent value="cover" className="mt-2">
           {renderIconCoverConfig("cover")}
         </TabsContent>
       </Tabs>

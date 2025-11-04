@@ -3,20 +3,18 @@
  * Design token compliant - DO NOT modify without updating design-tokens.ts
  */
 
-/* Agent Panel - 420px ± 4 */
+/* Agent Panel - Responsive sizing handled via inline styles */
+/* Mobile: 100% - margins, Tablet: 400px, Desktop: 420px */
 .agent-panel {
-  width: 420px;
-  min-width: 416px; /* 420 - 4 */
-  max-width: 424px; /* 420 + 4 */
   flex-shrink: 0;
+  /* Width is set dynamically via inline styles based on viewport */
 }
 
-/* Inspector Panel - 380px ± 4 */
+/* Inspector Panel - Responsive sizing */
+/* Mobile: 100% - margins, Tablet: 360px, Desktop: 380px */
 .inspector-panel {
-  width: 380px;
-  min-width: 376px; /* 380 - 4 */
-  max-width: 384px; /* 380 + 4 */
   flex-shrink: 0;
+  /* Width is set dynamically via inline styles based on viewport */
 }
 
 /* Node States */
