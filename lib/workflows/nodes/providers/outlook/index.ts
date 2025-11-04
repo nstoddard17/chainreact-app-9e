@@ -323,6 +323,12 @@ const outlookActionSendEmail: NodeComponent = {
     { name: "subject", label: "Subject", type: "text", required: true, placeholder: "Email subject" },
     { name: "body", label: "Body", type: "email-rich-text", required: true, placeholder: "Compose your email...", provider: "outlook" },
     { name: "attachments", label: "Attachments", type: "file", required: false, placeholder: "Select files to attach", multiple: true, description: "Attach files from your computer or select files from previous workflow nodes" }
+  ],
+  outputSchema: [
+    { name: "to", label: "Recipients", type: "string", description: "Email addresses of recipients" },
+    { name: "subject", label: "Subject", type: "string", description: "Email subject line" },
+    { name: "sent", label: "Sent Successfully", type: "boolean", description: "Whether the email was sent" },
+    { name: "sentAt", label: "Sent At", type: "string", description: "Timestamp when email was sent" }
   ]
 }
 
@@ -597,8 +603,8 @@ export const outlookNodes: NodeComponent[] = [
   outlookTriggerNewEmail,
   outlookTriggerEmailSent,
 
-  // Actions (2) - Send Email temporarily hidden due to delivery issues
-  // outlookActionSendEmail, // Hidden until email delivery configuration is resolved
+  // Actions (3)
+  outlookActionSendEmail, // Re-activated - now visible in workflow builder
   outlookActionCreateCalendarEvent,
   outlookActionGetEmails,
 ]

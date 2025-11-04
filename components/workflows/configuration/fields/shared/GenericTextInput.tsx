@@ -11,6 +11,9 @@ import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes";
 import { Bot, X, Hash } from "lucide-react";
 import { useVariableDropTarget } from "../../hooks/useVariableDropTarget";
 import { insertVariableIntoTextInput, normalizeDraggedVariable } from "@/lib/workflows/variableInsertion";
+import { VariablePickerDropdown } from "../../VariablePickerDropdown";
+import { ConnectButton } from "./ConnectButton";
+import { VariableSelectionDropdown } from "./VariableSelectionDropdown";
 
 import { logger } from '@/lib/utils/logger'
 
@@ -25,6 +28,13 @@ interface GenericTextInputProps {
   aiFields?: Record<string, boolean>;
   setAiFields?: (fields: Record<string, boolean>) => void;
   isConnectedToAIAgent?: boolean;
+  workflowData?: { nodes: any[], edges: any[] };
+  currentNodeId?: string;
+  enableConnectMode?: boolean; // New prop to enable connect button mode
+  showConnectButton?: React.ReactNode; // Custom connect button to render
+  // External connect state management (for when parent controls the button)
+  isConnectedMode?: boolean;
+  onConnectToggle?: () => void;
 }
 
 /**
@@ -42,11 +52,48 @@ export function GenericTextInput({
   aiFields,
   setAiFields,
   isConnectedToAIAgent,
+  workflowData,
+  currentNodeId,
+  enableConnectMode = false,
+  showConnectButton,
+  isConnectedMode: externalIsConnectedMode,
+  onConnectToggle: externalOnConnectToggle,
 }: GenericTextInputProps) {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filteredSuggestions, setFilteredSuggestions] = useState<Array<{value: string; label: string;}>>([]);
   const [isEditing, setIsEditing] = useState(false);
+  const [variablePickerOpen, setVariablePickerOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+
+  // Check if value is a connected variable ({{nodeId.field}})
+  const isConnectedValue = (val: any) => {
+    if (typeof val !== 'string') return false
+    const trimmed = val.trim()
+    return trimmed.startsWith('{{') && trimmed.endsWith('}}') && !trimmed.includes(' ')
+  }
+
+  // Use external state if provided, otherwise use internal state
+  const [internalIsConnectedMode, setInternalIsConnectedMode] = useState(() => isConnectedValue(value))
+  const isConnectedMode = externalIsConnectedMode !== undefined ? externalIsConnectedMode : internalIsConnectedMode
+
+  // Update internal connected mode when value changes externally (only if not using external state)
+  useEffect(() => {
+    if (enableConnectMode && externalIsConnectedMode === undefined) {
+      setInternalIsConnectedMode(isConnectedValue(value))
+    }
+  }, [value, enableConnectMode, externalIsConnectedMode])
+
+  // Handle connect button toggle - use external handler if provided
+  const handleConnectToggle = externalOnConnectToggle || (() => {
+    if (internalIsConnectedMode) {
+      // Disconnect: Switch back to text input and clear value
+      setInternalIsConnectedMode(false)
+      onChange('')
+    } else {
+      // Connect: Switch to dropdown mode (keep value if it's already a variable)
+      setInternalIsConnectedMode(true)
+    }
+  })
   const suggestionsRef = useRef<HTMLDivElement>(null);
 
   // Check if this field is in AI mode
@@ -224,15 +271,20 @@ export function GenericTextInput({
     const inputValue = e.target.value;
     onChange(inputValue);
 
+    // Check if user just typed {{ to trigger variable autocomplete
+    if (inputValue.endsWith('{{') && workflowData && currentNodeId) {
+      setVariablePickerOpen(true);
+    }
+
     // Show suggestions if we have dynamic options and user is typing
     if (field.dynamic && dynamicOptions && inputValue.length > 0) {
       const lastCommaIndex = inputValue.lastIndexOf(',');
-      const currentInput = lastCommaIndex >= 0 
+      const currentInput = lastCommaIndex >= 0
         ? inputValue.substring(lastCommaIndex + 1).trim()
         : inputValue.trim();
 
       if (currentInput.length > 0) {
-        const filtered = dynamicOptions.filter(option => 
+        const filtered = dynamicOptions.filter(option =>
           (option.label || '').toLowerCase().includes(currentInput.toLowerCase()) ||
           (option.value || '').toLowerCase().includes(currentInput.toLowerCase())
         ).slice(0, 5); // Limit to 5 suggestions
@@ -398,18 +450,12 @@ export function GenericTextInput({
     ref: inputRef
   };
 
-  // If in AI mode, show the "Defined by AI" UI
+  // If in AI mode, show the "Defined by AI" UI (no label, FieldRenderer handles it)
   if (isAIEnabled) {
     return (
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <label className="text-sm font-medium flex items-center gap-2">
-            {field.label || field.name}
-            {field.required && <span className="text-red-500">*</span>}
-          </label>
-        </div>
-        <div className="bg-gray-700 text-gray-300 rounded-md px-3 py-2 flex items-center gap-2">
-          <Bot className="h-4 w-4 text-gray-400" />
+      <div className="space-y-1">
+        <div className="bg-muted/80 text-muted-foreground dark:bg-gray-700 dark:text-gray-300 rounded-md px-3 py-2 flex items-center gap-2 border border-border/50">
+          <Bot className="h-4 w-4" />
           <span className="text-sm flex-1">
             Defined automatically by the model
           </span>
@@ -424,7 +470,7 @@ export function GenericTextInput({
                 // Clear the value
                 onChange('');
               }}
-              className="text-gray-400 hover:text-gray-200 transition-colors"
+              className="text-muted-foreground hover:text-foreground transition-colors"
             >
               <X className="h-4 w-4" />
             </button>
@@ -778,33 +824,94 @@ export function GenericTextInput({
 
     case "text":
     default:
+      // If connect mode is enabled, render appropriate field (button is rendered by parent in label row)
+      if (enableConnectMode && workflowData && currentNodeId) {
+        return (
+          <>
+            {isConnectedMode ? (
+              <VariableSelectionDropdown
+                workflowData={workflowData}
+                currentNodeId={currentNodeId}
+                value={value || ''}
+                onChange={onChange}
+                placeholder="Select a variable..."
+                disabled={false}
+              />
+            ) : (
+              <div className="relative">
+                <Input
+                  {...commonProps}
+                  type="text"
+                  tabIndex={(showAiPlaceholderOverlay || showAutoGeneratedOverlay) ? -1 : undefined}
+                />
+                {renderPlaceholderOverlay()}
+              </div>
+            )}
+          </>
+        )
+      }
+
+      // Standard mode with variable picker
       return (
         <div className="relative">
-          <Input
-            {...commonProps}
-            type="text"
-            tabIndex={(showAiPlaceholderOverlay || showAutoGeneratedOverlay) ? -1 : undefined}
-          />
-          {renderPlaceholderOverlay()}
-          {showSuggestions && !showAiPlaceholderOverlay && !showAutoGeneratedOverlay && (
-            <div
-              ref={suggestionsRef}
-              className="absolute z-50 w-full mt-1 bg-gray-800 border border-gray-600 rounded-md shadow-lg max-h-48 overflow-auto"
-            >
-              {filteredSuggestions.map((suggestion, index) => (
+          <div className="flex items-center gap-1">
+            <div className="relative flex-1">
+              <Input
+                {...commonProps}
+                type="text"
+                tabIndex={(showAiPlaceholderOverlay || showAutoGeneratedOverlay) ? -1 : undefined}
+              />
+              {renderPlaceholderOverlay()}
+              {showSuggestions && !showAiPlaceholderOverlay && !showAutoGeneratedOverlay && (
                 <div
-                  key={index}
-                  className="px-3 py-2 hover:bg-gray-700 cursor-pointer text-sm border-b border-gray-600 last:border-b-0"
-                  onClick={() => handleSuggestionClick(suggestion)}
+                  ref={suggestionsRef}
+                  className="absolute z-50 w-full mt-1 bg-gray-800 border border-gray-600 rounded-md shadow-lg max-h-48 overflow-auto"
                 >
-                  <div className="font-medium text-white">{suggestion.label}</div>
-                  {suggestion.label !== suggestion.value && (
-                    <div className="text-xs text-gray-300">{suggestion.value}</div>
-                  )}
+                  {filteredSuggestions.map((suggestion, index) => (
+                    <div
+                      key={index}
+                      className="px-3 py-2 hover:bg-gray-700 cursor-pointer text-sm border-b border-gray-600 last:border-b-0"
+                      onClick={() => handleSuggestionClick(suggestion)}
+                    >
+                      <div className="font-medium text-white">{suggestion.label}</div>
+                      {suggestion.label !== suggestion.value && (
+                        <div className="text-xs text-gray-300">{suggestion.value}</div>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          )}
+            {/* Variable Picker Button - for rich text fields */}
+            {workflowData && currentNodeId && !showAiPlaceholderOverlay && !showAutoGeneratedOverlay && (
+              <VariablePickerDropdown
+                workflowData={workflowData}
+                currentNodeId={currentNodeId}
+                open={variablePickerOpen}
+                onOpenChange={setVariablePickerOpen}
+                onSelect={(variableRef) => {
+                  const currentValue = value || '';
+
+                  // If the value ends with {{, remove it before inserting the variable
+                  const valueWithoutBraces = currentValue.endsWith('{{')
+                    ? currentValue.slice(0, -2)
+                    : currentValue;
+
+                  // Insert variable at cursor position
+                  insertVariableIntoTextInput(
+                    inputRef.current,
+                    variableRef,
+                    valueWithoutBraces,
+                    onChange
+                  )
+
+                  // Close the picker and focus input
+                  setVariablePickerOpen(false)
+                  inputRef.current?.focus()
+                }}
+              />
+            )}
+          </div>
         </div>
       );
   }

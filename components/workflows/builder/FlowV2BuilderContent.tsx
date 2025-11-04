@@ -58,8 +58,7 @@ interface FlowV2BuilderContentProps {
   onNodeSelect?: (nodeData: any) => void
 
   // Configuration panel
-  configuringNode: any
-  setConfiguringNode: (node: any) => void
+  onNodeConfigure?: (nodeId: string) => void
 
   // Toolbar actions
   onUndoToPreviousStage?: () => void
@@ -85,8 +84,7 @@ export function FlowV2BuilderContent({
   isIntegrationsPanelOpen,
   setIsIntegrationsPanelOpen,
   onNodeSelect,
-  configuringNode,
-  setConfiguringNode,
+  onNodeConfigure,
   onUndoToPreviousStage,
   onCancelBuild,
 }: FlowV2BuilderContentProps) {
@@ -94,6 +92,7 @@ export function FlowV2BuilderContent({
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([])
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [containerWidth, setContainerWidth] = useState(0)
+  const [integrationsPanelWidth, setIntegrationsPanelWidth] = useState(600)
 
   useLayoutEffect(() => {
     if (!containerRef.current) return
@@ -110,6 +109,28 @@ export function FlowV2BuilderContent({
     return () => {
       resizeObserver.disconnect()
     }
+  }, [])
+
+  // Compute responsive integrations panel width
+  useLayoutEffect(() => {
+    const computeWidth = () => {
+      if (typeof window === 'undefined') return 600
+      const vw = window.innerWidth
+      // Mobile (< 640px): Full width
+      if (vw < 640) return vw
+      // Tablet (640-1024px): 500px
+      if (vw < 1024) return Math.min(500, vw * 0.9)
+      // Desktop (>= 1024px): 600px
+      return 600
+    }
+
+    const updateWidth = () => {
+      setIntegrationsPanelWidth(computeWidth())
+    }
+
+    updateWidth()
+    window.addEventListener('resize', updateWidth)
+    return () => window.removeEventListener('resize', updateWidth)
   }, [])
 
   // Track selected nodes for multi-delete support
@@ -202,7 +223,7 @@ export function FlowV2BuilderContent({
     }
   }, [onNodeSelect])
 
-  // Enrich nodes with multi-select delete handler and selection info
+  // Enrich nodes with multi-select delete handler, selection info, and configure callback
   const enrichedNodes = useMemo(() => {
     return nodes.map(node => ({
       ...node,
@@ -210,10 +231,11 @@ export function FlowV2BuilderContent({
         ...node.data,
         onDelete: handleDeleteFromContextMenu,
         onDeleteSelected: handleDeleteSelectedNodes,
+        onConfigure: onNodeConfigure,
         selectedNodeIds,
       }
     }))
-  }, [nodes, handleDeleteFromContextMenu, handleDeleteSelectedNodes, selectedNodeIds])
+  }, [nodes, handleDeleteFromContextMenu, handleDeleteSelectedNodes, onNodeConfigure, selectedNodeIds])
 
   // Get ARIA announcement text based on build state
   const getAriaAnnouncement = () => {
@@ -233,7 +255,7 @@ export function FlowV2BuilderContent({
     }
   }
 
-  const rightPanelWidth = configuringNode ? 600 : (isIntegrationsPanelOpen ? 600 : 0)
+  const rightPanelWidth = isIntegrationsPanelOpen ? integrationsPanelWidth : 0
   const leftInset = isAgentPanelOpen ? Math.min(agentPanelWidth, containerWidth) : 0
   const availableWidth = Math.max(containerWidth - leftInset - rightPanelWidth, 0)
 
@@ -323,50 +345,20 @@ export function FlowV2BuilderContent({
 
           {/* Integrations Side Panel */}
           <div
-            className={`absolute top-0 right-0 h-full w-[600px] transition-all duration-300 ease-in-out z-30 ${
-              isIntegrationsPanelOpen && !configuringNode
+            className={`absolute top-0 right-0 h-full transition-all duration-300 ease-in-out z-30 ${
+              isIntegrationsPanelOpen
                 ? 'translate-x-0 opacity-100'
                 : 'translate-x-full opacity-0'
             }`}
+            style={{ width: `${integrationsPanelWidth}px` }}
           >
             <IntegrationsSidePanel
-              isOpen={isIntegrationsPanelOpen && !configuringNode}
+              isOpen={isIntegrationsPanelOpen}
               onClose={() => setIsIntegrationsPanelOpen(false)}
               onNodeSelect={onNodeSelect}
             />
           </div>
 
-          {/* Configuration Side Panel */}
-          <div
-            className={`absolute top-0 right-0 h-full w-[600px] transition-all duration-300 ease-in-out z-30 ${
-              configuringNode
-                ? 'translate-x-0 opacity-100'
-                : 'translate-x-full opacity-0'
-            }`}
-          >
-            {configuringNode && (
-              <div className="h-full w-full bg-background border-l border-border shadow-lg z-50 flex flex-col overflow-hidden">
-                <div className="flex items-center gap-3 px-4 py-3 border-b">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setConfiguringNode(null)}
-                    className="h-8 w-8 hover:bg-accent"
-                  >
-                    <ArrowRight className="w-4 h-4" />
-                  </Button>
-                  <span className="flex-1 text-base font-semibold">
-                    Configure Node
-                  </span>
-                </div>
-                <div className="flex-1 p-4">
-                  <p className="text-sm text-muted-foreground">
-                    Configuration panel coming soon...
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
 
           {/* ARIA Live Region for accessibility announcements */}
           <div

@@ -10,7 +10,9 @@ import AIUsageAdmin from "@/components/admin/AIUsageAdmin"
 import BetaTestersContent from "@/components/admin/BetaTestersContent"
 import WaitlistContent from "@/components/admin/WaitlistContent"
 import WebhookSettings from "@/components/admin/WebhookSettings"
-import { Crown, Shield, Users, Settings, User, Building, Zap, Sparkles, TestTube, FlaskConical, ListChecks, Webhook } from "lucide-react"
+import { NodeTestingDashboard } from "@/components/admin/NodeTestingDashboard"
+import { TemplateAnalyticsDashboard } from "@/components/admin/TemplateAnalyticsDashboard"
+import { Crown, Shield, Users, Settings, User, Building, Zap, Sparkles, TestTube, FlaskConical, ListChecks, Webhook, PlayCircle, BarChart3 } from "lucide-react"
 import { LightningLoader } from '@/components/ui/lightning-loader'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { RoleBadge } from "@/components/ui/role-badge"
@@ -109,7 +111,7 @@ export default function AdminPage() {
 
         {/* Admin Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-8">
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <Crown className="h-4 w-4" />
               Overview
@@ -133,6 +135,14 @@ export default function AdminPage() {
             <TabsTrigger value="webhooks" className="flex items-center gap-2">
               <Webhook className="h-4 w-4" />
               Webhooks
+            </TabsTrigger>
+            <TabsTrigger value="node-testing" className="flex items-center gap-2">
+              <PlayCircle className="h-4 w-4" />
+              Node Testing
+            </TabsTrigger>
+            <TabsTrigger value="templates" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Templates
             </TabsTrigger>
           </TabsList>
 
@@ -252,6 +262,14 @@ export default function AdminPage() {
 
           <TabsContent value="webhooks" className="space-y-6">
             <WebhookSettings />
+          </TabsContent>
+
+          <TabsContent value="node-testing" className="space-y-6">
+            <NodeTestingDashboard />
+          </TabsContent>
+
+          <TabsContent value="templates" className="space-y-6">
+            <TemplateAnalyticsDashboard />
           </TabsContent>
         </Tabs>
       </div>

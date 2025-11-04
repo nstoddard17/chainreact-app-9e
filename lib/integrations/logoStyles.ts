@@ -41,13 +41,12 @@ export function getIntegrationLogoClasses(providerId: string, baseClasses = 'w-6
   if (LIGHT_MODE_INVERT.has(providerId)) {
     // In light mode, invert the logo (make white logos black)
     // In dark mode, don't invert (keep white logos white)
-    // Using dark:brightness-100 to ensure logos are visible in dark mode
-    classes.push('brightness-0', 'dark:brightness-100')
+    classes.push('invert', 'dark:invert-0')
   }
 
   if (DARK_MODE_INVERT.has(providerId)) {
     // In dark mode, invert the logo (make black logos white)
-    classes.push('dark:brightness-0', 'dark:invert')
+    classes.push('dark:invert')
   }
 
   return classes.join(' ')

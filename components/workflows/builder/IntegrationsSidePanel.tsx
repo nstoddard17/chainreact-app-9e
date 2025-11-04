@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { Input } from "@/components/ui/input"
+import { ProfessionalSearch } from "@/components/ui/professional-search"
 import { Button } from "@/components/ui/button"
 import {
   X,
@@ -77,19 +77,20 @@ export function IntegrationsSidePanel({ isOpen, onClose, onNodeSelect }: Integra
   ]
 
   return (
-    <div className="h-full w-full bg-background border-l border-border shadow-lg z-50 flex flex-col">
+    <div className="h-full w-full bg-white dark:bg-slate-950 border-l border-border shadow-lg z-50 flex flex-col">
       {/* Header with Search */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-border/50">
         <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 text-muted-foreground hover:text-foreground">
           <ArrowRight className="w-4 h-4" />
         </Button>
         <h2 className="text-base font-semibold whitespace-nowrap">Nodes Catalog</h2>
         <div className="flex-1 relative">
-          <Input
+          <ProfessionalSearch
             placeholder="Search for node or functionality"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-9 text-sm px-3"
+            onClear={() => setSearchQuery("")}
+            className="h-9"
           />
         </div>
       </div>
@@ -191,10 +192,10 @@ export function IntegrationsSidePanel({ isOpen, onClose, onNodeSelect }: Integra
                   key={node.type}
                   draggable
                   onDragStart={handleDragStart}
-                  className="w-full flex items-start gap-3 p-3 rounded-lg hover:bg-accent transition-colors cursor-grab active:cursor-grabbing group"
+                  className="w-full flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-900 transition-colors cursor-grab active:cursor-grabbing group border border-transparent hover:border-gray-200 dark:hover:border-slate-800"
                 >
                   {/* Icon */}
-                  <div className="shrink-0 w-10 h-10 rounded-lg bg-background border border-border flex items-center justify-center p-1.5">
+                  <div className="shrink-0 w-10 h-10 rounded-lg bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-800 flex items-center justify-center p-1.5">
                     {providerLogo ? (
                       <img
                         src={providerLogo}

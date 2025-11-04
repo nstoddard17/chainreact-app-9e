@@ -139,7 +139,14 @@ import {
   createGitHubIssue,
   createGitHubRepository,
   createGitHubPullRequest,
+  createGitHubGist,
+  addGitHubComment,
 } from './github'
+
+// Outlook actions
+import {
+  sendOutlookEmail,
+} from './outlook'
 
 // HubSpot actions
 import {
@@ -536,7 +543,15 @@ export const actionHandlerRegistry: Record<string, Function> = {
     createGitHubRepository(params.config, params.userId, params.input),
   "github_action_create_pull_request": (params: { config: any; userId: string; input: Record<string, any> }) =>
     createGitHubPullRequest(params.config, params.userId, params.input),
-  
+  "github_action_create_gist": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createGitHubGist(params.config, params.userId, params.input),
+  "github_action_add_comment": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    addGitHubComment(params.config, params.userId, params.input),
+
+  // Outlook actions - wrapped to handle new calling convention
+  "microsoft-outlook_action_send_email": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    sendOutlookEmail(params.config, params.userId, params.input),
+
   // HubSpot actions - wrapped to handle new calling convention
   "hubspot_action_create_contact": (params: { config: any; userId: string; input: Record<string, any> }) =>
     createHubSpotContact(params.config, params.userId, params.input),

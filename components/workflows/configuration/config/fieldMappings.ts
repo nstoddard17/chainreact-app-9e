@@ -757,6 +757,16 @@ const hitlMappings: Record<string, FieldMapping> = {
   },
 };
 
+// GitHub field mappings
+const githubMappings: Record<string, FieldMapping> = {
+  github_action_create_issue: {
+    repository: "github_repositories",
+    assignees: "github_assignees",
+    labels: "github_labels",
+    milestone: "github_milestones",
+  },
+};
+
 // Default field mappings for unmapped fields
 const defaultMappings: FieldMapping = {
   channelId: "channels",
@@ -795,6 +805,7 @@ export const fieldToResourceMap: NodeFieldMappings = {
   ...notionMappings,
   ...aiMappings,
   ...hitlMappings,
+  ...githubMappings,
   default: defaultMappings,
 };
 

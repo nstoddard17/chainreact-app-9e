@@ -282,7 +282,7 @@ export default function HubSpotConfigPage() {
               )}
             </TabsContent>
 
-            <TabsContent value="analysis">
+            <TabsContent value="analysis" className="mt-2">
               {!fieldAnalysis ? (
                 <div className="text-center py-8">
                   <p className="text-muted-foreground mb-4">

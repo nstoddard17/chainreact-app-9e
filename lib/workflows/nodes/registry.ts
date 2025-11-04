@@ -109,4 +109,29 @@ export const nodeRegistry = new NodeRegistry()
 export const registerNodes = (nodes: NodeComponent[]) => nodeRegistry.registerNodes(nodes)
 export const getAllNodes = () => nodeRegistry.getAllNodes()
 export const getNodesByProvider = (providerId: string) => nodeRegistry.getNodesByProvider(providerId)
-export const getNodeByType = (type: string) => nodeRegistry.getNodeByType(type)
+
+/**
+ * Get a node by type - with fallback to ALL_NODE_COMPONENTS
+ * This ensures nodes work even if registry isn't initialized
+ */
+export const getNodeByType = (type: string): NodeComponent | undefined => {
+  // First try the registry
+  const fromRegistry = nodeRegistry.getNodeByType(type)
+  if (fromRegistry) {
+    return fromRegistry
+  }
+
+  // Fallback: search ALL_NODE_COMPONENTS directly
+  // This handles cases where registry hasn't been populated yet
+  try {
+    const { ALL_NODE_COMPONENTS } = require('./index')
+    const node = ALL_NODE_COMPONENTS.find((n: NodeComponent) => n.type === type)
+    if (node) {
+      logger.debug(`[NodeRegistry] Found node "${type}" in ALL_NODE_COMPONENTS (registry not initialized)`)
+    }
+    return node
+  } catch (error) {
+    logger.error(`[NodeRegistry] Failed to load ALL_NODE_COMPONENTS:`, error)
+    return undefined
+  }
+}

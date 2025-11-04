@@ -1,7 +1,12 @@
 "use client"
 
-import React from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
 import ConfigurationForm from '../ConfigurationForm'
+import { ServiceConnectionSelector } from '../ServiceConnectionSelector'
+import { useIntegrationStore } from '@/stores/integrationStore'
+import { useRouter } from 'next/navigation'
+import { getProviderBrandName } from '@/lib/integrations/brandNames'
+import { useToast } from '@/hooks/use-toast'
 
 interface SetupTabProps {
   nodeInfo: any
@@ -18,11 +23,204 @@ interface SetupTabProps {
 }
 
 /**
- * Setup Tab - Main configuration form
+ * Setup Tab - Main configuration form with connection status
  *
- * This is a wrapper around the existing ConfigurationForm component.
- * All field configuration happens here.
+ * Shows:
+ * 1. ServiceConnectionSelector - Account/connection status for the integration
+ * 2. ConfigurationForm - All field configuration
  */
 export function SetupTab(props: SetupTabProps) {
-  return <ConfigurationForm {...props} />
+  const { nodeInfo, integrationName } = props
+  const router = useRouter()
+  const { getIntegrationByProvider, integrations, fetchIntegrations } = useIntegrationStore()
+  const { toast } = useToast()
+  const [isConnecting, setIsConnecting] = useState(false)
+
+  // Determine if this node requires an integration connection
+  const requiresConnection = useMemo(() => {
+    // Nodes without a provider don't need connections (logic nodes, etc.)
+    if (!nodeInfo?.providerId) return false
+
+    // Check if this is an actual integration provider (not utility/logic)
+    const utilityProviders = [
+      'schedule', 'conditional', 'if_then', 'path', 'filter',
+      'http_request', 'transformer', 'file_upload', 'extract_website_data',
+      'conditional_trigger', 'google_search', 'tavily_search',
+      'ai_agent', 'ai_router', 'ai_message'
+    ]
+
+    return !utilityProviders.includes(nodeInfo.providerId)
+  }, [nodeInfo?.providerId])
+
+  // Get ALL connections for this provider (not just one)
+  const connections = useMemo(() => {
+    if (!requiresConnection || !nodeInfo?.providerId) return []
+
+    // Get all integrations that match this provider
+    const providerIntegrations = integrations.filter(
+      int => int.provider === nodeInfo.providerId
+    )
+
+    // Map to Connection format
+    return providerIntegrations.map(integration => ({
+      id: integration.id,
+      email: integration.email,
+      username: integration.username,
+      accountName: integration.account_name,
+      status: integration.status === 'connected' ? 'connected' : 'disconnected',
+      lastChecked: integration.last_checked ? new Date(integration.last_checked) : undefined,
+      error: integration.error,
+    }))
+  }, [requiresConnection, nodeInfo?.providerId, integrations])
+
+  // Get current/primary connection (first connected one)
+  const connection = useMemo(() => {
+    return connections.find(c => c.status === 'connected') || connections[0] || undefined
+  }, [connections])
+
+  // OAuth popup handler
+  const handleConnect = async () => {
+    if (!nodeInfo?.providerId) return
+
+    setIsConnecting(true)
+
+    try {
+      // Generate OAuth URL
+      const response = await fetch('/api/integrations/auth/generate-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: nodeInfo.providerId })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to generate OAuth URL')
+      }
+
+      const { authUrl } = await response.json()
+
+      // Open OAuth popup
+      const width = 600
+      const height = 700
+      const left = window.screenX + (window.outerWidth - width) / 2
+      const top = window.screenY + (window.outerHeight - height) / 2
+
+      const popup = window.open(
+        authUrl,
+        'oauth',
+        `width=${width},height=${height},left=${left},top=${top}`
+      )
+
+      // Cleanup function (defined early for use in handleMessage)
+      let broadcastChannel: BroadcastChannel | null = null
+      const cleanup = () => {
+        window.removeEventListener('message', handleMessage)
+        broadcastChannel?.close()
+        setIsConnecting(false)
+      }
+
+      // Listen for OAuth completion via both postMessage and BroadcastChannel
+      const handleMessage = async (event: MessageEvent) => {
+        // Verify message is from our OAuth callback
+        if (event.data?.type === 'oauth-complete') {
+          cleanup()
+
+          if (event.data.success) {
+            // Refresh integrations to get the new connection
+            await fetchIntegrations(true)
+
+            toast({
+              title: "Connection Successful",
+              description: `Your ${getProviderBrandName(nodeInfo.providerId)} account has been connected.`,
+            })
+          } else {
+            toast({
+              title: "Connection Failed",
+              description: event.data.error || "Failed to connect account. Please try again.",
+              variant: "destructive",
+            })
+          }
+
+          popup?.close()
+        }
+      }
+
+      window.addEventListener('message', handleMessage)
+
+      // Also listen via BroadcastChannel (more reliable for same-origin)
+      try {
+        broadcastChannel = new BroadcastChannel('oauth_channel')
+        broadcastChannel.onmessage = handleMessage
+      } catch (e) {
+        // BroadcastChannel not supported
+      }
+
+      // Check if popup was blocked
+      if (!popup || popup.closed) {
+        cleanup()
+        toast({
+          title: "Popup Blocked",
+          description: "Please allow popups for this site and try again.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Handle popup closed without completion
+      const checkClosed = setInterval(() => {
+        if (popup?.closed) {
+          clearInterval(checkClosed)
+          cleanup()
+        }
+      }, 500)
+
+    } catch (error: any) {
+      toast({
+        title: "Connection Error",
+        description: error.message || "Failed to initiate OAuth flow.",
+        variant: "destructive",
+      })
+      setIsConnecting(false)
+    }
+  }
+
+  const handleReconnect = () => {
+    // Use same OAuth flow for reconnection
+    handleConnect()
+  }
+
+  const handleChangeAccount = (connectionId: string) => {
+    // Update the selected connection
+    // This will be handled by ServiceConnectionSelector
+    console.log('Selected connection:', connectionId)
+  }
+
+  // Get provider display name with proper branding
+  const providerName = nodeInfo?.providerId
+    ? getProviderBrandName(nodeInfo.providerId)
+    : (integrationName || nodeInfo?.category || 'Service')
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Connection Status Section */}
+      {requiresConnection && nodeInfo?.providerId && (
+        <div className="px-6 pt-6 pb-4 border-b border-border">
+          <ServiceConnectionSelector
+            providerId={nodeInfo.providerId}
+            providerName={providerName}
+            connections={connections}
+            selectedConnection={connection}
+            onConnect={handleConnect}
+            onReconnect={handleReconnect}
+            onSelectConnection={handleChangeAccount}
+            isLoading={isConnecting}
+          />
+        </div>
+      )}
+
+      {/* Configuration Form */}
+      <div className="flex-1 overflow-hidden">
+        <ConfigurationForm {...props} />
+      </div>
+    </div>
+  )
 }

@@ -308,4 +308,187 @@ export async function createGitHubPullRequest(
       message: error.message || "Failed to create GitHub pull request"
     }
   }
-} 
+}
+
+/**
+ * Create a new GitHub Gist
+ */
+export async function createGitHubGist(
+  config: any,
+  userId: string,
+  input: Record<string, any>
+): Promise<ActionResult> {
+  try {
+    const resolvedConfig = resolveValue(config, { input })
+
+    const {
+      description,
+      filename,
+      content,
+      isPublic = false
+    } = resolvedConfig
+
+    if (!filename || !content) {
+      throw new Error("Filename and content are required")
+    }
+
+    // Get GitHub integration
+    const { createSupabaseServerClient } = await import("@/utils/supabase/server")
+    const supabase = await createSupabaseServerClient()
+
+    const { data: integration } = await supabase
+      .from("integrations")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("provider", "github")
+      .eq("status", "connected")
+      .single()
+
+    if (!integration) {
+      throw new Error("GitHub integration not connected")
+    }
+
+    const accessToken = await getDecryptedAccessToken(userId, "github")
+
+    // Create gist payload
+    const payload: any = {
+      description: description || "",
+      public: isPublic,
+      files: {
+        [filename]: {
+          content: content
+        }
+      }
+    }
+
+    // Create gist
+    const response = await fetch("https://api.github.com/gists", {
+      method: "POST",
+      headers: {
+        Authorization: `token ${accessToken}`,
+        "Accept": "application/vnd.github.v3+json",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(`GitHub API error: ${response.status} - ${errorData.message || response.statusText}`)
+    }
+
+    const result = await response.json()
+
+    return {
+      success: true,
+      output: {
+        gistId: result.id,
+        url: result.html_url,
+        description: result.description,
+        public: result.public,
+        files: Object.keys(result.files),
+        githubResponse: result
+      },
+      message: `GitHub Gist created successfully: ${result.html_url}`
+    }
+
+  } catch (error: any) {
+    logger.error("GitHub create gist error:", error)
+    return {
+      success: false,
+      output: {},
+      message: error.message || "Failed to create GitHub gist"
+    }
+  }
+}
+
+/**
+ * Add a comment to a GitHub issue or pull request
+ */
+export async function addGitHubComment(
+  config: any,
+  userId: string,
+  input: Record<string, any>
+): Promise<ActionResult> {
+  try {
+    const resolvedConfig = resolveValue(config, { input })
+
+    const {
+      repository,
+      issueNumber,
+      body
+    } = resolvedConfig
+
+    if (!repository || !issueNumber || !body) {
+      throw new Error("Repository, issue number, and comment body are required")
+    }
+
+    // Get GitHub integration
+    const { createSupabaseServerClient } = await import("@/utils/supabase/server")
+    const supabase = await createSupabaseServerClient()
+
+    const { data: integration } = await supabase
+      .from("integrations")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("provider", "github")
+      .eq("status", "connected")
+      .single()
+
+    if (!integration) {
+      throw new Error("GitHub integration not connected")
+    }
+
+    const accessToken = await getDecryptedAccessToken(userId, "github")
+
+    // Parse repository (format: owner/repo)
+    const [owner, repo] = repository.split('/')
+    if (!owner || !repo) {
+      throw new Error("Repository must be in format 'owner/repo'")
+    }
+
+    // Create comment payload
+    const payload = {
+      body: body
+    }
+
+    // Add comment
+    const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}/comments`, {
+      method: "POST",
+      headers: {
+        Authorization: `token ${accessToken}`,
+        "Accept": "application/vnd.github.v3+json",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(`GitHub API error: ${response.status} - ${errorData.message || response.statusText}`)
+    }
+
+    const result = await response.json()
+
+    return {
+      success: true,
+      output: {
+        commentId: result.id,
+        url: result.html_url,
+        body: result.body,
+        repository: repository,
+        issueNumber: issueNumber,
+        githubResponse: result
+      },
+      message: `Comment added successfully to ${repository} #${issueNumber}`
+    }
+
+  } catch (error: any) {
+    logger.error("GitHub add comment error:", error)
+    return {
+      success: false,
+      output: {},
+      message: error.message || "Failed to add GitHub comment"
+    }
+  }
+}
