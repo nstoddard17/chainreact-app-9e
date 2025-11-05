@@ -282,6 +282,21 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     authType: "oauth",
   },
 
+  manychat: {
+    id: "manychat",
+    name: "ManyChat",
+    description: "Chatbot platform for automated conversations on Facebook Messenger",
+    category: "communication",
+    capabilities: ["Send Messages", "Manage Subscribers", "Trigger Flows", "Tag Subscribers"],
+    scopes: ["bot:read", "bot:write", "flows:read", "flows:write"],
+    isAvailable: false,
+    requiresClientId: "MANYCHAT_CLIENT_ID",
+    requiresClientSecret: "MANYCHAT_CLIENT_SECRET",
+    color: "#00B2FF",
+    docsUrl: "https://manychat.github.io/dynamic_block_docs/",
+    authType: "oauth",
+  },
+
   monday: {
     id: "monday",
     name: "Monday.com",
@@ -294,6 +309,21 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     requiresClientSecret: "MONDAY_CLIENT_SECRET",
     color: "#FF3D57",
     docsUrl: "https://developer.monday.com/api-reference/docs",
+    authType: "oauth",
+  },
+
+  gumroad: {
+    id: "gumroad",
+    name: "Gumroad",
+    description: "Platform for creators to sell products directly to consumers",
+    category: "e-commerce",
+    capabilities: ["Manage Products", "Process Sales", "Track Analytics", "Manage Customers"],
+    scopes: ["view_sales", "edit_products"],
+    isAvailable: false,
+    requiresClientId: "GUMROAD_CLIENT_ID",
+    requiresClientSecret: "GUMROAD_CLIENT_SECRET",
+    color: "#FF90E8",
+    docsUrl: "https://gumroad.com/api",
     authType: "oauth",
   },
 
@@ -326,6 +356,54 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     requiresClientSecret: "DROPBOX_CLIENT_SECRET",
     color: "#0061FF",
     docsUrl: "https://www.dropbox.com/developers/documentation",
+    authType: "oauth",
+  },
+
+  // Development & Version Control
+  github: {
+    id: "github",
+    name: "GitHub",
+    description: "Version control and collaborative development platform",
+    category: "productivity",
+    capabilities: ["Create Issues", "Manage Repositories", "Pull Requests", "Create Gists", "Add Comments"],
+    scopes: ["repo", "gist", "user:read"],
+    isAvailable: false,
+    requiresClientId: "GITHUB_CLIENT_ID",
+    requiresClientSecret: "GITHUB_CLIENT_SECRET",
+    color: "#181717",
+    docsUrl: "https://docs.github.com/en/rest",
+    authType: "oauth",
+  },
+
+  // Analytics
+  "google-analytics": {
+    id: "google-analytics",
+    name: "Google Analytics",
+    description: "Track website analytics and user behavior with Google Analytics 4",
+    category: "analytics",
+    capabilities: ["Track Events", "Real-Time Data", "Run Reports", "User Activity", "Conversion Tracking"],
+    scopes: ["https://www.googleapis.com/auth/analytics.readonly", "https://www.googleapis.com/auth/analytics.edit"],
+    isAvailable: false,
+    requiresClientId: "GOOGLE_CLIENT_ID",
+    requiresClientSecret: "GOOGLE_CLIENT_SECRET",
+    color: "#F9AB00",
+    docsUrl: "https://developers.google.com/analytics",
+    authType: "oauth",
+  },
+
+  // E-commerce
+  shopify: {
+    id: "shopify",
+    name: "Shopify",
+    description: "E-commerce platform for online stores and retail point-of-sale",
+    category: "e-commerce",
+    capabilities: ["Manage Orders", "Create Products", "Update Inventory", "Customer Management", "Order Fulfillment"],
+    scopes: ["read_orders", "write_orders", "read_products", "write_products", "read_customers", "write_customers", "read_inventory", "write_inventory"],
+    isAvailable: false,
+    requiresClientId: "SHOPIFY_CLIENT_ID",
+    requiresClientSecret: "SHOPIFY_CLIENT_SECRET",
+    color: "#96BF48",
+    docsUrl: "https://shopify.dev/docs/api",
     authType: "oauth",
   },
 

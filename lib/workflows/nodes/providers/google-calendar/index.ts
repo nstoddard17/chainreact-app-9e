@@ -22,6 +22,74 @@ export const googleCalendarNodes: NodeComponent[] = [
         required: true,
       },
     ],
+    outputSchema: [
+      {
+        name: "eventId",
+        label: "Event ID",
+        type: "string",
+        description: "Unique identifier for the event"
+      },
+      {
+        name: "summary",
+        label: "Event Title",
+        type: "string",
+        description: "Title/summary of the event"
+      },
+      {
+        name: "description",
+        label: "Description",
+        type: "string",
+        description: "Event description"
+      },
+      {
+        name: "location",
+        label: "Location",
+        type: "string",
+        description: "Event location"
+      },
+      {
+        name: "start",
+        label: "Start Time",
+        type: "object",
+        description: "Event start date and time"
+      },
+      {
+        name: "end",
+        label: "End Time",
+        type: "object",
+        description: "Event end date and time"
+      },
+      {
+        name: "attendees",
+        label: "Attendees",
+        type: "array",
+        description: "List of event attendees"
+      },
+      {
+        name: "organizer",
+        label: "Organizer",
+        type: "object",
+        description: "Event organizer information"
+      },
+      {
+        name: "htmlLink",
+        label: "Event Link",
+        type: "string",
+        description: "Link to the event in Google Calendar"
+      },
+      {
+        name: "hangoutLink",
+        label: "Meet Link",
+        type: "string",
+        description: "Google Meet link if attached"
+      },
+      {
+        name: "createdTime",
+        label: "Created Time",
+        type: "string",
+        description: "ISO timestamp when event was created"
+      }
+    ],
   },
   {
     type: "google_calendar_trigger_event_updated",
@@ -43,6 +111,80 @@ export const googleCalendarNodes: NodeComponent[] = [
         required: true,
       },
     ],
+    outputSchema: [
+      {
+        name: "eventId",
+        label: "Event ID",
+        type: "string",
+        description: "Unique identifier for the updated event"
+      },
+      {
+        name: "summary",
+        label: "Event Title",
+        type: "string",
+        description: "Updated title/summary of the event"
+      },
+      {
+        name: "description",
+        label: "Description",
+        type: "string",
+        description: "Updated event description"
+      },
+      {
+        name: "location",
+        label: "Location",
+        type: "string",
+        description: "Updated event location"
+      },
+      {
+        name: "start",
+        label: "Start Time",
+        type: "object",
+        description: "Updated event start date and time"
+      },
+      {
+        name: "end",
+        label: "End Time",
+        type: "object",
+        description: "Updated event end date and time"
+      },
+      {
+        name: "attendees",
+        label: "Attendees",
+        type: "array",
+        description: "Updated list of event attendees"
+      },
+      {
+        name: "organizer",
+        label: "Organizer",
+        type: "object",
+        description: "Event organizer information"
+      },
+      {
+        name: "htmlLink",
+        label: "Event Link",
+        type: "string",
+        description: "Link to the event in Google Calendar"
+      },
+      {
+        name: "hangoutLink",
+        label: "Meet Link",
+        type: "string",
+        description: "Google Meet link if attached"
+      },
+      {
+        name: "updatedTime",
+        label: "Updated Time",
+        type: "string",
+        description: "ISO timestamp when event was last updated"
+      },
+      {
+        name: "changes",
+        label: "Changes",
+        type: "object",
+        description: "Object describing what fields were changed"
+      }
+    ],
   },
   {
     type: "google_calendar_trigger_event_canceled",
@@ -63,6 +205,74 @@ export const googleCalendarNodes: NodeComponent[] = [
         loadOnMount: true,
         required: true,
       },
+    ],
+    outputSchema: [
+      {
+        name: "eventId",
+        label: "Event ID",
+        type: "string",
+        description: "Unique identifier for the canceled event"
+      },
+      {
+        name: "summary",
+        label: "Event Title",
+        type: "string",
+        description: "Title/summary of the canceled event"
+      },
+      {
+        name: "description",
+        label: "Description",
+        type: "string",
+        description: "Event description"
+      },
+      {
+        name: "location",
+        label: "Location",
+        type: "string",
+        description: "Event location"
+      },
+      {
+        name: "start",
+        label: "Start Time",
+        type: "object",
+        description: "Original event start date and time"
+      },
+      {
+        name: "end",
+        label: "End Time",
+        type: "object",
+        description: "Original event end date and time"
+      },
+      {
+        name: "attendees",
+        label: "Attendees",
+        type: "array",
+        description: "List of event attendees who were invited"
+      },
+      {
+        name: "organizer",
+        label: "Organizer",
+        type: "object",
+        description: "Event organizer information"
+      },
+      {
+        name: "htmlLink",
+        label: "Event Link",
+        type: "string",
+        description: "Link to the event in Google Calendar"
+      },
+      {
+        name: "canceledTime",
+        label: "Canceled Time",
+        type: "string",
+        description: "ISO timestamp when event was canceled"
+      },
+      {
+        name: "status",
+        label: "Status",
+        type: "string",
+        description: "Event status (will be 'cancelled')"
+      }
     ],
   },
   {

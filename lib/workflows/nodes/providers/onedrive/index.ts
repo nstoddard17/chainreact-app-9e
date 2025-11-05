@@ -80,6 +80,62 @@ const onedriveTriggerNewFile: NodeComponent = {
       description: "Enable to trigger when a new version of an existing file is uploaded (in addition to new files/folders).",
       uiTab: "advanced"
     }
+  ],
+  outputSchema: [
+    {
+      name: "id",
+      label: "File/Folder ID",
+      type: "string",
+      description: "Unique identifier for the new file or folder"
+    },
+    {
+      name: "name",
+      label: "Name",
+      type: "string",
+      description: "Name of the new file or folder"
+    },
+    {
+      name: "type",
+      label: "Type",
+      type: "string",
+      description: "Type: 'file' or 'folder'"
+    },
+    {
+      name: "size",
+      label: "Size",
+      type: "number",
+      description: "Size in bytes (0 for folders)"
+    },
+    {
+      name: "path",
+      label: "Path",
+      type: "string",
+      description: "Full path to the file or folder"
+    },
+    {
+      name: "webUrl",
+      label: "Web URL",
+      type: "string",
+      description: "URL to view the file/folder in OneDrive"
+    },
+    {
+      name: "mimeType",
+      label: "MIME Type",
+      type: "string",
+      description: "MIME type of the file (empty for folders)"
+    },
+    {
+      name: "createdTime",
+      label: "Created Time",
+      type: "string",
+      description: "ISO timestamp when the file/folder was created"
+    },
+    {
+      name: "modifiedTime",
+      label: "Modified Time",
+      type: "string",
+      description: "ISO timestamp when last modified"
+    }
   ]
 }
 
@@ -153,6 +209,56 @@ const onedriveTriggerFileModified: NodeComponent = {
       defaultValue: true,
       description: "When enabled, modifications inside subfolders will also trigger.",
       uiTab: "advanced"
+    }
+  ],
+  outputSchema: [
+    {
+      name: "id",
+      label: "File ID",
+      type: "string",
+      description: "Unique identifier for the modified file"
+    },
+    {
+      name: "name",
+      label: "File Name",
+      type: "string",
+      description: "Name of the modified file"
+    },
+    {
+      name: "size",
+      label: "File Size",
+      type: "number",
+      description: "Size of the file in bytes"
+    },
+    {
+      name: "path",
+      label: "File Path",
+      type: "string",
+      description: "Full path to the file in OneDrive"
+    },
+    {
+      name: "webUrl",
+      label: "Web URL",
+      type: "string",
+      description: "URL to view the file in OneDrive"
+    },
+    {
+      name: "mimeType",
+      label: "MIME Type",
+      type: "string",
+      description: "MIME type of the file"
+    },
+    {
+      name: "modifiedTime",
+      label: "Modified Time",
+      type: "string",
+      description: "ISO timestamp when the file was modified"
+    },
+    {
+      name: "modifiedBy",
+      label: "Modified By",
+      type: "string",
+      description: "User who modified the file"
     }
   ]
 }
@@ -243,6 +349,50 @@ const onedriveActionUploadFile: NodeComponent = {
       loadOnMount: true
     },
   ],
+  outputSchema: [
+    {
+      name: "id",
+      label: "File ID",
+      type: "string",
+      description: "Unique identifier for the uploaded file"
+    },
+    {
+      name: "name",
+      label: "File Name",
+      type: "string",
+      description: "Name of the uploaded file"
+    },
+    {
+      name: "size",
+      label: "File Size",
+      type: "number",
+      description: "Size of the file in bytes"
+    },
+    {
+      name: "webUrl",
+      label: "Web URL",
+      type: "string",
+      description: "URL to view the file in OneDrive"
+    },
+    {
+      name: "downloadUrl",
+      label: "Download URL",
+      type: "string",
+      description: "Direct download URL for the file"
+    },
+    {
+      name: "path",
+      label: "File Path",
+      type: "string",
+      description: "Full path to the file in OneDrive"
+    },
+    {
+      name: "createdTime",
+      label: "Created Time",
+      type: "string",
+      description: "ISO timestamp when the file was created"
+    }
+  ]
 }
 
 const onedriveActionGetFile: NodeComponent = {

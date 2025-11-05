@@ -63,6 +63,9 @@ interface FlowV2BuilderContentProps {
   // Toolbar actions
   onUndoToPreviousStage?: () => void
   onCancelBuild?: () => void
+
+  // Children for overlays (e.g., PathLabelsOverlay)
+  children?: React.ReactNode
 }
 
 export function FlowV2BuilderContent({
@@ -87,6 +90,7 @@ export function FlowV2BuilderContent({
   onNodeConfigure,
   onUndoToPreviousStage,
   onCancelBuild,
+  children,
 }: FlowV2BuilderContentProps) {
   const reactFlowInstance = useRef<any>(null)
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([])
@@ -340,6 +344,9 @@ export function FlowV2BuilderContent({
             Add Node
           </Button>
         </Panel>
+
+        {/* Render children (e.g., PathLabelsOverlay) */}
+        {children}
           </ReactFlow>
 
 

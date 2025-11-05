@@ -47,6 +47,7 @@ import { Sparkles } from "lucide-react"
 import { FlowV2BuilderContent } from "./FlowV2BuilderContent"
 import { FlowV2AgentPanel } from "./FlowV2AgentPanel"
 import { NodeStateTestPanel } from "./NodeStateTestPanel"
+import { PathLabelsOverlay } from "./PathLabelsOverlay"
 import { ProviderSelectionUI } from "../ai-agent/ProviderSelectionUI"
 import { ProviderBadge } from "../ai-agent/ProviderBadge"
 import {
@@ -353,6 +354,10 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
   const pendingChatMessagesRef = useRef<PendingChatMessage[]>([])
   const [chatPersistenceEnabled, setChatPersistenceEnabled] = useState(false)
   const initialRevisionCountRef = useRef<number | null>(null)
+
+  // Path router state
+  const [collapsedPaths, setCollapsedPaths] = useState<Set<string>>(new Set())
+  const [pathLabels, setPathLabels] = useState<Record<string, string>>({})
   const lastHasUnsavedChangesRef = useRef<boolean | null>(null)
 
   const generateLocalId = useCallback(() => {
@@ -1258,22 +1263,133 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
     transitionTo,
   ])
 
-  // React Flow props
+  // Handler for adding a node after a specific node (Zapier-style)
+  const handleAddNodeAfter = useCallback(async (afterNodeId: string, nodeType: string, component: NodeComponent, sourceHandle?: string) => {
+    if (!actions || !builder) return
+
+    const afterNode = builder.nodes.find((n: any) => n.id === afterNodeId)
+    if (!afterNode) return
+
+    // For Path Condition nodes from Path Router, position horizontally
+    let position = {
+      x: afterNode.position.x,
+      y: afterNode.position.y + 200
+    }
+
+    if (nodeType === 'path_condition' && afterNode.data?.type === 'path') {
+      // Count existing Path Condition nodes connected to this router
+      const connectedPathNodes = builder.nodes.filter((node: any) => {
+        const edges = builder.edges || []
+        return edges.some((edge: any) =>
+          edge.source === afterNodeId &&
+          edge.target === node.id &&
+          node.data?.type === 'path_condition'
+        )
+      })
+
+      const pathIndex = connectedPathNodes.length
+      const horizontalSpacing = 500 // Zapier-style horizontal spacing
+
+      // Position horizontally: first path at original x, subsequent paths to the right
+      position = {
+        x: afterNode.position.x + (pathIndex * horizontalSpacing),
+        y: afterNode.position.y + 200
+      }
+    }
+
+    try {
+      // Add the new node
+      await actions.addNode(nodeType, position)
+
+      // Get the newly added node ID (it will be the last node added)
+      const newNodes = builder.nodes
+      const newNode = newNodes[newNodes.length - 1]
+
+      if (newNode) {
+        // Connect the previous node to the new node
+        await actions.connectEdge({
+          sourceId: afterNodeId,
+          targetId: newNode.id,
+          sourceHandle: sourceHandle || 'source'
+        })
+
+        // Auto-open configuration for Path Condition nodes
+        if (nodeType === 'path_condition' && newNode.id) {
+          setTimeout(() => {
+            handleConfigureNode(newNode.id)
+          }, 100)
+        }
+      }
+
+      toast({
+        title: "Node added",
+        description: `${component.title} has been added to your workflow.`,
+      })
+    } catch (error: any) {
+      toast({
+        title: "Failed to add node",
+        description: error?.message ?? "Unable to add node",
+        variant: "destructive",
+      })
+    }
+  }, [actions, builder, toast])
+
+  // React Flow props with last-node detection
   const reactFlowProps = useMemo(() => {
     if (!builder) {
       return null
     }
 
+    // Detect last nodes (nodes with no outgoing edges)
+    const lastNodeIds = new Set<string>()
+    const nodesWithOutgoing = new Set<string>()
+
+    builder.edges.forEach((edge: any) => {
+      nodesWithOutgoing.add(edge.source)
+    })
+
+    builder.nodes.forEach((node: any) => {
+      if (!node.data?.isTrigger && !nodesWithOutgoing.has(node.id)) {
+        lastNodeIds.add(node.id)
+      }
+    })
+
+    // Enhance nodes with isLastNode and onAddNodeAfter
+    const enhancedNodes = builder.nodes.map((node: any) => ({
+      ...node,
+      data: {
+        ...node.data,
+        isLastNode: lastNodeIds.has(node.id),
+        onAddNodeAfter: handleAddNodeAfter,
+      }
+    }))
+
+    // Handler for inserting a node in the middle of an edge
+    const handleInsertNodeOnEdge = (edgeId: string, position: { x: number; y: number }) => {
+      // Open integrations panel at the edge position
+      // TODO: Implement node insertion at edge midpoint
+      console.log('Insert node on edge:', edgeId, 'at position:', position)
+    }
+
+    // Enhance edges with onInsertNode handler
+    const enhancedEdges = builder.edges.map((edge: any) => ({
+      ...edge,
+      data: {
+        ...edge.data,
+        onInsertNode: handleInsertNodeOnEdge,
+      }
+    }))
+
     return {
-      nodes: builder.nodes,
-      edges: builder.edges,
+      nodes: enhancedNodes,
+      edges: enhancedEdges,
       onNodesChange: builder.optimizedOnNodesChange ?? builder.onNodesChange,
       onEdgesChange: builder.onEdgesChange,
       onConnect: builder.onConnect,
       nodeTypes: builder.nodeTypes,
       edgeTypes: builder.edgeTypes,
     }
-  }, [builder])
+  }, [builder, handleAddNodeAfter])
 
   // Name update handler
   const persistName = useCallback(
@@ -2411,6 +2527,301 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
     transitionTo(BuildState.PLAN_READY)
   }, [transitionTo])
 
+  // Path menu handlers for PathLabelsOverlay
+  const handleTogglePathCollapse = useCallback((pathId: string) => {
+    if (!builder?.nodes || !builder?.edges || !builder.setNodes) return
+
+    const isCurrentlyCollapsed = collapsedPaths.has(pathId)
+
+    // Find the edge that represents this path
+    const pathEdge = builder.edges.find((e: any) => e.id === pathId)
+    if (!pathEdge) return
+
+    // Find the target node (Path Condition node)
+    const pathConditionNode = builder.nodes.find((n: any) => n.id === pathEdge.target)
+    if (!pathConditionNode) return
+
+    // Helper function to find all descendant nodes in a path
+    const findDescendantNodes = (startNodeId: string): string[] => {
+      const descendants: string[] = []
+      const toVisit = [startNodeId]
+      const visited = new Set<string>()
+
+      while (toVisit.length > 0) {
+        const currentId = toVisit.shift()!
+        if (visited.has(currentId)) continue
+        visited.add(currentId)
+        descendants.push(currentId)
+
+        // Find all edges from this node
+        const outgoingEdges = builder.edges.filter((e: any) => e.source === currentId)
+        for (const edge of outgoingEdges) {
+          if (!visited.has(edge.target)) {
+            toVisit.push(edge.target)
+          }
+        }
+      }
+
+      return descendants
+    }
+
+    // Get all nodes in this path (including the path condition node)
+    const pathNodeIds = findDescendantNodes(pathConditionNode.id)
+
+    // Toggle visibility of all nodes in this path
+    const updatedNodes = builder.nodes.map((node: any) => {
+      if (pathNodeIds.includes(node.id)) {
+        return {
+          ...node,
+          hidden: !isCurrentlyCollapsed, // Toggle: if currently collapsed, show; if shown, hide
+        }
+      }
+      return node
+    })
+
+    builder.setNodes(updatedNodes)
+
+    // Update collapsed state
+    setCollapsedPaths((prev) => {
+      const next = new Set(prev)
+      if (isCurrentlyCollapsed) {
+        next.delete(pathId)
+      } else {
+        next.add(pathId)
+      }
+      return next
+    })
+  }, [builder, collapsedPaths])
+
+  const handleRenamePath = useCallback((pathId: string) => {
+    // TODO: Open rename dialog
+    const newName = prompt('Enter new path name:')
+    if (newName) {
+      setPathLabels((prev) => ({ ...prev, [pathId]: newName }))
+      // Also update the node config
+      const edge = builder?.edges?.find((e: any) => e.id === pathId)
+      if (edge && builder?.nodes) {
+        const targetNode = builder.nodes.find((n: any) => n.id === edge.target)
+        if (targetNode && builder.updateNodeData) {
+          builder.updateNodeData(targetNode.id, {
+            ...targetNode.data,
+            config: {
+              ...targetNode.data.config,
+              pathName: newName,
+            },
+          })
+        }
+      }
+    }
+  }, [builder])
+
+  const handleDuplicatePath = useCallback(async (pathId: string) => {
+    // TODO: Implement path duplication
+    toast({ title: 'Duplicate Path', description: 'Path duplication coming soon!' })
+  }, [toast])
+
+  const handleCopyPath = useCallback((pathId: string) => {
+    // TODO: Implement path copy to clipboard
+    toast({ title: 'Copy Path', description: 'Path copied to clipboard!' })
+  }, [toast])
+
+  const handleAddPathNote = useCallback((pathId: string) => {
+    // TODO: Implement path note
+    toast({ title: 'Add Note', description: 'Path notes coming soon!' })
+  }, [toast])
+
+  const handleDeletePath = useCallback(async (pathId: string) => {
+    if (!confirm('Are you sure you want to delete this path?')) return
+
+    // Find the edge and target node
+    const edge = builder?.edges?.find((e: any) => e.id === pathId)
+    if (edge && builder?.nodes) {
+      const targetNode = builder.nodes.find((n: any) => n.id === edge.target)
+      if (targetNode) {
+        // Delete all nodes in this path
+        await handleDeleteNodes([targetNode.id])
+        // Remove from collapsed paths if present
+        setCollapsedPaths((prev) => {
+          const next = new Set(prev)
+          next.delete(pathId)
+          return next
+        })
+        // Remove from path labels
+        setPathLabels((prev) => {
+          const next = { ...prev }
+          delete next[pathId]
+          return next
+        })
+      }
+    }
+  }, [builder, handleDeleteNodes])
+
+  // Auto-create 2 paths when Path Router is added (Zapier-style)
+  // Track which routers are currently being processed to prevent race conditions
+  const processingRoutersRef = useRef<Set<string>>(new Set())
+  const autoCreateTimeoutRef = useRef<NodeJS.Timeout>()
+
+  useEffect(() => {
+    if (!builder?.nodes || !builder?.edges || !actions) return
+
+    // Debounce to prevent multiple simultaneous executions
+    if (autoCreateTimeoutRef.current) {
+      clearTimeout(autoCreateTimeoutRef.current)
+    }
+
+    autoCreateTimeoutRef.current = setTimeout(async () => {
+      // Find Path Router nodes that don't have any connected Path Condition nodes
+      const routerNodes = builder.nodes.filter((node: any) => node.data?.type === 'path')
+
+      for (const routerNode of routerNodes) {
+        // Skip if already processing this router
+        if (processingRoutersRef.current.has(routerNode.id)) {
+          console.log('[Path Router] Already processing router:', routerNode.id)
+          continue
+        }
+
+        // Check if this router already has path condition nodes
+        const connectedEdges = builder.edges.filter((e: any) => e.source === routerNode.id)
+        const hasPathConditions = connectedEdges.some((edge: any) => {
+          const targetNode = builder.nodes.find((n: any) => n.id === edge.target)
+          return targetNode?.data?.type === 'path_condition'
+        })
+
+        // If no paths exist, auto-create 2 paths
+        if (!hasPathConditions) {
+          // Mark as processing
+          processingRoutersRef.current.add(routerNode.id)
+          console.log('[Path Router] Auto-creating 2 paths for router:', routerNode.id)
+
+          try {
+            // Create Path A (left) - 250px to the left
+            const pathAPosition = {
+              x: routerNode.position.x - 250,
+              y: routerNode.position.y + 200
+            }
+            await actions.addNode('path_condition', pathAPosition)
+
+            // Wait a moment for the node to be added to the state
+            await new Promise(resolve => setTimeout(resolve, 150))
+
+            // Find the newly created Path A node
+            const pathANode = builder.nodes.find((n: any) =>
+              n.data?.type === 'path_condition' &&
+              Math.abs(n.position.x - pathAPosition.x) < 10 &&
+              Math.abs(n.position.y - pathAPosition.y) < 10
+            )
+
+            // Create Path B (right) - 250px to the right
+            const pathBPosition = {
+              x: routerNode.position.x + 250,
+              y: routerNode.position.y + 200
+            }
+            await actions.addNode('path_condition', pathBPosition)
+
+            // Wait a moment for the node to be added
+            await new Promise(resolve => setTimeout(resolve, 150))
+
+            // Find the newly created Path B node
+            const pathBNode = builder.nodes.find((n: any) =>
+              n.data?.type === 'path_condition' &&
+              Math.abs(n.position.x - pathBPosition.x) < 10 &&
+              Math.abs(n.position.y - pathBPosition.y) < 10
+            )
+
+            // Connect router to both paths
+            if (pathANode) {
+              await actions.connectEdge({
+                sourceId: routerNode.id,
+                targetId: pathANode.id,
+                sourceHandle: 'path_0'
+              })
+            }
+
+            if (pathBNode) {
+              await actions.connectEdge({
+                sourceId: routerNode.id,
+                targetId: pathBNode.id,
+                sourceHandle: 'path_1'
+              })
+            }
+
+            console.log('[Path Router] Successfully created 2 paths')
+          } catch (error) {
+            console.error('[Path Router] Failed to auto-create paths:', error)
+          } finally {
+            // Always remove from processing set
+            processingRoutersRef.current.delete(routerNode.id)
+          }
+        }
+      }
+    }, 300) // 300ms debounce
+
+    // Cleanup timeout on unmount
+    return () => {
+      if (autoCreateTimeoutRef.current) {
+        clearTimeout(autoCreateTimeoutRef.current)
+      }
+    }
+  }, [builder?.nodes, builder?.edges, actions])
+
+  // Auto-center Path Router nodes (Zapier-style 300ms animation)
+  useEffect(() => {
+    if (!builder?.nodes || !builder?.edges || !builder.setNodes) return
+
+    // Find all Path Router nodes
+    const routerNodes = builder.nodes.filter((node: any) => node.data?.type === 'path')
+    if (routerNodes.length === 0) return
+
+    let needsUpdate = false
+    const updatedNodes = builder.nodes.map((node: any) => {
+      if (node.data?.type === 'path') {
+        // Find all connected Path Condition nodes
+        const connectedEdges = builder.edges.filter((e: any) => e.source === node.id)
+        const pathConditionNodes = connectedEdges
+          .map((edge: any) => builder.nodes.find((n: any) => n.id === edge.target))
+          .filter((n: any) => n && n.data?.type === 'path_condition')
+
+        if (pathConditionNodes.length === 0) return node
+
+        // Calculate center X position of all path nodes
+        const totalX = pathConditionNodes.reduce((sum: number, n: any) => sum + n.position.x, 0)
+        const centerX = totalX / pathConditionNodes.length
+
+        // Calculate desired router X position (centered above paths)
+        const desiredX = centerX
+
+        // Only update if position changed significantly (>5px to avoid jitter)
+        const currentX = node.position.x
+        if (Math.abs(desiredX - currentX) > 5) {
+          needsUpdate = true
+          return {
+            ...node,
+            position: {
+              ...node.position,
+              x: desiredX,
+            },
+            // Add style for smooth animation
+            style: {
+              ...node.style,
+              transition: 'transform 300ms cubic-bezier(0.4, 0, 0.2, 1)',
+            },
+          }
+        }
+      }
+      return node
+    })
+
+    // Only update if we actually need to move a router
+    if (needsUpdate) {
+      // Use requestAnimationFrame for smooth animation
+      requestAnimationFrame(() => {
+        if (builder.setNodes) {
+          builder.setNodes(updatedNodes)
+        }
+      })
+    }
+  }, [builder?.nodes, builder?.edges, builder?.setNodes])
+
   // Apply node styling based on node state (not build progress)
   useEffect(() => {
     if (!builder?.nodes || buildMachine.state === BuildState.IDLE) {
@@ -2566,7 +2977,19 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
             onNodeConfigure={handleNodeConfigure}
             onUndoToPreviousStage={handleUndoToPreviousStage}
             onCancelBuild={handleCancelBuild}
-          />
+          >
+            {/* Path Labels Overlay - Zapier-style floating pills */}
+            <PathLabelsOverlay
+              collapsedPaths={collapsedPaths}
+              pathLabels={pathLabels}
+              onToggleCollapse={handleTogglePathCollapse}
+              onRename={handleRenamePath}
+              onDuplicate={handleDuplicatePath}
+              onCopy={handleCopyPath}
+              onAddNote={handleAddPathNote}
+              onDelete={handleDeletePath}
+            />
+          </FlowV2BuilderContent>
 
           <FlowV2AgentPanel
             layout={{

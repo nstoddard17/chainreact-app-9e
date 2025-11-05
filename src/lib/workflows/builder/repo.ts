@@ -140,10 +140,12 @@ export class FlowRepository {
     const validated = FlowSchema.parse(flow)
 
     // Retry logic to handle race conditions when adding multiple nodes quickly
-    const maxRetries = 3
+    const maxRetries = 5 // Increased from 3
     let lastError: any = null
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
+      // IMPORTANT: Re-query version on each attempt to get latest version
+      // This ensures retries don't use stale version numbers from before the race
       const resolvedVersion = await this.resolveRevisionVersion(flowId, version)
       const now = new Date().toISOString()
 
@@ -173,8 +175,11 @@ export class FlowRepository {
       // Check if it's a duplicate key error
       if (error.code === '23505' && error.message.includes('flow_v2_revisions_unique_version')) {
         lastError = error
-        // Wait a bit before retrying (exponential backoff)
-        await new Promise(resolve => setTimeout(resolve, 50 * Math.pow(2, attempt)))
+        console.log(`[FlowRepository] Version collision on attempt ${attempt + 1}/${maxRetries}, retrying...`)
+        // Wait with exponential backoff + jitter to spread out retries
+        const baseDelay = 100 * Math.pow(2, attempt)
+        const jitter = Math.random() * 50 // Add 0-50ms random jitter
+        await new Promise(resolve => setTimeout(resolve, baseDelay + jitter))
         continue
       }
 

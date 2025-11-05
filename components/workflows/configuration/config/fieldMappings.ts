@@ -576,6 +576,29 @@ const mailchimpMappings: Record<string, FieldMapping> = {
   },
 };
 
+// Monday.com field mappings
+const mondayMappings: Record<string, FieldMapping> = {
+  monday_action_create_item: {
+    boardId: "monday_boards",
+    groupId: "monday_groups",
+  },
+  monday_action_update_item: {
+    boardId: "monday_boards",
+    itemId: "monday_items",
+  },
+  monday_action_create_update: {
+    itemId: "monday_items",
+  },
+  monday_trigger_new_item: {
+    boardId: "monday_boards",
+  },
+  monday_trigger_new_board: {},
+  monday_trigger_column_changed: {
+    boardId: "monday_boards",
+    columnId: "monday_columns",
+  },
+};
+
 // HubSpot field mappings
 const hubspotMappings: Record<string, FieldMapping> = {
   hubspot_action_create_contact: {
@@ -767,6 +790,15 @@ const githubMappings: Record<string, FieldMapping> = {
   },
 };
 
+// Twitter field mappings
+const twitterMappings: Record<string, FieldMapping> = {
+  twitter_action_reply_to_tweet: {
+    tweetId: "twitter_mentions",
+  },
+  twitter_trigger_search_match: {},
+  twitter_trigger_user_tweet: {},
+};
+
 // Default field mappings for unmapped fields
 const defaultMappings: FieldMapping = {
   channelId: "channels",
@@ -801,11 +833,13 @@ export const fieldToResourceMap: NodeFieldMappings = {
   ...facebookMappings,
   ...boxMappings,
   ...mailchimpMappings,
+  ...mondayMappings,
   ...hubspotMappings,
   ...notionMappings,
   ...aiMappings,
   ...hitlMappings,
   ...githubMappings,
+  ...twitterMappings,
   default: defaultMappings,
 };
 

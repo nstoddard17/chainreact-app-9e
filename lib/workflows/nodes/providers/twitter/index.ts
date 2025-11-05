@@ -345,14 +345,64 @@ export const twitterNodes: NodeComponent[] = [
         description: "Tag up to 10 users in your media",
         uiTab: "advanced"
       },
-      { 
-        name: "directMessageDeepLink", 
-        label: "Direct Message Deep Link", 
-        type: "text", 
-        required: false, 
+      {
+        name: "directMessageDeepLink",
+        label: "Direct Message Deep Link",
+        type: "text",
+        required: false,
         placeholder: "Enter deep link URL",
         description: "Add a direct message deep link to your tweet",
         uiTab: "advanced"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "tweetId",
+        label: "Tweet ID",
+        type: "string",
+        description: "Unique identifier for the posted tweet"
+      },
+      {
+        name: "tweetUrl",
+        label: "Tweet URL",
+        type: "string",
+        description: "Direct URL to view the tweet"
+      },
+      {
+        name: "text",
+        label: "Tweet Text",
+        type: "string",
+        description: "The text content that was posted"
+      },
+      {
+        name: "createdAt",
+        label: "Created At",
+        type: "string",
+        description: "Timestamp when the tweet was posted (ISO 8601 format)"
+      },
+      {
+        name: "authorId",
+        label: "Author ID",
+        type: "string",
+        description: "Your user ID"
+      },
+      {
+        name: "conversationId",
+        label: "Conversation ID",
+        type: "string",
+        description: "ID of the conversation thread"
+      },
+      {
+        name: "inReplyToUserId",
+        label: "Reply To User ID",
+        type: "string",
+        description: "User ID of the person being replied to (if this is a reply)"
+      },
+      {
+        name: "isScheduled",
+        label: "Is Scheduled",
+        type: "boolean",
+        description: "Whether the tweet was scheduled for later"
       }
     ]
   },
@@ -402,6 +452,44 @@ export const twitterNodes: NodeComponent[] = [
         placeholder: "Describe your media for accessibility (one description per line)",
         description: "Provide alt text descriptions for each media file, one per line"
       }
+    ],
+    outputSchema: [
+      {
+        name: "replyId",
+        label: "Reply Tweet ID",
+        type: "string",
+        description: "Unique identifier for the reply tweet"
+      },
+      {
+        name: "replyUrl",
+        label: "Reply URL",
+        type: "string",
+        description: "Direct URL to view the reply"
+      },
+      {
+        name: "text",
+        label: "Reply Text",
+        type: "string",
+        description: "The text content of the reply"
+      },
+      {
+        name: "inReplyToTweetId",
+        label: "Original Tweet ID",
+        type: "string",
+        description: "ID of the tweet being replied to"
+      },
+      {
+        name: "conversationId",
+        label: "Conversation ID",
+        type: "string",
+        description: "ID of the conversation thread"
+      },
+      {
+        name: "createdAt",
+        label: "Created At",
+        type: "string",
+        description: "Timestamp when the reply was posted (ISO 8601 format)"
+      }
     ]
   },
   {
@@ -415,13 +503,39 @@ export const twitterNodes: NodeComponent[] = [
     isTrigger: false,
     comingSoon: true,
     configSchema: [
-      { 
-        name: "tweetId", 
-        label: "Tweet ID to Retweet", 
-        type: "text", 
-        required: true, 
+      {
+        name: "tweetId",
+        label: "Tweet ID to Retweet",
+        type: "text",
+        required: true,
         placeholder: "Enter the ID of the tweet you want to retweet",
         description: "The ID of the tweet you want to retweet"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "success",
+        label: "Success",
+        type: "boolean",
+        description: "Whether the retweet was successful"
+      },
+      {
+        name: "retweetId",
+        label: "Retweet ID",
+        type: "string",
+        description: "Unique identifier for the retweet action"
+      },
+      {
+        name: "originalTweetId",
+        label: "Original Tweet ID",
+        type: "string",
+        description: "ID of the tweet that was retweeted"
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "When the retweet occurred (ISO 8601 format)"
       }
     ]
   },
@@ -436,13 +550,33 @@ export const twitterNodes: NodeComponent[] = [
     isTrigger: false,
     comingSoon: true,
     configSchema: [
-      { 
-        name: "tweetId", 
-        label: "Tweet ID to Unretweet", 
-        type: "text", 
-        required: true, 
+      {
+        name: "tweetId",
+        label: "Tweet ID to Unretweet",
+        type: "text",
+        required: true,
         placeholder: "Enter the ID of the tweet you want to unretweet",
         description: "The ID of the tweet you want to remove from your retweets"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "success",
+        label: "Success",
+        type: "boolean",
+        description: "Whether the unretweet was successful"
+      },
+      {
+        name: "tweetId",
+        label: "Tweet ID",
+        type: "string",
+        description: "ID of the tweet that was unretweeted"
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "When the unretweet occurred (ISO 8601 format)"
       }
     ]
   },
@@ -457,13 +591,39 @@ export const twitterNodes: NodeComponent[] = [
     isTrigger: false,
     comingSoon: true,
     configSchema: [
-      { 
-        name: "tweetId", 
-        label: "Tweet ID to Like", 
-        type: "text", 
-        required: true, 
+      {
+        name: "tweetId",
+        label: "Tweet ID to Like",
+        type: "text",
+        required: true,
         placeholder: "Enter the ID of the tweet you want to like",
         description: "The ID of the tweet you want to like"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "success",
+        label: "Success",
+        type: "boolean",
+        description: "Whether the like was successful"
+      },
+      {
+        name: "tweetId",
+        label: "Tweet ID",
+        type: "string",
+        description: "ID of the tweet that was liked"
+      },
+      {
+        name: "liked",
+        label: "Liked Status",
+        type: "boolean",
+        description: "Confirmation that the tweet is now liked"
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "When the like occurred (ISO 8601 format)"
       }
     ]
   },
@@ -478,13 +638,39 @@ export const twitterNodes: NodeComponent[] = [
     isTrigger: false,
     comingSoon: true,
     configSchema: [
-      { 
-        name: "tweetId", 
-        label: "Tweet ID to Unlike", 
-        type: "text", 
-        required: true, 
+      {
+        name: "tweetId",
+        label: "Tweet ID to Unlike",
+        type: "text",
+        required: true,
         placeholder: "Enter the ID of the tweet you want to unlike",
         description: "The ID of the tweet you want to remove your like from"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "success",
+        label: "Success",
+        type: "boolean",
+        description: "Whether the unlike was successful"
+      },
+      {
+        name: "tweetId",
+        label: "Tweet ID",
+        type: "string",
+        description: "ID of the tweet that was unliked"
+      },
+      {
+        name: "liked",
+        label: "Liked Status",
+        type: "boolean",
+        description: "Confirmation that the tweet is no longer liked (false)"
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "When the unlike occurred (ISO 8601 format)"
       }
     ]
   },
@@ -515,15 +701,47 @@ export const twitterNodes: NodeComponent[] = [
         placeholder: "Write your message...",
         description: "The text content of your direct message"
       },
-      { 
-        name: "mediaFiles", 
-        label: "Media Attachments", 
-        type: "file", 
-        required: false, 
+      {
+        name: "mediaFiles",
+        label: "Media Attachments",
+        type: "file",
+        required: false,
         accept: "image/*,video/*,.gif",
         maxSize: 5 * 1024 * 1024,
         placeholder: "Upload images, videos, or GIFs",
         description: "Upload media files to include in your DM"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "messageId",
+        label: "Message ID",
+        type: "string",
+        description: "Unique identifier for the sent message"
+      },
+      {
+        name: "recipientId",
+        label: "Recipient ID",
+        type: "string",
+        description: "User ID of the message recipient"
+      },
+      {
+        name: "messageText",
+        label: "Message Text",
+        type: "string",
+        description: "The text content of the message sent"
+      },
+      {
+        name: "sentAt",
+        label: "Sent At",
+        type: "string",
+        description: "Timestamp when the message was sent (ISO 8601 format)"
+      },
+      {
+        name: "hasMedia",
+        label: "Has Media",
+        type: "boolean",
+        description: "Whether the message includes media attachments"
       }
     ]
   },
@@ -538,13 +756,45 @@ export const twitterNodes: NodeComponent[] = [
     isTrigger: false,
     comingSoon: true,
     configSchema: [
-      { 
-        name: "userId", 
-        label: "User ID to Follow", 
-        type: "text", 
-        required: true, 
+      {
+        name: "userId",
+        label: "User ID to Follow",
+        type: "text",
+        required: true,
         placeholder: "Enter the user ID of the person you want to follow",
         description: "The user ID of the person you want to follow"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "success",
+        label: "Success",
+        type: "boolean",
+        description: "Whether the follow was successful"
+      },
+      {
+        name: "userId",
+        label: "User ID",
+        type: "string",
+        description: "ID of the user you followed"
+      },
+      {
+        name: "username",
+        label: "Username",
+        type: "string",
+        description: "Username of the person you followed"
+      },
+      {
+        name: "following",
+        label: "Following Status",
+        type: "boolean",
+        description: "Confirmation that you are now following this user"
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "When the follow occurred (ISO 8601 format)"
       }
     ]
   },
@@ -559,13 +809,45 @@ export const twitterNodes: NodeComponent[] = [
     isTrigger: false,
     comingSoon: true,
     configSchema: [
-      { 
-        name: "userId", 
-        label: "User ID to Unfollow", 
-        type: "text", 
-        required: true, 
+      {
+        name: "userId",
+        label: "User ID to Unfollow",
+        type: "text",
+        required: true,
         placeholder: "Enter the user ID of the person you want to unfollow",
         description: "The user ID of the person you want to unfollow"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "success",
+        label: "Success",
+        type: "boolean",
+        description: "Whether the unfollow was successful"
+      },
+      {
+        name: "userId",
+        label: "User ID",
+        type: "string",
+        description: "ID of the user you unfollowed"
+      },
+      {
+        name: "username",
+        label: "Username",
+        type: "string",
+        description: "Username of the person you unfollowed"
+      },
+      {
+        name: "following",
+        label: "Following Status",
+        type: "boolean",
+        description: "Confirmation that you are no longer following this user (false)"
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "When the unfollow occurred (ISO 8601 format)"
       }
     ]
   },
@@ -623,13 +905,39 @@ export const twitterNodes: NodeComponent[] = [
         placeholder: "Search tweets from this time onwards",
         description: "Only return tweets created after this time"
       },
-      { 
-        name: "endTime", 
-        label: "End Time", 
-        type: "datetime", 
-        required: false, 
+      {
+        name: "endTime",
+        label: "End Time",
+        type: "datetime",
+        required: false,
         placeholder: "Search tweets up to this time",
         description: "Only return tweets created before this time"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "tweets",
+        label: "Tweets",
+        type: "array",
+        description: "Array of tweets matching the search criteria"
+      },
+      {
+        name: "count",
+        label: "Result Count",
+        type: "number",
+        description: "Number of tweets returned"
+      },
+      {
+        name: "query",
+        label: "Search Query",
+        type: "string",
+        description: "The search query that was executed"
+      },
+      {
+        name: "nextToken",
+        label: "Next Page Token",
+        type: "string",
+        description: "Token for fetching the next page of results (if available)"
       }
     ]
   },
@@ -669,13 +977,39 @@ export const twitterNodes: NodeComponent[] = [
         defaultValue: false,
         description: "Exclude retweets from the results"
       },
-      { 
-        name: "excludeReplies", 
-        label: "Exclude Replies", 
-        type: "boolean", 
-        required: false, 
+      {
+        name: "excludeReplies",
+        label: "Exclude Replies",
+        type: "boolean",
+        required: false,
         defaultValue: false,
         description: "Exclude replies from the results"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "tweets",
+        label: "Tweets",
+        type: "array",
+        description: "Array of tweets from the user's timeline"
+      },
+      {
+        name: "count",
+        label: "Tweet Count",
+        type: "number",
+        description: "Number of tweets returned"
+      },
+      {
+        name: "userId",
+        label: "User ID",
+        type: "string",
+        description: "ID of the user whose timeline was fetched"
+      },
+      {
+        name: "nextToken",
+        label: "Next Page Token",
+        type: "string",
+        description: "Token for fetching the next page of results (if available)"
       }
     ]
   },
@@ -707,13 +1041,33 @@ export const twitterNodes: NodeComponent[] = [
         placeholder: "Get mentions from this time onwards",
         description: "Only return mentions created after this time"
       },
-      { 
-        name: "endTime", 
-        label: "End Time", 
-        type: "datetime", 
-        required: false, 
+      {
+        name: "endTime",
+        label: "End Time",
+        type: "datetime",
+        required: false,
         placeholder: "Get mentions up to this time",
         description: "Only return mentions created before this time"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "mentions",
+        label: "Mentions",
+        type: "array",
+        description: "Array of tweets mentioning your account"
+      },
+      {
+        name: "count",
+        label: "Mention Count",
+        type: "number",
+        description: "Number of mentions returned"
+      },
+      {
+        name: "nextToken",
+        label: "Next Page Token",
+        type: "string",
+        description: "Token for fetching the next page of results (if available)"
       }
     ]
   }
