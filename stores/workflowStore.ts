@@ -177,6 +177,8 @@ interface WorkflowState {
   workspaceType: 'personal' | 'team' | 'organization'
   workspaceId: string | null
   currentUserId: string | null
+  // Workspace cache key to prevent stale promise returns
+  lastWorkspaceKey: string | null
 }
 
 interface WorkflowActions {
@@ -194,7 +196,7 @@ interface WorkflowActions {
   invalidateCache: () => void
   setCurrentWorkflow: (workflow: Workflow | null) => void
   setSelectedNode: (node: WorkflowNode | null) => void
-  setWorkspaceContext: (workspaceType: 'personal' | 'team' | 'organization', workspaceId?: string | null) => void
+  setWorkspaceContext: (workspaceType: 'personal' | 'team' | 'organization', workspaceId?: string | null) => Promise<void>
   addNode: (node: WorkflowNode) => void
   updateNode: (nodeId: string, updates: Partial<WorkflowNode>) => void
   removeNode: (nodeId: string) => void
@@ -241,18 +243,40 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
   workspaceType: 'personal',
   workspaceId: null,
   currentUserId: null,
+  lastWorkspaceKey: null,
 
   fetchWorkflows: async (force = false, filterContext?: 'personal' | 'team' | 'organization' | null, workspaceId?: string) => {
     const state = get()
 
-    // If already fetching, return the existing promise to avoid duplicate requests
-    if (state.fetchPromise && state.loadingList) {
-      logger.debug('[WorkflowStore] Already fetching, waiting for existing request')
+    // Create workspace cache key to prevent returning stale promises from different workspaces
+    const effectiveWorkspaceType = filterContext || state.workspaceType
+    const effectiveWorkspaceId = workspaceId || state.workspaceId || undefined
+    const workspaceCacheKey = `${effectiveWorkspaceType}-${effectiveWorkspaceId || 'null'}`
+    const lastKey = state.lastWorkspaceKey
+
+    // If workspace changed, discard old promise
+    if (lastKey !== workspaceCacheKey) {
+      logger.debug('[WorkflowStore] Workspace changed, discarding old fetch promise', {
+        oldKey: lastKey,
+        newKey: workspaceCacheKey
+      })
+      set({ fetchPromise: null })
+    }
+
+    // If already fetching for THIS workspace, return the existing promise
+    if (state.fetchPromise && state.loadingList && !force) {
+      logger.debug('[WorkflowStore] Already fetching for same workspace, waiting for existing request')
       return state.fetchPromise
     }
 
-    // Reduced cache duration to 5 seconds - workflows change frequently
-    const CACHE_DURATION = 5000 // 5 seconds
+    // Force refresh clears the promise
+    if (force) {
+      set({ fetchPromise: null })
+    }
+
+    // Cache duration: 30 seconds for navigation performance
+    // Workflows don't change that frequently during normal usage
+    const CACHE_DURATION = 30000 // 30 seconds
     const timeSinceLastFetch = state.lastFetchTime ? Date.now() - state.lastFetchTime : Infinity
 
     if (!force && timeSinceLastFetch < CACHE_DURATION && state.workflows.length > 0) {
@@ -308,7 +332,8 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
           workflows,
           loadingList: false,
           lastFetchTime: Date.now(),
-          fetchPromise: null
+          fetchPromise: null,
+          lastWorkspaceKey: workspaceCacheKey // Update workspace key after successful fetch
         })
 
       } catch (error: any) {
@@ -637,17 +662,42 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
     set({ selectedNode: node })
   },
 
-  setWorkspaceContext: (workspaceType: 'personal' | 'team' | 'organization', workspaceId?: string | null) => {
+  setWorkspaceContext: async (workspaceType: 'personal' | 'team' | 'organization', workspaceId?: string | null) => {
+    const state = get()
+    const newWorkspaceId = workspaceId || null
+
+    // Check if workspace context is actually changing
+    const contextChanged = state.workspaceType !== workspaceType || state.workspaceId !== newWorkspaceId
+
     logger.debug('[WorkflowStore] Setting workspace context:', {
       workspaceType,
-      workspaceId
+      workspaceId: newWorkspaceId,
+      previousType: state.workspaceType,
+      previousId: state.workspaceId,
+      contextChanged
     });
+
+    // If context hasn't changed, do nothing
+    if (!contextChanged) {
+      logger.debug('[WorkflowStore] Workspace context unchanged, skipping refetch')
+      return
+    }
+
+    // Clear fetch promise to prevent returning stale promises
+    set({ fetchPromise: null })
+
     set({
       workspaceType,
-      workspaceId: workspaceId || null,
+      workspaceId: newWorkspaceId,
+      workflows: [], // Clear existing workflows when switching workspaces
       // Invalidate cache when workspace context changes
-      lastFetchTime: null
+      lastFetchTime: null,
+      lastWorkspaceKey: null // Clear workspace key to force new fetch
     })
+
+    // Refetch workflows for new workspace context (force=true to bypass cache)
+    // Return the promise so callers can await completion if needed
+    return get().fetchWorkflows(true, workspaceType, newWorkspaceId || undefined)
   },
 
   addNode: (node: WorkflowNode) => {

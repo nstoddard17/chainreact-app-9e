@@ -241,10 +241,11 @@ export function OrganizationSwitcher() {
         }
       }))
 
-      toast.success(`Switched to ${org.name}`)
+      // Removed toast notification - it appears in the way of the workspace switcher
       logger.info('[OrganizationSwitcher] Workspace switched successfully (unified view)')
     } catch (error: any) {
       logger.error('[OrganizationSwitcher] Failed to switch workspace:', error)
+      // Keep error toast for actual failures
       toast.error('Failed to switch workspace')
     } finally {
       setSwitching(false)

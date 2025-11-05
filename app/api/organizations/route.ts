@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
-
+import { queryWithTimeout } from '@/lib/utils/fetch-with-timeout'
 import { logger } from '@/lib/utils/logger'
+
+export const dynamic = 'force-dynamic'
+export const maxDuration = 10
 
 export async function GET(request: NextRequest) {
   try {
@@ -67,49 +70,81 @@ export async function GET(request: NextRequest) {
       organizations = orgs || []
     }
 
-    // For each organization, get team count and member count
-    const orgsWithCounts = await Promise.all(
-      organizations.map(async (org: any) => {
-        // Get teams count
-        const { count: teamCount } = await serviceClient
-          .from("teams")
-          .select("id", { count: 'exact', head: true })
-          .eq("organization_id", org.id)
+    // OPTIMIZATION: Batch fetch all data for all orgs in parallel, then merge in memory
+    // This prevents N+1 queries and is much faster
+    const orgIds_array = Array.from(orgIds)
 
-        // Get unique member count across all teams
-        const { data: teamMembers } = await serviceClient
+    const [
+      { data: allTeams },
+      { data: allMembers },
+      { data: userRoles }
+    ] = await Promise.all([
+      // Get all teams for all organizations
+      queryWithTimeout(
+        serviceClient
           .from("teams")
+          .select("id, organization_id")
+          .in("organization_id", orgIds_array),
+        6000
+      ),
+      // Get all team members for all organizations
+      queryWithTimeout(
+        serviceClient
+          .from("team_members")
           .select(`
-            team_members(user_id)
+            user_id,
+            role,
+            team:teams!inner(organization_id)
           `)
-          .eq("organization_id", org.id)
-
-        const uniqueMembers = new Set<string>()
-        teamMembers?.forEach((team: any) => {
-          team.team_members?.forEach((tm: any) => {
-            uniqueMembers.add(tm.user_id)
-          })
-        })
-
-        // Get user's highest role in this organization
-        const { data: userTeamsInOrg } = await serviceClient
-          .from("teams")
+          .in("teams.organization_id", orgIds_array),
+        6000
+      ),
+      // Get user's roles across all teams
+      queryWithTimeout(
+        serviceClient
+          .from("team_members")
           .select(`
-            team_members!inner(role)
+            role,
+            team:teams!inner(organization_id)
           `)
-          .eq("organization_id", org.id)
-          .eq("team_members.user_id", user.id)
+          .eq("user_id", user.id)
+          .in("teams.organization_id", orgIds_array),
+        6000
+      )
+    ])
 
-        const roleHierarchy = { owner: 4, admin: 3, member: 2, viewer: 1 }
-        let highestRole = 'viewer'
-        userTeamsInOrg?.forEach((team: any) => {
-          team.team_members?.forEach((tm: any) => {
-            if ((roleHierarchy[tm.role as keyof typeof roleHierarchy] || 0) > (roleHierarchy[highestRole as keyof typeof roleHierarchy] || 0)) {
-              highestRole = tm.role
-            }
-          })
-        })
+    // Group data by organization_id for fast lookup
+    const teamsByOrg = new Map<string, number>()
+    allTeams?.forEach(team => {
+      teamsByOrg.set(team.organization_id, (teamsByOrg.get(team.organization_id) || 0) + 1)
+    })
 
+    const membersByOrg = new Map<string, Set<string>>()
+    allMembers?.forEach((member: any) => {
+      const orgId = member.team?.organization_id
+      if (orgId) {
+        if (!membersByOrg.has(orgId)) {
+          membersByOrg.set(orgId, new Set())
+        }
+        membersByOrg.get(orgId)!.add(member.user_id)
+      }
+    })
+
+    const roleHierarchy = { owner: 4, admin: 3, member: 2, viewer: 1 }
+    const rolesByOrg = new Map<string, string>()
+    userRoles?.forEach((role: any) => {
+      const orgId = role.team?.organization_id
+      if (orgId) {
+        const current = rolesByOrg.get(orgId) || 'viewer'
+        if ((roleHierarchy[role.role as keyof typeof roleHierarchy] || 0) > (roleHierarchy[current as keyof typeof roleHierarchy] || 0)) {
+          rolesByOrg.set(orgId, role.role)
+        }
+      }
+    })
+
+    // Now map organizations with pre-computed counts
+    const orgsWithCounts = organizations.map((org: any) => {
+        const members = membersByOrg.get(org.id)
         return {
           id: org.id,
           name: org.name,
@@ -122,12 +157,11 @@ export async function GET(request: NextRequest) {
           billing_address: org.billing_address,
           created_at: org.created_at,
           updated_at: org.updated_at,
-          user_role: highestRole,
-          member_count: uniqueMembers.size,
-          team_count: teamCount || 0
+          user_role: rolesByOrg.get(org.id) || 'viewer',
+          member_count: members ? members.size : 0,
+          team_count: teamsByOrg.get(org.id) || 0
         }
       })
-    )
 
     // Add personal workspace if it exists
     const results = []
