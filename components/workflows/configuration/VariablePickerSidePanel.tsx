@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
+import { ProfessionalSearch } from '@/components/ui/professional-search'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
@@ -846,11 +846,12 @@ export function VariablePickerSidePanel({
             </Tooltip>
           </TooltipProvider>
         </div>
-        <Input
+        <ProfessionalSearch
           placeholder="Search variables..."
-          className="h-9 bg-slate-50 border-slate-200 focus:bg-white focus:border-slate-300 placeholder:text-slate-400 text-sm text-slate-900 px-3"
+          className="h-9 text-sm"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
+          onClear={() => setSearchTerm('')}
           autoComplete="off"
           autoCorrect="off"
           autoCapitalize="off"

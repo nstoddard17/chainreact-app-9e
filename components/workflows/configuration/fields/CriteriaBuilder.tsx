@@ -209,49 +209,49 @@ export function CriteriaBuilder({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {paths.map((path, pathIndex) => (
-        <div key={path.id} className="border rounded-lg p-4 space-y-4">
-          {/* Path Header */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 flex-1">
-              {showPathNames && (
+        <div key={path.id} className="space-y-3">
+          {/* Path Name - Only show if multiple paths */}
+          {allowMultiplePaths && (
+            <div className="flex items-center justify-between gap-3">
+              {showPathNames ? (
                 <Input
                   value={path.name}
                   onChange={(e) => updatePathName(path.id, e.target.value)}
-                  className="max-w-[200px] font-medium"
+                  className="font-semibold text-base h-9 max-w-xs"
                   placeholder="Path name"
                 />
+              ) : (
+                <h4 className="font-semibold text-base">{path.name}</h4>
               )}
-              {!showPathNames && (
-                <Label className="font-semibold">{path.name}</Label>
+              {paths.length > 1 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => removePath(path.id)}
+                  className="text-muted-foreground hover:text-destructive"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
               )}
             </div>
-            {allowMultiplePaths && paths.length > 1 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => removePath(path.id)}
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            )}
-          </div>
+          )}
 
           {/* Conditions */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             {path.conditions.map((condition, conditionIndex) => (
               <div key={condition.id} className="space-y-2">
-                {/* Logic Operator (AND/OR) */}
+                {/* AND/OR Separator */}
                 {conditionIndex > 0 && (
-                  <div className="flex items-center gap-2 pl-2">
+                  <div className="flex items-center justify-center py-1">
                     <Select
                       value={path.logicOperator}
                       onValueChange={(value: 'and' | 'or') =>
                         updateLogicOperator(path.id, value)
                       }
                     >
-                      <SelectTrigger className="w-24 h-7 text-xs">
+                      <SelectTrigger className="w-20 h-7 text-xs font-bold">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -262,17 +262,25 @@ export function CriteriaBuilder({
                   </div>
                 )}
 
-                {/* Condition Row */}
+                {/* Condition Row - Reads like: "If [status] [equals] [active]" */}
                 <div className="flex items-center gap-2">
-                  {/* Field Selector */}
+                  {/* "If" label only on first condition */}
+                  {conditionIndex === 0 && (
+                    <span className="text-sm font-medium text-muted-foreground shrink-0">If</span>
+                  )}
+                  {conditionIndex > 0 && (
+                    <span className="w-6"></span>
+                  )}
+
+                  {/* Field */}
                   <Select
                     value={condition.field}
                     onValueChange={(value) =>
                       updateCondition(path.id, condition.id, { field: value })
                     }
                   >
-                    <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Select field..." />
+                    <SelectTrigger className="min-w-[180px]">
+                      <SelectValue placeholder="Choose field..." />
                     </SelectTrigger>
                     <SelectContent>
                       {previousNodeOutputs.length > 0 ? (
@@ -282,19 +290,19 @@ export function CriteriaBuilder({
                           </SelectItem>
                         ))
                       ) : (
-                        <SelectItem value="custom">Custom field</SelectItem>
+                        <SelectItem value="custom">Enter custom field</SelectItem>
                       )}
                     </SelectContent>
                   </Select>
 
-                  {/* Operator Selector */}
+                  {/* Operator */}
                   <Select
                     value={condition.operator}
                     onValueChange={(value) =>
                       updateCondition(path.id, condition.id, { operator: value })
                     }
                   >
-                    <SelectTrigger className="w-[180px]">
+                    <SelectTrigger className="min-w-[160px]">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -306,9 +314,9 @@ export function CriteriaBuilder({
                     </SelectContent>
                   </Select>
 
-                  {/* Value Input */}
+                  {/* Value */}
                   {needsValue(condition.operator) && (
-                    <div className="flex-1 relative">
+                    <div className="flex-1 relative min-w-[180px]">
                       <Input
                         value={condition.value}
                         onChange={(e) =>
@@ -316,9 +324,10 @@ export function CriteriaBuilder({
                             value: e.target.value,
                           })
                         }
-                        placeholder="Value or {{variable}}"
+                        placeholder="Enter value..."
                         className={cn(
-                          condition.isVariable && "bg-blue-50 dark:bg-blue-950"
+                          "pr-9",
+                          condition.isVariable && "bg-blue-50 dark:bg-blue-950 border-blue-300 dark:border-blue-700"
                         )}
                       />
                       <Button
@@ -330,18 +339,23 @@ export function CriteriaBuilder({
                             isVariable: !condition.isVariable,
                           })
                         }
+                        title="Use variable from previous step"
                       >
-                        <Variable className="w-4 h-4" />
+                        <Variable className={cn(
+                          "w-4 h-4",
+                          condition.isVariable && "text-blue-600 dark:text-blue-400"
+                        )} />
                       </Button>
                     </div>
                   )}
 
-                  {/* Remove Condition */}
+                  {/* Delete */}
                   {path.conditions.length > 1 && (
                     <Button
                       variant="ghost"
-                      size="sm"
+                      size="icon"
                       onClick={() => removeCondition(path.id, condition.id)}
+                      className="shrink-0 text-muted-foreground hover:text-destructive"
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
@@ -350,36 +364,41 @@ export function CriteriaBuilder({
               </div>
             ))}
 
-            {/* Add Condition Button */}
+            {/* Add Condition */}
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
               onClick={() => addCondition(path.id)}
-              className="w-full"
+              className="w-full mt-2 text-muted-foreground hover:text-foreground border-dashed border"
             >
               <Plus className="w-4 h-4 mr-2" />
-              Add Condition
+              Add condition
             </Button>
           </div>
+
+          {/* Separator between paths */}
+          {allowMultiplePaths && pathIndex < paths.length - 1 && (
+            <div className="h-px bg-border my-6"></div>
+          )}
         </div>
       ))}
 
-      {/* Add Path Button */}
+      {/* Add Path */}
       {allowMultiplePaths && (
         <Button
           variant="outline"
           onClick={addPath}
-          className="w-full"
+          className="w-full border-dashed"
         >
           <Plus className="w-4 h-4 mr-2" />
-          Add Another Path
+          Add another path
         </Button>
       )}
 
       {/* Else Path Note */}
       {allowMultiplePaths && paths.length > 0 && (
-        <div className="text-sm text-muted-foreground p-3 bg-muted/30 rounded border">
-          <strong>Else Path:</strong> If no conditions match, the workflow will take the default path.
+        <div className="text-sm p-3 bg-muted/50 rounded-md">
+          <span className="font-medium">Else:</span> If none of the above conditions match, the workflow continues on the default path.
         </div>
       )}
     </div>

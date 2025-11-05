@@ -2,13 +2,13 @@
 
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { Eye, Search, ChevronDown, X, Database } from "lucide-react";
+import { ProfessionalSearch } from "@/components/ui/professional-search";
+import { Eye, ChevronDown, X, Database } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { filterRecordsbySearch } from "../../utils/helpers";
 
 interface MicrosoftExcelDataPreviewProps {
@@ -148,14 +148,12 @@ export function MicrosoftExcelDataPreview({
           <>
             {/* Search and Display Controls */}
             <div className="flex gap-2 mb-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  type="text"
+              <div className="flex-1">
+                <ProfessionalSearch
                   placeholder="Search across all columns..."
                   value={tableSearchQuery}
                   onChange={(e) => onSearchChange(e.target.value)}
-                  className="pl-10"
+                  onClear={() => onSearchChange('')}
                 />
               </div>
               <Button

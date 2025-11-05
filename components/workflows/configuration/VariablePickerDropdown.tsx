@@ -16,7 +16,7 @@
 
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Input } from '@/components/ui/input'
+import { ProfessionalSearch } from '@/components/ui/professional-search'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
@@ -243,17 +243,13 @@ export function VariablePickerDropdown({
         <div className="flex flex-col h-full max-h-96">
           {/* Search Header */}
           <div className="p-3 border-b">
-            <div className="relative">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                ref={searchInputRef}
-                type="text"
-                placeholder="Search variables..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8"
-              />
-            </div>
+            <ProfessionalSearch
+              ref={searchInputRef}
+              placeholder="Search variables..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onClear={() => setSearchTerm('')}
+            />
             <p className="text-xs text-muted-foreground mt-2">
               {filteredVariables.length} variable{filteredVariables.length !== 1 ? 's' : ''} available
             </p>

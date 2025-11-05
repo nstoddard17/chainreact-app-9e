@@ -14,7 +14,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
+import { ProfessionalSearch } from "@/components/ui/professional-search"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { INTEGRATION_CONFIGS, type IntegrationConfig } from "@/lib/integrations/availableIntegrations"
 import { Zap, CheckCircle2, AlertTriangle, XCircle } from "lucide-react"
@@ -853,13 +853,12 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
                   style={{ display: 'none' }}
                   tabIndex={-1}
                 />
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
-                <Input
-                  type="search"
+                <ProfessionalSearch
                   placeholder="Search integrations..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 sm:pl-10 w-full h-9 sm:h-11 text-sm sm:text-base"
+                  onClear={() => setSearchQuery('')}
+                  className="w-full h-9 sm:h-11 text-sm sm:text-base"
                   autoComplete="off"
                   name="integration-search"
                   autoCorrect="off"

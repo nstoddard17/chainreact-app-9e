@@ -1,23 +1,24 @@
 "use client"
 
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Globe, ChevronLeft } from 'lucide-react';
+import { Globe } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { KeyValuePairs, KeyValuePair } from '../../fields/KeyValuePairs';
 import { VariablePicker } from '../../../VariablePicker';
+import { ConfigurationContainer } from '../../components/ConfigurationContainer';
 
 interface HttpRequestConfigurationProps {
   values: Record<string, any>;
   errors: Record<string, string>;
   setValue: (name: string, value: any) => void;
-  handleSubmit: (e: React.FormEvent) => void;
+  onSubmit: (values: Record<string, any>) => Promise<void>;
   isLoading: boolean;
   onCancel: () => void;
+  onBack?: () => void;
   nodeInfo: any;
   isEditMode?: boolean;
   availableVariables?: any[];
@@ -27,9 +28,10 @@ export function HttpRequestConfiguration({
   values,
   errors,
   setValue,
-  handleSubmit,
+  onSubmit,
   isLoading,
   onCancel,
+  onBack,
   nodeInfo,
   isEditMode = false,
   availableVariables = []
@@ -50,7 +52,24 @@ export function HttpRequestConfiguration({
     }
   }, []);
 
-  const handleSave = (e: React.FormEvent) => {
+  // Compute form validity
+  const isFormValid = React.useMemo(() => {
+    if (!values.url) return false;
+
+    try {
+      new URL(values.url.startsWith('http') ? values.url : `https://${values.url}`);
+    } catch (err) {
+      return false;
+    }
+
+    if (values.authType === 'bearer' && !values.bearerToken) return false;
+    if (values.authType === 'basic' && (!values.basicUsername || !values.basicPassword)) return false;
+    if (values.authType === 'apikey' && (!values.apiKeyHeader || !values.apiKeyValue)) return false;
+
+    return true;
+  }, [values.url, values.authType, values.bearerToken, values.basicUsername, values.basicPassword, values.apiKeyHeader, values.apiKeyValue]);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validate required fields
@@ -81,26 +100,32 @@ export function HttpRequestConfiguration({
       return;
     }
 
-    handleSubmit(e);
+    await onSubmit(values);
   };
 
   const methodsWithBody = ['POST', 'PUT', 'PATCH'];
   const showBodyField = methodsWithBody.includes(values.method);
 
   return (
-    <form onSubmit={handleSave} className="flex flex-col h-full">
-      <div className="flex-1 px-8 py-5 overflow-y-auto overflow-x-hidden">
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <Globe className="w-5 h-5" />
-              HTTP Request
-            </h3>
-            <p className="text-sm text-muted-foreground mt-1">
-              Send data to any custom API endpoint
-            </p>
-          </div>
+    <ConfigurationContainer
+      onSubmit={handleSave}
+      onCancel={onCancel}
+      onBack={onBack}
+      isEditMode={isEditMode}
+      isFormValid={isFormValid}
+      submitLabel={`${isEditMode ? 'Update' : 'Save'} Request`}
+    >
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold flex items-center gap-2">
+          <Globe className="w-5 h-5" />
+          HTTP Request
+        </h3>
+        <p className="text-sm text-muted-foreground mt-1">
+          Send data to any custom API endpoint
+        </p>
+      </div>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-3 mb-6">
               <TabsTrigger value="request">Request</TabsTrigger>
               <TabsTrigger value="auth">Authentication</TabsTrigger>
@@ -385,21 +410,6 @@ export function HttpRequestConfiguration({
               </div>
             </TabsContent>
           </Tabs>
-        </div>
-
-      <div className="border-t border-border px-8 py-4">
-        <div className="flex justify-between items-center">
-          <div>
-            <Button type="button" variant="outline" onClick={onCancel}>
-              <ChevronLeft className="w-4 h-4 mr-1" />
-              Cancel
-            </Button>
-          </div>
-          <Button type="submit" disabled={isLoading}>
-            {isEditMode ? 'Update' : 'Save'} Request
-          </Button>
-        </div>
-      </div>
-    </form>
+    </ConfigurationContainer>
   );
 }

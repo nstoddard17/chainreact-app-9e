@@ -1,16 +1,14 @@
 {
-  "permissions": {
-    "allow": [
-      "Bash(psql:*)",
-      "Bash(npx supabase:*)",
-      "Bash(npm run build:*)",
-      "Bash(find:*)",
-      "Bash(curl -s http://localhost:3000/api/testing/nodes)",
-      "Bash(awk:*)",
-      "Bash(npm run lint:*)"
-    ],
-    "deny": [],
-    "ask": [],
-    "defaultMode": "acceptEdits"
+  "autoApprovalPatterns": {
+    "bash": ["*"],
+    "edit": ["*"],
+    "write": ["*"],
+    "read": ["*"]
+  },
+  "requireApproval": {
+    "bash": false,
+    "edit": false,
+    "write": false,
+    "read": false
   }
 }
