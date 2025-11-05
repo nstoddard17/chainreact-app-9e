@@ -44,7 +44,9 @@ import {
   Shield,
   User as UserIcon,
   RefreshCw,
-  Mail
+  Mail,
+  Grid3x3,
+  List
 } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 import { useToast } from "@/hooks/use-toast"
@@ -73,7 +75,11 @@ interface TeamMember {
   }
 }
 
-export function TeamContent() {
+interface TeamContentProps {
+  organizationId?: string | null
+}
+
+export function TeamContent({ organizationId: propOrgId }: TeamContentProps = {}) {
   const router = useRouter()
   const { user } = useAuthStore()
   const [teams, setTeams] = useState<Team[]>([])
@@ -85,16 +91,17 @@ export function TeamContent() {
   const [newTeam, setNewTeam] = useState({ name: '', description: '' })
   const [editTeamData, setEditTeamData] = useState({ name: '', description: '' })
   const [currentOrgId, setCurrentOrgId] = useState<string | null>(null)
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const { toast } = useToast()
 
   useEffect(() => {
     if (user) {
-      // Get current organization from localStorage
-      const orgId = localStorage.getItem('current_workspace_id')
+      // Use prop first, then fall back to localStorage
+      const orgId = propOrgId || localStorage.getItem('current_workspace_id')
       setCurrentOrgId(orgId)
       fetchTeams(orgId)
     }
-  }, [user])
+  }, [user, propOrgId])
 
   // Listen for organization changes
   useEffect(() => {
@@ -113,18 +120,18 @@ export function TeamContent() {
   const fetchTeams = async (organizationId?: string | null) => {
     setLoading(true)
     try {
+      // Use organization-specific endpoint if org ID is provided
       const url = organizationId
-        ? `/api/teams?organization_id=${organizationId}`
+        ? `/api/organizations/${organizationId}/teams`
         : '/api/teams'
       const response = await fetch(url)
-      const data = await response.json()
-      if (data.success !== undefined) {
-        // Old API format
-        setTeams(data.teams || [])
-      } else {
-        // New API format
-        setTeams(data.teams || [])
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch teams: ${response.status}`)
       }
+
+      const data = await response.json()
+      setTeams(data.teams || [])
     } catch (error) {
       logger.error('Failed to fetch teams:', error)
       toast({
@@ -336,10 +343,33 @@ export function TeamContent() {
             Collaborate with your team by sharing workflows and resources
           </p>
         </div>
-        <Button onClick={() => setCreateDialog(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Create Team
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* View Mode Toggle */}
+          {teams.length > 0 && (
+            <div className="flex items-center border rounded-lg p-1">
+              <Button
+                variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('grid')}
+                className="h-8 px-3"
+              >
+                <Grid3x3 className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+                className="h-8 px-3"
+              >
+                <List className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
+          <Button onClick={() => setCreateDialog(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Create Team
+          </Button>
+        </div>
       </div>
 
       {/* Teams List */}
@@ -361,7 +391,7 @@ export function TeamContent() {
             Create Your First Team
           </Button>
         </div>
-      ) : (
+      ) : viewMode === 'grid' ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {teams.map((team) => {
             const role = getUserRole(team)
@@ -441,12 +471,104 @@ export function TeamContent() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="mt-4 w-full"
+                  className="mt-4 w-full dark:hover:!bg-white dark:hover:!text-black"
                   onClick={() => handleOpenMembersDialog(team)}
                 >
                   <Users className="w-4 h-4 mr-2" />
                   View Members
                 </Button>
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {teams.map((team) => {
+            const role = getUserRole(team)
+            const memberCount = team.team_members?.length || 0
+
+            return (
+              <div
+                key={team.id}
+                className="group relative flex items-center justify-between p-4 border rounded-xl hover:bg-accent/50 transition-all"
+              >
+                <div className="flex items-center gap-4 flex-1">
+                  {/* Icon */}
+                  <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <Users className="w-6 h-6 text-primary" />
+                  </div>
+
+                  {/* Team Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-semibold text-base">{team.name}</h3>
+                      {role && getRoleBadge(role)}
+                    </div>
+                    {team.description && (
+                      <p className="text-sm text-muted-foreground line-clamp-1">
+                        {team.description}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Stats */}
+                  <div className="flex items-center gap-8">
+                    <div className="text-center">
+                      <p className="text-sm text-muted-foreground">Members</p>
+                      <p className="text-lg font-semibold">{memberCount}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm text-muted-foreground">Created</p>
+                      <p className="text-sm font-medium">{formatDate(team.created_at)}</p>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleOpenMembersDialog(team)}
+                      className="dark:hover:!bg-white dark:hover:!text-black"
+                    >
+                      <Users className="w-4 h-4 mr-2" />
+                      View Members
+                    </Button>
+
+                    {canManageTeam(team) && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setEditTeamData({ name: team.name, description: team.description || '' })
+                              setEditDialog({ open: true, team })
+                            }}
+                          >
+                            <Edit className="w-4 h-4 mr-2" />
+                            Edit Team
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleOpenMembersDialog(team)}>
+                            <UserPlus className="w-4 h-4 mr-2" />
+                            Manage Members
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => setDeleteDialog({ open: true, team })}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete Team
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </div>
+                </div>
               </div>
             )
           })}

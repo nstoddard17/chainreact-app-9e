@@ -101,13 +101,16 @@ export function OrganizationSettingsContent() {
   // Fetch current organization
   useEffect(() => {
     if (user) {
-      const orgId = localStorage.getItem('current_workspace_id')
+      // First check URL query parameter, fall back to localStorage
+      const orgIdFromUrl = searchParams.get('org')
+      const orgId = orgIdFromUrl || localStorage.getItem('current_workspace_id')
+
       if (orgId) {
         fetchOrganization(orgId)
         fetchMembers(orgId)
       }
     }
-  }, [user])
+  }, [user, searchParams])
 
   // Listen for organization changes
   useEffect(() => {
@@ -149,7 +152,12 @@ export function OrganizationSettingsContent() {
     try {
       // Fetch teams in the organization
       const teamsResponse = await fetch(`/api/organizations/${orgId}/teams`)
-      if (!teamsResponse.ok) throw new Error('Failed to fetch teams')
+      if (!teamsResponse.ok) {
+        console.error('Failed to fetch teams:', teamsResponse.status)
+        // Don't throw - just set empty members list
+        setMembers([])
+        return
+      }
 
       const teamsData = await teamsResponse.json()
       const teams = teamsData.teams || []
@@ -179,7 +187,8 @@ export function OrganizationSettingsContent() {
       setMembers(Array.from(memberMap.values()))
     } catch (error) {
       console.error('Error fetching members:', error)
-      toast.error('Failed to load members')
+      // Set empty members list on error to prevent page from breaking
+      setMembers([])
     }
   }
 
@@ -463,7 +472,7 @@ export function OrganizationSettingsContent() {
 
         {/* Teams Tab */}
         <TabsContent value="teams" className="space-y-6">
-          <TeamContent />
+          <TeamContent organizationId={organization.id} />
         </TabsContent>
 
         {/* Members Tab */}
