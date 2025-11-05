@@ -42,10 +42,10 @@ export const saveNodeConfig = async (
       throw new Error('User not authenticated');
     }
 
-    // Get the current workflow
+    // Get the current workflow with updated_at for optimistic locking
     const { data: workflow, error: workflowError } = await supabase
       .from('workflows')
-      .select('nodes')
+      .select('nodes, updated_at')
       .eq('id', workflowId)
       .eq('user_id', user.id)
       .single()
@@ -55,10 +55,13 @@ export const saveNodeConfig = async (
       throw new Error('Workflow not found');
     }
 
+    // Store the original updated_at timestamp for optimistic locking
+    const originalUpdatedAt = workflow.updated_at
+
     // Update the specific node's data with saved configuration
     const nodes = workflow.nodes || []
     const nodeIndex = nodes.findIndex((n: any) => n.id === nodeId)
-    
+
     if (nodeIndex === -1) {
       logger.warn(`⚠️ [ConfigPersistence] Node ${nodeId} not found in workflow ${workflowId} - it may be pending save`);
       // Don't throw an error - the node might be pending save
@@ -86,14 +89,22 @@ export const saveNodeConfig = async (
       }
     }
 
-    // Save back to Supabase
+    // Save back to Supabase with optimistic locking
+    // Only update if updated_at matches the original value
     const { error: updateError } = await supabase
       .from('workflows')
       .update({ nodes })
       .eq('id', workflowId)
       .eq('user_id', user.id)
+      .eq('updated_at', originalUpdatedAt) // Optimistic lock - only update if unchanged
 
     if (updateError) {
+      // Check if this is a concurrent modification error (updated_at changed)
+      if (updateError.code === '0' || updateError.message?.includes('0 rows')) {
+        logger.warn(`⚠️ [ConfigPersistence] Concurrent modification detected for workflow ${workflowId}, retrying...`);
+        // Retry the save operation once
+        return saveNodeConfig(workflowId, nodeId, nodeType, config, dynamicOptions);
+      }
       logger.error(`❌ [ConfigPersistence] Failed to update workflow for node ${nodeId}:`, updateError);
       throw updateError;
     }

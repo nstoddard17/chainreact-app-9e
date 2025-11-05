@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { logger } from '@/lib/utils/logger'
+import { useIntegrationStore } from '@/stores/integrationStore'
+import { useWorkflowStore } from '@/stores/workflowStore'
 
 export interface WorkspaceContext {
   type: 'personal' | 'team' | 'organization'
@@ -59,6 +61,40 @@ export function useWorkspaceContext() {
       }
     }
   })
+
+  // Sync localStorage workspace to stores on mount
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    try {
+      const storedId = localStorage.getItem('current_workspace_id')
+      const storedType = localStorage.getItem('current_workspace_type') as 'personal' | 'team' | 'organization' | null
+
+      if (storedType) {
+        // Sync to integration store
+        const integrationStore = useIntegrationStore.getState()
+        if (integrationStore.workspaceType !== storedType || integrationStore.workspaceId !== storedId) {
+          logger.debug('[useWorkspaceContext] Syncing localStorage workspace to integrationStore', {
+            type: storedType,
+            id: storedId
+          })
+          integrationStore.setWorkspaceContext(storedType, storedId)
+        }
+
+        // Sync to workflow store
+        const workflowStore = useWorkflowStore.getState()
+        if (workflowStore.workspaceType !== storedType || workflowStore.workspaceId !== storedId) {
+          logger.debug('[useWorkspaceContext] Syncing localStorage workspace to workflowStore', {
+            type: storedType,
+            id: storedId
+          })
+          workflowStore.setWorkspaceContext(storedType, storedId)
+        }
+      }
+    } catch (error) {
+      logger.error('[useWorkspaceContext] Error syncing workspace to stores:', error)
+    }
+  }, []) // Run once on mount
 
   // Listen for organization-changed events from OrganizationSwitcher
   useEffect(() => {

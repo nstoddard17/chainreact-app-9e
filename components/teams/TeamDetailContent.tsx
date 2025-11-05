@@ -82,9 +82,9 @@ export default function TeamDetailContent({ team }: TeamDetailContentProps) {
       // Switch to this team's workspace
       setWorkspaceContext('team', team.id)
 
-      // Fetch team data
+      // Fetch team data (no force needed - workspace context change will trigger fetch)
       await Promise.all([
-        fetchWorkflows(true, 'team', team.id), // Pass team context and ID
+        fetchWorkflows(false, 'team', team.id), // Don't force - let cache work
         fetchIntegrations(true),
         fetchMemberCount()
       ])
