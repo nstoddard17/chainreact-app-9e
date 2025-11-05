@@ -86,9 +86,27 @@ export async function GET(request: NextRequest) {
     const expiresIn = tokenData.expires_in
     const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
 
+    // Fetch user info for account display
+    let userEmail = null
+    let userName = null
+    try {
+      const meResponse = await fetch(
+        `https://graph.facebook.com/v19.0/me?fields=email,name&access_token=${tokenData.access_token}`
+      )
+      if (meResponse.ok) {
+        const meData = await meResponse.json()
+        userEmail = meData.email || null
+        userName = meData.name || null
+      }
+    } catch (e) {
+      logger.warn('Failed to fetch Facebook user info:', e)
+    }
+
     const integrationData = {
       user_id: userId,
       provider: provider,
+      email: userEmail,
+      account_name: userName,
       access_token: tokenData.access_token,
       refresh_token: tokenData.refresh_token,
       expires_at: expiresAt ? expiresAt.toISOString() : null,

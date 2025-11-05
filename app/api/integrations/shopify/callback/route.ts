@@ -61,6 +61,25 @@ export async function GET(request: NextRequest) {
     const expiresIn = tokenData.expires_in
     const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
 
+    // Fetch shop information
+    let shopInfo = null
+    let shopEmail = null
+    try {
+      const shopResponse = await fetch(`https://${shop}/admin/api/2024-01/shop.json`, {
+        headers: {
+          'X-Shopify-Access-Token': tokenData.access_token
+        }
+      })
+
+      if (shopResponse.ok) {
+        const shopData = await shopResponse.json()
+        shopInfo = shopData.shop
+        shopEmail = shopInfo?.email || null
+      }
+    } catch (shopError) {
+      logger.error('Failed to fetch Shopify shop info:', shopError)
+    }
+
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -75,8 +94,12 @@ export async function GET(request: NextRequest) {
       status: 'connected',
       expires_at: expiresAt ? expiresAt.toISOString() : null,
       updated_at: new Date().toISOString(),
+      email: shopEmail || null,
+      username: shop || null,
+      account_name: shopInfo?.name || shop || null,
       metadata: {
         shop: shop,
+        shop_info: shopInfo
       },
     }
 

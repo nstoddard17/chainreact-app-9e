@@ -30,7 +30,10 @@
       "Bash(ls:*)",
       "Bash(do echo -n \"$dir: \")",
       "Bash(cat:*)",
-      "Bash(bash:*)"
+      "Bash(bash:*)",
+      "Bash(awk:*)",
+      "Bash(for file in /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/app/api/integrations/{gmail,slack,discord,notion,trello,hubspot,stripe,google-sheets,google-calendar}/callback/route.ts)",
+      "Bash(do if [ -f \"$file\" ])"
     ]
   },
   "autoApprovalPatterns": {

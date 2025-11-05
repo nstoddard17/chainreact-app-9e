@@ -274,12 +274,16 @@ async function saveIntegration(
 
   // Store provider-specific data in metadata JSONB column
   // Common fields that can be top-level: team_id, team_name (for Slack)
-  // Account identification fields go in metadata: email, account_name, etc.
+  // Account identification fields: email, username, account_name (for ServiceConnectionSelector display)
   if (additionalData) {
     // Extract top-level fields that have actual columns
-    const topLevelFields = ['team_id', 'team_name', 'app_id', 'authed_user_id',
-                           'token_type', 'bot_scopes', 'user_scopes', 'has_user_token',
-                           'user_token', 'user_refresh_token']
+    const topLevelFields = [
+      'team_id', 'team_name', 'app_id', 'authed_user_id',
+      'token_type', 'bot_scopes', 'user_scopes', 'has_user_token',
+      'user_token', 'user_refresh_token',
+      // Account display fields for ServiceConnectionSelector
+      'email', 'username', 'account_name'
+    ]
 
     const metadata: Record<string, any> = {}
     const topLevel: Record<string, any> = {}
@@ -288,7 +292,7 @@ async function saveIntegration(
       if (topLevelFields.includes(key)) {
         topLevel[key] = value
       } else {
-        // Store account info in metadata (email, account_name, google_id, picture, etc.)
+        // Store other fields in metadata (google_id, picture, etc.)
         metadata[key] = value
       }
     }

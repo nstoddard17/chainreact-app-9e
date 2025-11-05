@@ -29,6 +29,24 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    // Fetch user information from Trello
+    let userInfo = null
+    let email = null
+    let username = null
+    let fullName = null
+
+    try {
+      const memberResponse = await fetch(`https://api.trello.com/1/members/me?key=${key}&token=${token}`)
+      if (memberResponse.ok) {
+        userInfo = await memberResponse.json()
+        email = userInfo.email || null
+        username = userInfo.username || null
+        fullName = userInfo.fullName || null
+      }
+    } catch (memberError) {
+      logger.warn('Failed to fetch Trello member info:', memberError)
+    }
+
     // Persist Trello integration (store token and metadata keyed by provider)
     const { error } = await supabase
       .from('integrations')
@@ -39,9 +57,13 @@ export async function GET(req: NextRequest) {
         access_token: token,
         status: 'connected',
         updated_at: new Date().toISOString(),
+        email: email || null,
+        username: username || null,
+        account_name: fullName || username || null,
         metadata: {
           client_key: key || null,
           connected_at: new Date().toISOString(),
+          user_info: userInfo
         },
       }, { onConflict: 'user_id, provider' })
 

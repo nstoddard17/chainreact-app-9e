@@ -123,7 +123,17 @@ export const shopifyNodes: NodeComponent[] = [
     isTrigger: true,
     producesOutput: true,
     requiredScopes: ["read_customers"],
-    configSchema: [],
+    configSchema: [
+      {
+        name: "notificationOnly",
+        label: "Trigger Configuration",
+        type: "select",
+        required: false,
+        options: [{ value: "all", label: "Trigger for all new customers" }],
+        defaultValue: "all",
+        description: "This trigger will fire whenever a new customer is created in your Shopify store"
+      }
+    ],
     outputSchema: [
       { name: "customer_id", label: "Customer ID", type: "string", description: "Unique identifier for the customer" },
       { name: "email", label: "Email", type: "string", description: "Customer's email address" },

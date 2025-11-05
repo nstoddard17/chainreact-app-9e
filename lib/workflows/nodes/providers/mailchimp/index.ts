@@ -57,6 +57,18 @@ export const mailchimpNodes: NodeComponent[] = [
     category: "Email",
     isTrigger: true,
     producesOutput: true,
+    configSchema: [
+      {
+        name: "audienceId",
+        label: "Audience",
+        type: "combobox",
+        required: true,
+        dynamic: "mailchimp_audiences",
+        loadOnMount: true,
+        placeholder: "Select an audience",
+        description: "Choose which Mailchimp audience to monitor for new subscribers"
+      }
+    ],
     outputSchema: [
       {
         name: "email",
@@ -123,6 +135,18 @@ export const mailchimpNodes: NodeComponent[] = [
     category: "Email",
     isTrigger: true,
     producesOutput: true,
+    configSchema: [
+      {
+        name: "campaignId",
+        label: "Campaign (Optional)",
+        type: "combobox",
+        required: false,
+        dynamic: "mailchimp_campaigns",
+        loadOnMount: true,
+        placeholder: "All campaigns",
+        description: "Monitor a specific campaign, or leave empty to monitor all campaigns"
+      }
+    ],
     outputSchema: [
       {
         name: "email",

@@ -146,6 +146,9 @@ export async function GET(request: NextRequest) {
       status: 'connected',
       is_active: true,
       updated_at: new Date().toISOString(),
+      email: (profileData as any).email || null,
+      username: (profileData as any).user_id || null,
+      account_name: (profileData as any).name || null,
       metadata: {
         profile: profileData,
         token_type: tokenData.token_type

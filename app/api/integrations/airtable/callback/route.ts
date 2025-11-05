@@ -139,6 +139,7 @@ export async function GET(request: NextRequest) {
       user_id: userId,
       provider: "airtable",
       provider_user_id: userData.id,
+      email: userData.email || null, // Save email for account display
       access_token: encrypt(tokenData.access_token, encryptionKey),
       refresh_token: tokenData.refresh_token ? encrypt(tokenData.refresh_token, encryptionKey) : null,
       expires_at: expiresAt ? expiresAt.toISOString() : null,

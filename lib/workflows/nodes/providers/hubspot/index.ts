@@ -21,7 +21,18 @@ const hubspotTriggerContactCreated: NodeComponent = {
   category: "CRM",
   isTrigger: true,
   producesOutput: true,
-  configSchema: [],
+  configSchema: [
+    {
+      name: "filterByOwner",
+      label: "Filter by Owner (Optional)",
+      type: "combobox",
+      required: false,
+      dynamic: "hubspot_owners",
+      loadOnMount: true,
+      placeholder: "All contacts",
+      description: "Only trigger for contacts assigned to a specific owner"
+    }
+  ],
   outputSchema: [
     {
       name: "contactId",
@@ -184,7 +195,17 @@ const hubspotTriggerContactDeleted: NodeComponent = {
   category: "CRM",
   isTrigger: true,
   producesOutput: true,
-  configSchema: [],
+  configSchema: [
+    {
+      name: "notificationOnly",
+      label: "Trigger Configuration",
+      type: "select",
+      required: false,
+      options: [{ value: "all", label: "Trigger for all deleted contacts" }],
+      defaultValue: "all",
+      description: "This trigger will fire whenever any contact is deleted in HubSpot"
+    }
+  ],
   outputSchema: [
     {
       name: "contactId",
@@ -234,7 +255,18 @@ const hubspotTriggerCompanyCreated: NodeComponent = {
   category: "CRM",
   isTrigger: true,
   producesOutput: true,
-  configSchema: [],
+  configSchema: [
+    {
+      name: "filterByOwner",
+      label: "Filter by Owner (Optional)",
+      type: "combobox",
+      required: false,
+      dynamic: "hubspot_owners",
+      loadOnMount: true,
+      placeholder: "All companies",
+      description: "Only trigger for companies assigned to a specific owner"
+    }
+  ],
   outputSchema: [
     {
       name: "companyId",
@@ -391,7 +423,18 @@ const hubspotTriggerCompanyDeleted: NodeComponent = {
   category: "CRM",
   isTrigger: true,
   producesOutput: true,
-  configSchema: [],
+  configSchema: [
+    {
+      name: "filterByOwner",
+      label: "Filter by Owner (Optional)",
+      type: "combobox",
+      required: false,
+      dynamic: "hubspot_owners",
+      loadOnMount: true,
+      placeholder: "All companies",
+      description: "Only trigger for companies assigned to a specific owner"
+    }
+  ],
   outputSchema: [
     {
       name: "companyId",
@@ -435,7 +478,18 @@ const hubspotTriggerDealCreated: NodeComponent = {
   category: "CRM",
   isTrigger: true,
   producesOutput: true,
-  configSchema: [],
+  configSchema: [
+    {
+      name: "filterByPipeline",
+      label: "Filter by Pipeline (Optional)",
+      type: "combobox",
+      required: false,
+      dynamic: "hubspot_pipelines",
+      loadOnMount: true,
+      placeholder: "All pipelines",
+      description: "Only trigger for deals in a specific pipeline"
+    }
+  ],
   outputSchema: [
     {
       name: "dealId",
@@ -604,7 +658,18 @@ const hubspotTriggerDealDeleted: NodeComponent = {
   category: "CRM",
   isTrigger: true,
   producesOutput: true,
-  configSchema: [],
+  configSchema: [
+    {
+      name: "filterByPipeline",
+      label: "Filter by Pipeline (Optional)",
+      type: "combobox",
+      required: false,
+      dynamic: "hubspot_pipelines",
+      loadOnMount: true,
+      placeholder: "All pipelines",
+      description: "Only trigger for deals in a specific pipeline"
+    }
+  ],
   outputSchema: [
     {
       name: "dealId",

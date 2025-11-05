@@ -13,6 +13,86 @@ export const githubNodes: NodeComponent[] = [
     providerId: "github",
     category: "Development",
     isTrigger: true,
+    producesOutput: true,
+    requiredScopes: ["repo"],
+    configSchema: [
+      {
+        name: "repository",
+        label: "Repository",
+        type: "combobox",
+        required: true,
+        dynamic: "github_repositories",
+        loadOnMount: true,
+        placeholder: "Select a repository",
+        description: "Choose which repository to monitor for commits"
+      },
+      {
+        name: "branch",
+        label: "Branch",
+        type: "combobox",
+        required: false,
+        dynamic: "github_branches",
+        dependsOn: "repository",
+        placeholder: "All branches",
+        description: "Monitor a specific branch, or leave empty to monitor all branches"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "commitId",
+        label: "Commit ID",
+        type: "string",
+        description: "Unique identifier (SHA) for the commit"
+      },
+      {
+        name: "commitMessage",
+        label: "Commit Message",
+        type: "string",
+        description: "The commit message"
+      },
+      {
+        name: "authorName",
+        label: "Author Name",
+        type: "string",
+        description: "Name of the person who wrote the commit"
+      },
+      {
+        name: "authorEmail",
+        label: "Author Email",
+        type: "string",
+        description: "Email of the commit author"
+      },
+      {
+        name: "branch",
+        label: "Branch",
+        type: "string",
+        description: "The branch where the commit was pushed"
+      },
+      {
+        name: "repository",
+        label: "Repository",
+        type: "string",
+        description: "Full name of the repository (owner/repo)"
+      },
+      {
+        name: "commitUrl",
+        label: "Commit URL",
+        type: "string",
+        description: "Direct URL to view the commit on GitHub"
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "ISO timestamp when the commit was made"
+      },
+      {
+        name: "filesChanged",
+        label: "Files Changed",
+        type: "array",
+        description: "List of files modified in this commit"
+      }
+    ]
   },
   {
     type: "github_action_create_issue",

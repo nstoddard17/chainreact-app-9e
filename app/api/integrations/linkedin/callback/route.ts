@@ -110,6 +110,26 @@ export async function GET(request: NextRequest) {
     }
 
     const profileData = profileResponse.ok ? await profileResponse.json() : {}
+
+    // Fetch email address
+    let emailAddress = null
+    try {
+      const emailResponse = await fetch('https://api.linkedin.com/v2/emailAddress?q=members&projection=(elements*(handle~))', {
+        headers: {
+          Authorization: `Bearer ${tokenData.access_token}`,
+        },
+      })
+
+      if (emailResponse.ok) {
+        const emailData = await emailResponse.json()
+        if (emailData.elements && emailData.elements.length > 0) {
+          emailAddress = emailData.elements[0]['handle~']?.emailAddress
+        }
+      }
+    } catch (emailError) {
+      logger.warn('Failed to fetch LinkedIn email:', emailError)
+    }
+
     const encryptionKey = process.env.ENCRYPTION_KEY
 
     if (!encryptionKey) {
@@ -128,9 +148,16 @@ export async function GET(request: NextRequest) {
       is_active: true,
       scopes: tokenData.scope ? tokenData.scope.split(' ') : [],
       updated_at: new Date().toISOString(),
+      email: emailAddress || null,
+      username: profileData.localizedFirstName && profileData.localizedLastName
+        ? `${profileData.localizedFirstName} ${profileData.localizedLastName}`
+        : null,
+      account_name: profileData.localizedFirstName && profileData.localizedLastName
+        ? `${profileData.localizedFirstName} ${profileData.localizedLastName}`
+        : null,
       metadata: {
         profile_id: profileData.id,
-        name: profileData.localizedFirstName && profileData.localizedLastName 
+        name: profileData.localizedFirstName && profileData.localizedLastName
           ? `${profileData.localizedFirstName} ${profileData.localizedLastName}`
           : undefined
       }

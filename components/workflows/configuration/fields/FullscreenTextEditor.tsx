@@ -328,7 +328,7 @@ export function FullscreenTextArea({
           </div>
         )}
       </div>
-      
+
       <FullscreenTextEditor
         value={value}
         onChange={onChange}
