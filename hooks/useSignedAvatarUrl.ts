@@ -6,17 +6,32 @@ const urlCache = new Map<string, {
   expiresAt: number
 }>()
 
+// Negative cache for failed URLs (prevents infinite retries)
+const failureCache = new Map<string, {
+  timestamp: number
+  error: string
+}>()
+
 // In-flight request tracker to prevent duplicate requests
 const inflightRequests = new Map<string, Promise<string>>()
 
 // Cache duration: 55 minutes (signed URLs expire after 60 minutes, we refresh at 55)
 const CACHE_DURATION_MS = 55 * 60 * 1000
 
+// Failure cache duration: 1 hour (retry after this time)
+const FAILURE_CACHE_DURATION_MS = 60 * 60 * 1000
+
 async function fetchSignedUrl(avatarUrl: string): Promise<string> {
-  // Check cache first
+  // Check success cache first
   const cached = urlCache.get(avatarUrl)
   if (cached && cached.expiresAt > Date.now()) {
     return cached.signedUrl
+  }
+
+  // Check failure cache - don't retry recently failed URLs
+  const failedEntry = failureCache.get(avatarUrl)
+  if (failedEntry && Date.now() - failedEntry.timestamp < FAILURE_CACHE_DURATION_MS) {
+    throw new Error(`Avatar URL previously failed (cached): ${failedEntry.error}`)
   }
 
   // Check if there's already a request in flight for this URL
@@ -32,13 +47,24 @@ async function fetchSignedUrl(avatarUrl: string): Promise<string> {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-        throw new Error(`Failed to get signed URL: ${errorData.error || response.statusText}`)
+        const errorMessage = errorData.error || response.statusText
+
+        // Cache the failure to prevent retries
+        failureCache.set(avatarUrl, {
+          timestamp: Date.now(),
+          error: errorMessage
+        })
+
+        throw new Error(`Failed to get signed URL: ${errorMessage}`)
       }
 
       const data = await response.json()
       const signedUrl = data.signedUrl
 
-      // Cache the result
+      // Clear any previous failure cache on success
+      failureCache.delete(avatarUrl)
+
+      // Cache the successful result
       urlCache.set(avatarUrl, {
         signedUrl,
         expiresAt: Date.now() + CACHE_DURATION_MS

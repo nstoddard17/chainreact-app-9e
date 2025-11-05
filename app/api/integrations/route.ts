@@ -2,9 +2,11 @@ import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@
 import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
 import { logger } from '@/lib/utils/logger'
 import { NextRequest } from 'next/server'
+import { queryWithTimeout } from '@/lib/utils/fetch-with-timeout'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
+export const maxDuration = 10 // Max 10 seconds for this endpoint
 
 /**
  * GET /api/integrations
@@ -90,15 +92,19 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch integrations and permissions in parallel (2x faster than JOIN)
+    // Add 6s timeout to each query to prevent cold start issues
     const [
       { data: integrations, error: integrationsError },
       { data: permissions, error: permissionsError }
     ] = await Promise.all([
-      integrationsQuery,
-      supabaseService
-        .from("integration_permissions")
-        .select('integration_id, permission, user_id')
-        .eq('user_id', user.id)
+      queryWithTimeout(integrationsQuery, 6000),
+      queryWithTimeout(
+        supabaseService
+          .from("integration_permissions")
+          .select('integration_id, permission, user_id')
+          .eq('user_id', user.id),
+        6000
+      )
     ])
 
     logger.debug('📊 [API /api/integrations] Parallel query results', {

@@ -53,10 +53,10 @@ interface BillingState {
 }
 
 interface BillingActions {
-  fetchPlans: () => Promise<void>
+  fetchPlans: (force?: boolean) => Promise<void>
   fetchSubscription: () => Promise<void>
   fetchUsage: () => Promise<void>
-  fetchAll: () => Promise<void>
+  fetchAll: (force?: boolean) => Promise<void>
   createCheckoutSession: (planId: string, billingCycle: string) => Promise<string>
   cancelSubscription: () => Promise<void>
   reactivateSubscription: () => Promise<void>
@@ -74,7 +74,17 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
   error: null,
   lastFetchTime: null,
 
-  fetchPlans: async () => {
+  fetchPlans: async (force = false) => {
+    // Check cache first (plans change rarely - 1 hour cache)
+    const state = get()
+    const PLANS_CACHE_DURATION = 3600000 // 1 hour
+
+    if (!force && state.plans.length > 0 && state.lastFetchTime &&
+        (Date.now() - state.lastFetchTime) < PLANS_CACHE_DURATION) {
+      logger.debug("Using cached plans")
+      return
+    }
+
     const supabase = getSupabaseClient()
     if (!supabase) {
       throw new Error("Supabase client not available")
@@ -92,7 +102,7 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
 
       if (error) throw error
 
-      set({ plans: data || [] })
+      set({ plans: data || [], lastFetchTime: Date.now() })
     } catch (error: any) {
       logger.error("Error fetching plans:", error)
       set({ error: error.message })
@@ -197,13 +207,13 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
     }
   },
 
-  fetchAll: async () => {
+  fetchAll: async (force = false) => {
     // Check if data was recently fetched (cache for 30 seconds)
     const state = get()
     const now = Date.now()
     const CACHE_DURATION = 30000 // 30 seconds
 
-    if (state.lastFetchTime && (now - state.lastFetchTime) < CACHE_DURATION && state.plans.length > 0) {
+    if (!force && state.lastFetchTime && (now - state.lastFetchTime) < CACHE_DURATION && state.plans.length > 0) {
       logger.debug("Using cached billing data")
       return
     }
@@ -219,8 +229,9 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
 
     try {
       // Run all fetches in parallel - use allSettled for partial success
+      // Pass force=true to fetchPlans to bypass its cache when fetchAll is forced
       const results = await Promise.allSettled([
-        get().fetchPlans(),
+        get().fetchPlans(force),
         get().fetchSubscription(),
         get().fetchUsage()
       ])
