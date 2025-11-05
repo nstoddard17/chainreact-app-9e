@@ -19,7 +19,7 @@ export async function GET(
       return errorResponse("Unauthorized", 401)
     }
 
-    // Check if user has access to this organization (via org-level role or team membership)
+    // Check if user has access to this organization (org member)
     const { data: orgMember } = await serviceClient
       .from("organization_members")
       .select("role")
@@ -27,102 +27,65 @@ export async function GET(
       .eq("user_id", user.id)
       .maybeSingle()
 
-    const { data: userTeams } = await serviceClient
-      .from("teams")
-      .select("id")
-      .eq("organization_id", organizationId)
-      .in("id",
-        serviceClient
-          .from("team_members")
-          .select("team_id")
-          .eq("user_id", user.id)
-      )
-
-    if (!orgMember && (!userTeams || userTeams.length === 0)) {
+    if (!orgMember) {
       return errorResponse("Access denied - not a member of this organization", 403)
     }
 
-    // Get all teams in the organization with their members
-    const { data: teams, error: teamsError } = await serviceClient
-      .from("teams")
-      .select(`
-        id,
-        name,
-        slug,
-        team_members(
-          user_id,
-          role,
-          created_at,
-          user:users(id, email, username)
-        )
-      `)
-      .eq("organization_id", organizationId)
-
-    if (teamsError) {
-      logger.error("Error fetching teams:", teamsError)
-      return errorResponse("Failed to fetch members", 500)
-    }
-
-    // Collect all unique members from all teams
-    const memberMap = new Map()
-    teams?.forEach((team: any) => {
-      team.team_members?.forEach((tm: any) => {
-        if (!memberMap.has(tm.user_id)) {
-          memberMap.set(tm.user_id, {
-            id: tm.user_id,
-            user_id: tm.user_id,
-            user: tm.user,
-            role: tm.role,
-            created_at: tm.created_at,
-            teams: [{ id: team.id, name: team.name, slug: team.slug, role: tm.role }]
-          })
-        } else {
-          const existing = memberMap.get(tm.user_id)
-          existing.teams.push({ id: team.id, name: team.name, slug: team.slug, role: tm.role })
-          // Keep the highest role (owner > admin > member > viewer)
-          const roleHierarchy = { owner: 4, admin: 3, member: 2, viewer: 1 }
-          if ((roleHierarchy[tm.role as keyof typeof roleHierarchy] || 0) > (roleHierarchy[existing.role as keyof typeof roleHierarchy] || 0)) {
-            existing.role = tm.role
-          }
-        }
-      })
-    })
-
-    const members = Array.from(memberMap.values())
-
-    // Also fetch organization-level members (users with org-level roles)
+    // OPTIMIZATION: Use organization_members table directly
+    // Fetch organization members and user profiles in parallel
     const { data: orgMembers, error: orgMembersError } = await serviceClient
       .from("organization_members")
-      .select(`
-        *,
-        user:users(id, email, username)
-      `)
+      .select("user_id, role, created_at")
       .eq("organization_id", organizationId)
 
     if (orgMembersError) {
       logger.error("Error fetching organization members:", orgMembersError)
+      return errorResponse("Failed to fetch members", 500)
     }
 
-    // Add org-level members to the response
-    const orgLevelMembers = orgMembers?.map(om => ({
+    // Get unique user IDs
+    const userIds = [...new Set(orgMembers?.map(m => m.user_id) || [])]
+
+    // Fetch user data from both user_profiles and auth.users in parallel
+    const [profilesResult, authResult] = await Promise.all([
+      serviceClient
+        .from("user_profiles")
+        .select("user_id, email, username, full_name, display_name")
+        .in("user_id", userIds),
+      serviceClient.auth.admin.listUsers()
+    ])
+
+    const userProfiles = profilesResult.data || []
+    const authUsers = authResult.data.users?.filter(u => userIds.includes(u.id)) || []
+
+    // Create profile lookup map
+    const profileMap = new Map(userProfiles.map(p => [p.user_id, p]))
+
+    // Create user lookup map for O(1) access, preferring user_profiles over auth metadata
+    const userMap = new Map(
+      authUsers.map(u => {
+        const profile = profileMap.get(u.id)
+        return [
+          u.id,
+          {
+            user_id: u.id,
+            email: profile?.email || u.email || 'No email',
+            username: profile?.display_name || profile?.full_name || profile?.username || u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split('@')[0] || 'Unknown'
+          }
+        ]
+      })
+    )
+
+    // Build members array with user details
+    const members = orgMembers?.map(om => ({
       id: om.user_id,
       user_id: om.user_id,
-      user: om.user,
+      user: userMap.get(om.user_id) || { user_id: om.user_id, email: 'Unknown', username: null },
       role: om.role,
       org_level_role: om.role, // Mark as org-level role
       created_at: om.created_at,
-      teams: [] // Org-level members might not be in any specific team
+      teams: [] // Organization members are org-level, not team-specific
     })) || []
-
-    // Merge with team members, but mark users who have both
-    orgLevelMembers.forEach(orgMember => {
-      const existingMember = members.find(m => m.user_id === orgMember.user_id)
-      if (existingMember) {
-        existingMember.org_level_role = orgMember.role
-      } else {
-        members.push(orgMember)
-      }
-    })
 
     return jsonResponse({ members })
   } catch (error) {
