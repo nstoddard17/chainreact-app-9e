@@ -9,7 +9,6 @@ import { OAuthConnectionFlow } from "@/lib/oauth/connection-flow"
 import { useWorkflowStore } from "./workflowStore"
 
 import { logger } from '@/lib/utils/logger'
-import { useDebugStore } from './debugStore'
 
 // Track ongoing requests for cleanup
 let currentAbortController: AbortController | null = null
@@ -57,6 +56,8 @@ export interface IntegrationStore {
   // Workspace context
   workspaceType: 'personal' | 'team' | 'organization'
   workspaceId: string | null
+  // Workspace cache key to prevent stale promise returns
+  lastWorkspaceKey: string | null
 
   // Actions
   setLoading: (key: string, loading: boolean) => void
@@ -156,6 +157,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
     // Default to personal workspace
     workspaceType: 'personal',
     workspaceId: null,
+    lastWorkspaceKey: null,
 
     setCurrentUserId: (userId: string | null) => {
       const currentUserId = get().currentUserId
@@ -170,17 +172,29 @@ export const useIntegrationStore = create<IntegrationStore>()(
     },
 
     setWorkspaceContext: (workspaceType: 'personal' | 'team' | 'organization', workspaceId?: string | null) => {
-      // CRITICAL: Clear cache and integrations when workspace changes
-      // to prevent showing stale data from previous workspace
+      // Abort any ongoing requests immediately to prevent stale data
+      if (currentAbortController) {
+        currentAbortController.abort('workspace change')
+        currentAbortController = null
+      }
+
+      // Clear the ongoing fetch promise to prevent returning stale promises
+      ongoingFetchPromise = null
+
+      // CRITICAL: Update EVERYTHING in a SINGLE set() call
+      // Multiple set() calls get batched, so get() might read stale state between them
       set({
         workspaceType,
         workspaceId: workspaceId || null,
         integrations: [], // Clear existing integrations immediately
-        lastFetchTime: null // Clear cache timestamp
+        lastFetchTime: null, // Clear cache timestamp
+        lastWorkspaceKey: null // Clear workspace key to force new fetch
       })
 
       // Refetch integrations when workspace context changes (force=true to bypass cache)
-      get().fetchIntegrations(true, workspaceType, workspaceId || undefined)
+      // IMPORTANT: Don't pass workspaceType/workspaceId params - let it read from updated store state
+      // This prevents race conditions where get() returns stale state
+      return get().fetchIntegrations(true)
     },
 
     setLoading: (key: string, loading: boolean) => {
@@ -251,25 +265,44 @@ export const useIntegrationStore = create<IntegrationStore>()(
     fetchIntegrations: async (force = false, workspaceType?: 'personal' | 'team' | 'organization', workspaceId?: string) => {
       const fetchStartTime = Date.now()
 
-      // If there's already an ongoing fetch
+        const { setLoading, currentUserId, integrations, lastFetchTime } = get()
+
+        // Use provided workspace context or fallback to store state
+        const currentState = get()
+        const effectiveWorkspaceType = workspaceType || currentState.workspaceType
+        const effectiveWorkspaceId = workspaceId || currentState.workspaceId || undefined
+
+        // Create workspace cache key to prevent returning stale promises from different workspaces
+        const workspaceCacheKey = `${effectiveWorkspaceType}-${effectiveWorkspaceId || 'null'}`
+        const lastKey = get().lastWorkspaceKey
+
+        // If workspace changed, discard old promise and abort old request
+        if (lastKey !== workspaceCacheKey) {
+          logger.debug('[IntegrationStore] Workspace changed, discarding old fetch promise', {
+            oldKey: lastKey,
+            newKey: workspaceCacheKey
+          })
+          if (currentAbortController) {
+            currentAbortController.abort('workspace changed')
+          }
+          ongoingFetchPromise = null
+          currentAbortController = null
+        }
+
+      // If there's already an ongoing fetch for THIS workspace
       if (ongoingFetchPromise) {
-        // If force=true (e.g., workspace switch), abort the existing request and start fresh
+        // If force=true (e.g., OAuth completion), abort the existing request and start fresh
         if (force) {
           if (currentAbortController) {
-            currentAbortController.abort()
+            currentAbortController.abort('force refresh')
           }
           ongoingFetchPromise = null
         } else {
           // Otherwise, return the existing promise to prevent duplicate requests
+          logger.debug('[IntegrationStore] Returning existing fetch promise for same workspace')
           return ongoingFetchPromise
         }
       }
-
-        const { setLoading, currentUserId, integrations, lastFetchTime } = get()
-
-        // Use provided workspace context or fallback to store state
-        const effectiveWorkspaceType = workspaceType || get().workspaceType
-        const effectiveWorkspaceId = workspaceId || get().workspaceId || undefined
 
         // Reduced cache duration to 5 seconds (matching workflow store) - integrations change frequently
         const CACHE_DURATION = 5000 // 5 seconds (reduced from 60)
@@ -283,6 +316,10 @@ export const useIntegrationStore = create<IntegrationStore>()(
           currentAbortController.abort()
         }
         currentAbortController = new AbortController()
+
+        // CRITICAL: Capture this controller reference in closure
+        // If workspace changes mid-fetch, we need to check THIS controller, not the new one
+        const thisController = currentAbortController
 
         // Create a promise that we'll track
         ongoingFetchPromise = (async () => {
@@ -337,20 +374,19 @@ export const useIntegrationStore = create<IntegrationStore>()(
             // Continue with new user instead of returning
           }
 
+          // CRITICAL: Check if THIS fetch's controller has been aborted before making the API call
+          // This prevents stale workspace data from being fetched if workspace changed
+          if (thisController.signal.aborted) {
+            logger.debug('[IntegrationStore] Fetch aborted before API call - workspace changed')
+            clearTimeout(fetchTimeout)
+            setLoading('integrations', false)
+            return
+          }
+
           const integrations = await IntegrationService.fetchIntegrations(force, effectiveWorkspaceType, effectiveWorkspaceId)
 
           // Clear timeout on successful fetch
           clearTimeout(fetchTimeout)
-
-          // Debug log to see what we got from the API
-          logger.debug('📦 [IntegrationStore] Fetched integrations:', {
-            count: integrations?.length,
-            firstFew: integrations?.slice(0, 3).map(i => ({
-              provider: i.provider,
-              status: i.status,
-              id: i.id
-            }))
-          });
 
           setLoading('integrations', false)
           const previousIntegrations = get().integrations
@@ -358,7 +394,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
           set({
             integrations,
-            lastFetchTime: Date.now()
+            lastFetchTime: Date.now(),
+            lastWorkspaceKey: workspaceCacheKey // Update workspace key after successful fetch
           })
 
           const fetchDuration = Date.now() - fetchStartTime

@@ -56,6 +56,30 @@ export function usePageDataPreloader(
   const { fetchIntegrations } = useIntegrationStore()
   const { fetchOrganizations } = useOrganizationStore()
 
+  // Helper to check if data is fresh in store
+  const shouldSkipLoad = useCallback((loaderName: string): boolean => {
+    const now = Date.now()
+    const CACHE_THRESHOLD = 5000 // 5 seconds
+
+    if (loaderName === 'integrations') {
+      const integrationStore = useIntegrationStore.getState()
+      if (integrationStore.lastFetchTime && (now - integrationStore.lastFetchTime) < CACHE_THRESHOLD) {
+        logger.debug('usePageDataPreloader', 'Skipping integrations load - data is fresh')
+        return true
+      }
+    }
+
+    if (loaderName === 'workflows') {
+      const workflowStore = useWorkflowStore.getState()
+      if (workflowStore.lastFetchTime && (now - workflowStore.lastFetchTime) < CACHE_THRESHOLD) {
+        logger.debug('usePageDataPreloader', 'Skipping workflows load - data is fresh')
+        return true
+      }
+    }
+
+    return false
+  }, [])
+
   const preloadData = useCallback(async () => {
     // Only run once! Use ref to avoid re-render loops
     if (hasRunRef.current || isRunningRef.current) {
@@ -90,8 +114,8 @@ export function usePageDataPreloader(
       try {
         const loaders: Array<{ name: string; loader: () => Promise<void> }> = []
 
-        // Always load integrations unless explicitly skipped
-        if (!options.skipIntegrations) {
+        // Always load integrations unless explicitly skipped or data is fresh
+        if (!options.skipIntegrations && !shouldSkipLoad('integrations')) {
           loaders.push({
             name: "integrations",
             loader: async () => {
@@ -101,8 +125,8 @@ export function usePageDataPreloader(
           })
         }
 
-        // Load workflows for relevant pages
-        if (!options.skipWorkflows && ["workflows", "templates", "analytics"].includes(pageType)) {
+        // Load workflows for relevant pages (unless data is fresh)
+        if (!options.skipWorkflows && ["workflows", "templates", "analytics"].includes(pageType) && !shouldSkipLoad('workflows')) {
           loaders.push({
             name: "workflows",
             loader: async () => {
