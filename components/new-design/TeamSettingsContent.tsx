@@ -218,7 +218,7 @@ export function TeamSettingsContent() {
         // If no subscription exists, redirect to billing page to upgrade
         if (error.error === 'No subscription found') {
           toast.error('Please upgrade to a paid plan first')
-          router.push('/settings/billing')
+          router.push('/settings?section=billing')
           return
         }
 
@@ -557,13 +557,13 @@ export function TeamSettingsContent() {
                       // Route to appropriate billing page
                       if (currentTeam?.billing?.billing_source === 'owner') {
                         // For standalone teams, route to personal settings
-                        router.push('/settings?tab=billing')
+                        router.push('/settings?section=billing')
                       } else if (currentTeam?.organization_id) {
                         // For org teams, route to org settings
-                        router.push('/organization-settings?tab=billing')
+                        router.push('/organization-settings?section=billing')
                       } else {
                         // Fallback to personal settings
-                        router.push('/settings?tab=billing')
+                        router.push('/settings?section=billing')
                       }
                     }}
                     className="gap-2"
