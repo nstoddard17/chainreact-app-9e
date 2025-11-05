@@ -35,7 +35,8 @@ import {
   CreditCard,
   Settings,
   Users,
-  ChevronRight
+  ChevronRight,
+  ArrowLeft
 } from "lucide-react"
 import { toast } from "sonner"
 import { TeamContent } from "./TeamContent"
@@ -74,6 +75,7 @@ export function OrganizationSettingsContent() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [openingPortal, setOpeningPortal] = useState(false)
   const sectionParam = searchParams.get('section') as SettingsSection | null
+  const orgIdParam = searchParams.get('org')
   const [activeSection, setActiveSection] = useState<SettingsSection>(sectionParam || 'general')
 
   // Form state
@@ -91,14 +93,20 @@ export function OrganizationSettingsContent() {
   // Fetch current organization
   useEffect(() => {
     if (user) {
-      const orgIdFromUrl = searchParams.get('org')
-      const orgId = orgIdFromUrl || localStorage.getItem('current_workspace_id')
-
-      if (orgId) {
-        fetchOrganization(orgId)
+      // Only fetch if org ID is explicitly provided in URL
+      // Don't fall back to localStorage for organization settings
+      if (orgIdParam) {
+        // Only fetch if we don't already have this organization loaded
+        if (!organization || organization.id !== orgIdParam) {
+          fetchOrganization(orgIdParam)
+        }
+      } else {
+        // No org ID provided - show empty state
+        setLoading(false)
+        setOrganization(null)
       }
     }
-  }, [user, searchParams])
+  }, [user, orgIdParam])
 
   // Listen for organization changes
   useEffect(() => {
@@ -311,7 +319,19 @@ export function OrganizationSettingsContent() {
     <div className="flex gap-8 max-w-7xl mx-auto">
       {/* Sidebar Navigation */}
       <aside className="w-64 shrink-0">
-        <div className="sticky top-6 space-y-1">
+        <div className="sticky top-6 space-y-6">
+          {/* Back Button */}
+          <Button
+            variant="ghost"
+            onClick={() => router.push(`/organization?org=${organization.id}`)}
+            className="w-full justify-start gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to {organization.name}
+          </Button>
+
+          {/* Navigation Menu */}
+          <div className="space-y-1">
           {navigationItems.map((item) => {
             const Icon = item.icon
             const isActive = activeSection === item.id
@@ -356,6 +376,7 @@ export function OrganizationSettingsContent() {
               </button>
             )
           })}
+          </div>
         </div>
       </aside>
 

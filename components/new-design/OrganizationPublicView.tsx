@@ -129,11 +129,11 @@ export function OrganizationPublicView() {
   }
 
   const handleViewMembers = (org: Organization) => {
-    router.push(`/organization-settings?org=${org.id}&tab=members`)
+    router.push(`/organization-settings?org=${org.id}&section=members`)
   }
 
   const handleViewTeams = (org: Organization) => {
-    router.push(`/organization-settings?org=${org.id}&tab=teams`)
+    router.push(`/organization-settings?org=${org.id}&section=teams`)
   }
 
   if (loading) {
