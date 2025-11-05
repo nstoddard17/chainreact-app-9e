@@ -40,6 +40,7 @@ export const aiAgentNode: NodeComponent = {
       multiline: true,
       required: true,
       hasVariablePicker: true,
+      hasImproveButton: true, // Enable "Improve Prompt" button
       placeholder: `Tell the AI what you want it to do. It will automatically figure out the rest!
 
 Examples:
@@ -56,8 +57,7 @@ The AI will:
 ✓ Classify and analyze sentiment based on your prompt
 ✓ Route to the best path if you have multiple outputs
 ✓ Make intelligent decisions based on context`,
-      description: "Describe the task. The AI figures out if it needs to generate content, route, or both!",
-      uiTab: "general"
+      description: "Describe the task. The AI figures out if it needs to generate content, route, or both!"
     },
 
     // ========================================
@@ -75,8 +75,7 @@ Examples:
 • "Our refund policy is 30 days"
 • "You are a helpful customer service assistant"
 • "Prioritize urgent requests"`,
-      description: "Optional guidelines for the AI's behavior",
-      uiTab: "general"
+      description: "Optional guidelines for the AI's behavior"
     },
 
     {
@@ -85,8 +84,7 @@ Examples:
       type: "select",
       multiple: true,
       description: "Select previous steps to give the AI more context",
-      placeholder: "Select steps to include as context...",
-      uiTab: "general"
+      placeholder: "Select steps to include as context..."
     },
 
     // ========================================
@@ -108,8 +106,7 @@ Examples:
         { value: "claude-3-haiku", label: "Claude 3 Haiku (Fastest, cheapest)" },
         { value: "gemini-pro", label: "Gemini Pro (Google)" }
       ],
-      description: "Which AI model to use",
-      uiTab: "settings"
+      description: "Which AI model to use"
     },
 
     {
@@ -122,8 +119,7 @@ Examples:
         { value: "chainreact", label: "ChainReact Managed (No setup required)" },
         { value: "custom", label: "Use my own API key" }
       ],
-      description: "Use ChainReact's API or provide your own",
-      uiTab: "settings"
+      description: "Use ChainReact's API or provide your own"
     },
 
     {
@@ -133,8 +129,7 @@ Examples:
       dependsOn: "apiSource",
       visibilityCondition: { field: "apiSource", operator: "equals", value: "custom" },
       placeholder: "sk-...",
-      description: "Your API key (encrypted and secure)",
-      uiTab: "settings"
+      description: "Your API key (encrypted and secure)"
     },
 
     {
@@ -149,8 +144,7 @@ Examples:
         { value: "anthropic", label: "Anthropic (Claude)" },
         { value: "google", label: "Google (Gemini)" }
       ],
-      description: "Select your API provider",
-      uiTab: "settings"
+      description: "Select your API provider"
     },
 
     // ========================================
@@ -170,16 +164,14 @@ Examples:
 • "priority: high/medium/low, category: string"
 
 The AI will structure its output accordingly.`,
-      description: "Hint at what structured data you want extracted (optional)",
-      uiTab: "output"
+      description: "Hint at what structured data you want extracted (optional)"
     },
 
     {
       name: "outputPaths",
       label: "Output Paths (Auto-detected)",
       type: "info",
-      description: "The AI automatically detects connected paths and routes intelligently. You can name paths in the visual editor.",
-      uiTab: "output"
+      description: "The AI automatically detects connected paths and routes intelligently. You can name paths in the visual editor."
     },
 
     // ========================================
@@ -193,8 +185,7 @@ The AI will structure its output accordingly.`,
       max: 1,
       step: 0.1,
       defaultValue: 0.7,
-      description: "Lower (0-0.3) = focused and consistent. Higher (0.7-1.0) = creative and varied",
-      uiTab: "advanced"
+      description: "Lower (0-0.3) = focused and consistent. Higher (0.7-1.0) = creative and varied"
     },
 
     {
@@ -205,8 +196,7 @@ The AI will structure its output accordingly.`,
       max: 4000,
       step: 100,
       defaultValue: 1500,
-      description: "Maximum length of AI response (roughly 4 characters per token)",
-      uiTab: "advanced"
+      description: "Maximum length of AI response (roughly 4 characters per token)"
     },
 
     {
@@ -216,8 +206,7 @@ The AI will structure its output accordingly.`,
       min: 5,
       max: 120,
       defaultValue: 30,
-      description: "Maximum time to wait for AI response",
-      uiTab: "advanced"
+      description: "Maximum time to wait for AI response"
     },
 
     {
@@ -227,8 +216,7 @@ The AI will structure its output accordingly.`,
       min: 0,
       max: 3,
       defaultValue: 1,
-      description: "Number of retry attempts on failure",
-      uiTab: "advanced"
+      description: "Number of retry attempts on failure"
     },
 
     {
@@ -239,8 +227,7 @@ The AI will structure its output accordingly.`,
       max: 10,
       step: 0.01,
       defaultValue: 1.00,
-      description: "Maximum cost per execution",
-      uiTab: "advanced"
+      description: "Maximum cost per execution"
     },
 
     {
@@ -251,8 +238,7 @@ The AI will structure its output accordingly.`,
       max: 1,
       step: 0.05,
       defaultValue: 0.7,
-      description: "Minimum confidence required for routing decisions (only applies when multiple paths exist)",
-      uiTab: "advanced"
+      description: "Minimum confidence required for routing decisions (only applies when multiple paths exist)"
     }
   ],
 

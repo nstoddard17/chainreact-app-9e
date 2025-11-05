@@ -230,11 +230,23 @@ export const airtableNodes: NodeComponent[] = [
         required: true,
         loadOnMount: true,
         description: "Select the Airtable base to monitor for table deletions"
+      },
+      {
+        name: "watchedTables",
+        label: "Watch Specific Tables (Optional)",
+        type: "multiselect",
+        dynamic: "airtable_tables",
+        required: false,
+        dependsOn: "baseId",
+        description: "Only trigger when these specific tables are deleted. Leave empty to monitor all tables in the base.",
+        placeholder: "Monitor all tables",
+        advanced: false
       }
     ],
     outputSchema: [
       { name: "baseId", label: "Base ID", type: "string", description: "The unique ID of the base" },
       { name: "tableId", label: "Table ID", type: "string", description: "The unique ID of the deleted table" },
+      { name: "tableName", label: "Table Name", type: "string", description: "The name of the deleted table" },
       { name: "deletedAt", label: "Deleted At", type: "string", description: "When the table was deleted" }
     ],
     note: "Note: Airtable webhooks only detect when entire tables are deleted, not individual records"

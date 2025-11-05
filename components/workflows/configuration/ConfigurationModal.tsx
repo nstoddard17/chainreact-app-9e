@@ -54,7 +54,7 @@ import { ConfigurationModalProps } from "./utils/types"
 import ConfigurationForm from "./ConfigurationForm"
 import { ConfigurationDataInspector } from "./ConfigurationDataInspector"
 import { VariableDragProvider } from "./VariableDragContext"
-import { Settings, Zap, Bot, MessageSquare, Mail, Calendar, FileText, Database, Globe, Shield, Bell, ArrowLeft, Sparkles, Wrench, FileOutput, SlidersHorizontal, TestTube2 } from "lucide-react"
+import { Settings, Zap, Bot, MessageSquare, Mail, Calendar, FileText, Database, Globe, Shield, Bell, ArrowLeft, Sparkles, Wrench, SlidersHorizontal, TestTube2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
@@ -62,7 +62,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { computeAutoMappingEntries } from "./autoMapping"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { SetupTab, OutputTab, AdvancedTab, ResultsTab } from "./tabs"
+import { SetupTab, AdvancedTab, ResultsTab } from "./tabs"
 import { getProviderBrandName } from "@/lib/integrations/brandNames"
 import { StaticIntegrationLogo } from "@/components/ui/static-integration-logo"
 
@@ -205,7 +205,7 @@ export function ConfigurationModal({
   const { toast } = useToast();
   const [initialOverride, setInitialOverride] = useState<Record<string, any> | null>(null)
   const [formSeedVersion, setFormSeedVersion] = useState(0)
-  const [activeTab, setActiveTab] = useState<'setup' | 'output' | 'advanced' | 'results'>('setup')
+  const [activeTab, setActiveTab] = useState<'setup' | 'advanced' | 'results'>('setup')
 
   // Viewport dimensions for panel height calculation (to sit below header)
   const [viewportHeight, setViewportHeight] = useState(0)
@@ -536,13 +536,6 @@ export function ConfigurationModal({
                     Setup
                   </TabsTrigger>
                   <TabsTrigger
-                    value="output"
-                    className="flex items-center gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:font-semibold data-[state=active]:shadow-none bg-transparent hover:bg-muted/50 transition-colors px-5 py-3 text-sm font-medium text-muted-foreground"
-                  >
-                    <FileOutput className="h-4 w-4" />
-                    Output
-                  </TabsTrigger>
-                  <TabsTrigger
                     value="advanced"
                     className="flex items-center gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:font-semibold data-[state=active]:shadow-none bg-transparent hover:bg-muted/50 transition-colors px-5 py-3 text-sm font-medium text-muted-foreground"
                   >
@@ -627,17 +620,12 @@ export function ConfigurationModal({
                   />
                 </TabsContent>
 
-                {/* Output Tab Content */}
-                <TabsContent value="output" className="flex-1 min-h-0 overflow-hidden mt-0 p-0">
-                  <OutputTab
-                    nodeInfo={nodeInfo}
-                    currentNodeId={currentNodeId}
-                  />
-                </TabsContent>
-
                 {/* Advanced Tab Content */}
                 <TabsContent value="advanced" className="flex-1 min-h-0 overflow-hidden mt-0 p-0">
                   <AdvancedTab
+                    nodeInfo={nodeInfo}
+                    currentNodeId={currentNodeId}
+                    workflowData={workflowData}
                     initialPolicy={effectiveInitialData?.__policy}
                     initialMetadata={effectiveInitialData?.__metadata}
                     onChange={(data) => {

@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ConfigField, NodeField } from "@/lib/workflows/nodes";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { HelpCircle, Mail, Hash, Calendar, FileText, Link, User, MessageSquare, Bell, Zap, Bot, X, RefreshCw } from "lucide-react";
+import { HelpCircle, Mail, Hash, Calendar, FileText, Link, User, MessageSquare, Bell, Zap, Bot, X, RefreshCw, Sparkles, Loader2 } from "lucide-react";
 import { FileUpload } from "@/components/ui/file-upload";
 import { cn } from "@/lib/utils";
 import { SimpleVariablePicker } from "./SimpleVariablePicker";
@@ -28,6 +28,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useToast } from "@/hooks/use-toast";
 
 // Phase 1: Enhanced Configuration Components
 import { FieldLabel } from "./FieldLabel";
@@ -190,6 +191,10 @@ export function FieldRenderer({
   // State for refresh button - must be at top level of component
   const [isRefreshingField, setIsRefreshingField] = useState(false);
 
+  // State for Improve Prompt button
+  const [isImprovingPrompt, setIsImprovingPrompt] = useState(false);
+  const { toast } = useToast();
+
   // State for Connect mode - check if value is already a connected variable
   const isConnectedValue = (val: any) => {
     if (typeof val !== 'string') return false
@@ -234,6 +239,58 @@ export function FieldRenderer({
       }
     } finally {
       setIsRefreshingField(false);
+    }
+  };
+
+  // Improve Prompt handler - for AI fields with hasImproveButton
+  const handleImprovePrompt = async () => {
+    // Validate prompt exists
+    const currentPrompt = typeof value === 'string' ? value.trim() : '';
+    if (!currentPrompt) {
+      toast({
+        title: "No prompt to improve",
+        description: "Please enter a prompt first before clicking Improve.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsImprovingPrompt(true);
+
+    try {
+      const response = await fetch('/api/ai/improve-prompt', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt: currentPrompt })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to improve prompt');
+      }
+
+      const data = await response.json();
+
+      // Update the field value with improved prompt
+      onChange(data.improvedPrompt);
+
+      // Show success toast with cost info
+      toast({
+        title: "Prompt improved successfully!",
+        description: `Cost: ${data.metadata.costFormatted} • ${data.metadata.tokensUsed} tokens used`,
+      });
+
+    } catch (error: any) {
+      logger.error('[ImprovePrompt] Error:', error);
+      toast({
+        title: "Failed to improve prompt",
+        description: error.message || "An error occurred. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsImprovingPrompt(false);
     }
   };
 
@@ -1925,6 +1982,30 @@ export function FieldRenderer({
           <div>
             {aiToggleButton}
           </div>
+        )}
+
+        {/* Improve Prompt Button - for fields with hasImproveButton */}
+        {(field as any).hasImproveButton && !aiFields?.[field.name] && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-2 h-8"
+            onClick={handleImprovePrompt}
+            disabled={isImprovingPrompt || !value || (typeof value === 'string' && !value.trim())}
+          >
+            {isImprovingPrompt ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Improving...
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-3.5 w-3.5" />
+                Improve with AI
+              </>
+            )}
+          </Button>
         )}
       </div>
 

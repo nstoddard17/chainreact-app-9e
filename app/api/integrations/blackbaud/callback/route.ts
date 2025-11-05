@@ -156,6 +156,9 @@ export async function GET(request: NextRequest) {
     const { error: upsertError } = await supabase.from('integrations').upsert({
       user_id: userId,
       provider,
+      email: (accountInfo as any)?.email || null,
+      username: (accountInfo as any)?.username || null,
+      account_name: (accountInfo as any)?.name || (accountInfo as any)?.display_name || null,
       access_token: encrypt(tokenData.access_token, encryptionKey),
       refresh_token: tokenData.refresh_token ? encrypt(tokenData.refresh_token, encryptionKey) : null,
       expires_at: expiresAt.toISOString(),

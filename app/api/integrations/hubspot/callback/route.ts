@@ -151,6 +151,9 @@ export async function GET(request: NextRequest) {
       status: 'connected',
       is_active: true,
       updated_at: new Date().toISOString(),
+      email: (accountInfo as any).email || (accountInfo as any).user || null,
+      username: (accountInfo as any).user || null,
+      account_name: (accountInfo as any).hub_domain || null,
       metadata: {
         hub_id: tokenData.hub_id,
         hub_domain: tokenData.hub_domain,

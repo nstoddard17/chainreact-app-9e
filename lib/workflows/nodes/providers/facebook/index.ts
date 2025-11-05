@@ -18,6 +18,18 @@ const facebookTriggerNewPost: NodeComponent = {
   isTrigger: true,
   producesOutput: true,
   requiredScopes: ["pages_read_engagement"],
+  configSchema: [
+    {
+      name: "pageId",
+      label: "Facebook Page",
+      type: "combobox",
+      required: true,
+      dynamic: "facebook_pages",
+      loadOnMount: true,
+      placeholder: "Select a page",
+      description: "Choose which Facebook page to monitor for new posts"
+    }
+  ],
   outputSchema: [
     {
       name: "postId",
@@ -80,6 +92,28 @@ const facebookTriggerNewComment: NodeComponent = {
   isTrigger: true,
   producesOutput: true,
   requiredScopes: ["pages_read_engagement"],
+  configSchema: [
+    {
+      name: "pageId",
+      label: "Facebook Page",
+      type: "combobox",
+      required: true,
+      dynamic: "facebook_pages",
+      loadOnMount: true,
+      placeholder: "Select a page",
+      description: "Choose which Facebook page to monitor for comments"
+    },
+    {
+      name: "postId",
+      label: "Specific Post (Optional)",
+      type: "combobox",
+      required: false,
+      dynamic: "facebook_posts",
+      dependsOn: "pageId",
+      placeholder: "All posts",
+      description: "Monitor a specific post, or leave empty to monitor all posts on this page"
+    }
+  ],
   outputSchema: [
     {
       name: "commentId",

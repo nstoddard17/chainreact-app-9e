@@ -72,6 +72,18 @@ export const googleDriveNodes: NodeComponent[] = [
         loadOnMount: true, // Load folders immediately when form opens to show names instead of IDs
       },
     ],
+    outputSchema: [
+      { name: "fileId", label: "File ID", type: "string", description: "Unique identifier for the file" },
+      { name: "fileName", label: "File Name", type: "string", description: "Name of the file" },
+      { name: "mimeType", label: "File Type", type: "string", description: "MIME type of the file" },
+      { name: "fileSize", label: "File Size", type: "number", description: "Size of the file in bytes" },
+      { name: "webViewLink", label: "View Link", type: "string", description: "URL to view the file in browser" },
+      { name: "webContentLink", label: "Download Link", type: "string", description: "URL to download the file" },
+      { name: "createdTime", label: "Created Time", type: "string", description: "ISO timestamp when file was created" },
+      { name: "modifiedTime", label: "Modified Time", type: "string", description: "ISO timestamp when file was last modified" },
+      { name: "ownerName", label: "Owner Name", type: "string", description: "Name of the file owner" },
+      { name: "ownerEmail", label: "Owner Email", type: "string", description: "Email of the file owner" }
+    ]
   },
   {
     type: "google-drive:new_folder_in_folder",
@@ -92,6 +104,16 @@ export const googleDriveNodes: NodeComponent[] = [
         loadOnMount: true, // Load folders immediately when form opens to show names instead of IDs
       },
     ],
+    outputSchema: [
+      { name: "folderId", label: "Folder ID", type: "string", description: "Unique identifier for the new folder" },
+      { name: "folderName", label: "Folder Name", type: "string", description: "Name of the new folder" },
+      { name: "parentFolderId", label: "Parent Folder ID", type: "string", description: "ID of the parent folder" },
+      { name: "webViewLink", label: "View Link", type: "string", description: "URL to view the folder in browser" },
+      { name: "createdTime", label: "Created Time", type: "string", description: "ISO timestamp when folder was created" },
+      { name: "modifiedTime", label: "Modified Time", type: "string", description: "ISO timestamp when folder was last modified" },
+      { name: "ownerName", label: "Owner Name", type: "string", description: "Name of the folder owner" },
+      { name: "ownerEmail", label: "Owner Email", type: "string", description: "Email of the folder owner" }
+    ]
   },
   {
     type: "google-drive:file_updated",
@@ -112,6 +134,17 @@ export const googleDriveNodes: NodeComponent[] = [
         loadOnMount: true,
       },
     ],
+    outputSchema: [
+      { name: "fileId", label: "File ID", type: "string", description: "Unique identifier for the file" },
+      { name: "fileName", label: "File Name", type: "string", description: "Name of the updated file" },
+      { name: "mimeType", label: "File Type", type: "string", description: "MIME type of the file" },
+      { name: "fileSize", label: "File Size", type: "number", description: "Current size of the file in bytes" },
+      { name: "webViewLink", label: "View Link", type: "string", description: "URL to view the file in browser" },
+      { name: "webContentLink", label: "Download Link", type: "string", description: "URL to download the file" },
+      { name: "modifiedTime", label: "Modified Time", type: "string", description: "ISO timestamp when file was last modified" },
+      { name: "modifiedBy", label: "Modified By", type: "string", description: "Email of the user who modified the file" },
+      { name: "version", label: "Version", type: "string", description: "Current version number of the file" }
+    ]
   },
   {
     type: "google-drive:create_file",

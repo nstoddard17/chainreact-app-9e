@@ -308,6 +308,10 @@ const airtableMappings: Record<string, FieldMapping> = {
     tableName: "airtable_tables",
     watchedFieldIds: "airtable_fields",
   },
+  airtable_trigger_table_deleted: {
+    baseId: "airtable_bases",
+    watchedTables: "airtable_tables",
+  },
 };
 
 // Dropbox field mappings

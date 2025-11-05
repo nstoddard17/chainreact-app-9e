@@ -21,7 +21,17 @@ export const stripeNodes: NodeComponent[] = [
     category: "Finance",
     isTrigger: true,
     producesOutput: true,
-    configSchema: [],
+    configSchema: [
+      {
+        name: "notificationOnly",
+        label: "Trigger Configuration",
+        type: "select",
+        required: false,
+        options: [{ value: "all", label: "Trigger for all new payments" }],
+        defaultValue: "all",
+        description: "This trigger will fire whenever a new payment is successfully processed in Stripe"
+      }
+    ],
     outputSchema: [
       { name: "paymentId", label: "Payment ID", type: "string", description: "The unique ID of the payment" },
       { name: "customerId", label: "Customer ID", type: "string", description: "The customer who made the payment" },
@@ -457,7 +467,17 @@ export const stripeNodes: NodeComponent[] = [
     category: "Finance",
     isTrigger: true,
     producesOutput: true,
-    configSchema: [],
+    configSchema: [
+      {
+        name: "notificationOnly",
+        label: "Trigger Configuration",
+        type: "select",
+        required: false,
+        options: [{ value: "all", label: "Trigger for all new customers" }],
+        defaultValue: "all",
+        description: "This trigger will fire whenever a new customer is created in Stripe"
+      }
+    ],
     outputSchema: [
       { name: "customerId", label: "Customer ID", type: "string", description: "The unique ID of the created customer" },
       { name: "email", label: "Email", type: "string", description: "The customer's email address" },
@@ -476,7 +496,17 @@ export const stripeNodes: NodeComponent[] = [
     category: "Finance",
     isTrigger: true,
     producesOutput: true,
-    configSchema: [],
+    configSchema: [
+      {
+        name: "notificationOnly",
+        label: "Trigger Configuration",
+        type: "select",
+        required: false,
+        options: [{ value: "all", label: "Trigger for all successful payments" }],
+        defaultValue: "all",
+        description: "This trigger will fire whenever a payment succeeds in Stripe"
+      }
+    ],
     outputSchema: [
       { name: "paymentIntentId", label: "Payment Intent ID", type: "string", description: "The unique ID of the payment intent" },
       { name: "customerId", label: "Customer ID", type: "string", description: "The customer who made the payment" },
@@ -496,7 +526,17 @@ export const stripeNodes: NodeComponent[] = [
     category: "Finance",
     isTrigger: true,
     producesOutput: true,
-    configSchema: [],
+    configSchema: [
+      {
+        name: "notificationOnly",
+        label: "Trigger Configuration",
+        type: "select",
+        required: false,
+        options: [{ value: "all", label: "Trigger for all new subscriptions" }],
+        defaultValue: "all",
+        description: "This trigger will fire whenever a new subscription is created in Stripe"
+      }
+    ],
     outputSchema: [
       { name: "subscriptionId", label: "Subscription ID", type: "string", description: "The unique ID of the subscription" },
       { name: "customerId", label: "Customer ID", type: "string", description: "The customer who subscribed" },
@@ -516,7 +556,17 @@ export const stripeNodes: NodeComponent[] = [
     category: "Finance",
     isTrigger: true,
     producesOutput: true,
-    configSchema: [],
+    configSchema: [
+      {
+        name: "notificationOnly",
+        label: "Trigger Configuration",
+        type: "select",
+        required: false,
+        options: [{ value: "all", label: "Trigger for all cancelled subscriptions" }],
+        defaultValue: "all",
+        description: "This trigger will fire whenever a subscription is cancelled in Stripe"
+      }
+    ],
     outputSchema: [
       { name: "subscriptionId", label: "Subscription ID", type: "string", description: "The unique ID of the cancelled subscription" },
       { name: "customerId", label: "Customer ID", type: "string", description: "The customer who cancelled" },
@@ -535,7 +585,17 @@ export const stripeNodes: NodeComponent[] = [
     category: "Finance",
     isTrigger: true,
     producesOutput: true,
-    configSchema: [],
+    configSchema: [
+      {
+        name: "notificationOnly",
+        label: "Trigger Configuration",
+        type: "select",
+        required: false,
+        options: [{ value: "all", label: "Trigger for all failed invoice payments" }],
+        defaultValue: "all",
+        description: "This trigger will fire whenever an invoice payment fails in Stripe"
+      }
+    ],
     outputSchema: [
       { name: "invoiceId", label: "Invoice ID", type: "string", description: "The unique ID of the failed invoice" },
       { name: "customerId", label: "Customer ID", type: "string", description: "The customer whose payment failed" },

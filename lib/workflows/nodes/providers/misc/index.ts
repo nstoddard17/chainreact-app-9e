@@ -82,7 +82,6 @@ const manychatActionSendMessage: NodeComponent = {
   providerId: "manychat",
   category: "Communication",
   isTrigger: false,
-  comingSoon: true,
   configSchema: [
     { name: "subscriberId", label: "Subscriber ID", type: "text", required: true, placeholder: "Enter subscriber ID", description: "The ID of the subscriber to send the message to" },
     { name: "message", label: "Message", type: "textarea", required: true, placeholder: "Enter your message", description: "The message text to send" },
@@ -128,7 +127,6 @@ const manychatActionTagSubscriber: NodeComponent = {
   providerId: "manychat",
   category: "Communication",
   isTrigger: false,
-  comingSoon: true,
   configSchema: [
     { name: "subscriberId", label: "Subscriber ID", type: "text", required: true, placeholder: "Enter subscriber ID", description: "The ID of the subscriber to tag" },
     { name: "tag", label: "Tag", type: "text", required: true, placeholder: "Enter tag name", description: "The tag to add to the subscriber" }

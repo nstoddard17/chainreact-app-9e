@@ -79,6 +79,29 @@ export async function GET(req: NextRequest) {
     const tokenData = await tokenResponse.json()
     const refreshTokenExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) // 90 days for refresh token
 
+    // Fetch user information from Twitter
+    let userInfo = null
+    let email = null
+    let username = null
+    let name = null
+
+    try {
+      const userResponse = await fetch('https://api.twitter.com/2/users/me?user.fields=username,name', {
+        headers: {
+          'Authorization': `Bearer ${tokenData.access_token}`
+        }
+      })
+
+      if (userResponse.ok) {
+        const userData = await userResponse.json()
+        userInfo = userData.data
+        username = userInfo?.username || null
+        name = userInfo?.name || null
+      }
+    } catch (userError) {
+      logger.warn('Failed to fetch Twitter user info:', userError)
+    }
+
     const integrationData = await prepareIntegrationData(
       userId,
       provider,
@@ -88,6 +111,15 @@ export async function GET(req: NextRequest) {
       tokenData.expires_in,
       refreshTokenExpiresAt
     )
+
+    // Add user info fields
+    integrationData.email = email || null
+    integrationData.username = username || null
+    integrationData.account_name = name || username || null
+    integrationData.metadata = {
+      ...(integrationData.metadata || {}),
+      user_info: userInfo
+    }
 
     const supabase = createAdminClient()
     const { error: upsertError } = await supabase.from('integrations').upsert(integrationData, {

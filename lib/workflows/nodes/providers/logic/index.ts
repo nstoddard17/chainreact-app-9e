@@ -24,6 +24,7 @@ export const logicNodes: NodeComponent[] = [
     testable: true,
     producesOutput: true,
     multipleOutputs: true, // This node can have multiple output connections
+    noConfigRequired: true, // Special flag: This node intentionally has no config - paths are managed via connected Path Condition nodes
     outputSchema: [
       {
         name: "pathTaken",
