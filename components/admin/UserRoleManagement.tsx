@@ -423,7 +423,7 @@ export default function UserRoleManagement() {
                       <SelectItem key={role} value={role}>
                         <div className="flex items-center space-x-2">
                           <RoleBadge role={role as UserRole} size="sm" />
-                          <span>{info.description}</span>
+                          <span className="text-black">{info.description}</span>
                         </div>
                       </SelectItem>
                     ))}
@@ -562,6 +562,7 @@ export default function UserRoleManagement() {
                             setNewRole((user.role as UserRole) || 'free')
                             setShowUpdateDialog(true)
                           }}
+                          className="dark:hover:text-black"
                         >
                           Update Role
                         </Button>

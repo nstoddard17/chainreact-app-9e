@@ -36,51 +36,69 @@ export async function GET(
       return jsonResponse({ teams: [] })
     }
 
-    // Not a workspace, so must be an organization - check team membership
-    // First get all team IDs the user is a member of
-    const { data: userTeamMemberships } = await serviceClient
-      .from("team_members")
-      .select("team_id")
+    // Not a workspace, so must be an organization - check organization membership
+    const { data: orgMember } = await serviceClient
+      .from("organization_members")
+      .select("role")
+      .eq("organization_id", organizationId)
       .eq("user_id", user.id)
+      .maybeSingle()
 
-    const userTeamIds = userTeamMemberships?.map(tm => tm.team_id) || []
-
-    // Then check if any of those teams belong to this organization
-    const { data: userTeams } = await serviceClient
-      .from("teams")
-      .select("id")
-      .eq("organization_id", organizationId)
-      .in("id", userTeamIds)
-
-    if (!userTeams || userTeams.length === 0) {
-      return errorResponse("Access denied - not a member of any team in this organization", 403)
+    if (!orgMember) {
+      return errorResponse("Access denied - not a member of this organization", 403)
     }
 
-    // Get teams with member info
-    const { data: teams, error } = await serviceClient
-      .from("teams")
-      .select(`
-        *,
-        team_members(
-          user_id,
-          role,
-          user:users(id, email, username)
-        ),
-        member_count:team_members(count)
-      `)
-      .eq("organization_id", organizationId)
+    // OPTIMIZATION: Use organization_members table directly
+    // Fetch teams and org members in parallel, then merge in memory
+    const [teamsResult, orgMembersResult] = await Promise.all([
+      serviceClient
+        .from("teams")
+        .select("*")
+        .eq("organization_id", organizationId),
+      serviceClient
+        .from("organization_members")
+        .select("user_id, role")
+        .eq("organization_id", organizationId)
+    ])
 
-    if (error) {
-      logger.error("Error fetching teams:", error)
-      return errorResponse("Failed to fetch teams" , 500)
+    if (teamsResult.error) {
+      logger.error("Error fetching teams:", teamsResult.error)
+      return errorResponse("Failed to fetch teams", 500)
     }
 
-    // Transform the data
+    if (orgMembersResult.error) {
+      logger.error("Error fetching organization members:", orgMembersResult.error)
+      return errorResponse("Failed to fetch members", 500)
+    }
+
+    const teams = teamsResult.data || []
+    const orgMembers = orgMembersResult.data || []
+
+    // Get unique user IDs from organization members
+    const userIds = [...new Set(orgMembers.map(m => m.user_id))]
+
+    // Fetch user profiles in one batch query
+    const { data: userProfiles } = await serviceClient
+      .from("user_profiles")
+      .select("user_id, email, username")
+      .in("user_id", userIds)
+
+    // Create user lookup map for O(1) access
+    const userMap = new Map(userProfiles?.map(u => [u.user_id, u]) || [])
+
+    // Build members array with user details
+    const members = orgMembers.map(member => ({
+      user_id: member.user_id,
+      role: member.role,
+      user: userMap.get(member.user_id) || { user_id: member.user_id, email: 'Unknown', username: null }
+    }))
+
+    // Transform teams data
     const transformedTeams = teams.map((team: any) => ({
       ...team,
-      member_count: team.member_count?.[0]?.count || 0,
-      user_role: team.team_members?.find((member: any) => member.user_id === user.id)?.role || null,
-      members: team.team_members || []
+      member_count: orgMembers.length, // Organization member count, not per-team
+      user_role: orgMembers.find((member: any) => member.user_id === user.id)?.role || null,
+      members: members // All organization members
     }))
 
     return jsonResponse({ teams: transformedTeams })

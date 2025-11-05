@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAuthStore } from "@/stores/authStore"
+import { useDebugStore } from "@/stores/debugStore"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
+import { cn } from "@/lib/utils"
 import {
   Card,
   CardContent,
@@ -26,22 +27,16 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs"
-import {
   Building2,
-  Users,
-  Mail,
   Trash2,
   Save,
   Loader2,
-  User as UserIcon,
   Crown,
-  Shield,
-  UserPlus
+  CreditCard,
+  Settings,
+  Users,
+  ChevronRight,
+  ArrowLeft
 } from "lucide-react"
 import { toast } from "sonner"
 import { TeamContent } from "./TeamContent"
@@ -60,61 +55,64 @@ interface Organization {
   team_count: number
   created_at: string
   is_workspace?: boolean
-}
-
-interface OrganizationMember {
-  id: string
-  user_id: string
-  role: string
-  joined_at: string
-  user?: {
-    user_id: string
-    username?: string
-    email: string
+  billing?: {
+    plan?: string
+    credits?: number
+    billing_source?: 'owner' | 'organization'
   }
 }
+
+type SettingsSection = 'general' | 'teams' | 'members' | 'billing'
 
 export function OrganizationSettingsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user } = useAuthStore()
+  const { logEvent } = useDebugStore()
   const [organization, setOrganization] = useState<Organization | null>(null)
-  const [members, setMembers] = useState<OrganizationMember[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState("general")
+  const [openingPortal, setOpeningPortal] = useState(false)
+  const sectionParam = searchParams.get('section') as SettingsSection | null
+  const orgIdParam = searchParams.get('org')
+  const [activeSection, setActiveSection] = useState<SettingsSection>(sectionParam || 'general')
 
   // Form state
   const [orgName, setOrgName] = useState("")
   const [orgDescription, setOrgDescription] = useState("")
   const [billingEmail, setBillingEmail] = useState("")
 
-  // Handle tab parameter from URL
+  // Update active section when URL parameter changes
   useEffect(() => {
-    const tab = searchParams.get('tab')
-    if (tab) {
-      setActiveTab(tab)
+    if (sectionParam && ['general', 'teams', 'members', 'billing'].includes(sectionParam)) {
+      setActiveSection(sectionParam)
     }
-  }, [searchParams])
+  }, [sectionParam])
 
   // Fetch current organization
   useEffect(() => {
     if (user) {
-      const orgId = localStorage.getItem('current_workspace_id')
-      if (orgId) {
-        fetchOrganization(orgId)
-        fetchMembers(orgId)
+      // Only fetch if org ID is explicitly provided in URL
+      // Don't fall back to localStorage for organization settings
+      if (orgIdParam) {
+        // Only fetch if we don't already have this organization loaded
+        if (!organization || organization.id !== orgIdParam) {
+          fetchOrganization(orgIdParam)
+        }
+      } else {
+        // No org ID provided - show empty state
+        setLoading(false)
+        setOrganization(null)
       }
     }
-  }, [user])
+  }, [user, orgIdParam])
 
   // Listen for organization changes
   useEffect(() => {
     const handleOrgChange = (event: CustomEvent) => {
       const org = event.detail
       fetchOrganization(org.id)
-      fetchMembers(org.id)
     }
 
     window.addEventListener('organization-changed', handleOrgChange as EventListener)
@@ -126,11 +124,23 @@ export function OrganizationSettingsContent() {
   const fetchOrganization = async (orgId: string) => {
     try {
       setLoading(true)
+      logEvent('info', 'OrgSettings', 'Fetching organization...', { orgId })
+
       const response = await fetch(`/api/organizations/${orgId}`)
       if (!response.ok) throw new Error('Failed to fetch organization')
 
       const data = await response.json()
       const org = Array.isArray(data) ? data[0] : data
+
+      // Debug logging to Admin Debug Panel
+      logEvent('info', 'OrgSettings', 'Organization data received', {
+        name: org.name,
+        hasBilling: !!org.billing,
+        billingPlan: org.billing?.plan,
+        billingCredits: org.billing?.credits,
+        billingSource: org.billing?.billing_source
+      })
+
       setOrganization(org)
 
       // Populate form
@@ -138,48 +148,10 @@ export function OrganizationSettingsContent() {
       setOrgDescription(org.description || "")
       setBillingEmail(org.billing_email || "")
     } catch (error) {
-      console.error('Error fetching organization:', error)
+      logEvent('error', 'OrgSettings', 'Failed to fetch organization', { error })
       toast.error('Failed to load organization')
     } finally {
       setLoading(false)
-    }
-  }
-
-  const fetchMembers = async (orgId: string) => {
-    try {
-      // Fetch teams in the organization
-      const teamsResponse = await fetch(`/api/organizations/${orgId}/teams`)
-      if (!teamsResponse.ok) throw new Error('Failed to fetch teams')
-
-      const teamsData = await teamsResponse.json()
-      const teams = teamsData.teams || []
-
-      // Collect all unique members from all teams
-      const memberMap = new Map()
-      teams.forEach((team: any) => {
-        team.members?.forEach((member: any) => {
-          if (!memberMap.has(member.user_id)) {
-            memberMap.set(member.user_id, {
-              id: member.user_id,
-              user: member.user,
-              role: member.role,
-              teams: [team.name]
-            })
-          } else {
-            const existing = memberMap.get(member.user_id)
-            existing.teams.push(team.name)
-            // Keep the highest role
-            if (member.role === 'admin' && existing.role !== 'owner') {
-              existing.role = 'admin'
-            }
-          }
-        })
-      })
-
-      setMembers(Array.from(memberMap.values()))
-    } catch (error) {
-      console.error('Error fetching members:', error)
-      toast.error('Failed to load members')
     }
   }
 
@@ -250,27 +222,35 @@ export function OrganizationSettingsContent() {
     }
   }
 
-  const getRoleIcon = (role: string) => {
-    switch (role) {
-      case 'owner':
-        return <Crown className="w-4 h-4 text-yellow-500" />
-      case 'admin':
-        return <Shield className="w-4 h-4 text-blue-500" />
-      default:
-        return <UserIcon className="w-4 h-4 text-muted-foreground" />
-    }
-  }
+  const handleOpenBillingPortal = async () => {
+    try {
+      setOpeningPortal(true)
+      const response = await fetch('/api/billing/portal', {
+        method: 'POST',
+      })
 
-  const getRoleBadge = (role: string) => {
-    switch (role) {
-      case 'owner':
-        return <Badge className="bg-yellow-500">Owner</Badge>
-      case 'admin':
-        return <Badge variant="secondary">Admin</Badge>
-      case 'member':
-        return <Badge variant="outline">Member</Badge>
-      default:
-        return <Badge variant="outline">Viewer</Badge>
+      if (!response.ok) {
+        const error = await response.json()
+
+        // If no subscription exists, redirect to billing page to upgrade
+        if (error.error === 'No subscription found') {
+          toast.error('Please upgrade to a paid plan first')
+          router.push('/settings?section=billing')
+          return
+        }
+
+        throw new Error(error.error || 'Failed to open billing portal')
+      }
+
+      const { url } = await response.json()
+      if (url) {
+        window.location.href = url
+      }
+    } catch (error: any) {
+      console.error('Error opening billing portal:', error)
+      toast.error(error.message || 'Failed to open billing portal')
+    } finally {
+      setOpeningPortal(false)
     }
   }
 
@@ -279,6 +259,14 @@ export function OrganizationSettingsContent() {
 
   // Check if current selection is a personal workspace
   const isPersonalWorkspace = organization?.is_workspace || (organization?.team_count === 0 && organization?.member_count === 1)
+
+  // Navigation items
+  const navigationItems = [
+    { id: 'general' as const, label: 'General', icon: Settings, description: 'Organization details and settings' },
+    { id: 'teams' as const, label: 'Teams', icon: Users, description: 'Manage organization teams' },
+    { id: 'members' as const, label: 'Members', icon: Crown, description: 'Manage team members' },
+    { id: 'billing' as const, label: 'Billing', icon: CreditCard, description: 'Manage subscription' },
+  ]
 
   if (loading && !organization) {
     return (
@@ -310,44 +298,11 @@ export function OrganizationSettingsContent() {
               You're currently in your personal workspace. Create an organization to collaborate with teams.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-4">
-              <div className="p-4 border rounded-lg space-y-2">
-                <h4 className="font-semibold flex items-center gap-2">
-                  <Users className="w-4 h-4" />
-                  Collaborate with Teams
-                </h4>
-                <p className="text-sm text-muted-foreground">
-                  Invite team members, assign roles, and work together on workflows
-                </p>
-              </div>
-
-              <div className="p-4 border rounded-lg space-y-2">
-                <h4 className="font-semibold flex items-center gap-2">
-                  <Shield className="w-4 h-4" />
-                  Manage Permissions
-                </h4>
-                <p className="text-sm text-muted-foreground">
-                  Control access levels and manage team member permissions
-                </p>
-              </div>
-
-              <div className="p-4 border rounded-lg space-y-2">
-                <h4 className="font-semibold flex items-center gap-2">
-                  <Building2 className="w-4 h-4" />
-                  Centralized Management
-                </h4>
-                <p className="text-sm text-muted-foreground">
-                  Manage billing, settings, and resources from one place
-                </p>
-              </div>
-            </div>
-
+          <CardContent>
             <Button
               className="w-full"
               size="lg"
               onClick={() => {
-                // Trigger the organization switcher create dialog
                 window.dispatchEvent(new CustomEvent('create-organization'))
               }}
             >
@@ -361,199 +316,335 @@ export function OrganizationSettingsContent() {
   }
 
   return (
-    <div className="h-full w-full space-y-6">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="teams">Teams</TabsTrigger>
-          <TabsTrigger value="members">Members</TabsTrigger>
-          <TabsTrigger value="billing">Billing</TabsTrigger>
-          {isOwner && <TabsTrigger value="danger">Danger Zone</TabsTrigger>}
-        </TabsList>
+    <div className="flex gap-8 max-w-7xl mx-auto">
+      {/* Sidebar Navigation */}
+      <aside className="w-64 shrink-0">
+        <div className="sticky top-6 space-y-6">
+          {/* Back Button */}
+          <Button
+            variant="ghost"
+            onClick={() => router.push(`/organization?org=${organization.id}`)}
+            className="w-full justify-start gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to {organization.name}
+          </Button>
 
+          {/* Navigation Menu */}
+          <div className="space-y-1">
+          {navigationItems.map((item) => {
+            const Icon = item.icon
+            const isActive = activeSection === item.id
+
+            return (
+              <button
+                key={item.id}
+                onClick={() => {
+                  setActiveSection(item.id)
+                  const orgParam = organization?.id ? `&org=${organization.id}` : ''
+                  router.push(`/organization-settings?section=${item.id}${orgParam}`)
+                }}
+                className={cn(
+                  "w-full text-left px-4 py-3 rounded-xl transition-all duration-200 group",
+                  isActive
+                    ? "bg-primary text-primary-foreground shadow-md"
+                    : "hover:bg-accent text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <Icon className={cn(
+                    "w-5 h-5 transition-transform group-hover:scale-110",
+                    isActive ? "text-primary-foreground" : ""
+                  )} />
+                  <div className="flex-1">
+                    <div className={cn(
+                      "font-semibold text-sm",
+                      isActive ? "text-primary-foreground" : ""
+                    )}>
+                      {item.label}
+                    </div>
+                    {!isActive && (
+                      <div className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                        {item.description}
+                      </div>
+                    )}
+                  </div>
+                  {isActive && (
+                    <ChevronRight className="w-4 h-4 text-primary-foreground" />
+                  )}
+                </div>
+              </button>
+            )
+          })}
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <main className="flex-1 min-w-0">
         {/* General Settings */}
-        <TabsContent value="general" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Organization Details</CardTitle>
-              <CardDescription>
-                Update your organization's basic information
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="org-name">Organization Name *</Label>
-                <Input
-                  id="org-name"
-                  value={orgName}
-                  onChange={(e) => setOrgName(e.target.value)}
-                  disabled={!isAdmin}
-                />
-              </div>
+        {activeSection === 'general' && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-3xl font-bold tracking-tight">General Settings</h2>
+              <p className="text-muted-foreground mt-2">Update your organization's basic information</p>
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="org-slug">URL Slug</Label>
-                <Input
-                  id="org-slug"
-                  value={organization.slug}
-                  disabled
-                  className="bg-muted"
-                />
-                <p className="text-xs text-muted-foreground">
-                  The URL slug cannot be changed
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="org-description">Description</Label>
-                <Textarea
-                  id="org-description"
-                  value={orgDescription}
-                  onChange={(e) => setOrgDescription(e.target.value)}
-                  rows={3}
-                  disabled={!isAdmin}
-                  placeholder="What does your organization do?"
-                />
-              </div>
-
-              {isAdmin && (
-                <Button onClick={handleSaveSettings} disabled={saving}>
-                  {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  {!saving && <Save className="w-4 h-4 mr-2" />}
-                  Save Changes
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Organization Stats</CardTitle>
-              <CardDescription>
-                Overview of your organization
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="p-4 border rounded-lg">
-                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                    <Users className="w-4 h-4" />
-                    <span className="text-sm">Members</span>
-                  </div>
-                  <p className="text-2xl font-bold">{organization.member_count}</p>
-                </div>
-                <div className="p-4 border rounded-lg">
-                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                    <Building2 className="w-4 h-4" />
-                    <span className="text-sm">Teams</span>
-                  </div>
-                  <p className="text-2xl font-bold">{organization.team_count}</p>
-                </div>
-                <div className="p-4 border rounded-lg">
-                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                    <Crown className="w-4 h-4" />
-                    <span className="text-sm">Your Role</span>
-                  </div>
-                  <div className="mt-1">{getRoleBadge(organization.user_role)}</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Teams Tab */}
-        <TabsContent value="teams" className="space-y-6">
-          <TeamContent />
-        </TabsContent>
-
-        {/* Members Tab */}
-        <TabsContent value="members" className="space-y-6">
-          <OrganizationMembersManager
-            organizationId={organization.id}
-            currentUserRole={organization.user_role as any}
-          />
-        </TabsContent>
-
-        {/* Billing Tab */}
-        <TabsContent value="billing" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Billing Information</CardTitle>
-              <CardDescription>
-                Manage billing and subscription settings
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="billing-email">Billing Email</Label>
-                <Input
-                  id="billing-email"
-                  type="email"
-                  value={billingEmail}
-                  onChange={(e) => setBillingEmail(e.target.value)}
-                  disabled={!isAdmin}
-                  placeholder="billing@example.com"
-                />
-              </div>
-
-              {isAdmin && (
-                <Button onClick={handleSaveSettings} disabled={saving}>
-                  {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  {!saving && <Save className="w-4 h-4 mr-2" />}
-                  Save Changes
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Current Plan</CardTitle>
-              <CardDescription>
-                You are currently on the Free plan
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="p-4 border rounded-lg">
-                <p className="text-sm text-muted-foreground">
-                  Upgrade to unlock more features and capabilities
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Danger Zone */}
-        {isOwner && (
-          <TabsContent value="danger" className="space-y-6">
-            <Card className="border-destructive">
+            <Card>
               <CardHeader>
-                <CardTitle className="text-destructive">Danger Zone</CardTitle>
+                <CardTitle>Organization Details</CardTitle>
+                <CardDescription>Update your organization's basic information</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="org-name">Organization Name *</Label>
+                  <Input
+                    id="org-name"
+                    value={orgName}
+                    onChange={(e) => setOrgName(e.target.value)}
+                    disabled={!isAdmin}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="org-slug">URL Slug</Label>
+                  <Input
+                    id="org-slug"
+                    value={organization.slug}
+                    disabled
+                    className="bg-muted"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    The URL slug cannot be changed
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="org-description">Description</Label>
+                  <Textarea
+                    id="org-description"
+                    value={orgDescription}
+                    onChange={(e) => setOrgDescription(e.target.value)}
+                    rows={3}
+                    disabled={!isAdmin}
+                    placeholder="What does your organization do?"
+                  />
+                </div>
+
+                {isAdmin && (
+                  <Button onClick={handleSaveSettings} disabled={saving}>
+                    {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    {!saving && <Save className="w-4 h-4 mr-2" />}
+                    Save Changes
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Danger Zone */}
+            {isOwner && (
+              <Card className="border-destructive">
+                <CardHeader>
+                  <CardTitle className="text-destructive">Danger Zone</CardTitle>
+                  <CardDescription>
+                    Irreversible and destructive actions
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between p-4 border border-destructive rounded-lg">
+                    <div>
+                      <h4 className="font-semibold">Delete Organization</h4>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Permanently delete this organization and all its data. This action cannot be undone.
+                      </p>
+                    </div>
+                    <Button
+                      variant="destructive"
+                      onClick={() => setDeleteDialogOpen(true)}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+
+        {/* Teams Section */}
+        {activeSection === 'teams' && (
+          <TeamContent organizationId={organization.id} />
+        )}
+
+        {/* Members Section */}
+        {activeSection === 'members' && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-3xl font-bold tracking-tight">Members</h2>
+              <p className="text-muted-foreground mt-2">Manage organization members and their permissions</p>
+            </div>
+            <OrganizationMembersManager
+              organizationId={organization.id}
+              currentUserRole={organization.user_role as any}
+            />
+          </div>
+        )}
+
+        {/* Billing Section */}
+        {activeSection === 'billing' && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-3xl font-bold tracking-tight">Billing & Subscription</h2>
+              <p className="text-muted-foreground mt-2">Manage your organization's subscription through Stripe</p>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Current Plan</CardTitle>
                 <CardDescription>
-                  Irreversible and destructive actions
+                  {organization?.billing?.billing_source === 'owner'
+                    ? 'Organization inherits billing from the owner\'s personal account'
+                    : 'Your organization\'s subscription is managed through Stripe'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex items-center justify-between p-6 border rounded-lg bg-muted/50">
+                  <div>
+                    <h3 className="font-semibold text-lg">
+                      {organization?.billing?.plan
+                        ? `${organization.billing.plan.charAt(0).toUpperCase() + organization.billing.plan.slice(1)} Plan`
+                        : 'Free Plan'}
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {organization?.billing?.billing_source === 'owner'
+                        ? 'Managed by organization owner'
+                        : organization?.billing?.plan === 'pro'
+                        ? 'Advanced features for growing teams'
+                        : organization?.billing?.plan === 'enterprise'
+                        ? 'Full platform access with premium support'
+                        : organization?.billing?.plan === 'beta'
+                        ? 'Beta access with early features'
+                        : 'Basic features for small teams'}
+                    </p>
+                    {organization?.billing?.credits !== undefined && organization?.billing?.credits !== null && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {organization.billing.credits.toLocaleString()} credits remaining
+                      </p>
+                    )}
+                  </div>
+                  <Button
+                    onClick={() => router.push('/settings?section=billing')}
+                    className="gap-2"
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    {organization?.billing?.plan === 'free' || !organization?.billing?.plan ? 'Upgrade Plan' : 'Manage Plan'}
+                  </Button>
+                </div>
+
+                <div className="pt-4 border-t">
+                  <h4 className="font-semibold mb-3">Plan Includes</h4>
+                  <div className="grid gap-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                      <span>Unlimited workflows</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                      <span>{organization?.billing?.plan === 'enterprise' ? 'Unlimited' : organization?.billing?.plan === 'pro' ? 'Up to 25' : 'Up to 5'} team members</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                      <span>{organization?.billing?.plan === 'enterprise' ? 'Priority support' : organization?.billing?.plan === 'pro' ? 'Email support' : 'Community support'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {organization?.billing?.billing_source === 'owner' && (
+                  <div className="p-4 border rounded-lg bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900">
+                    <p className="text-sm text-blue-900 dark:text-blue-200">
+                      <strong>Note:</strong> This organization uses the owner's personal plan and quota.
+                      To upgrade, the organization owner should manage their plan in personal settings.
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Billing Management</CardTitle>
+                <CardDescription>
+                  All billing information is securely managed through Stripe
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between p-4 border border-destructive rounded-lg">
-                  <div>
-                    <h4 className="font-semibold">Delete Organization</h4>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Permanently delete this organization and all its data. This action cannot be undone.
-                    </p>
-                  </div>
-                  <Button
-                    variant="destructive"
-                    onClick={() => setDeleteDialogOpen(true)}
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Delete
-                  </Button>
+                <p className="text-sm text-muted-foreground">
+                  To view invoices, update payment methods, or manage your subscription, use the Stripe Customer Portal.
+                </p>
+                <Button
+                  variant="outline"
+                  className="w-full sm:w-auto gap-2"
+                  onClick={handleOpenBillingPortal}
+                  disabled={openingPortal}
+                >
+                  {openingPortal ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Opening Portal...
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard className="w-4 h-4" />
+                      Open Billing Portal
+                    </>
+                  )}
+                </Button>
+
+                <div className="pt-4 border-t space-y-2">
+                  <h4 className="font-semibold text-sm">What you can do in the portal:</h4>
+                  <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                    <li>Update payment methods</li>
+                    <li>View billing history and invoices</li>
+                    <li>Update billing address</li>
+                    <li>Cancel or modify your subscription</li>
+                  </ul>
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Billing Contact</CardTitle>
+                <CardDescription>
+                  Email address for billing-related communications
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="billing-email">Billing Email</Label>
+                  <Input
+                    id="billing-email"
+                    type="email"
+                    value={billingEmail}
+                    onChange={(e) => setBillingEmail(e.target.value)}
+                    disabled={!isAdmin}
+                    placeholder="billing@example.com"
+                  />
+                </div>
+
+                {isAdmin && (
+                  <Button onClick={handleSaveSettings} disabled={saving}>
+                    {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    {!saving && <Save className="w-4 h-4 mr-2" />}
+                    Save Changes
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         )}
-      </Tabs>
+      </main>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

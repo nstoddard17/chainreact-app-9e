@@ -33,7 +33,7 @@ export function RoleBadge({ role, size = 'md', showIcon = true, className = '' }
   return (
     <Badge
       variant="outline"
-      className={`${roleInfo.badgeColor} ${sizeClasses[size]} ${className} font-medium`}
+      className={`${roleInfo.badgeColor} ${sizeClasses[size]} ${className} font-medium !bg-opacity-100 !text-opacity-100`}
     >
       {showIcon && Icon && <Icon className={`w-3 h-3 mr-1 ${size === 'sm' ? 'w-2.5 h-2.5' : ''}`} />}
       {getRoleDisplayName(role)}
