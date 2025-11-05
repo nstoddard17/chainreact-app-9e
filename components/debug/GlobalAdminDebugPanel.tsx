@@ -54,6 +54,11 @@ export function GlobalAdminDebugPanel() {
     return null
   }
 
+  // Hide on /test/nodes page
+  if (typeof window !== 'undefined' && window.location.pathname === '/test/nodes') {
+    return null
+  }
+
   // Build real-time snapshot data
   const snapshotData = {
     "Current Page": {
