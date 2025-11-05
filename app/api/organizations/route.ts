@@ -18,16 +18,28 @@ export async function GET(request: NextRequest) {
       return errorResponse("Unauthorized", 401)
     }
 
-    // Get personal workspace (may not exist)
-    const { data: workspace, error: workspaceError } = await serviceClient
-      .from("workspaces")
-      .select("*")
-      .eq("owner_id", user.id)
-      .maybeSingle()
+    // Check query parameters for optimization
+    const searchParams = request.nextUrl.searchParams
+    const type = searchParams.get('type') || 'all' // 'all' (default) | 'organizations_only'
 
-    if (workspaceError) {
-      logger.error("Error fetching workspace:", workspaceError)
-      // Continue - workspace is optional
+    const includeWorkspace = type !== 'organizations_only'
+    const includeStandaloneTeams = type !== 'organizations_only'
+
+    // Get personal workspace (may not exist) - ONLY if needed
+    let workspace = null
+    if (includeWorkspace) {
+      const { data: workspaceData, error: workspaceError } = await serviceClient
+        .from("workspaces")
+        .select("*")
+        .eq("owner_id", user.id)
+        .maybeSingle()
+
+      if (workspaceError) {
+        logger.error("Error fetching workspace:", workspaceError)
+        // Continue - workspace is optional
+      } else {
+        workspace = workspaceData
+      }
     }
 
     // Get organizations where user is a member of at least one team
@@ -70,15 +82,12 @@ export async function GET(request: NextRequest) {
       organizations = orgs || []
     }
 
-    // OPTIMIZATION: Batch fetch all data for all orgs in parallel, then merge in memory
+    // OPTIMIZATION: Batch fetch ALL data in PARALLEL, then merge in memory
     // This prevents N+1 queries and is much faster
     const orgIds_array = Array.from(orgIds)
 
-    const [
-      { data: allTeams },
-      { data: allMembers },
-      { data: userRoles }
-    ] = await Promise.all([
+    // Build query array based on what's needed
+    const queries = [
       // Get all teams for all organizations
       queryWithTimeout(
         serviceClient
@@ -111,7 +120,40 @@ export async function GET(request: NextRequest) {
           .in("teams.organization_id", orgIds_array),
         6000
       )
-    ])
+    ]
+
+    // Conditionally add standalone teams query
+    if (includeStandaloneTeams) {
+      queries.push(
+        queryWithTimeout(
+          serviceClient
+            .from("team_members")
+            .select(`
+              team:teams(
+                id,
+                name,
+                slug,
+                description,
+                created_at,
+                updated_at,
+                organization_id
+              ),
+              role
+            `)
+            .eq("user_id", user.id),
+          6000
+        )
+      )
+    }
+
+    const queryResults = await Promise.all(queries)
+
+    // Destructure results based on what was fetched
+    const { data: allTeams } = queryResults[0]
+    const { data: allMembers } = queryResults[1]
+    const { data: userRoles } = queryResults[2]
+    const standaloneTeams = includeStandaloneTeams ? queryResults[3]?.data : null
+    const standaloneTeamsError = includeStandaloneTeams ? queryResults[3]?.error : null
 
     // Group data by organization_id for fast lookup
     const teamsByOrg = new Map<string, number>()
@@ -185,63 +227,60 @@ export async function GET(request: NextRequest) {
 
     results.push(...orgsWithCounts)
 
-    // Get standalone teams (teams without organization_id)
-    const { data: standaloneTeams, error: standaloneTeamsError } = await serviceClient
-      .from("team_members")
-      .select(`
-        team:teams(
-          id,
-          name,
-          slug,
-          description,
-          created_at,
-          updated_at,
-          organization_id
-        ),
-        role
-      `)
-      .eq("user_id", user.id)
+    // Process standalone teams ONLY if requested (already fetched in parallel above)
+    if (includeStandaloneTeams) {
+      if (standaloneTeamsError) {
+        logger.error("Error fetching standalone teams:", standaloneTeamsError)
+        // Continue - standalone teams are optional
+      }
 
-    if (standaloneTeamsError) {
-      logger.error("Error fetching standalone teams:", standaloneTeamsError)
-      // Continue - standalone teams are optional
-    }
+      // Filter for teams without organization_id
+      const standaloneTeamResults = standaloneTeams
+        ?.filter((tm: any) => tm.team && !tm.team.organization_id)
+        ?.map((tm: any) => tm.team) || []
 
-    // Filter for teams without organization_id and format them
-    const standaloneTeamResults = standaloneTeams
-      ?.filter((tm: any) => tm.team && !tm.team.organization_id)
-      ?.map((tm: any) => {
-        const team = tm.team
-        return {
+      if (standaloneTeamResults.length > 0) {
+        // OPTIMIZATION: Batch fetch member counts for ALL standalone teams in ONE query
+        const standaloneTeamIds = standaloneTeamResults.map((t: any) => t.id)
+        const { data: standaloneMembers } = await queryWithTimeout(
+          serviceClient
+            .from("team_members")
+            .select("team_id, user_id")
+            .in("team_id", standaloneTeamIds),
+          6000
+        )
+
+        // Build member count map
+        const memberCountByTeam = new Map<string, number>()
+        standaloneMembers?.forEach((member: any) => {
+          memberCountByTeam.set(member.team_id, (memberCountByTeam.get(member.team_id) || 0) + 1)
+        })
+
+        // Get user roles from already-fetched standaloneTeams data
+        const rolesByTeam = new Map<string, string>()
+        standaloneTeams
+          ?.filter((tm: any) => tm.team && !tm.team.organization_id)
+          ?.forEach((tm: any) => {
+            rolesByTeam.set(tm.team.id, tm.role)
+          })
+
+        // Format standalone teams with counts
+        const standaloneTeamsWithCounts = standaloneTeamResults.map((team: any) => ({
           id: team.id,
           name: team.name,
           slug: team.slug,
           description: team.description,
           created_at: team.created_at,
           updated_at: team.updated_at,
-          user_role: tm.role,
-          member_count: 1, // Will be updated below
+          user_role: rolesByTeam.get(team.id) || 'member',
+          member_count: memberCountByTeam.get(team.id) || 1,
           team_count: 0,
           is_team: true // Mark as standalone team
-        }
-      }) || []
+        }))
 
-    // Get member counts for standalone teams
-    const standaloneTeamsWithCounts = await Promise.all(
-      standaloneTeamResults.map(async (team: any) => {
-        const { count: memberCount } = await serviceClient
-          .from("team_members")
-          .select("user_id", { count: 'exact', head: true })
-          .eq("team_id", team.id)
-
-        return {
-          ...team,
-          member_count: memberCount || 1
-        }
-      })
-    )
-
-    results.push(...standaloneTeamsWithCounts)
+        results.push(...standaloneTeamsWithCounts)
+      }
+    }
 
     return jsonResponse({ organizations: results })
   } catch (error) {

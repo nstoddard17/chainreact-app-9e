@@ -33,7 +33,18 @@
       "Bash(bash:*)",
       "Bash(awk:*)",
       "Bash(for file in /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/app/api/integrations/{gmail,slack,discord,notion,trello,hubspot,stripe,google-sheets,google-calendar}/callback/route.ts)",
-      "Bash(do if [ -f \"$file\" ])"
+      "Bash(do if [ -f \"$file\" ])",
+      "Bash(curl:*)",
+      "Bash(git checkout:*)"
+    ],
+    "edit": [
+      "*"
+    ],
+    "write": [
+      "*"
+    ],
+    "read": [
+      "*"
     ]
   },
   "autoApprovalPatterns": {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useAuthStore } from "@/stores/authStore"
 import { Button } from "@/components/ui/button"
@@ -16,12 +16,19 @@ import {
   Users,
   Loader2,
   User as UserIcon,
-  Crown,
-  Shield,
-  Settings
+  Settings,
+  Plus,
+  MoreHorizontal,
 } from "lucide-react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import CreateOrganizationDialog from "@/components/teams/CreateOrganizationDialog"
 
 interface Organization {
   id: string
@@ -41,25 +48,46 @@ export function OrganizationPublicView() {
   const router = useRouter()
   const { user, profile } = useAuthStore()
   const [organizations, setOrganizations] = useState<Organization[]>([])
-  const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null)
   const [loading, setLoading] = useState(true)
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+
+  // Prevent double-fetch on mount (React 18 Strict Mode calls effects twice)
+  const hasFetchedRef = useRef(false)
 
   useEffect(() => {
-    if (user) {
+    if (user && !hasFetchedRef.current) {
+      hasFetchedRef.current = true
       fetchUserOrganizations()
     }
   }, [user])
+
+  // Listen for create organization event
+  useEffect(() => {
+    const handleCreateOrganization = () => {
+      // Check if user has required plan before opening dialog
+      if (!profile?.role || !['business', 'organization'].includes(profile.role)) {
+        toast.error('You need to upgrade to a Business or Organization plan to create organizations')
+        router.push('/settings/billing')
+        return
+      }
+      setCreateDialogOpen(true)
+    }
+
+    window.addEventListener('create-organization', handleCreateOrganization)
+    return () => window.removeEventListener('create-organization', handleCreateOrganization)
+  }, [profile, router])
 
   const fetchUserOrganizations = async () => {
     setLoading(true)
 
     try {
       // Fetch organizations where user is a team member
+      // Use type=organizations_only to skip workspace and standalone teams for better performance
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 8000) // 8 second timeout
 
       try {
-        const response = await fetch('/api/organizations', { signal: controller.signal })
+        const response = await fetch('/api/organizations?type=organizations_only', { signal: controller.signal })
         if (!response.ok) throw new Error('Failed to fetch organizations')
 
         const { organizations } = await response.json()
@@ -70,9 +98,6 @@ export function OrganizationPublicView() {
         )
 
         setOrganizations(realOrgs)
-
-        // Set the first organization as selected, or null if none exist
-        setSelectedOrg(realOrgs.length > 0 ? realOrgs[0] : null)
       } catch (error: any) {
         if (error.name === 'AbortError') {
           throw new Error('Request timed out. Please try again.')
@@ -85,7 +110,6 @@ export function OrganizationPublicView() {
       console.error('Error fetching organizations:', error)
       toast.error(error.message || 'Failed to load organizations')
       setOrganizations([])
-      setSelectedOrg(null)
     } finally {
       setLoading(false)
     }
@@ -104,190 +128,227 @@ export function OrganizationPublicView() {
     }
   }
 
-  const isOwnerOrAdmin = selectedOrg?.user_role === 'owner' || selectedOrg?.user_role === 'admin'
+  const handleViewMembers = (org: Organization) => {
+    router.push(`/organization-settings?org=${org.id}&section=members`)
+  }
+
+  const handleViewTeams = (org: Organization) => {
+    router.push(`/organization-settings?org=${org.id}&section=teams`)
+  }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-      </div>
+      <>
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+        <CreateOrganizationDialog
+          open={createDialogOpen}
+          onOpenChange={(open) => {
+            setCreateDialogOpen(open)
+            if (!open) fetchUserOrganizations()
+          }}
+        />
+      </>
     )
   }
 
   // Show empty state when no organizations exist
   if (organizations.length === 0) {
     return (
-      <div className="h-full w-full flex items-center justify-center">
-        <Card className="max-w-2xl w-full">
-          <CardHeader className="text-center">
-            <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
-              <Building2 className="w-6 h-6 text-muted-foreground" />
-            </div>
-            <CardTitle>Organization Workspace</CardTitle>
-            <CardDescription>
-              You have no organizations. Create an organization to collaborate with teams.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex gap-3 justify-center">
-              <Button
-                onClick={() => {
-                  // Check if user has required plan
-                  if (!profile?.role || !['business', 'organization'].includes(profile.role)) {
-                    toast.error('You need to upgrade to a Business or Organization plan to create organizations')
-                    router.push('/settings/billing')
-                    return
-                  }
-                  window.dispatchEvent(new CustomEvent('create-organization'))
-                }}
-              >
-                <Building2 className="w-4 h-4 mr-2" />
-                Create Organization
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <>
+        <div className="h-full w-full flex items-center justify-center">
+          <Card className="max-w-2xl w-full">
+            <CardHeader className="text-center">
+              <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
+                <Building2 className="w-6 h-6 text-muted-foreground" />
+              </div>
+              <CardTitle>Organization Workspace</CardTitle>
+              <CardDescription>
+                You have no organizations. Create an organization to collaborate with teams.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex gap-3 justify-center">
+                <Button
+                  onClick={() => window.dispatchEvent(new CustomEvent('create-organization'))}
+                >
+                  <Building2 className="w-4 h-4 mr-2" />
+                  Create Organization
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        <CreateOrganizationDialog
+          open={createDialogOpen}
+          onOpenChange={(open) => {
+            setCreateDialogOpen(open)
+            if (!open) fetchUserOrganizations()
+          }}
+        />
+      </>
     )
   }
 
-  // Show organization details if at least one exists
-  if (!selectedOrg) return null
-
+  // Show organizations list
   return (
-    <div className="h-full w-full space-y-6 max-w-5xl mx-auto">
-      {/* Organization Header */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-start gap-6">
-            <div className="w-20 h-20 rounded-lg bg-muted flex items-center justify-center">
-              {selectedOrg.logo_url ? (
-                <img src={selectedOrg.logo_url} alt={selectedOrg.name} className="w-full h-full object-cover rounded-lg" />
-              ) : (
-                <Building2 className="w-10 h-10 text-muted-foreground" />
-              )}
+    <>
+      <div className="h-full w-full">
+        {/* Header */}
+        <div className="px-6 py-4 border-b bg-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold">My Organizations</h1>
+              <p className="text-muted-foreground text-sm mt-1">
+                {organizations.length} {organizations.length === 1 ? 'organization' : 'organizations'}
+              </p>
             </div>
-            <div className="flex-1 space-y-3">
-              <div>
-                <h1 className="text-3xl font-bold">{selectedOrg.name}</h1>
-                <p className="text-muted-foreground mt-1">{selectedOrg.description || 'No description'}</p>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-muted-foreground">Your Role:</span>
-                  {getRoleBadge(selectedOrg.user_role)}
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Users className="w-4 h-4" />
-                  <span>{selectedOrg.member_count} {selectedOrg.member_count === 1 ? 'member' : 'members'}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Building2 className="w-4 h-4" />
-                  <span>{selectedOrg.team_count} {selectedOrg.team_count === 1 ? 'team' : 'teams'}</span>
-                </div>
-              </div>
-              {isOwnerOrAdmin && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => router.push('/organization-settings')}
-                >
-                  <Settings className="w-4 h-4 mr-2" />
-                  Organization Settings
-                </Button>
-              )}
-            </div>
+            <Button onClick={() => window.dispatchEvent(new CustomEvent('create-organization'))}>
+              <Plus className="w-4 h-4 mr-2" />
+              Create Organization
+            </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Organization Stats */}
-      <div className="grid gap-6 md:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              Members
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{selectedOrg.member_count}</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Total organization members
-            </p>
-          </CardContent>
-        </Card>
+        {/* Organizations List */}
+        <div className="p-6">
+          <div className="bg-white rounded-lg border">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b bg-slate-50">
+                  <th className="text-left p-4 font-semibold text-sm text-slate-600">Organization</th>
+                  <th className="text-left p-4 font-semibold text-sm text-slate-600">Description</th>
+                  <th className="text-left p-4 font-semibold text-sm text-slate-600">Teams</th>
+                  <th className="text-left p-4 font-semibold text-sm text-slate-600">Members</th>
+                  <th className="text-left p-4 font-semibold text-sm text-slate-600">Role</th>
+                  <th className="text-right p-4 font-semibold text-sm text-slate-600">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {organizations.map((org) => {
+                  // Roles that can access settings: owner, admin
+                  const canAccessSettings = org.user_role && ['owner', 'admin'].includes(org.user_role)
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Building2 className="w-4 h-4" />
-              Teams
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{selectedOrg.team_count}</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Active teams
-            </p>
-          </CardContent>
-        </Card>
+                  return (
+                    <tr
+                      key={org.id}
+                      className="border-b last:border-b-0 hover:bg-slate-50 cursor-pointer transition-colors"
+                      onClick={() => router.push(`/organization-settings?org=${org.id}`)}
+                    >
+                      {/* Organization Name & Icon */}
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+                            {org.logo_url ? (
+                              <img src={org.logo_url} alt={org.name} className="w-full h-full object-cover rounded-lg" />
+                            ) : (
+                              <Building2 className="w-5 h-5 text-blue-600" />
+                            )}
+                          </div>
+                          <div>
+                            <div className="font-semibold text-slate-900">{org.name}</div>
+                            <div className="text-xs text-slate-500">{org.slug}</div>
+                          </div>
+                        </div>
+                      </td>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Crown className="w-4 h-4" />
-              Your Role
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="mt-2">
-              {getRoleBadge(selectedOrg.user_role)}
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Your access level
-            </p>
-          </CardContent>
-        </Card>
+                      {/* Description */}
+                      <td className="p-4">
+                        <div className="text-sm text-slate-600 line-clamp-2 max-w-md">
+                          {org.description || 'No description'}
+                        </div>
+                      </td>
+
+                      {/* Teams */}
+                      <td className="p-4">
+                        <div className="flex items-center gap-2 text-sm text-slate-600">
+                          <Users className="w-4 h-4" />
+                          <span>{org.team_count} {org.team_count === 1 ? 'team' : 'teams'}</span>
+                        </div>
+                      </td>
+
+                      {/* Members */}
+                      <td className="p-4">
+                        <div className="flex items-center gap-2 text-sm text-slate-600">
+                          <UserIcon className="w-4 h-4" />
+                          <span>{org.member_count} {org.member_count === 1 ? 'member' : 'members'}</span>
+                        </div>
+                      </td>
+
+                      {/* Role */}
+                      <td className="p-4">
+                        {getRoleBadge(org.user_role)}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-2">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <MoreHorizontal className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48">
+                              <DropdownMenuItem
+                                onSelect={(e) => {
+                                  e.preventDefault()
+                                  handleViewMembers(org)
+                                }}
+                              >
+                                <UserIcon className="w-4 h-4 mr-2" />
+                                View Members
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onSelect={(e) => {
+                                  e.preventDefault()
+                                  handleViewTeams(org)
+                                }}
+                              >
+                                <Users className="w-4 h-4 mr-2" />
+                                View Teams
+                              </DropdownMenuItem>
+                              {canAccessSettings && (
+                                <DropdownMenuItem
+                                  onSelect={(e) => {
+                                    e.preventDefault()
+                                    router.push(`/organization-settings?org=${org.id}`)
+                                  }}
+                                >
+                                  <Settings className="w-4 h-4 mr-2" />
+                                  Settings
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
-      {/* Organization Details */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Organization Details</CardTitle>
-          <CardDescription>Information about this organization</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Organization Name</p>
-              <p className="text-sm">{selectedOrg.name}</p>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">URL Slug</p>
-              <p className="text-sm font-mono text-xs">{selectedOrg.slug}</p>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Created</p>
-              <p className="text-sm">{new Date(selectedOrg.created_at).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              })}</p>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Your Role</p>
-              <div>{getRoleBadge(selectedOrg.user_role)}</div>
-            </div>
-          </div>
-          {selectedOrg.description && (
-            <div className="space-y-2 pt-2 border-t">
-              <p className="text-sm font-medium text-muted-foreground">Description</p>
-              <p className="text-sm">{selectedOrg.description}</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+      {/* Create Organization Dialog */}
+      <CreateOrganizationDialog
+        open={createDialogOpen}
+        onOpenChange={(open) => {
+          setCreateDialogOpen(open)
+          // Refresh organizations list after creating
+          if (!open) {
+            fetchUserOrganizations()
+          }
+        }}
+      />
+    </>
   )
 }

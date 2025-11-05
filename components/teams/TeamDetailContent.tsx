@@ -175,7 +175,7 @@ export default function TeamDetailContent({ team }: TeamDetailContentProps) {
           {canManageSettings && (
             <Button
               variant="outline"
-              onClick={() => router.push(`/teams/${team.slug}/settings`)}
+              onClick={() => router.push(`/team-settings?team=${team.id}`)}
             >
               <Settings className="w-4 h-4 mr-2" />
               Team Settings
@@ -303,7 +303,7 @@ export default function TeamDetailContent({ team }: TeamDetailContentProps) {
                   {canCreateWorkflows && (
                     <Button
                       variant="outline"
-                      className="w-full justify-start"
+                      className="w-full justify-start hover:text-blue-500"
                       onClick={handleCreateWorkflow}
                     >
                       <Workflow className="w-4 h-4 mr-2" />
@@ -313,7 +313,7 @@ export default function TeamDetailContent({ team }: TeamDetailContentProps) {
                   {canManageMembers && (
                     <Button
                       variant="outline"
-                      className="w-full justify-start"
+                      className="w-full justify-start hover:text-blue-500"
                       onClick={handleViewMembers}
                     >
                       <Users className="w-4 h-4 mr-2" />
@@ -323,8 +323,8 @@ export default function TeamDetailContent({ team }: TeamDetailContentProps) {
                   {canManageSettings && (
                     <Button
                       variant="outline"
-                      className="w-full justify-start"
-                      onClick={() => router.push(`/teams/${team.slug}/settings`)}
+                      className="w-full justify-start hover:text-blue-500"
+                      onClick={() => router.push(`/team-settings?team=${team.id}`)}
                     >
                       <Settings className="w-4 h-4 mr-2" />
                       Team Settings

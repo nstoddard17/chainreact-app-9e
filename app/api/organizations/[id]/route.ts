@@ -107,12 +107,24 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       })
     })
 
-    // Return organization with user's role
+    // Get billing information from organization owner's profile
+    const { data: ownerProfile } = await serviceClient
+      .from("user_profiles")
+      .select("plan, credits")
+      .eq("id", organization.owner_id)
+      .single()
+
+    // Return organization with user's role and billing info
     const result = {
       ...organization,
       user_role: highestRole,
       member_count: uniqueMembers.size,
-      team_count: teamCount || 0
+      team_count: teamCount || 0,
+      billing: ownerProfile ? {
+        plan: ownerProfile.plan || 'free',
+        credits: ownerProfile.credits || 0,
+        billing_source: 'owner' as const
+      } : undefined
     }
 
     return jsonResponse(result)
