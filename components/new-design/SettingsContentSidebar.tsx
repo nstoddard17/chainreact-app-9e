@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@/utils/supabaseClient"
-import { User, Bell, Shield, Palette, Loader2, ChevronRight, Sparkles, Briefcase, Users, Building2, Check, X, Settings } from "lucide-react"
+import { User, Bell, Shield, Palette, Loader2, ChevronRight, Sparkles, Briefcase, Users, Building2, Check, X, Settings, CreditCard } from "lucide-react"
 import { useTheme } from "next-themes"
 import { TwoFactorSetup } from "@/components/settings/TwoFactorSetup"
 import { cn } from "@/lib/utils"
@@ -19,8 +19,9 @@ import { useSearchParams, useRouter } from "next/navigation"
 import { useWorkspaces } from "@/hooks/useWorkspaces"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import BillingOverview from "@/components/billing/BillingOverview"
 
-type SettingsSection = 'profile' | 'workspace' | 'notifications' | 'security' | 'appearance'
+type SettingsSection = 'profile' | 'workspace' | 'billing' | 'notifications' | 'security' | 'appearance'
 
 export function SettingsContent() {
   const { profile, updateProfile, user } = useAuthStore()
@@ -33,14 +34,6 @@ export function SettingsContent() {
   const sectionParam = searchParams.get('section') as SettingsSection | null
   const [activeSection, setActiveSection] = useState<SettingsSection>(sectionParam || 'profile')
 
-  // DEBUG: Log profile data to see admin field
-  console.log('🔍 SETTINGS PAGE - Profile Debug:', {
-    hasProfile: !!profile,
-    admin: profile?.admin,
-    adminType: typeof profile?.admin,
-    role: profile?.role,
-    fullProfile: profile
-  })
   const [notifications, setNotifications] = useState({
     email: true,
     slack: false,
@@ -98,7 +91,7 @@ export function SettingsContent() {
 
   // Update active section when URL parameter changes
   useEffect(() => {
-    if (sectionParam && ['profile', 'workspace', 'notifications', 'security', 'appearance'].includes(sectionParam)) {
+    if (sectionParam && ['profile', 'workspace', 'billing', 'notifications', 'security', 'appearance'].includes(sectionParam)) {
       setActiveSection(sectionParam)
       // Fetch workspace data when user navigates to workspace section
       if (sectionParam === 'workspace') {
@@ -117,26 +110,13 @@ export function SettingsContent() {
     }
   }, [profile?.default_workspace_type, profile?.default_workspace_id])
 
-  // Debug: Log profile changes
-  useEffect(() => {
-    const displaySrc = previewUrl || profile?.avatar_url
-    console.log('👤 Profile changed:')
-    console.log('  - avatar_url:', profile?.avatar_url)
-    console.log('  - previewUrl:', previewUrl)
-    console.log('  - avatarUploading:', avatarUploading)
-    console.log('  - displayingSrc:', displaySrc)
-    console.log('  - has displaySrc?:', !!displaySrc)
-  }, [profile?.avatar_url, previewUrl])
-
   // Clear preview when profile avatar_url changes (upload completed)
   useEffect(() => {
     if (profile?.avatar_url && previewUrl && !avatarUploading) {
       // Profile has been updated with new avatar URL and upload is complete
       // Clear the preview after a short delay to ensure smooth transition
-      console.log('🧹 Clearing preview URL in 500ms...')
       const currentPreviewUrl = previewUrl
       const timer = setTimeout(() => {
-        console.log('🧹 Preview URL cleared')
         if (currentPreviewUrl.startsWith('blob:')) {
           URL.revokeObjectURL(currentPreviewUrl)
         }
@@ -435,15 +415,7 @@ export function SettingsContent() {
       // Add cache-busting parameter to force reload
       const cacheBustedUrl = `${newAvatarUrl}?t=${Date.now()}`
 
-      console.log('🖼️ Uploading avatar:', {
-        newAvatarUrl,
-        cacheBustedUrl,
-        currentProfile: profile?.avatar_url
-      })
-
       await updateProfile({ avatar_url: cacheBustedUrl })
-
-      console.log('✅ Avatar update call completed')
 
       toast({
         title: "Profile photo updated",
@@ -465,6 +437,7 @@ export function SettingsContent() {
   const navigationItems = [
     { id: 'profile' as const, label: 'Profile', icon: User, description: 'Manage your personal information' },
     { id: 'workspace' as const, label: 'Workspace', icon: Briefcase, description: 'Workspace and workflow settings' },
+    { id: 'billing' as const, label: 'Billing', icon: CreditCard, description: 'Manage your subscription' },
     { id: 'notifications' as const, label: 'Notifications', icon: Bell, description: 'Configure notification preferences' },
     { id: 'security' as const, label: 'Security', icon: Shield, description: 'Password and authentication settings' },
     { id: 'appearance' as const, label: 'Appearance', icon: Palette, description: 'Customize your theme' },
@@ -542,13 +515,6 @@ export function SettingsContent() {
                         src={avatarSignedUrl}
                         alt="Profile avatar"
                         className="w-full h-full object-cover"
-                        onLoad={() => {
-                          console.log('✅ Avatar image loaded successfully:', avatarSignedUrl)
-                        }}
-                        onError={(e) => {
-                          console.error('❌ Avatar image FAILED to load:', avatarSignedUrl)
-                          console.error('Error details:', e)
-                        }}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground">
@@ -894,6 +860,17 @@ export function SettingsContent() {
                 </Button>
               </CardContent>
             </Card>
+          </div>
+        )}
+
+        {/* Billing Section */}
+        {activeSection === 'billing' && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-3xl font-bold tracking-tight">Billing & Subscription</h2>
+              <p className="text-muted-foreground mt-2">Manage your personal subscription and billing</p>
+            </div>
+            <BillingOverview />
           </div>
         )}
 

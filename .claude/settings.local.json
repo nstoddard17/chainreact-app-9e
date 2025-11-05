@@ -8,7 +8,9 @@
       "Bash(curl -s http://localhost:3000/api/testing/nodes)",
       "Bash(awk:*)",
       "Bash(npm run lint:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(curl:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": [],

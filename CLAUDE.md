@@ -3,6 +3,41 @@
 # CLAUDE.md
 Guidance for Claude Code when working with this repository.
 
+## 🚨 CRITICAL: Follow Explicit User Instructions - MANDATORY
+**THIS IS THE HIGHEST PRIORITY. EXPLICIT INSTRUCTIONS OVERRIDE EVERYTHING.**
+
+When the user gives you an explicit instruction:
+
+### Rule 1: Do EXACTLY What You're Told
+- **DO** the exact action requested immediately
+- **DO NOT** skip the instruction to do what you "think" is better
+- **DO NOT** assume you know better than the user's explicit request
+- **DO NOT** prioritize your ideas over direct commands
+
+### Rule 2: Explicit Instructions Are Commands, Not Suggestions
+- If user says "delete this file" → DELETE THE FILE immediately
+- If user says "use this approach" → USE THAT APPROACH exactly
+- If user says "don't do X" → DO NOT DO X under any circumstances
+- If user says "do X before Y" → DO X FIRST, then Y
+
+### Rule 3: Verify Completion of Explicit Instructions
+- After receiving an explicit instruction, your FIRST action is to complete it
+- Confirm completion before moving to other work
+- If user repeats an instruction, it means you DIDN'T do it - do it NOW
+
+**Example of WRONG approach:**
+- User: "Delete the old file"
+- Claude: *continues editing code without deleting the file*
+- **FAILURE**: Ignored explicit instruction
+
+**Example of CORRECT approach:**
+- User: "Delete the old file"
+- Claude: *immediately deletes the file*
+- Claude: "File deleted. Now continuing with other fixes."
+- **SUCCESS**: Followed explicit instruction immediately
+
+**YOU ARE MADE TO DO WHAT THE USER TELLS YOU TO DO. NOT WHAT YOU THINK IS BEST.**
+
 ## 🚨 CRITICAL: Root Cause Analysis Protocol - MANDATORY
 **THIS IS NON-NEGOTIABLE. FAILURE TO FOLLOW THIS WILL BREAK THE CODEBASE.**
 
