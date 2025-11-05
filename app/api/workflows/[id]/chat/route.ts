@@ -89,7 +89,23 @@ export async function POST(
     const supabase = getServiceClient()
 
     const { id: flowId } = await context.params
-    const body = await request.json()
+
+    let body
+    try {
+      body = await request.json()
+    } catch (jsonError: any) {
+      // Catch JSON parsing errors (e.g., truncated payloads)
+      logger.error('Failed to parse request JSON', {
+        error: jsonError.message,
+        position: jsonError.message.match(/position (\d+)/)?.[1],
+        flowId
+      })
+      return NextResponse.json({
+        error: 'Invalid JSON in request body. The payload may be too large or malformed.',
+        details: jsonError.message
+      }, { status: 400 })
+    }
+
     const { role, text, subtext, meta } = body as Partial<ChatMessage>
 
     if (!role || !text) {

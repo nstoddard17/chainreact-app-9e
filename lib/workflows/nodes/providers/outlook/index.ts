@@ -480,6 +480,21 @@ const outlookActionCreateCalendarEvent: NodeComponent = {
       { value: "private", label: "Private" },
       { value: "confidential", label: "Confidential" }
     ]}
+  ],
+  producesOutput: true,
+  outputSchema: [
+    { name: "eventId", label: "Event ID", type: "string", description: "The unique ID of the created calendar event" },
+    { name: "subject", label: "Subject", type: "string", description: "The subject/title of the event" },
+    { name: "startTime", label: "Start Time", type: "string", description: "Event start time (ISO 8601)" },
+    { name: "endTime", label: "End Time", type: "string", description: "Event end time (ISO 8601)" },
+    { name: "location", label: "Location", type: "string", description: "Event location" },
+    { name: "attendees", label: "Attendees", type: "array", description: "List of attendee email addresses" },
+    { name: "body", label: "Description", type: "string", description: "Event description/body" },
+    { name: "isOnlineMeeting", label: "Is Online Meeting", type: "boolean", description: "Whether this is an online meeting" },
+    { name: "onlineMeetingUrl", label: "Online Meeting URL", type: "string", description: "URL for online meeting (Teams, Skype, etc.)" },
+    { name: "webLink", label: "Web Link", type: "string", description: "URL to view the event in Outlook" },
+    { name: "importance", label: "Importance", type: "string", description: "Event importance level" },
+    { name: "sensitivity", label: "Sensitivity", type: "string", description: "Event sensitivity level" }
   ]
 }
 
@@ -579,6 +594,10 @@ const outlookActionGetCalendarEvents: NodeComponent = {
       { value: "50", label: "50 events" },
       { value: "100", label: "100 events" }
     ]},
+  ],
+  outputSchema: [
+    { name: "events", label: "Events", type: "array", description: "Array of calendar events" },
+    { name: "count", label: "Count", type: "number", description: "Number of events retrieved" }
   ]
 }
 
@@ -595,6 +614,11 @@ const outlookActionSearchEmail: NodeComponent = {
     { name: "query", label: "Search Query", type: "text", required: true, placeholder: "Enter search terms (e.g., from:john@example.com subject:meeting)" },
     { name: "folderId", label: "Search in Folder", type: "select", required: false, dynamic: "outlook_folders", placeholder: "Select a folder (optional, searches all folders if not specified)" },
   ],
+  producesOutput: true,
+  outputSchema: [
+    { name: "messages", label: "Messages", type: "array", description: "Array of email messages matching the search query" },
+    { name: "count", label: "Count", type: "number", description: "Number of messages found" }
+  ]
 }
 
 // Export all Microsoft Outlook nodes

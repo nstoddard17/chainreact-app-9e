@@ -20,6 +20,20 @@ export const stripeNodes: NodeComponent[] = [
     providerId: "stripe",
     category: "Finance",
     isTrigger: true,
+    producesOutput: true,
+    configSchema: [],
+    outputSchema: [
+      { name: "paymentId", label: "Payment ID", type: "string", description: "The unique ID of the payment" },
+      { name: "customerId", label: "Customer ID", type: "string", description: "The customer who made the payment" },
+      { name: "amount", label: "Amount", type: "number", description: "The payment amount in cents" },
+      { name: "currency", label: "Currency", type: "string", description: "Three-letter ISO currency code (e.g., usd, eur)" },
+      { name: "status", label: "Status", type: "string", description: "Payment status (succeeded, pending, failed)" },
+      { name: "paymentMethod", label: "Payment Method", type: "string", description: "Type of payment method used (card, bank_account, etc.)" },
+      { name: "receiptEmail", label: "Receipt Email", type: "string", description: "Email address where receipt was sent" },
+      { name: "description", label: "Description", type: "string", description: "Description of the payment" },
+      { name: "created", label: "Created At", type: "string", description: "When the payment was created (ISO 8601)" },
+      { name: "metadata", label: "Metadata", type: "object", description: "Custom metadata key-value pairs" }
+    ],
   },
   {
     type: "stripe_action_create_customer",
@@ -542,6 +556,7 @@ export const stripeNodes: NodeComponent[] = [
     requiredScopes: ["write"],
     category: "E-commerce",
     isTrigger: false,
+    producesOutput: true,
     configSchema: [
       { name: "amount", label: "Amount (cents)", type: "number", required: true, placeholder: "1000" },
       { name: "currency", label: "Currency", type: "select", required: true, defaultValue: "usd", options: [
@@ -551,6 +566,18 @@ export const stripeNodes: NodeComponent[] = [
       ] },
       { name: "customerId", label: "Customer ID", type: "text", required: false, placeholder: "cus_1234567890" },
       { name: "description", label: "Description", type: "text", required: false, placeholder: "Payment description" }
+    ],
+    outputSchema: [
+      { name: "paymentIntentId", label: "Payment Intent ID", type: "string", description: "The unique ID of the payment intent (pi_...)" },
+      { name: "clientSecret", label: "Client Secret", type: "string", description: "Secret key for client-side confirmation" },
+      { name: "amount", label: "Amount", type: "number", description: "The payment amount in cents" },
+      { name: "currency", label: "Currency", type: "string", description: "Three-letter ISO currency code" },
+      { name: "status", label: "Status", type: "string", description: "Current status (requires_payment_method, requires_confirmation, requires_action, processing, succeeded, canceled)" },
+      { name: "customerId", label: "Customer ID", type: "string", description: "The customer ID if provided" },
+      { name: "description", label: "Description", type: "string", description: "Description of the payment intent" },
+      { name: "created", label: "Created At", type: "number", description: "Unix timestamp of when the payment intent was created" },
+      { name: "metadata", label: "Metadata", type: "object", description: "Custom metadata key-value pairs" },
+      { name: "nextAction", label: "Next Action", type: "object", description: "Next action required (e.g., redirect to authentication)" }
     ]
   },
   {
@@ -562,10 +589,27 @@ export const stripeNodes: NodeComponent[] = [
     requiredScopes: ["write"],
     category: "E-commerce",
     isTrigger: false,
+    producesOutput: true,
     configSchema: [
       { name: "customerId", label: "Customer ID", type: "text", required: true, placeholder: "cus_1234567890" },
       { name: "description", label: "Description", type: "text", required: false, placeholder: "Invoice description" },
       { name: "autoAdvance", label: "Auto Advance", type: "boolean", required: false, defaultValue: true }
+    ],
+    outputSchema: [
+      { name: "invoiceId", label: "Invoice ID", type: "string", description: "The unique ID of the invoice (in_...)" },
+      { name: "customerId", label: "Customer ID", type: "string", description: "The customer who will receive this invoice" },
+      { name: "number", label: "Invoice Number", type: "string", description: "Human-readable invoice number" },
+      { name: "status", label: "Status", type: "string", description: "Invoice status (draft, open, paid, uncollectible, void)" },
+      { name: "amountDue", label: "Amount Due", type: "number", description: "Total amount due in cents" },
+      { name: "amountPaid", label: "Amount Paid", type: "number", description: "Total amount paid in cents" },
+      { name: "amountRemaining", label: "Amount Remaining", type: "number", description: "Amount still due in cents" },
+      { name: "currency", label: "Currency", type: "string", description: "Three-letter ISO currency code" },
+      { name: "description", label: "Description", type: "string", description: "Description of the invoice" },
+      { name: "dueDate", label: "Due Date", type: "string", description: "When payment is due (ISO 8601)" },
+      { name: "hostedInvoiceUrl", label: "Hosted Invoice URL", type: "string", description: "URL where customer can view and pay the invoice" },
+      { name: "invoicePdf", label: "Invoice PDF URL", type: "string", description: "URL to download PDF of the invoice" },
+      { name: "created", label: "Created At", type: "number", description: "Unix timestamp of creation" },
+      { name: "metadata", label: "Metadata", type: "object", description: "Custom metadata key-value pairs" }
     ]
   },
   {
@@ -577,10 +621,25 @@ export const stripeNodes: NodeComponent[] = [
     requiredScopes: ["write"],
     category: "E-commerce",
     isTrigger: false,
+    producesOutput: true,
     configSchema: [
       { name: "customerId", label: "Customer ID", type: "text", required: true, placeholder: "cus_1234567890" },
       { name: "priceId", label: "Price ID", type: "text", required: true, placeholder: "price_1234567890" },
       { name: "trialPeriodDays", label: "Trial Period (days)", type: "number", required: false, placeholder: "7" }
+    ],
+    outputSchema: [
+      { name: "subscriptionId", label: "Subscription ID", type: "string", description: "The unique ID of the subscription (sub_...)" },
+      { name: "customerId", label: "Customer ID", type: "string", description: "The customer subscribed" },
+      { name: "status", label: "Status", type: "string", description: "Subscription status (active, trialing, past_due, canceled, unpaid, incomplete)" },
+      { name: "currentPeriodStart", label: "Current Period Start", type: "string", description: "Start of the current billing period (ISO 8601)" },
+      { name: "currentPeriodEnd", label: "Current Period End", type: "string", description: "End of the current billing period (ISO 8601)" },
+      { name: "cancelAtPeriodEnd", label: "Cancel At Period End", type: "boolean", description: "Whether the subscription will be canceled at the end of the period" },
+      { name: "trialStart", label: "Trial Start", type: "string", description: "When trial started (ISO 8601)" },
+      { name: "trialEnd", label: "Trial End", type: "string", description: "When trial ends (ISO 8601)" },
+      { name: "priceId", label: "Price ID", type: "string", description: "The price/plan ID for this subscription" },
+      { name: "quantity", label: "Quantity", type: "number", description: "Quantity of the subscription" },
+      { name: "created", label: "Created At", type: "number", description: "Unix timestamp of creation" },
+      { name: "metadata", label: "Metadata", type: "object", description: "Custom metadata key-value pairs" }
     ]
   },
   {

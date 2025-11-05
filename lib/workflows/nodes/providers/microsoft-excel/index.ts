@@ -34,6 +34,44 @@ export const microsoftExcelNodes: NodeComponent[] = [
         description: "The specific worksheet (tab) within the workbook"
       },
     ],
+    outputSchema: [
+      {
+        name: "rowIndex",
+        label: "Row Index",
+        type: "number",
+        description: "The index/number of the new row"
+      },
+      {
+        name: "values",
+        label: "Row Values",
+        type: "array",
+        description: "Array of cell values in the new row"
+      },
+      {
+        name: "rowData",
+        label: "Row Data",
+        type: "object",
+        description: "Row data as key-value pairs (column headers as keys)"
+      },
+      {
+        name: "worksheetName",
+        label: "Worksheet Name",
+        type: "string",
+        description: "Name of the worksheet where row was added"
+      },
+      {
+        name: "workbookId",
+        label: "Workbook ID",
+        type: "string",
+        description: "ID of the workbook"
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "ISO timestamp when the row was added"
+      }
+    ],
   },
   {
     type: "microsoft_excel_trigger_new_worksheet",
@@ -56,6 +94,38 @@ export const microsoftExcelNodes: NodeComponent[] = [
         placeholder: "Select a workbook",
         description: "Choose a workbook from your OneDrive account"
       },
+    ],
+    outputSchema: [
+      {
+        name: "worksheetId",
+        label: "Worksheet ID",
+        type: "string",
+        description: "Unique identifier for the new worksheet"
+      },
+      {
+        name: "worksheetName",
+        label: "Worksheet Name",
+        type: "string",
+        description: "Name of the new worksheet"
+      },
+      {
+        name: "position",
+        label: "Position",
+        type: "number",
+        description: "Position/index of the worksheet in the workbook"
+      },
+      {
+        name: "workbookId",
+        label: "Workbook ID",
+        type: "string",
+        description: "ID of the workbook"
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "ISO timestamp when the worksheet was created"
+      }
     ],
   },
   {
@@ -89,6 +159,56 @@ export const microsoftExcelNodes: NodeComponent[] = [
         placeholder: "Select a worksheet",
         description: "The specific worksheet (tab) within the workbook"
       },
+    ],
+    outputSchema: [
+      {
+        name: "rowIndex",
+        label: "Row Index",
+        type: "number",
+        description: "The index/number of the updated row"
+      },
+      {
+        name: "values",
+        label: "Updated Values",
+        type: "array",
+        description: "Array of cell values in the updated row"
+      },
+      {
+        name: "rowData",
+        label: "Row Data",
+        type: "object",
+        description: "Updated row data as key-value pairs (column headers as keys)"
+      },
+      {
+        name: "previousValues",
+        label: "Previous Values",
+        type: "array",
+        description: "Array of previous cell values before update"
+      },
+      {
+        name: "changedColumns",
+        label: "Changed Columns",
+        type: "array",
+        description: "List of column names/indices that were changed"
+      },
+      {
+        name: "worksheetName",
+        label: "Worksheet Name",
+        type: "string",
+        description: "Name of the worksheet where row was updated"
+      },
+      {
+        name: "workbookId",
+        label: "Workbook ID",
+        type: "string",
+        description: "ID of the workbook"
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "ISO timestamp when the row was updated"
+      }
     ],
   },
   {

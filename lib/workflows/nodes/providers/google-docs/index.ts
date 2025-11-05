@@ -141,6 +141,51 @@ const googleDocsActionCreateDocument: NodeComponent = {
       tabGroup: "Share Document"
     }
   ],
+  producesOutput: true,
+  outputSchema: [
+    {
+      name: "documentId",
+      label: "Document ID",
+      type: "string",
+      description: "The unique ID of the created Google Document"
+    },
+    {
+      name: "documentUrl",
+      label: "Document URL",
+      type: "string",
+      description: "Direct URL to view/edit the document"
+    },
+    {
+      name: "title",
+      label: "Document Title",
+      type: "string",
+      description: "The title of the created document"
+    },
+    {
+      name: "createdAt",
+      label: "Created At",
+      type: "string",
+      description: "Timestamp when the document was created (ISO 8601)"
+    },
+    {
+      name: "folderId",
+      label: "Folder ID",
+      type: "string",
+      description: "ID of the folder where the document was created (if specified)"
+    },
+    {
+      name: "sharedWith",
+      label: "Shared With",
+      type: "array",
+      description: "Array of email addresses the document was shared with (if sharing was enabled)"
+    },
+    {
+      name: "permissionLevel",
+      label: "Permission Level",
+      type: "string",
+      description: "Permission level granted to shared users (viewer, commenter, editor)"
+    }
+  ]
 }
 
 const googleDocsActionUpdateDocument: NodeComponent = {
@@ -205,6 +250,51 @@ const googleDocsActionUpdateDocument: NodeComponent = {
       rows: 8
     }
   ],
+  producesOutput: true,
+  outputSchema: [
+    {
+      name: "documentId",
+      label: "Document ID",
+      type: "string",
+      description: "The unique ID of the updated Google Document"
+    },
+    {
+      name: "documentUrl",
+      label: "Document URL",
+      type: "string",
+      description: "Direct URL to view/edit the updated document"
+    },
+    {
+      name: "title",
+      label: "Document Title",
+      type: "string",
+      description: "The title of the updated document"
+    },
+    {
+      name: "updatedAt",
+      label: "Updated At",
+      type: "string",
+      description: "Timestamp when the document was updated (ISO 8601)"
+    },
+    {
+      name: "revisionId",
+      label: "Revision ID",
+      type: "string",
+      description: "The ID of the new revision created by this update"
+    },
+    {
+      name: "contentLength",
+      label: "Content Length",
+      type: "number",
+      description: "Length of the newly inserted content in characters"
+    },
+    {
+      name: "insertionLocation",
+      label: "Insertion Location",
+      type: "string",
+      description: "Where the content was inserted (beginning, end, after_text, before_text, replace)"
+    }
+  ]
 }
 
 

@@ -20,6 +20,9 @@ import { GoogleCalendarOptionsLoader } from './google-calendar/GoogleCalendarOpt
 import { MicrosoftExcelOptionsLoader } from './microsoft-excel/MicrosoftExcelOptionsLoader';
 import { AIOptionsLoader } from './ai/AIOptionsLoader';
 import { GitHubOptionsLoader } from './github/GitHubOptionsLoader';
+import { MondayOptionsLoader } from './monday/MondayOptionsLoader';
+import { MailchimpOptionsLoader } from './mailchimp/MailchimpOptionsLoader';
+import { TwitterOptionsLoader } from './twitter/TwitterOptionsLoader';
 
 import { logger } from '@/lib/utils/logger'
 
@@ -82,6 +85,15 @@ class ProviderRegistryImpl implements IProviderRegistry {
 
     // Register GitHub loader
     this.register('github', new GitHubOptionsLoader());
+
+    // Register Monday.com loader
+    this.register('monday', new MondayOptionsLoader());
+
+    // Register Mailchimp loader
+    this.register('mailchimp', new MailchimpOptionsLoader());
+
+    // Register Twitter loader
+    this.register('twitter', new TwitterOptionsLoader());
 
     // Additional providers can be registered here as they're implemented
     // this.register('gmail', new GmailOptionsLoader());

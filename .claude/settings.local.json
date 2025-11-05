@@ -1,9 +1,51 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(git rm:*)",
+      "Bash(git commit:*)",
+      "Bash(for file in /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/slack/actions/*.schema.ts)",
+      "Bash(done)",
+      "Bash(for file in /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/slack/triggers/*.schema.ts)",
+      "Bash(for file in /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/gmail/actions/*.schema.ts)",
+      "Bash(for file in /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/gmail/triggers/*.schema.ts)",
+      "Bash(for file in /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/airtable/actions/*.schema.ts)",
+      "Bash(for file in /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/airtable/triggers/*.schema.ts)",
+      "Bash(find:*)",
+      "Bash(node -c:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npx tsc:*)",
+      "Read(//tmp/**)",
+      "Bash(chmod:*)",
+      "Bash(/tmp/count_nodes.sh:*)",
+      "Bash(/tmp/accurate_node_audit.sh)",
+      "Bash(/tmp/comprehensive_audit.sh)",
+      "Bash(/tmp/accurate_complete_audit.sh)",
+      "Bash(/tmp/final_audit.sh)",
+      "Bash(python3:*)",
+      "Bash(node:*)",
+      "Bash(/tmp/audit_output_schemas.sh)",
+      "Bash(/tmp/simple_audit.sh)",
+      "Bash(for dir in outlook onedrive onenote microsoft-excel hubspot trello google-calendar google-docs dropbox facebook google-analytics shopify stripe)",
+      "Bash(do echo \"=== $dir ===\")",
+      "Bash(ls:*)",
+      "Bash(do echo -n \"$dir: \")",
+      "Bash(cat:*)",
+      "Bash(bash:*)"
+    ]
+  },
   "autoApprovalPatterns": {
-    "bash": ["*"],
-    "edit": ["*"],
-    "write": ["*"],
-    "read": ["*"]
+    "bash": [
+      "*"
+    ],
+    "edit": [
+      "*"
+    ],
+    "write": [
+      "*"
+    ],
+    "read": [
+      "*"
+    ]
   },
   "requireApproval": {
     "bash": false,
