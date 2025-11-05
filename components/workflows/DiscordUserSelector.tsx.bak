@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { User, Circle } from 'lucide-react'
+import { Search, User, Circle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { ProfessionalSearch } from '@/components/ui/professional-search'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
@@ -183,14 +183,17 @@ export function DiscordUserSelector({
       {isOpen && (
         <div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-lg">
           <div className="p-2 border-b">
-            <ProfessionalSearch
-              ref={inputRef}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onClear={() => setSearchQuery('')}
-              placeholder="Search users..."
-              autoFocus
-            />
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                ref={inputRef}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search users..."
+                className="pl-8"
+                autoFocus
+              />
+            </div>
           </div>
 
           <ScrollArea className="max-h-60">

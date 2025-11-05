@@ -3,11 +3,12 @@
 import React, { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { ProfessionalSearch } from '@/components/ui/professional-search'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
-import { ChevronDown, Search, Copy, Check } from 'lucide-react'
+import { ChevronDown, Copy, Check } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { resolveVariableValue } from '@/lib/workflows/variableResolution'
 import { buildVariableReference } from '@/lib/workflows/variableInsertion'
@@ -270,14 +271,13 @@ export function VariablePicker({
               <Label htmlFor="variable-search" className="text-sm font-medium">
                 Available Variables
               </Label>
-              <div className="relative mt-2">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
+              <div className="mt-2">
+                <ProfessionalSearch
                   id="variable-search"
                   placeholder="Search variables..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  onClear={() => setSearchTerm('')}
                 />
               </div>
             </div>

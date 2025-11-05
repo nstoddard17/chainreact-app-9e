@@ -16,17 +16,16 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { 
-  Variable, 
-  Bot, 
-  Hash, 
+import { ProfessionalSearch } from '@/components/ui/professional-search'
+import {
+  Variable,
+  Bot,
+  Hash,
   AtSign,
   Sparkles,
   Info,
-  Search,
   ChevronRight
 } from 'lucide-react'
-import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface AIVariableMenuProps {
@@ -157,16 +156,14 @@ export function AIVariableMenu({
           <ScrollArea className="max-h-64 overflow-y-auto">
             {/* Search */}
             <div className="px-2 pb-2">
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  ref={searchInputRef}
-                  placeholder="Search variables..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 h-9"
-                />
-              </div>
+              <ProfessionalSearch
+                ref={searchInputRef}
+                placeholder="Search variables..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onClear={() => setSearchQuery('')}
+                className="h-9"
+              />
             </div>
             {filteredGroups.length === 0 ? (
               <div className="px-2 py-8 text-center text-sm text-muted-foreground">

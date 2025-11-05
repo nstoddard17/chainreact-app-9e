@@ -6,6 +6,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { ProfessionalSearch } from "@/components/ui/professional-search"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -14,7 +15,6 @@ import {
   Mail,
   Phone,
   Clock,
-  Search,
   ChevronDown,
   ChevronRight,
   Book,
@@ -155,14 +155,13 @@ export function SupportContent() {
 
             {/* Enhanced Search Bar */}
             <div className="max-w-2xl mx-auto">
-              <div className="relative bg-white rounded-xl shadow-lg border-2 border-gray-200 hover:border-indigo-300 transition-colors">
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-6 w-6" />
-                <Input
-                  type="text"
+              <div className="bg-white rounded-xl shadow-lg border-2 border-gray-200 hover:border-indigo-300 transition-colors">
+                <ProfessionalSearch
                   placeholder="Search for help articles, FAQs, and more..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-12 pr-4 py-6 text-lg text-black bg-transparent border-0 focus:ring-2 focus:ring-indigo-500 focus:border-transparent rounded-xl placeholder:text-gray-500"
+                  onClear={() => setSearchQuery('')}
+                  className="py-6 text-lg text-black bg-transparent border-0 focus:ring-2 focus:ring-indigo-500 focus:border-transparent rounded-xl placeholder:text-gray-500"
                 />
                 {searchQuery && (
                   <button
