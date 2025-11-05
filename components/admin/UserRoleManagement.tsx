@@ -563,6 +563,7 @@ export default function UserRoleManagement() {
                             setNewRole((user.role as UserRole) || 'free')
                             setShowUpdateDialog(true)
                           }}
+                          className="dark:hover:text-black"
                         >
                           Update Role
                         </Button>
