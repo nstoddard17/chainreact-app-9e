@@ -280,15 +280,6 @@ export const airtableNodes: NodeComponent[] = [
         placeholder: "Select a table",
         description: "Choose the table to create records in",
         dependsOn: "baseId"
-      },
-      {
-        name: "fields",
-        label: "Fields",
-        type: "object",
-        required: false,
-        placeholder: "Enter field values as JSON",
-        description: "Field values to set. Use variables like {{trigger.name}} to pull data from previous nodes.",
-        supportsAI: true
       }
     ],
     outputSchema: [
@@ -350,15 +341,6 @@ export const airtableNodes: NodeComponent[] = [
         description: "The ID of the record to update",
         readonly: true,
         hidden: true
-      },
-      {
-        name: "fields",
-        label: "Record Fields",
-        type: "object",
-        required: true,
-        description: "Field values to update. Use variables like {{trigger.name}} to pull data from previous nodes.",
-        dependsOn: "tableName",
-        supportsAI: true
       }
     ]
   },

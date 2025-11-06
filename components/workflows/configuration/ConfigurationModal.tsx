@@ -54,7 +54,7 @@ import { ConfigurationModalProps } from "./utils/types"
 import ConfigurationForm from "./ConfigurationForm"
 import { ConfigurationDataInspector } from "./ConfigurationDataInspector"
 import { VariableDragProvider } from "./VariableDragContext"
-import { Settings, Zap, Bot, MessageSquare, Mail, Calendar, FileText, Database, Globe, Shield, Bell, ArrowRight, Sparkles, Wrench, SlidersHorizontal, TestTube2 } from "lucide-react"
+import { Settings, Zap, Bot, MessageSquare, Mail, Calendar, FileText, Database, Globe, Shield, Bell, Sparkles, Wrench, SlidersHorizontal, TestTube2, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
@@ -491,34 +491,39 @@ export function ConfigurationModal({
             {/* Panel Header */}
             <div className="pb-3 border-b border-border/30 px-4 pt-3 flex-shrink-0 bg-white dark:bg-slate-950">
               <div className="flex items-center gap-3">
-                <Button variant="ghost" size="icon" onClick={handleClose} className="h-8 w-8 flex-shrink-0">
-                  <ArrowRight className="w-4 h-4" />
+                {/* Close Button */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleClose}
+                  className="flex-shrink-0 h-8 w-8 p-0 hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  <ArrowRight className="h-4 w-4 text-slate-600 dark:text-slate-400" />
                 </Button>
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  {/* Integration Logo or Fallback Icon */}
-                  {nodeInfo?.providerId ? (
-                    <div className="flex-shrink-0">
-                      <StaticIntegrationLogo
-                        providerId={nodeInfo.providerId}
-                        providerName={getProviderBrandName(nodeInfo.providerId)}
-                      />
-                    </div>
-                  ) : (
-                    <div className="p-1.5 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg text-white flex-shrink-0">
-                      {React.cloneElement(getNodeIcon(nodeInfo?.type || ''), { className: 'h-5 w-5' })}
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2 truncate">
-                      {getModalTitle()}
-                      {getNodeTypeBadge(nodeInfo?.type || '')}
-                    </h2>
-                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5 truncate">
-                      {nodeInfo?.providerId
-                        ? `Configure your ${getProviderBrandName(nodeInfo.providerId)} integration settings`
-                        : 'Configure your workflow node settings'}
-                    </p>
+
+                {/* Integration Logo or Fallback Icon */}
+                {nodeInfo?.providerId ? (
+                  <div className="flex-shrink-0">
+                    <StaticIntegrationLogo
+                      providerId={nodeInfo.providerId}
+                      providerName={getProviderBrandName(nodeInfo.providerId)}
+                    />
                   </div>
+                ) : (
+                  <div className="p-1.5 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg text-white flex-shrink-0">
+                    {React.cloneElement(getNodeIcon(nodeInfo?.type || ''), { className: 'h-5 w-5' })}
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2 truncate">
+                    {getModalTitle()}
+                    {getNodeTypeBadge(nodeInfo?.type || '')}
+                  </h2>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5 truncate">
+                    {(nodeInfo as any)?.description || (nodeInfo?.providerId
+                      ? `Configure your ${getProviderBrandName(nodeInfo.providerId)} integration settings`
+                      : 'Configure your workflow node settings')}
+                  </p>
                 </div>
               </div>
             </div>

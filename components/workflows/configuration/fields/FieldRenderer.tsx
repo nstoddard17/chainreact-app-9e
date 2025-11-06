@@ -66,6 +66,11 @@ function getComboboxEmptyMessage(field: any): string {
   const fieldName = field.name?.toLowerCase() || '';
   const label = field.label?.toLowerCase() || '';
 
+  // Discord slash commands
+  if (fieldName === 'command' && field.dynamic === 'discord_commands') {
+    return "No slash commands found. Type a command name to create one, or add commands via Discord Developer Portal.";
+  }
+
   if (fieldName === 'parentpage' || label.includes('parent page')) {
     return "No pages found. Please create or share pages with your Notion integration.";
   }
@@ -128,6 +133,18 @@ const getFieldIcon = (fieldName: string, fieldType: string) => {
 const shouldUseConnectMode = (field: ConfigField | NodeField) => {
   const fieldName = field.name?.toLowerCase() || ''
   const fieldLabel = field.label?.toLowerCase() || ''
+
+  // Structural fields - NEVER use connect mode (these are design-time configuration, not runtime data)
+  // No current triggers/actions output these values, so there's no use case for dynamic references
+  const structuralFields = ['baseid', 'tablename', 'guildid', 'channelid', 'databaseid', 'teamid']
+  if (structuralFields.some(sf => fieldName === sf)) {
+    return false
+  }
+
+  // Airtable dynamic fields - ALWAYS use connect mode (all field types can accept variables)
+  if (fieldName.startsWith('airtable_field_')) {
+    return true
+  }
 
   // Rich text fields - keep variable picker (allow multiple variables + text)
   const richTextFields = ['message', 'body', 'content', 'description', 'text', 'notes']
