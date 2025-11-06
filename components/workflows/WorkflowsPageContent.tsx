@@ -17,6 +17,7 @@ import { ConnectedNodesDisplay } from '@/components/workflows/ConnectedNodesDisp
 import { Button } from '@/components/ui/button'
 import { ProfessionalSearch } from '@/components/ui/professional-search'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
