@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAuthStore } from "@/stores/authStore"
 import { useDebugStore } from "@/stores/debugStore"
@@ -83,6 +83,18 @@ export function OrganizationSettingsContent() {
   const [orgDescription, setOrgDescription] = useState("")
   const [billingEmail, setBillingEmail] = useState("")
 
+  // Prevent double-fetch in React 18 Strict Mode
+  const hasFetchedRef = useRef(false)
+  const fetchingRef = useRef(false)
+
+  // Reset fetch guards on unmount
+  useEffect(() => {
+    return () => {
+      hasFetchedRef.current = false
+      fetchingRef.current = false
+    }
+  }, [])
+
   // Update active section when URL parameter changes
   useEffect(() => {
     if (sectionParam && ['general', 'teams', 'members', 'billing'].includes(sectionParam)) {
@@ -92,19 +104,21 @@ export function OrganizationSettingsContent() {
 
   // Fetch current organization
   useEffect(() => {
-    if (user) {
-      // Only fetch if org ID is explicitly provided in URL
-      // Don't fall back to localStorage for organization settings
-      if (orgIdParam) {
-        // Only fetch if we don't already have this organization loaded
-        if (!organization || organization.id !== orgIdParam) {
-          fetchOrganization(orgIdParam)
-        }
-      } else {
-        // No org ID provided - show empty state
-        setLoading(false)
-        setOrganization(null)
+    if (user && orgIdParam) {
+      // Only fetch if we haven't fetched this org yet AND we're not currently fetching
+      if (!hasFetchedRef.current && !fetchingRef.current) {
+        hasFetchedRef.current = true
+        fetchOrganization(orgIdParam)
+      } else if (organization && organization.id !== orgIdParam) {
+        // Different org requested, allow re-fetch
+        hasFetchedRef.current = false
+        fetchingRef.current = false
+        fetchOrganization(orgIdParam)
       }
+    } else if (user && !orgIdParam) {
+      // No org ID provided - show empty state
+      setLoading(false)
+      setOrganization(null)
     }
   }, [user, orgIdParam])
 
@@ -122,7 +136,13 @@ export function OrganizationSettingsContent() {
   }, [])
 
   const fetchOrganization = async (orgId: string) => {
+    // Prevent concurrent fetches
+    if (fetchingRef.current) {
+      return
+    }
+
     try {
+      fetchingRef.current = true
       setLoading(true)
       logEvent('info', 'OrgSettings', 'Fetching organization...', { orgId })
 
@@ -152,6 +172,7 @@ export function OrganizationSettingsContent() {
       toast.error('Failed to load organization')
     } finally {
       setLoading(false)
+      fetchingRef.current = false
     }
   }
 

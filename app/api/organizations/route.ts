@@ -352,13 +352,15 @@ export async function POST(request: NextRequest) {
       return errorResponse("Failed to create organization", 500)
     }
 
-    // Create default "General" team
+    // Create default "General" team with unique slug
+    // Generate unique slug by appending random suffix
+    const randomSuffix = Math.random().toString(36).substring(2, 8)
     const { data: team, error: teamError } = await serviceClient
       .from("teams")
       .insert({
         organization_id: organization.id,
         name: "General",
-        slug: "general",
+        slug: `general-${randomSuffix}`,
         description: "Default team for " + organization.name,
         color: "#3B82F6",
         settings: {},
@@ -369,6 +371,20 @@ export async function POST(request: NextRequest) {
 
     if (teamError) {
       logger.error("Error creating default team:", teamError)
+      // Don't fail - organization was created successfully
+    }
+
+    // Add creator as organization member (owner role)
+    const { error: orgMemberError } = await serviceClient
+      .from("organization_members")
+      .insert({
+        organization_id: organization.id,
+        user_id: user.id,
+        role: "owner"
+      })
+
+    if (orgMemberError) {
+      logger.error("Error adding creator to organization members:", orgMemberError)
       // Don't fail - organization was created successfully
     }
 

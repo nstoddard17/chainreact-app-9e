@@ -10,7 +10,9 @@
       "Bash(npm run lint:*)",
       "Bash(npx tsc:*)",
       "Bash(curl:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(sed:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": [],
