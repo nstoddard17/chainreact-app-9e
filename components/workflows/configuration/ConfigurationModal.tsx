@@ -54,7 +54,7 @@ import { ConfigurationModalProps } from "./utils/types"
 import ConfigurationForm from "./ConfigurationForm"
 import { ConfigurationDataInspector } from "./ConfigurationDataInspector"
 import { VariableDragProvider } from "./VariableDragContext"
-import { Settings, Zap, Bot, MessageSquare, Mail, Calendar, FileText, Database, Globe, Shield, Bell, ArrowLeft, Sparkles, Wrench, SlidersHorizontal, TestTube2 } from "lucide-react"
+import { Settings, Zap, Bot, MessageSquare, Mail, Calendar, FileText, Database, Globe, Shield, Bell, ArrowRight, Sparkles, Wrench, SlidersHorizontal, TestTube2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
@@ -454,12 +454,29 @@ export function ConfigurationModal({
 
   return (
     <VariableDragProvider>
+      {/* Backdrop Overlay */}
+      <div
+        className={`fixed bg-black/20 z-30 transition-opacity duration-700 ${
+          isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+        style={{
+          top: `${headerHeight}px`,
+          left: 0,
+          right: 0,
+          bottom: 0,
+        }}
+        onClick={handleClose}
+      />
+
+      {/* Configuration Panel */}
       <div
         ref={dialogContentRef}
-        className={`fixed right-0 bg-white dark:bg-slate-950 border-l border-border shadow-2xl z-40 transition-transform duration-300 ease-in-out overflow-hidden ${
+        className={`fixed right-0 bg-white dark:bg-slate-950 border-l border-border shadow-2xl z-40 overflow-hidden ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
         style={{
+          transition: 'transform 700ms cubic-bezier(0.4, 0, 0.2, 1)',
+          willChange: 'transform',
           top: `${headerHeight}px`,
           // Responsive width:
           // - Mobile (< 640px): 100vw (full width)
@@ -493,7 +510,7 @@ export function ConfigurationModal({
             <div className="pb-3 border-b border-border/30 px-4 pt-3 flex-shrink-0 bg-white dark:bg-slate-950">
               <div className="flex items-center gap-3">
                 <Button variant="ghost" size="icon" onClick={handleClose} className="h-8 w-8 flex-shrink-0">
-                  <ArrowLeft className="w-4 h-4" />
+                  <ArrowRight className="w-4 h-4" />
                 </Button>
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   {/* Integration Logo or Fallback Icon */}
