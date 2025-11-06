@@ -88,13 +88,14 @@ async function verifyBotInGuild(guildId: string): Promise<{ isInGuild: boolean; 
           hasPermissions: false,
           error: "Bot not in server or missing permissions"
         };
-      } 
+      } else {
         logger.debug('🔍 Unknown error checking bot status');
         return {
           isInGuild: false,
           hasPermissions: false,
           error: `Discord API error: ${memberError.status || 'unknown'}`
         };
+      }
       
     }
   } catch (error: any) {
