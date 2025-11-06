@@ -55,10 +55,12 @@ import { logger } from "@/lib/utils/logger"
 interface Team {
   id: string
   name: string
+  slug: string
   description: string | null
   created_by: string
   created_at: string
   updated_at: string
+  organization_id?: string | null
   team_members?: TeamMember[]
 }
 
@@ -147,12 +149,19 @@ export function TeamContent({ organizationId: propOrgId }: TeamContentProps = {}
   const fetchTeamDetails = async (teamId: string) => {
     try {
       const response = await fetch(`/api/teams/${teamId}`)
-      const data = await response.json()
-      if (data.success) {
-        return data.team
+      if (!response.ok) {
+        throw new Error('Failed to fetch team details')
       }
+      const data = await response.json()
+      // API returns the team data directly, not wrapped in { success, team }
+      return data
     } catch (error) {
       logger.error('Failed to fetch team details:', error)
+      toast({
+        title: "Error",
+        description: "Failed to load team members",
+        variant: "destructive"
+      })
     }
     return null
   }
@@ -285,10 +294,8 @@ export function TeamContent({ organizationId: propOrgId }: TeamContentProps = {}
   }
 
   const handleOpenMembersDialog = async (team: Team) => {
-    const teamDetails = await fetchTeamDetails(team.id)
-    if (teamDetails) {
-      setMembersDialog({ open: true, team: teamDetails })
-    }
+    // Navigate to the team's members page (works for both standalone and org teams)
+    router.push(`/teams/${team.slug}/members`)
   }
 
   const getUserRole = (team: Team): 'owner' | 'admin' | 'member' | null => {

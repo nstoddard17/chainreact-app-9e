@@ -58,6 +58,13 @@ export function OrganizationSwitcher() {
   const [switching, setSwitching] = useState(false)
   const isInitialLoadRef = useRef(true)
 
+  // Check if we're on a page with an org parameter in the URL
+  const getOrgFromUrl = () => {
+    if (typeof window === 'undefined') return null
+    const params = new URLSearchParams(window.location.search)
+    return params.get('org')
+  }
+
   // Get user role for badge icon
   const isAdmin = profile?.admin === true
   const userRole = isAdmin ? 'admin' : ((profile?.role as UserRole) || 'free')
@@ -151,23 +158,41 @@ export function OrganizationSwitcher() {
       // Include both workspaces and organizations - show all contexts user can switch between
       setOrganizations(allOrgs)
 
-      // Set current org/workspace from localStorage or default to first available
-      const storedOrgId = localStorage.getItem('current_workspace_id')
-      if (storedOrgId && allOrgs.length > 0) {
-        const org = allOrgs.find((o: Organization) => o.id === storedOrgId)
+      // Set current org/workspace from URL first (if on org-specific page), then localStorage, then default
+      const urlOrgId = getOrgFromUrl()
+
+      if (urlOrgId && allOrgs.length > 0) {
+        // If URL has org parameter, use that (user is viewing a specific org)
+        const org = allOrgs.find((o: Organization) => o.id === urlOrgId)
         if (org) {
           setCurrentOrg(org)
+          // Update localStorage to reflect the URL org
+          localStorage.setItem('current_workspace_id', org.id)
         } else {
-          // Stored ID doesn't exist, default to first
-          setCurrentOrg(allOrgs[0] || null)
+          // URL org not found, fall back to localStorage
+          const storedOrgId = localStorage.getItem('current_workspace_id')
+          const storedOrg = allOrgs.find((o: Organization) => o.id === storedOrgId)
+          setCurrentOrg(storedOrg || allOrgs[0] || null)
         }
-      } else if (allOrgs.length > 0) {
-        setCurrentOrg(allOrgs[0])
       } else {
-        // No organizations/workspaces exist
-        setCurrentOrg(null)
-        // Clear invalid workspace ID from localStorage
-        localStorage.removeItem('current_workspace_id')
+        // No URL org parameter, use localStorage or default
+        const storedOrgId = localStorage.getItem('current_workspace_id')
+        if (storedOrgId && allOrgs.length > 0) {
+          const org = allOrgs.find((o: Organization) => o.id === storedOrgId)
+          if (org) {
+            setCurrentOrg(org)
+          } else {
+            // Stored ID doesn't exist, default to first
+            setCurrentOrg(allOrgs[0] || null)
+          }
+        } else if (allOrgs.length > 0) {
+          setCurrentOrg(allOrgs[0])
+        } else {
+          // No organizations/workspaces exist
+          setCurrentOrg(null)
+          // Clear invalid workspace ID from localStorage
+          localStorage.removeItem('current_workspace_id')
+        }
       }
     } catch (error) {
       console.error('Error fetching organizations:', error)
