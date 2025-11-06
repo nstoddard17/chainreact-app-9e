@@ -700,6 +700,7 @@ export function GenericSelectField({
             onOpenChange={handleFieldOpen} // Add missing onOpenChange handler
             selectedValues={effectiveSelectedValues} // Pass selected values for checkmarks
             displayLabel={displayLabel} // Pass the saved display label
+            disableSearch={(field as any).disableSearch} // Support disabling search for simple dropdowns
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}

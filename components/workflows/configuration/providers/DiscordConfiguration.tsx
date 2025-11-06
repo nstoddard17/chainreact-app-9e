@@ -802,6 +802,13 @@ export function DiscordConfiguration({
                   return null;
                 }
               }
+
+              // For discord_trigger_member_join, hide all fields except guildId until guildId is selected
+              if (nodeInfo?.type === 'discord_trigger_member_join') {
+                if (!values.guildId && field.name !== 'guildId') {
+                  return null;
+                }
+              }
               
               // For delete message action - hide messages, userIds/userId, keywords, and keywordMatchType fields if no channel selected
               if (nodeInfo?.type === 'discord_action_delete_message') {

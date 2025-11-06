@@ -266,6 +266,20 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
     // Determine data to load based on field name (moved outside try block for error handling)
     const resourceType = getResourceTypeForField(fieldName, nodeType);
 
+    // Debug logging for searchField specifically
+    if (fieldName === 'searchField') {
+      console.log(`🔍🔍🔍 [useDynamicOptions] LOADING SEARCHFIELD:`, {
+        fieldName,
+        resourceType,
+        nodeType,
+        dependsOn,
+        dependsOnValue,
+        extraOptions,
+        hasExtraOptionsBaseId: !!extraOptions?.baseId,
+        hasExtraOptionsTableName: !!extraOptions?.tableName,
+      });
+    }
+
     // Debug logging for watchedTables / airtable_tables
     if (fieldName === 'watchedTables' || resourceType === 'airtable_tables') {
       console.log(`🎯 [useDynamicOptions] PROCEEDING TO LOAD: ${fieldName}`, {
@@ -1326,19 +1340,42 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
         }
       }
 
-      // For Airtable fields in general (e.g., watchedFieldIds), ensure baseId + tableName are passed
+      // For Airtable fields in general (e.g., watchedFieldIds, searchField), ensure baseId + tableName are passed
       if (resourceType === 'airtable_fields' && fieldName !== 'filterField') {
+        logger.debug(`🔍 [useDynamicOptions] Loading airtable_fields for ${fieldName}:`, {
+          dependsOn,
+          dependsOnValue,
+          hasExtraOptions: !!extraOptions,
+          extraOptionsBaseId: extraOptions?.baseId,
+        });
+
         // Require the dependent table value
         if (dependsOn === 'tableName' && !dependsOnValue) {
+          logger.warn(`⚠️ [useDynamicOptions] Missing tableName for ${fieldName}, returning early`);
           return;
         }
         const formValues = getFormValues?.() || {};
         const baseId = extraOptions?.baseId || formValues.baseId;
         const tableName = dependsOnValue || formValues.tableName;
+
+        logger.debug(`🔍 [useDynamicOptions] Resolved values for ${fieldName}:`, {
+          baseId,
+          tableName,
+          fromExtraOptions: !!extraOptions?.baseId,
+          fromFormValues: !!formValues.baseId,
+        });
+
         if (!baseId || !tableName) {
+          logger.warn(`⚠️ [useDynamicOptions] Missing baseId or tableName for ${fieldName}:`, {
+            baseId,
+            tableName,
+            formValues,
+            extraOptions
+          });
           return;
         }
         options = { baseId, tableName };
+        logger.debug(`✅ [useDynamicOptions] Will fetch ${fieldName} with options:`, options);
       }
       
       // For Airtable field values, use records approach to get unique field values

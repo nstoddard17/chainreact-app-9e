@@ -46,7 +46,8 @@ export const findRecordActionSchema: NodeComponent = {
         { value: "formula", label: "Filter Formula" }
       ],
       defaultValue: "field_match",
-      description: "How to search for the record"
+      description: "How to search for the record",
+      dependsOn: "tableName"
     },
     {
       name: "searchField",
@@ -61,12 +62,35 @@ export const findRecordActionSchema: NodeComponent = {
     },
     {
       name: "searchValue",
-      label: "Search Value",
-      type: "text",
+      label: "Search Keywords",
+      type: "tags",
       required: true,
-      placeholder: "{{trigger.email}}",
+      placeholder: "Type keyword and press Enter...",
       supportsAI: true,
-      description: "Value to search for",
+      description: "Keywords to search for (type and press Enter to add multiple)",
+      visibleWhen: { field: "searchMode", value: "field_match" }
+    },
+    {
+      name: "matchType",
+      label: "Match Type",
+      type: "select",
+      required: false,
+      options: [
+        { value: "any", label: "Match any keyword" },
+        { value: "all", label: "Match all keywords" },
+        { value: "exact", label: "Exact phrase match" }
+      ],
+      defaultValue: "any",
+      description: "How to match keywords",
+      visibleWhen: { field: "searchMode", value: "field_match" }
+    },
+    {
+      name: "caseSensitive",
+      label: "Case Sensitive",
+      type: "boolean",
+      required: false,
+      defaultValue: false,
+      description: "Whether search should be case sensitive",
       visibleWhen: { field: "searchMode", value: "field_match" }
     },
     {
@@ -91,7 +115,8 @@ export const findRecordActionSchema: NodeComponent = {
         { value: "oldest", label: "Return oldest (by created time)" }
       ],
       defaultValue: "first",
-      description: "Which record to return if multiple match"
+      description: "Which record to return if multiple match",
+      dependsOn: "tableName"
     }
   ]
 }

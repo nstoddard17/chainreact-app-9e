@@ -24,6 +24,16 @@ export const discordNodes: NodeComponent[] = [
         loadOnMount: true
       },
       {
+        name: "channelFilter",
+        label: "Invite Channel Filter (Optional)",
+        type: "select",
+        description: "Only trigger when users join via an invite from this specific channel",
+        placeholder: "Select a channel (or leave empty for any channel)",
+        dynamic: "discord_channels",
+        dependsOn: "guildId",
+        required: false
+      },
+      {
         name: "inviteFilter",
         label: "Specific Invite Code (Optional)",
         type: "text",
@@ -47,6 +57,8 @@ export const discordNodes: NodeComponent[] = [
       { name: "inviterId", label: "Inviter ID", type: "string", description: "The ID of who created the invite (if trackable)" },
       { name: "inviteUses", label: "Invite Uses", type: "number", description: "Number of times the invite has been used" },
       { name: "inviteMaxUses", label: "Invite Max Uses", type: "number", description: "Maximum uses allowed for the invite" },
+      { name: "inviteChannelId", label: "Invite Channel ID", type: "string", description: "The ID of the channel where the invite was created (if trackable)" },
+      { name: "inviteChannelName", label: "Invite Channel Name", type: "string", description: "The name of the channel where the invite was created (if trackable)" },
       { name: "timestamp", label: "Event Time", type: "string", description: "When this event occurred (ISO 8601 format)" }
     ]
   },
@@ -370,7 +382,7 @@ export const discordNodes: NodeComponent[] = [
         { value: "newest", label: "Newest First" },
         { value: "oldest", label: "Oldest First" }
       ], defaultValue: "newest", placeholder: "Select sort order...", description: "How to sort the messages" },
-      { name: "filterType", label: "Filter Type", type: "select", required: false, options: [
+      { name: "filterType", label: "Filter Type", type: "select", required: false, disableSearch: true, options: [
         { value: "none", label: "No Filter" },
         { value: "author", label: "Filter by Author" },
         { value: "content", label: "Filter by Content" },

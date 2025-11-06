@@ -237,6 +237,7 @@ export function AirtableConfiguration({
   const isUpdateMultipleRecords = nodeInfo?.type === 'airtable_action_update_multiple_records';
   const isCreateRecord = nodeInfo?.type === 'airtable_action_create_record';
   const isListRecord = nodeInfo?.type === 'airtable_action_list_records';
+  const isFindRecord = nodeInfo?.type === 'airtable_action_find_record';
 
   // Initialize bubble handler
   const airtableBubbleHandler = useAirtableBubbleHandler({
@@ -664,18 +665,107 @@ export function AirtableConfiguration({
 
   // Helper function to check if a field should be shown based on dependencies
   const shouldShowField = (field: any) => {
+    // Debug logging for searchField and related fields
+    const isSearchRelated = ['searchField', 'searchValue', 'matchType', 'caseSensitive'].includes(field.name);
+    if (isSearchRelated) {
+      console.log(`🔍 [shouldShowField] Checking ${field.name}:`, {
+        fieldName: field.name,
+        fieldType: field.type,
+        hasVisibleWhen: !!field.visibleWhen,
+        visibleWhen: field.visibleWhen,
+        hasDependsOn: !!field.dependsOn,
+        dependsOn: field.dependsOn,
+        currentSearchMode: values.searchMode,
+        currentTableName: values.tableName,
+      });
+    }
+
     // Never show fields with type: 'hidden'
-    if (field.type === 'hidden') return false;
-    
+    if (field.type === 'hidden') {
+      if (isSearchRelated) console.log(`❌ [shouldShowField] ${field.name}: hidden type`);
+      return false;
+    }
+
     // If field has hidden: true and dependsOn, only show if dependency is satisfied
     if (field.hidden && field.dependsOn) {
       const dependencyValue = values[field.dependsOn];
       return !!dependencyValue; // Show only if dependency has a value
     }
-    
+
     // If field has hidden: true but no dependsOn, don't show it
     if (field.hidden) return false;
-    
+
+    // Check dependsOn for all fields (not just hidden ones)
+    if (field.dependsOn) {
+      const dependencyValue = values[field.dependsOn];
+      if (!dependencyValue) {
+        return false; // Hide if dependency is not satisfied
+      }
+    }
+
+    // Check visibleWhen condition (for conditional field visibility)
+    if (field.visibleWhen) {
+      const { field: conditionField, value: conditionValue } = field.visibleWhen;
+      let currentValue = values[conditionField];
+
+      if (isSearchRelated) {
+        console.log(`🔍 [shouldShowField] ${field.name} visibleWhen check:`, {
+          conditionField,
+          conditionValue,
+          currentValue,
+          currentValueType: typeof currentValue,
+        });
+      }
+
+      // If value is not set, check if the condition field has a defaultValue
+      if (currentValue === undefined || currentValue === null || currentValue === '') {
+        const conditionFieldDef = nodeInfo?.configSchema?.find((f: any) => f.name === conditionField);
+        if (conditionFieldDef?.defaultValue !== undefined) {
+          currentValue = conditionFieldDef.defaultValue;
+          if (isSearchRelated) {
+            console.log(`🔍 [shouldShowField] ${field.name}: Using default value:`, currentValue);
+          }
+        }
+      }
+
+      // Only show if the condition is met
+      if (currentValue !== conditionValue) {
+        if (isSearchRelated) {
+          console.log(`❌ [shouldShowField] ${field.name}: visibleWhen failed - ${currentValue} !== ${conditionValue}`);
+        }
+        return false;
+      }
+
+      if (isSearchRelated) {
+        console.log(`✅ [shouldShowField] ${field.name}: visibleWhen passed`);
+      }
+    }
+
+    // Progressive disclosure for Find Record
+    if (isFindRecord) {
+      // Step 1: Only show baseId initially
+      if (field.name !== 'baseId' && (!values.baseId || values.baseId === '')) {
+        if (isSearchRelated) {
+          console.log(`❌ [shouldShowField] ${field.name}: Progressive disclosure - no baseId (value: ${values.baseId})`);
+        }
+        return false;
+      }
+
+      // Step 2: After baseId selected, show tableName
+      // Step 3: After tableName selected, show all other fields
+      // IMPORTANT: Treat empty string as falsy - it means table hasn't been selected yet
+      if (field.name !== 'baseId' && field.name !== 'tableName' && (!values.tableName || values.tableName === '')) {
+        if (isSearchRelated) {
+          console.log(`❌ [shouldShowField] ${field.name}: Progressive disclosure - no tableName (value: '${values.tableName}')`);
+        }
+        return false;
+      }
+    }
+
+    if (isSearchRelated) {
+      console.log(`✅✅✅ [shouldShowField] ${field.name}: PASSED ALL CHECKS - SHOULD BE VISIBLE`);
+    }
+
     // Otherwise show the field
     return true;
   };
@@ -911,6 +1001,35 @@ export function AirtableConfiguration({
     }
   }, [airtableTableSchema, values._allFieldsAI, values.baseId, values.tableName]);
 
+  // Initialize default values for Find Record when table is selected
+  useEffect(() => {
+    console.log('🔍 [Find Record] searchMode check:', {
+      isFindRecord,
+      tableName: values.tableName,
+      searchMode: values.searchMode,
+      searchModeType: typeof values.searchMode,
+      willSet: isFindRecord && values.tableName && !values.searchMode
+    });
+
+    if (isFindRecord && values.tableName && !values.searchMode) {
+      console.log('🔍 [Find Record] Setting default searchMode to field_match');
+      setValue('searchMode', 'field_match');
+    }
+  }, [isFindRecord, values.tableName, values.searchMode, setValue]);
+
+  // Log all values for Find Record debugging
+  useEffect(() => {
+    if (isFindRecord) {
+      console.log('🔍 [Find Record] Current values:', {
+        baseId: values.baseId,
+        tableName: values.tableName,
+        searchMode: values.searchMode,
+        searchField: values.searchField,
+        allKeys: Object.keys(values)
+      });
+    }
+  }, [isFindRecord, values]);
+
   // Combine loading logic to prevent duplicate API calls
   // Use refs to track previous values and prevent infinite loops
   const prevTableName = React.useRef(values.tableName);
@@ -920,16 +1039,16 @@ export function AirtableConfiguration({
     // Only trigger if values actually changed
     const tableChanged = prevTableName.current !== values.tableName;
     const baseChanged = prevBaseId.current !== values.baseId;
-    
+
     // Update refs
     prevTableName.current = values.tableName;
     prevBaseId.current = values.baseId;
-    
+
     // Skip if base changed (table will be cleared and reselected)
     if (baseChanged && !values.tableName) {
       return;
     }
-    
+
     // Only proceed if table actually changed and both values exist
     if (tableChanged && values.tableName && values.baseId) {
       // Clear loaded dropdown fields when table changes so they reload for new table
@@ -946,8 +1065,12 @@ export function AirtableConfiguration({
       else if (isCreateRecord) {
         fetchAirtableTableSchema(values.baseId, values.tableName);
       }
+      // For find record, load schema for field selection
+      else if (isFindRecord) {
+        fetchAirtableTableSchema(values.baseId, values.tableName);
+      }
     }
-  }, [isCreateRecord, isUpdateRecord, isUpdateMultipleRecords, values.tableName, values.baseId, fetchAirtableTableSchema, loadAirtableRecords]);
+  }, [isCreateRecord, isUpdateRecord, isUpdateMultipleRecords, isFindRecord, values.tableName, values.baseId, fetchAirtableTableSchema, loadAirtableRecords]);
 
   // Helper function to get a proper string label from any value
   const getLabelFromValue = useCallback((val: any): string => {
