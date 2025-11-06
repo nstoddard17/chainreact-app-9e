@@ -9,7 +9,7 @@ import { useIntegrationStore } from "@/stores/integrationStore"
 import { usePlanRestrictions } from "@/hooks/use-plan-restrictions"
 import { LockedFeature, UpgradePlanModal } from "@/components/plan-restrictions"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { ProfessionalSearch } from "@/components/ui/professional-search"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -731,10 +731,11 @@ export function HomeContent() {
 
         {/* Action Bar */}
         <div className="flex items-center gap-3">
-          <Input
+          <ProfessionalSearch
             placeholder="Search workflows..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onClear={() => setSearchQuery('')}
             className="flex-1 h-9"
           />
           <div className="flex items-center gap-1 border rounded-lg p-1">
@@ -1497,10 +1498,11 @@ export function HomeContent() {
 
           <div className="space-y-4">
             {/* Search Bar */}
-            <Input
+            <ProfessionalSearch
               placeholder="Search for an app..."
               value={appSearchQuery}
               onChange={(e) => setAppSearchQuery(e.target.value)}
+              onClear={() => setAppSearchQuery('')}
             />
 
             {/* Apps Grid */}

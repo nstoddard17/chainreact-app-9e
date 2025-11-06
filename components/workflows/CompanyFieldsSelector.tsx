@@ -5,13 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { ProfessionalSearch } from '@/components/ui/professional-search'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2, Search, Eye, EyeOff, Info, Plus, X, Building } from 'lucide-react'
+import { Loader2, Eye, EyeOff, Info, Plus, X, Building } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useIntegrationStore } from '@/stores/integrationStore'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -286,15 +287,12 @@ export default function CompanyFieldsSelector({
       </div>
 
       {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-        <Input
-          placeholder="Search company fields..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
-      </div>
+      <ProfessionalSearch
+        placeholder="Search company fields..."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        onClear={() => setSearchTerm('')}
+      />
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

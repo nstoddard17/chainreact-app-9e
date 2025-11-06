@@ -1,13 +1,12 @@
 "use client"
 
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Globe, ChevronLeft, AlertCircle, Info, Code2, Sparkles } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ConfigurationContainer } from '../../components/ConfigurationContainer';
 import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -16,9 +15,10 @@ interface ExtractWebsiteDataConfigurationProps {
   values: Record<string, any>;
   errors: Record<string, string>;
   setValue: (name: string, value: any) => void;
-  handleSubmit: (e: React.FormEvent) => void;
+  onSubmit: (values: Record<string, any>) => Promise<void>;
   isLoading: boolean;
   onCancel: () => void;
+  onBack?: () => void;
   nodeInfo: any;
   isEditMode?: boolean;
 }
@@ -27,9 +27,10 @@ export function ExtractWebsiteDataConfiguration({
   values,
   errors,
   setValue,
-  handleSubmit,
+  onSubmit,
   isLoading,
   onCancel,
+  onBack,
   nodeInfo,
   isEditMode = false,
 }: ExtractWebsiteDataConfigurationProps) {
@@ -48,7 +49,7 @@ export function ExtractWebsiteDataConfiguration({
     }
   }, []);
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validate required fields
@@ -78,7 +79,7 @@ export function ExtractWebsiteDataConfiguration({
       }
     }
 
-    handleSubmit(e);
+    await onSubmit(values);
   };
 
   const [selectorFields, setSelectorFields] = useState<Array<{key: string, value: string}>>([
@@ -126,20 +127,35 @@ export function ExtractWebsiteDataConfiguration({
     setValue('cssSelectors', selectors);
   };
 
-  return (
-    <form onSubmit={handleSave} className="flex flex-col h-full">
-      <div className="flex-1 px-8 py-5 overflow-y-auto overflow-x-hidden">
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            <Globe className="w-5 h-5" />
-            Extract Website Data
-          </h3>
-          <p className="text-sm text-muted-foreground mt-1">
-            Scrape and extract specific data from websites
-          </p>
-        </div>
+  const isFormValid = React.useMemo(() => {
+    if (!values.url || values.url.trim() === '') return false;
+    try {
+      new URL(values.url);
+      return true;
+    } catch {
+      return false;
+    }
+  }, [values.url]);
 
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+  return (
+    <ConfigurationContainer
+      onSubmit={handleSave}
+      onCancel={onCancel}
+      onBack={onBack}
+      isEditMode={isEditMode}
+      isFormValid={isFormValid}
+    >
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold flex items-center gap-2">
+          <Globe className="w-5 h-5" />
+          Extract Website Data
+        </h3>
+        <p className="text-sm text-muted-foreground mt-1">
+          Scrape and extract specific data from websites
+        </p>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-2 mb-6">
             <TabsTrigger value="basic">Basic Setup</TabsTrigger>
             <TabsTrigger value="advanced">Advanced Options</TabsTrigger>
@@ -414,17 +430,6 @@ export function ExtractWebsiteDataConfiguration({
             </Alert>
           </TabsContent>
         </Tabs>
-      </div>
-
-      {/* Footer */}
-      <div className="flex items-center justify-between px-8 py-4 border-t border-border bg-muted/30">
-        <Button type="button" variant="ghost" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button type="submit" disabled={isLoading}>
-          {isLoading ? 'Saving...' : isEditMode ? 'Update' : 'Continue'}
-        </Button>
-      </div>
-    </form>
+    </ConfigurationContainer>
   );
 }

@@ -18,6 +18,18 @@ const facebookTriggerNewPost: NodeComponent = {
   isTrigger: true,
   producesOutput: true,
   requiredScopes: ["pages_read_engagement"],
+  configSchema: [
+    {
+      name: "pageId",
+      label: "Facebook Page",
+      type: "combobox",
+      required: true,
+      dynamic: "facebook_pages",
+      loadOnMount: true,
+      placeholder: "Select a page",
+      description: "Choose which Facebook page to monitor for new posts"
+    }
+  ],
   outputSchema: [
     {
       name: "postId",
@@ -80,6 +92,28 @@ const facebookTriggerNewComment: NodeComponent = {
   isTrigger: true,
   producesOutput: true,
   requiredScopes: ["pages_read_engagement"],
+  configSchema: [
+    {
+      name: "pageId",
+      label: "Facebook Page",
+      type: "combobox",
+      required: true,
+      dynamic: "facebook_pages",
+      loadOnMount: true,
+      placeholder: "Select a page",
+      description: "Choose which Facebook page to monitor for comments"
+    },
+    {
+      name: "postId",
+      label: "Specific Post (Optional)",
+      type: "combobox",
+      required: false,
+      dynamic: "facebook_posts",
+      dependsOn: "pageId",
+      placeholder: "All posts",
+      description: "Monitor a specific post, or leave empty to monitor all posts on this page"
+    }
+  ],
   outputSchema: [
     {
       name: "commentId",
@@ -151,23 +185,61 @@ const facebookActionCreatePost: NodeComponent = {
   configSchema: [
     // Page selection - always visible and loads immediately
     { name: "pageId", label: "Select Facebook Page", type: "select", dynamic: true, required: true, placeholder: "Choose which page to post to", loadOnMount: true, description: "The Facebook page where your content will be published" },
-    
+
     // Main content fields - only visible after page selection
     { name: "message", label: "Post Message", type: "textarea", required: true, placeholder: "What's on your mind?", dependsOn: "pageId", hidden: true, description: "The main text content of your Facebook post" },
     { name: "mediaFile", label: "Attach Photo or Video", type: "file", required: false, accept: "image/*,video/*", maxSize: 10485760, dependsOn: "pageId", hidden: true, description: "Add visual content to make your post more engaging (Max 10MB)" },
-    
+
     // Schedule options
     { name: "scheduledPublishTime", label: "Schedule for Later", type: "datetime-local", required: false, placeholder: "Leave empty to post immediately", dependsOn: "pageId", hidden: true, description: "Schedule your post for the optimal time when your audience is most active" },
-    
+
     // Share to groups - Note: Facebook API has limited group access
     { name: "shareToGroups", label: "Cross-post to Groups", type: "multi-select", dynamic: true, required: false, placeholder: "Select groups where you're an admin", description: "Share your post to multiple Facebook groups simultaneously (Limited to groups where you have admin access)", dependsOn: "pageId", hidden: true },
-    
+
     // Monetization section with clear descriptions
     { name: "enableMonetization", label: "💰 Enable Monetization Features", type: "boolean", required: false, defaultValue: false, dependsOn: "pageId", hidden: true, description: "Turn on advanced monetization options to add product links, promo codes, and partnership disclosures to your post" },
     { name: "productLinkUrl", label: "Product Link", type: "text", required: true, placeholder: "https://example.com/product", dependsOn: "pageId", visibilityCondition: { field: "enableMonetization", operator: "equals", value: true }, hidden: true, description: "The URL where users can purchase or learn more about your product" },
     { name: "productLinkName", label: "Call-to-Action Text", type: "text", required: false, placeholder: "e.g., 'Shop Now' or 'Learn More'", dependsOn: "pageId", visibilityCondition: { field: "enableMonetization", operator: "equals", value: true }, hidden: true, description: "Custom text for your product link button (optional)" },
     { name: "productPromoCode", label: "Discount Code", type: "text", required: false, placeholder: "e.g., SAVE20", dependsOn: "pageId", visibilityCondition: { field: "enableMonetization", operator: "equals", value: true }, hidden: true, description: "Share an exclusive promo code with your audience (optional)" },
     { name: "paidPartnershipLabel", label: "🤝 Paid Partnership Disclosure", type: "boolean", required: false, defaultValue: false, dependsOn: "pageId", visibilityCondition: { field: "enableMonetization", operator: "equals", value: true }, hidden: true, description: "Add a 'Paid partnership' label to comply with advertising disclosure requirements" }
+  ],
+  outputSchema: [
+    {
+      name: "postId",
+      label: "Post ID",
+      type: "string",
+      description: "Unique identifier for the created post"
+    },
+    {
+      name: "permalink",
+      label: "Post URL",
+      type: "string",
+      description: "Direct URL to view the post on Facebook"
+    },
+    {
+      name: "message",
+      label: "Post Message",
+      type: "string",
+      description: "The text content of the post"
+    },
+    {
+      name: "createdTime",
+      label: "Created Time",
+      type: "string",
+      description: "ISO timestamp when the post was created"
+    },
+    {
+      name: "isPublished",
+      label: "Is Published",
+      type: "boolean",
+      description: "Whether the post is published (false if scheduled)"
+    },
+    {
+      name: "scheduledTime",
+      label: "Scheduled Time",
+      type: "string",
+      description: "ISO timestamp when post is scheduled to publish (if scheduled)"
+    }
   ]
 }
 
@@ -279,6 +351,38 @@ const facebookActionGetPageInsights: NodeComponent = {
     // Custom date range (only shown when dateRange is "custom")
     { name: "since", label: "Start Date", type: "date", required: false, dependsOn: "pageId", visibilityCondition: { field: "dateRange", operator: "equals", value: "custom" }, hidden: true },
     { name: "until", label: "End Date", type: "date", required: false, dependsOn: "pageId", visibilityCondition: { field: "dateRange", operator: "equals", value: "custom" }, hidden: true }
+  ],
+  outputSchema: [
+    {
+      name: "metric",
+      label: "Metric Name",
+      type: "string",
+      description: "The name of the metric retrieved"
+    },
+    {
+      name: "values",
+      label: "Metric Values",
+      type: "array",
+      description: "Array of data points with timestamps and values"
+    },
+    {
+      name: "period",
+      label: "Period",
+      type: "string",
+      description: "The time period for the metric (day, week, month, etc.)"
+    },
+    {
+      name: "totalValue",
+      label: "Total Value",
+      type: "number",
+      description: "Sum of all values in the date range"
+    },
+    {
+      name: "dateRange",
+      label: "Date Range",
+      type: "object",
+      description: "Start and end dates for the insight data"
+    }
   ]
 }
 
@@ -298,6 +402,32 @@ const facebookActionSendMessage: NodeComponent = {
     { name: "message", label: "Message", type: "textarea", required: true, placeholder: "Enter your message", uiTab: "basic" },
     { name: "quickReplies", label: "Quick Reply Options", type: "textarea", required: false, placeholder: "Enter quick reply options (one per line)", uiTab: "advanced" },
     { name: "typingIndicator", label: "Show Typing Indicator", type: "boolean", required: false, defaultValue: true, uiTab: "advanced" }
+  ],
+  outputSchema: [
+    {
+      name: "messageId",
+      label: "Message ID",
+      type: "string",
+      description: "Unique identifier for the sent message"
+    },
+    {
+      name: "recipientId",
+      label: "Recipient ID",
+      type: "string",
+      description: "Facebook user ID of the message recipient"
+    },
+    {
+      name: "message",
+      label: "Message Text",
+      type: "string",
+      description: "The text content that was sent"
+    },
+    {
+      name: "timestamp",
+      label: "Sent Time",
+      type: "string",
+      description: "ISO timestamp when the message was sent"
+    }
   ]
 }
 
@@ -321,6 +451,38 @@ const facebookActionCommentOnPost: NodeComponent = {
       { value: "video", label: "Video" },
       { value: "link", label: "Link" }
     ], uiTab: "advanced" }
+  ],
+  outputSchema: [
+    {
+      name: "commentId",
+      label: "Comment ID",
+      type: "string",
+      description: "Unique identifier for the created comment"
+    },
+    {
+      name: "postId",
+      label: "Post ID",
+      type: "string",
+      description: "ID of the post that was commented on"
+    },
+    {
+      name: "comment",
+      label: "Comment Text",
+      type: "string",
+      description: "The comment content that was posted"
+    },
+    {
+      name: "createdTime",
+      label: "Created Time",
+      type: "string",
+      description: "ISO timestamp when the comment was created"
+    },
+    {
+      name: "permalink",
+      label: "Comment URL",
+      type: "string",
+      description: "Direct URL to the comment"
+    }
   ]
 }
 

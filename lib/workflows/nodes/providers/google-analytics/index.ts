@@ -52,15 +52,15 @@ export const googleAnalyticsNodes: NodeComponent[] = [
         description: "Only trigger for specific pages (e.g., /blog/* for all blog posts)"
       },
     ],
-    outputs: [
-      { name: "page_path", label: "Page Path", type: "string" },
-      { name: "page_title", label: "Page Title", type: "string" },
-      { name: "user_id", label: "User ID", type: "string" },
-      { name: "session_id", label: "Session ID", type: "string" },
-      { name: "timestamp", label: "Timestamp", type: "string" },
-      { name: "device_category", label: "Device Category", type: "string" },
-      { name: "country", label: "Country", type: "string" },
-      { name: "city", label: "City", type: "string" },
+    outputSchema: [
+      { name: "page_path", label: "Page Path", type: "string", description: "The path of the page that was viewed" },
+      { name: "page_title", label: "Page Title", type: "string", description: "The title of the page" },
+      { name: "user_id", label: "User ID", type: "string", description: "Unique identifier for the user" },
+      { name: "session_id", label: "Session ID", type: "string", description: "Unique identifier for the session" },
+      { name: "timestamp", label: "Timestamp", type: "string", description: "ISO timestamp when the page view occurred" },
+      { name: "device_category", label: "Device Category", type: "string", description: "Device type (desktop, mobile, tablet)" },
+      { name: "country", label: "Country", type: "string", description: "Country of the user" },
+      { name: "city", label: "City", type: "string", description: "City of the user" },
     ],
   },
   {
@@ -97,14 +97,14 @@ export const googleAnalyticsNodes: NodeComponent[] = [
         description: "The specific conversion event to monitor"
       },
     ],
-    outputs: [
-      { name: "event_name", label: "Event Name", type: "string" },
-      { name: "conversion_value", label: "Conversion Value", type: "number" },
-      { name: "user_id", label: "User ID", type: "string" },
-      { name: "session_id", label: "Session ID", type: "string" },
-      { name: "timestamp", label: "Timestamp", type: "string" },
-      { name: "page_path", label: "Page Path", type: "string" },
-      { name: "device_category", label: "Device Category", type: "string" },
+    outputSchema: [
+      { name: "event_name", label: "Event Name", type: "string", description: "Name of the conversion event" },
+      { name: "conversion_value", label: "Conversion Value", type: "number", description: "Monetary value of the conversion" },
+      { name: "user_id", label: "User ID", type: "string", description: "Unique identifier for the user who converted" },
+      { name: "session_id", label: "Session ID", type: "string", description: "Session ID where conversion occurred" },
+      { name: "timestamp", label: "Timestamp", type: "string", description: "ISO timestamp when the conversion happened" },
+      { name: "page_path", label: "Page Path", type: "string", description: "Page where the conversion occurred" },
+      { name: "device_category", label: "Device Category", type: "string", description: "Device type (desktop, mobile, tablet)" },
     ],
   },
   {
@@ -139,13 +139,13 @@ export const googleAnalyticsNodes: NodeComponent[] = [
         description: "The name of the event to monitor (e.g., 'purchase', 'sign_up')"
       },
     ],
-    outputs: [
-      { name: "event_name", label: "Event Name", type: "string" },
-      { name: "event_params", label: "Event Parameters", type: "object" },
-      { name: "user_id", label: "User ID", type: "string" },
-      { name: "session_id", label: "Session ID", type: "string" },
-      { name: "timestamp", label: "Timestamp", type: "string" },
-      { name: "page_path", label: "Page Path", type: "string" },
+    outputSchema: [
+      { name: "event_name", label: "Event Name", type: "string", description: "Name of the custom event that was tracked" },
+      { name: "event_params", label: "Event Parameters", type: "object", description: "Custom parameters attached to the event" },
+      { name: "user_id", label: "User ID", type: "string", description: "Unique identifier for the user" },
+      { name: "session_id", label: "Session ID", type: "string", description: "Session ID where event occurred" },
+      { name: "timestamp", label: "Timestamp", type: "string", description: "ISO timestamp when the event was tracked" },
+      { name: "page_path", label: "Page Path", type: "string", description: "Page where the event occurred" },
     ],
   },
 

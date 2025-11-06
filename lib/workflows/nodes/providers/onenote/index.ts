@@ -80,6 +80,16 @@ const onenoteActionCreatePage: NodeComponent = {
       ],
       description: "The format of the content being sent"
     }
+  ],
+  outputSchema: [
+    { name: "id", label: "Page ID", type: "string", description: "The unique ID of the created page" },
+    { name: "title", label: "Page Title", type: "string", description: "The title of the page" },
+    { name: "contentUrl", label: "Content URL", type: "string", description: "URL to access the page content" },
+    { name: "webUrl", label: "Web URL", type: "string", description: "URL to view the page in OneNote web app" },
+    { name: "createdDateTime", label: "Created Date", type: "string", description: "When the page was created" },
+    { name: "lastModifiedDateTime", label: "Last Modified Date", type: "string", description: "When the page was last modified" },
+    { name: "level", label: "Indentation Level", type: "number", description: "The indentation level of the page" },
+    { name: "order", label: "Order", type: "number", description: "The order of the page within its parent section" }
   ]
 }
 
@@ -122,6 +132,16 @@ const onenoteActionCreateNotebook: NodeComponent = {
       ],
       description: "The role of the user in the notebook"
     }
+  ],
+  outputSchema: [
+    { name: "id", label: "Notebook ID", type: "string", description: "The unique ID of the created notebook" },
+    { name: "displayName", label: "Notebook Name", type: "string", description: "The name of the notebook" },
+    { name: "createdDateTime", label: "Created Date", type: "string", description: "When the notebook was created" },
+    { name: "lastModifiedDateTime", label: "Last Modified Date", type: "string", description: "When the notebook was last modified" },
+    { name: "isDefault", label: "Is Default", type: "boolean", description: "Whether this is the default notebook" },
+    { name: "isShared", label: "Is Shared", type: "boolean", description: "Whether the notebook is shared" },
+    { name: "sectionsUrl", label: "Sections URL", type: "string", description: "URL to access the notebook's sections" },
+    { name: "sectionGroupsUrl", label: "Section Groups URL", type: "string", description: "URL to access the notebook's section groups" }
   ]
 }
 
@@ -153,6 +173,14 @@ const onenoteActionCreateSection: NodeComponent = {
       placeholder: "Enter section name",
       description: "The name of the new section"
     }
+  ],
+  outputSchema: [
+    { name: "id", label: "Section ID", type: "string", description: "The unique ID of the created section" },
+    { name: "displayName", label: "Section Name", type: "string", description: "The name of the section" },
+    { name: "createdDateTime", label: "Created Date", type: "string", description: "When the section was created" },
+    { name: "lastModifiedDateTime", label: "Last Modified Date", type: "string", description: "When the section was last modified" },
+    { name: "pagesUrl", label: "Pages URL", type: "string", description: "URL to access the section's pages" },
+    { name: "isDefault", label: "Is Default", type: "boolean", description: "Whether this is the default section" }
   ]
 }
 
@@ -241,6 +269,14 @@ const onenoteActionUpdatePage: NodeComponent = {
       description: "Where to insert relative to target element",
       visibilityCondition: { field: "updateMode", operator: "equals", value: "insert" }
     }
+  ],
+  outputSchema: [
+    { name: "id", label: "Page ID", type: "string", description: "The ID of the updated page" },
+    { name: "title", label: "Page Title", type: "string", description: "The title of the page" },
+    { name: "contentUrl", label: "Content URL", type: "string", description: "URL to access the updated page content" },
+    { name: "webUrl", label: "Web URL", type: "string", description: "URL to view the page in OneNote web app" },
+    { name: "lastModifiedDateTime", label: "Last Modified Date", type: "string", description: "When the page was last modified" },
+    { name: "success", label: "Success", type: "boolean", description: "Whether the update was successful" }
   ]
 }
 
@@ -300,6 +336,16 @@ const onenoteActionGetPageContent: NodeComponent = {
       defaultValue: true,
       description: "Get pre-generated HTML for faster retrieval"
     }
+  ],
+  outputSchema: [
+    { name: "id", label: "Page ID", type: "string", description: "The unique ID of the page" },
+    { name: "title", label: "Page Title", type: "string", description: "The title of the page" },
+    { name: "content", label: "HTML Content", type: "string", description: "The HTML content of the page" },
+    { name: "contentUrl", label: "Content URL", type: "string", description: "URL to access the page content" },
+    { name: "webUrl", label: "Web URL", type: "string", description: "URL to view the page in OneNote web app" },
+    { name: "createdDateTime", label: "Created Date", type: "string", description: "When the page was created" },
+    { name: "lastModifiedDateTime", label: "Last Modified Date", type: "string", description: "When the page was last modified" },
+    { name: "level", label: "Indentation Level", type: "number", description: "The indentation level of the page" }
   ]
 }
 
@@ -367,6 +413,28 @@ const onenoteActionGetPages: NodeComponent = {
       max: 100,
       description: "Maximum number of pages to return"
     }
+  ],
+  outputSchema: [
+    {
+      name: "pages",
+      label: "Pages",
+      type: "array",
+      description: "Array of pages matching the filter criteria",
+      items: {
+        type: "object",
+        properties: [
+          { name: "id", label: "Page ID", type: "string", description: "The unique ID of the page" },
+          { name: "title", label: "Page Title", type: "string", description: "The title of the page" },
+          { name: "contentUrl", label: "Content URL", type: "string", description: "URL to access the page content" },
+          { name: "webUrl", label: "Web URL", type: "string", description: "URL to view the page in OneNote web app" },
+          { name: "createdDateTime", label: "Created Date", type: "string", description: "When the page was created" },
+          { name: "lastModifiedDateTime", label: "Last Modified Date", type: "string", description: "When the page was last modified" },
+          { name: "level", label: "Indentation Level", type: "number", description: "The indentation level of the page" },
+          { name: "order", label: "Order", type: "number", description: "The order of the page" }
+        ]
+      }
+    },
+    { name: "count", label: "Total Count", type: "number", description: "Total number of pages returned" }
   ]
 }
 
@@ -430,6 +498,14 @@ const onenoteActionCopyPage: NodeComponent = {
       dependsOn: "targetNotebookId",
       description: "The section to copy the page to"
     }
+  ],
+  outputSchema: [
+    { name: "id", label: "New Page ID", type: "string", description: "The ID of the copied page" },
+    { name: "title", label: "Page Title", type: "string", description: "The title of the copied page" },
+    { name: "contentUrl", label: "Content URL", type: "string", description: "URL to access the copied page content" },
+    { name: "webUrl", label: "Web URL", type: "string", description: "URL to view the copied page in OneNote web app" },
+    { name: "createdDateTime", label: "Created Date", type: "string", description: "When the copied page was created" },
+    { name: "success", label: "Success", type: "boolean", description: "Whether the copy operation was successful" }
   ]
 }
 
@@ -496,6 +572,27 @@ const onenoteActionSearch: NodeComponent = {
       max: 100,
       description: "Maximum number of results to return"
     }
+  ],
+  outputSchema: [
+    {
+      name: "results",
+      label: "Search Results",
+      type: "array",
+      description: "Array of pages matching the search query",
+      items: {
+        type: "object",
+        properties: [
+          { name: "id", label: "Page ID", type: "string", description: "The unique ID of the page" },
+          { name: "title", label: "Page Title", type: "string", description: "The title of the page" },
+          { name: "preview", label: "Preview", type: "string", description: "A preview snippet of the page content" },
+          { name: "contentUrl", label: "Content URL", type: "string", description: "URL to access the page content" },
+          { name: "webUrl", label: "Web URL", type: "string", description: "URL to view the page in OneNote web app" },
+          { name: "createdDateTime", label: "Created Date", type: "string", description: "When the page was created" },
+          { name: "lastModifiedDateTime", label: "Last Modified Date", type: "string", description: "When the page was last modified" }
+        ]
+      }
+    },
+    { name: "count", label: "Result Count", type: "number", description: "Total number of results found" }
   ]
 }
 
@@ -547,6 +644,11 @@ const onenoteActionDeletePage: NodeComponent = {
       defaultValue: false,
       description: "Confirm that you want to permanently delete this page"
     }
+  ],
+  outputSchema: [
+    { name: "success", label: "Success", type: "boolean", description: "Whether the page was successfully deleted" },
+    { name: "deletedPageId", label: "Deleted Page ID", type: "string", description: "The ID of the deleted page" },
+    { name: "deletedAt", label: "Deleted At", type: "string", description: "Timestamp when the page was deleted" }
   ]
 }
 

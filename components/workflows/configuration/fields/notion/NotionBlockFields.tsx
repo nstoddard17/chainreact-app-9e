@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { Input } from '@/components/ui/input'
+import { ProfessionalSearch } from '@/components/ui/professional-search'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Textarea } from '@/components/ui/textarea'
-import { Loader2, FolderOpen, FileText, FileSpreadsheet, FileImage, File, Search, Grid, List, Check, ChevronDown } from 'lucide-react'
+import { Loader2, FolderOpen, FileText, FileSpreadsheet, FileImage, File, Grid, List, Check, ChevronDown } from 'lucide-react'
 import { useIntegrationStore } from '@/stores/integrationStore'
 import { 
   Dialog,
@@ -1141,13 +1142,12 @@ export function NotionBlockFields({
             </div>
             
             {/* Search input */}
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input
-                type="text"
+            <div className="flex-1">
+              <ProfessionalSearch
                 placeholder="Search files..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onClear={() => setSearchQuery('')}
                 onKeyPress={(e) => {
                   if (e.key === 'Enter') {
                     handleSearch()

@@ -21,7 +21,18 @@ const hubspotTriggerContactCreated: NodeComponent = {
   category: "CRM",
   isTrigger: true,
   producesOutput: true,
-  configSchema: [],
+  configSchema: [
+    {
+      name: "filterByOwner",
+      label: "Filter by Owner (Optional)",
+      type: "combobox",
+      required: false,
+      dynamic: "hubspot_owners",
+      loadOnMount: true,
+      placeholder: "All contacts",
+      description: "Only trigger for contacts assigned to a specific owner"
+    }
+  ],
   outputSchema: [
     {
       name: "contactId",
@@ -184,7 +195,17 @@ const hubspotTriggerContactDeleted: NodeComponent = {
   category: "CRM",
   isTrigger: true,
   producesOutput: true,
-  configSchema: [],
+  configSchema: [
+    {
+      name: "notificationOnly",
+      label: "Trigger Configuration",
+      type: "select",
+      required: false,
+      options: [{ value: "all", label: "Trigger for all deleted contacts" }],
+      defaultValue: "all",
+      description: "This trigger will fire whenever any contact is deleted in HubSpot"
+    }
+  ],
   outputSchema: [
     {
       name: "contactId",
@@ -234,7 +255,18 @@ const hubspotTriggerCompanyCreated: NodeComponent = {
   category: "CRM",
   isTrigger: true,
   producesOutput: true,
-  configSchema: [],
+  configSchema: [
+    {
+      name: "filterByOwner",
+      label: "Filter by Owner (Optional)",
+      type: "combobox",
+      required: false,
+      dynamic: "hubspot_owners",
+      loadOnMount: true,
+      placeholder: "All companies",
+      description: "Only trigger for companies assigned to a specific owner"
+    }
+  ],
   outputSchema: [
     {
       name: "companyId",
@@ -391,7 +423,18 @@ const hubspotTriggerCompanyDeleted: NodeComponent = {
   category: "CRM",
   isTrigger: true,
   producesOutput: true,
-  configSchema: [],
+  configSchema: [
+    {
+      name: "filterByOwner",
+      label: "Filter by Owner (Optional)",
+      type: "combobox",
+      required: false,
+      dynamic: "hubspot_owners",
+      loadOnMount: true,
+      placeholder: "All companies",
+      description: "Only trigger for companies assigned to a specific owner"
+    }
+  ],
   outputSchema: [
     {
       name: "companyId",
@@ -435,7 +478,18 @@ const hubspotTriggerDealCreated: NodeComponent = {
   category: "CRM",
   isTrigger: true,
   producesOutput: true,
-  configSchema: [],
+  configSchema: [
+    {
+      name: "filterByPipeline",
+      label: "Filter by Pipeline (Optional)",
+      type: "combobox",
+      required: false,
+      dynamic: "hubspot_pipelines",
+      loadOnMount: true,
+      placeholder: "All pipelines",
+      description: "Only trigger for deals in a specific pipeline"
+    }
+  ],
   outputSchema: [
     {
       name: "dealId",
@@ -604,7 +658,18 @@ const hubspotTriggerDealDeleted: NodeComponent = {
   category: "CRM",
   isTrigger: true,
   producesOutput: true,
-  configSchema: [],
+  configSchema: [
+    {
+      name: "filterByPipeline",
+      label: "Filter by Pipeline (Optional)",
+      type: "combobox",
+      required: false,
+      dynamic: "hubspot_pipelines",
+      loadOnMount: true,
+      placeholder: "All pipelines",
+      description: "Only trigger for deals in a specific pipeline"
+    }
+  ],
   outputSchema: [
     {
       name: "dealId",
@@ -831,7 +896,21 @@ const hubspotActionCreateContact: NodeComponent = {
       endpoint: "/api/integrations/hubspot/properties",
       objectType: "contacts"
     }
-  }
+  },
+
+  producesOutput: true,
+  outputSchema: [
+    { name: "contactId", label: "Contact ID", type: "string", description: "The unique ID of the created contact (vid)" },
+    { name: "email", label: "Email", type: "string", description: "The contact's email address" },
+    { name: "firstname", label: "First Name", type: "string", description: "The contact's first name" },
+    { name: "lastname", label: "Last Name", type: "string", description: "The contact's last name" },
+    { name: "phone", label: "Phone", type: "string", description: "The contact's phone number" },
+    { name: "company", label: "Company", type: "string", description: "The contact's company name" },
+    { name: "jobtitle", label: "Job Title", type: "string", description: "The contact's job title" },
+    { name: "lifecyclestage", label: "Lifecycle Stage", type: "string", description: "The contact's lifecycle stage" },
+    { name: "createdate", label: "Create Date", type: "string", description: "When the contact was created (ISO 8601)" },
+    { name: "properties", label: "All Properties", type: "object", description: "All contact properties" }
+  ]
 }
 
 const hubspotActionCreateCompany: NodeComponent = {
@@ -896,6 +975,24 @@ const hubspotActionCreateCompany: NodeComponent = {
       defaultValue: "lead",
       placeholder: "Select lifecycle stage"
     }
+  ],
+  producesOutput: true,
+  outputSchema: [
+    { name: "companyId", label: "Company ID", type: "string", description: "The unique ID of the created company" },
+    { name: "name", label: "Company Name", type: "string", description: "The company name" },
+    { name: "domain", label: "Website Domain", type: "string", description: "The company's website domain" },
+    { name: "phone", label: "Phone", type: "string", description: "The company's phone number" },
+    { name: "address", label: "Address", type: "string", description: "The company's street address" },
+    { name: "city", label: "City", type: "string", description: "The company's city" },
+    { name: "state", label: "State", type: "string", description: "The company's state/region" },
+    { name: "zip", label: "Postal Code", type: "string", description: "The company's postal code" },
+    { name: "country", label: "Country", type: "string", description: "The company's country" },
+    { name: "industry", label: "Industry", type: "string", description: "The company's industry" },
+    { name: "numberofemployees", label: "Number of Employees", type: "number", description: "The company's employee count" },
+    { name: "annualrevenue", label: "Annual Revenue", type: "number", description: "The company's annual revenue" },
+    { name: "lifecyclestage", label: "Lifecycle Stage", type: "string", description: "The company's lifecycle stage" },
+    { name: "createdate", label: "Create Date", type: "string", description: "When the company was created (ISO 8601)" },
+    { name: "properties", label: "All Properties", type: "object", description: "All company properties" }
   ]
 }
 
@@ -980,6 +1077,21 @@ const hubspotActionCreateDeal: NodeComponent = {
       placeholder: "Select a company to associate",
       description: "Link this deal to a company"
     }
+  ],
+  producesOutput: true,
+  outputSchema: [
+    { name: "dealId", label: "Deal ID", type: "string", description: "The unique ID of the created deal" },
+    { name: "dealname", label: "Deal Name", type: "string", description: "The name of the deal" },
+    { name: "amount", label: "Amount", type: "number", description: "The deal amount" },
+    { name: "dealstage", label: "Deal Stage", type: "string", description: "Current stage of the deal" },
+    { name: "pipeline", label: "Pipeline", type: "string", description: "The pipeline this deal belongs to" },
+    { name: "closedate", label: "Close Date", type: "string", description: "Expected close date (ISO 8601)" },
+    { name: "dealtype", label: "Deal Type", type: "string", description: "Type of deal (new business, existing business)" },
+    { name: "description", label: "Description", type: "string", description: "Description of the deal" },
+    { name: "associatedContactId", label: "Associated Contact ID", type: "string", description: "ID of the associated contact" },
+    { name: "associatedCompanyId", label: "Associated Company ID", type: "string", description: "ID of the associated company" },
+    { name: "createdate", label: "Create Date", type: "string", description: "When the deal was created (ISO 8601)" },
+    { name: "properties", label: "All Properties", type: "object", description: "All deal properties" }
   ]
 }
 
@@ -1010,6 +1122,14 @@ const hubspotActionAddContactToList: NodeComponent = {
       placeholder: "Select a list",
       description: "Choose the list to add the contact to (only manual lists can have contacts added)"
     }
+  ],
+  producesOutput: true,
+  outputSchema: [
+    { name: "success", label: "Success", type: "boolean", description: "Whether the contact was successfully added to the list" },
+    { name: "contactEmail", label: "Contact Email", type: "string", description: "Email of the contact that was added" },
+    { name: "listId", label: "List ID", type: "string", description: "The ID of the list" },
+    { name: "listName", label: "List Name", type: "string", description: "The name of the list" },
+    { name: "timestamp", label: "Timestamp", type: "string", description: "When the contact was added (ISO 8601)" }
   ]
 }
 
@@ -1074,6 +1194,19 @@ const hubspotActionUpdateDeal: NodeComponent = {
       required: false,
       placeholder: "Select deal type"
     }
+  ],
+  producesOutput: true,
+  outputSchema: [
+    { name: "dealId", label: "Deal ID", type: "string", description: "The ID of the updated deal" },
+    { name: "dealname", label: "Deal Name", type: "string", description: "The updated deal name" },
+    { name: "amount", label: "Amount", type: "number", description: "The updated deal amount" },
+    { name: "dealstage", label: "Deal Stage", type: "string", description: "The updated deal stage" },
+    { name: "pipeline", label: "Pipeline", type: "string", description: "The pipeline this deal belongs to" },
+    { name: "closedate", label: "Close Date", type: "string", description: "The updated close date (ISO 8601)" },
+    { name: "dealtype", label: "Deal Type", type: "string", description: "The updated deal type" },
+    { name: "description", label: "Description", type: "string", description: "The updated description" },
+    { name: "lastmodifieddate", label: "Last Modified", type: "string", description: "When the deal was last modified (ISO 8601)" },
+    { name: "properties", label: "All Properties", type: "object", description: "All deal properties after update" }
   ]
 }
 

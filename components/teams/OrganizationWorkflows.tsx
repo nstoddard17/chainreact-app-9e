@@ -6,9 +6,9 @@ import { useWorkflowStore } from "@/stores/workflowStore"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
+import { ProfessionalSearch } from "@/components/ui/professional-search"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Search, Play, Pause, Settings, Users, Globe, Lock, Loader2 } from "lucide-react"
+import { Plus, Play, Pause, Settings, Users, Globe, Lock, Loader2 } from "lucide-react"
 
 interface Props {
   organizationId: string
@@ -85,13 +85,12 @@ export default function OrganizationWorkflows({ organizationId, userRole }: Prop
         </CardHeader>
         <CardContent>
           <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
-              <Input
+            <div className="flex-1">
+              <ProfessionalSearch
                 placeholder="Search workflows..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
+                onClear={() => setSearchQuery('')}
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>

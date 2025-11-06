@@ -435,6 +435,16 @@ export const trelloNodes: NodeComponent[] = [
         { value: "public", label: "Public" },
         { value: "workspace", label: "Workspace" }
       ] }
+    ],
+    producesOutput: true,
+    outputSchema: [
+      { name: "boardId", label: "Board ID", type: "string", description: "The unique ID of the created board" },
+      { name: "name", label: "Board Name", type: "string", description: "The name of the board" },
+      { name: "url", label: "Board URL", type: "string", description: "URL to access the board" },
+      { name: "shortUrl", label: "Short URL", type: "string", description: "Shortened URL for the board" },
+      { name: "description", label: "Description", type: "string", description: "Board description" },
+      { name: "visibility", label: "Visibility", type: "string", description: "Board visibility setting" },
+      { name: "closed", label: "Is Closed", type: "boolean", description: "Whether the board is closed/archived" }
     ]
   },
   {
@@ -478,6 +488,14 @@ export const trelloNodes: NodeComponent[] = [
         },
         helperText: "Enter exact position number (1 = first, 2 = second, etc.)"
       }
+    ],
+    producesOutput: true,
+    outputSchema: [
+      { name: "listId", label: "List ID", type: "string", description: "The unique ID of the created list" },
+      { name: "name", label: "List Name", type: "string", description: "The name of the list" },
+      { name: "boardId", label: "Board ID", type: "string", description: "The ID of the board containing this list" },
+      { name: "pos", label: "Position", type: "number", description: "The position of the list on the board" },
+      { name: "closed", label: "Is Archived", type: "boolean", description: "Whether the list is archived" }
     ]
   },
   {
@@ -497,6 +515,15 @@ export const trelloNodes: NodeComponent[] = [
         { value: "top", label: "Top" },
         { value: "bottom", label: "Bottom" }
       ] }
+    ],
+    producesOutput: true,
+    outputSchema: [
+      { name: "cardId", label: "Card ID", type: "string", description: "The unique ID of the moved card" },
+      { name: "name", label: "Card Name", type: "string", description: "The name of the card" },
+      { name: "listId", label: "New List ID", type: "string", description: "The ID of the list the card was moved to" },
+      { name: "boardId", label: "Board ID", type: "string", description: "The ID of the board" },
+      { name: "pos", label: "Position", type: "number", description: "The position of the card in the new list" },
+      { name: "url", label: "Card URL", type: "string", description: "URL to access the card" }
     ]
   },
   {

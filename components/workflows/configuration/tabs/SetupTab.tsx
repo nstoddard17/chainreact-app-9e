@@ -41,15 +41,20 @@ export function SetupTab(props: SetupTabProps) {
     // Nodes without a provider don't need connections (logic nodes, etc.)
     if (!nodeInfo?.providerId) return false
 
-    // Check if this is an actual integration provider (not utility/logic)
-    const utilityProviders = [
-      'schedule', 'conditional', 'if_then', 'path', 'filter',
-      'http_request', 'transformer', 'file_upload', 'extract_website_data',
+    // Check if this is an actual integration provider (not utility/logic/AI)
+    const nonIntegrationProviders = [
+      // Logic nodes
+      'logic',
+      // Scheduling
+      'schedule', 'conditional', 'if_then', 'path', 'filter', 'http_request',
+      // Utility nodes (providerId: 'utility')
+      'utility', 'transformer', 'file_upload', 'extract_website_data',
       'conditional_trigger', 'google_search', 'tavily_search',
-      'ai_agent', 'ai_router', 'ai_message'
+      // AI nodes (providerId: 'ai')
+      'ai', 'ai_agent', 'ai_router', 'ai_message', 'ai_action'
     ]
 
-    return !utilityProviders.includes(nodeInfo.providerId)
+    return !nonIntegrationProviders.includes(nodeInfo.providerId)
   }, [nodeInfo?.providerId])
 
   // Get ALL connections for this provider (not just one)

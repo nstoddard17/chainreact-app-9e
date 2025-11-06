@@ -3,7 +3,13 @@
 import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Database, Eye, RefreshCw, ChevronLeft } from "lucide-react";
+import { AlertTriangle, Database, Eye, RefreshCw, ChevronLeft, ChevronDown } from "lucide-react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 import { FieldRenderer } from '../fields/FieldRenderer';
 import { useIntegrationStore } from '@/stores/integrationStore';
 import { useAirtableBubbleHandler } from '../hooks/useAirtableBubbleHandler';
@@ -689,6 +695,9 @@ export function AirtableConfiguration({
 
   const dynamicFields = getDynamicFields();
 
+  // Track which loadOnMount fields have been loaded
+  const loadedOnMountRef = React.useRef<Set<string>>(new Set());
+
   // Handle dynamic field loading
   const handleDynamicLoad = useCallback(async (
     fieldName: string,
@@ -701,8 +710,15 @@ export function AirtableConfiguration({
       dependsOn,
       dependsOnValue,
       forceReload,
-      hasExistingOptions: !!(dynamicOptions[fieldName] && dynamicOptions[fieldName].length > 0)
+      hasExistingOptions: !!(dynamicOptions[fieldName] && dynamicOptions[fieldName].length > 0),
+      loadedOnMount: loadedOnMountRef.current.has(fieldName)
     });
+
+    // Check if this field was loaded on mount and already has data - don't reload
+    if (!forceReload && loadedOnMountRef.current.has(fieldName) && dynamicOptions[fieldName] && dynamicOptions[fieldName].length > 0) {
+      logger.debug('✅ [AirtableConfig] Field was loaded on mount and has options, skipping reload:', fieldName);
+      return;
+    }
 
     // Check if options are already loaded (don't reload on every dropdown open)
     if (!forceReload && dynamicOptions[fieldName] && dynamicOptions[fieldName].length > 0) {
@@ -1210,6 +1226,158 @@ export function AirtableConfiguration({
   useEffect(() => {
     setAutoLoadedFields(new Set());
   }, [values.tableName]);
+
+  // Auto-load fields with loadOnMount: true on initial component mount (for triggers)
+  useEffect(() => {
+    const isTrigger = nodeInfo?.isTrigger === true;
+    if (!isTrigger) return;
+
+    // Find fields that should load on mount
+    const loadOnMountFields = nodeInfo?.configSchema?.filter((field: any) =>
+      field.loadOnMount === true &&
+      field.dynamic &&
+      !loadedOnMountRef.current.has(field.name)
+    ) || [];
+
+    if (loadOnMountFields.length > 0) {
+      logger.debug('🚀 [LOAD ON MOUNT] Loading fields on mount:', loadOnMountFields.map((f: any) => f.name));
+
+      loadOnMountFields.forEach((field: any) => {
+        // Mark as loaded immediately to prevent duplicate loads
+        loadedOnMountRef.current.add(field.name);
+
+        // Set loading state
+        setLoadingFields(prev => new Set(prev).add(field.name));
+
+        logger.debug(`🔄 [LOAD ON MOUNT] Loading field: ${field.name}`);
+
+        // Load the field options
+        loadOptions(field.name, undefined, undefined, false, false)
+          .finally(() => {
+            setLoadingFields(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(field.name);
+              return newSet;
+            });
+          });
+      });
+    }
+  }, []); // Only run on mount
+
+  // Auto-load dynamic fields for TRIGGERS (depends on baseId only)
+  // Track if we've loaded for this specific baseId to prevent infinite loops
+  const loadedBasesRef = React.useRef<Set<string>>(new Set());
+  const prevBaseIdRef = React.useRef<string | null>(null);
+
+  useEffect(() => {
+    // Check if this is a trigger node
+    const isTrigger = nodeInfo?.isTrigger === true;
+    if (!isTrigger) return;
+
+    if (!values.baseId) {
+      logger.debug('⏭️ [TRIGGER AUTO-LOAD] No baseId, skipping auto-load');
+      // Clear loaded tracker when base is cleared
+      loadedBasesRef.current = new Set();
+      prevBaseIdRef.current = null;
+      return;
+    }
+
+    // Check if base actually changed
+    const baseChanged = prevBaseIdRef.current !== values.baseId;
+    if (!baseChanged) {
+      logger.debug('⏭️ [TRIGGER AUTO-LOAD] Base ID unchanged, skipping', {
+        baseId: values.baseId
+      });
+      return;
+    }
+
+    // Base changed - clear dependent field values
+    if (prevBaseIdRef.current !== null) {
+      logger.debug('🔄 [TRIGGER AUTO-LOAD] Base changed, clearing dependent field values');
+      // Find fields that depend on baseId and clear them
+      const dependentFields = nodeInfo?.configSchema?.filter((field: any) =>
+        field.dependsOn === 'baseId'
+      ) || [];
+
+      dependentFields.forEach((field: any) => {
+        logger.debug(`🔄 [TRIGGER AUTO-LOAD] Clearing field: ${field.name}`);
+        setValue(field.name, undefined);
+      });
+    }
+
+    // Skip if we've already loaded for this baseId
+    const loadKey = `${values.baseId}`;
+    if (loadedBasesRef.current.has(loadKey)) {
+      logger.debug('⏭️ [TRIGGER AUTO-LOAD] Already loaded for this base, skipping', {
+        baseId: values.baseId,
+        loadedBases: Array.from(loadedBasesRef.current)
+      });
+      prevBaseIdRef.current = values.baseId;
+      return;
+    }
+
+    logger.debug('🚀 [TRIGGER AUTO-LOAD] Starting auto-load for trigger fields', {
+      nodeType: nodeInfo?.type,
+      baseId: values.baseId,
+      previousBaseId: prevBaseIdRef.current,
+      loadKey
+    });
+
+    // Update the previous base ID
+    prevBaseIdRef.current = values.baseId;
+
+    // Get all base fields from config schema (not dynamic table fields)
+    const triggerFields = nodeInfo?.configSchema?.filter((field: any) => {
+      // Must have dynamic data type
+      if (!field.dynamic || typeof field.dynamic !== 'string') return false;
+
+      // Must depend on baseId
+      if (field.dependsOn !== 'baseId') return false;
+
+      return true;
+    }) || [];
+
+    if (triggerFields.length > 0) {
+      logger.debug('🚀 [TRIGGER AUTO-LOAD] Auto-loading fields:', triggerFields.map((f: any) => ({
+        name: f.name,
+        label: f.label,
+        dynamic: f.dynamic,
+        dependsOn: f.dependsOn
+      })));
+
+      // Mark this base as loaded BEFORE starting the load
+      loadedBasesRef.current.add(loadKey);
+
+      // Load options for each field
+      triggerFields.forEach((field: any) => {
+        // Set loading state immediately so the field shows the loading placeholder
+        setLoadingFields(prev => new Set(prev).add(field.name));
+
+        const extraOptions = {
+          baseId: values.baseId
+        };
+
+        logger.debug(`🔄 [TRIGGER AUTO-LOAD] Loading options for: ${field.label}`, {
+          fieldName: field.name,
+          dynamic: field.dynamic,
+          baseId: values.baseId
+        });
+
+        // Load with baseId as the dependency (force reload = true)
+        loadOptions(field.name, 'baseId', values.baseId, true, false, extraOptions)
+          .finally(() => {
+            setLoadingFields(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(field.name);
+              return newSet;
+            });
+          });
+      });
+    } else {
+      // No fields need loading, but mark as loaded anyway to prevent re-running
+      loadedBasesRef.current.add(loadKey);
+    }
+  }, [values.baseId]); // Only depend on baseId value change
   
   // Load linked record options when a record is selected
   useEffect(() => {
@@ -1614,7 +1782,14 @@ export function AirtableConfiguration({
           workflowData={workflowData}
           currentNodeId={currentNodeId}
           dynamicOptions={dynamicOptions}
-          loadingDynamic={(loadingFields.has(field.name) || loadingDynamic) && !values[field.name]}
+          loadingDynamic={
+            loadingFields.has(field.name) || loadingDynamic
+              ? // If loading, only show loading placeholder if:
+                // 1. Field has no value yet (initial load), OR
+                // 2. Field depends on another field (e.g., tableName depends on baseId)
+                !values[field.name] || !!field.dependsOn
+              : false
+          }
           nodeInfo={nodeInfo}
           onDynamicLoad={handleDynamicLoad}
           parentValues={values}
@@ -1768,13 +1943,26 @@ export function AirtableConfiguration({
             {/* Base fields */}
             {renderFields(baseFields)}
 
-            {/* Advanced fields */}
+            {/* Advanced fields - Collapsible section (closed by default) */}
             {advancedFields.length > 0 && (
               <div className="border-t border-slate-200 pt-4 mt-6">
-                <h3 className="text-sm font-medium text-slate-700 mb-3">Advanced Settings</h3>
-                <div className="space-y-3">
-                  {renderFields(advancedFields)}
-                </div>
+                <Accordion type="single" collapsible className="w-full">
+                  <AccordionItem value="advanced-settings" className="border-none">
+                    <AccordionTrigger className="py-2 hover:no-underline">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-slate-700">
+                          Advanced Settings
+                        </span>
+                        <span className="text-xs text-slate-500">(optional)</span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-3 pt-3">
+                        {renderFields(advancedFields)}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
               </div>
             )}
 

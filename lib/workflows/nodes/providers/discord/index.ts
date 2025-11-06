@@ -264,6 +264,38 @@ export const discordNodes: NodeComponent[] = [
       { name: "channelId", label: "Channel", type: "select", dynamic: "discord_channels", required: true, dependsOn: "guildId", placeholder: "Select a channel" },
       { name: "messageId", label: "Message (Bot's Own)", type: "select", dynamic: "discord_messages", required: true, dependsOn: "channelId", placeholder: "Select a bot message to edit" },
       { name: "content", label: "New Content", type: "discord-rich-text", provider: "discord", required: true, placeholder: "Enter new message content with formatting, mentions, and emojis" }
+    ],
+    outputSchema: [
+      {
+        name: "messageId",
+        label: "Message ID",
+        type: "string",
+        description: "The ID of the edited message"
+      },
+      {
+        name: "content",
+        label: "Updated Content",
+        type: "string",
+        description: "The new message content"
+      },
+      {
+        name: "channelId",
+        label: "Channel ID",
+        type: "string",
+        description: "The ID of the channel containing the message"
+      },
+      {
+        name: "timestamp",
+        label: "Edit Timestamp",
+        type: "string",
+        description: "When the message was edited"
+      },
+      {
+        name: "success",
+        label: "Success",
+        type: "boolean",
+        description: "Whether the message was edited successfully"
+      }
     ]
   },
   {
@@ -286,6 +318,38 @@ export const discordNodes: NodeComponent[] = [
         { value: "whole", label: "Whole Word - 'trans' won't match 'transistor'" },
         { value: "exact", label: "Exact Match - case-sensitive exact match" }
       ], defaultValue: "partial", description: "How to match keywords in messages" }
+    ],
+    outputSchema: [
+      {
+        name: "deletedCount",
+        label: "Deleted Count",
+        type: "number",
+        description: "Number of messages deleted"
+      },
+      {
+        name: "messageIds",
+        label: "Deleted Message IDs",
+        type: "array",
+        description: "Array of IDs of deleted messages"
+      },
+      {
+        name: "channelId",
+        label: "Channel ID",
+        type: "string",
+        description: "The ID of the channel where messages were deleted"
+      },
+      {
+        name: "timestamp",
+        label: "Deletion Timestamp",
+        type: "string",
+        description: "When the deletion occurred"
+      },
+      {
+        name: "success",
+        label: "Success",
+        type: "boolean",
+        description: "Whether the deletion was successful"
+      }
     ]
   },
   {
@@ -315,6 +379,38 @@ export const discordNodes: NodeComponent[] = [
       { name: "filterAuthor", label: "Author", type: "select", dynamic: "discord_members", required: false, dependsOn: "guildId", placeholder: "Select an author to filter by", description: "Only show messages from this user" },
       { name: "filterContent", label: "Content Contains", type: "text", required: false, placeholder: "Text to search for in messages", description: "Only show messages containing this text" },
       { name: "caseSensitive", label: "Case Sensitive Search", type: "boolean", required: false, defaultValue: false, description: "Whether content search should be case sensitive" }
+    ],
+    outputSchema: [
+      {
+        name: "messages",
+        label: "Messages",
+        type: "array",
+        description: "Array of message objects from the channel"
+      },
+      {
+        name: "count",
+        label: "Message Count",
+        type: "number",
+        description: "Number of messages retrieved"
+      },
+      {
+        name: "channelId",
+        label: "Channel ID",
+        type: "string",
+        description: "The ID of the channel"
+      },
+      {
+        name: "channelName",
+        label: "Channel Name",
+        type: "string",
+        description: "The name of the channel"
+      },
+      {
+        name: "hasMore",
+        label: "Has More Messages",
+        type: "boolean",
+        description: "Whether there are more messages available beyond the limit"
+      }
     ]
   },
   {

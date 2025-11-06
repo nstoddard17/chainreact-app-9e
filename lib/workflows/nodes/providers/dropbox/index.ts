@@ -50,6 +50,62 @@ const dropboxTriggerNewFile: NodeComponent = {
       defaultValue: true,
       description: "When enabled, new files created in subfolders will also trigger this workflow."
     }
+  ],
+  outputSchema: [
+    {
+      name: "id",
+      label: "File ID",
+      type: "string",
+      description: "Unique identifier for the new file"
+    },
+    {
+      name: "name",
+      label: "File Name",
+      type: "string",
+      description: "Name of the new file"
+    },
+    {
+      name: "path",
+      label: "File Path",
+      type: "string",
+      description: "Full path to the file in Dropbox"
+    },
+    {
+      name: "size",
+      label: "File Size",
+      type: "number",
+      description: "Size of the file in bytes"
+    },
+    {
+      name: "mimeType",
+      label: "MIME Type",
+      type: "string",
+      description: "MIME type of the file"
+    },
+    {
+      name: "serverModified",
+      label: "Server Modified Time",
+      type: "string",
+      description: "ISO timestamp when the file was added to Dropbox"
+    },
+    {
+      name: "clientModified",
+      label: "Client Modified Time",
+      type: "string",
+      description: "ISO timestamp when the file was last modified on client"
+    },
+    {
+      name: "rev",
+      label: "Revision",
+      type: "string",
+      description: "Unique revision identifier for the file"
+    },
+    {
+      name: "isDownloadable",
+      label: "Is Downloadable",
+      type: "boolean",
+      description: "Whether the file can be downloaded"
+    }
   ]
 }
 
@@ -142,6 +198,56 @@ const dropboxActionUploadFile: NodeComponent = {
       supportsAI: true
     }
   ],
+  outputSchema: [
+    {
+      name: "id",
+      label: "File ID",
+      type: "string",
+      description: "Unique identifier for the uploaded file"
+    },
+    {
+      name: "name",
+      label: "File Name",
+      type: "string",
+      description: "Name of the uploaded file"
+    },
+    {
+      name: "path",
+      label: "File Path",
+      type: "string",
+      description: "Full path to the file in Dropbox"
+    },
+    {
+      name: "size",
+      label: "File Size",
+      type: "number",
+      description: "Size of the file in bytes"
+    },
+    {
+      name: "serverModified",
+      label: "Server Modified Time",
+      type: "string",
+      description: "ISO timestamp when the file was uploaded to Dropbox"
+    },
+    {
+      name: "rev",
+      label: "Revision",
+      type: "string",
+      description: "Unique revision identifier for the file"
+    },
+    {
+      name: "contentHash",
+      label: "Content Hash",
+      type: "string",
+      description: "Hash of the file content for verification"
+    },
+    {
+      name: "shareableUrl",
+      label: "Shareable URL",
+      type: "string",
+      description: "URL to share the file"
+    }
+  ]
 }
 
 const dropboxActionGetFile: NodeComponent = {

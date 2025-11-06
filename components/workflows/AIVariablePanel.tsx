@@ -3,15 +3,15 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useAIVariables, AIVariable, AIVariableGroup } from '@/hooks/useAIVariables'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { ProfessionalSearch } from '@/components/ui/professional-search'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { cn } from '@/lib/utils'
-import { 
-  Variable, Bot, Hash, AtSign, Sparkles, Search, X,
+import {
+  Variable, Bot, Hash, AtSign, Sparkles, X,
   ChevronDown, Copy, Plus, Grip, Info, Code, Wand2,
   BookOpen, Lightbulb, ChevronRight, MousePointer, HelpCircle
 } from 'lucide-react'
@@ -205,16 +205,14 @@ export function AIVariablePanel({
           </div>
           
           {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              ref={searchInputRef}
-              placeholder="Search variables..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 h-9"
-            />
-          </div>
+          <ProfessionalSearch
+            ref={searchInputRef}
+            placeholder="Search variables..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onClear={() => setSearchQuery('')}
+            className="h-9"
+          />
 
           {/* Instructions */}
           <div className="mt-3 p-2 bg-muted rounded-lg text-xs">

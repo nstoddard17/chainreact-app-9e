@@ -2,13 +2,13 @@
 
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { Eye, Search, ChevronDown, X, Database } from "lucide-react";
+import { ProfessionalSearch } from "@/components/ui/professional-search";
+import { Eye, ChevronDown, X, Database } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { filterRecordsbySearch } from "../../utils/helpers";
 
 interface GoogleSheetsDataPreviewProps {
@@ -166,14 +166,13 @@ export function GoogleSheetsDataPreview({
                 </div>
                 
                 {/* Search Input */}
-                <div className="relative">
-                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-slate-400" />
-                  <Input
-                    type="text"
+                <div className="w-48">
+                  <ProfessionalSearch
                     placeholder="Search rows..."
                     value={tableSearchQuery}
                     onChange={(e) => onSearchChange(e.target.value)}
-                    className="h-7 w-48 pl-7 pr-2 text-xs"
+                    onClear={() => onSearchChange('')}
+                    className="h-7 text-xs"
                   />
                 </div>
                 

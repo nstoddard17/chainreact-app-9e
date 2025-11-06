@@ -1,11 +1,11 @@
 "use client"
 
 import React, { useState } from "react"
-import { Table as TableIcon, ChevronLeft, ChevronRight, Search, SortAsc, SortDesc } from "lucide-react"
+import { Table as TableIcon, ChevronLeft, ChevronRight, SortAsc, SortDesc } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { ProfessionalSearch } from "@/components/ui/professional-search"
 import { cn } from "@/lib/utils"
 
 interface TableRendererProps {
@@ -130,14 +130,16 @@ export function TableRenderer({
         </div>
 
         {searchable && (
-          <div className="relative w-64">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              type="text"
+          <div className="w-64">
+            <ProfessionalSearch
               placeholder="Search..."
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value)
+                setCurrentPage(0)
+              }}
+              onClear={() => {
+                setSearchTerm('')
                 setCurrentPage(0)
               }}
               className="pl-8 h-8 text-sm"

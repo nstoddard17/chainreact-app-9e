@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useMemo, useState, useEffect } from "react"
-import { Input } from "@/components/ui/input"
+import { ProfessionalSearch } from "@/components/ui/professional-search"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useIntegrationStore } from "@/stores/integrationStore"
@@ -141,15 +141,12 @@ export default function NodePalette() {
     <Card className="flex h-full w-80 flex-col">
       <div className="p-4">
         <h3 className="mb-4 text-xl font-bold">Add Nodes</h3>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
-          <Input
-            placeholder="Search nodes..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
+        <ProfessionalSearch
+          placeholder="Search nodes..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          onClear={() => setSearchTerm('')}
+        />
       </div>
       <ScrollArea className="flex-1">
         <div className="p-4 pt-0">

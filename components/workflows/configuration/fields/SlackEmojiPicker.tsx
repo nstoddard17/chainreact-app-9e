@@ -3,10 +3,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { ProfessionalSearch } from "@/components/ui/professional-search"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
-import { Smile, Search, RefreshCw, AlertTriangle } from "lucide-react"
+import { Smile, RefreshCw, AlertTriangle } from "lucide-react"
 
 interface SlackEmojiOption {
   value: string
@@ -170,15 +170,13 @@ export function SlackEmojiPicker({ value, onChange, options = [], loading, onRef
               <span>{error}</span>
             </div>
           )}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              className="pl-9 text-sm"
-              placeholder="Search emojis"
-              value={search}
-              onChange={event => setSearch(event.target.value)}
-            />
-          </div>
+          <ProfessionalSearch
+            className="text-sm"
+            placeholder="Search emojis"
+            value={search}
+            onChange={event => setSearch(event.target.value)}
+            onClear={() => setSearch('')}
+          />
         </div>
 
         <Tabs value={category} onValueChange={setCategory}>

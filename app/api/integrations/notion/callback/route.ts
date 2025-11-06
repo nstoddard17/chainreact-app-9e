@@ -221,6 +221,9 @@ export async function GET(request: NextRequest) {
         status: 'connected',
         is_active: true,
         updated_at: new Date().toISOString(),
+        username: existingWorkspaces[primaryWorkspaceId].workspace_name || null,
+        account_name: existingWorkspaces[primaryWorkspaceId].workspace_name || null,
+        email: null, // Notion doesn't provide user email
         metadata: {
           ...existingMetadata,
           workspaces: existingWorkspaces,
@@ -252,6 +255,9 @@ export async function GET(request: NextRequest) {
         status: 'connected',
         is_active: true,
         updated_at: new Date().toISOString(),
+        username: workspaceName || null,
+        account_name: workspaceName || null,
+        email: null, // Notion doesn't provide user email
         metadata: {
           workspaces: {
             [workspaceId]: workspaceData

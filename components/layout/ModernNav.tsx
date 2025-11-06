@@ -14,12 +14,11 @@ import {
   Sparkles,
   Bell,
   User,
-  Search,
   Menu,
   X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { ProfessionalSearch } from '@/components/ui/professional-search'
 import { cn } from '@/lib/utils'
 import {
   DropdownMenu,
@@ -84,11 +83,10 @@ export function ModernNav() {
           {/* Right Side Actions */}
           <div className="flex items-center gap-3">
             {/* Search */}
-            <div className="hidden md:block relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input
+            <div className="hidden md:block w-64">
+              <ProfessionalSearch
                 placeholder="Quick search..."
-                className="pl-10 w-64 bg-white/50 border-purple-200 focus:border-purple-400 focus:ring-purple-400/20"
+                className="bg-white/50 border-purple-200 focus:border-purple-400 focus:ring-purple-400/20"
               />
             </div>
 

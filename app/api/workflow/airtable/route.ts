@@ -1093,6 +1093,17 @@ async function processAirtablePayload(
     if (triggerType === 'airtable_trigger_table_deleted' && destroyed_table_ids && destroyed_table_ids.length > 0) {
       logger.debug(`🗑️ Processing ${destroyed_table_ids.length} destroyed table(s) for workflow ${workflow.id}`)
 
+      // Get watched tables configuration (optional filter)
+      const watchedTables: string[] | undefined = Array.isArray(triggerConfig.watchedTables)
+        ? triggerConfig.watchedTables
+        : undefined
+
+      if (watchedTables && watchedTables.length > 0) {
+        logger.debug(`   - Filtering by watched tables: ${watchedTables.join(', ')}`)
+      } else {
+        logger.debug(`   - No table filter, monitoring all tables`)
+      }
+
       for (const destroyedTableId of destroyed_table_ids) {
         const dedupeSuffix = `table-${destroyedTableId}`
 
@@ -1101,9 +1112,43 @@ async function processAirtablePayload(
           continue
         }
 
+        // Try to get table name from payload metadata if available
+        let tableName: string | undefined = undefined
+
+        // Check if table info was included in the webhook payload before deletion
+        // (some webhooks may include table metadata before deletion)
+        const allTables = { ...created_tables_by_id, ...changed_tables_by_id }
+        const tableInfo = allTables[destroyedTableId]
+        if (tableInfo?.name) {
+          tableName = tableInfo.name
+        } else if (webhookMetadata?.tableName) {
+          tableName = webhookMetadata.tableName
+        }
+
+        // Filter by watchedTables if specified
+        if (watchedTables && watchedTables.length > 0) {
+          // Filter by either table ID or table name
+          const isWatched = watchedTables.some(watchedTable => {
+            // Check if this is a table ID (starts with 'tbl')
+            if (watchedTable.startsWith('tbl')) {
+              return watchedTable === destroyedTableId
+            }
+            // Otherwise treat as table name
+            return tableName && watchedTable === tableName
+          })
+
+          if (!isWatched) {
+            logger.debug(`      ⏭️ Table ${destroyedTableId} (${tableName || 'unknown'}) not in watched list, skipping`)
+            continue
+          }
+
+          logger.debug(`      ✅ Table ${destroyedTableId} (${tableName || 'unknown'}) is in watched list`)
+        }
+
         const triggerData = {
           baseId,
           tableId: destroyedTableId,
+          tableName: tableName || destroyedTableId, // Fallback to ID if name not available
           deletedAt: normalizedPayload.timestamp || new Date().toISOString(),
           eventType: 'table_deleted'
         }

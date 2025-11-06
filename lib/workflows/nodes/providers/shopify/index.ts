@@ -65,17 +65,17 @@ export const shopifyNodes: NodeComponent[] = [
         description: "Only trigger for orders with this payment status"
       },
     ],
-    outputs: [
-      { name: "order_id", label: "Order ID", type: "string" },
-      { name: "order_number", label: "Order Number", type: "number" },
-      { name: "customer_email", label: "Customer Email", type: "string" },
-      { name: "customer_name", label: "Customer Name", type: "string" },
-      { name: "total_price", label: "Total Price", type: "number" },
-      { name: "currency", label: "Currency", type: "string" },
-      { name: "fulfillment_status", label: "Fulfillment Status", type: "string" },
-      { name: "financial_status", label: "Payment Status", type: "string" },
-      { name: "line_items", label: "Line Items", type: "array" },
-      { name: "created_at", label: "Created At", type: "string" },
+    outputSchema: [
+      { name: "order_id", label: "Order ID", type: "string", description: "Unique identifier for the order" },
+      { name: "order_number", label: "Order Number", type: "number", description: "Human-readable order number" },
+      { name: "customer_email", label: "Customer Email", type: "string", description: "Email address of the customer" },
+      { name: "customer_name", label: "Customer Name", type: "string", description: "Full name of the customer" },
+      { name: "total_price", label: "Total Price", type: "number", description: "Total price of the order" },
+      { name: "currency", label: "Currency", type: "string", description: "Currency code (e.g., USD, EUR)" },
+      { name: "fulfillment_status", label: "Fulfillment Status", type: "string", description: "Current fulfillment status" },
+      { name: "financial_status", label: "Payment Status", type: "string", description: "Current payment status" },
+      { name: "line_items", label: "Line Items", type: "array", description: "Array of products in the order" },
+      { name: "created_at", label: "Created At", type: "string", description: "When the order was created (ISO 8601)" },
     ],
   },
   {
@@ -103,14 +103,14 @@ export const shopifyNodes: NodeComponent[] = [
         description: "Only trigger when these fields change (leave empty to trigger on any change)"
       },
     ],
-    outputs: [
-      { name: "order_id", label: "Order ID", type: "string" },
-      { name: "order_number", label: "Order Number", type: "number" },
-      { name: "customer_email", label: "Customer Email", type: "string" },
-      { name: "fulfillment_status", label: "Fulfillment Status", type: "string" },
-      { name: "financial_status", label: "Payment Status", type: "string" },
-      { name: "tags", label: "Tags", type: "string" },
-      { name: "updated_at", label: "Updated At", type: "string" },
+    outputSchema: [
+      { name: "order_id", label: "Order ID", type: "string", description: "Unique identifier for the order" },
+      { name: "order_number", label: "Order Number", type: "number", description: "Human-readable order number" },
+      { name: "customer_email", label: "Customer Email", type: "string", description: "Email address of the customer" },
+      { name: "fulfillment_status", label: "Fulfillment Status", type: "string", description: "Current fulfillment status" },
+      { name: "financial_status", label: "Payment Status", type: "string", description: "Current payment status" },
+      { name: "tags", label: "Tags", type: "string", description: "Tags associated with the order" },
+      { name: "updated_at", label: "Updated At", type: "string", description: "When the order was last updated (ISO 8601)" },
     ],
   },
   {
@@ -123,16 +123,26 @@ export const shopifyNodes: NodeComponent[] = [
     isTrigger: true,
     producesOutput: true,
     requiredScopes: ["read_customers"],
-    configSchema: [],
-    outputs: [
-      { name: "customer_id", label: "Customer ID", type: "string" },
-      { name: "email", label: "Email", type: "string" },
-      { name: "first_name", label: "First Name", type: "string" },
-      { name: "last_name", label: "Last Name", type: "string" },
-      { name: "phone", label: "Phone", type: "string" },
-      { name: "orders_count", label: "Orders Count", type: "number" },
-      { name: "total_spent", label: "Total Spent", type: "number" },
-      { name: "created_at", label: "Created At", type: "string" },
+    configSchema: [
+      {
+        name: "notificationOnly",
+        label: "Trigger Configuration",
+        type: "select",
+        required: false,
+        options: [{ value: "all", label: "Trigger for all new customers" }],
+        defaultValue: "all",
+        description: "This trigger will fire whenever a new customer is created in your Shopify store"
+      }
+    ],
+    outputSchema: [
+      { name: "customer_id", label: "Customer ID", type: "string", description: "Unique identifier for the customer" },
+      { name: "email", label: "Email", type: "string", description: "Customer's email address" },
+      { name: "first_name", label: "First Name", type: "string", description: "Customer's first name" },
+      { name: "last_name", label: "Last Name", type: "string", description: "Customer's last name" },
+      { name: "phone", label: "Phone", type: "string", description: "Customer's phone number" },
+      { name: "orders_count", label: "Orders Count", type: "number", description: "Total number of orders placed" },
+      { name: "total_spent", label: "Total Spent", type: "number", description: "Total amount spent by customer" },
+      { name: "created_at", label: "Created At", type: "string", description: "When the customer was created (ISO 8601)" },
     ],
   },
   {
@@ -157,14 +167,14 @@ export const shopifyNodes: NodeComponent[] = [
         description: "Only trigger for products in this collection"
       },
     ],
-    outputs: [
-      { name: "product_id", label: "Product ID", type: "string" },
-      { name: "title", label: "Title", type: "string" },
-      { name: "vendor", label: "Vendor", type: "string" },
-      { name: "product_type", label: "Product Type", type: "string" },
-      { name: "status", label: "Status", type: "string" },
-      { name: "variants", label: "Variants", type: "array" },
-      { name: "updated_at", label: "Updated At", type: "string" },
+    outputSchema: [
+      { name: "product_id", label: "Product ID", type: "string", description: "Unique identifier for the updated product" },
+      { name: "title", label: "Title", type: "string", description: "The updated title of the product" },
+      { name: "vendor", label: "Vendor", type: "string", description: "The vendor/brand of the product" },
+      { name: "product_type", label: "Product Type", type: "string", description: "The type/category of the product" },
+      { name: "status", label: "Status", type: "string", description: "Current status of the product (active, draft, archived)" },
+      { name: "variants", label: "Variants", type: "array", description: "Array of product variants with pricing and inventory data" },
+      { name: "updated_at", label: "Updated At", type: "string", description: "Timestamp when the product was last updated (ISO 8601)" },
     ],
   },
   {
@@ -198,13 +208,13 @@ export const shopifyNodes: NodeComponent[] = [
         description: "Only check inventory at this location"
       },
     ],
-    outputs: [
-      { name: "inventory_item_id", label: "Inventory Item ID", type: "string" },
-      { name: "product_id", label: "Product ID", type: "string" },
-      { name: "variant_id", label: "Variant ID", type: "string" },
-      { name: "sku", label: "SKU", type: "string" },
-      { name: "quantity", label: "Current Quantity", type: "number" },
-      { name: "location_id", label: "Location ID", type: "string" },
+    outputSchema: [
+      { name: "inventory_item_id", label: "Inventory Item ID", type: "string", description: "Unique identifier for the inventory item" },
+      { name: "product_id", label: "Product ID", type: "string", description: "Unique identifier for the product with low stock" },
+      { name: "variant_id", label: "Variant ID", type: "string", description: "Unique identifier for the specific variant" },
+      { name: "sku", label: "SKU", type: "string", description: "Stock Keeping Unit code for the variant" },
+      { name: "quantity", label: "Current Quantity", type: "number", description: "Current inventory quantity that fell below threshold" },
+      { name: "location_id", label: "Location ID", type: "string", description: "The location where inventory is low" },
     ],
   },
 
