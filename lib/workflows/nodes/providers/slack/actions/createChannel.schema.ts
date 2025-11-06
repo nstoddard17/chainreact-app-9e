@@ -407,5 +407,42 @@ export const createChannelActionSchema: NodeComponent = {
         }
       ]
     }
+  ],
+  outputSchema: [
+    {
+      name: "channelId",
+      label: "Channel ID",
+      type: "string",
+      description: "The unique ID of the created channel",
+      example: "C1234567890"
+    },
+    {
+      name: "channelName",
+      label: "Channel Name",
+      type: "string",
+      description: "The name of the created channel",
+      example: "plan-budget"
+    },
+    {
+      name: "isPrivate",
+      label: "Is Private",
+      type: "boolean",
+      description: "Whether the channel is private",
+      example: false
+    },
+    {
+      name: "createdAt",
+      label: "Created At",
+      type: "string",
+      description: "When the channel was created",
+      example: "2024-01-15T10:30:00Z"
+    },
+    {
+      name: "creator",
+      label: "Creator ID",
+      type: "string",
+      description: "The user ID of the channel creator",
+      example: "U1234567890"
+    }
   ]
 }

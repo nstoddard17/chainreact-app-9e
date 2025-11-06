@@ -2,8 +2,8 @@
 
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { Database, Search, X } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { ProfessionalSearch } from "@/components/ui/professional-search";
+import { Database, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { filterRecordsbySearch, formatFieldValue } from "../../utils/helpers";
 import { cn } from "@/lib/utils";
@@ -100,14 +100,13 @@ export function AirtableRecordSelector({
               
               <div className="flex items-center gap-2">
                 {/* Search Input */}
-                <div className="relative">
-                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-slate-400" />
-                  <Input
-                    type="text"
+                <div className="w-48">
+                  <ProfessionalSearch
                     placeholder="Search records..."
                     value={searchQuery}
                     onChange={(e) => onSearchChange(e.target.value)}
-                    className="h-7 w-48 pl-7 pr-2 text-xs"
+                    onClear={() => onSearchChange('')}
+                    className="h-7 text-xs"
                   />
                 </div>
                 

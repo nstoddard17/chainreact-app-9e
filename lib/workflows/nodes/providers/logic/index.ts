@@ -24,6 +24,7 @@ export const logicNodes: NodeComponent[] = [
     testable: true,
     producesOutput: true,
     multipleOutputs: true, // This node can have multiple output connections
+    noConfigRequired: true, // Special flag: This node intentionally has no config - paths are managed via connected Path Condition nodes
     outputSchema: [
       {
         name: "pathTaken",
@@ -40,14 +41,50 @@ export const logicNodes: NodeComponent[] = [
         example: true
       }
     ],
+    configSchema: [], // No configuration needed - paths are managed via Path Condition nodes
+  },
+  {
+    type: "path_condition",
+    title: "Path Conditions",
+    description: "Define conditions for a router path - continues if conditions are met",
+    icon: GitBranch,
+    category: "Logic",
+    providerId: "logic",
+    isTrigger: false,
+    testable: true,
+    producesOutput: true,
+    outputSchema: [
+      {
+        name: "conditionsMet",
+        label: "Conditions Met",
+        type: "boolean",
+        description: "Whether all conditions were satisfied",
+        example: true
+      },
+      {
+        name: "evaluatedConditions",
+        label: "Evaluated Conditions",
+        type: "array",
+        description: "List of conditions that were checked",
+        example: [{ field: "status", operator: "equals", value: "active", result: true }]
+      }
+    ],
     configSchema: [
       {
-        name: "paths",
-        label: "Conditional Paths",
-        type: "custom", // Will use custom CriteriaBuilder component
+        name: "pathName",
+        label: "Path Name",
+        type: "text",
+        placeholder: "e.g., High Priority, Active Users, VIP Customers",
+        description: "Give this path a descriptive name",
+        required: true
+      },
+      {
+        name: "conditions",
+        label: "Path Conditions",
+        type: "custom",
         required: true,
-        description: "Define conditions for each path",
-        customComponent: "PathCriteriaBuilder"
+        description: "This path will be taken if these conditions are met",
+        customComponent: "FilterCriteriaBuilder"
       }
     ],
   },

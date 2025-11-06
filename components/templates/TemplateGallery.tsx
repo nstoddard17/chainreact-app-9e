@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
+import { ProfessionalSearch } from "@/components/ui/professional-search"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, Copy, Eye, Loader2, Edit, Play, Plus } from "lucide-react"
 import { useRouter } from "next/navigation"
@@ -444,12 +444,11 @@ export function TemplateGallery() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-          <Input
+          <ProfessionalSearch
             placeholder="Search templates..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            onClear={() => setSearchQuery('')}
           />
         </div>
         <Select value={selectedCategory} onValueChange={setSelectedCategory}>

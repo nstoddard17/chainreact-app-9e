@@ -15,7 +15,7 @@ import { useWorkflowCreation } from '@/hooks/useWorkflowCreation'
 import { WorkspaceSelectionModal } from '@/components/workflows/WorkspaceSelectionModal'
 import { ConnectedNodesDisplay } from '@/components/workflows/ConnectedNodesDisplay'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { ProfessionalSearch } from '@/components/ui/professional-search'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -1493,10 +1493,11 @@ function WorkflowsContent() {
 
             {/* Search Bar - expandable */}
             <div className="flex-1 px-3">
-              <Input
+              <ProfessionalSearch
                 placeholder={activeTab === 'workflows' ? "Search workflows..." : "Search folders..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onClear={() => setSearchQuery('')}
                 className="h-9 w-full"
               />
             </div>

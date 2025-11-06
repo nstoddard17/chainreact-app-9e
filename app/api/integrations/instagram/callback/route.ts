@@ -157,6 +157,9 @@ export async function GET(request: NextRequest) {
       status: 'connected',
       is_active: true,
       updated_at: new Date().toISOString(),
+      username: userInfo.username || null,
+      account_name: userInfo.username || null,
+      email: null, // Instagram API doesn't provide email
       metadata: {
         instagram_account_id: userInfo.id,
         instagram_username: userInfo.username,

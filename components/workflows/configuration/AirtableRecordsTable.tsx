@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Search, X } from "lucide-react";
+import { ProfessionalSearch } from "@/components/ui/professional-search";
+import { RefreshCw, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AirtableRecordsTableProps {
@@ -134,14 +135,13 @@ export function AirtableRecordsTable({
           {/* Search and controls */}
           <div className="flex items-center gap-2 flex-shrink-0">
             {/* Search Bar */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
-              <input
-                type="text"
+            <div className="w-40">
+              <ProfessionalSearch
                 placeholder="Search records..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 w-40"
+                onClear={() => setSearchQuery('')}
+                className="h-8 text-sm bg-gray-800 border-gray-600 text-gray-200 placeholder:text-gray-500"
               />
             </div>
 

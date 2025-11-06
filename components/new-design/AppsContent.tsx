@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { useAuthStore } from "@/stores/authStore"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { ProfessionalSearch } from "@/components/ui/professional-search"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import {
@@ -259,14 +259,12 @@ export function AppsContent() {
             </DialogHeader>
 
             {/* Search for available apps */}
-            <div className="relative">
-              <Input
-                placeholder="Search available apps..."
-                value={availableSearchQuery}
-                onChange={(e) => setAvailableSearchQuery(e.target.value)}
-                className="bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400"
-              />
-            </div>
+            <ProfessionalSearch
+              placeholder="Search available apps..."
+              value={availableSearchQuery}
+              onChange={(e) => setAvailableSearchQuery(e.target.value)}
+              onClear={() => setAvailableSearchQuery('')}
+            />
 
             {/* Available apps grid */}
             <div className="overflow-y-auto max-h-[500px] pr-2">
@@ -506,13 +504,12 @@ export function AppsContent() {
       )}
 
       {/* Search Connected Apps */}
-      <div className="relative">
-        <Input
-          placeholder="Search connected apps..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-      </div>
+      <ProfessionalSearch
+        placeholder="Search connected apps..."
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        onClear={() => setSearchQuery('')}
+      />
 
       {/* Connected Apps Grid */}
       {connectedApps.length === 0 ? (

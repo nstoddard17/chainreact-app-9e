@@ -20,6 +20,7 @@ interface Condition {
 }
 
 interface AdvancedTabProps {
+  nodeInfo?: any
   currentNodeId?: string
   workflowData?: { nodes: any[]; edges: any[] }
   initialPolicy?: {
@@ -52,17 +53,20 @@ const OPERATORS = [
  *
  * Clean, focused UI inspired by modern workflow tools
  * - Run Behavior: How this node executes
- * - Conditional Execution: Run only when conditions are met
+ * - Conditional Execution: Run only when conditions are met (hidden for triggers)
  * - Execution Policies: Timeout, retries (always visible, simplified)
  * - Documentation: Internal notes
  */
 export function AdvancedTab({
+  nodeInfo,
   currentNodeId,
   workflowData,
   initialPolicy,
   initialMetadata,
   onChange
 }: AdvancedTabProps) {
+  // Check if this is a trigger node
+  const isTrigger = nodeInfo?.isTrigger === true
   // Run behavior (maps to error handling)
   const [runBehavior, setRunBehavior] = useState<'normal' | 'skip' | 'pause'>(
     initialMetadata?.errorHandling === 'continue' ? 'skip' :
@@ -248,14 +252,15 @@ export function AdvancedTab({
             </div>
           </div>
 
-          {/* Conditional Execution Section */}
-          <div className="space-y-3">
-            <div>
-              <h3 className="text-sm font-semibold text-foreground">Conditional Execution</h3>
-              <p className="text-xs text-muted-foreground mt-1">
-                Run this node only when specific conditions are met
-              </p>
-            </div>
+          {/* Conditional Execution Section - Hidden for Triggers */}
+          {!isTrigger && (
+            <div className="space-y-3">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Conditional Execution</h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Run this node only when specific conditions are met
+                </p>
+              </div>
 
             {/* Enable Conditions Toggle */}
             <button
@@ -426,7 +431,8 @@ export function AdvancedTab({
                 )}
               </div>
             )}
-          </div>
+            </div>
+          )}
 
           {/* Execution Policies - Always visible, no dropdown */}
           <div className="space-y-4">

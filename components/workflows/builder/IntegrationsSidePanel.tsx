@@ -29,7 +29,11 @@ export function IntegrationsSidePanel({ isOpen, onClose, onNodeSelect }: Integra
 
   // Filter and categorize nodes
   const filteredNodes = useMemo(() => {
-    let nodes = ALL_NODE_COMPONENTS.filter(node => node.providerId && node.providerId !== 'generic')
+    let nodes = ALL_NODE_COMPONENTS.filter(node =>
+      node.providerId &&
+      node.providerId !== 'generic' &&
+      node.type !== 'path_condition' // Path Condition nodes are auto-created by Path Router
+    )
 
     // Filter by category
     if (selectedCategory === 'trigger') {

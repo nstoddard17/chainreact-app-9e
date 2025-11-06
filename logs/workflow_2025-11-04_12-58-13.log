@@ -1910,3 +1910,536 @@ ReferenceError: Input is not defined
 [2025-11-04T23:43:51.924Z] [INFO   ] 2025-11-04T23:43:51.924Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"c8d02b5a-3a01-49f9-abdf-693f30c28ab9","provider":"google-calendar","permission":"admin"}
 [2025-11-04T23:43:51.924Z] [INFO   ] 2025-11-04T23:43:51.924Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","provider":"airtable","permission":"admin"}
 [2025-11-04T23:43:51.924Z] [INFO   ] 2025-11-04T23:43:51.924Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-04T23:47:29.476Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1741ms (1654 modules)
+[2025-11-04T23:47:29.833Z] [INFO   ] 2025-11-04T23:47:29.833Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13733362434}
+[2025-11-04T23:47:30.067Z] [INFO   ] 2025-11-04T23:47:30.067Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-04T23:47:35.778Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 471ms (1654 modules)
+[2025-11-04T23:47:36.102Z] [INFO   ] 2025-11-04T23:47:36.102Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13733368703}
+[2025-11-04T23:47:36.200Z] [INFO   ] 2025-11-04T23:47:36.200Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-04T23:48:02.160Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 377ms (1654 modules)
+[2025-11-04T23:48:02.389Z] [INFO   ] 2025-11-04T23:48:02.389Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13733394990}
+[2025-11-04T23:48:02.472Z] [INFO   ] 2025-11-04T23:48:02.471Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-04T23:48:10.006Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 404ms (1654 modules)
+[2025-11-04T23:48:10.240Z] [INFO   ] 2025-11-04T23:48:10.240Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13733402841}
+[2025-11-04T23:48:10.320Z] [INFO   ] 2025-11-04T23:48:10.319Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-04T23:48:45.658Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 451ms (1654 modules)
+[2025-11-04T23:48:45.934Z] [INFO   ] 2025-11-04T23:48:45.934Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13733438535}
+[2025-11-04T23:48:46.025Z] [INFO   ] 2025-11-04T23:48:46.025Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-04T23:48:55.421Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 373ms (1654 modules)
+[2025-11-04T23:48:55.641Z] [INFO   ] 2025-11-04T23:48:55.641Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13733448242}
+[2025-11-04T23:48:55.717Z] [INFO   ] 2025-11-04T23:48:55.717Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-04T23:49:22.600Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 403ms (1654 modules)
+[2025-11-04T23:49:22.869Z] [INFO   ] 2025-11-04T23:49:22.869Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13733475470}
+[2025-11-04T23:49:22.971Z] [INFO   ] 2025-11-04T23:49:22.971Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-04T23:49:35.267Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 522ms (1654 modules)
+[2025-11-04T23:49:35.514Z] [INFO   ] 2025-11-04T23:49:35.514Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13733488115}
+[2025-11-04T23:49:35.620Z] [INFO   ] 2025-11-04T23:49:35.620Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-04T23:50:04.639Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1535ms (1654 modules)
+[2025-11-04T23:50:04.889Z] [INFO   ] 2025-11-04T23:50:04.888Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13733517489}
+[2025-11-04T23:50:04.993Z] [INFO   ] 2025-11-04T23:50:04.992Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-04T23:50:17.391Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1425ms (1654 modules)
+[2025-11-04T23:50:17.632Z] [INFO   ] 2025-11-04T23:50:17.632Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13733530233}
+[2025-11-04T23:50:17.713Z] [INFO   ] 2025-11-04T23:50:17.713Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-04T23:53:34.811Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1553ms (1654 modules)
+[2025-11-04T23:53:35.754Z] [INFO   ] 2025-11-04T23:53:35.753Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13733728354}
+[2025-11-04T23:53:35.856Z] [INFO   ] 2025-11-04T23:53:35.856Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-04T23:53:47.191Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 537ms (1654 modules)
+[2025-11-04T23:53:47.467Z] [INFO   ] 2025-11-04T23:53:47.467Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13733740068}
+[2025-11-04T23:53:47.550Z] [INFO   ] 2025-11-04T23:53:47.550Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-04T23:54:00.037Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 358ms (1654 modules)
+[2025-11-04T23:54:00.339Z] [INFO   ] 2025-11-04T23:54:00.339Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13733752940}
+[2025-11-04T23:54:00.408Z] [INFO   ] 2025-11-04T23:54:00.408Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-04T23:54:19.917Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 340ms (1654 modules)
+[2025-11-04T23:54:20.205Z] [INFO   ] 2025-11-04T23:54:20.205Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13733772806}
+[2025-11-04T23:54:20.284Z] [INFO   ] 2025-11-04T23:54:20.284Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-04T23:54:40.934Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 357ms (1654 modules)
+[2025-11-04T23:54:41.181Z] [INFO   ] 2025-11-04T23:54:41.181Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13733793782}
+[2025-11-04T23:54:41.259Z] [INFO   ] 2025-11-04T23:54:41.258Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-04T23:55:16.582Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 496ms (1654 modules)
+[2025-11-04T23:55:16.887Z] [INFO   ] 2025-11-04T23:55:16.887Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13733829487}
+[2025-11-04T23:55:16.977Z] [INFO   ] 2025-11-04T23:55:16.977Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-04T23:55:31.393Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 392ms (1654 modules)
+[2025-11-04T23:55:31.949Z] [INFO   ] 2025-11-04T23:55:31.949Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13733844550}
+[2025-11-04T23:55:32.052Z] [INFO   ] 2025-11-04T23:55:32.051Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-04T23:55:43.975Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 431ms (1654 modules)
+[2025-11-04T23:55:44.231Z] [INFO   ] 2025-11-04T23:55:44.231Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13733856832}
+[2025-11-04T23:55:44.355Z] [INFO   ] 2025-11-04T23:55:44.354Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-04T23:55:59.880Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 632ms (1654 modules)
+[2025-11-04T23:56:00.150Z] [INFO   ] 2025-11-04T23:56:00.150Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13733872751}
+[2025-11-04T23:56:00.274Z] [INFO   ] 2025-11-04T23:56:00.273Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-04T23:56:26.726Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1712ms (1654 modules)
+[2025-11-04T23:56:27.194Z] [INFO   ] 2025-11-04T23:56:27.193Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13733899794}
+[2025-11-04T23:56:27.277Z] [INFO   ] 2025-11-04T23:56:27.277Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-04T23:56:45.084Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1489ms (1654 modules)
+[2025-11-04T23:56:45.470Z] [INFO   ] 2025-11-04T23:56:45.470Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13733918071}
+[2025-11-04T23:56:45.570Z] [INFO   ] 2025-11-04T23:56:45.570Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-04T23:59:56.720Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1821ms (1654 modules)
+[2025-11-04T23:59:56.998Z] [INFO   ] 2025-11-04T23:59:56.998Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13734109598}
+[2025-11-04T23:59:57.151Z] [INFO   ] 2025-11-04T23:59:57.151Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-05T00:00:06.781Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 459ms (1654 modules)
+[2025-11-05T00:00:07.018Z] [INFO   ] 2025-11-05T00:00:07.018Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13734119619}
+[2025-11-05T00:00:07.096Z] [INFO   ] 2025-11-05T00:00:07.096Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-05T00:00:26.829Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 3.4s (6333 modules)
+[2025-11-05T00:00:27.194Z] [INFO   ] 2025-11-05T00:00:27.194Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13734139795}
+[2025-11-05T00:00:27.533Z] [INFO   ] 2025-11-05T00:00:27.533Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-05T00:00:39.498Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.7s (6333 modules)
+[2025-11-05T00:00:39.740Z] [INFO   ] 2025-11-05T00:00:39.740Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13734152341}
+[2025-11-05T00:00:39.975Z] [INFO   ] 2025-11-05T00:00:39.975Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-05T00:00:58.319Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 414ms (1654 modules)
+[2025-11-05T00:00:58.526Z] [INFO   ] 2025-11-05T00:00:58.526Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13734171127}
+[2025-11-05T00:00:58.603Z] [INFO   ] 2025-11-05T00:00:58.602Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-05T00:01:10.468Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 432ms (1654 modules)
+[2025-11-05T00:01:10.706Z] [INFO   ] 2025-11-05T00:01:10.706Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13734183307}
+[2025-11-05T00:01:10.787Z] [INFO   ] 2025-11-05T00:01:10.787Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-05T00:01:23.102Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 368ms (1654 modules)
+[2025-11-05T00:01:23.335Z] [INFO   ] 2025-11-05T00:01:23.335Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13734195936}
+[2025-11-05T00:01:23.425Z] [INFO   ] 2025-11-05T00:01:23.424Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-05T00:01:35.088Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 377ms (1654 modules)
+[2025-11-05T00:01:35.334Z] [INFO   ] 2025-11-05T00:01:35.334Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13734207935}
+[2025-11-05T00:01:35.424Z] [INFO   ] 2025-11-05T00:01:35.424Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-05T00:03:44.109Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-11-05T00:03:44.201Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 968ms (4685 modules)
+[2025-11-05T00:05:13.651Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.1s (1654 modules)
+[2025-11-05T00:05:14.097Z] [INFO   ] 2025-11-05T00:05:14.097Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13734426698}
+[2025-11-05T00:05:14.371Z] [INFO   ] 2025-11-05T00:05:14.370Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-05T00:05:31.304Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 3.9s (6333 modules)
+[2025-11-05T00:05:31.913Z] [INFO   ] 2025-11-05T00:05:31.912Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13734444513}
+[2025-11-05T00:05:32.334Z] [INFO   ] 2025-11-05T00:05:32.333Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-05T00:05:47.845Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1399ms (6333 modules)
+[2025-11-05T00:05:48.197Z] [INFO   ] 2025-11-05T00:05:48.197Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13734460797}
+[2025-11-05T00:05:48.538Z] [INFO   ] 2025-11-05T00:05:48.538Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-05T00:06:07.729Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 3.4s (6333 modules)
+[2025-11-05T00:06:08.211Z] [INFO   ] 2025-11-05T00:06:08.211Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13734480812}
+[2025-11-05T00:06:08.437Z] [INFO   ] 2025-11-05T00:06:08.437Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-05T00:06:35.481Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 620ms (1654 modules)
+[2025-11-05T00:06:35.750Z] [INFO   ] 2025-11-05T00:06:35.750Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13734508351}
+[2025-11-05T00:06:35.863Z] [INFO   ] 2025-11-05T00:06:35.862Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-05T00:07:21.148Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 681ms (1654 modules)
+[2025-11-05T00:07:21.633Z] [INFO   ] 2025-11-05T00:07:21.633Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13734554234}
+[2025-11-05T00:07:21.769Z] [INFO   ] 2025-11-05T00:07:21.769Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-05T00:08:44.797Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-11-05T00:08:44.878Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1524ms (4685 modules)
+[2025-11-05T00:13:55.672Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1504ms (1654 modules)
+[2025-11-05T00:13:56.139Z] [INFO   ] 2025-11-05T00:13:56.139Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13734948740}
+[2025-11-05T00:13:56.328Z] [INFO   ] 2025-11-05T00:13:56.328Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-05T00:14:13.177Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 463ms (1654 modules)
+[2025-11-05T00:14:13.443Z] [INFO   ] 2025-11-05T00:14:13.443Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13734966044}
+[2025-11-05T00:14:13.532Z] [INFO   ] 2025-11-05T00:14:13.531Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-05T00:14:26.315Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 432ms (1654 modules)
+[2025-11-05T00:14:26.759Z] [INFO   ] 2025-11-05T00:14:26.759Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13734979360}
+[2025-11-05T00:14:26.872Z] [INFO   ] 2025-11-05T00:14:26.872Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-05T00:14:39.538Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 532ms (1654 modules)
+[2025-11-05T00:14:39.819Z] [INFO   ] 2025-11-05T00:14:39.819Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13734992420}
+[2025-11-05T00:14:39.961Z] [INFO   ] 2025-11-05T00:14:39.960Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-05T00:17:06.106Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1945ms (1654 modules)
+[2025-11-05T00:17:06.699Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 393ms (1654 modules)
+[2025-11-05T00:17:06.713Z] [INFO   ] 2025-11-05T00:17:06.713Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13735139314}
+[2025-11-05T00:17:06.801Z] [INFO   ] 2025-11-05T00:17:06.801Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-05T00:17:07.013Z] [INFO   ] 2025-11-05T00:17:07.013Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13735139614}
+[2025-11-05T00:17:07.097Z] [INFO   ] 2025-11-05T00:17:07.097Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-05T00:17:07.985Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 630ms (1654 modules)
+[2025-11-05T00:17:08.182Z] [INFO   ] 2025-11-05T00:17:08.182Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13735140783}
+[2025-11-05T00:17:08.263Z] [INFO   ] 2025-11-05T00:17:08.263Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-05T00:17:08.814Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 342ms (1654 modules)
+[2025-11-05T00:17:09.003Z] [INFO   ] 2025-11-05T00:17:09.003Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13735141604}
+[2025-11-05T00:17:09.087Z] [INFO   ] 2025-11-05T00:17:09.087Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-05T00:17:09.824Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 310ms (1654 modules)
+[2025-11-05T00:17:09.994Z] [INFO   ] 2025-11-05T00:17:09.994Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13735142595}
+[2025-11-05T00:17:10.063Z] [INFO   ] 2025-11-05T00:17:10.063Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-05T00:17:15.570Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 5.1s (6333 modules)
+[2025-11-05T00:17:15.813Z] [INFO   ] 2025-11-05T00:17:15.813Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13735148414}
+[2025-11-05T00:17:16.163Z] [INFO   ] 2025-11-05T00:17:16.163Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-05T00:18:17.217Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 13.3s (6335 modules)
+[2025-11-05T00:18:17.512Z] [INFO   ] 2025-11-05T00:18:17.512Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13735210113}
+[2025-11-05T00:18:17.785Z] [INFO   ] 2025-11-05T00:18:17.785Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-05T00:19:11.534Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/configuration/fields/SlackEmojiPicker.tsx
+Error:   [31m×[0m Expected '</', got 'jsx text (
+  [31m│[0m
+  [31m│[0m         )'
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/configuration/fields/SlackEmojiPicker.tsx[0m:181:1]
+ [2m178[0m │                 onClear={() => setSearch('')}
+ [2m179[0m │                 />
+ [2m180[0m │               </div>
+ [2m181[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m         </div>
+ [2m182[0m │ [35;1m│[0m   
+ [2m183[0m │ [35;1m╰[0m[35;1m─[0m[35;1m▶[0m         <Tabs value={category} onValueChange={setCategory}>
+ [2m184[0m │               <TabsList className="grid w-full grid-cols-2">
+ [2m185[0m │                 {DEFAULT_CATEGORIES.map(cat => (
+ [2m186[0m │                   <TabsTrigger value={cat.key} key={cat.key}>
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/configuration/fields/SlackEmojiPicker.tsx
+./components/workflows/configuration/fields/FieldRenderer.tsx
+./components/workflows/configuration/index.ts
+./components/workflows/builder/WorkflowBuilderV2.tsx
+[2025-11-05T00:19:11.816Z] [INFO   ] 2025-11-05T00:19:11.815Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13735264416}
+[2025-11-05T00:19:13.559Z] [INFO   ]  [37m[1m○[22m[39m Compiling /_error ...
+[2025-11-05T00:19:15.480Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/configuration/fields/SlackEmojiPicker.tsx
+Error:   [31m×[0m Expected '</', got 'jsx text (
+  [31m│[0m
+  [31m│[0m         )'
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/configuration/fields/SlackEmojiPicker.tsx[0m:181:1]
+ [2m178[0m │                 onClear={() => setSearch('')}
+ [2m179[0m │                 />
+ [2m180[0m │               </div>
+ [2m181[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m         </div>
+ [2m182[0m │ [35;1m│[0m   
+ [2m183[0m │ [35;1m╰[0m[35;1m─[0m[35;1m▶[0m         <Tabs value={category} onValueChange={setCategory}>
+ [2m184[0m │               <TabsList className="grid w-full grid-cols-2">
+ [2m185[0m │                 {DEFAULT_CATEGORIES.map(cat => (
+ [2m186[0m │                   <TabsTrigger value={cat.key} key={cat.key}>
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/configuration/fields/SlackEmojiPicker.tsx
+./components/workflows/configuration/fields/FieldRenderer.tsx
+./components/workflows/configuration/index.ts
+./components/workflows/builder/WorkflowBuilderV2.tsx
+[2025-11-05T00:19:15.832Z] [INFO   ] 2025-11-05T00:19:15.832Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13735268433}
+[2025-11-05T00:19:16.142Z] [INFO   ] 2025-11-05T00:19:16.142Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13735268743}
+[2025-11-05T00:19:16.420Z] [INFO   ] 2025-11-05T00:19:16.420Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/1515695b-2a90-4124-bbbd-66fedc5a7e2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":13735269021}
+[2025-11-05T00:20:01.245Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/configuration/fields/SlackEmojiPicker.tsx
+Error:   [31m×[0m Expected '</', got 'jsx text (
+  [31m│[0m
+  [31m│[0m         )'
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/configuration/fields/SlackEmojiPicker.tsx[0m:181:1]
+ [2m178[0m │                 onClear={() => setSearch('')}
+ [2m179[0m │                 />
+ [2m180[0m │               </div>
+ [2m181[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m         </div>
+ [2m182[0m │ [35;1m│[0m   
+ [2m183[0m │ [35;1m╰[0m[35;1m─[0m[35;1m▶[0m         <Tabs value={category} onValueChange={setCategory}>
+ [2m184[0m │               <TabsList className="grid w-full grid-cols-2">
+ [2m185[0m │                 {DEFAULT_CATEGORIES.map(cat => (
+ [2m186[0m │                   <TabsTrigger value={cat.key} key={cat.key}>
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/configuration/fields/SlackEmojiPicker.tsx
+./components/workflows/configuration/fields/FieldRenderer.tsx
+./components/workflows/configuration/index.ts
+./components/workflows/builder/WorkflowBuilderV2.tsx
+[2025-11-05T00:20:01.935Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/configuration/fields/SlackEmojiPicker.tsx
+Error:   [31m×[0m Expected '</', got 'jsx text (
+  [31m│[0m
+  [31m│[0m         )'
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/configuration/fields/SlackEmojiPicker.tsx[0m:181:1]
+ [2m178[0m │                 onClear={() => setSearch('')}
+ [2m179[0m │                 />
+ [2m180[0m │               </div>
+ [2m181[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m         </div>
+ [2m182[0m │ [35;1m│[0m   
+ [2m183[0m │ [35;1m╰[0m[35;1m─[0m[35;1m▶[0m         <Tabs value={category} onValueChange={setCategory}>
+ [2m184[0m │               <TabsList className="grid w-full grid-cols-2">
+ [2m185[0m │                 {DEFAULT_CATEGORIES.map(cat => (
+ [2m186[0m │                   <TabsTrigger value={cat.key} key={cat.key}>
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/configuration/fields/SlackEmojiPicker.tsx
+./components/workflows/configuration/fields/FieldRenderer.tsx
+./components/workflows/configuration/index.ts
+./components/workflows/builder/WorkflowBuilderV2.tsx
+[2025-11-05T00:20:02.834Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/configuration/fields/SlackEmojiPicker.tsx
+Error:   [31m×[0m Expected '</', got 'jsx text (
+  [31m│[0m
+  [31m│[0m         )'
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/configuration/fields/SlackEmojiPicker.tsx[0m:181:1]
+ [2m178[0m │                 onClear={() => setSearch('')}
+ [2m179[0m │                 />
+ [2m180[0m │               </div>
+ [2m181[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m         </div>
+ [2m182[0m │ [35;1m│[0m   
+ [2m183[0m │ [35;1m╰[0m[35;1m─[0m[35;1m▶[0m         <Tabs value={category} onValueChange={setCategory}>
+ [2m184[0m │               <TabsList className="grid w-full grid-cols-2">
+ [2m185[0m │                 {DEFAULT_CATEGORIES.map(cat => (
+ [2m186[0m │                   <TabsTrigger value={cat.key} key={cat.key}>
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/configuration/fields/SlackEmojiPicker.tsx
+./components/workflows/configuration/fields/FieldRenderer.tsx
+./components/workflows/configuration/index.ts
+./components/workflows/builder/WorkflowBuilderV2.tsx
+[2025-11-05T00:20:03.871Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/configuration/fields/SlackEmojiPicker.tsx
+Error:   [31m×[0m Expected '</', got 'jsx text (
+  [31m│[0m
+  [31m│[0m         )'
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/configuration/fields/SlackEmojiPicker.tsx[0m:181:1]
+ [2m178[0m │                 onClear={() => setSearch('')}
+ [2m179[0m │                 />
+ [2m180[0m │               </div>
+ [2m181[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m         </div>
+ [2m182[0m │ [35;1m│[0m   
+ [2m183[0m │ [35;1m╰[0m[35;1m─[0m[35;1m▶[0m         <Tabs value={category} onValueChange={setCategory}>
+ [2m184[0m │               <TabsList className="grid w-full grid-cols-2">
+ [2m185[0m │                 {DEFAULT_CATEGORIES.map(cat => (
+ [2m186[0m │                   <TabsTrigger value={cat.key} key={cat.key}>
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/configuration/fields/SlackEmojiPicker.tsx
+./components/workflows/configuration/fields/FieldRenderer.tsx
+./components/workflows/configuration/index.ts
+./components/workflows/builder/WorkflowBuilderV2.tsx
+[2025-11-05T00:20:04.982Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/configuration/fields/SlackEmojiPicker.tsx
+Error:   [31m×[0m Expected '</', got 'jsx text (
+  [31m│[0m
+  [31m│[0m         )'
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/configuration/fields/SlackEmojiPicker.tsx[0m:181:1]
+ [2m178[0m │                 onClear={() => setSearch('')}
+ [2m179[0m │                 />
+ [2m180[0m │               </div>
+ [2m181[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m         </div>
+ [2m182[0m │ [35;1m│[0m   
+ [2m183[0m │ [35;1m╰[0m[35;1m─[0m[35;1m▶[0m         <Tabs value={category} onValueChange={setCategory}>
+ [2m184[0m │               <TabsList className="grid w-full grid-cols-2">
+ [2m185[0m │                 {DEFAULT_CATEGORIES.map(cat => (
+ [2m186[0m │                   <TabsTrigger value={cat.key} key={cat.key}>
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/configuration/fields/SlackEmojiPicker.tsx
+./components/workflows/configuration/fields/FieldRenderer.tsx
+./components/workflows/configuration/index.ts
+./components/workflows/builder/WorkflowBuilderV2.tsx
+[2025-11-05T00:20:06.101Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/configuration/fields/SlackEmojiPicker.tsx
+Error:   [31m×[0m Expected '</', got 'jsx text (
+  [31m│[0m
+  [31m│[0m         )'
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/configuration/fields/SlackEmojiPicker.tsx[0m:181:1]
+ [2m178[0m │                 onClear={() => setSearch('')}
+ [2m179[0m │                 />
+ [2m180[0m │               </div>
+ [2m181[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m         </div>
+ [2m182[0m │ [35;1m│[0m   
+ [2m183[0m │ [35;1m╰[0m[35;1m─[0m[35;1m▶[0m         <Tabs value={category} onValueChange={setCategory}>
+ [2m184[0m │               <TabsList className="grid w-full grid-cols-2">
+ [2m185[0m │                 {DEFAULT_CATEGORIES.map(cat => (
+ [2m186[0m │                   <TabsTrigger value={cat.key} key={cat.key}>
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/configuration/fields/SlackEmojiPicker.tsx
+./components/workflows/configuration/fields/FieldRenderer.tsx
+./components/workflows/configuration/index.ts
+./components/workflows/builder/WorkflowBuilderV2.tsx
+[2025-11-05T00:20:56.482Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/configuration/fields/SlackEmojiPicker.tsx
+Error:   [31m×[0m Expected '</', got 'jsx text (
+  [31m│[0m
+  [31m│[0m         )'
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/configuration/fields/SlackEmojiPicker.tsx[0m:181:1]
+ [2m178[0m │                 onClear={() => setSearch('')}
+ [2m179[0m │                 />
+ [2m180[0m │               </div>
+ [2m181[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m         </div>
+ [2m182[0m │ [35;1m│[0m   
+ [2m183[0m │ [35;1m╰[0m[35;1m─[0m[35;1m▶[0m         <Tabs value={category} onValueChange={setCategory}>
+ [2m184[0m │               <TabsList className="grid w-full grid-cols-2">
+ [2m185[0m │                 {DEFAULT_CATEGORIES.map(cat => (
+ [2m186[0m │                   <TabsTrigger value={cat.key} key={cat.key}>
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/configuration/fields/SlackEmojiPicker.tsx
+./components/workflows/configuration/fields/FieldRenderer.tsx
+./components/workflows/configuration/index.ts
+./components/workflows/builder/WorkflowBuilderV2.tsx
+[2025-11-05T00:20:56.985Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/configuration/fields/SlackEmojiPicker.tsx
+Error:   [31m×[0m Expected '</', got 'jsx text (
+  [31m│[0m
+  [31m│[0m         )'
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/configuration/fields/SlackEmojiPicker.tsx[0m:181:1]
+ [2m178[0m │                 onClear={() => setSearch('')}
+ [2m179[0m │                 />
+ [2m180[0m │               </div>
+ [2m181[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m         </div>
+ [2m182[0m │ [35;1m│[0m   
+ [2m183[0m │ [35;1m╰[0m[35;1m─[0m[35;1m▶[0m         <Tabs value={category} onValueChange={setCategory}>
+ [2m184[0m │               <TabsList className="grid w-full grid-cols-2">
+ [2m185[0m │                 {DEFAULT_CATEGORIES.map(cat => (
+ [2m186[0m │                   <TabsTrigger value={cat.key} key={cat.key}>
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/configuration/fields/SlackEmojiPicker.tsx
+./components/workflows/configuration/fields/FieldRenderer.tsx
+./components/workflows/configuration/index.ts
+./components/workflows/builder/WorkflowBuilderV2.tsx
+[2025-11-05T00:20:57.940Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/configuration/fields/SlackEmojiPicker.tsx
+Error:   [31m×[0m Expected '</', got 'jsx text (
+  [31m│[0m
+  [31m│[0m         )'
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/configuration/fields/SlackEmojiPicker.tsx[0m:181:1]
+ [2m178[0m │                 onClear={() => setSearch('')}
+ [2m179[0m │                 />
+ [2m180[0m │               </div>
+ [2m181[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m         </div>
+ [2m182[0m │ [35;1m│[0m   
+ [2m183[0m │ [35;1m╰[0m[35;1m─[0m[35;1m▶[0m         <Tabs value={category} onValueChange={setCategory}>
+ [2m184[0m │               <TabsList className="grid w-full grid-cols-2">
+ [2m185[0m │                 {DEFAULT_CATEGORIES.map(cat => (
+ [2m186[0m │                   <TabsTrigger value={cat.key} key={cat.key}>
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/configuration/fields/SlackEmojiPicker.tsx
+./components/workflows/configuration/fields/FieldRenderer.tsx
+./components/workflows/configuration/index.ts
+./components/workflows/builder/WorkflowBuilderV2.tsx
+[2025-11-05T00:20:58.962Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/configuration/fields/SlackEmojiPicker.tsx
+Error:   [31m×[0m Expected '</', got 'jsx text (
+  [31m│[0m
+  [31m│[0m         )'
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/configuration/fields/SlackEmojiPicker.tsx[0m:181:1]
+ [2m178[0m │                 onClear={() => setSearch('')}
+ [2m179[0m │                 />
+ [2m180[0m │               </div>
+ [2m181[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m         </div>
+ [2m182[0m │ [35;1m│[0m   
+ [2m183[0m │ [35;1m╰[0m[35;1m─[0m[35;1m▶[0m         <Tabs value={category} onValueChange={setCategory}>
+ [2m184[0m │               <TabsList className="grid w-full grid-cols-2">
+ [2m185[0m │                 {DEFAULT_CATEGORIES.map(cat => (
+ [2m186[0m │                   <TabsTrigger value={cat.key} key={cat.key}>
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/configuration/fields/SlackEmojiPicker.tsx
+./components/workflows/configuration/fields/FieldRenderer.tsx
+./components/workflows/configuration/index.ts
+./components/workflows/builder/WorkflowBuilderV2.tsx
+[2025-11-05T00:20:59.993Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/configuration/fields/SlackEmojiPicker.tsx
+Error:   [31m×[0m Expected '</', got 'jsx text (
+  [31m│[0m
+  [31m│[0m         )'
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/configuration/fields/SlackEmojiPicker.tsx[0m:181:1]
+ [2m178[0m │                 onClear={() => setSearch('')}
+ [2m179[0m │                 />
+ [2m180[0m │               </div>
+ [2m181[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m         </div>
+ [2m182[0m │ [35;1m│[0m   
+ [2m183[0m │ [35;1m╰[0m[35;1m─[0m[35;1m▶[0m         <Tabs value={category} onValueChange={setCategory}>
+ [2m184[0m │               <TabsList className="grid w-full grid-cols-2">
+ [2m185[0m │                 {DEFAULT_CATEGORIES.map(cat => (
+ [2m186[0m │                   <TabsTrigger value={cat.key} key={cat.key}>
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/configuration/fields/SlackEmojiPicker.tsx
+./components/workflows/configuration/fields/FieldRenderer.tsx
+./components/workflows/configuration/index.ts
+./components/workflows/builder/WorkflowBuilderV2.tsx
+[2025-11-05T00:21:01.019Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/configuration/fields/SlackEmojiPicker.tsx
+Error:   [31m×[0m Expected '</', got 'jsx text (
+  [31m│[0m
+  [31m│[0m         )'
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/configuration/fields/SlackEmojiPicker.tsx[0m:181:1]
+ [2m178[0m │                 onClear={() => setSearch('')}
+ [2m179[0m │                 />
+ [2m180[0m │               </div>
+ [2m181[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m         </div>
+ [2m182[0m │ [35;1m│[0m   
+ [2m183[0m │ [35;1m╰[0m[35;1m─[0m[35;1m▶[0m         <Tabs value={category} onValueChange={setCategory}>
+ [2m184[0m │               <TabsList className="grid w-full grid-cols-2">
+ [2m185[0m │                 {DEFAULT_CATEGORIES.map(cat => (
+ [2m186[0m │                   <TabsTrigger value={cat.key} key={cat.key}>
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/configuration/fields/SlackEmojiPicker.tsx
+./components/workflows/configuration/fields/FieldRenderer.tsx
+./components/workflows/configuration/index.ts
+./components/workflows/builder/WorkflowBuilderV2.tsx
+[2025-11-05T00:21:02.177Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/configuration/fields/SlackEmojiPicker.tsx
+Error:   [31m×[0m Expected '</', got 'jsx text (
+  [31m│[0m
+  [31m│[0m         )'
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/configuration/fields/SlackEmojiPicker.tsx[0m:181:1]
+ [2m178[0m │                 onClear={() => setSearch('')}
+ [2m179[0m │                 />
+ [2m180[0m │               </div>
+ [2m181[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m         </div>
+ [2m182[0m │ [35;1m│[0m   
+ [2m183[0m │ [35;1m╰[0m[35;1m─[0m[35;1m▶[0m         <Tabs value={category} onValueChange={setCategory}>
+ [2m184[0m │               <TabsList className="grid w-full grid-cols-2">
+ [2m185[0m │                 {DEFAULT_CATEGORIES.map(cat => (
+ [2m186[0m │                   <TabsTrigger value={cat.key} key={cat.key}>
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/configuration/fields/SlackEmojiPicker.tsx
+./components/workflows/configuration/fields/FieldRenderer.tsx
+./components/workflows/configuration/index.ts
+./components/workflows/builder/WorkflowBuilderV2.tsx
+[2025-11-05T00:21:03.229Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/configuration/fields/SlackEmojiPicker.tsx
+Error:   [31m×[0m Expected '</', got 'jsx text (
+  [31m│[0m
+  [31m│[0m         )'
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/configuration/fields/SlackEmojiPicker.tsx[0m:181:1]
+ [2m178[0m │                 onClear={() => setSearch('')}
+ [2m179[0m │                 />
+ [2m180[0m │               </div>
+ [2m181[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m         </div>
+ [2m182[0m │ [35;1m│[0m   
+ [2m183[0m │ [35;1m╰[0m[35;1m─[0m[35;1m▶[0m         <Tabs value={category} onValueChange={setCategory}>
+ [2m184[0m │               <TabsList className="grid w-full grid-cols-2">
+ [2m185[0m │                 {DEFAULT_CATEGORIES.map(cat => (
+ [2m186[0m │                   <TabsTrigger value={cat.key} key={cat.key}>
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/configuration/fields/SlackEmojiPicker.tsx
+./components/workflows/configuration/fields/FieldRenderer.tsx
+./components/workflows/configuration/index.ts
+./components/workflows/builder/WorkflowBuilderV2.tsx
+
+=== Log Session Ended: 2025-11-05T00:45:12.681Z ===

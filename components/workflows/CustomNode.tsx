@@ -3,8 +3,9 @@
 import React, { memo, useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { Handle, Position, type NodeProps, useUpdateNodeInternals, useReactFlow } from "@xyflow/react"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
-import { Trash2, TestTube, Plus, Edit2, Layers, Unplug, Sparkles, ChevronDown, ChevronUp, Loader2, CheckCircle2, AlertTriangle, Info } from "lucide-react"
+import { Trash2, TestTube, Plus, Edit2, Layers, Unplug, Sparkles, ChevronDown, ChevronUp, Loader2, CheckCircle2, AlertTriangle, Info, GitFork, ArrowRight, PlusCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useWorkflowTestStore } from "@/stores/workflowTestStore"
 import { useIntegrationStore } from "@/stores/integrationStore"
@@ -14,6 +15,8 @@ import { logger } from '@/lib/utils/logger'
 import { getIntegrationLogoClasses } from "@/lib/integrations/logoStyles"
 import { cn } from "@/lib/utils"
 import './builder/styles/node-states.css'
+import { InlineNodePicker } from './InlineNodePicker'
+import type { NodeComponent } from '@/lib/workflows/nodes/types'
 
 export type NodeState = 'skeleton' | 'ready' | 'running' | 'passed' | 'failed'
 
@@ -77,8 +80,12 @@ export interface CustomNodeData {
   state?: NodeState
   preview?: {
     title?: string
-    content: string | string[]
+    content: string | string []
   }
+  // Zapier-style add node button
+  isLastNode?: boolean
+  onAddNodeAfter?: (afterNodeId: string, nodeType: string, component: any, sourceHandle?: string) => void
+  selectedNodeIds?: string[]
 }
 
 type SlackConfigSection = {
@@ -105,6 +112,57 @@ const DEFAULT_SLACK_SECTION_STATE = SLACK_CONFIG_SECTIONS.reduce<Record<string, 
 }, {})
 
 const INTERNAL_PROVIDER_IDS = new Set(['logic', 'core', 'manual', 'schedule', 'webhook', 'ai', 'utility'])
+const DEFAULT_PATH_COLORS = ['#2563EB', '#EA580C', '#059669', '#9333EA', '#BE123C', '#14B8A6']
+const ELSE_HANDLE_COLOR = '#64748B'
+
+function hexToRgba(hex: string, alpha: number): string {
+  let normalized = hex.replace('#', '')
+  if (normalized.length === 3) {
+    normalized = normalized.split('').map((char) => char + char).join('')
+  }
+  if (normalized.length !== 6) {
+    return `rgba(100, 116, 139, ${alpha})`
+  }
+  const r = parseInt(normalized.slice(0, 2), 16)
+  const g = parseInt(normalized.slice(2, 4), 16)
+  const b = parseInt(normalized.slice(4, 6), 16)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+/**
+ * Format a path condition for display
+ */
+function formatConditionSummary(condition: any): string {
+  if (!condition || !condition.field) return ''
+
+  const operatorLabels: Record<string, string> = {
+    'equals': '=',
+    'not_equals': '≠',
+    'contains': 'contains',
+    'not_contains': 'excludes',
+    'greater_than': '>',
+    'less_than': '<',
+    'greater_than_or_equal': '≥',
+    'less_than_or_equal': '≤',
+    'is_empty': 'is empty',
+    'is_not_empty': 'is not empty',
+    'is_true': 'is true',
+    'is_false': 'is false',
+    'starts_with': 'starts with',
+    'ends_with': 'ends with'
+  }
+
+  const fieldName = condition.field.split('.').pop() || condition.field
+  const operator = operatorLabels[condition.operator] || condition.operator
+
+  if (['is_empty', 'is_not_empty', 'is_true', 'is_false'].includes(condition.operator)) {
+    return `${fieldName} ${operator}`
+  }
+
+  const value = condition.value || ''
+  const truncatedValue = value.length > 20 ? value.substring(0, 20) + '...' : value
+  return `${fieldName} ${operator} ${truncatedValue}`
+}
 
 function CustomNode({ id, data, selected }: NodeProps) {
   const updateNodeInternalsHook = useUpdateNodeInternals?.()
@@ -186,6 +244,8 @@ function CustomNode({ id, data, selected }: NodeProps) {
   const [slackSectionsOpen, setSlackSectionsOpen] = useState<Record<string, boolean>>(DEFAULT_SLACK_SECTION_STATE)
   const [isPreviewExpanded, setIsPreviewExpanded] = useState(true) // Phase 1: Preview auto-expanded for running/passed/failed nodes
   const [logoLoadFailed, setLogoLoadFailed] = useState(false)
+  const [isNodePickerOpen, setIsNodePickerOpen] = useState(false) // For Zapier-style add node button
+  const [activePickerPath, setActivePickerPath] = useState<string | null>(null) // Track which path's picker is open
   const titleInputRef = useRef<HTMLInputElement>(null)
 
   const {
@@ -231,9 +291,86 @@ function CustomNode({ id, data, selected }: NodeProps) {
     aiFallbackFields,
     aiProgressConfig,
     selectedNodeIds,
+    isLastNode,
+    onAddNodeAfter,
   } = nodeData
 
   const component = ALL_NODE_COMPONENTS.find((c) => c.type === type)
+  const isPathNode = type === 'path'
+  const isAIRouterNode = type === 'ai_router'
+  const isPathConditionNode = type === 'path_condition'
+
+  type OutputHandleConfig = {
+    id: string
+    label: string
+    color?: string
+  }
+
+  const outputHandles: OutputHandleConfig[] = useMemo(() => {
+    if (isPathNode) {
+      // Get connected Path Condition nodes
+      const flowEdges = reactFlowInstance?.getEdges() || []
+      const flowNodes = reactFlowInstance?.getNodes() || []
+
+      // Find edges that originate from this Path Router node
+      const connectedEdges = flowEdges.filter((edge: any) => edge.source === id)
+
+      // Find connected Path Condition nodes
+      const pathConditionNodes = connectedEdges
+        .map((edge: any) => {
+          const targetNode = flowNodes.find((n: any) => n.id === edge.target)
+          if (targetNode?.data?.type === 'path_condition') {
+            return {
+              edge,
+              node: targetNode
+            }
+          }
+          return null
+        })
+        .filter(Boolean)
+
+      // Create handles based on connected Path Condition nodes
+      const handles = pathConditionNodes.map((item: any, index: number) => ({
+        id: item.edge.sourceHandle || `path_${index}`,
+        label: item.node.data.config?.pathName || `Path ${String.fromCharCode(65 + index)}`,
+        color: DEFAULT_PATH_COLORS[index % DEFAULT_PATH_COLORS.length],
+      }))
+
+      // Only add else branch if there are actual path condition nodes connected
+      if (handles.length > 0) {
+        handles.push({ id: 'else', label: 'Else', color: ELSE_HANDLE_COLOR })
+      }
+
+      return handles
+    }
+
+    if (isAIRouterNode) {
+      const rawOutputs = Array.isArray(config?.outputPaths) ? config?.outputPaths : []
+      return rawOutputs.map((path: any, index: number) => ({
+        id: path?.id || `route_${index}`,
+        label: path?.name || `Path ${index + 1}`,
+        color: path?.color || DEFAULT_PATH_COLORS[index % DEFAULT_PATH_COLORS.length],
+      }))
+    }
+
+    return []
+  }, [config?.paths, config?.outputPaths, isAIRouterNode, isPathNode, id, reactFlowInstance])
+
+  const handleCount = outputHandles.length
+  const hasRouterHandles = (isPathNode || isAIRouterNode) && handleCount > 0
+  const handleSpacing = hasRouterHandles ? (handleCount > 4 ? 44 : 36) : 36
+  const firstHandleTop = hasRouterHandles ? 96 : 44
+  const inputHandleTop = hasRouterHandles
+    ? Math.max(68, firstHandleTop + ((handleCount - 1) * handleSpacing) / 2)
+    : 44
+  const inputHandleTopPx = `${inputHandleTop}px`
+  const firstHandleTopPx = `${firstHandleTop}px`
+
+  useEffect(() => {
+    if ((isPathNode || isAIRouterNode) && typeof updateNodeInternals === 'function') {
+      updateNodeInternals(id)
+    }
+  }, [id, isAIRouterNode, isPathNode, outputHandles.length, updateNodeInternals])
 
   const fieldMetadataMap = useMemo(() => {
     const map = new Map<string, any>()
@@ -994,6 +1131,195 @@ function CustomNode({ id, data, selected }: NodeProps) {
     })
   }, [id, aiStatus, aiBadgeText, aiBadgeVariant, executionStatus, needsSetup, fallbackFields])
 
+  const renderPathRouterAddButton = () => {
+    if (!isPathNode) {
+      return null
+    }
+
+    // Get current count of connected Path Condition nodes
+    const flowEdges = reactFlowInstance?.getEdges() || []
+    const flowNodes = reactFlowInstance?.getNodes() || []
+    const connectedPathNodes = flowEdges
+      .filter((edge: any) => edge.source === id)
+      .map((edge: any) => flowNodes.find((n: any) => n.id === edge.target))
+      .filter((node: any) => node?.data?.type === 'path_condition')
+
+    const pathCount = connectedPathNodes.length
+    const maxPaths = 5
+
+    // Don't show button if we've reached max paths
+    if (pathCount >= maxPaths) {
+      return null
+    }
+
+    // Zapier-style simple plus button
+    return (
+      <div className="absolute left-1/2 -translate-x-1/2 noDrag noPan pointer-events-auto" style={{ top: '100%', marginTop: '20px', zIndex: 10 }}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="rounded-full h-7 w-7 p-0 bg-background hover:bg-primary/10 border-2 border-dashed border-muted-foreground/30 hover:border-primary transition-all noDrag noPan"
+          onClick={(e) => {
+            e.stopPropagation()
+            // Auto-create Path Condition node
+            const pathConditionComponent = ALL_NODE_COMPONENTS.find(c => c.type === 'path_condition')
+            if (onAddNodeAfter && pathConditionComponent) {
+              onAddNodeAfter(id, 'path_condition', pathConditionComponent, `path_${pathCount}`)
+            }
+          }}
+        >
+          <Plus className="w-4 h-4 text-muted-foreground" />
+        </Button>
+      </div>
+    )
+  }
+
+  const renderOutputHandles = () => {
+    const renderHandles = (handles: OutputHandleConfig[]) => {
+      return handles.map((handle, index) => {
+        // For Path Router nodes, position handles horizontally at the bottom
+        const horizontalSpacing = 80 // Space between handles
+        const totalWidth = (handles.length - 1) * horizontalSpacing
+        const startLeft = -totalWidth / 2 // Center the handles
+        const left = startLeft + index * horizontalSpacing
+
+        const accentColor = handle.color || '#334155'
+        const handleBackground = hexToRgba(accentColor, 0.18)
+        const handleShadow = `0 4px 12px ${hexToRgba(accentColor, 0.25)}`
+        const labelBackground = hexToRgba(accentColor, 0.12)
+        const labelBorder = hexToRgba(accentColor, 0.35)
+        const labelColor = accentColor
+        return (
+          <React.Fragment key={`${id}-${handle.id}`}>
+            <Handle
+              id={handle.id}
+              type="source"
+              position={Position.Bottom}
+              className="!w-10 !h-[18px] !rounded-t-full !rounded-b-none !transition-all !duration-200"
+              style={{
+                left: `calc(50% + ${left}px)`,
+                bottom: "0px",
+                transform: "translateX(-50%)",
+                zIndex: 6,
+                background: handleBackground,
+                borderTop: `1.5px solid ${accentColor}`,
+                borderBottom: 'none',
+                borderLeft: 'none',
+                borderRight: 'none',
+                boxShadow: handleShadow,
+                backdropFilter: 'blur(2px)',
+              }}
+            />
+            <div
+              className="absolute flex flex-col items-center gap-1 text-[10.5px] font-semibold pointer-events-none whitespace-nowrap rounded-md px-2.5 py-1 shadow-md"
+              style={{
+                left: `calc(50% + ${left}px)`,
+                bottom: 26,
+                transform: "translateX(-50%)",
+                color: handle.id === 'else' ? '#64748B' : labelColor,
+                background: handle.id === 'else'
+                  ? 'linear-gradient(135deg, rgba(100, 116, 139, 0.15) 0%, rgba(100, 116, 139, 0.08) 100%)'
+                  : labelBackground,
+                border: `1.5px ${handle.id === 'else' ? 'dashed' : 'solid'} ${labelBorder}`,
+                backdropFilter: 'blur(8px)',
+              }}
+            >
+              {handle.id === 'else' ? (
+                <span className="text-[9px] opacity-70">↓</span>
+              ) : (
+                handle.color && (
+                  <span
+                    className="w-2 h-2 rounded-full shadow-sm"
+                    style={{
+                      backgroundColor: handle.color,
+                      border: '1px solid rgba(255, 255, 255, 0.5)'
+                    }}
+                  />
+                )
+              )}
+              <span
+                className="tracking-wider uppercase max-w-[100px] overflow-hidden text-ellipsis whitespace-nowrap"
+                title={handle.label}
+                style={{
+                  letterSpacing: handle.id === 'else' ? '0.05em' : '0.08em',
+                  fontWeight: handle.id === 'else' ? 500 : 600
+                }}
+              >
+                {handle.label}
+              </span>
+            </div>
+          </React.Fragment>
+        )
+      })
+    }
+
+    if (isPathNode) {
+      // Path Router doesn't use traditional handles - uses floating pills instead
+      return null
+    }
+
+    if (isAIRouterNode && outputHandles.length > 0) {
+      return <>{renderHandles(outputHandles)}</>
+    }
+
+    // Regular node: bottom center handle (Make.com style)
+    return (
+      <div className="absolute left-1/2 -translate-x-1/2" style={{ bottom: '0px', zIndex: 5 }}>
+        <Handle
+          id="source"
+          type="source"
+          position={Position.Bottom}
+          className="!w-10 !h-[18px] !rounded-t-full !rounded-b-none !transition-all !duration-200"
+          style={{
+            left: "50%",
+            bottom: "0px",
+            transform: "translateX(-50%)",
+            zIndex: 5,
+            background: handleStyle.background,
+            borderTop: `1.5px solid ${handleStyle.borderColor}`,
+            borderBottom: 'none',
+            borderLeft: 'none',
+            borderRight: 'none',
+            boxShadow: handleStyle.boxShadow,
+            backdropFilter: 'blur(2px)',
+          }}
+        />
+        {/* Integrate plus button into bottom handle for last nodes */}
+        {isLastNode && onAddNodeAfter && (
+          <div
+            className="absolute left-1/2 -translate-x-1/2 noDrag noPan pointer-events-auto"
+            style={{
+              top: 'calc(100% - 6px)',
+              zIndex: 6
+            }}
+          >
+            <InlineNodePicker
+              open={isNodePickerOpen}
+              onOpenChange={setIsNodePickerOpen}
+              onSelectNode={(nodeType: string, component: NodeComponent) => {
+                onAddNodeAfter(id, nodeType, component)
+                setIsNodePickerOpen(false)
+              }}
+              filterTriggers={true}
+            >
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full h-7 w-7 p-0 bg-background shadow-md border-2 hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all hover:scale-110 noDrag noPan"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setIsNodePickerOpen(true)
+                }}
+              >
+                <PlusCircle className="h-3.5 w-3.5" />
+              </Button>
+            </InlineNodePicker>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   if (isSkeletonState) {
     return (
       <NodeContextMenu
@@ -1051,8 +1377,10 @@ function CustomNode({ id, data, selected }: NodeProps) {
                         Setup Required
                       </span>
                     </div>
-                    {description && (
-                      <p className="text-sm text-slate-400 leading-snug line-clamp-2">{description || (component && component.description)}</p>
+                    {(description || (component && component.description)) && (
+                      <p className="text-sm text-slate-400 leading-tight whitespace-pre-line break-words">
+                        {description || (component && component.description)}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -1070,7 +1398,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
               style={{
                 visibility: isTrigger ? "hidden" : "visible",
                 left: "0px",
-                top: "44px",
+                top: inputHandleTopPx,
                 zIndex: 5,
                 background: handleStyle.background,
                 borderRight: `1.5px solid ${handleStyle.borderColor}`,
@@ -1091,7 +1419,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
             className="!w-[18px] !h-10 !rounded-l-full !rounded-r-none !transition-all !duration-200"
             style={{
               right: "0px",
-              top: "44px",
+              top: firstHandleTopPx,
               zIndex: 5,
               background: handleStyle.background,
               borderLeft: `1.5px solid ${handleStyle.borderColor}`,
@@ -1118,25 +1446,27 @@ function CustomNode({ id, data, selected }: NodeProps) {
       onDelete={onDelete}
       onDeleteSelected={onDeleteSelected}
     >
-      <div
-        className={`relative w-[450px] ${backgroundClass} rounded-lg shadow-sm border-2 group ${borderClass} ${shadowClass} ${ringClass} transition-all duration-200 overflow-hidden ${
-          nodeHasConfiguration() ? "cursor-pointer" : ""
-        } ${getExecutionStatusStyle()} ${
-          nodeState === 'running' ? 'node-running' :
-          nodeState === 'passed' ? 'node-passed' :
-          nodeState === 'failed' ? 'node-failed' : ''
-        }`}
-        data-testid={`node-${id}`}
-        onDoubleClick={handleDoubleClick}
-        style={{
-          opacity: nodeState === 'skeleton' ? 0.5 : 1,
-          width: '450px',
-          maxWidth: '450px',
-          minWidth: '450px',
-          boxSizing: 'border-box',
-          flex: 'none',
-        }}
-      >
+      {/* Wrapper div to contain both node and plus button */}
+      <div className="relative" style={{ width: '450px' }}>
+        <div
+          className={`relative w-[450px] ${backgroundClass} rounded-lg shadow-sm border-2 group ${borderClass} ${shadowClass} ${ringClass} transition-all duration-200 overflow-hidden ${
+            nodeHasConfiguration() ? "cursor-pointer" : ""
+          } ${getExecutionStatusStyle()} ${
+            nodeState === 'running' ? 'node-running' :
+            nodeState === 'passed' ? 'node-passed' :
+            nodeState === 'failed' ? 'node-failed' : ''
+          }`}
+          data-testid={`node-${id}`}
+          onDoubleClick={handleDoubleClick}
+          style={{
+            opacity: nodeState === 'skeleton' ? 0.5 : 1,
+            width: '450px',
+            maxWidth: '450px',
+            minWidth: '450px',
+            boxSizing: 'border-box',
+            flex: 'none',
+          }}
+        >
       {/* Phase 1: Status Badge - Top Right Corner - Click to toggle preview details */}
       {/* Hide badge during AI configuration states - show inline status instead */}
       {!['preparing', 'creating', 'configuring', 'configured', 'testing', 'retesting', 'fixing', 'testing_successful'].includes(aiStatus || '') && (
@@ -1208,6 +1538,22 @@ function CustomNode({ id, data, selected }: NodeProps) {
         </div>
       )}
       
+
+      {/* Path label badge for Path Condition nodes */}
+      {isPathConditionNode && (
+        <div className="absolute -top-2 -left-2 z-20 noDrag noPan">
+          <Badge
+            variant="outline"
+            className="px-2 py-0.5 text-[10px] font-bold shadow-md bg-background"
+            style={{
+              borderColor: DEFAULT_PATH_COLORS[0],
+              color: DEFAULT_PATH_COLORS[0],
+            }}
+          >
+            {config?.pathName || 'Path A'}
+          </Badge>
+        </div>
+      )}
 
       <div className="p-3">
         <div className="flex items-center justify-between gap-2">
@@ -1298,6 +1644,85 @@ function CustomNode({ id, data, selected }: NodeProps) {
           <div className="mt-3 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
             <Info className="w-3.5 h-3.5 text-blue-600 flex-shrink-0 mt-0.5" />
             <p className="text-xs text-blue-700 leading-relaxed whitespace-pre-wrap">{note}</p>
+          </div>
+        )}
+
+        {/* Path Router Summary - Show configured paths and conditions */}
+        {isPathNode && config?.paths && Array.isArray(config.paths) && config.paths.length > 0 && (
+          <div className="mt-3 rounded-lg border border-border/60 bg-gradient-to-br from-background/90 to-muted/30 overflow-hidden shadow-sm">
+            <div className="px-3 py-2 border-b border-border/50 bg-muted/40 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <GitFork className="w-3.5 h-3.5 text-primary" />
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground">Path Routing</p>
+              </div>
+              <Badge variant="secondary" className="text-[9px] px-1.5 py-0.5 bg-primary/10 text-primary">
+                {config.paths.length} {config.paths.length === 1 ? 'path' : 'paths'}
+              </Badge>
+            </div>
+            <div className="px-3 py-2.5 space-y-2">
+              {config.paths.map((path: any, index: number) => {
+                const pathColor = path.color || DEFAULT_PATH_COLORS[index % DEFAULT_PATH_COLORS.length]
+                const conditionsText = path.conditions && path.conditions.length > 0
+                  ? path.conditions.map((cond: any) => formatConditionSummary(cond)).filter(Boolean).join(' AND ')
+                  : 'No conditions'
+
+                return (
+                  <div
+                    key={path.id || index}
+                    className="flex items-start gap-2 rounded-md border px-2.5 py-2 bg-background/60 transition-all hover:bg-background/80"
+                    style={{
+                      borderColor: hexToRgba(pathColor, 0.3),
+                      borderLeftWidth: '3px',
+                      borderLeftColor: pathColor
+                    }}
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                      <span
+                        className="w-2 h-2 rounded-full flex-shrink-0 shadow-sm"
+                        style={{
+                          backgroundColor: pathColor,
+                          border: '1px solid rgba(255, 255, 255, 0.5)'
+                        }}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[10.5px] font-semibold text-foreground truncate" title={path.name}>
+                          {path.name || `Path ${String.fromCharCode(65 + index)}`}
+                        </p>
+                        <p
+                          className="text-[10px] text-muted-foreground leading-relaxed truncate"
+                          title={conditionsText}
+                        >
+                          {conditionsText}
+                        </p>
+                      </div>
+                    </div>
+                    <ArrowRight className="w-3 h-3 text-muted-foreground/60 flex-shrink-0 mt-0.5" />
+                  </div>
+                )
+              })}
+              {/* Else path indicator */}
+              <div
+                className="flex items-start gap-2 rounded-md border border-dashed px-2.5 py-2 bg-muted/20"
+                style={{
+                  borderColor: hexToRgba(ELSE_HANDLE_COLOR, 0.4),
+                  borderLeftWidth: '3px',
+                  borderLeftColor: ELSE_HANDLE_COLOR
+                }}
+              >
+                <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                  <span className="text-[9px] opacity-60">↳</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10.5px] font-medium text-muted-foreground">
+                      Else (fallback)
+                    </p>
+                    <p className="text-[10px] text-muted-foreground/70 italic">
+                      Catches all unmatched cases
+                    </p>
+                  </div>
+                </div>
+                <ArrowRight className="w-3 h-3 text-muted-foreground/40 flex-shrink-0 mt-0.5" />
+              </div>
+            </div>
           </div>
         )}
 
@@ -1532,6 +1957,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
           </div>
         )}
       </div>
+
       {/* CSS for field animations */}
       <style jsx>{`
         @keyframes fadeInUp {
@@ -1623,49 +2049,40 @@ function CustomNode({ id, data, selected }: NodeProps) {
         </div>
       )}
 
-      {/* Input handle - Half-moon on left side - Blends with node state */}
+      {/* Input handle - Half-moon on top (receives from above) - Make.com style */}
       {!isTrigger && (
         <Handle
           id="target"
           type="target"
-          position={Position.Left}
-          className="!w-[18px] !h-10 !rounded-r-full !rounded-l-none !transition-all !duration-200"
+          position={Position.Top}
+          className="!w-10 !h-[18px] !rounded-b-full !rounded-t-none !transition-all !duration-200"
           style={{
             visibility: data.isTrigger ? "hidden" : "visible",
-            left: "0px",
-            top: "44px",
+            left: "50%",
+            top: "0px",
+            transform: "translateX(-50%)",
             zIndex: 5,
             background: handleStyle.background,
-            borderRight: `1.5px solid ${handleStyle.borderColor}`,
+            borderBottom: `1.5px solid ${handleStyle.borderColor}`,
             borderTop: 'none',
-            borderBottom: 'none',
             borderLeft: 'none',
+            borderRight: 'none',
             boxShadow: handleStyle.boxShadow,
             backdropFilter: 'blur(2px)',
           }}
         />
       )}
-
-      {/* Output handle - Half-moon on right side - Blends with node state */}
-      <Handle
-        id="source"
-        type="source"
-        position={Position.Right}
-        className="!w-[18px] !h-10 !rounded-l-full !rounded-r-none !transition-all !duration-200"
-        style={{
-          right: "0px",
-          top: "44px",
-          zIndex: 5,
-          background: handleStyle.background,
-          borderLeft: `1.5px solid ${handleStyle.borderColor}`,
-          borderTop: 'none',
-          borderBottom: 'none',
-          borderRight: 'none',
-          boxShadow: handleStyle.boxShadow,
-          backdropFilter: 'blur(2px)',
-        }}
-      />
     </div>
+    {/* End of main node div */}
+
+    {/* Output handle(s) - Rendered outside node container to prevent clipping by overflow-hidden */}
+    {renderOutputHandles()}
+
+    {/* Add Path button for Path Router nodes */}
+    {renderPathRouterAddButton()}
+
+    </div>
+    {/* End of wrapper div */}
     </NodeContextMenu>
   )
 }

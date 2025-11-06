@@ -188,6 +188,9 @@ export async function GET(request: NextRequest) {
       status: 'connected',
       expires_at: expiresAt.toISOString(),
       updated_at: new Date().toISOString(),
+      email: email || null,
+      username: accountId || null,
+      account_name: name || email || null,
       metadata: {
         user_info: userInfo,
         paypal_attributes: paypalAttributes,

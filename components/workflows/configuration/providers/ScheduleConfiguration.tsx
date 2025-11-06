@@ -1,22 +1,22 @@
 "use client"
 
 import React, { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, Clock, CalendarDays, Info, ChevronLeft } from 'lucide-react';
+import { Calendar, Clock, CalendarDays, Info } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ConfigurationContainer } from '../components/ConfigurationContainer';
 
 interface ScheduleConfigurationProps {
   values: Record<string, any>;
   errors: Record<string, string>;
   setValue: (name: string, value: any) => void;
-  handleSubmit: (e: React.FormEvent) => void;
+  onSubmit: (values: Record<string, any>) => Promise<void>;
   isLoading: boolean;
   onCancel: () => void;
+  onBack?: () => void;
   nodeInfo: any;
   isEditMode?: boolean;
 }
@@ -25,9 +25,10 @@ export function ScheduleConfiguration({
   values,
   errors,
   setValue,
-  handleSubmit,
+  onSubmit,
   isLoading,
   onCancel,
+  onBack,
   nodeInfo,
   isEditMode = false
 }: ScheduleConfigurationProps) {
@@ -149,7 +150,15 @@ export function ScheduleConfiguration({
     }
   }, []);
 
-  const handleSave = (e: React.FormEvent) => {
+  // Compute form validity
+  const isFormValid = React.useMemo(() => {
+    if (scheduleType === 'once') {
+      return !!(date && time);
+    }
+    return true; // Recurring and advanced have defaults
+  }, [scheduleType, date, time]);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validate based on schedule type
@@ -158,7 +167,7 @@ export function ScheduleConfiguration({
       return;
     }
 
-    handleSubmit(e);
+    await onSubmit(values);
   };
 
   // Get tomorrow's date as minimum for date picker
@@ -167,10 +176,15 @@ export function ScheduleConfiguration({
   const minDate = tomorrow.toISOString().split('T')[0];
 
   return (
-    <form onSubmit={handleSave} className="flex flex-col h-full">
-      <div className="flex-1 px-8 py-5">
-        <ScrollArea className="h-[calc(90vh-180px)] pr-6">
-          <div className="space-y-4">
+    <ConfigurationContainer
+      onSubmit={handleSave}
+      onCancel={onCancel}
+      onBack={onBack}
+      isEditMode={isEditMode}
+      isFormValid={isFormValid}
+      submitLabel={`${isEditMode ? 'Update' : 'Save'} Configuration`}
+    >
+      <div className="space-y-4">
             <Tabs value={scheduleType} onValueChange={(v: any) => setScheduleType(v)}>
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="once">
@@ -389,22 +403,6 @@ export function ScheduleConfiguration({
               </div>
             </div>
           </div>
-        </ScrollArea>
-      </div>
-
-      <div className="border-t border-border px-8 py-4">
-        <div className="flex justify-between items-center">
-          <div>
-            <Button type="button" variant="outline" onClick={onCancel}>
-              <ChevronLeft className="w-4 h-4 mr-1" />
-              Cancel
-            </Button>
-          </div>
-          <Button type="submit" disabled={isLoading}>
-            {isEditMode ? 'Update' : 'Save'} Configuration
-          </Button>
-        </div>
-      </div>
-    </form>
+    </ConfigurationContainer>
   );
 }

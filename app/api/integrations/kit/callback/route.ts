@@ -152,6 +152,9 @@ export async function GET(request: NextRequest) {
       status: 'connected',
       is_active: true,
       updated_at: new Date().toISOString(),
+      email: (accountInfo as any).primary_email_address || (accountInfo as any).email || null,
+      username: (accountInfo as any).name || null,
+      account_name: (accountInfo as any).name || null,
       metadata: {
         account_info: accountInfo,
         scope: tokenData.scope

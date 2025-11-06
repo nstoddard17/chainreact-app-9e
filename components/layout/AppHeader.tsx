@@ -1,8 +1,8 @@
 'use client'
 
-import { Bell, Search, HelpCircle, User, Settings, LogOut } from 'lucide-react'
+import { Bell, HelpCircle, User, Settings, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { ProfessionalSearch } from '@/components/ui/professional-search'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,13 +18,10 @@ export function AppHeader() {
     <header className="h-16 border-b border-slate-200 bg-white flex items-center justify-between px-6">
       {/* Search */}
       <div className="flex-1 max-w-xl">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <Input
-            placeholder="Search workflows, templates, integrations..."
-            className="pl-10 bg-slate-50 border-slate-200"
-          />
-        </div>
+        <ProfessionalSearch
+          placeholder="Search workflows, templates, integrations..."
+          className="bg-slate-50 border-slate-200"
+        />
       </div>
 
       {/* Actions */}

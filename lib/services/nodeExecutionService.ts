@@ -7,6 +7,7 @@ import { executionHistoryService } from "./executionHistoryService"
 import { ActionTestMode } from "./testMode/types"
 
 import { logger } from '@/lib/utils/logger'
+import { filterConnectionsForNode } from './utils/connectionRouting'
 
 export class NodeExecutionService {
   // Force recompilation - Gmail actions added
@@ -274,33 +275,39 @@ export class NodeExecutionService {
     context: ExecutionContext, 
     result: any
   ) {
-    // Find all nodes connected to this node's output
-    const connectedNodes = connections
-      .filter((conn: any) => conn.source === sourceNode.id)
-      .map((conn: any) => allNodes.find((node: any) => node.id === conn.target))
-      .filter(Boolean)
+    const outgoingConnections = connections.filter((conn: any) => conn.source === sourceNode.id)
+    const routedConnections = filterConnectionsForNode(sourceNode, outgoingConnections, result)
 
-    logger.debug(`🔗 Node ${sourceNode.id} has ${connectedNodes.length} connected nodes`)
+    logger.debug(`🔗 Node ${sourceNode.id} has ${routedConnections.length} routed connection(s) (total outgoing: ${outgoingConnections.length})`, {
+      nodeType: sourceNode?.data?.type,
+      pathTaken: result?.pathTaken ?? result?.data?.pathTaken,
+      nextNodeId: result?.nextNodeId,
+      selectedPaths: result?.data?.selectedPaths
+    })
     logger.debug(`📌 Original context userId: ${context.userId}`)
 
-    // Execute each connected node
-    for (const connectedNode of connectedNodes) {
-      if (connectedNode) {
-        // Update context with data from previous node
-        const updatedContext: ExecutionContext = {
-          ...context,
-          data: { ...context.data, ...result }
-        }
-        
-        logger.debug(`📌 Updated context userId for node ${connectedNode.id}: ${updatedContext.userId}`)
-        
-        if (!updatedContext.userId) {
-          logger.error('❌ userId lost when creating updatedContext!')
-          logger.error('Original context userId:', context.userId)
-        }
-
-        await this.executeNode(connectedNode, allNodes, connections, updatedContext)
+    for (const connection of routedConnections) {
+      const connectedNode = allNodes.find((node: any) => node.id === connection.target)
+      if (!connectedNode) {
+        logger.warn(`⚠️ Connection targets missing node ${connection.target} from ${sourceNode.id}`)
+        continue
       }
+
+      const updatedContext: ExecutionContext = {
+        ...context,
+        data: { ...context.data, ...result }
+      }
+
+      logger.debug(`📌 Updated context userId for node ${connectedNode.id}: ${updatedContext.userId}`, {
+        viaHandle: connection.sourceHandle || 'default'
+      })
+
+      if (!updatedContext.userId) {
+        logger.error('❌ userId lost when creating updatedContext!')
+        logger.error('Original context userId:', context.userId)
+      }
+
+      await this.executeNode(connectedNode, allNodes, connections, updatedContext)
     }
   }
 
@@ -470,6 +477,7 @@ export class NodeExecutionService {
           config: config,
           message: 'Would execute this action with the provided configuration'
         }
+
     }
   }
 }

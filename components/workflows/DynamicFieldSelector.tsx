@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { ProfessionalSearch } from '@/components/ui/professional-search'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Search, Plus, X, Info } from 'lucide-react'
+import { Plus, X, Info } from 'lucide-react'
 import { useIntegrationStore } from '@/stores/integrationStore'
 
 import { logger } from '@/lib/utils/logger'
@@ -142,15 +142,12 @@ export default function DynamicFieldSelector({
         </CardHeader>
         <CardContent className="space-y-3">
           {/* Search Input */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-            <Input
-              placeholder="Search for properties..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
+          <ProfessionalSearch
+            placeholder="Search for properties..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            onClear={() => setSearchTerm('')}
+          />
 
           {/* Properties List */}
           <ScrollArea className="h-64">

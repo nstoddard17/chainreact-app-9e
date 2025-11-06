@@ -1,23 +1,23 @@
 "use client"
 
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Code2, ChevronLeft, AlertCircle, Info } from 'lucide-react';
+import { Code2, AlertCircle, Info } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { ConfigurationContainer } from '../../components/ConfigurationContainer';
 
 interface TransformerConfigurationProps {
   values: Record<string, any>;
   errors: Record<string, string>;
   setValue: (name: string, value: any) => void;
-  handleSubmit: (e: React.FormEvent) => void;
+  onSubmit: (values: Record<string, any>) => Promise<void>;
   isLoading: boolean;
   onCancel: () => void;
+  onBack?: () => void;
   nodeInfo: any;
   isEditMode?: boolean;
 }
@@ -26,9 +26,10 @@ export function TransformerConfiguration({
   values,
   errors,
   setValue,
-  handleSubmit,
+  onSubmit,
   isLoading,
   onCancel,
+  onBack,
   nodeInfo,
   isEditMode = false,
 }: TransformerConfigurationProps) {
@@ -60,7 +61,13 @@ return result`);
     }
   }, []);
 
-  const handleSave = (e: React.FormEvent) => {
+  // Compute form validity
+  const isFormValid =
+    values.pythonCode &&
+    values.pythonCode.trim() !== '' &&
+    values.pythonCode.includes('return');
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validate required fields
@@ -75,7 +82,7 @@ return result`);
       return;
     }
 
-    handleSubmit(e);
+    await onSubmit(values);
   };
 
   const availableLibraries = [
@@ -97,135 +104,129 @@ return result`);
   };
 
   return (
-    <form onSubmit={handleSave} className="flex flex-col h-full">
-      <div className="flex-1 px-8 py-5 overflow-y-auto overflow-x-hidden">
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            <Code2 className="w-5 h-5" />
-            Python Transformer
-          </h3>
-          <p className="text-sm text-muted-foreground mt-1">
-            Transform and customize data using Python code
-          </p>
-        </div>
+    <ConfigurationContainer
+      onSubmit={handleSave}
+      onCancel={onCancel}
+      onBack={onBack}
+      isEditMode={isEditMode}
+      isFormValid={isFormValid}
+    >
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold flex items-center gap-2">
+          <Code2 className="w-5 h-5" />
+          Python Transformer
+        </h3>
+        <p className="text-sm text-muted-foreground mt-1">
+          Transform and customize data using Python code
+        </p>
+      </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2 mb-6">
-            <TabsTrigger value="code">Code</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
-          </TabsList>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-2 mb-6">
+          <TabsTrigger value="code">Code</TabsTrigger>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
+        </TabsList>
 
-          <TabsContent value="code" className="space-y-4 mt-0">
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertDescription className="text-xs">
-                Write Python code to transform your data. Your code has access to <code className="text-xs bg-muted px-1 py-0.5 rounded">data</code>, <code className="text-xs bg-muted px-1 py-0.5 rounded">trigger</code>, and <code className="text-xs bg-muted px-1 py-0.5 rounded">nodeOutputs</code> variables. Must return a JSON-serializable dictionary.
-              </AlertDescription>
-            </Alert>
+        <TabsContent value="code" className="space-y-4 mt-0">
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertDescription className="text-xs">
+              Write Python code to transform your data. Your code has access to <code className="text-xs bg-muted px-1 py-0.5 rounded">data</code>, <code className="text-xs bg-muted px-1 py-0.5 rounded">trigger</code>, and <code className="text-xs bg-muted px-1 py-0.5 rounded">nodeOutputs</code> variables. Must return a JSON-serializable dictionary.
+            </AlertDescription>
+          </Alert>
 
-            {/* Python Code */}
-            <div>
-              <Label htmlFor="pythonCode">
-                Python Code <span className="text-destructive">*</span>
-              </Label>
-              <Textarea
-                id="pythonCode"
-                value={values.pythonCode || ''}
-                onChange={(e) => setValue('pythonCode', e.target.value)}
-                placeholder="# Write your Python code here..."
-                className="mt-2 font-mono text-sm min-h-[400px]"
-                style={{ fontFamily: 'Monaco, Consolas, monospace' }}
-              />
-              {errors.pythonCode && (
-                <p className="text-xs text-destructive mt-1">{errors.pythonCode}</p>
-              )}
-              <p className="text-xs text-muted-foreground mt-1">
-                Code must include a <code>return</code> statement with a dictionary
-              </p>
-            </div>
+          {/* Python Code */}
+          <div>
+            <Label htmlFor="pythonCode">
+              Python Code <span className="text-destructive">*</span>
+            </Label>
+            <Textarea
+              id="pythonCode"
+              value={values.pythonCode || ''}
+              onChange={(e) => setValue('pythonCode', e.target.value)}
+              placeholder="# Write your Python code here..."
+              className="mt-2 font-mono text-sm min-h-[400px]"
+              style={{ fontFamily: 'Monaco, Consolas, monospace' }}
+            />
+            {errors.pythonCode && (
+              <p className="text-xs text-destructive mt-1">{errors.pythonCode}</p>
+            )}
+            <p className="text-xs text-muted-foreground mt-1">
+              Code must include a <code>return</code> statement with a dictionary
+            </p>
+          </div>
 
-            {/* Example Output Preview */}
-            <div className="bg-muted/50 border border-border rounded-lg p-4">
-              <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                <Code2 className="w-4 h-4" />
-                Example Output
-              </h4>
-              <pre className="text-xs text-muted-foreground font-mono">
+          {/* Example Output Preview */}
+          <div className="bg-muted/50 border border-border rounded-lg p-4">
+            <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+              <Code2 className="w-4 h-4" />
+              Example Output
+            </h4>
+            <pre className="text-xs text-muted-foreground font-mono">
 {`{
   "result": { ... },
   "success": true,
   "executionTime": 45
 }`}
-              </pre>
-            </div>
-          </TabsContent>
+            </pre>
+          </div>
+        </TabsContent>
 
-          <TabsContent value="settings" className="space-y-4 mt-0">
-            {/* Allowed Imports */}
-            <div>
-              <Label className="mb-3 block">Allowed Python Libraries</Label>
-              <div className="space-y-2">
-                {availableLibraries.map((lib) => (
-                  <div key={lib.value} className="flex items-start space-x-3 p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors">
-                    <Checkbox
-                      id={`lib-${lib.value}`}
-                      checked={(values.allowedImports || []).includes(lib.value)}
-                      onCheckedChange={() => handleLibraryToggle(lib.value)}
-                    />
-                    <div className="flex-1">
-                      <label
-                        htmlFor={`lib-${lib.value}`}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                      >
-                        <code className="text-xs bg-muted px-1.5 py-0.5 rounded mr-2">{lib.label}</code>
-                      </label>
-                      <p className="text-xs text-muted-foreground mt-1">{lib.description}</p>
-                    </div>
+        <TabsContent value="settings" className="space-y-4 mt-0">
+          {/* Allowed Imports */}
+          <div>
+            <Label className="mb-3 block">Allowed Python Libraries</Label>
+            <div className="space-y-2">
+              {availableLibraries.map((lib) => (
+                <div key={lib.value} className="flex items-start space-x-3 p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors">
+                  <Checkbox
+                    id={`lib-${lib.value}`}
+                    checked={(values.allowedImports || []).includes(lib.value)}
+                    onCheckedChange={() => handleLibraryToggle(lib.value)}
+                  />
+                  <div className="flex-1">
+                    <label
+                      htmlFor={`lib-${lib.value}`}
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                    >
+                      <code className="text-xs bg-muted px-1.5 py-0.5 rounded mr-2">{lib.label}</code>
+                    </label>
+                    <p className="text-xs text-muted-foreground mt-1">{lib.description}</p>
                   </div>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground mt-3">
-                Select which Python libraries your code can import. More libraries = slower execution.
-              </p>
+                </div>
+              ))}
             </div>
+            <p className="text-xs text-muted-foreground mt-3">
+              Select which Python libraries your code can import. More libraries = slower execution.
+            </p>
+          </div>
 
-            {/* Timeout */}
-            <div>
-              <Label htmlFor="timeout">Timeout (seconds)</Label>
-              <Input
-                id="timeout"
-                type="number"
-                value={values.timeout || 30}
-                onChange={(e) => setValue('timeout', parseInt(e.target.value))}
-                min={1}
-                max={300}
-                className="mt-2"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Maximum execution time before the script is terminated (1-300 seconds)
-              </p>
-            </div>
+          {/* Timeout */}
+          <div>
+            <Label htmlFor="timeout">Timeout (seconds)</Label>
+            <Input
+              id="timeout"
+              type="number"
+              value={values.timeout || 30}
+              onChange={(e) => setValue('timeout', parseInt(e.target.value))}
+              min={1}
+              max={300}
+              className="mt-2"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Maximum execution time before the script is terminated (1-300 seconds)
+            </p>
+          </div>
 
-            {/* Security Notice */}
-            <Alert variant="default">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription className="text-xs">
-                Python code runs in a sandboxed environment with limited access. Network requests and file system operations are restricted for security.
-              </AlertDescription>
-            </Alert>
-          </TabsContent>
-        </Tabs>
-      </div>
-
-      {/* Footer */}
-      <div className="flex items-center justify-between px-8 py-4 border-t border-border bg-muted/30">
-        <Button type="button" variant="ghost" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button type="submit" disabled={isLoading}>
-          {isLoading ? 'Saving...' : isEditMode ? 'Update' : 'Continue'}
-        </Button>
-      </div>
-    </form>
+          {/* Security Notice */}
+          <Alert variant="default">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="text-xs">
+              Python code runs in a sandboxed environment with limited access. Network requests and file system operations are restricted for security.
+            </AlertDescription>
+          </Alert>
+        </TabsContent>
+      </Tabs>
+    </ConfigurationContainer>
   );
 }

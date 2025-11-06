@@ -136,15 +136,18 @@ export async function GET(request: NextRequest) {
       tokenData.expires_in,
       refreshTokenExpiresAt,
     )
-    
+
     // Explicitly set the status to connected
     integrationData.status = "connected"
     // Add a timestamp to ensure the updated_at field changes
     integrationData.updated_at = new Date().toISOString()
-    
-    // Add account type metadata if available
+
+    // Add email and account info if available
     if (tokenData._metadata) {
       integrationData.metadata = tokenData._metadata
+      integrationData.email = tokenData._metadata.email || null
+      integrationData.account_name = tokenData._metadata.email || null
+      integrationData.username = tokenData._metadata.email?.split('@')[0] || null
     }
 
     // First check if the integration already exists

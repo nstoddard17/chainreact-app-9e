@@ -1,13 +1,12 @@
 "use client"
 
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Zap, ChevronLeft, AlertCircle, Info, Clock } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ConfigurationContainer } from '../../components/ConfigurationContainer';
 import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
@@ -22,9 +21,10 @@ interface ConditionalTriggerConfigurationProps {
   values: Record<string, any>;
   errors: Record<string, string>;
   setValue: (name: string, value: any) => void;
-  handleSubmit: (e: React.FormEvent) => void;
+  onSubmit: (values: Record<string, any>) => Promise<void>;
   isLoading: boolean;
   onCancel: () => void;
+  onBack?: () => void;
   nodeInfo: any;
   isEditMode?: boolean;
 }
@@ -33,9 +33,10 @@ export function ConditionalTriggerConfiguration({
   values,
   errors,
   setValue,
-  handleSubmit,
+  onSubmit,
   isLoading,
   onCancel,
+  onBack,
   nodeInfo,
   isEditMode = false,
 }: ConditionalTriggerConfigurationProps) {
@@ -54,7 +55,7 @@ export function ConditionalTriggerConfiguration({
     }
   }, []);
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validate based on check type
@@ -103,7 +104,7 @@ export function ConditionalTriggerConfiguration({
       }
     }
 
-    handleSubmit(e);
+    await onSubmit(values);
   };
 
   const checkTypes = [
@@ -131,20 +132,37 @@ export function ConditionalTriggerConfiguration({
     { value: '24h', label: 'Every 24 hours' },
   ];
 
-  return (
-    <form onSubmit={handleSave} className="flex flex-col h-full">
-      <div className="flex-1 px-8 py-5 overflow-y-auto overflow-x-hidden">
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            <Zap className="w-5 h-5" />
-            Conditional Trigger
-          </h3>
-          <p className="text-sm text-muted-foreground mt-1">
-            Automatically start when a specific condition is met
-          </p>
-        </div>
+  const isFormValid = React.useMemo(() => {
+    if (values.checkType === 'api') {
+      if (!values.apiUrl || values.apiUrl.trim() === '') return false;
+      try {
+        new URL(values.apiUrl);
+      } catch {
+        return false;
+      }
+    }
+    return true;
+  }, [values.checkType, values.apiUrl]);
 
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+  return (
+    <ConfigurationContainer
+      onSubmit={handleSave}
+      onCancel={onCancel}
+      onBack={onBack}
+      isEditMode={isEditMode}
+      isFormValid={isFormValid}
+    >
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold flex items-center gap-2">
+          <Zap className="w-5 h-5" />
+          Conditional Trigger
+        </h3>
+        <p className="text-sm text-muted-foreground mt-1">
+          Automatically start when a specific condition is met
+        </p>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-2 mb-6">
             <TabsTrigger value="source">Data Source</TabsTrigger>
             <TabsTrigger value="condition">Condition & Schedule</TabsTrigger>
@@ -442,17 +460,6 @@ export function ConditionalTriggerConfiguration({
             </Alert>
           </TabsContent>
         </Tabs>
-      </div>
-
-      {/* Footer */}
-      <div className="flex items-center justify-between px-8 py-4 border-t border-border bg-muted/30">
-        <Button type="button" variant="ghost" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button type="submit" disabled={isLoading}>
-          {isLoading ? 'Saving...' : isEditMode ? 'Update' : 'Continue'}
-        </Button>
-      </div>
-    </form>
+    </ConfigurationContainer>
   );
 }

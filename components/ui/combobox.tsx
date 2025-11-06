@@ -606,11 +606,11 @@ export function MultiCombobox({
             {hideSelectedBadges ? (
               // When badges are hidden, show selected count or placeholder
               selectedOptions.length > 0 ? (
-                <span className="text-white">
+                <span className="text-gray-900 dark:text-white">
                   {selectedOptions.length} selected
                 </span>
               ) : (
-                <span className="text-white">
+                <span className="text-gray-900 dark:text-white">
                   {placeholder || "Select option(s)..."}
                 </span>
               )
@@ -623,7 +623,7 @@ export function MultiCombobox({
                       key={`selected-${index}-${option.value || 'undefined'}`}
                       variant="secondary"
                       className={cn(
-                        "flex-shrink-0 text-white",
+                        "flex-shrink-0",
                         !showFullEmails && "max-w-48"
                       )}
                       onClick={(e) => {
@@ -643,7 +643,7 @@ export function MultiCombobox({
                         key={`selected-${index}-${option.value || 'undefined'}`}
                         variant="secondary"
                         className={cn(
-                          "flex-shrink-0 text-white",
+                          "flex-shrink-0",
                           !showFullEmails && "max-w-48"
                         )}
                         onClick={(e) => {
@@ -662,7 +662,7 @@ export function MultiCombobox({
                 )}
               </>
             ) : (
-              <span className="text-white">{placeholder || "Select option(s)..."}</span>
+              <span className="text-gray-900 dark:text-white">{placeholder || "Select option(s)..."}</span>
             )}
           </div>
           <div className="flex items-center gap-0.5">

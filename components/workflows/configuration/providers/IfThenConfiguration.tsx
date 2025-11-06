@@ -6,12 +6,12 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { GitBranch, ChevronLeft, Wand2, Code, ChevronDown } from 'lucide-react';
+import { GitBranch, Wand2, Code, ChevronDown } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { VariablePicker } from '../../VariablePicker';
+import { ConfigurationContainer } from '../components/ConfigurationContainer';
 import {
   Command,
   CommandEmpty,
@@ -30,9 +30,10 @@ interface IfThenConfigurationProps {
   values: Record<string, any>;
   errors: Record<string, string>;
   setValue: (name: string, value: any) => void;
-  handleSubmit: (e: React.FormEvent) => void;
+  onSubmit: (values: Record<string, any>) => Promise<void>;
   isLoading: boolean;
   onCancel: () => void;
+  onBack?: () => void;
   nodeInfo: any;
   isEditMode?: boolean;
   availableVariables?: any[];
@@ -42,9 +43,10 @@ export function IfThenConfiguration({
   values,
   errors,
   setValue,
-  handleSubmit,
+  onSubmit,
   isLoading,
   onCancel,
+  onBack,
   nodeInfo,
   isEditMode = false,
   availableVariables = []
@@ -149,7 +151,20 @@ export function IfThenConfiguration({
     return groups;
   }, [fieldOptions]);
 
-  const handleSave = (e: React.FormEvent) => {
+  // Compute form validity
+  const isFormValid = useMemo(() => {
+    if (activeTab === "basic") {
+      if (!values.field || !values.operator) return false;
+      const operatorsNeedingValue = ['equals', 'not_equals', 'contains', 'not_contains', 'greater_than', 'less_than'];
+      if (operatorsNeedingValue.includes(values.operator) && !values.value) return false;
+      return true;
+    } else if (activeTab === "advanced" && values.conditionType === 'advanced') {
+      return !!values.advancedExpression;
+    }
+    return true;
+  }, [activeTab, values.field, values.operator, values.value, values.conditionType, values.advancedExpression]);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validate based on active tab
@@ -175,7 +190,7 @@ export function IfThenConfiguration({
       }
     }
 
-    handleSubmit(e);
+    await onSubmit(values);
   };
 
   // Operators that don't need a value
@@ -183,32 +198,37 @@ export function IfThenConfiguration({
   const showValueField = !operatorsWithoutValue.includes(values.operator);
 
   return (
-    <form onSubmit={handleSave} className="flex flex-col h-full">
-      <div className="flex-1 px-8 py-5">
-        <div className="mb-4">
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            <GitBranch className="w-5 h-5" />
-            If/Then Condition
-          </h3>
-          <p className="text-sm text-muted-foreground mt-1">
-            Control your workflow based on conditions
-          </p>
-        </div>
+    <ConfigurationContainer
+      onSubmit={handleSave}
+      onCancel={onCancel}
+      onBack={onBack}
+      isEditMode={isEditMode}
+      isFormValid={isFormValid}
+      submitLabel={`${isEditMode ? 'Update' : 'Save'} Condition`}
+    >
+      <div className="mb-4">
+        <h3 className="text-lg font-semibold flex items-center gap-2">
+          <GitBranch className="w-5 h-5" />
+          If/Then Condition
+        </h3>
+        <p className="text-sm text-muted-foreground mt-1">
+          Control your workflow based on conditions
+        </p>
+      </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2 mb-4">
-            <TabsTrigger value="basic">
-              <Wand2 className="w-4 h-4 mr-2" />
-              Basic
-            </TabsTrigger>
-            <TabsTrigger value="advanced">
-              <Code className="w-4 h-4 mr-2" />
-              Advanced
-            </TabsTrigger>
-          </TabsList>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-2 mb-4">
+          <TabsTrigger value="basic">
+            <Wand2 className="w-4 h-4 mr-2" />
+            Basic
+          </TabsTrigger>
+          <TabsTrigger value="advanced">
+            <Code className="w-4 h-4 mr-2" />
+            Advanced
+          </TabsTrigger>
+        </TabsList>
 
-          <ScrollArea className="h-[calc(90vh-300px)] pr-4">
-            <TabsContent value="basic" className="space-y-4 mt-0 pr-2">
+        <TabsContent value="basic" className="space-y-4 mt-0">
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="field" className="text-base font-medium">
@@ -394,7 +414,7 @@ export function IfThenConfiguration({
               </div>
             </TabsContent>
 
-            <TabsContent value="advanced" className="space-y-4 mt-0 pr-2">
+            <TabsContent value="advanced" className="space-y-4 mt-0">
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="conditionType">Condition Mode</Label>
@@ -526,23 +546,7 @@ export function IfThenConfiguration({
                 )}
               </div>
             </TabsContent>
-          </ScrollArea>
-        </Tabs>
-      </div>
-
-      <div className="border-t border-border px-8 py-4">
-        <div className="flex justify-between items-center">
-          <div>
-            <Button type="button" variant="outline" onClick={onCancel}>
-              <ChevronLeft className="w-4 h-4 mr-1" />
-              Cancel
-            </Button>
-          </div>
-          <Button type="submit" disabled={isLoading}>
-            {isEditMode ? 'Update' : 'Save'} Condition
-          </Button>
-        </div>
-      </div>
-    </form>
+      </Tabs>
+    </ConfigurationContainer>
   );
 }
