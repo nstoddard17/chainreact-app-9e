@@ -192,7 +192,32 @@ export function GenericConfiguration({
         }
       }
     }
-  }, [nodeInfo, setValue, values, loadOptions]);
+
+    // Generic handling for dynamic fields that depend on the changed field
+    if (!(nodeInfo?.providerId === 'trello' && fieldName === 'boardId')) {
+      const dependentFields = nodeInfo?.configSchema?.filter(
+        (field: any) => field.dynamic && field.dependsOn === fieldName
+      ) || [];
+
+      if (dependentFields.length > 0) {
+        // Clear dependent field values so stale selections don't linger
+        dependentFields.forEach((field: any) => {
+          const resetValue = field.type === 'multiselect' ? [] : '';
+          setValue(field.name, resetValue);
+        });
+
+        if (value) {
+          for (const field of dependentFields) {
+            try {
+              await loadOptions(field.name, fieldName, value, true);
+            } catch (error) {
+              logger.error(`❌ [GenericConfig] Failed to load options for dependent field ${field.name}:`, error);
+            }
+          }
+        }
+      }
+    }
+  }, [nodeInfo, setValue, loadOptions]);
 
   // Background load options for dynamic fields with saved values
   useEffect(() => {

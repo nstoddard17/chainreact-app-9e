@@ -454,34 +454,16 @@ export function ConfigurationModal({
 
   return (
     <VariableDragProvider>
-      {/* Backdrop Overlay */}
-      <div
-        className={`fixed bg-black/20 z-30 transition-opacity duration-700 ${
-          isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
-        }`}
-        style={{
-          top: `${headerHeight}px`,
-          left: 0,
-          right: 0,
-          bottom: 0,
-        }}
-        onClick={handleClose}
-      />
-
       {/* Configuration Panel */}
       <div
         ref={dialogContentRef}
-        className={`fixed right-0 bg-white dark:bg-slate-950 border-l border-border shadow-2xl z-40 overflow-hidden ${
+        className={`fixed right-0 bg-white dark:bg-slate-950 border-l border-border z-40 overflow-hidden ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
         style={{
           transition: 'transform 700ms cubic-bezier(0.4, 0, 0.2, 1)',
           willChange: 'transform',
           top: `${headerHeight}px`,
-          // Responsive width:
-          // - Mobile (< 640px): 100vw (full width)
-          // - Tablet (640-1024px): 95vw
-          // - Desktop (> 1024px): 90vw, max 1200px
           width: viewportWidth === 0 ? '90vw' : viewportWidth < 640 ? '100vw' : viewportWidth < 1024 ? '95vw' : '90vw',
           maxWidth: viewportWidth === 0 ? '1200px' : viewportWidth < 640 ? '100vw' : '1200px',
           height: panelHeight ? `${panelHeight}px` : `calc(100vh - ${headerHeight}px)`,
