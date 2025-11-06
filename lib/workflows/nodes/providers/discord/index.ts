@@ -84,9 +84,9 @@ export const discordNodes: NodeComponent[] = [
       {
         name: "contentFilter",
         label: "Content Filter",
-        type: "text",
-        description: "Only trigger on messages containing this text (optional)",
-        placeholder: "e.g., !command or keyword",
+        type: "tag-input",
+        description: "Only trigger on messages containing these keywords (optional)",
+        placeholder: "Type a keyword and press Enter",
         hidden: true
       },
       {
@@ -214,7 +214,8 @@ export const discordNodes: NodeComponent[] = [
         type: "discord-rich-text",
         provider: "discord",
         required: true,
-        placeholder: "Enter your message with formatting, mentions, and emojis"
+        placeholder: "Enter your message with formatting, mentions, and emojis",
+        supportsVariables: true
       }
     ],
     outputSchema: [

@@ -150,24 +150,6 @@ export function DiscordConfiguration({
     await onSubmit(values);
   };
 
-  // Need connection UI
-  if (needsConnection) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 text-center">
-        <AlertTriangle className="h-12 w-12 text-yellow-500 mb-4" />
-        <h3 className="text-lg font-semibold mb-2">
-          Discord Connection Required
-        </h3>
-        <p className="text-sm text-slate-600 mb-4">
-          Please connect your Discord account to use this action.
-        </p>
-        <Button onClick={onConnectIntegration}>
-          Connect Discord
-        </Button>
-      </div>
-    );
-  }
-
   // Ultra-simple field change handler with debouncing and loading state management
   const handleFieldChange = (fieldName: string, value: any) => {
     logger.debug(`🔄 [Discord] Field change: ${fieldName} = ${value}`);
@@ -722,6 +704,22 @@ export function DiscordConfiguration({
       onBack={onBack}
       isEditMode={isEditMode}
     >
+      {/* Need connection UI */}
+      {needsConnection ? (
+        <div className="flex flex-col items-center justify-center h-64 text-center">
+          <AlertTriangle className="h-12 w-12 text-yellow-500 mb-4" />
+          <h3 className="text-lg font-semibold mb-2">
+            Discord Connection Required
+          </h3>
+          <p className="text-sm text-slate-600 mb-4">
+            Please connect your Discord account to use this action.
+          </p>
+          <Button onClick={onConnectIntegration}>
+            Connect Discord
+          </Button>
+        </div>
+      ) : (
+        <>
       {/* Rate Limit Warning - Always show at top if rate limited */}
       {rateLimitInfo.isRateLimited && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
@@ -933,6 +931,8 @@ export function DiscordConfiguration({
                 </React.Fragment>
               );
             })}
+        </>
+      )}
     </ConfigurationContainer>
   );
 }
