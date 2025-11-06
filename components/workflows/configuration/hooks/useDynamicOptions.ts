@@ -349,16 +349,42 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
           // Check if we have a Discord integration first to avoid unnecessary API calls
           let discordIntegration = getIntegrationByProvider('discord');
 
+          // DEBUG: Show what's in the integration store
+          const allIntegrations = useIntegrationStore.getState().integrations;
+          logger.debug('🐛 [DynamicOptions] Discord guildId field - checking integration:', {
+            fieldName,
+            providerId,
+            integrationFound: !!discordIntegration,
+            integrationId: discordIntegration?.id,
+            integrationStatus: discordIntegration?.status,
+            totalIntegrations: allIntegrations.length,
+            allProviderIds: allIntegrations.map(i => i.provider),
+            discordIntegrations: allIntegrations.filter(i => i.provider?.toLowerCase().includes('discord')),
+            storeState: {
+              loading: useIntegrationStore.getState().loading,
+              lastFetchTime: useIntegrationStore.getState().lastFetchTime
+            }
+          });
+
           // If integration not found, try fetching fresh integrations
           if (!discordIntegration) {
             logger.debug('⚠️ [DynamicOptions] Discord integration not found, fetching integrations...');
             await fetchIntegrations(true); // Force refresh
             discordIntegration = getIntegrationByProvider('discord');
+
+            // DEBUG: Show what's in store after fetch
+            const allIntegrationsAfter = useIntegrationStore.getState().integrations;
+            logger.debug('🔁 [DynamicOptions] Discord integration after fetch:', {
+              integrationFound: !!discordIntegration,
+              integrationId: discordIntegration?.id,
+              totalIntegrations: allIntegrationsAfter.length,
+              allProviderIds: allIntegrationsAfter.map(i => i.provider)
+            });
           }
 
           // Be lenient with status - only reject explicitly bad statuses
           if (!discordIntegration) {
-            logger.warn('⚠️ [DynamicOptions] Discord integration not found', {
+            logger.warn('⚠️ [DynamicOptions] Discord integration STILL not found after fetch', {
               fieldName,
               providerId
             });

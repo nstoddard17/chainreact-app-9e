@@ -3,7 +3,7 @@
 import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Database, Eye, RefreshCw, ChevronLeft, ChevronDown } from "lucide-react";
+import { AlertTriangle, Database, RefreshCw, ChevronDown } from "lucide-react";
 import {
   Accordion,
   AccordionContent,
@@ -169,13 +169,15 @@ export function AirtableConfiguration({
   const [localSelectedRecord, setLocalSelectedRecord] = useState<any>(null);
   const selectedRecord = parentSelectedRecord ?? localSelectedRecord;
   const setSelectedRecord = parentSetSelectedRecord ?? setLocalSelectedRecord;
-  
+
+  const [selectedMultipleRecords, setSelectedMultipleRecords] = useState<any[]>([]);
+
   const [localAirtableTableSchema, setLocalAirtableTableSchema] = useState<any>(null);
   const airtableTableSchema = parentAirtableTableSchema ?? localAirtableTableSchema;
   const setAirtableTableSchema = parentSetAirtableTableSchema ?? setLocalAirtableTableSchema;
   
   const [isLoadingTableSchema, setIsLoadingTableSchema] = useState(false);
-  
+
   const [localShowPreviewData, setLocalShowPreviewData] = useState(false);
   const showPreviewData = parentShowPreviewData ?? localShowPreviewData;
   const setShowPreviewData = parentSetShowPreviewData ?? setLocalShowPreviewData;
@@ -184,7 +186,6 @@ export function AirtableConfiguration({
   const previewData = parentPreviewData ?? localPreviewData;
   const setPreviewData = parentSetPreviewData ?? setLocalPreviewData;
   
-  const [loadingPreview, setLoadingPreview] = useState(false);
 
   const templateFieldHints = useMemo(() => {
     if (!isTemplateEditing) {
@@ -233,6 +234,7 @@ export function AirtableConfiguration({
 
   // Check node type
   const isUpdateRecord = nodeInfo?.type === 'airtable_action_update_record';
+  const isUpdateMultipleRecords = nodeInfo?.type === 'airtable_action_update_multiple_records';
   const isCreateRecord = nodeInfo?.type === 'airtable_action_create_record';
   const isListRecord = nodeInfo?.type === 'airtable_action_list_records';
 
@@ -510,56 +512,6 @@ export function AirtableConfiguration({
       setLoadingRecords(false);
     }
   }, [airtableIntegration, airtableTableSchema, fetchAirtableTableSchema]);
-
-  // Load preview data for list records
-  const loadPreviewData = useCallback(async (baseId: string, tableName: string) => {
-    if (!baseId || !tableName) return;
-    
-    // Check if integration exists
-    if (!airtableIntegration) {
-      logger.error('Airtable integration not found');
-      setPreviewData([]);
-      return;
-    }
-    
-    setLoadingPreview(true);
-    setShowPreviewData(true);
-    
-    try {
-      await fetchAirtableTableSchema(baseId, tableName);
-      
-      const response = await fetch('/api/integrations/airtable/data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          integrationId: airtableIntegration.id,
-          dataType: 'airtable_records',
-          options: {
-            baseId,
-            tableName,
-            maxRecords: 20,
-            filterByFormula: values.filterField && values.filterValue 
-              ? `{${values.filterField}} = "${values.filterValue}"`
-              : undefined
-          }
-        })
-      });
-      
-      if (!response.ok) {
-        logger.error('Failed to fetch preview data');
-        setPreviewData([]);
-        return;
-      }
-      
-      const result = await response.json();
-      setPreviewData(result.data || []);
-    } catch (error) {
-      logger.error('Error loading preview:', error);
-      setPreviewData([]);
-    } finally {
-      setLoadingPreview(false);
-    }
-  }, [airtableIntegration, values, fetchAirtableTableSchema]);
 
   // Get dynamic fields from schema
   const getDynamicFields = () => {
@@ -983,8 +935,8 @@ export function AirtableConfiguration({
       // Clear loaded dropdown fields when table changes so they reload for new table
       setLoadedDropdownFields(new Set());
 
-      // For update record, load both schema and records
-      if (isUpdateRecord) {
+      // For update record or update multiple records, load both schema and records
+      if (isUpdateRecord || isUpdateMultipleRecords) {
         // Load schema first, then records (records loading checks for schema)
         fetchAirtableTableSchema(values.baseId, values.tableName).then(() => {
           loadAirtableRecords(values.baseId, values.tableName);
@@ -995,7 +947,7 @@ export function AirtableConfiguration({
         fetchAirtableTableSchema(values.baseId, values.tableName);
       }
     }
-  }, [isCreateRecord, isUpdateRecord, values.tableName, values.baseId, fetchAirtableTableSchema, loadAirtableRecords]);
+  }, [isCreateRecord, isUpdateRecord, isUpdateMultipleRecords, values.tableName, values.baseId, fetchAirtableTableSchema, loadAirtableRecords]);
 
   // Helper function to get a proper string label from any value
   const getLabelFromValue = useCallback((val: any): string => {
@@ -1173,7 +1125,7 @@ export function AirtableConfiguration({
   // Auto-load all dynamic dropdown fields when they become visible
   useEffect(() => {
     // Only for create/update record actions
-    if (!isCreateRecord && !isUpdateRecord) return;
+    if (!isCreateRecord && !isUpdateRecord && !isUpdateMultipleRecords) return;
     if (!values.tableName || !values.baseId) return;
     if (dynamicFields.length === 0) return;
 
@@ -1264,7 +1216,7 @@ export function AirtableConfiguration({
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dynamicFields, values.tableName, values.baseId, isCreateRecord, isUpdateRecord,
+  }, [dynamicFields, values.tableName, values.baseId, isCreateRecord, isUpdateRecord, isUpdateMultipleRecords,
       dynamicOptions, autoLoadedFields, airtableTableSchema]); // Don't include loadOptions
 
   // Clear auto-loaded fields when table changes
@@ -1811,9 +1763,9 @@ export function AirtableConfiguration({
     
     // Process bubble values for submission
     const submissionValues = { ...values };
-    
+
     // Aggregate bubble values for Airtable fields
-    if (isCreateRecord || isUpdateRecord) {
+    if (isCreateRecord || isUpdateRecord || isUpdateMultipleRecords) {
       Object.keys(fieldSuggestions).forEach(fieldName => {
         if (fieldName.startsWith('airtable_field_')) {
           const activeBubblesForField = activeBubbles[fieldName];
@@ -2111,23 +2063,53 @@ export function AirtableConfiguration({
                 }}
                   onRefresh={() => loadAirtableRecords(values.baseId, values.tableName)}
                   onRecordSelected={() => {
-                    // Wait for selection animation to complete (2000ms + 50ms buffer)
-                    setTimeout(() => {
-                      const fieldsSection = document.querySelector('[data-dynamic-fields]');
-                      if (fieldsSection) {
-                        fieldsSection.scrollIntoView({
-                          behavior: 'smooth',
-                          block: 'nearest' // Only scroll if not already visible
-                        });
-                      }
-                    }, 2050);
+                    // Wait for React to commit DOM changes and browser to paint
+                    requestAnimationFrame(() => {
+                      requestAnimationFrame(() => {
+                        const fieldsSection = document.querySelector('[data-dynamic-fields]');
+                        if (fieldsSection) {
+                          fieldsSection.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'nearest' // Only scroll if not already visible
+                          });
+                        }
+                      });
+                    });
                   }}
                 />
               </div>
             )}
-            
+
+            {/* Records table for update multiple records */}
+            {isUpdateMultipleRecords && values.tableName && values.baseId && (
+              <div className="w-full overflow-hidden">
+                <div className="mb-3 text-sm text-gray-400">
+                  Select up to 10 records to update (max limit for Airtable API)
+                </div>
+                <AirtableRecordsTable
+                  records={airtableRecords}
+                  loading={loadingRecords}
+                  selectedRecords={selectedMultipleRecords}
+                  multiSelect={true}
+                  tableName={values.tableName}
+                  onSelectRecords={(records) => {
+                    setSelectedMultipleRecords(records);
+                    // Store record IDs as comma-separated string
+                    const recordIds = records.map(r => r.id).join(',');
+                    setValue('recordIds', recordIds);
+                  }}
+                  onRefresh={() => loadAirtableRecords(values.baseId, values.tableName)}
+                />
+                {selectedMultipleRecords.length > 0 && (
+                  <div className="mt-3 text-sm text-green-400">
+                    {selectedMultipleRecords.length} record{selectedMultipleRecords.length !== 1 ? 's' : ''} selected
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Dynamic fields for create/update */}
-            {(isCreateRecord || (isUpdateRecord && selectedRecord)) && dynamicFields.length > 0 && (
+            {(isCreateRecord || (isUpdateRecord && selectedRecord) || (isUpdateMultipleRecords && selectedMultipleRecords.length > 0)) && dynamicFields.length > 0 && (
               <div className="space-y-3" data-dynamic-fields>
                 <div className="mt-6 border-t border-slate-200 pt-4">
                   <h3 className="text-sm font-semibold text-slate-700 mb-1">Table Fields</h3>
@@ -2139,58 +2121,12 @@ export function AirtableConfiguration({
               </div>
             )}
             
-            {/* Preview for list records */}
-            {isListRecord && values.tableName && values.baseId && (
-              <div className="mt-6 space-y-4">
-                <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
-                  <p className="text-sm text-slate-600 mb-3">
-                    Preview the data that will be retrieved from the selected table.
-                  </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      if (showPreviewData) {
-                        setShowPreviewData(false);
-                        setPreviewData([]);
-                      } else {
-                        loadPreviewData(values.baseId, values.tableName);
-                      }
-                    }}
-                    disabled={loadingPreview}
-                    className="flex items-center gap-2"
-                  >
-                    {loadingPreview ? (
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                    {loadingPreview ? 'Loading...' : showPreviewData ? 'Hide Preview' : 'Preview Records'}
-                  </Button>
-                </div>
-                
-                {showPreviewData && previewData.length > 0 && (
-                  <AirtableRecordsTable
-                    records={previewData}
-                    loading={loadingPreview}
-                    tableName={values.tableName}
-                    isPreview={true}
-                  />
-                )}
-              </div>
-            )}
           </div>
         </div>
       </div>
-      
+
       <div className="border-t border-border px-6 py-4">
-        <div className="flex justify-between items-center">
-          <div>
-            <Button type="button" variant="outline" onClick={onBack || onCancel}>
-              <ChevronLeft className="w-4 h-4 mr-1" />
-              Back
-            </Button>
-          </div>
+        <div className="flex justify-end items-center">
           <Button type="submit">
             {isEditMode ? 'Update' : 'Save'} Configuration
           </Button>

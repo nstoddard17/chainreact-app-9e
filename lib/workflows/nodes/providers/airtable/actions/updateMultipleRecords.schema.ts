@@ -62,72 +62,14 @@ export const updateMultipleRecordsActionSchema: NodeComponent = {
       dependsOn: "baseId"
     },
     {
-      name: "updateMode",
-      label: "Update Mode",
-      type: "select",
-      required: true,
-      options: [
-        { value: "by_ids", label: "Update Specific Records (by ID)" },
-        { value: "by_filter", label: "Update Records Matching Filter" }
-      ],
-      defaultValue: "by_ids",
-      description: "How to select records to update"
-    },
-    {
       name: "recordIds",
       label: "Record IDs",
-      type: "textarea",
+      type: "text",
       required: true,
-      rows: 4,
-      placeholder: "rec123abc\nrec456def\nrec789ghi",
-      supportsAI: true,
-      description: "List of record IDs to update (one per line, max 10)",
-      tooltip: "Enter up to 10 record IDs, one per line. Airtable API limit.",
-      visibleWhen: {
-        field: "updateMode",
-        value: "by_ids"
-      }
-    },
-    {
-      name: "filterFormula",
-      label: "Filter Formula",
-      type: "textarea",
-      required: true,
-      rows: 3,
-      placeholder: "{Status} = 'Pending'",
-      supportsAI: true,
-      description: "Airtable formula to filter records to update",
-      tooltip: "Use Airtable formula syntax. Example: {Status} = 'Pending', {Due Date} < TODAY()",
-      visibleWhen: {
-        field: "updateMode",
-        value: "by_filter"
-      }
-    },
-    {
-      name: "maxRecords",
-      label: "Maximum Records to Update",
-      type: "number",
-      required: false,
-      defaultValue: 10,
-      min: 1,
-      max: 10,
-      placeholder: "10",
-      description: "Max number of matching records to update (1-10)",
-      tooltip: "Airtable API allows updating up to 10 records per request.",
-      visibleWhen: {
-        field: "updateMode",
-        value: "by_filter"
-      }
-    },
-    {
-      name: "fields",
-      label: "Fields to Update",
-      type: "object",
-      required: true,
-      placeholder: JSON.stringify({ Status: "Complete", "Updated At": "{{now}}" }, null, 2),
-      supportsAI: true,
-      description: "Field values to update for all matched records",
-      tooltip: "These field values will be applied to ALL matched records. Use variables like {{trigger.value}} for dynamic values."
+      placeholder: "Select records from the table below",
+      description: "Selected record IDs will be stored here",
+      readonly: true,
+      hidden: true
     }
   ]
 }

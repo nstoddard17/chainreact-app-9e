@@ -366,6 +366,10 @@ export const discordNodes: NodeComponent[] = [
       { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, placeholder: "Select a Discord server", loadOnMount: true },
       { name: "channelId", label: "Channel", type: "select", dynamic: "discord_channels", required: true, dependsOn: "guildId", placeholder: "Select a channel" },
       { name: "limit", label: "Limit", type: "number", required: false, placeholder: "Number of messages (max 100)", defaultValue: 20 },
+      { name: "sortOrder", label: "Sort Order", type: "select", required: false, options: [
+        { value: "newest", label: "Newest First" },
+        { value: "oldest", label: "Oldest First" }
+      ], defaultValue: "newest", placeholder: "Select sort order...", description: "How to sort the messages" },
       { name: "filterType", label: "Filter Type", type: "select", required: false, options: [
         { value: "none", label: "No Filter" },
         { value: "author", label: "Filter by Author" },
@@ -377,9 +381,9 @@ export const discordNodes: NodeComponent[] = [
         { value: "from_humans", label: "From Humans" },
         { value: "has_reactions", label: "Has Reactions" }
       ], defaultValue: "none" },
-      { name: "filterAuthor", label: "Author", type: "select", dynamic: "discord_members", required: false, dependsOn: "guildId", placeholder: "Select an author to filter by", description: "Only show messages from this user" },
-      { name: "filterContent", label: "Content Contains", type: "text", required: false, placeholder: "Text to search for in messages", description: "Only show messages containing this text" },
-      { name: "caseSensitive", label: "Case Sensitive Search", type: "boolean", required: false, defaultValue: false, description: "Whether content search should be case sensitive" }
+      { name: "filterAuthor", label: "Author", type: "select", dynamic: "discord_members", required: false, dependsOn: "guildId", placeholder: "Select an author to filter by", description: "Only show messages from this user", conditional: { field: "filterType", value: "author" } },
+      { name: "filterContent", label: "Content Contains", type: "text", required: false, placeholder: "Text to search for in messages", description: "Only show messages containing this text", conditional: { field: "filterType", value: "content" } },
+      { name: "caseSensitive", label: "Case Sensitive Search", type: "boolean", required: false, defaultValue: false, description: "Whether content search should be case sensitive", conditional: { field: "filterType", value: "content" } }
     ],
     outputSchema: [
       {

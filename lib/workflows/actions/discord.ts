@@ -1218,13 +1218,14 @@ export async function deleteDiscordMessage(config: any, userId: string, input: R
 export async function fetchDiscordMessages(config: any, userId: string, input: Record<string, any>) {
   try {
     const resolvedConfig = resolveValue(config, { input })
-    const { 
-      channelId, 
-      limit = 20, 
-      filterType = "none", 
-      filterAuthor, 
-      filterContent, 
-      caseSensitive = false 
+    const {
+      channelId,
+      limit = 20,
+      sortOrder = "newest",
+      filterType = "none",
+      filterAuthor,
+      filterContent,
+      caseSensitive = false
     } = resolvedConfig
 
     if (!channelId) {
@@ -1280,41 +1281,49 @@ export async function fetchDiscordMessages(config: any, userId: string, input: R
     const messages = await response.json()
 
     // Apply filters
-    const filteredMessages = messages.filter((msg: any) => {
+    let filteredMessages = messages.filter((msg: any) => {
       switch (filterType) {
         case "author":
           return filterAuthor ? msg.author?.id === filterAuthor : true
-          
+
         case "content":
           if (!filterContent) return true
           const messageContent = msg.content || ""
-          return caseSensitive 
+          return caseSensitive
             ? messageContent.includes(filterContent)
             : messageContent.toLowerCase().includes(filterContent.toLowerCase())
-            
+
         case "has_attachments":
           return msg.attachments && msg.attachments.length > 0
-          
+
         case "has_embeds":
           return msg.embeds && msg.embeds.length > 0
-          
+
         case "is_pinned":
           return msg.pinned === true
-          
+
         case "from_bots":
           return msg.author?.bot === true
-          
+
         case "from_humans":
           return msg.author?.bot !== true
-          
+
         case "has_reactions":
           return msg.reactions && msg.reactions.length > 0
-          
+
         case "none":
         default:
           return true
       }
     })
+
+    // Apply sorting
+    // Discord API returns messages in reverse chronological order (newest first) by default
+    if (sortOrder === "oldest") {
+      // Reverse to get oldest first
+      filteredMessages = filteredMessages.reverse()
+    }
+    // If sortOrder === "newest", keep as is (already newest first from Discord API)
 
     // Limit the results to the requested amount
     const limitedMessages = filteredMessages.slice(0, validatedLimit)

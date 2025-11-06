@@ -824,6 +824,17 @@ export function DiscordConfiguration({
                 if (!values.channelId && field.name !== 'guildId' && field.name !== 'channelId') {
                   return null;
                 }
+
+                // Check conditional visibility (for filter-specific fields)
+                if ((field as any).conditional) {
+                  const conditional = (field as any).conditional;
+                  const conditionFieldValue = values[conditional.field];
+
+                  // Hide if the condition doesn't match
+                  if (conditional.value !== undefined && conditionFieldValue !== conditional.value) {
+                    return null;
+                  }
+                }
               }
               
               // For add/remove reaction actions - hide emoji field if no channel selected

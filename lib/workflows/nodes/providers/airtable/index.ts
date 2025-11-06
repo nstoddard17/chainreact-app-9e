@@ -372,80 +372,96 @@ export const airtableNodes: NodeComponent[] = [
         required: true,
         placeholder: "Select a table",
         description: "Choose the table to get records from",
-        dependsOn: "baseId",
-        hidden: true,
-        visibilityCondition: { field: "baseId", operator: "equals", value: "!empty" }
+        dependsOn: "baseId"
+      },
+      {
+        name: "limit",
+        label: "Limit",
+        type: "number",
+        required: false,
+        placeholder: "Number of records (max 100)",
+        defaultValue: 20,
+        description: "Maximum number of records to return",
+        dependsOn: "tableName"
+      },
+      {
+        name: "filterType",
+        label: "Filter Type",
+        type: "select",
+        required: false,
+        options: [
+          { value: "none", label: "No Filter" },
+          { value: "keyword_search", label: "Search Keywords" },
+          { value: "field_equals", label: "Filter by Field Value" },
+          { value: "has_attachments", label: "Has Attachments" },
+          { value: "is_empty", label: "Empty Records" },
+          { value: "date_range", label: "Date Range" },
+          { value: "advanced_formula", label: "Advanced Formula" }
+        ],
+        defaultValue: "none",
+        placeholder: "Select filter type...",
+        description: "Choose how to filter records",
+        dependsOn: "tableName"
       },
       {
         name: "keywordSearch",
-        label: "Keyword Search",
+        label: "Search Keywords",
         type: "text",
         required: false,
         placeholder: "Search across all text fields...",
-        description: "Search for keywords across all text fields in the table",
-        hidden: true,
-        visibilityCondition: { field: "tableName", operator: "equals", value: "!empty" },
+        description: "Search for keywords in all text fields",
+        conditional: { field: "filterType", value: "keyword_search" },
         supportsAI: true
       },
       {
+        name: "caseSensitive",
+        label: "Case Sensitive Search",
+        type: "boolean",
+        required: false,
+        defaultValue: false,
+        description: "Whether search should be case sensitive",
+        conditional: { field: "filterType", value: "keyword_search" }
+      },
+      {
         name: "filterField",
-        label: "Filter by Field",
+        label: "Field",
         type: "select",
         dynamic: "airtable_fields",
         required: false,
-        placeholder: "Select field to filter by...",
-        description: "Choose a field to filter records by",
+        placeholder: "Select field...",
+        description: "Choose a field to filter by",
         dependsOn: "tableName",
-        hidden: true,
-        visibilityCondition: { field: "tableName", operator: "equals", value: "!empty" }
+        conditional: { field: "filterType", value: "field_equals" }
       },
       {
         name: "filterValue",
-        label: "Filter Value",
+        label: "Value",
         type: "select",
         dynamic: "airtable_field_values",
         required: false,
         placeholder: "Select value...",
-        description: "Choose the value to filter by",
+        description: "Choose the value to match",
         dependsOn: "filterField",
-        visibilityCondition: { field: "filterField", operator: "equals", value: "!empty" }
-      },
-      {
-        name: "sortOrder",
-        label: "Sort Order",
-        type: "select",
-        required: false,
-        options: [
-          { value: "newest", label: "Newest First (by Created Time)" },
-          { value: "oldest", label: "Oldest First (by Created Time)" },
-          { value: "recently_modified", label: "Recently Modified First" },
-          { value: "least_recently_modified", label: "Least Recently Modified First" }
-        ],
-        defaultValue: "newest",
-        placeholder: "Select sort order...",
-        description: "How to sort the returned records",
-        hidden: true,
-        visibilityCondition: { field: "tableName", operator: "equals", value: "!empty" }
+        conditional: { field: "filterType", value: "field_equals" }
       },
       {
         name: "dateFilter",
-        label: "Date Filter",
+        label: "Date Range",
         type: "select",
         required: false,
         options: [
-          { value: "", label: "No date filter" },
           { value: "today", label: "Created Today" },
           { value: "yesterday", label: "Created Yesterday" },
-          { value: "last_7_days", label: "Created in Last 7 Days" },
-          { value: "last_30_days", label: "Created in Last 30 Days" },
-          { value: "this_month", label: "Created This Month" },
-          { value: "last_month", label: "Created Last Month" },
-          { value: "custom_date_range", label: "Custom Date Range" }
+          { value: "last_7_days", label: "Last 7 Days" },
+          { value: "last_30_days", label: "Last 30 Days" },
+          { value: "this_month", label: "This Month" },
+          { value: "last_month", label: "Last Month" },
+          { value: "custom", label: "Custom Range" }
         ],
-        placeholder: "Select date filter...",
-        description: "Filter records by creation date",
-        hidden: true,
-        visibilityCondition: { field: "tableName", operator: "equals", value: "!empty" }
+        defaultValue: "last_7_days",
+        placeholder: "Select date range...",
+        description: "Filter by creation date",
+        conditional: { field: "filterType", value: "date_range" }
       },
       {
         name: "customDateRange",
@@ -453,48 +469,34 @@ export const airtableNodes: NodeComponent[] = [
         type: "daterange",
         required: false,
         placeholder: "Select date range...",
-        description: "Choose a custom date range to filter records",
-        dependsOn: "dateFilter",
-        visibilityCondition: { field: "dateFilter", operator: "equals", value: "custom_date_range" }
-      },
-      {
-        name: "recordLimit",
-        label: "Record Limit",
-        type: "select",
-        required: false,
-        options: [
-          { value: "", label: "Use Max Records setting" },
-          { value: "last_10", label: "Last 10 Records" },
-          { value: "last_20", label: "Last 20 Records" },
-          { value: "last_50", label: "Last 50 Records" },
-          { value: "last_100", label: "Last 100 Records" },
-          { value: "custom", label: "Custom Amount" }
-        ],
-        placeholder: "Select record limit...",
-        description: "Quick limit for most recent records",
-        hidden: true,
-        visibilityCondition: { field: "tableName", operator: "equals", value: "!empty" }
-      },
-      {
-        name: "maxRecords",
-        label: "Max Records",
-        type: "number",
-        required: false,
-        defaultValue: 100,
-        placeholder: "100",
-        description: "Maximum number of records to return",
-        dependsOn: "recordLimit",
-        visibilityCondition: { field: "recordLimit", operator: "equals", value: "custom" }
+        description: "Choose start and end dates",
+        conditional: { field: "dateFilter", value: "custom" }
       },
       {
         name: "filterByFormula",
-        label: "Advanced Filter Formula",
+        label: "Filter Formula",
         type: "textarea",
         required: false,
         placeholder: "{Status} = 'Active'",
-        description: "Advanced Airtable filter formula (will be combined with other filters using AND logic)",
-        advanced: true,
+        description: "Airtable filter formula",
+        conditional: { field: "filterType", value: "advanced_formula" },
         supportsAI: true
+      },
+      {
+        name: "sortOrder",
+        label: "Sort Order",
+        type: "select",
+        required: false,
+        options: [
+          { value: "newest", label: "Newest First" },
+          { value: "oldest", label: "Oldest First" },
+          { value: "recently_modified", label: "Recently Modified" },
+          { value: "least_recently_modified", label: "Least Recently Modified" }
+        ],
+        defaultValue: "newest",
+        placeholder: "Select sort order...",
+        description: "How to sort the records",
+        dependsOn: "tableName"
       }
     ]
   },
