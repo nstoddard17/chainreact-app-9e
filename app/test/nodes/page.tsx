@@ -18,7 +18,6 @@
 import React, { useState, useMemo } from "react"
 import { ALL_NODE_COMPONENTS, NodeComponent } from "@/lib/workflows/availableNodes"
 import { ConfigurationModal } from "@/components/workflows/configuration/ConfigurationModal"
-import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -58,8 +57,22 @@ export default function NodeTestHarnessPage() {
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null)
   const [expandedProviders, setExpandedProviders] = useState<Set<string>>(new Set())
   const [selectedNode, setSelectedNode] = useState<NodeComponent | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
   const [filterType, setFilterType] = useState<"all" | "triggers" | "actions">("all")
   const [showIssuesOnly, setShowIssuesOnly] = useState(false)
+
+  // Suppress browser extension errors (not our code)
+  React.useEffect(() => {
+    const handleError = (event: PromiseRejectionEvent) => {
+      // Suppress "message channel closed" errors from browser extensions
+      if (event.reason?.message?.includes('message channel closed')) {
+        event.preventDefault()
+      }
+    }
+
+    window.addEventListener('unhandledrejection', handleError)
+    return () => window.removeEventListener('unhandledrejection', handleError)
+  }, [])
 
   // Group all nodes by provider
   const nodesByProvider = useMemo(() => groupNodesByProvider(ALL_NODE_COMPONENTS), [])
@@ -130,10 +143,17 @@ export default function NodeTestHarnessPage() {
 
   const openNodeConfig = (node: NodeComponent) => {
     setSelectedNode(node)
+    setIsModalOpen(true)
   }
 
   const closeModal = () => {
-    setSelectedNode(null)
+    // First, trigger the slide-out animation
+    setIsModalOpen(false)
+
+    // After animation completes (700ms), unmount the modal
+    setTimeout(() => {
+      setSelectedNode(null)
+    }, 700)
   }
 
   const handleSave = (config: Record<string, any>) => {
@@ -231,13 +251,14 @@ export default function NodeTestHarnessPage() {
 
         {/* Filters */}
         <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
+          <div className="flex-1 flex items-center border border-input rounded-md px-3 bg-background">
+            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+            <input
+              type="text"
               placeholder="Search nodes by name, description, or type..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
+              className="flex h-10 w-full bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
 
@@ -404,7 +425,7 @@ export default function NodeTestHarnessPage() {
       {/* Configuration Modal */}
       {selectedNode && (
         <ConfigurationModal
-          isOpen={true}
+          isOpen={isModalOpen}
           onClose={closeModal}
           onSave={handleSave}
           nodeInfo={selectedNode}

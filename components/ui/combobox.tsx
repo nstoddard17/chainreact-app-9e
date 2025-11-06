@@ -379,14 +379,11 @@ export function Combobox({
                     if (!option.disabled) handleSelect(option.value)
                   }}
                   disabled={option.disabled}
-                  className={cn(option.disabled ? "opacity-50 pointer-events-none cursor-not-allowed" : "")}
+                  className={cn(
+                    option.disabled ? "opacity-50 pointer-events-none cursor-not-allowed" : "",
+                    value === option.value && "bg-accent"
+                  )}
                 >
-                  <Check
-                    className={cn(
-                      "mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4",
-                      value === option.value || selectedValues.includes(option.value) ? "opacity-100" : "opacity-0"
-                    )}
-                  />
                   <div className="flex flex-col">
                     {option.label !== undefined && option.label !== null ? option.label : String(option.value)}
                     {option.description && (
@@ -949,14 +946,11 @@ export function HierarchicalCombobox({
                               key={`sub-${optionIndex}-${emailIndex}-${email.value || 'undefined'}`}
                               value={email.value}
                               onSelect={handleSelect}
-                              className="pl-8"
+                              className={cn(
+                                "pl-8",
+                                value === email.value && "bg-accent"
+                              )}
                             >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4",
-                                  value === email.value ? "opacity-100" : "opacity-0"
-                                )}
-                              />
                               <div className="flex flex-col">
                                 <span>{email.label}</span>
                                 {email.description && (
@@ -975,13 +969,10 @@ export function HierarchicalCombobox({
                     key={`item-${optionIndex}-${option.value || 'undefined'}`}
                     value={option.value}
                     onSelect={handleSelect}
+                    className={cn(
+                      value === option.value && "bg-accent"
+                    )}
                   >
-                    <Check
-                      className={cn(
-                        "mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4",
-                        value === option.value ? "opacity-100" : "opacity-0"
-                      )}
-                    />
                     <div className="flex flex-col">
                       <span>{option.label}</span>
                       {option.description && (

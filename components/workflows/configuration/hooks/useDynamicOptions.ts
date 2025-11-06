@@ -177,6 +177,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       const depKey = `${fieldName}_${dependsOnValue}`
       const depOptions = dynamicOptions[depKey]
       if (depOptions && Array.isArray(depOptions) && depOptions.length > 0) {
+        console.log(`🔄 [useDynamicOptions] EARLY RETURN: Has cached dependency options for ${fieldName}`);
         return
       }
     }
@@ -184,6 +185,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
     // If we recently loaded this key, skip reloading to prevent API spam
     const lastTs = lastLoadedAt.current.get(requestKey)
     if (!forceRefresh && lastTs && Date.now() - lastTs < 5000) {
+      console.log(`🔄 [useDynamicOptions] EARLY RETURN: Recently loaded ${requestKey} (${Date.now() - lastTs}ms ago)`);
       return
     }
     
@@ -220,28 +222,42 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
     
     // Prevent duplicate calls for the same field (unless forcing refresh)
     // But allow if it's been more than 1 second since the field started loading
-    const isStaleLoading = loadingFields.current.has(requestKey) && 
+    const isStaleLoading = loadingFields.current.has(requestKey) &&
       Date.now() - (loadingFields.current as any).getTime?.(requestKey) > 1000;
-    
+
     if (!forceRefresh && loadingFields.current.has(requestKey) && !isStaleLoading) {
-      logger.debug(`🚫 [useDynamicOptions] Skipping duplicate call for ${requestKey}`);
+      console.log(`🔄 [useDynamicOptions] EARLY RETURN: Duplicate loading check for ${requestKey}`);
       return;
     }
-    
+
     // For authorFilter (Discord), only skip if we have data for the specific channel
     if (!forceRefresh && fieldName === 'authorFilter' && dependsOn === 'channelId' && dependsOnValue) {
       const channelSpecificData = dynamicOptions[`${fieldName}_${dependsOnValue}`];
       if (channelSpecificData && channelSpecificData.length > 0) {
+        console.log(`🔄 [useDynamicOptions] EARLY RETURN: Has channel-specific data for ${fieldName}`);
         return;
       }
     }
-    
+
     // For other fields, use simple data check (exclude authorFilter since it's channel-specific)
     if (!forceRefresh && fieldName !== 'authorFilter' && dynamicOptions[fieldName] && dynamicOptions[fieldName].length > 0) {
+      console.log(`🔄 [useDynamicOptions] EARLY RETURN: Field already has options (${dynamicOptions[fieldName].length}) for ${fieldName}`);
       return;
     }
     // Determine data to load based on field name (moved outside try block for error handling)
     const resourceType = getResourceTypeForField(fieldName, nodeType);
+
+    // Debug logging for watchedTables / airtable_tables
+    if (fieldName === 'watchedTables' || resourceType === 'airtable_tables') {
+      console.log(`🎯 [useDynamicOptions] PROCEEDING TO LOAD: ${fieldName}`, {
+        fieldName,
+        resourceType,
+        requestKey,
+        forceRefresh,
+        silent,
+        baseId: extraOptions?.baseId
+      });
+    }
 
     // Debug logging for Gmail fields
     if (fieldName === 'labelIds' || fieldName === 'from') {
@@ -1082,6 +1098,16 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       // Load integration data with proper options
       options = dependsOn && dependsOnValue ? { [dependsOn]: dependsOnValue } : {};
 
+      // Merge in extraOptions if provided (e.g., baseId for Airtable tables)
+      if (extraOptions) {
+        options = { ...options, ...extraOptions };
+        logger.debug(`🔧 [useDynamicOptions] Merged extraOptions into request options:`, {
+          fieldName,
+          options,
+          extraOptions
+        });
+      }
+
       // Check if this field depends on another field and the dependency value is missing
       if (dependsOn && !dependsOnValue) {
         logger.debug(`⚠️ [useDynamicOptions] Skipping load for ${fieldName} - missing dependency value for ${dependsOn}`);
@@ -1495,7 +1521,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
           // This is crucial because loadIntegrationData might not support abort signals
           if (activeRequestIds.current.get(requestKey) !== requestId) {
             // Special handling for fields that should always use fresh data when available
-            // Include Slack channels, Trello boards, and Trello lists since they're critical for actions
+            // Include Slack channels, Trello boards, Trello lists, and Airtable tables since they're critical for actions/triggers
             if (fieldName === 'authorFilter' ||
                 fieldName === 'channel' ||
                 resourceType === 'slack_channels' ||
@@ -1505,7 +1531,9 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
                 fieldName === 'listId' ||
                 resourceType === 'trello_lists' ||
                 fieldName === 'cardId' ||
-                resourceType === 'trello_cards') {
+                resourceType === 'trello_cards' ||
+                fieldName === 'watchedTables' ||
+                resourceType === 'airtable_tables') {
               logger.debug(`✅ [useDynamicOptions] Using fresh data for ${fieldName} despite superseded request`);
               // Continue to update state for these critical fields
             } else {
@@ -1527,6 +1555,17 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
           // Format the results - extract data array from response object if needed
           const dataArray = result.data || result;
           formattedOptions = formatOptionsForField(fieldName, dataArray);
+
+          // Log for watchedTables / airtable_tables
+          if (fieldName === 'watchedTables' || resourceType === 'airtable_tables') {
+            console.log(`📦 [useDynamicOptions] Formatted options for ${fieldName}:`, {
+              fieldName,
+              resourceType,
+              rawDataCount: dataArray.length,
+              formattedCount: formattedOptions.length,
+              sampleFormatted: formattedOptions.slice(0, 3)
+            });
+          }
         } catch (apiError: any) {
           logger.error(`❌ [useDynamicOptions] Failed to load ${resourceType}:`, apiError);
 
@@ -1575,17 +1614,19 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
           ...prev,
           ...updateObject
         };
-        
-        // Log state update for critical fields
-        if (fieldName === 'channel' || resourceType === 'slack_channels') {
-          logger.debug(`✅ [useDynamicOptions] Updated state for ${fieldName}:`, {
+
+        // Log state update for ALL fields including watchedTables
+        if (fieldName === 'watchedTables' || fieldName === 'channel' || resourceType === 'slack_channels' || resourceType === 'airtable_tables') {
+          console.log(`✅ [useDynamicOptions] Updated state for ${fieldName}:`, {
             fieldName,
+            resourceType,
             hadPrevious: !!prev[fieldName],
             previousCount: prev[fieldName]?.length || 0,
-            newCount: formattedOptions.length
+            newCount: formattedOptions.length,
+            sampleOptions: formattedOptions.slice(0, 3)
           });
         }
-        
+
         return updated;
       });
       // Record last loaded time for throttle
@@ -1635,17 +1676,27 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       if (error.name === 'AbortError') {
         // Don't update state or clear loading for aborted requests
         // The loading state should persist until the new request completes
+        console.log(`⚠️ [useDynamicOptions] Request aborted for ${fieldName}`);
         return;
       }
-      
+
+      // CRITICAL: Log the actual error that caused failure
+      console.error(`🚨 [useDynamicOptions] ERROR loading ${fieldName}:`, {
+        fieldName,
+        resourceType: getResourceTypeForField(fieldName, nodeType),
+        error: error.message,
+        stack: error.stack,
+        requestKey
+      });
+
       // Get the integration if available for error logging
       const currentIntegration = getIntegrationByProvider(providerId);
-      
+
       setDynamicOptions(prev => ({
         ...prev,
         [fieldName]: []
       }));
-      
+
       // Don't clear loading state here - it's handled in the finally block
       // This prevents duplicate cleanup and ensures consistency
     } finally {
