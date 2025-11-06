@@ -48,13 +48,15 @@ export async function GET(
       return errorResponse("Access denied - not a member of this organization", 403)
     }
 
-    // OPTIMIZATION: Use organization_members table directly
-    // Fetch teams and org members in parallel, then merge in memory
-    const [teamsResult, orgMembersResult] = await Promise.all([
+    // OPTIMIZATION: Fetch teams, team members, and org members in parallel
+    const [teamsResult, teamMembersResult, orgMembersResult] = await Promise.all([
       serviceClient
         .from("teams")
         .select("*")
         .eq("organization_id", organizationId),
+      serviceClient
+        .from("team_members")
+        .select("team_id, user_id, role"),
       serviceClient
         .from("organization_members")
         .select("user_id, role")
@@ -66,16 +68,22 @@ export async function GET(
       return errorResponse("Failed to fetch teams", 500)
     }
 
+    if (teamMembersResult.error) {
+      logger.error("Error fetching team members:", teamMembersResult.error)
+      return errorResponse("Failed to fetch team members", 500)
+    }
+
     if (orgMembersResult.error) {
       logger.error("Error fetching organization members:", orgMembersResult.error)
       return errorResponse("Failed to fetch members", 500)
     }
 
     const teams = teamsResult.data || []
+    const allTeamMembers = teamMembersResult.data || []
     const orgMembers = orgMembersResult.data || []
 
-    // Get unique user IDs from organization members
-    const userIds = [...new Set(orgMembers.map(m => m.user_id))]
+    // Get unique user IDs from team members
+    const userIds = [...new Set(allTeamMembers.map(m => m.user_id))]
 
     // Fetch user profiles in one batch query
     const { data: userProfiles } = await serviceClient
@@ -86,20 +94,25 @@ export async function GET(
     // Create user lookup map for O(1) access
     const userMap = new Map(userProfiles?.map(u => [u.user_id, u]) || [])
 
-    // Build members array with user details
-    const members = orgMembers.map(member => ({
-      user_id: member.user_id,
-      role: member.role,
-      user: userMap.get(member.user_id) || { user_id: member.user_id, email: 'Unknown', username: null }
-    }))
+    // Transform teams data with correct member counts
+    const transformedTeams = teams.map((team: any) => {
+      // Get team members for this specific team
+      const teamMembers = allTeamMembers.filter(tm => tm.team_id === team.id)
 
-    // Transform teams data
-    const transformedTeams = teams.map((team: any) => ({
-      ...team,
-      member_count: orgMembers.length, // Organization member count, not per-team
-      user_role: orgMembers.find((member: any) => member.user_id === user.id)?.role || null,
-      members: members // All organization members
-    }))
+      // Build members array with user details for this team
+      const members = teamMembers.map(member => ({
+        user_id: member.user_id,
+        role: member.role,
+        user: userMap.get(member.user_id) || { user_id: member.user_id, email: 'Unknown', username: null }
+      }))
+
+      return {
+        ...team,
+        member_count: teamMembers.length, // Actual team member count
+        user_role: teamMembers.find(tm => tm.user_id === user.id)?.role || null,
+        team_members: members // Team-specific members
+      }
+    })
 
     return jsonResponse({ teams: transformedTeams })
   } catch (error) {
