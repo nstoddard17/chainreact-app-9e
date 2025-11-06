@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { Check, ChevronsUpDown, Home, Loader2, Settings, Crown, Star, Shield, User, Users, Building } from "lucide-react"
+import { Check, ChevronsUpDown, Home, Loader2, Settings, Crown, Star, Shield, User, Users, Building, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -12,6 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
 import { useAuthStore } from "@/stores/authStore"
 import { useWorkflowStore } from "@/stores/workflowStore"
@@ -56,7 +57,11 @@ export function OrganizationSwitcher() {
   const [currentOrg, setCurrentOrg] = useState<Organization | null>(null)
   const [loading, setLoading] = useState(true)
   const [switching, setSwitching] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [recentWorkspaces, setRecentWorkspaces] = useState<string[]>([])
+  const [selectedIndex, setSelectedIndex] = useState(0)
   const isInitialLoadRef = useRef(true)
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   // Check if we're on a page with an org parameter in the URL
   const getOrgFromUrl = () => {
@@ -85,6 +90,30 @@ export function OrganizationSwitcher() {
   }
 
   const RoleIcon = getRoleIcon()
+
+  // Load recent workspaces from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem('recent_workspaces')
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored)
+        setRecentWorkspaces(Array.isArray(parsed) ? parsed : [])
+      } catch {
+        setRecentWorkspaces([])
+      }
+    }
+  }, [])
+
+  // Track workspace usage for recents
+  const addToRecentWorkspaces = (orgId: string) => {
+    setRecentWorkspaces(prev => {
+      // Remove if already exists, then add to front
+      const filtered = prev.filter(id => id !== orgId)
+      const updated = [orgId, ...filtered].slice(0, 5) // Keep max 5 recent
+      localStorage.setItem('recent_workspaces', JSON.stringify(updated))
+      return updated
+    })
+  }
 
   // Fetch integration counts for each workspace
   const fetchIntegrationCounts = async (orgs: Organization[]) => {
@@ -225,6 +254,11 @@ export function OrganizationSwitcher() {
     }
   }, [currentOrg])
 
+  // Reset selected index when search changes
+  useEffect(() => {
+    setSelectedIndex(0)
+  }, [searchQuery])
+
   const handleSwitchOrganization = async (org: Organization) => {
     setSwitching(true)
 
@@ -246,6 +280,12 @@ export function OrganizationSwitcher() {
 
       // Update current org
       setCurrentOrg(org)
+
+      // Add to recent workspaces
+      addToRecentWorkspaces(org.id)
+
+      // Clear search query
+      setSearchQuery("")
 
       // Refresh integrations (integrations ARE workspace-specific)
       await fetchIntegrations(true)
@@ -302,9 +342,97 @@ export function OrganizationSwitcher() {
   // Determine icon for current workspace
   const CurrentIcon = isPersonalWorkspace ? Home : isStandaloneTeam ? Users : Building
 
+  // Filter and group organizations
+  const filteredOrgs = organizations.filter(org =>
+    org.name.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  // Group organizations by type
+  const personalWorkspaces = filteredOrgs.filter(org => (org as any).is_workspace === true)
+  const teams = filteredOrgs.filter(org => (org as any).is_team === true)
+  const orgs = filteredOrgs.filter(org => !(org as any).is_workspace && !(org as any).is_team)
+
+  // Recent workspaces (only show if not searching and there are recents)
+  const recentOrgs = searchQuery === ''
+    ? recentWorkspaces
+        .map(id => organizations.find(org => org.id === id))
+        .filter((org): org is Organization => org !== undefined)
+        .slice(0, 5)
+    : []
+
+  // Flatten all visible workspaces for keyboard navigation
+  const allVisibleOrgs = [
+    ...recentOrgs,
+    ...personalWorkspaces,
+    ...teams,
+    ...orgs
+  ].filter((org, index, self) =>
+    // Remove duplicates (recent might also be in other categories)
+    self.findIndex(o => o.id === org.id) === index
+  )
+
+  // Handle keyboard navigation
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (allVisibleOrgs.length === 0) return
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault()
+        setSelectedIndex(prev => (prev + 1) % allVisibleOrgs.length)
+        break
+      case 'ArrowUp':
+        e.preventDefault()
+        setSelectedIndex(prev => (prev - 1 + allVisibleOrgs.length) % allVisibleOrgs.length)
+        break
+      case 'Enter':
+        e.preventDefault()
+        const selectedOrg = allVisibleOrgs[selectedIndex]
+        if (selectedOrg) {
+          handleSwitchOrganization(selectedOrg)
+        }
+        break
+      case 'Escape':
+        e.preventDefault()
+        setSearchQuery("")
+        break
+    }
+  }
+
+  const renderWorkspaceItem = (org: Organization, index?: number) => {
+    const isPersonalWorkspace = (org as any).is_workspace === true
+    const isStandaloneTeam = (org as any).is_team === true
+    const WorkspaceIcon = isPersonalWorkspace ? Home : isStandaloneTeam ? Users : Building
+    const isSelected = index !== undefined && allVisibleOrgs[selectedIndex]?.id === org.id
+
+    return (
+      <DropdownMenuItem
+        key={org.id}
+        onClick={() => handleSwitchOrganization(org)}
+        className={`flex items-center justify-between cursor-pointer ${isSelected ? 'bg-accent' : ''}`}
+        disabled={switching}
+      >
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <WorkspaceIcon className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
+          <p className="font-medium truncate">{org.name}</p>
+        </div>
+        {currentOrg.id === org.id && (
+          <Check className="w-4 h-4 flex-shrink-0 text-primary" />
+        )}
+      </DropdownMenuItem>
+    )
+  }
+
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu onOpenChange={(open) => {
+        if (open) {
+          // Focus search input when dropdown opens
+          setTimeout(() => searchInputRef.current?.focus(), 0)
+        } else {
+          // Clear search when dropdown closes
+          setSearchQuery("")
+        }
+      }}>
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
@@ -321,63 +449,114 @@ export function OrganizationSwitcher() {
             <ChevronsUpDown className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-[280px]">
-          {/* Clean workspace list - names only, simple and uncluttered */}
-          {organizations.length > 0 && (
-            <>
-              {organizations.map((org) => {
-                // Determine workspace type and icon
-                const isPersonalWorkspace = (org as any).is_workspace === true
-                const isStandaloneTeam = (org as any).is_team === true
-                const WorkspaceIcon = isPersonalWorkspace ? Home : isStandaloneTeam ? Users : Building
+        <DropdownMenuContent align="start" className="w-[320px] p-0">
+          {/* Search Input */}
+          <div className="p-2 border-b">
+            <Input
+              ref={searchInputRef}
+              type="text"
+              placeholder="Search workspaces..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="h-8 text-sm"
+            />
+          </div>
 
-                return (
-                  <DropdownMenuItem
-                    key={org.id}
-                    onClick={() => handleSwitchOrganization(org)}
-                    className="flex items-center justify-between cursor-pointer"
-                    disabled={switching}
-                  >
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <WorkspaceIcon className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
-                      <p className="font-medium truncate">{org.name}</p>
-                    </div>
-                    {currentOrg.id === org.id && (
-                      <Check className="w-4 h-4 flex-shrink-0 text-primary" />
-                    )}
-                  </DropdownMenuItem>
-                )
-              })}
-            </>
-          )}
+          {/* Scrollable workspace list */}
+          <div className="max-h-[400px] overflow-y-auto p-1">
+            {filteredOrgs.length === 0 ? (
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                No workspaces found
+              </div>
+            ) : (
+              <>
+                {/* Recent Workspaces */}
+                {recentOrgs.length > 0 && (
+                  <>
+                    <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground px-2 py-1.5">
+                      RECENT
+                    </DropdownMenuLabel>
+                    {recentOrgs.map((org) => {
+                      const globalIndex = allVisibleOrgs.findIndex(o => o.id === org.id)
+                      return renderWorkspaceItem(org, globalIndex)
+                    })}
+                    <DropdownMenuSeparator className="my-1" />
+                  </>
+                )}
 
-          <DropdownMenuSeparator />
+                {/* Personal Workspaces */}
+                {personalWorkspaces.length > 0 && (
+                  <>
+                    <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground px-2 py-1.5">
+                      PERSONAL
+                    </DropdownMenuLabel>
+                    {personalWorkspaces.map((org) => {
+                      const globalIndex = allVisibleOrgs.findIndex(o => o.id === org.id)
+                      return renderWorkspaceItem(org, globalIndex)
+                    })}
+                    <DropdownMenuSeparator className="my-1" />
+                  </>
+                )}
 
-          {isPersonalWorkspace ? (
-            <DropdownMenuItem
-              onClick={() => router.push('/settings?section=workspace')}
-              className="cursor-pointer"
-            >
-              <Settings className="w-4 h-4 mr-2" />
-              <span>Workspace Settings</span>
-            </DropdownMenuItem>
-          ) : isStandaloneTeam ? (
-            <DropdownMenuItem
-              onClick={() => router.push(`/team-settings?team=${currentOrg.id}`)}
-              className="cursor-pointer"
-            >
-              <Settings className="w-4 h-4 mr-2" />
-              <span>Team Settings</span>
-            </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem
-              onClick={() => router.push('/organization-settings')}
-              className="cursor-pointer"
-            >
-              <Settings className="w-4 h-4 mr-2" />
-              <span>Organization Settings</span>
-            </DropdownMenuItem>
-          )}
+                {/* Teams */}
+                {teams.length > 0 && (
+                  <>
+                    <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground px-2 py-1.5">
+                      TEAMS ({teams.length})
+                    </DropdownMenuLabel>
+                    {teams.map((org) => {
+                      const globalIndex = allVisibleOrgs.findIndex(o => o.id === org.id)
+                      return renderWorkspaceItem(org, globalIndex)
+                    })}
+                    <DropdownMenuSeparator className="my-1" />
+                  </>
+                )}
+
+                {/* Organizations */}
+                {orgs.length > 0 && (
+                  <>
+                    <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground px-2 py-1.5">
+                      ORGANIZATIONS ({orgs.length})
+                    </DropdownMenuLabel>
+                    {orgs.map((org) => {
+                      const globalIndex = allVisibleOrgs.findIndex(o => o.id === org.id)
+                      return renderWorkspaceItem(org, globalIndex)
+                    })}
+                  </>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Settings Footer */}
+          <div className="border-t p-1">
+            {isPersonalWorkspace ? (
+              <DropdownMenuItem
+                onClick={() => router.push('/settings?section=workspace')}
+                className="cursor-pointer"
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                <span>Workspace Settings</span>
+              </DropdownMenuItem>
+            ) : isStandaloneTeam ? (
+              <DropdownMenuItem
+                onClick={() => router.push(`/team-settings?team=${currentOrg.id}`)}
+                className="cursor-pointer"
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                <span>Team Settings</span>
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem
+                onClick={() => router.push('/organization-settings')}
+                className="cursor-pointer"
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                <span>Organization Settings</span>
+              </DropdownMenuItem>
+            )}
+          </div>
         </DropdownMenuContent>
       </DropdownMenu>
     </>
