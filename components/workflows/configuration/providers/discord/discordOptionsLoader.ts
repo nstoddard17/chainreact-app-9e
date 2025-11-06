@@ -15,6 +15,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
   private supportedFields = [
     'guildId',
     'channelId',
+    'channelFilter', // For filtering by channel
     'messageId',
     'messageIds', // Support plural for multi-select
     'filterAuthor',
@@ -67,9 +68,10 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
             case 'guildId':
               result = await this.loadGuilds(forceRefresh);
               break;
-            
+
             case 'channelId':
-              result = await this.loadChannels(dependsOnValue, forceRefresh);
+            case 'channelFilter': // Handle channel filter field
+              result = await this.loadChannels(params);
               break;
             
             case 'messageId':
@@ -159,6 +161,9 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
   // Track active guild loading promise to prevent duplicates
   private static guildLoadingPromise: Promise<FormattedOption[]> | null = null;
 
+  // Track active channel loading promises per guildId to prevent duplicates
+  private static channelLoadingPromises: Map<string, Promise<FormattedOption[]>> = new Map();
+
   private async loadGuilds(forceRefresh?: boolean): Promise<FormattedOption[]> {
     // If there's already a guild loading in progress and we're not forcing refresh, return it
     if (!forceRefresh && DiscordOptionsLoader.guildLoadingPromise) {
@@ -214,63 +219,84 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
     return DiscordOptionsLoader.guildLoadingPromise;
   }
 
-  private async loadChannels(guildId: string | undefined, forceRefresh?: boolean): Promise<FormattedOption[]> {
-    if (!guildId) {
-      logger.debug('🔍 [Discord] Cannot load channels without guildId');
+  private async loadChannels(params: LoadOptionsParams): Promise<FormattedOption[]> {
+    const { dependsOnValue: guildId, integrationId, forceRefresh, signal } = params;
+
+    if (!guildId || !integrationId) {
+      logger.debug('🔍 [Discord] Cannot load channels without guildId and integrationId');
       return [];
     }
 
-    try {
-      // Add a small delay to prevent rapid consecutive calls
-      await new Promise(resolve => setTimeout(resolve, 50));
-      
-      const response = await fetch('/api/integrations/discord/data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          dataType: 'discord_channels',
-          options: { guildId }
-        })
-      });
+    // If there's already a channel loading in progress for this guild and we're not forcing refresh, return it
+    const existingPromise = DiscordOptionsLoader.channelLoadingPromises.get(guildId);
+    if (!forceRefresh && existingPromise) {
+      logger.debug('🔄 [Discord] Reusing existing channel loading promise for guild:', guildId);
+      return existingPromise;
+    }
 
-      if (!response.ok) {
-        throw new Error(`Failed to load channels: ${response.statusText}`);
-      }
+    // Create the loading promise
+    const loadPromise = (async () => {
+      try {
+        const response = await fetch('/api/integrations/discord/data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            integrationId,
+            dataType: 'discord_channels',
+            options: { guildId }
+          }),
+          signal
+        });
 
-      const result = await response.json();
-      const channels = result.data || [];
-      
-      if (!channels || channels.length === 0) {
-        logger.warn('⚠️ [Discord] No channels found for guild:', guildId);
+        if (!response.ok) {
+          throw new Error(`Failed to load channels: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        const channels = result.data || [];
+
+        if (!channels || channels.length === 0) {
+          logger.warn('⚠️ [Discord] No channels found for guild:', guildId);
+          return [];
+        }
+
+        return channels
+          .filter((channel: any) => channel && channel.id)
+          .sort((a, b) => {
+            // Sort by position first, then alphabetically
+            if (a.position !== undefined && b.position !== undefined) {
+              return a.position - b.position;
+            }
+            const aName = a.name || a.id;
+            const bName = b.name || b.id;
+            return aName.localeCompare(bName);
+          })
+          .map(channel => ({
+            value: channel.id,
+            label: channel.name,
+            type: channel.type,
+            position: channel.position,
+          }));
+      } catch (error: any) {
+        logger.error('❌ [Discord] Error loading channels for guild', guildId, ':', error);
+
+        if (error.message?.includes('authentication') || error.message?.includes('expired')) {
+          logger.debug('🔄 [Discord] Authentication error detected');
+        }
+
         return [];
+      } finally {
+        // Clear the promise after a short delay to allow cache to be used
+        setTimeout(() => {
+          DiscordOptionsLoader.channelLoadingPromises.delete(guildId);
+        }, 2000); // 2 second cache for channels
       }
-      
-      return channels
-        .filter((channel: any) => channel && channel.id)
-        .sort((a, b) => {
-          // Sort by position first, then alphabetically
-          if (a.position !== undefined && b.position !== undefined) {
-            return a.position - b.position;
-          }
-          const aName = a.name || a.id;
-          const bName = b.name || b.id;
-          return aName.localeCompare(bName);
-        })
-        .map(channel => ({
-          value: channel.id,
-          label: channel.name,
-          type: channel.type,
-          position: channel.position,
-        }));
-    } catch (error: any) {
-      logger.error('❌ [Discord] Error loading channels for guild', guildId, ':', error);
-      
-      if (error.message?.includes('authentication') || error.message?.includes('expired')) {
-        logger.debug('🔄 [Discord] Authentication error detected');
-      }
-      
-      return [];
-    }
+    })();
+
+    // Store the pending promise
+    DiscordOptionsLoader.channelLoadingPromises.set(guildId, loadPromise);
+
+    return loadPromise;
   }
 
   private async loadMessages(params: LoadOptionsParams): Promise<FormattedOption[]> {
@@ -467,6 +493,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
   getFieldDependencies(fieldName: string): string[] {
     switch (fieldName) {
       case 'channelId':
+      case 'channelFilter': // Channel filter depends on guild
       case 'filterAuthor':
       case 'userId':
       case 'userIds': // Plural version

@@ -63,6 +63,72 @@ import { ChainReactMemoryPicker } from "./ChainReactMemoryPicker";
 
 import { logger } from '@/lib/utils/logger'
 
+// Tags Input Component
+interface TagsInputProps {
+  value: any;
+  onChange: (value: any) => void;
+  field: any;
+  error?: string;
+}
+
+function TagsInput({ value, onChange, field, error }: TagsInputProps) {
+  const tagsValue = Array.isArray(value) ? value : (value ? [value] : []);
+  const [tagInput, setTagInput] = useState('');
+
+  return (
+    <div className="space-y-2">
+      {/* Display existing tags as pills */}
+      {tagsValue.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-2">
+          {tagsValue.map((tag: string, idx: number) => (
+            <div
+              key={idx}
+              className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 rounded-md text-sm"
+            >
+              <span>{tag}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  const newTags = tagsValue.filter((_: any, i: number) => i !== idx);
+                  onChange(newTags);
+                }}
+                className="hover:bg-blue-200 dark:hover:bg-blue-800/50 rounded p-0.5"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Input field to add new tags */}
+      <Input
+        type="text"
+        value={tagInput}
+        onChange={(e) => setTagInput(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            const trimmedTag = tagInput.trim();
+            if (trimmedTag && !tagsValue.includes(trimmedTag)) {
+              onChange([...tagsValue, trimmedTag]);
+              setTagInput('');
+            }
+          }
+        }}
+        placeholder={field.placeholder || "Type and press Enter to add..."}
+        className={cn(error && "border-red-500")}
+      />
+
+      {error && <p className="text-sm text-red-500 mt-1">{error}</p>}
+
+      {field.description && (
+        <p className="text-xs text-gray-500 mt-1">{field.description}</p>
+      )}
+    </div>
+  );
+}
+
 // Helper function to get contextual empty message for combobox
 function getComboboxEmptyMessage(field: any): string {
   const fieldName = field.name?.toLowerCase() || '';
@@ -872,6 +938,9 @@ export function FieldRenderer({
             isLoading={loadingDynamic}
           />
         );
+
+      case "tags":
+        return <TagsInput value={value} onChange={onChange} field={field} error={error} />;
 
       case "text":
       case "email":

@@ -43,6 +43,7 @@ interface ComboboxProps {
   onOpenChange?: (open: boolean) => void;
   selectedValues?: string[]; // Values that already have bubbles/are selected
   displayLabel?: string | null; // Optional display label for when options haven't loaded yet
+  disableSearch?: boolean; // Hide search input for simple dropdowns
   onDrop?: (e: React.DragEvent) => void; // Handler for drop events
   onDragOver?: (e: React.DragEvent) => void; // Handler for drag over events
   onDragLeave?: (e: React.DragEvent) => void; // Handler for drag leave events
@@ -103,6 +104,7 @@ export function Combobox({
   onOpenChange,
   selectedValues = [],
   displayLabel,
+  disableSearch = false,
   onDrop,
   onDragOver,
   onDragLeave,
@@ -164,8 +166,8 @@ export function Combobox({
     if (currentValue === "") {
       onChange("")
     } else {
-      const newValue = currentValue === value ? "" : currentValue
-      onChange(newValue)
+      // Don't toggle - just select the value (prevents deselection when clicking same value)
+      onChange(currentValue)
     }
     setInputValue("")
     setOpen(false)
@@ -350,12 +352,14 @@ export function Combobox({
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" sideOffset={4}>
         <Command shouldFilter={false}>
-          <CommandInput
-            placeholder={searchPlaceholder || "Search..."}
-            value={inputValue}
-            onValueChange={handleCommandInputChange}
-            onKeyDown={handleInputKeyDown}
-          />
+          {!disableSearch && (
+            <CommandInput
+              placeholder={searchPlaceholder || "Search..."}
+              value={inputValue}
+              onValueChange={handleCommandInputChange}
+              onKeyDown={handleInputKeyDown}
+            />
+          )}
           <CommandList
             className="max-h-[300px] overflow-y-auto"
             style={{

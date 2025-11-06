@@ -55,10 +55,11 @@ export interface LegacyVisibilityPatterns {
     value: any;
   };
 
-  // Old pattern: { visibleWhen: { field: 'type', equals: 'webhook' } }
+  // Old pattern: { visibleWhen: { field: 'type', equals: 'webhook' } } or { visibleWhen: { field: 'type', value: 'webhook' } }
   visibleWhen?: {
     field: string;
-    equals: any;
+    equals?: any;  // Legacy property
+    value?: any;   // More common property used in schemas
   };
 
   // Old pattern: { showWhen: { action: { $in: ['create', 'update'] } } }
@@ -186,9 +187,11 @@ export class FieldVisibilityEngine {
       }
     }
 
-    // Pattern: { visibleWhen: { field: 'type', equals: 'webhook' } }
+    // Pattern: { visibleWhen: { field: 'type', equals: 'webhook' } } or { visibleWhen: { field: 'type', value: 'webhook' } }
     if (field.visibleWhen) {
-      const { field: dependentField, equals: expectedValue } = field.visibleWhen;
+      const { field: dependentField, equals, value } = field.visibleWhen as any;
+      // Support both 'equals' and 'value' properties (value is more common in schemas)
+      const expectedValue = equals !== undefined ? equals : value;
       const actualValue = formValues[dependentField];
       if (actualValue !== expectedValue) return false;
     }

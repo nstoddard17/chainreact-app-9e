@@ -51,6 +51,7 @@ const discordMappings: Record<string, FieldMapping> = {
   },
   discord_trigger_member_join: {
     guildId: "discord_guilds",
+    channelFilter: "discord_channels",
   },
   discord_trigger_slash_command: {
     guildId: "discord_guilds",
@@ -302,6 +303,11 @@ const airtableMappings: Record<string, FieldMapping> = {
     tableName: "airtable_tables",
     filterField: "airtable_fields",
     filterValue: "airtable_field_values",
+  },
+  airtable_action_find_record: {
+    baseId: "airtable_bases",
+    tableName: "airtable_tables",
+    searchField: "airtable_fields",
   },
   airtable_trigger_new_record: {
     baseId: "airtable_bases",

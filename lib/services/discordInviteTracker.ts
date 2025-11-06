@@ -9,6 +9,8 @@ interface InviteData {
   inviterId?: string
   maxUses?: number
   maxAge?: number
+  channelId?: string
+  channelName?: string
 }
 
 function normalizeInviteCode(value?: string | null): string | null {
@@ -76,7 +78,9 @@ class DiscordInviteTracker {
         uses: invite.uses || 0,
         inviterId: invite.inviter?.id,
         maxUses: invite.maxUses || undefined,
-        maxAge: invite.maxAge || undefined
+        maxAge: invite.maxAge || undefined,
+        channelId: invite.channel?.id,
+        channelName: invite.channel?.name || invite.channel?.id
       })
       this.inviteCache.set(invite.guild.id, guildInvites)
     })
@@ -116,7 +120,9 @@ class DiscordInviteTracker {
           uses: invite.uses || 0,
           inviterId: invite.inviter?.id,
           maxUses: invite.maxUses || undefined,
-          maxAge: invite.maxAge || undefined
+          maxAge: invite.maxAge || undefined,
+          channelId: invite.channel?.id,
+          channelName: invite.channel?.name || invite.channel?.id
         })
       })
 
@@ -153,7 +159,9 @@ class DiscordInviteTracker {
           uses: invite.uses || 0,
           inviterId: invite.inviter?.id,
           maxUses: invite.maxUses || undefined,
-          maxAge: invite.maxAge || undefined
+          maxAge: invite.maxAge || undefined,
+          channelId: invite.channel?.id,
+          channelName: invite.channel?.name || invite.channel?.id
         })
       })
       this.inviteCache.set(guildId, newInviteMap)
@@ -268,6 +276,8 @@ class DiscordInviteTracker {
         inviterId: invite?.inviter?.id || null,
         inviteUses: invite?.uses || null,
         inviteMaxUses: invite?.maxUses || null,
+        inviteChannelId: invite?.channel?.id || null,
+        inviteChannelName: invite?.channel?.name || invite?.channel?.id || null,
         timestamp: new Date().toISOString()
       }
 
@@ -294,6 +304,17 @@ class DiscordInviteTracker {
             workflowId: workflow.id,
             expected: filterCode,
             actual: inviteCode
+          })
+          continue
+        }
+
+        // Check channel filter if specified
+        const channelFilter = triggerNode.data?.channelFilter
+        if (channelFilter && channelFilter !== triggerData.inviteChannelId) {
+          logger.debug('[Discord] Skipping workflow due to channel filter mismatch', {
+            workflowId: workflow.id,
+            expected: channelFilter,
+            actual: triggerData.inviteChannelId
           })
           continue
         }
