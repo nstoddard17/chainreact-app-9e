@@ -1,0 +1,955 @@
+=== Log Session Started: 2025-11-06T13:50:23.713Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-11-06T13:50:23.714Z] [INFO   ] File logging initialized
+[2025-11-06T13:50:23.714Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-06_07-50-23.log
+[2025-11-06T13:50:23.715Z] [INFO   ] 📁 File logging enabled
+[2025-11-06T13:50:23.715Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-06_07-50-23.log
+[2025-11-06T13:50:23.715Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-06_07-50-23.log
+[2025-11-06T13:50:23.715Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-06_07-50-23.log
+[2025-11-06T13:50:23.715Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-06_07-50-23.log
+[2025-11-06T13:50:23.715Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-11-06T13:50:23.715Z] [DEBUG  ] 📁 File logging system initialized
+[2025-11-06T13:50:23.731Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 4.7s
+[2025-11-06T13:50:24.249Z] [INFO   ]  [37m[1m○[22m[39m Compiling /test/nodes ...
+[2025-11-06T13:50:24.957Z] [INFO   ] 2025-11-06T13:50:24.957Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-11-06T13:50:26.895Z] [INFO   ] 2025-11-06T13:50:26.895Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-11-06T13:50:26.895Z] [INFO   ] 2025-11-06T13:50:26.895Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-06T13:50:27.359Z] [INFO   ] 2025-11-06T13:50:27.359Z [DEBUG] Discord Gateway initialization complete
+[2025-11-06T13:50:27.361Z] [INFO   ] 2025-11-06T13:50:27.360Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-11-06T13:50:27.592Z] [INFO   ] 2025-11-06T13:50:27.592Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-06T13:50:27.592Z] [INFO   ] 2025-11-06T13:50:27.592Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-06T13:50:28.003Z] [INFO   ] 2025-11-06T13:50:28.003Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"5091687782b5e3a34fc47c5a7ee1cf1a","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-11-06T13:50:28.004Z] [INFO   ] 2025-11-06T13:50:28.004Z [DEBUG] 📋 Initializing invite cache...
+[2025-11-06T13:50:28.006Z] [INFO   ] 2025-11-06T13:50:28.006Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-06T13:50:28.007Z] [INFO   ] 2025-11-06T13:50:28.007Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-06T13:50:29.330Z] [INFO   ] 2025-11-06T13:50:29.330Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-11-06T13:50:31.227Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /test/nodes in 7.5s (4931 modules)
+[2025-11-06T13:50:31.764Z] [INFO   ] 2025-11-06T13:50:31.764Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-06T13:50:31.764Z"}
+[2025-11-06T13:50:31.774Z] [INFO   ] 2025-11-06T13:50:31.774Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-06T13:50:31.774Z"}
+[2025-11-06T13:50:31.774Z] [INFO   ] 2025-11-06T13:50:31.774Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-06T13:50:31.774Z"}
+[2025-11-06T13:50:32.339Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1077ms (1046 modules)
+[2025-11-06T13:50:33.089Z] [INFO   ]  [37m[1m○[22m[39m Compiling /icon.png ...
+[2025-11-06T13:50:34.967Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /icon.png in 2.4s (3901 modules)
+[2025-11-06T13:53:41.603Z] [INFO   ] 2025-11-06T13:53:41.603Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-06T13:53:41.603Z"}
+[2025-11-06T13:53:41.614Z] [INFO   ] 2025-11-06T13:53:41.614Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-06T13:53:41.614Z"}
+[2025-11-06T13:53:41.614Z] [INFO   ] 2025-11-06T13:53:41.614Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-06T13:53:41.614Z"}
+[2025-11-06T13:53:42.779Z] [INFO   ]  [37m[1m○[22m[39m Compiling /middleware ...
+[2025-11-06T13:53:43.858Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 1581ms (5280 modules)
+[2025-11-06T13:53:47.977Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 309ms (5050 modules)
+[2025-11-06T13:53:48.064Z] [INFO   ] 2025-11-06T13:53:48.064Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-06T13:53:48.064Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-06T13:53:48.166Z] [INFO   ] 2025-11-06T13:53:48.166Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-06T13:53:48.166Z] [INFO   ] 2025-11-06T13:53:48.166Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-06T13:53:48.338Z] [INFO   ] 2025-11-06T13:53:48.337Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":14,"permissionsCount":14,"integrationsError":null,"permissionsError":null}
+[2025-11-06T13:53:48.338Z] [INFO   ] 2025-11-06T13:53:48.338Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"73eb00b5-f035-4c99-81e1-6f2700e7d1b8","provider":"notion","permission":"admin"}
+[2025-11-06T13:53:48.338Z] [INFO   ] 2025-11-06T13:53:48.338Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"21d15a49-a011-41fc-b20a-813fd9a6ac0e","provider":"mailchimp","permission":"admin"}
+[2025-11-06T13:53:48.338Z] [INFO   ] 2025-11-06T13:53:48.338Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"610e4069-9323-4f4c-a80a-a5e56b700c1f","provider":"gmail","permission":"admin"}
+[2025-11-06T13:53:48.338Z] [INFO   ] 2025-11-06T13:53:48.338Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"683b99fe-5a31-45a8-93a9-b6535930c566","provider":"google-drive","permission":"admin"}
+[2025-11-06T13:53:48.338Z] [INFO   ] 2025-11-06T13:53:48.338Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fa8ff906-fe58-416e-9328-245b65d2fe34","provider":"google-docs","permission":"admin"}
+[2025-11-06T13:53:48.338Z] [INFO   ] 2025-11-06T13:53:48.338Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"7cbd7f8f-75ea-4775-842f-bfc68aa9d73c","provider":"trello","permission":"admin"}
+[2025-11-06T13:53:48.338Z] [INFO   ] 2025-11-06T13:53:48.338Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"918ff057-e567-4e7c-b829-4fe0ca428dcc","provider":"facebook","permission":"admin"}
+[2025-11-06T13:53:48.339Z] [INFO   ] 2025-11-06T13:53:48.339Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fce6756a-efec-4bf7-927e-dba227ca2149","provider":"google-sheets","permission":"admin"}
+[2025-11-06T13:53:48.339Z] [INFO   ] 2025-11-06T13:53:48.339Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"4386d41f-07dd-4e5d-ae50-417fdbcf0974","provider":"slack","permission":"admin"}
+[2025-11-06T13:53:48.339Z] [INFO   ] 2025-11-06T13:53:48.339Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"6b250358-6441-499c-a711-37e7ae101507","provider":"dropbox","permission":"admin"}
+[2025-11-06T13:53:48.339Z] [INFO   ] 2025-11-06T13:53:48.339Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"54248f26-c543-4e8f-8285-0b0fbfbf82dd","provider":"twitter","permission":"admin"}
+[2025-11-06T13:53:48.339Z] [INFO   ] 2025-11-06T13:53:48.339Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","provider":"discord","permission":"admin"}
+[2025-11-06T13:53:48.339Z] [INFO   ] 2025-11-06T13:53:48.339Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"c8d02b5a-3a01-49f9-abdf-693f30c28ab9","provider":"google-calendar","permission":"admin"}
+[2025-11-06T13:53:48.339Z] [INFO   ] 2025-11-06T13:53:48.339Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","provider":"airtable","permission":"admin"}
+[2025-11-06T13:53:48.339Z] [INFO   ] 2025-11-06T13:53:48.339Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-06T13:53:53.915Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/airtable/data in 380ms (5070 modules)
+[2025-11-06T13:53:54.160Z] [INFO   ] 2025-11-06T13:53:54.160Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_bases","status":"connected","hasToken":true}
+[2025-11-06T13:53:54.161Z] [INFO   ] 2025-11-06T13:53:54.161Z [DEBUG] 🔍 Airtable bases fetcher called with integration: {"id":"23c9b660-dff1-40e3-be7a-f47816751245","provider":"airtable","hasToken":true,"tokenLength":334}
+[2025-11-06T13:53:54.161Z] [INFO   ] 2025-11-06T13:53:54.161Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-06T13:53:54.161Z] [INFO   ] 2025-11-06T13:53:54.161Z [DEBUG] 🔍 Fetching Airtable bases from API...
+[2025-11-06T13:53:54.163Z] [INFO   ] 2025-11-06T13:53:54.163Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_bases","status":"connected","hasToken":true}
+[2025-11-06T13:53:54.163Z] [INFO   ] 2025-11-06T13:53:54.163Z [DEBUG] 🔍 Airtable bases fetcher called with integration: {"id":"23c9b660-dff1-40e3-be7a-f47816751245","provider":"airtable","hasToken":true,"tokenLength":334}
+[2025-11-06T13:53:54.163Z] [INFO   ] 2025-11-06T13:53:54.163Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-06T13:53:54.163Z] [INFO   ] 2025-11-06T13:53:54.163Z [DEBUG] 🔍 Fetching Airtable bases from API...
+[2025-11-06T13:53:55.552Z] [INFO   ] 2025-11-06T13:53:55.552Z [DEBUG] ✅ Airtable bases fetched successfully: 3 bases
+[2025-11-06T13:53:55.553Z] [INFO   ] 2025-11-06T13:53:55.553Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_bases: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":3}
+[2025-11-06T13:53:55.589Z] [INFO   ] 2025-11-06T13:53:55.589Z [DEBUG] ✅ Airtable bases fetched successfully: 3 bases
+[2025-11-06T13:53:55.590Z] [INFO   ] 2025-11-06T13:53:55.590Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_bases: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":3}
+[2025-11-06T13:54:06.368Z] [INFO   ] 2025-11-06T13:54:06.368Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_tables","status":"connected","hasToken":true}
+[2025-11-06T13:54:06.368Z] [INFO   ] 2025-11-06T13:54:06.368Z [DEBUG] 🔍 Airtable tables fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","hasToken":true}
+[2025-11-06T13:54:06.368Z] [INFO   ] 2025-11-06T13:54:06.368Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-06T13:54:06.368Z] [INFO   ] 2025-11-06T13:54:06.368Z [DEBUG] 🔍 Fetching Airtable tables from API...
+[2025-11-06T13:54:06.390Z] [INFO   ] 2025-11-06T13:54:06.390Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_tables","status":"connected","hasToken":true}
+[2025-11-06T13:54:06.390Z] [INFO   ] 2025-11-06T13:54:06.390Z [DEBUG] 🔍 Airtable tables fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","hasToken":true}
+[2025-11-06T13:54:06.390Z] [INFO   ] 2025-11-06T13:54:06.390Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-06T13:54:06.390Z] [INFO   ] 2025-11-06T13:54:06.390Z [DEBUG] 🔍 Fetching Airtable tables from API...
+[2025-11-06T13:54:09.177Z] [INFO   ] 2025-11-06T13:54:09.176Z [DEBUG] ✅ Airtable tables fetched successfully: 5 tables from base "app2KiMxZofDhMOmZ"
+[2025-11-06T13:54:09.178Z] [INFO   ] 2025-11-06T13:54:09.178Z [DEBUG] 🔍 Available tables: [{"id":"tbl86Pvq1rJ8tsJZA","name":"Design Drafts"},{"id":"tblwRsE3U48r4EB8J","name":"Feedback"},{"id":"tblnuq35Gtq0tZrRO","name":"Collaboration Insights"},{"id":"tbl5J3AgOjpwad7ql","name":"Tasks"},{"id":"tblbW3PQQkNW88hMY","name":"Projects"}]
+[2025-11-06T13:54:09.178Z] [INFO   ] 2025-11-06T13:54:09.178Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_tables: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-06T13:54:09.190Z] [INFO   ] 2025-11-06T13:54:09.190Z [DEBUG] ✅ Airtable tables fetched successfully: 5 tables from base "app2KiMxZofDhMOmZ"
+[2025-11-06T13:54:09.191Z] [INFO   ] 2025-11-06T13:54:09.190Z [DEBUG] 🔍 Available tables: [{"id":"tbl86Pvq1rJ8tsJZA","name":"Design Drafts"},{"id":"tblwRsE3U48r4EB8J","name":"Feedback"},{"id":"tblnuq35Gtq0tZrRO","name":"Collaboration Insights"},{"id":"tbl5J3AgOjpwad7ql","name":"Tasks"},{"id":"tblbW3PQQkNW88hMY","name":"Projects"}]
+[2025-11-06T13:54:09.191Z] [INFO   ] 2025-11-06T13:54:09.191Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_tables: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-06T13:54:11.030Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/airtable/metadata ...
+[2025-11-06T13:54:11.081Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/airtable/metadata in 552ms (5073 modules)
+[2025-11-06T13:54:11.153Z] [INFO   ] 2025-11-06T13:54:11.153Z [DEBUG] Metadata API called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","tableName":"Design Drafts"}
+[2025-11-06T13:54:11.287Z] [INFO   ] 2025-11-06T13:54:11.286Z [DEBUG] Access token decrypted successfully
+[2025-11-06T13:54:11.287Z] [INFO   ] 2025-11-06T13:54:11.287Z [DEBUG] Fetching metadata from Airtable: https://api.airtable.com/v0/meta/bases/app2KiMxZofDhMOmZ/tables
+[2025-11-06T13:54:11.427Z] [INFO   ] 2025-11-06T13:54:11.427Z [DEBUG] Airtable metadata response received: {"hasData":true,"tableCount":5,"baseId":"app2KiMxZofDhMOmZ","requestedTable":"Design Drafts"}
+[2025-11-06T13:54:11.428Z] [INFO   ] 2025-11-06T13:54:11.428Z [DEBUG] Table fields found: [{"name":"Draft Name","type":"singleLineText","id":"fldpeH75nEzotVaIz"},{"name":"Designer","type":"singleLineText","id":"fldHwBT4DpJNynoDs"},{"name":"Upload Date","type":"date","id":"fldeyYCl5huNfhp00"},{"name":"Draft Image","type":"multipleAttachments","id":"fldGgF9IiZev9ifPo"},{"name":"Status","type":"singleSelect","id":"fldvgqaHX9d378Hr6"},{"name":"Associated Project","type":"multipleRecordLinks","id":"fldUDIP1gDZA1jozK"},{"name":"Feedback","type":"multipleRecordLinks","id":"fldSoktSheZaqPQ7j"},{"name":"Tasks","type":"multipleRecordLinks","id":"fldYEXb0ggEwxMsfJ"}]
+[2025-11-06T13:54:11.561Z] [INFO   ] 2025-11-06T13:54:11.561Z [DEBUG] Metadata API called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","tableName":"Design Drafts"}
+[2025-11-06T13:54:11.644Z] [INFO   ] 2025-11-06T13:54:11.644Z [DEBUG] Access token decrypted successfully
+[2025-11-06T13:54:11.645Z] [INFO   ] 2025-11-06T13:54:11.645Z [DEBUG] Fetching metadata from Airtable: https://api.airtable.com/v0/meta/bases/app2KiMxZofDhMOmZ/tables
+[2025-11-06T13:54:11.738Z] [INFO   ] 2025-11-06T13:54:11.738Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_draft_names","status":"connected","hasToken":true}
+[2025-11-06T13:54:11.739Z] [INFO   ] 2025-11-06T13:54:11.739Z [DEBUG] 🔍 Airtable draft names fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","tableName":"Design Drafts","hasToken":true}
+[2025-11-06T13:54:11.739Z] [INFO   ] 2025-11-06T13:54:11.739Z [DEBUG] 🔍 Fetching Airtable draft names from API...
+[2025-11-06T13:54:11.739Z] [INFO   ] 2025-11-06T13:54:11.739Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_designers","status":"connected","hasToken":true}
+[2025-11-06T13:54:11.739Z] [INFO   ] 2025-11-06T13:54:11.739Z [DEBUG] 🔍 Airtable designers fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","tableName":"Design Drafts","hasToken":true}
+[2025-11-06T13:54:11.739Z] [INFO   ] 2025-11-06T13:54:11.739Z [DEBUG] 🔍 Fetching Airtable designers from API...
+[2025-11-06T13:54:11.751Z] [INFO   ] 2025-11-06T13:54:11.751Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-06T13:54:11.751Z] [INFO   ] 2025-11-06T13:54:11.751Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Tasks","hasToken":true}
+[2025-11-06T13:54:11.751Z] [INFO   ] 2025-11-06T13:54:11.751Z [DEBUG] 🔍 Fetching records from linked table: Tasks
+[2025-11-06T13:54:11.754Z] [INFO   ] 2025-11-06T13:54:11.754Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-06T13:54:11.754Z] [INFO   ] 2025-11-06T13:54:11.754Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Feedback","hasToken":true}
+[2025-11-06T13:54:11.754Z] [INFO   ] 2025-11-06T13:54:11.754Z [DEBUG] 🔍 Fetching records from linked table: Feedback
+[2025-11-06T13:54:11.761Z] [INFO   ] 2025-11-06T13:54:11.761Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-06T13:54:11.762Z] [INFO   ] 2025-11-06T13:54:11.762Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Projects","hasToken":true}
+[2025-11-06T13:54:11.762Z] [INFO   ] 2025-11-06T13:54:11.762Z [DEBUG] 🔍 Fetching records from linked table: Projects
+[2025-11-06T13:54:11.768Z] [INFO   ] 2025-11-06T13:54:11.768Z [DEBUG] Airtable metadata response received: {"hasData":true,"tableCount":5,"baseId":"app2KiMxZofDhMOmZ","requestedTable":"Design Drafts"}
+[2025-11-06T13:54:11.769Z] [INFO   ] 2025-11-06T13:54:11.769Z [DEBUG] Table fields found: [{"name":"Draft Name","type":"singleLineText","id":"fldpeH75nEzotVaIz"},{"name":"Designer","type":"singleLineText","id":"fldHwBT4DpJNynoDs"},{"name":"Upload Date","type":"date","id":"fldeyYCl5huNfhp00"},{"name":"Draft Image","type":"multipleAttachments","id":"fldGgF9IiZev9ifPo"},{"name":"Status","type":"singleSelect","id":"fldvgqaHX9d378Hr6"},{"name":"Associated Project","type":"multipleRecordLinks","id":"fldUDIP1gDZA1jozK"},{"name":"Feedback","type":"multipleRecordLinks","id":"fldSoktSheZaqPQ7j"},{"name":"Tasks","type":"multipleRecordLinks","id":"fldYEXb0ggEwxMsfJ"}]
+[2025-11-06T13:54:11.908Z] [INFO   ] 2025-11-06T13:54:11.908Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_records","status":"connected","hasToken":true}
+[2025-11-06T13:54:11.909Z] [INFO   ] 2025-11-06T13:54:11.909Z [DEBUG] 🔍 Airtable records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","tableName":"Design Drafts","maxRecords":100,"hasToken":true}
+[2025-11-06T13:54:11.909Z] [INFO   ] 2025-11-06T13:54:11.909Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-06T13:54:11.909Z] [INFO   ] 2025-11-06T13:54:11.909Z [DEBUG] 🔍 Fetching Airtable records from API...
+[2025-11-06T13:54:12.937Z] [INFO   ] 2025-11-06T13:54:12.937Z [DEBUG] 📊 [Airtable] Sample record fields: ["Draft Name","Designer","Upload Date","Draft Image","Status","Associated Project","Feedback","Tasks"]
+[2025-11-06T13:54:12.938Z] [INFO   ] 2025-11-06T13:54:12.938Z [DEBUG] 📊 [Airtable] Found matching field 'Draft Name' for draft names
+[2025-11-06T13:54:12.938Z] [INFO   ] 2025-11-06T13:54:12.938Z [DEBUG] 📊 [Airtable] Found matching field 'Draft Name' for draft names
+[2025-11-06T13:54:12.938Z] [INFO   ] 2025-11-06T13:54:12.938Z [DEBUG] 📊 [Airtable] Found matching field 'Draft Name' for draft names
+[2025-11-06T13:54:12.938Z] [INFO   ] 2025-11-06T13:54:12.938Z [DEBUG] 📊 [Airtable] Found matching field 'Draft Name' for draft names
+[2025-11-06T13:54:12.938Z] [INFO   ] 2025-11-06T13:54:12.938Z [DEBUG] 📊 [Airtable] Found matching field 'Draft Name' for draft names
+[2025-11-06T13:54:12.938Z] [INFO   ] 2025-11-06T13:54:12.938Z [DEBUG] 📊 [Airtable] Found matching field 'Draft Name' for draft names
+[2025-11-06T13:54:12.939Z] [INFO   ] 2025-11-06T13:54:12.939Z [DEBUG] 📊 [Airtable] Found matching field 'Draft Name' for draft names
+[2025-11-06T13:54:12.939Z] [INFO   ] 2025-11-06T13:54:12.939Z [DEBUG] ✅ Airtable draft names fetched successfully: 6 unique names
+[2025-11-06T13:54:12.939Z] [INFO   ] 2025-11-06T13:54:12.939Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_draft_names: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":6}
+[2025-11-06T13:54:12.968Z] [INFO   ] 2025-11-06T13:54:12.968Z [DEBUG] ✅ Airtable designers fetched successfully: 4 unique designers
+[2025-11-06T13:54:12.968Z] [INFO   ] 2025-11-06T13:54:12.968Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_designers: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":4}
+[2025-11-06T13:54:13.079Z] [INFO   ] 2025-11-06T13:54:13.079Z [DEBUG] ✅ Fetched 5 records from linked table Tasks
+[2025-11-06T13:54:13.081Z] [INFO   ] 2025-11-06T13:54:13.080Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-06T13:54:13.118Z] [INFO   ] 2025-11-06T13:54:13.118Z [DEBUG] ✅ Fetched 5 records from linked table Projects
+[2025-11-06T13:54:13.119Z] [INFO   ] 2025-11-06T13:54:13.119Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-06T13:54:13.147Z] [INFO   ] 2025-11-06T13:54:13.147Z [DEBUG] ✅ Fetched 6 records from linked table Feedback
+[2025-11-06T13:54:13.148Z] [INFO   ] 2025-11-06T13:54:13.148Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":6}
+[2025-11-06T13:54:15.294Z] [INFO   ] 2025-11-06T13:54:15.294Z [DEBUG] ✅ Airtable records fetched successfully: 7 records
+[2025-11-06T13:54:15.295Z] [INFO   ] 2025-11-06T13:54:15.295Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":7}
+[2025-11-06T13:54:16.710Z] [INFO   ] 2025-11-06T13:54:16.710Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-06T13:54:16.710Z] [INFO   ] 2025-11-06T13:54:16.710Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Feedback","hasToken":true}
+[2025-11-06T13:54:16.711Z] [INFO   ] 2025-11-06T13:54:16.711Z [DEBUG] 🔍 Fetching records from linked table: Feedback
+[2025-11-06T13:54:16.711Z] [INFO   ] 2025-11-06T13:54:16.711Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-06T13:54:16.711Z] [INFO   ] 2025-11-06T13:54:16.711Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Projects","hasToken":true}
+[2025-11-06T13:54:16.711Z] [INFO   ] 2025-11-06T13:54:16.711Z [DEBUG] 🔍 Fetching records from linked table: Projects
+[2025-11-06T13:54:16.739Z] [INFO   ] 2025-11-06T13:54:16.739Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-06T13:54:16.740Z] [INFO   ] 2025-11-06T13:54:16.740Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Tasks","hasToken":true}
+[2025-11-06T13:54:16.740Z] [INFO   ] 2025-11-06T13:54:16.740Z [DEBUG] 🔍 Fetching records from linked table: Tasks
+[2025-11-06T13:54:17.845Z] [INFO   ] 2025-11-06T13:54:17.845Z [DEBUG] ✅ Fetched 6 records from linked table Feedback
+[2025-11-06T13:54:17.846Z] [INFO   ] 2025-11-06T13:54:17.846Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":6}
+[2025-11-06T13:54:18.026Z] [INFO   ] 2025-11-06T13:54:18.026Z [DEBUG] ✅ Fetched 5 records from linked table Projects
+[2025-11-06T13:54:18.027Z] [INFO   ] 2025-11-06T13:54:18.027Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-06T13:54:18.059Z] [INFO   ] 2025-11-06T13:54:18.059Z [DEBUG] ✅ Fetched 5 records from linked table Tasks
+[2025-11-06T13:54:18.060Z] [INFO   ] 2025-11-06T13:54:18.060Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-06T13:55:15.096Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/discord/data ...
+[2025-11-06T13:55:15.780Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/discord/data in 1353ms (5063 modules)
+[2025-11-06T13:55:15.936Z] [INFO   ] 2025-11-06T13:55:15.936Z [DEBUG] 🔍 Discord config check: {"clientId":"Present","botToken":"Present","env_DISCORD_CLIENT_ID":true,"env_NEXT_PUBLIC_DISCORD_CLIENT_ID":false,"env_DISCORD_BOT_TOKEN":true}
+[2025-11-06T13:55:15.991Z] [INFO   ] 2025-11-06T13:55:15.990Z [DEBUG] 🔍 Discord config check: {"clientId":"Present","botToken":"Present","env_DISCORD_CLIENT_ID":true,"env_NEXT_PUBLIC_DISCORD_CLIENT_ID":false,"env_DISCORD_BOT_TOKEN":true}
+[2025-11-06T13:55:16.091Z] [INFO   ] 2025-11-06T13:55:16.091Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_guilds","status":"connected","hasToken":true}
+[2025-11-06T13:55:16.093Z] [INFO   ] 2025-11-06T13:55:16.093Z [DEBUG] 🔍 Making Discord API request to: https://discord.com/api/v10/users/@me/guilds
+[2025-11-06T13:55:16.095Z] [INFO   ] 2025-11-06T13:55:16.095Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_guilds","status":"connected","hasToken":true}
+[2025-11-06T13:55:16.095Z] [INFO   ] 2025-11-06T13:55:16.095Z [DEBUG] 🔄 Reusing pending Discord request for https://discord.com/api/v10/users/@me/guilds
+[2025-11-06T13:55:16.273Z] [INFO   ] 2025-11-06T13:55:16.273Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T13:55:16.274Z] [INFO   ] 2025-11-06T13:55:16.274Z [DEBUG] 📦 Cached Discord response for https://discord.com/api/v10/users/@me/guilds
+[2025-11-06T13:55:16.274Z] [INFO   ] 2025-11-06T13:55:16.274Z [DEBUG] 🔍 [Discord Guilds] Found 2 guilds
+[2025-11-06T13:55:16.275Z] [INFO   ] 2025-11-06T13:55:16.275Z [DEBUG] 🔍 [Discord Guilds] Skipping bot status checks for faster loading
+[2025-11-06T13:55:16.275Z] [INFO   ] 2025-11-06T13:55:16.275Z [DEBUG] 🔍 [Discord Guilds] Found 2 guilds
+[2025-11-06T13:55:16.275Z] [INFO   ] 2025-11-06T13:55:16.275Z [DEBUG] 🔍 [Discord Guilds] Skipping bot status checks for faster loading
+[2025-11-06T13:55:16.275Z] [INFO   ] 2025-11-06T13:55:16.275Z [DEBUG] ✅ [Discord API] Successfully processed discord_guilds: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":2}
+[2025-11-06T13:55:16.275Z] [INFO   ] 2025-11-06T13:55:16.275Z [DEBUG] ✅ [Discord API] Successfully processed discord_guilds: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":2}
+[2025-11-06T13:55:17.989Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/discord/bot-status ...
+[2025-11-06T13:55:18.237Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/discord/bot-status in 749ms (5083 modules)
+[2025-11-06T13:55:18.550Z] [INFO   ] 2025-11-06T13:55:18.550Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_commands","status":"connected","hasToken":true}
+[2025-11-06T13:55:18.550Z] [INFO   ] 2025-11-06T13:55:18.550Z [DEBUG] 🔍 [Discord Commands] Fetching slash commands: {"guildId":"1378950884045623406","clientId":"13785959..."}
+[2025-11-06T13:55:18.550Z] [INFO   ] 2025-11-06T13:55:18.550Z [DEBUG] 📡 [Discord Commands] Fetching guild-specific commands...
+[2025-11-06T13:55:18.556Z] [INFO   ] 2025-11-06T13:55:18.556Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_channels","status":"connected","hasToken":true}
+[2025-11-06T13:55:18.557Z] [INFO   ] 2025-11-06T13:55:18.556Z [DEBUG] 🔍 Making Discord API request to: https://discord.com/api/v10/users/@me
+[2025-11-06T13:55:18.693Z] [INFO   ] 2025-11-06T13:55:18.693Z [DEBUG] 🔍 Checking bot status for guild: 1378950884045623406
+[2025-11-06T13:55:18.693Z] [INFO   ] 2025-11-06T13:55:18.693Z [DEBUG] 🔍 Trying to fetch guild channels...
+[2025-11-06T13:55:18.834Z] [INFO   ] 2025-11-06T13:55:18.834Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T13:55:18.835Z] [INFO   ] 2025-11-06T13:55:18.835Z [DEBUG] ✅ [Discord Commands] Found 0 guild-specific commands
+[2025-11-06T13:55:18.835Z] [INFO   ] 2025-11-06T13:55:18.835Z [DEBUG] 📡 [Discord Commands] Fetching global commands...
+[2025-11-06T13:55:18.940Z] [INFO   ] 2025-11-06T13:55:18.940Z [DEBUG] 🔍 Channels API response status: 200
+[2025-11-06T13:55:18.943Z] [INFO   ] 2025-11-06T13:55:18.943Z [DEBUG] 🔍 Successfully fetched channels: 22
+[2025-11-06T13:55:18.944Z] [INFO   ] 2025-11-06T13:55:18.943Z [DEBUG] 🔍 Bot status check result for guild: 1378950884045623406
+[2025-11-06T13:55:19.085Z] [INFO   ] 2025-11-06T13:55:19.085Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T13:55:19.086Z] [INFO   ] 2025-11-06T13:55:19.086Z [DEBUG] 📦 Cached Discord response for https://discord.com/api/v10/users/@me
+[2025-11-06T13:55:19.086Z] [INFO   ] 2025-11-06T13:55:19.086Z [DEBUG] 🔍 Making Discord API request to: https://discord.com/api/v10/guilds/1378950884045623406/members/1378595955212812308
+[2025-11-06T13:55:19.362Z] [INFO   ] 2025-11-06T13:55:19.362Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T13:55:19.362Z] [INFO   ] 2025-11-06T13:55:19.362Z [DEBUG] ✅ [Discord Commands] Found 0 global commands
+[2025-11-06T13:55:19.362Z] [INFO   ] 2025-11-06T13:55:19.362Z [DEBUG] 📋 [Discord Commands] Total commands available: 0 {"commands":[]}
+[2025-11-06T13:55:19.363Z] [INFO   ] 2025-11-06T13:55:19.363Z [DEBUG] ✅ [Discord API] Successfully processed discord_commands: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T13:55:19.603Z] [INFO   ] 2025-11-06T13:55:19.603Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T13:55:19.603Z] [INFO   ] 2025-11-06T13:55:19.603Z [DEBUG] 📦 Cached Discord response for https://discord.com/api/v10/guilds/1378950884045623406/members/1378595955212812308
+[2025-11-06T13:55:19.603Z] [INFO   ] 2025-11-06T13:55:19.603Z [DEBUG] 🔍 Making Discord API request to: https://discord.com/api/v10/guilds/1378950884045623406/channels
+[2025-11-06T13:55:19.703Z] [INFO   ] 2025-11-06T13:55:19.702Z [DEBUG] ⏱️ Global queue throttling: waiting 11ms
+[2025-11-06T13:55:19.879Z] [INFO   ] 2025-11-06T13:55:19.879Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T13:55:19.879Z] [INFO   ] 2025-11-06T13:55:19.879Z [DEBUG] 📦 Cached Discord response for https://discord.com/api/v10/guilds/1378950884045623406/channels
+[2025-11-06T13:55:19.880Z] [INFO   ] 2025-11-06T13:55:19.880Z [DEBUG] Including channel: general (1378950885044125758) - Type: 0
+[2025-11-06T13:55:19.880Z] [INFO   ] 2025-11-06T13:55:19.880Z [DEBUG] Including channel: rules (1415172962788573316) - Type: 0
+[2025-11-06T13:55:19.880Z] [INFO   ] 2025-11-06T13:55:19.880Z [DEBUG] Bot cannot access channel: moderator-only (1415172962788573319)
+[2025-11-06T13:55:19.880Z] [INFO   ] 2025-11-06T13:55:19.880Z [DEBUG] Including channel: welcome (1415174831183499415) - Type: 5
+[2025-11-06T13:55:19.880Z] [INFO   ] 2025-11-06T13:55:19.880Z [DEBUG] Including channel: announcements (1415175144451739790) - Type: 5
+[2025-11-06T13:55:19.880Z] [INFO   ] 2025-11-06T13:55:19.880Z [DEBUG] Including channel: faq (1415175175237799986) - Type: 0
+[2025-11-06T13:55:19.880Z] [INFO   ] 2025-11-06T13:55:19.880Z [DEBUG] Including channel: general (1415309693282287687) - Type: 0
+[2025-11-06T13:55:19.880Z] [INFO   ] 2025-11-06T13:55:19.880Z [DEBUG] Including channel: introductions (1415309737880195142) - Type: 0
+[2025-11-06T13:55:19.880Z] [INFO   ] 2025-11-06T13:55:19.880Z [DEBUG] Including channel: feedback (1415309773989085205) - Type: 15
+[2025-11-06T13:55:19.880Z] [INFO   ] 2025-11-06T13:55:19.880Z [DEBUG] Including channel: showcase (1415309842733862972) - Type: 0
+[2025-11-06T13:55:19.880Z] [INFO   ] 2025-11-06T13:55:19.880Z [DEBUG] Including channel: support-questions (1415310146183106560) - Type: 15
+[2025-11-06T13:55:19.880Z] [INFO   ] 2025-11-06T13:55:19.880Z [DEBUG] Including channel: bug-reports (1415310187820220426) - Type: 15
+[2025-11-06T13:55:19.880Z] [INFO   ] 2025-11-06T13:55:19.880Z [DEBUG] Including channel: general-voice (1415310483979899042) - Type: 2
+[2025-11-06T13:55:19.880Z] [INFO   ] 2025-11-06T13:55:19.880Z [DEBUG] Bot cannot access channel: support-voice (1415310587696779365)
+[2025-11-06T13:55:19.881Z] [INFO   ] 2025-11-06T13:55:19.881Z [DEBUG] Including channel: off-topic (1415310845092691988) - Type: 0
+[2025-11-06T13:55:19.881Z] [INFO   ] 2025-11-06T13:55:19.881Z [DEBUG] Including channel: resources (1415310890940502077) - Type: 5
+[2025-11-06T13:55:19.881Z] [INFO   ] 2025-11-06T13:55:19.881Z [DEBUG] Bot cannot access channel: beta-testing (1415310954912157787)
+[2025-11-06T13:55:19.881Z] [INFO   ] 2025-11-06T13:55:19.881Z [DEBUG] Discord channel access summary for guild 1378950884045623406: 19/22 channels accessible to bot
+[2025-11-06T13:55:19.881Z] [INFO   ] 2025-11-06T13:55:19.881Z [DEBUG] ✅ [Discord API] Successfully processed discord_channels: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":14}
+[2025-11-06T13:55:41.555Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1509ms (5075 modules)
+[2025-11-06T13:56:37.741Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/airtable/data in 325ms (4009 modules)
+[2025-11-06T13:56:38.084Z] [INFO   ] 2025-11-06T13:56:38.084Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_tables","status":"connected","hasToken":true}
+[2025-11-06T13:56:38.085Z] [INFO   ] 2025-11-06T13:56:38.085Z [DEBUG] 🔍 Airtable tables fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","hasToken":true}
+[2025-11-06T13:56:38.085Z] [INFO   ] 2025-11-06T13:56:38.085Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-06T13:56:38.085Z] [INFO   ] 2025-11-06T13:56:38.085Z [DEBUG] 🔍 Fetching Airtable tables from API...
+[2025-11-06T13:56:38.089Z] [INFO   ] 2025-11-06T13:56:38.089Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_tables","status":"connected","hasToken":true}
+[2025-11-06T13:56:38.090Z] [INFO   ] 2025-11-06T13:56:38.089Z [DEBUG] 🔍 Airtable tables fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","hasToken":true}
+[2025-11-06T13:56:38.090Z] [INFO   ] 2025-11-06T13:56:38.090Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-06T13:56:38.090Z] [INFO   ] 2025-11-06T13:56:38.090Z [DEBUG] 🔍 Fetching Airtable tables from API...
+[2025-11-06T13:56:39.524Z] [INFO   ] 2025-11-06T13:56:39.524Z [DEBUG] ✅ Airtable tables fetched successfully: 5 tables from base "app2KiMxZofDhMOmZ"
+[2025-11-06T13:56:39.525Z] [INFO   ] 2025-11-06T13:56:39.525Z [DEBUG] 🔍 Available tables: [{"id":"tbl86Pvq1rJ8tsJZA","name":"Design Drafts"},{"id":"tblwRsE3U48r4EB8J","name":"Feedback"},{"id":"tblnuq35Gtq0tZrRO","name":"Collaboration Insights"},{"id":"tbl5J3AgOjpwad7ql","name":"Tasks"},{"id":"tblbW3PQQkNW88hMY","name":"Projects"}]
+[2025-11-06T13:56:39.526Z] [INFO   ] 2025-11-06T13:56:39.526Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_tables: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-06T13:56:39.562Z] [INFO   ] 2025-11-06T13:56:39.562Z [DEBUG] ✅ Airtable tables fetched successfully: 5 tables from base "app2KiMxZofDhMOmZ"
+[2025-11-06T13:56:39.563Z] [INFO   ] 2025-11-06T13:56:39.563Z [DEBUG] 🔍 Available tables: [{"id":"tbl86Pvq1rJ8tsJZA","name":"Design Drafts"},{"id":"tblwRsE3U48r4EB8J","name":"Feedback"},{"id":"tblnuq35Gtq0tZrRO","name":"Collaboration Insights"},{"id":"tbl5J3AgOjpwad7ql","name":"Tasks"},{"id":"tblbW3PQQkNW88hMY","name":"Projects"}]
+[2025-11-06T13:56:39.563Z] [INFO   ] 2025-11-06T13:56:39.563Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_tables: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-06T13:56:41.181Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/airtable/metadata in 270ms (4012 modules)
+[2025-11-06T13:56:41.279Z] [INFO   ] 2025-11-06T13:56:41.279Z [DEBUG] Metadata API called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","tableName":"Design Drafts"}
+[2025-11-06T13:56:41.375Z] [INFO   ] 2025-11-06T13:56:41.375Z [DEBUG] Access token decrypted successfully
+[2025-11-06T13:56:41.376Z] [INFO   ] 2025-11-06T13:56:41.375Z [DEBUG] Fetching metadata from Airtable: https://api.airtable.com/v0/meta/bases/app2KiMxZofDhMOmZ/tables
+[2025-11-06T13:56:41.524Z] [INFO   ] 2025-11-06T13:56:41.524Z [DEBUG] Airtable metadata response received: {"hasData":true,"tableCount":5,"baseId":"app2KiMxZofDhMOmZ","requestedTable":"Design Drafts"}
+[2025-11-06T13:56:41.525Z] [INFO   ] 2025-11-06T13:56:41.525Z [DEBUG] Table fields found: [{"name":"Draft Name","type":"singleLineText","id":"fldpeH75nEzotVaIz"},{"name":"Designer","type":"singleLineText","id":"fldHwBT4DpJNynoDs"},{"name":"Upload Date","type":"date","id":"fldeyYCl5huNfhp00"},{"name":"Draft Image","type":"multipleAttachments","id":"fldGgF9IiZev9ifPo"},{"name":"Status","type":"singleSelect","id":"fldvgqaHX9d378Hr6"},{"name":"Associated Project","type":"multipleRecordLinks","id":"fldUDIP1gDZA1jozK"},{"name":"Feedback","type":"multipleRecordLinks","id":"fldSoktSheZaqPQ7j"},{"name":"Tasks","type":"multipleRecordLinks","id":"fldYEXb0ggEwxMsfJ"}]
+[2025-11-06T13:56:41.655Z] [INFO   ] 2025-11-06T13:56:41.655Z [DEBUG] Metadata API called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","tableName":"Design Drafts"}
+[2025-11-06T13:56:41.766Z] [INFO   ] 2025-11-06T13:56:41.766Z [DEBUG] Access token decrypted successfully
+[2025-11-06T13:56:41.766Z] [INFO   ] 2025-11-06T13:56:41.766Z [DEBUG] Fetching metadata from Airtable: https://api.airtable.com/v0/meta/bases/app2KiMxZofDhMOmZ/tables
+[2025-11-06T13:56:41.893Z] [INFO   ] 2025-11-06T13:56:41.893Z [DEBUG] Airtable metadata response received: {"hasData":true,"tableCount":5,"baseId":"app2KiMxZofDhMOmZ","requestedTable":"Design Drafts"}
+[2025-11-06T13:56:41.893Z] [INFO   ] 2025-11-06T13:56:41.893Z [DEBUG] Table fields found: [{"name":"Draft Name","type":"singleLineText","id":"fldpeH75nEzotVaIz"},{"name":"Designer","type":"singleLineText","id":"fldHwBT4DpJNynoDs"},{"name":"Upload Date","type":"date","id":"fldeyYCl5huNfhp00"},{"name":"Draft Image","type":"multipleAttachments","id":"fldGgF9IiZev9ifPo"},{"name":"Status","type":"singleSelect","id":"fldvgqaHX9d378Hr6"},{"name":"Associated Project","type":"multipleRecordLinks","id":"fldUDIP1gDZA1jozK"},{"name":"Feedback","type":"multipleRecordLinks","id":"fldSoktSheZaqPQ7j"},{"name":"Tasks","type":"multipleRecordLinks","id":"fldYEXb0ggEwxMsfJ"}]
+[2025-11-06T13:56:42.057Z] [INFO   ] 2025-11-06T13:56:42.057Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_records","status":"connected","hasToken":true}
+[2025-11-06T13:56:42.057Z] [INFO   ] 2025-11-06T13:56:42.057Z [DEBUG] 🔍 Airtable records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","tableName":"Design Drafts","maxRecords":100,"hasToken":true}
+[2025-11-06T13:56:42.058Z] [INFO   ] 2025-11-06T13:56:42.058Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-06T13:56:42.058Z] [INFO   ] 2025-11-06T13:56:42.058Z [DEBUG] 🔍 Fetching Airtable records from API...
+[2025-11-06T13:56:43.255Z] [INFO   ] 2025-11-06T13:56:43.255Z [DEBUG] ✅ Airtable records fetched successfully: 7 records
+[2025-11-06T13:56:43.255Z] [INFO   ] 2025-11-06T13:56:43.255Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":7}
+[2025-11-06T13:56:44.318Z] [INFO   ] 2025-11-06T13:56:44.318Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-06T13:56:44.318Z] [INFO   ] 2025-11-06T13:56:44.318Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Projects","hasToken":true}
+[2025-11-06T13:56:44.318Z] [INFO   ] 2025-11-06T13:56:44.318Z [DEBUG] 🔍 Fetching records from linked table: Projects
+[2025-11-06T13:56:44.391Z] [INFO   ] 2025-11-06T13:56:44.391Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-06T13:56:44.392Z] [INFO   ] 2025-11-06T13:56:44.392Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Tasks","hasToken":true}
+[2025-11-06T13:56:44.392Z] [INFO   ] 2025-11-06T13:56:44.392Z [DEBUG] 🔍 Fetching records from linked table: Tasks
+[2025-11-06T13:56:44.402Z] [INFO   ] 2025-11-06T13:56:44.402Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-06T13:56:44.402Z] [INFO   ] 2025-11-06T13:56:44.402Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Feedback","hasToken":true}
+[2025-11-06T13:56:44.402Z] [INFO   ] 2025-11-06T13:56:44.402Z [DEBUG] 🔍 Fetching records from linked table: Feedback
+[2025-11-06T13:56:45.496Z] [INFO   ] 2025-11-06T13:56:45.496Z [DEBUG] ✅ Fetched 5 records from linked table Projects
+[2025-11-06T13:56:45.497Z] [INFO   ] 2025-11-06T13:56:45.497Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-06T13:56:45.697Z] [INFO   ] 2025-11-06T13:56:45.697Z [DEBUG] ✅ Fetched 5 records from linked table Tasks
+[2025-11-06T13:56:45.698Z] [INFO   ] 2025-11-06T13:56:45.698Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-06T13:56:45.735Z] [INFO   ] 2025-11-06T13:56:45.735Z [DEBUG] ✅ Fetched 6 records from linked table Feedback
+[2025-11-06T13:56:45.736Z] [INFO   ] 2025-11-06T13:56:45.736Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":6}
+[2025-11-06T13:57:02.373Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1209ms (5059 modules)
+[2025-11-06T13:57:13.030Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 633ms (5059 modules)
+[2025-11-06T13:57:31.397Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 829ms (5059 modules)
+[2025-11-06T13:57:46.353Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1000ms (5059 modules)
+[2025-11-06T13:57:50.400Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 715ms (4932 modules)
+[2025-11-06T13:57:50.808Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-11-06T13:57:51.071Z] [INFO   ] 2025-11-06T13:57:51.071Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-06T13:57:51.071Z"}
+[2025-11-06T13:57:51.081Z] [INFO   ] 2025-11-06T13:57:51.081Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-06T13:57:51.081Z"}
+[2025-11-06T13:57:51.081Z] [INFO   ] 2025-11-06T13:57:51.081Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-06T13:57:51.081Z"}
+[2025-11-06T13:57:52.232Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 439ms (3901 modules)
+[2025-11-06T13:57:52.897Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4014 modules)
+[2025-11-06T13:57:57.530Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 210ms (4017 modules)
+[2025-11-06T13:57:57.608Z] [INFO   ] 2025-11-06T13:57:57.608Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-06T13:57:57.608Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-06T13:57:57.740Z] [INFO   ] 2025-11-06T13:57:57.740Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-06T13:57:57.740Z] [INFO   ] 2025-11-06T13:57:57.740Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-06T13:57:57.897Z] [INFO   ] 2025-11-06T13:57:57.897Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":14,"permissionsCount":14,"integrationsError":null,"permissionsError":null}
+[2025-11-06T13:57:57.899Z] [INFO   ] 2025-11-06T13:57:57.898Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"73eb00b5-f035-4c99-81e1-6f2700e7d1b8","provider":"notion","permission":"admin"}
+[2025-11-06T13:57:57.899Z] [INFO   ] 2025-11-06T13:57:57.899Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"21d15a49-a011-41fc-b20a-813fd9a6ac0e","provider":"mailchimp","permission":"admin"}
+[2025-11-06T13:57:57.899Z] [INFO   ] 2025-11-06T13:57:57.899Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"610e4069-9323-4f4c-a80a-a5e56b700c1f","provider":"gmail","permission":"admin"}
+[2025-11-06T13:57:57.899Z] [INFO   ] 2025-11-06T13:57:57.899Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"683b99fe-5a31-45a8-93a9-b6535930c566","provider":"google-drive","permission":"admin"}
+[2025-11-06T13:57:57.899Z] [INFO   ] 2025-11-06T13:57:57.899Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fa8ff906-fe58-416e-9328-245b65d2fe34","provider":"google-docs","permission":"admin"}
+[2025-11-06T13:57:57.899Z] [INFO   ] 2025-11-06T13:57:57.899Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"7cbd7f8f-75ea-4775-842f-bfc68aa9d73c","provider":"trello","permission":"admin"}
+[2025-11-06T13:57:57.899Z] [INFO   ] 2025-11-06T13:57:57.899Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"918ff057-e567-4e7c-b829-4fe0ca428dcc","provider":"facebook","permission":"admin"}
+[2025-11-06T13:57:57.899Z] [INFO   ] 2025-11-06T13:57:57.899Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fce6756a-efec-4bf7-927e-dba227ca2149","provider":"google-sheets","permission":"admin"}
+[2025-11-06T13:57:57.899Z] [INFO   ] 2025-11-06T13:57:57.899Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"4386d41f-07dd-4e5d-ae50-417fdbcf0974","provider":"slack","permission":"admin"}
+[2025-11-06T13:57:57.899Z] [INFO   ] 2025-11-06T13:57:57.899Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"6b250358-6441-499c-a711-37e7ae101507","provider":"dropbox","permission":"admin"}
+[2025-11-06T13:57:57.899Z] [INFO   ] 2025-11-06T13:57:57.899Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"54248f26-c543-4e8f-8285-0b0fbfbf82dd","provider":"twitter","permission":"admin"}
+[2025-11-06T13:57:57.899Z] [INFO   ] 2025-11-06T13:57:57.899Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","provider":"discord","permission":"admin"}
+[2025-11-06T13:57:57.899Z] [INFO   ] 2025-11-06T13:57:57.899Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"c8d02b5a-3a01-49f9-abdf-693f30c28ab9","provider":"google-calendar","permission":"admin"}
+[2025-11-06T13:57:57.900Z] [INFO   ] 2025-11-06T13:57:57.900Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","provider":"airtable","permission":"admin"}
+[2025-11-06T13:57:57.900Z] [INFO   ] 2025-11-06T13:57:57.900Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-06T13:58:10.729Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 759ms (5064 modules)
+[2025-11-06T13:58:27.789Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1059ms (5064 modules)
+[2025-11-06T14:00:15.403Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/discord/config ...
+[2025-11-06T14:00:15.439Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/discord/config in 628ms (3905 modules)
+[2025-11-06T14:00:15.584Z] [INFO   ] 2025-11-06T14:00:15.584Z [DEBUG] 🔍 Discord config check: {"clientId":"Present","botToken":"Present","env_DISCORD_CLIENT_ID":true,"env_NEXT_PUBLIC_DISCORD_CLIENT_ID":false,"env_DISCORD_BOT_TOKEN":true}
+[2025-11-06T14:00:15.624Z] [INFO   ] 2025-11-06T14:00:15.624Z [DEBUG] 🔍 Discord config check: {"clientId":"Present","botToken":"Present","env_DISCORD_CLIENT_ID":true,"env_NEXT_PUBLIC_DISCORD_CLIENT_ID":false,"env_DISCORD_BOT_TOKEN":true}
+[2025-11-06T14:00:24.182Z] [INFO   ] 2025-11-06T14:00:24.182Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-06T14:00:24.182Z"}
+[2025-11-06T14:00:24.193Z] [INFO   ] 2025-11-06T14:00:24.193Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-06T14:00:24.193Z"}
+[2025-11-06T14:00:24.193Z] [INFO   ] 2025-11-06T14:00:24.193Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-06T14:00:24.193Z"}
+[2025-11-06T14:00:24.970Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 218ms (3907 modules)
+[2025-11-06T14:00:25.209Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4016 modules)
+[2025-11-06T14:00:29.138Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 340ms (4019 modules)
+[2025-11-06T14:00:29.201Z] [INFO   ] 2025-11-06T14:00:29.201Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-06T14:00:29.201Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-06T14:00:29.278Z] [INFO   ] 2025-11-06T14:00:29.277Z [DEBUG] 🔍 Discord config check: {"clientId":"Present","botToken":"Present","env_DISCORD_CLIENT_ID":true,"env_NEXT_PUBLIC_DISCORD_CLIENT_ID":false,"env_DISCORD_BOT_TOKEN":true}
+[2025-11-06T14:00:29.302Z] [INFO   ] 2025-11-06T14:00:29.302Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-06T14:00:29.303Z] [INFO   ] 2025-11-06T14:00:29.303Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-06T14:00:29.330Z] [INFO   ] 2025-11-06T14:00:29.330Z [DEBUG] 🔍 Discord config check: {"clientId":"Present","botToken":"Present","env_DISCORD_CLIENT_ID":true,"env_NEXT_PUBLIC_DISCORD_CLIENT_ID":false,"env_DISCORD_BOT_TOKEN":true}
+[2025-11-06T14:00:29.435Z] [INFO   ] 2025-11-06T14:00:29.435Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":14,"permissionsCount":14,"integrationsError":null,"permissionsError":null}
+[2025-11-06T14:00:29.436Z] [INFO   ] 2025-11-06T14:00:29.436Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"73eb00b5-f035-4c99-81e1-6f2700e7d1b8","provider":"notion","permission":"admin"}
+[2025-11-06T14:00:29.436Z] [INFO   ] 2025-11-06T14:00:29.436Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"21d15a49-a011-41fc-b20a-813fd9a6ac0e","provider":"mailchimp","permission":"admin"}
+[2025-11-06T14:00:29.436Z] [INFO   ] 2025-11-06T14:00:29.436Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"610e4069-9323-4f4c-a80a-a5e56b700c1f","provider":"gmail","permission":"admin"}
+[2025-11-06T14:00:29.436Z] [INFO   ] 2025-11-06T14:00:29.436Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"683b99fe-5a31-45a8-93a9-b6535930c566","provider":"google-drive","permission":"admin"}
+[2025-11-06T14:00:29.436Z] [INFO   ] 2025-11-06T14:00:29.436Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fa8ff906-fe58-416e-9328-245b65d2fe34","provider":"google-docs","permission":"admin"}
+[2025-11-06T14:00:29.436Z] [INFO   ] 2025-11-06T14:00:29.436Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"7cbd7f8f-75ea-4775-842f-bfc68aa9d73c","provider":"trello","permission":"admin"}
+[2025-11-06T14:00:29.436Z] [INFO   ] 2025-11-06T14:00:29.436Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"918ff057-e567-4e7c-b829-4fe0ca428dcc","provider":"facebook","permission":"admin"}
+[2025-11-06T14:00:29.436Z] [INFO   ] 2025-11-06T14:00:29.436Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fce6756a-efec-4bf7-927e-dba227ca2149","provider":"google-sheets","permission":"admin"}
+[2025-11-06T14:00:29.436Z] [INFO   ] 2025-11-06T14:00:29.436Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"4386d41f-07dd-4e5d-ae50-417fdbcf0974","provider":"slack","permission":"admin"}
+[2025-11-06T14:00:29.436Z] [INFO   ] 2025-11-06T14:00:29.436Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"6b250358-6441-499c-a711-37e7ae101507","provider":"dropbox","permission":"admin"}
+[2025-11-06T14:00:29.436Z] [INFO   ] 2025-11-06T14:00:29.436Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"54248f26-c543-4e8f-8285-0b0fbfbf82dd","provider":"twitter","permission":"admin"}
+[2025-11-06T14:00:29.436Z] [INFO   ] 2025-11-06T14:00:29.436Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","provider":"discord","permission":"admin"}
+[2025-11-06T14:00:29.436Z] [INFO   ] 2025-11-06T14:00:29.436Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"c8d02b5a-3a01-49f9-abdf-693f30c28ab9","provider":"google-calendar","permission":"admin"}
+[2025-11-06T14:00:29.436Z] [INFO   ] 2025-11-06T14:00:29.436Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","provider":"airtable","permission":"admin"}
+[2025-11-06T14:00:29.436Z] [INFO   ] 2025-11-06T14:00:29.436Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-06T14:00:29.488Z] [INFO   ] 2025-11-06T14:00:29.488Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-06T14:00:29.488Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-06T14:00:29.573Z] [INFO   ] 2025-11-06T14:00:29.573Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-06T14:00:29.573Z] [INFO   ] 2025-11-06T14:00:29.573Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-06T14:00:29.663Z] [INFO   ] 2025-11-06T14:00:29.663Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":14,"permissionsCount":14,"integrationsError":null,"permissionsError":null}
+[2025-11-06T14:00:29.663Z] [INFO   ] 2025-11-06T14:00:29.663Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"73eb00b5-f035-4c99-81e1-6f2700e7d1b8","provider":"notion","permission":"admin"}
+[2025-11-06T14:00:29.663Z] [INFO   ] 2025-11-06T14:00:29.663Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"21d15a49-a011-41fc-b20a-813fd9a6ac0e","provider":"mailchimp","permission":"admin"}
+[2025-11-06T14:00:29.663Z] [INFO   ] 2025-11-06T14:00:29.663Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"610e4069-9323-4f4c-a80a-a5e56b700c1f","provider":"gmail","permission":"admin"}
+[2025-11-06T14:00:29.663Z] [INFO   ] 2025-11-06T14:00:29.663Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"683b99fe-5a31-45a8-93a9-b6535930c566","provider":"google-drive","permission":"admin"}
+[2025-11-06T14:00:29.664Z] [INFO   ] 2025-11-06T14:00:29.663Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fa8ff906-fe58-416e-9328-245b65d2fe34","provider":"google-docs","permission":"admin"}
+[2025-11-06T14:00:29.664Z] [INFO   ] 2025-11-06T14:00:29.664Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"7cbd7f8f-75ea-4775-842f-bfc68aa9d73c","provider":"trello","permission":"admin"}
+[2025-11-06T14:00:29.664Z] [INFO   ] 2025-11-06T14:00:29.664Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"918ff057-e567-4e7c-b829-4fe0ca428dcc","provider":"facebook","permission":"admin"}
+[2025-11-06T14:00:29.664Z] [INFO   ] 2025-11-06T14:00:29.664Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fce6756a-efec-4bf7-927e-dba227ca2149","provider":"google-sheets","permission":"admin"}
+[2025-11-06T14:00:29.664Z] [INFO   ] 2025-11-06T14:00:29.664Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"4386d41f-07dd-4e5d-ae50-417fdbcf0974","provider":"slack","permission":"admin"}
+[2025-11-06T14:00:29.664Z] [INFO   ] 2025-11-06T14:00:29.664Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"6b250358-6441-499c-a711-37e7ae101507","provider":"dropbox","permission":"admin"}
+[2025-11-06T14:00:29.664Z] [INFO   ] 2025-11-06T14:00:29.664Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"54248f26-c543-4e8f-8285-0b0fbfbf82dd","provider":"twitter","permission":"admin"}
+[2025-11-06T14:00:29.664Z] [INFO   ] 2025-11-06T14:00:29.664Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","provider":"discord","permission":"admin"}
+[2025-11-06T14:00:29.664Z] [INFO   ] 2025-11-06T14:00:29.664Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"c8d02b5a-3a01-49f9-abdf-693f30c28ab9","provider":"google-calendar","permission":"admin"}
+[2025-11-06T14:00:29.664Z] [INFO   ] 2025-11-06T14:00:29.664Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","provider":"airtable","permission":"admin"}
+[2025-11-06T14:00:29.664Z] [INFO   ] 2025-11-06T14:00:29.664Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-06T14:00:30.395Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/discord/data ...
+[2025-11-06T14:00:30.445Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/discord/data in 736ms (4036 modules)
+[2025-11-06T14:00:30.607Z] [INFO   ] 2025-11-06T14:00:30.606Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_guilds","status":"connected","hasToken":true}
+[2025-11-06T14:00:30.608Z] [INFO   ] 2025-11-06T14:00:30.608Z [DEBUG] 🔍 Making Discord API request to: https://discord.com/api/v10/users/@me/guilds
+[2025-11-06T14:00:30.848Z] [INFO   ] 2025-11-06T14:00:30.847Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:00:30.848Z] [INFO   ] 2025-11-06T14:00:30.848Z [DEBUG] 📦 Cached Discord response for https://discord.com/api/v10/users/@me/guilds
+[2025-11-06T14:00:30.849Z] [INFO   ] 2025-11-06T14:00:30.849Z [DEBUG] 🔍 [Discord Guilds] Found 2 guilds
+[2025-11-06T14:00:30.849Z] [INFO   ] 2025-11-06T14:00:30.849Z [DEBUG] 🔍 [Discord Guilds] Skipping bot status checks for faster loading
+[2025-11-06T14:00:30.849Z] [INFO   ] 2025-11-06T14:00:30.849Z [DEBUG] ✅ [Discord API] Successfully processed discord_guilds: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":2}
+[2025-11-06T14:00:32.170Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/discord/bot-status in 281ms (4038 modules)
+[2025-11-06T14:00:32.554Z] [INFO   ] 2025-11-06T14:00:32.554Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_channels","status":"connected","hasToken":true}
+[2025-11-06T14:00:32.554Z] [INFO   ] 2025-11-06T14:00:32.554Z [DEBUG] 🔍 Making Discord API request to: https://discord.com/api/v10/users/@me
+[2025-11-06T14:00:32.561Z] [INFO   ] 2025-11-06T14:00:32.561Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_commands","status":"connected","hasToken":true}
+[2025-11-06T14:00:32.561Z] [INFO   ] 2025-11-06T14:00:32.561Z [DEBUG] 🔍 [Discord Commands] Fetching slash commands: {"guildId":"1378950884045623406","clientId":"13785959..."}
+[2025-11-06T14:00:32.561Z] [INFO   ] 2025-11-06T14:00:32.561Z [DEBUG] 📡 [Discord Commands] Fetching guild-specific commands...
+[2025-11-06T14:00:32.704Z] [INFO   ] 2025-11-06T14:00:32.704Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:00:32.705Z] [INFO   ] 2025-11-06T14:00:32.705Z [DEBUG] 📦 Cached Discord response for https://discord.com/api/v10/users/@me
+[2025-11-06T14:00:32.705Z] [INFO   ] 2025-11-06T14:00:32.705Z [DEBUG] 🔍 Making Discord API request to: https://discord.com/api/v10/guilds/1378950884045623406/members/1378595955212812308
+[2025-11-06T14:00:32.724Z] [INFO   ] 2025-11-06T14:00:32.724Z [DEBUG] 🔍 Checking bot status for guild: 1378950884045623406
+[2025-11-06T14:00:32.724Z] [INFO   ] 2025-11-06T14:00:32.724Z [DEBUG] 🔍 Trying to fetch guild channels...
+[2025-11-06T14:00:32.804Z] [INFO   ] 2025-11-06T14:00:32.804Z [DEBUG] ⏱️ Global queue throttling: waiting 1ms
+[2025-11-06T14:00:32.924Z] [INFO   ] 2025-11-06T14:00:32.924Z [DEBUG] 🔍 Channels API response status: 200
+[2025-11-06T14:00:32.926Z] [INFO   ] 2025-11-06T14:00:32.926Z [DEBUG] 🔍 Successfully fetched channels: 22
+[2025-11-06T14:00:32.926Z] [INFO   ] 2025-11-06T14:00:32.926Z [DEBUG] 🔍 Bot status check result for guild: 1378950884045623406
+[2025-11-06T14:00:33.001Z] [INFO   ] 2025-11-06T14:00:33.001Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:00:33.002Z] [INFO   ] 2025-11-06T14:00:33.002Z [DEBUG] ✅ [Discord Commands] Found 0 guild-specific commands
+[2025-11-06T14:00:33.002Z] [INFO   ] 2025-11-06T14:00:33.002Z [DEBUG] 📡 [Discord Commands] Fetching global commands...
+[2025-11-06T14:00:33.373Z] [INFO   ] 2025-11-06T14:00:33.370Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:00:33.374Z] [INFO   ] 2025-11-06T14:00:33.374Z [DEBUG] 📦 Cached Discord response for https://discord.com/api/v10/guilds/1378950884045623406/members/1378595955212812308
+[2025-11-06T14:00:33.374Z] [INFO   ] 2025-11-06T14:00:33.374Z [DEBUG] 🔍 Making Discord API request to: https://discord.com/api/v10/guilds/1378950884045623406/channels
+[2025-11-06T14:00:33.626Z] [INFO   ] 2025-11-06T14:00:33.626Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:00:33.627Z] [INFO   ] 2025-11-06T14:00:33.626Z [DEBUG] ✅ [Discord Commands] Found 0 global commands
+[2025-11-06T14:00:33.627Z] [INFO   ] 2025-11-06T14:00:33.627Z [DEBUG] 📋 [Discord Commands] Total commands available: 0 {"commands":[]}
+[2025-11-06T14:00:33.627Z] [INFO   ] 2025-11-06T14:00:33.627Z [DEBUG] ✅ [Discord API] Successfully processed discord_commands: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T14:00:33.874Z] [INFO   ] 2025-11-06T14:00:33.873Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:00:33.875Z] [INFO   ] 2025-11-06T14:00:33.875Z [DEBUG] 📦 Cached Discord response for https://discord.com/api/v10/guilds/1378950884045623406/channels
+[2025-11-06T14:00:33.875Z] [INFO   ] 2025-11-06T14:00:33.875Z [DEBUG] Including channel: general (1378950885044125758) - Type: 0
+[2025-11-06T14:00:33.876Z] [INFO   ] 2025-11-06T14:00:33.876Z [DEBUG] Including channel: rules (1415172962788573316) - Type: 0
+[2025-11-06T14:00:33.876Z] [INFO   ] 2025-11-06T14:00:33.876Z [DEBUG] Bot cannot access channel: moderator-only (1415172962788573319)
+[2025-11-06T14:00:33.876Z] [INFO   ] 2025-11-06T14:00:33.876Z [DEBUG] Including channel: welcome (1415174831183499415) - Type: 5
+[2025-11-06T14:00:33.876Z] [INFO   ] 2025-11-06T14:00:33.876Z [DEBUG] Including channel: announcements (1415175144451739790) - Type: 5
+[2025-11-06T14:00:33.876Z] [INFO   ] 2025-11-06T14:00:33.876Z [DEBUG] Including channel: faq (1415175175237799986) - Type: 0
+[2025-11-06T14:00:33.876Z] [INFO   ] 2025-11-06T14:00:33.876Z [DEBUG] Including channel: general (1415309693282287687) - Type: 0
+[2025-11-06T14:00:33.876Z] [INFO   ] 2025-11-06T14:00:33.876Z [DEBUG] Including channel: introductions (1415309737880195142) - Type: 0
+[2025-11-06T14:00:33.876Z] [INFO   ] 2025-11-06T14:00:33.876Z [DEBUG] Including channel: feedback (1415309773989085205) - Type: 15
+[2025-11-06T14:00:33.877Z] [INFO   ] 2025-11-06T14:00:33.877Z [DEBUG] Including channel: showcase (1415309842733862972) - Type: 0
+[2025-11-06T14:00:33.877Z] [INFO   ] 2025-11-06T14:00:33.877Z [DEBUG] Including channel: support-questions (1415310146183106560) - Type: 15
+[2025-11-06T14:00:33.877Z] [INFO   ] 2025-11-06T14:00:33.877Z [DEBUG] Including channel: bug-reports (1415310187820220426) - Type: 15
+[2025-11-06T14:00:33.877Z] [INFO   ] 2025-11-06T14:00:33.877Z [DEBUG] Including channel: general-voice (1415310483979899042) - Type: 2
+[2025-11-06T14:00:33.877Z] [INFO   ] 2025-11-06T14:00:33.877Z [DEBUG] Bot cannot access channel: support-voice (1415310587696779365)
+[2025-11-06T14:00:33.877Z] [INFO   ] 2025-11-06T14:00:33.877Z [DEBUG] Including channel: off-topic (1415310845092691988) - Type: 0
+[2025-11-06T14:00:33.877Z] [INFO   ] 2025-11-06T14:00:33.877Z [DEBUG] Including channel: resources (1415310890940502077) - Type: 5
+[2025-11-06T14:00:33.877Z] [INFO   ] 2025-11-06T14:00:33.877Z [DEBUG] Bot cannot access channel: beta-testing (1415310954912157787)
+[2025-11-06T14:00:33.877Z] [INFO   ] 2025-11-06T14:00:33.877Z [DEBUG] Discord channel access summary for guild 1378950884045623406: 19/22 channels accessible to bot
+[2025-11-06T14:00:33.877Z] [INFO   ] 2025-11-06T14:00:33.877Z [DEBUG] ✅ [Discord API] Successfully processed discord_channels: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":14}
+[2025-11-06T14:00:37.482Z] [INFO   ] 2025-11-06T14:00:37.481Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_commands","status":"connected","hasToken":true}
+[2025-11-06T14:00:37.482Z] [INFO   ] 2025-11-06T14:00:37.482Z [DEBUG] 🔍 [Discord Commands] Fetching slash commands: {"guildId":"1378950884045623406","clientId":"13785959..."}
+[2025-11-06T14:00:37.482Z] [INFO   ] 2025-11-06T14:00:37.482Z [DEBUG] 📡 [Discord Commands] Fetching guild-specific commands...
+[2025-11-06T14:00:37.620Z] [INFO   ] 2025-11-06T14:00:37.620Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:00:37.621Z] [INFO   ] 2025-11-06T14:00:37.621Z [DEBUG] ✅ [Discord Commands] Found 0 guild-specific commands
+[2025-11-06T14:00:37.622Z] [INFO   ] 2025-11-06T14:00:37.621Z [DEBUG] 📡 [Discord Commands] Fetching global commands...
+[2025-11-06T14:00:37.720Z] [INFO   ] 2025-11-06T14:00:37.720Z [DEBUG] ⏱️ Global queue throttling: waiting 12ms
+[2025-11-06T14:00:37.886Z] [INFO   ] 2025-11-06T14:00:37.886Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:00:37.887Z] [INFO   ] 2025-11-06T14:00:37.887Z [DEBUG] ✅ [Discord Commands] Found 0 global commands
+[2025-11-06T14:00:37.887Z] [INFO   ] 2025-11-06T14:00:37.887Z [DEBUG] 📋 [Discord Commands] Total commands available: 0 {"commands":[]}
+[2025-11-06T14:00:37.887Z] [INFO   ] 2025-11-06T14:00:37.887Z [DEBUG] ✅ [Discord API] Successfully processed discord_commands: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T14:00:42.624Z] [INFO   ] 2025-11-06T14:00:42.624Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_commands","status":"connected","hasToken":true}
+[2025-11-06T14:00:42.624Z] [INFO   ] 2025-11-06T14:00:42.624Z [DEBUG] 🔍 [Discord Commands] Fetching slash commands: {"guildId":"1378950884045623406","clientId":"13785959..."}
+[2025-11-06T14:00:42.624Z] [INFO   ] 2025-11-06T14:00:42.624Z [DEBUG] 📡 [Discord Commands] Fetching guild-specific commands...
+[2025-11-06T14:00:42.917Z] [INFO   ] 2025-11-06T14:00:42.916Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:00:42.918Z] [INFO   ] 2025-11-06T14:00:42.918Z [DEBUG] ✅ [Discord Commands] Found 0 guild-specific commands
+[2025-11-06T14:00:42.918Z] [INFO   ] 2025-11-06T14:00:42.918Z [DEBUG] 📡 [Discord Commands] Fetching global commands...
+[2025-11-06T14:00:43.149Z] [INFO   ] 2025-11-06T14:00:43.149Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:00:43.150Z] [INFO   ] 2025-11-06T14:00:43.150Z [DEBUG] ✅ [Discord Commands] Found 0 global commands
+[2025-11-06T14:00:43.150Z] [INFO   ] 2025-11-06T14:00:43.150Z [DEBUG] 📋 [Discord Commands] Total commands available: 0 {"commands":[]}
+[2025-11-06T14:00:43.150Z] [INFO   ] 2025-11-06T14:00:43.150Z [DEBUG] ✅ [Discord API] Successfully processed discord_commands: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T14:00:52.649Z] [INFO   ] 2025-11-06T14:00:52.649Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_commands","status":"connected","hasToken":true}
+[2025-11-06T14:00:52.650Z] [INFO   ] 2025-11-06T14:00:52.650Z [DEBUG] 🔍 [Discord Commands] Fetching slash commands: {"guildId":"1378950884045623406","clientId":"13785959..."}
+[2025-11-06T14:00:52.650Z] [INFO   ] 2025-11-06T14:00:52.650Z [DEBUG] 📡 [Discord Commands] Fetching guild-specific commands...
+[2025-11-06T14:00:52.815Z] [INFO   ] 2025-11-06T14:00:52.815Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:00:52.816Z] [INFO   ] 2025-11-06T14:00:52.816Z [DEBUG] ✅ [Discord Commands] Found 0 guild-specific commands
+[2025-11-06T14:00:52.816Z] [INFO   ] 2025-11-06T14:00:52.816Z [DEBUG] 📡 [Discord Commands] Fetching global commands...
+[2025-11-06T14:00:53.032Z] [INFO   ] 2025-11-06T14:00:53.032Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:00:53.033Z] [INFO   ] 2025-11-06T14:00:53.033Z [DEBUG] ✅ [Discord Commands] Found 0 global commands
+[2025-11-06T14:00:53.033Z] [INFO   ] 2025-11-06T14:00:53.033Z [DEBUG] 📋 [Discord Commands] Total commands available: 0 {"commands":[]}
+[2025-11-06T14:00:53.033Z] [INFO   ] 2025-11-06T14:00:53.033Z [DEBUG] ✅ [Discord API] Successfully processed discord_commands: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T14:01:04.507Z] [INFO   ] 2025-11-06T14:01:04.507Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_commands","status":"connected","hasToken":true}
+[2025-11-06T14:01:04.507Z] [INFO   ] 2025-11-06T14:01:04.507Z [DEBUG] 🔍 [Discord Commands] Fetching slash commands: {"guildId":"1378950884045623406","clientId":"13785959..."}
+[2025-11-06T14:01:04.507Z] [INFO   ] 2025-11-06T14:01:04.507Z [DEBUG] 📡 [Discord Commands] Fetching guild-specific commands...
+[2025-11-06T14:01:04.748Z] [INFO   ] 2025-11-06T14:01:04.747Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:01:04.748Z] [INFO   ] 2025-11-06T14:01:04.748Z [DEBUG] ✅ [Discord Commands] Found 0 guild-specific commands
+[2025-11-06T14:01:04.748Z] [INFO   ] 2025-11-06T14:01:04.748Z [DEBUG] 📡 [Discord Commands] Fetching global commands...
+[2025-11-06T14:01:04.987Z] [INFO   ] 2025-11-06T14:01:04.987Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:01:04.988Z] [INFO   ] 2025-11-06T14:01:04.988Z [DEBUG] ✅ [Discord Commands] Found 0 global commands
+[2025-11-06T14:01:04.988Z] [INFO   ] 2025-11-06T14:01:04.988Z [DEBUG] 📋 [Discord Commands] Total commands available: 0 {"commands":[]}
+[2025-11-06T14:01:04.988Z] [INFO   ] 2025-11-06T14:01:04.988Z [DEBUG] ✅ [Discord API] Successfully processed discord_commands: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T14:01:15.520Z] [INFO   ] 2025-11-06T14:01:15.520Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_commands","status":"connected","hasToken":true}
+[2025-11-06T14:01:15.521Z] [INFO   ] 2025-11-06T14:01:15.521Z [DEBUG] 🔍 [Discord Commands] Fetching slash commands: {"guildId":"1378950884045623406","clientId":"13785959..."}
+[2025-11-06T14:01:15.521Z] [INFO   ] 2025-11-06T14:01:15.521Z [DEBUG] 📡 [Discord Commands] Fetching guild-specific commands...
+[2025-11-06T14:01:15.765Z] [INFO   ] 2025-11-06T14:01:15.765Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:01:15.766Z] [INFO   ] 2025-11-06T14:01:15.765Z [DEBUG] ✅ [Discord Commands] Found 0 guild-specific commands
+[2025-11-06T14:01:15.766Z] [INFO   ] 2025-11-06T14:01:15.766Z [DEBUG] 📡 [Discord Commands] Fetching global commands...
+[2025-11-06T14:01:15.979Z] [INFO   ] 2025-11-06T14:01:15.979Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:01:15.980Z] [INFO   ] 2025-11-06T14:01:15.980Z [DEBUG] ✅ [Discord Commands] Found 0 global commands
+[2025-11-06T14:01:15.980Z] [INFO   ] 2025-11-06T14:01:15.980Z [DEBUG] 📋 [Discord Commands] Total commands available: 0 {"commands":[]}
+[2025-11-06T14:01:15.980Z] [INFO   ] 2025-11-06T14:01:15.980Z [DEBUG] ✅ [Discord API] Successfully processed discord_commands: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T14:01:26.524Z] [INFO   ] 2025-11-06T14:01:26.524Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_commands","status":"connected","hasToken":true}
+[2025-11-06T14:01:26.525Z] [INFO   ] 2025-11-06T14:01:26.524Z [DEBUG] 🔍 [Discord Commands] Fetching slash commands: {"guildId":"1378950884045623406","clientId":"13785959..."}
+[2025-11-06T14:01:26.525Z] [INFO   ] 2025-11-06T14:01:26.525Z [DEBUG] 📡 [Discord Commands] Fetching guild-specific commands...
+[2025-11-06T14:01:26.751Z] [INFO   ] 2025-11-06T14:01:26.751Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:01:26.752Z] [INFO   ] 2025-11-06T14:01:26.752Z [DEBUG] ✅ [Discord Commands] Found 0 guild-specific commands
+[2025-11-06T14:01:26.752Z] [INFO   ] 2025-11-06T14:01:26.752Z [DEBUG] 📡 [Discord Commands] Fetching global commands...
+[2025-11-06T14:01:26.992Z] [INFO   ] 2025-11-06T14:01:26.992Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:01:26.992Z] [INFO   ] 2025-11-06T14:01:26.992Z [DEBUG] ✅ [Discord Commands] Found 0 global commands
+[2025-11-06T14:01:26.992Z] [INFO   ] 2025-11-06T14:01:26.992Z [DEBUG] 📋 [Discord Commands] Total commands available: 0 {"commands":[]}
+[2025-11-06T14:01:26.992Z] [INFO   ] 2025-11-06T14:01:26.992Z [DEBUG] ✅ [Discord API] Successfully processed discord_commands: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T14:01:37.502Z] [INFO   ] 2025-11-06T14:01:37.501Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_commands","status":"connected","hasToken":true}
+[2025-11-06T14:01:37.502Z] [INFO   ] 2025-11-06T14:01:37.502Z [DEBUG] 🔍 [Discord Commands] Fetching slash commands: {"guildId":"1378950884045623406","clientId":"13785959..."}
+[2025-11-06T14:01:37.502Z] [INFO   ] 2025-11-06T14:01:37.502Z [DEBUG] 📡 [Discord Commands] Fetching guild-specific commands...
+[2025-11-06T14:01:37.672Z] [INFO   ] 2025-11-06T14:01:37.672Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:01:37.672Z] [INFO   ] 2025-11-06T14:01:37.672Z [DEBUG] ✅ [Discord Commands] Found 0 guild-specific commands
+[2025-11-06T14:01:37.672Z] [INFO   ] 2025-11-06T14:01:37.672Z [DEBUG] 📡 [Discord Commands] Fetching global commands...
+[2025-11-06T14:01:37.928Z] [INFO   ] 2025-11-06T14:01:37.928Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:01:37.929Z] [INFO   ] 2025-11-06T14:01:37.929Z [DEBUG] ✅ [Discord Commands] Found 0 global commands
+[2025-11-06T14:01:37.929Z] [INFO   ] 2025-11-06T14:01:37.929Z [DEBUG] 📋 [Discord Commands] Total commands available: 0 {"commands":[]}
+[2025-11-06T14:01:37.929Z] [INFO   ] 2025-11-06T14:01:37.929Z [DEBUG] ✅ [Discord API] Successfully processed discord_commands: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T14:01:48.524Z] [INFO   ] 2025-11-06T14:01:48.524Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_commands","status":"connected","hasToken":true}
+[2025-11-06T14:01:48.525Z] [INFO   ] 2025-11-06T14:01:48.525Z [DEBUG] 🔍 [Discord Commands] Fetching slash commands: {"guildId":"1378950884045623406","clientId":"13785959..."}
+[2025-11-06T14:01:48.525Z] [INFO   ] 2025-11-06T14:01:48.525Z [DEBUG] 📡 [Discord Commands] Fetching guild-specific commands...
+[2025-11-06T14:01:48.698Z] [INFO   ] 2025-11-06T14:01:48.698Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:01:48.698Z] [INFO   ] 2025-11-06T14:01:48.698Z [DEBUG] ✅ [Discord Commands] Found 0 guild-specific commands
+[2025-11-06T14:01:48.698Z] [INFO   ] 2025-11-06T14:01:48.698Z [DEBUG] 📡 [Discord Commands] Fetching global commands...
+[2025-11-06T14:01:48.966Z] [INFO   ] 2025-11-06T14:01:48.965Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:01:48.966Z] [INFO   ] 2025-11-06T14:01:48.966Z [DEBUG] ✅ [Discord Commands] Found 0 global commands
+[2025-11-06T14:01:48.966Z] [INFO   ] 2025-11-06T14:01:48.966Z [DEBUG] 📋 [Discord Commands] Total commands available: 0 {"commands":[]}
+[2025-11-06T14:01:48.966Z] [INFO   ] 2025-11-06T14:01:48.966Z [DEBUG] ✅ [Discord API] Successfully processed discord_commands: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T14:01:59.500Z] [INFO   ] 2025-11-06T14:01:59.500Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_commands","status":"connected","hasToken":true}
+[2025-11-06T14:01:59.500Z] [INFO   ] 2025-11-06T14:01:59.500Z [DEBUG] 🔍 [Discord Commands] Fetching slash commands: {"guildId":"1378950884045623406","clientId":"13785959..."}
+[2025-11-06T14:01:59.500Z] [INFO   ] 2025-11-06T14:01:59.500Z [DEBUG] 📡 [Discord Commands] Fetching guild-specific commands...
+[2025-11-06T14:01:59.726Z] [INFO   ] 2025-11-06T14:01:59.726Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:01:59.726Z] [INFO   ] 2025-11-06T14:01:59.726Z [DEBUG] ✅ [Discord Commands] Found 0 guild-specific commands
+[2025-11-06T14:01:59.727Z] [INFO   ] 2025-11-06T14:01:59.727Z [DEBUG] 📡 [Discord Commands] Fetching global commands...
+[2025-11-06T14:01:59.997Z] [INFO   ] 2025-11-06T14:01:59.997Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:01:59.998Z] [INFO   ] 2025-11-06T14:01:59.998Z [DEBUG] ✅ [Discord Commands] Found 0 global commands
+[2025-11-06T14:01:59.998Z] [INFO   ] 2025-11-06T14:01:59.998Z [DEBUG] 📋 [Discord Commands] Total commands available: 0 {"commands":[]}
+[2025-11-06T14:01:59.998Z] [INFO   ] 2025-11-06T14:01:59.998Z [DEBUG] ✅ [Discord API] Successfully processed discord_commands: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T14:02:10.589Z] [INFO   ] 2025-11-06T14:02:10.589Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_commands","status":"connected","hasToken":true}
+[2025-11-06T14:02:10.590Z] [INFO   ] 2025-11-06T14:02:10.590Z [DEBUG] 🔍 [Discord Commands] Fetching slash commands: {"guildId":"1378950884045623406","clientId":"13785959..."}
+[2025-11-06T14:02:10.590Z] [INFO   ] 2025-11-06T14:02:10.590Z [DEBUG] 📡 [Discord Commands] Fetching guild-specific commands...
+[2025-11-06T14:02:10.765Z] [INFO   ] 2025-11-06T14:02:10.765Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:02:10.766Z] [INFO   ] 2025-11-06T14:02:10.766Z [DEBUG] ✅ [Discord Commands] Found 0 guild-specific commands
+[2025-11-06T14:02:10.766Z] [INFO   ] 2025-11-06T14:02:10.766Z [DEBUG] 📡 [Discord Commands] Fetching global commands...
+[2025-11-06T14:02:11.016Z] [INFO   ] 2025-11-06T14:02:11.015Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:02:11.017Z] [INFO   ] 2025-11-06T14:02:11.017Z [DEBUG] ✅ [Discord Commands] Found 0 global commands
+[2025-11-06T14:02:11.017Z] [INFO   ] 2025-11-06T14:02:11.017Z [DEBUG] 📋 [Discord Commands] Total commands available: 0 {"commands":[]}
+[2025-11-06T14:02:11.018Z] [INFO   ] 2025-11-06T14:02:11.018Z [DEBUG] ✅ [Discord API] Successfully processed discord_commands: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T14:02:21.507Z] [INFO   ] 2025-11-06T14:02:21.507Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_commands","status":"connected","hasToken":true}
+[2025-11-06T14:02:21.508Z] [INFO   ] 2025-11-06T14:02:21.508Z [DEBUG] 🔍 [Discord Commands] Fetching slash commands: {"guildId":"1378950884045623406","clientId":"13785959..."}
+[2025-11-06T14:02:21.508Z] [INFO   ] 2025-11-06T14:02:21.508Z [DEBUG] 📡 [Discord Commands] Fetching guild-specific commands...
+[2025-11-06T14:02:21.699Z] [INFO   ] 2025-11-06T14:02:21.698Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:02:21.699Z] [INFO   ] 2025-11-06T14:02:21.699Z [DEBUG] ✅ [Discord Commands] Found 0 guild-specific commands
+[2025-11-06T14:02:21.699Z] [INFO   ] 2025-11-06T14:02:21.699Z [DEBUG] 📡 [Discord Commands] Fetching global commands...
+[2025-11-06T14:02:21.929Z] [INFO   ] 2025-11-06T14:02:21.929Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:02:21.930Z] [INFO   ] 2025-11-06T14:02:21.930Z [DEBUG] ✅ [Discord Commands] Found 0 global commands
+[2025-11-06T14:02:21.931Z] [INFO   ] 2025-11-06T14:02:21.930Z [DEBUG] 📋 [Discord Commands] Total commands available: 0 {"commands":[]}
+[2025-11-06T14:02:21.931Z] [INFO   ] 2025-11-06T14:02:21.931Z [DEBUG] ✅ [Discord API] Successfully processed discord_commands: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T14:02:32.512Z] [INFO   ] 2025-11-06T14:02:32.512Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_commands","status":"connected","hasToken":true}
+[2025-11-06T14:02:32.512Z] [INFO   ] 2025-11-06T14:02:32.512Z [DEBUG] 🔍 [Discord Commands] Fetching slash commands: {"guildId":"1378950884045623406","clientId":"13785959..."}
+[2025-11-06T14:02:32.512Z] [INFO   ] 2025-11-06T14:02:32.512Z [DEBUG] 📡 [Discord Commands] Fetching guild-specific commands...
+[2025-11-06T14:02:32.732Z] [INFO   ] 2025-11-06T14:02:32.731Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:02:32.733Z] [INFO   ] 2025-11-06T14:02:32.732Z [DEBUG] ✅ [Discord Commands] Found 0 guild-specific commands
+[2025-11-06T14:02:32.733Z] [INFO   ] 2025-11-06T14:02:32.733Z [DEBUG] 📡 [Discord Commands] Fetching global commands...
+[2025-11-06T14:02:32.985Z] [INFO   ] 2025-11-06T14:02:32.985Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:02:32.985Z] [INFO   ] 2025-11-06T14:02:32.985Z [DEBUG] ✅ [Discord Commands] Found 0 global commands
+[2025-11-06T14:02:32.985Z] [INFO   ] 2025-11-06T14:02:32.985Z [DEBUG] 📋 [Discord Commands] Total commands available: 0 {"commands":[]}
+[2025-11-06T14:02:32.985Z] [INFO   ] 2025-11-06T14:02:32.985Z [DEBUG] ✅ [Discord API] Successfully processed discord_commands: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T14:02:43.521Z] [INFO   ] 2025-11-06T14:02:43.521Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_commands","status":"connected","hasToken":true}
+[2025-11-06T14:02:43.521Z] [INFO   ] 2025-11-06T14:02:43.521Z [DEBUG] 🔍 [Discord Commands] Fetching slash commands: {"guildId":"1378950884045623406","clientId":"13785959..."}
+[2025-11-06T14:02:43.521Z] [INFO   ] 2025-11-06T14:02:43.521Z [DEBUG] 📡 [Discord Commands] Fetching guild-specific commands...
+[2025-11-06T14:02:43.700Z] [INFO   ] 2025-11-06T14:02:43.700Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:02:43.701Z] [INFO   ] 2025-11-06T14:02:43.701Z [DEBUG] ✅ [Discord Commands] Found 0 guild-specific commands
+[2025-11-06T14:02:43.702Z] [INFO   ] 2025-11-06T14:02:43.702Z [DEBUG] 📡 [Discord Commands] Fetching global commands...
+[2025-11-06T14:02:43.999Z] [INFO   ] 2025-11-06T14:02:43.999Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:02:44.000Z] [INFO   ] 2025-11-06T14:02:44.000Z [DEBUG] ✅ [Discord Commands] Found 0 global commands
+[2025-11-06T14:02:44.000Z] [INFO   ] 2025-11-06T14:02:44.000Z [DEBUG] 📋 [Discord Commands] Total commands available: 0 {"commands":[]}
+[2025-11-06T14:02:44.000Z] [INFO   ] 2025-11-06T14:02:44.000Z [DEBUG] ✅ [Discord API] Successfully processed discord_commands: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T14:02:54.508Z] [INFO   ] 2025-11-06T14:02:54.508Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_commands","status":"connected","hasToken":true}
+[2025-11-06T14:02:54.509Z] [INFO   ] 2025-11-06T14:02:54.509Z [DEBUG] 🔍 [Discord Commands] Fetching slash commands: {"guildId":"1378950884045623406","clientId":"13785959..."}
+[2025-11-06T14:02:54.509Z] [INFO   ] 2025-11-06T14:02:54.509Z [DEBUG] 📡 [Discord Commands] Fetching guild-specific commands...
+[2025-11-06T14:02:54.736Z] [INFO   ] 2025-11-06T14:02:54.736Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:02:54.736Z] [INFO   ] 2025-11-06T14:02:54.736Z [DEBUG] ✅ [Discord Commands] Found 0 guild-specific commands
+[2025-11-06T14:02:54.737Z] [INFO   ] 2025-11-06T14:02:54.736Z [DEBUG] 📡 [Discord Commands] Fetching global commands...
+[2025-11-06T14:02:54.951Z] [INFO   ] 2025-11-06T14:02:54.951Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:02:54.951Z] [INFO   ] 2025-11-06T14:02:54.951Z [DEBUG] ✅ [Discord Commands] Found 0 global commands
+[2025-11-06T14:02:54.951Z] [INFO   ] 2025-11-06T14:02:54.951Z [DEBUG] 📋 [Discord Commands] Total commands available: 0 {"commands":[]}
+[2025-11-06T14:02:54.951Z] [INFO   ] 2025-11-06T14:02:54.951Z [DEBUG] ✅ [Discord API] Successfully processed discord_commands: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T14:03:05.516Z] [INFO   ] 2025-11-06T14:03:05.516Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_commands","status":"connected","hasToken":true}
+[2025-11-06T14:03:05.517Z] [INFO   ] 2025-11-06T14:03:05.517Z [DEBUG] 🔍 [Discord Commands] Fetching slash commands: {"guildId":"1378950884045623406","clientId":"13785959..."}
+[2025-11-06T14:03:05.517Z] [INFO   ] 2025-11-06T14:03:05.517Z [DEBUG] 📡 [Discord Commands] Fetching guild-specific commands...
+[2025-11-06T14:03:05.760Z] [INFO   ] 2025-11-06T14:03:05.760Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:03:05.761Z] [INFO   ] 2025-11-06T14:03:05.761Z [DEBUG] ✅ [Discord Commands] Found 0 guild-specific commands
+[2025-11-06T14:03:05.761Z] [INFO   ] 2025-11-06T14:03:05.761Z [DEBUG] 📡 [Discord Commands] Fetching global commands...
+[2025-11-06T14:03:05.975Z] [INFO   ] 2025-11-06T14:03:05.974Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:03:05.975Z] [INFO   ] 2025-11-06T14:03:05.975Z [DEBUG] ✅ [Discord Commands] Found 0 global commands
+[2025-11-06T14:03:05.976Z] [INFO   ] 2025-11-06T14:03:05.976Z [DEBUG] 📋 [Discord Commands] Total commands available: 0 {"commands":[]}
+[2025-11-06T14:03:05.976Z] [INFO   ] 2025-11-06T14:03:05.976Z [DEBUG] ✅ [Discord API] Successfully processed discord_commands: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T14:03:16.600Z] [INFO   ] 2025-11-06T14:03:16.600Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_commands","status":"connected","hasToken":true}
+[2025-11-06T14:03:16.600Z] [INFO   ] 2025-11-06T14:03:16.600Z [DEBUG] 🔍 [Discord Commands] Fetching slash commands: {"guildId":"1378950884045623406","clientId":"13785959..."}
+[2025-11-06T14:03:16.600Z] [INFO   ] 2025-11-06T14:03:16.600Z [DEBUG] 📡 [Discord Commands] Fetching guild-specific commands...
+[2025-11-06T14:03:16.770Z] [INFO   ] 2025-11-06T14:03:16.769Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:03:16.770Z] [INFO   ] 2025-11-06T14:03:16.770Z [DEBUG] ✅ [Discord Commands] Found 0 guild-specific commands
+[2025-11-06T14:03:16.770Z] [INFO   ] 2025-11-06T14:03:16.770Z [DEBUG] 📡 [Discord Commands] Fetching global commands...
+[2025-11-06T14:03:17.007Z] [INFO   ] 2025-11-06T14:03:17.007Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:03:17.008Z] [INFO   ] 2025-11-06T14:03:17.008Z [DEBUG] ✅ [Discord Commands] Found 0 global commands
+[2025-11-06T14:03:17.008Z] [INFO   ] 2025-11-06T14:03:17.008Z [DEBUG] 📋 [Discord Commands] Total commands available: 0 {"commands":[]}
+[2025-11-06T14:03:17.008Z] [INFO   ] 2025-11-06T14:03:17.008Z [DEBUG] ✅ [Discord API] Successfully processed discord_commands: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T14:03:27.554Z] [INFO   ] 2025-11-06T14:03:27.554Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_commands","status":"connected","hasToken":true}
+[2025-11-06T14:03:27.554Z] [INFO   ] 2025-11-06T14:03:27.554Z [DEBUG] 🔍 [Discord Commands] Fetching slash commands: {"guildId":"1378950884045623406","clientId":"13785959..."}
+[2025-11-06T14:03:27.554Z] [INFO   ] 2025-11-06T14:03:27.554Z [DEBUG] 📡 [Discord Commands] Fetching guild-specific commands...
+[2025-11-06T14:03:27.744Z] [INFO   ] 2025-11-06T14:03:27.744Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:03:27.744Z] [INFO   ] 2025-11-06T14:03:27.744Z [DEBUG] ✅ [Discord Commands] Found 0 guild-specific commands
+[2025-11-06T14:03:27.744Z] [INFO   ] 2025-11-06T14:03:27.744Z [DEBUG] 📡 [Discord Commands] Fetching global commands...
+[2025-11-06T14:03:28.007Z] [INFO   ] 2025-11-06T14:03:28.007Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:03:28.008Z] [INFO   ] 2025-11-06T14:03:28.008Z [DEBUG] ✅ [Discord Commands] Found 0 global commands
+[2025-11-06T14:03:28.008Z] [INFO   ] 2025-11-06T14:03:28.008Z [DEBUG] 📋 [Discord Commands] Total commands available: 0 {"commands":[]}
+[2025-11-06T14:03:28.008Z] [INFO   ] 2025-11-06T14:03:28.008Z [DEBUG] ✅ [Discord API] Successfully processed discord_commands: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T14:03:38.559Z] [INFO   ] 2025-11-06T14:03:38.559Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_commands","status":"connected","hasToken":true}
+[2025-11-06T14:03:38.560Z] [INFO   ] 2025-11-06T14:03:38.560Z [DEBUG] 🔍 [Discord Commands] Fetching slash commands: {"guildId":"1378950884045623406","clientId":"13785959..."}
+[2025-11-06T14:03:38.560Z] [INFO   ] 2025-11-06T14:03:38.560Z [DEBUG] 📡 [Discord Commands] Fetching guild-specific commands...
+[2025-11-06T14:03:38.734Z] [INFO   ] 2025-11-06T14:03:38.734Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:03:38.735Z] [INFO   ] 2025-11-06T14:03:38.735Z [DEBUG] ✅ [Discord Commands] Found 0 guild-specific commands
+[2025-11-06T14:03:38.735Z] [INFO   ] 2025-11-06T14:03:38.735Z [DEBUG] 📡 [Discord Commands] Fetching global commands...
+[2025-11-06T14:03:38.967Z] [INFO   ] 2025-11-06T14:03:38.967Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:03:38.968Z] [INFO   ] 2025-11-06T14:03:38.968Z [DEBUG] ✅ [Discord Commands] Found 0 global commands
+[2025-11-06T14:03:38.969Z] [INFO   ] 2025-11-06T14:03:38.969Z [DEBUG] 📋 [Discord Commands] Total commands available: 0 {"commands":[]}
+[2025-11-06T14:03:38.969Z] [INFO   ] 2025-11-06T14:03:38.969Z [DEBUG] ✅ [Discord API] Successfully processed discord_commands: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T14:03:49.559Z] [INFO   ] 2025-11-06T14:03:49.559Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_commands","status":"connected","hasToken":true}
+[2025-11-06T14:03:49.559Z] [INFO   ] 2025-11-06T14:03:49.559Z [DEBUG] 🔍 [Discord Commands] Fetching slash commands: {"guildId":"1378950884045623406","clientId":"13785959..."}
+[2025-11-06T14:03:49.560Z] [INFO   ] 2025-11-06T14:03:49.560Z [DEBUG] 📡 [Discord Commands] Fetching guild-specific commands...
+[2025-11-06T14:03:49.765Z] [INFO   ] 2025-11-06T14:03:49.765Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:03:49.765Z] [INFO   ] 2025-11-06T14:03:49.765Z [DEBUG] ✅ [Discord Commands] Found 0 guild-specific commands
+[2025-11-06T14:03:49.765Z] [INFO   ] 2025-11-06T14:03:49.765Z [DEBUG] 📡 [Discord Commands] Fetching global commands...
+[2025-11-06T14:03:49.992Z] [INFO   ] 2025-11-06T14:03:49.992Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:03:49.993Z] [INFO   ] 2025-11-06T14:03:49.993Z [DEBUG] ✅ [Discord Commands] Found 0 global commands
+[2025-11-06T14:03:49.993Z] [INFO   ] 2025-11-06T14:03:49.993Z [DEBUG] 📋 [Discord Commands] Total commands available: 0 {"commands":[]}
+[2025-11-06T14:03:49.993Z] [INFO   ] 2025-11-06T14:03:49.993Z [DEBUG] ✅ [Discord API] Successfully processed discord_commands: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T14:04:00.607Z] [INFO   ] 2025-11-06T14:04:00.607Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_commands","status":"connected","hasToken":true}
+[2025-11-06T14:04:00.607Z] [INFO   ] 2025-11-06T14:04:00.607Z [DEBUG] 🔍 [Discord Commands] Fetching slash commands: {"guildId":"1378950884045623406","clientId":"13785959..."}
+[2025-11-06T14:04:00.607Z] [INFO   ] 2025-11-06T14:04:00.607Z [DEBUG] 📡 [Discord Commands] Fetching guild-specific commands...
+[2025-11-06T14:04:00.803Z] [INFO   ] 2025-11-06T14:04:00.803Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:04:00.803Z] [INFO   ] 2025-11-06T14:04:00.803Z [DEBUG] ✅ [Discord Commands] Found 0 guild-specific commands
+[2025-11-06T14:04:00.803Z] [INFO   ] 2025-11-06T14:04:00.803Z [DEBUG] 📡 [Discord Commands] Fetching global commands...
+[2025-11-06T14:04:01.042Z] [INFO   ] 2025-11-06T14:04:01.042Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:04:01.043Z] [INFO   ] 2025-11-06T14:04:01.043Z [DEBUG] ✅ [Discord Commands] Found 0 global commands
+[2025-11-06T14:04:01.043Z] [INFO   ] 2025-11-06T14:04:01.043Z [DEBUG] 📋 [Discord Commands] Total commands available: 0 {"commands":[]}
+[2025-11-06T14:04:01.043Z] [INFO   ] 2025-11-06T14:04:01.043Z [DEBUG] ✅ [Discord API] Successfully processed discord_commands: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T14:04:09.676Z] [INFO   ] 2025-11-06T14:04:09.676Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_commands","status":"connected","hasToken":true}
+[2025-11-06T14:04:09.676Z] [INFO   ] 2025-11-06T14:04:09.676Z [DEBUG] 🔍 [Discord Commands] Fetching slash commands: {"guildId":"1378950884045623406","clientId":"13785959..."}
+[2025-11-06T14:04:09.676Z] [INFO   ] 2025-11-06T14:04:09.676Z [DEBUG] 📡 [Discord Commands] Fetching guild-specific commands...
+[2025-11-06T14:04:09.872Z] [INFO   ] 2025-11-06T14:04:09.872Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:04:09.872Z] [INFO   ] 2025-11-06T14:04:09.872Z [DEBUG] ✅ [Discord Commands] Found 0 guild-specific commands
+[2025-11-06T14:04:09.872Z] [INFO   ] 2025-11-06T14:04:09.872Z [DEBUG] 📡 [Discord Commands] Fetching global commands...
+[2025-11-06T14:04:10.094Z] [INFO   ] 2025-11-06T14:04:10.094Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:04:10.095Z] [INFO   ] 2025-11-06T14:04:10.095Z [DEBUG] ✅ [Discord Commands] Found 0 global commands
+[2025-11-06T14:04:10.095Z] [INFO   ] 2025-11-06T14:04:10.095Z [DEBUG] 📋 [Discord Commands] Total commands available: 0 {"commands":[]}
+[2025-11-06T14:04:10.095Z] [INFO   ] 2025-11-06T14:04:10.095Z [DEBUG] ✅ [Discord API] Successfully processed discord_commands: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T14:04:19.704Z] [INFO   ] 2025-11-06T14:04:19.704Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_commands","status":"connected","hasToken":true}
+[2025-11-06T14:04:19.704Z] [INFO   ] 2025-11-06T14:04:19.704Z [DEBUG] 🔍 [Discord Commands] Fetching slash commands: {"guildId":"1378950884045623406","clientId":"13785959..."}
+[2025-11-06T14:04:19.704Z] [INFO   ] 2025-11-06T14:04:19.704Z [DEBUG] 📡 [Discord Commands] Fetching guild-specific commands...
+[2025-11-06T14:04:19.927Z] [INFO   ] 2025-11-06T14:04:19.927Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:04:19.927Z] [INFO   ] 2025-11-06T14:04:19.927Z [DEBUG] ✅ [Discord Commands] Found 0 guild-specific commands
+[2025-11-06T14:04:19.927Z] [INFO   ] 2025-11-06T14:04:19.927Z [DEBUG] 📡 [Discord Commands] Fetching global commands...
+[2025-11-06T14:04:20.195Z] [INFO   ] 2025-11-06T14:04:20.195Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:04:20.195Z] [INFO   ] 2025-11-06T14:04:20.195Z [DEBUG] ✅ [Discord Commands] Found 0 global commands
+[2025-11-06T14:04:20.195Z] [INFO   ] 2025-11-06T14:04:20.195Z [DEBUG] 📋 [Discord Commands] Total commands available: 0 {"commands":[]}
+[2025-11-06T14:04:20.195Z] [INFO   ] 2025-11-06T14:04:20.195Z [DEBUG] ✅ [Discord API] Successfully processed discord_commands: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T14:04:29.744Z] [INFO   ] 2025-11-06T14:04:29.744Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_commands","status":"connected","hasToken":true}
+[2025-11-06T14:04:29.744Z] [INFO   ] 2025-11-06T14:04:29.744Z [DEBUG] 🔍 [Discord Commands] Fetching slash commands: {"guildId":"1378950884045623406","clientId":"13785959..."}
+[2025-11-06T14:04:29.744Z] [INFO   ] 2025-11-06T14:04:29.744Z [DEBUG] 📡 [Discord Commands] Fetching guild-specific commands...
+[2025-11-06T14:04:29.919Z] [INFO   ] 2025-11-06T14:04:29.919Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:04:29.920Z] [INFO   ] 2025-11-06T14:04:29.920Z [DEBUG] ✅ [Discord Commands] Found 0 guild-specific commands
+[2025-11-06T14:04:29.920Z] [INFO   ] 2025-11-06T14:04:29.920Z [DEBUG] 📡 [Discord Commands] Fetching global commands...
+[2025-11-06T14:04:30.141Z] [INFO   ] 2025-11-06T14:04:30.141Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:04:30.142Z] [INFO   ] 2025-11-06T14:04:30.141Z [DEBUG] ✅ [Discord Commands] Found 0 global commands
+[2025-11-06T14:04:30.142Z] [INFO   ] 2025-11-06T14:04:30.142Z [DEBUG] 📋 [Discord Commands] Total commands available: 0 {"commands":[]}
+[2025-11-06T14:04:30.142Z] [INFO   ] 2025-11-06T14:04:30.142Z [DEBUG] ✅ [Discord API] Successfully processed discord_commands: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T14:04:41.532Z] [INFO   ] 2025-11-06T14:04:41.532Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_commands","status":"connected","hasToken":true}
+[2025-11-06T14:04:41.532Z] [INFO   ] 2025-11-06T14:04:41.532Z [DEBUG] 🔍 [Discord Commands] Fetching slash commands: {"guildId":"1378950884045623406","clientId":"13785959..."}
+[2025-11-06T14:04:41.532Z] [INFO   ] 2025-11-06T14:04:41.532Z [DEBUG] 📡 [Discord Commands] Fetching guild-specific commands...
+[2025-11-06T14:04:41.746Z] [INFO   ] 2025-11-06T14:04:41.746Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:04:41.746Z] [INFO   ] 2025-11-06T14:04:41.746Z [DEBUG] ✅ [Discord Commands] Found 0 guild-specific commands
+[2025-11-06T14:04:41.746Z] [INFO   ] 2025-11-06T14:04:41.746Z [DEBUG] 📡 [Discord Commands] Fetching global commands...
+[2025-11-06T14:04:41.966Z] [INFO   ] 2025-11-06T14:04:41.966Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:04:41.966Z] [INFO   ] 2025-11-06T14:04:41.966Z [DEBUG] ✅ [Discord Commands] Found 0 global commands
+[2025-11-06T14:04:41.966Z] [INFO   ] 2025-11-06T14:04:41.966Z [DEBUG] 📋 [Discord Commands] Total commands available: 0 {"commands":[]}
+[2025-11-06T14:04:41.966Z] [INFO   ] 2025-11-06T14:04:41.966Z [DEBUG] ✅ [Discord API] Successfully processed discord_commands: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T14:04:52.530Z] [INFO   ] 2025-11-06T14:04:52.530Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_commands","status":"connected","hasToken":true}
+[2025-11-06T14:04:52.531Z] [INFO   ] 2025-11-06T14:04:52.531Z [DEBUG] 🔍 [Discord Commands] Fetching slash commands: {"guildId":"1378950884045623406","clientId":"13785959..."}
+[2025-11-06T14:04:52.531Z] [INFO   ] 2025-11-06T14:04:52.531Z [DEBUG] 📡 [Discord Commands] Fetching guild-specific commands...
+[2025-11-06T14:04:52.697Z] [INFO   ] 2025-11-06T14:04:52.697Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:04:52.697Z] [INFO   ] 2025-11-06T14:04:52.697Z [DEBUG] ✅ [Discord Commands] Found 0 guild-specific commands
+[2025-11-06T14:04:52.697Z] [INFO   ] 2025-11-06T14:04:52.697Z [DEBUG] 📡 [Discord Commands] Fetching global commands...
+[2025-11-06T14:04:52.963Z] [INFO   ] 2025-11-06T14:04:52.962Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:04:52.963Z] [INFO   ] 2025-11-06T14:04:52.963Z [DEBUG] ✅ [Discord Commands] Found 0 global commands
+[2025-11-06T14:04:52.963Z] [INFO   ] 2025-11-06T14:04:52.963Z [DEBUG] 📋 [Discord Commands] Total commands available: 0 {"commands":[]}
+[2025-11-06T14:04:52.964Z] [INFO   ] 2025-11-06T14:04:52.963Z [DEBUG] ✅ [Discord API] Successfully processed discord_commands: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T14:05:03.569Z] [INFO   ] 2025-11-06T14:05:03.569Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_commands","status":"connected","hasToken":true}
+[2025-11-06T14:05:03.570Z] [INFO   ] 2025-11-06T14:05:03.569Z [DEBUG] 🔍 [Discord Commands] Fetching slash commands: {"guildId":"1378950884045623406","clientId":"13785959..."}
+[2025-11-06T14:05:03.570Z] [INFO   ] 2025-11-06T14:05:03.570Z [DEBUG] 📡 [Discord Commands] Fetching guild-specific commands...
+[2025-11-06T14:05:03.776Z] [INFO   ] 2025-11-06T14:05:03.776Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:05:03.777Z] [INFO   ] 2025-11-06T14:05:03.777Z [DEBUG] ✅ [Discord Commands] Found 0 guild-specific commands
+[2025-11-06T14:05:03.777Z] [INFO   ] 2025-11-06T14:05:03.777Z [DEBUG] 📡 [Discord Commands] Fetching global commands...
+[2025-11-06T14:05:04.010Z] [INFO   ] 2025-11-06T14:05:04.009Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:05:04.011Z] [INFO   ] 2025-11-06T14:05:04.011Z [DEBUG] ✅ [Discord Commands] Found 0 global commands
+[2025-11-06T14:05:04.011Z] [INFO   ] 2025-11-06T14:05:04.011Z [DEBUG] 📋 [Discord Commands] Total commands available: 0 {"commands":[]}
+[2025-11-06T14:05:04.011Z] [INFO   ] 2025-11-06T14:05:04.011Z [DEBUG] ✅ [Discord API] Successfully processed discord_commands: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T14:05:14.525Z] [INFO   ] 2025-11-06T14:05:14.525Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_commands","status":"connected","hasToken":true}
+[2025-11-06T14:05:14.525Z] [INFO   ] 2025-11-06T14:05:14.525Z [DEBUG] 🔍 [Discord Commands] Fetching slash commands: {"guildId":"1378950884045623406","clientId":"13785959..."}
+[2025-11-06T14:05:14.525Z] [INFO   ] 2025-11-06T14:05:14.525Z [DEBUG] 📡 [Discord Commands] Fetching guild-specific commands...
+[2025-11-06T14:05:14.865Z] [INFO   ] 2025-11-06T14:05:14.865Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:05:14.866Z] [INFO   ] 2025-11-06T14:05:14.866Z [DEBUG] ✅ [Discord Commands] Found 0 guild-specific commands
+[2025-11-06T14:05:14.866Z] [INFO   ] 2025-11-06T14:05:14.866Z [DEBUG] 📡 [Discord Commands] Fetching global commands...
+[2025-11-06T14:05:15.089Z] [INFO   ] 2025-11-06T14:05:15.089Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:05:15.089Z] [INFO   ] 2025-11-06T14:05:15.089Z [DEBUG] ✅ [Discord Commands] Found 0 global commands
+[2025-11-06T14:05:15.089Z] [INFO   ] 2025-11-06T14:05:15.089Z [DEBUG] 📋 [Discord Commands] Total commands available: 0 {"commands":[]}
+[2025-11-06T14:05:15.089Z] [INFO   ] 2025-11-06T14:05:15.089Z [DEBUG] ✅ [Discord API] Successfully processed discord_commands: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T14:05:25.159Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2s (5053 modules)
+[2025-11-06T14:05:25.823Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 264ms (4026 modules)
+[2025-11-06T14:05:26.410Z] [INFO   ] 2025-11-06T14:05:26.410Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_commands","status":"connected","hasToken":true}
+[2025-11-06T14:05:26.411Z] [INFO   ] 2025-11-06T14:05:26.411Z [DEBUG] 🔍 [Discord Commands] Fetching slash commands: {"guildId":"1378950884045623406","clientId":"13785959..."}
+[2025-11-06T14:05:26.411Z] [INFO   ] 2025-11-06T14:05:26.411Z [DEBUG] 📡 [Discord Commands] Fetching guild-specific commands...
+[2025-11-06T14:05:26.605Z] [INFO   ] 2025-11-06T14:05:26.605Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:05:26.605Z] [INFO   ] 2025-11-06T14:05:26.605Z [DEBUG] ✅ [Discord Commands] Found 0 guild-specific commands
+[2025-11-06T14:05:26.605Z] [INFO   ] 2025-11-06T14:05:26.605Z [DEBUG] 📡 [Discord Commands] Fetching global commands...
+[2025-11-06T14:05:26.827Z] [INFO   ] 2025-11-06T14:05:26.826Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:05:26.827Z] [INFO   ] 2025-11-06T14:05:26.827Z [DEBUG] ✅ [Discord Commands] Found 0 global commands
+[2025-11-06T14:05:26.827Z] [INFO   ] 2025-11-06T14:05:26.827Z [DEBUG] 📋 [Discord Commands] Total commands available: 0 {"commands":[]}
+[2025-11-06T14:05:26.827Z] [INFO   ] 2025-11-06T14:05:26.827Z [DEBUG] ✅ [Discord API] Successfully processed discord_commands: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T14:05:32.992Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 940ms (5073 modules)
+[2025-11-06T14:06:01.726Z] [INFO   ] 2025-11-06T14:06:01.726Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-06T14:06:01.726Z"}
+[2025-11-06T14:06:01.738Z] [INFO   ] 2025-11-06T14:06:01.738Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-06T14:06:01.738Z"}
+[2025-11-06T14:06:01.738Z] [INFO   ] 2025-11-06T14:06:01.738Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-06T14:06:01.738Z"}
+[2025-11-06T14:06:03.701Z] [INFO   ]  [37m[1m○[22m[39m Compiling /icon.png ...
+[2025-11-06T14:06:03.704Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /icon.png in 502ms (4028 modules)
+[2025-11-06T14:06:04.300Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-11-06T14:06:04.375Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/discord/config in 577ms (4031 modules)
+[2025-11-06T14:06:04.805Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 0ms (4033 modules)
+[2025-11-06T14:06:05.197Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1ms (4036 modules)
+[2025-11-06T14:06:05.527Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4036 modules)
+[2025-11-06T14:06:05.795Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1ms (4036 modules)
+[2025-11-06T14:06:05.806Z] [INFO   ] 2025-11-06T14:06:05.806Z [DEBUG] 🔍 Discord config check: {"clientId":"Present","botToken":"Present","env_DISCORD_CLIENT_ID":true,"env_NEXT_PUBLIC_DISCORD_CLIENT_ID":false,"env_DISCORD_BOT_TOKEN":true}
+[2025-11-06T14:06:06.043Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4036 modules)
+[2025-11-06T14:06:06.068Z] [INFO   ] 2025-11-06T14:06:06.068Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-06T14:06:06.068Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-06T14:06:06.276Z] [INFO   ] 2025-11-06T14:06:06.276Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-06T14:06:06.276Z] [INFO   ] 2025-11-06T14:06:06.276Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-06T14:06:06.316Z] [INFO   ] 2025-11-06T14:06:06.316Z [DEBUG] 🔍 Discord config check: {"clientId":"Present","botToken":"Present","env_DISCORD_CLIENT_ID":true,"env_NEXT_PUBLIC_DISCORD_CLIENT_ID":false,"env_DISCORD_BOT_TOKEN":true}
+[2025-11-06T14:06:06.456Z] [INFO   ] 2025-11-06T14:06:06.456Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":14,"permissionsCount":14,"integrationsError":null,"permissionsError":null}
+[2025-11-06T14:06:06.457Z] [INFO   ] 2025-11-06T14:06:06.457Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"73eb00b5-f035-4c99-81e1-6f2700e7d1b8","provider":"notion","permission":"admin"}
+[2025-11-06T14:06:06.457Z] [INFO   ] 2025-11-06T14:06:06.457Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"21d15a49-a011-41fc-b20a-813fd9a6ac0e","provider":"mailchimp","permission":"admin"}
+[2025-11-06T14:06:06.457Z] [INFO   ] 2025-11-06T14:06:06.457Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"610e4069-9323-4f4c-a80a-a5e56b700c1f","provider":"gmail","permission":"admin"}
+[2025-11-06T14:06:06.457Z] [INFO   ] 2025-11-06T14:06:06.457Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"683b99fe-5a31-45a8-93a9-b6535930c566","provider":"google-drive","permission":"admin"}
+[2025-11-06T14:06:06.457Z] [INFO   ] 2025-11-06T14:06:06.457Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fa8ff906-fe58-416e-9328-245b65d2fe34","provider":"google-docs","permission":"admin"}
+[2025-11-06T14:06:06.457Z] [INFO   ] 2025-11-06T14:06:06.457Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"7cbd7f8f-75ea-4775-842f-bfc68aa9d73c","provider":"trello","permission":"admin"}
+[2025-11-06T14:06:06.457Z] [INFO   ] 2025-11-06T14:06:06.457Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"918ff057-e567-4e7c-b829-4fe0ca428dcc","provider":"facebook","permission":"admin"}
+[2025-11-06T14:06:06.457Z] [INFO   ] 2025-11-06T14:06:06.457Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fce6756a-efec-4bf7-927e-dba227ca2149","provider":"google-sheets","permission":"admin"}
+[2025-11-06T14:06:06.457Z] [INFO   ] 2025-11-06T14:06:06.457Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"4386d41f-07dd-4e5d-ae50-417fdbcf0974","provider":"slack","permission":"admin"}
+[2025-11-06T14:06:06.458Z] [INFO   ] 2025-11-06T14:06:06.458Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"6b250358-6441-499c-a711-37e7ae101507","provider":"dropbox","permission":"admin"}
+[2025-11-06T14:06:06.458Z] [INFO   ] 2025-11-06T14:06:06.458Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"54248f26-c543-4e8f-8285-0b0fbfbf82dd","provider":"twitter","permission":"admin"}
+[2025-11-06T14:06:06.458Z] [INFO   ] 2025-11-06T14:06:06.458Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","provider":"discord","permission":"admin"}
+[2025-11-06T14:06:06.458Z] [INFO   ] 2025-11-06T14:06:06.458Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"c8d02b5a-3a01-49f9-abdf-693f30c28ab9","provider":"google-calendar","permission":"admin"}
+[2025-11-06T14:06:06.458Z] [INFO   ] 2025-11-06T14:06:06.458Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","provider":"airtable","permission":"admin"}
+[2025-11-06T14:06:06.458Z] [INFO   ] 2025-11-06T14:06:06.458Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-06T14:06:06.529Z] [INFO   ] 2025-11-06T14:06:06.529Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-06T14:06:06.529Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-06T14:06:06.621Z] [INFO   ] 2025-11-06T14:06:06.621Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-06T14:06:06.621Z] [INFO   ] 2025-11-06T14:06:06.621Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-06T14:06:06.692Z] [INFO   ] 2025-11-06T14:06:06.692Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_guilds","status":"connected","hasToken":true}
+[2025-11-06T14:06:06.693Z] [INFO   ] 2025-11-06T14:06:06.693Z [DEBUG] 🔍 Making Discord API request to: https://discord.com/api/v10/users/@me/guilds
+[2025-11-06T14:06:06.761Z] [INFO   ] 2025-11-06T14:06:06.761Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":14,"permissionsCount":14,"integrationsError":null,"permissionsError":null}
+[2025-11-06T14:06:06.762Z] [INFO   ] 2025-11-06T14:06:06.762Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"73eb00b5-f035-4c99-81e1-6f2700e7d1b8","provider":"notion","permission":"admin"}
+[2025-11-06T14:06:06.762Z] [INFO   ] 2025-11-06T14:06:06.762Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"21d15a49-a011-41fc-b20a-813fd9a6ac0e","provider":"mailchimp","permission":"admin"}
+[2025-11-06T14:06:06.762Z] [INFO   ] 2025-11-06T14:06:06.762Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"610e4069-9323-4f4c-a80a-a5e56b700c1f","provider":"gmail","permission":"admin"}
+[2025-11-06T14:06:06.762Z] [INFO   ] 2025-11-06T14:06:06.762Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"683b99fe-5a31-45a8-93a9-b6535930c566","provider":"google-drive","permission":"admin"}
+[2025-11-06T14:06:06.762Z] [INFO   ] 2025-11-06T14:06:06.762Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fa8ff906-fe58-416e-9328-245b65d2fe34","provider":"google-docs","permission":"admin"}
+[2025-11-06T14:06:06.762Z] [INFO   ] 2025-11-06T14:06:06.762Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"7cbd7f8f-75ea-4775-842f-bfc68aa9d73c","provider":"trello","permission":"admin"}
+[2025-11-06T14:06:06.762Z] [INFO   ] 2025-11-06T14:06:06.762Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"918ff057-e567-4e7c-b829-4fe0ca428dcc","provider":"facebook","permission":"admin"}
+[2025-11-06T14:06:06.762Z] [INFO   ] 2025-11-06T14:06:06.762Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fce6756a-efec-4bf7-927e-dba227ca2149","provider":"google-sheets","permission":"admin"}
+[2025-11-06T14:06:06.762Z] [INFO   ] 2025-11-06T14:06:06.762Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"4386d41f-07dd-4e5d-ae50-417fdbcf0974","provider":"slack","permission":"admin"}
+[2025-11-06T14:06:06.762Z] [INFO   ] 2025-11-06T14:06:06.762Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"6b250358-6441-499c-a711-37e7ae101507","provider":"dropbox","permission":"admin"}
+[2025-11-06T14:06:06.762Z] [INFO   ] 2025-11-06T14:06:06.762Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"54248f26-c543-4e8f-8285-0b0fbfbf82dd","provider":"twitter","permission":"admin"}
+[2025-11-06T14:06:06.762Z] [INFO   ] 2025-11-06T14:06:06.762Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","provider":"discord","permission":"admin"}
+[2025-11-06T14:06:06.762Z] [INFO   ] 2025-11-06T14:06:06.762Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"c8d02b5a-3a01-49f9-abdf-693f30c28ab9","provider":"google-calendar","permission":"admin"}
+[2025-11-06T14:06:06.762Z] [INFO   ] 2025-11-06T14:06:06.762Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","provider":"airtable","permission":"admin"}
+[2025-11-06T14:06:06.762Z] [INFO   ] 2025-11-06T14:06:06.762Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-06T14:06:06.940Z] [INFO   ] 2025-11-06T14:06:06.939Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:06:06.940Z] [INFO   ] 2025-11-06T14:06:06.940Z [DEBUG] 📦 Cached Discord response for https://discord.com/api/v10/users/@me/guilds
+[2025-11-06T14:06:06.941Z] [INFO   ] 2025-11-06T14:06:06.941Z [DEBUG] 🔍 [Discord Guilds] Found 2 guilds
+[2025-11-06T14:06:06.941Z] [INFO   ] 2025-11-06T14:06:06.941Z [DEBUG] 🔍 [Discord Guilds] Skipping bot status checks for faster loading
+[2025-11-06T14:06:06.941Z] [INFO   ] 2025-11-06T14:06:06.941Z [DEBUG] ✅ [Discord API] Successfully processed discord_guilds: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":2}
+[2025-11-06T14:06:08.667Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/discord/bot-status in 311ms (4038 modules)
+[2025-11-06T14:06:09.054Z] [INFO   ] 2025-11-06T14:06:09.054Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_commands","status":"connected","hasToken":true}
+[2025-11-06T14:06:09.054Z] [INFO   ] 2025-11-06T14:06:09.054Z [DEBUG] 🔍 [Discord Commands] Fetching slash commands: {"guildId":"1391236319807541270","clientId":"13785959..."}
+[2025-11-06T14:06:09.054Z] [INFO   ] 2025-11-06T14:06:09.054Z [DEBUG] 📡 [Discord Commands] Fetching guild-specific commands...
+[2025-11-06T14:06:09.064Z] [INFO   ] 2025-11-06T14:06:09.064Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_channels","status":"connected","hasToken":true}
+[2025-11-06T14:06:09.065Z] [INFO   ] 2025-11-06T14:06:09.065Z [DEBUG] 🔍 Making Discord API request to: https://discord.com/api/v10/users/@me
+[2025-11-06T14:06:09.150Z] [INFO   ] 2025-11-06T14:06:09.150Z [DEBUG] 🔍 Checking bot status for guild: 1391236319807541270
+[2025-11-06T14:06:09.150Z] [INFO   ] 2025-11-06T14:06:09.150Z [DEBUG] 🔍 Trying to fetch guild channels...
+[2025-11-06T14:06:09.210Z] [ERROR  ] 2025-11-06T14:06:09.209Z [ERROR] ❌ Discord API Error (attempt 1/3): {"status":403,"statusText":"Forbidden","url":"https://discord.com/api/v10/applications/1378595955212812308/guilds/1391236319807541270/commands","headers":{"alt-svc":"h3=\":443\"; ma=86400","cf-cache-status":"BYPASS","cf-ray":"99a5265abff750ec-MCI","connection":"keep-alive","content-length":"44","content-security-policy":"frame-ancestors 'none'; default-src https://o64374.ingest.sentry.io; report-to csp-sentry; report-uri https://o64374.ingest.sentry.io/api/5441894/security/?sentry_key=8fbbce30bf5244ec9429546beef21870&sentry_environment=stable","content-type":"application/json","date":"Thu, 06 Nov 2025 14:06:09 GMT","nel":"{\"success_fraction\":0,\"report_to\":\"cf-nel\",\"max_age\":604800}","report-to":"{\"endpoints\":[{\"url\":\"https:\\/\\/a.nel.cloudflare.com\\/report\\/v4?s=cAvMItAQYW8bOEiPLN6dTiIgxydpG2UqCOB7Z7SfHG4ZC1HzsSiXSPB7IJxFjt1xMyCQ58EHd2RZLbzRcbnAsAaKbvfRuYHZn46HhdYpbY0QmoTEodKawvTGnFQ2\"}],\"group\":\"cf-nel\",\"max_age\":604800}","reporting-endpoints":"csp-sentry=\"https://o64374.ingest.sentry.io/api/5441894/security/?sentry_key=8fbbce30bf5244ec9429546beef21870&sentry_environment=stable\"","server":"cloudflare","set-cookie":"_cfuvid=oujtYKbHWW2.DSYhrd.fvUlCYrrF3z.No5m434LVtm0-1762437969200-0.0.1.1-604800000; path=/; domain=.discord.com; HttpOnly; Secure; SameSite=None","strict-transport-security":"max-age=31536000; includeSubDomains; preload","vary":"Accept-Encoding","via":"1.1 google","x-content-type-options":"nosniff","x-discord-features":"bots","x-ratelimit-bucket":"b4534d2461fcb2e2d83a853d9e887f1c","x-ratelimit-limit":"1000","x-ratelimit-remaining":"999","x-ratelimit-reset":"1762437969.150","x-ratelimit-reset-after":"0.001"},"body":"{\"message\": \"Missing Access\", \"code\": 50001}"}
+[2025-11-06T14:06:09.210Z] [INFO   ] 2025-11-06T14:06:09.210Z [DEBUG] 🔄 Discord request failed (attempt 1/3), retrying in 2000ms...
+[2025-11-06T14:06:09.210Z] [ERROR  ] 2025-11-06T14:06:09.210Z [ERROR]    Error: Discord API access forbidden. Check your permissions.
+[2025-11-06T14:06:09.325Z] [INFO   ] 2025-11-06T14:06:09.324Z [DEBUG] 🔍 Channels API response status: 403
+[2025-11-06T14:06:09.325Z] [INFO   ] 2025-11-06T14:06:09.325Z [DEBUG] 🔍 403 error - could be bot not in guild or missing permissions, checking membership...
+[2025-11-06T14:06:09.325Z] [INFO   ] 2025-11-06T14:06:09.325Z [DEBUG] 🔍 Trying to check bot membership...
+[2025-11-06T14:06:09.455Z] [INFO   ] 2025-11-06T14:06:09.455Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:06:09.457Z] [INFO   ] 2025-11-06T14:06:09.456Z [DEBUG] 📦 Cached Discord response for https://discord.com/api/v10/users/@me
+[2025-11-06T14:06:09.457Z] [INFO   ] 2025-11-06T14:06:09.457Z [DEBUG] 🔍 Making Discord API request to: https://discord.com/api/v10/guilds/1391236319807541270/members/1378595955212812308
+[2025-11-06T14:06:09.520Z] [INFO   ] 2025-11-06T14:06:09.520Z [DEBUG] 🔍 Member API response status: 404
+[2025-11-06T14:06:09.521Z] [INFO   ] 2025-11-06T14:06:09.521Z [DEBUG] 🔍 Bot is not a member of the guild
+[2025-11-06T14:06:09.522Z] [INFO   ] 2025-11-06T14:06:09.521Z [DEBUG] 🔍 Bot status check result for guild: 1391236319807541270
+[2025-11-06T14:06:09.554Z] [INFO   ] 2025-11-06T14:06:09.554Z [DEBUG] ⏱️ Global queue throttling: waiting 5ms
+[2025-11-06T14:06:09.705Z] [ERROR  ] 2025-11-06T14:06:09.704Z [ERROR] ❌ Discord API Error (attempt 1/3): {"status":404,"statusText":"Not Found","url":"https://discord.com/api/v10/guilds/1391236319807541270/members/1378595955212812308","headers":{"alt-svc":"h3=\":443\"; ma=86400","cf-cache-status":"BYPASS","cf-ray":"99a5265ddf5050ec-MCI","connection":"keep-alive","content-length":"43","content-security-policy":"frame-ancestors 'none'; default-src https://o64374.ingest.sentry.io; report-to csp-sentry; report-uri https://o64374.ingest.sentry.io/api/5441894/security/?sentry_key=8fbbce30bf5244ec9429546beef21870&sentry_environment=stable","content-type":"application/json","date":"Thu, 06 Nov 2025 14:06:09 GMT","nel":"{\"success_fraction\":0,\"report_to\":\"cf-nel\",\"max_age\":604800}","report-to":"{\"endpoints\":[{\"url\":\"https:\\/\\/a.nel.cloudflare.com\\/report\\/v4?s=IonPBEkWEIydko2Uiv2hv11c26UTd8sck8M96yn8pCVNIuXBGNT4Ke7uvQkwHt0Bs1Hvm1MxrHXvrTaWEvOg%2B8HKni0Vy0Fr9piZBDAWtid42qR%2BDCO4pnXxGnE2\"}],\"group\":\"cf-nel\",\"max_age\":604800}","reporting-endpoints":"csp-sentry=\"https://o64374.ingest.sentry.io/api/5441894/security/?sentry_key=8fbbce30bf5244ec9429546beef21870&sentry_environment=stable\"","server":"cloudflare","set-cookie":"_cfuvid=W3kF9IKJfDdeDixpXAfqVQl8_INRk8At79_Y27erM2w-1762437969693-0.0.1.1-604800000; path=/; domain=.discord.com; HttpOnly; Secure; SameSite=None","strict-transport-security":"max-age=31536000; includeSubDomains; preload","vary":"Accept-Encoding","via":"1.1 google","x-content-type-options":"nosniff","x-discord-features":"guilds","x-ratelimit-bucket":"e06f83c33559dfd4dc34f5666fdfa1d3","x-ratelimit-limit":"5","x-ratelimit-remaining":"3","x-ratelimit-reset":"1762437970.450","x-ratelimit-reset-after":"0.817"},"body":"{\"message\": \"Unknown Guild\", \"code\": 10004}"}
+[2025-11-06T14:06:09.705Z] [INFO   ] 2025-11-06T14:06:09.705Z [DEBUG] 🔄 Discord request failed (attempt 1/3), retrying in 2000ms...
+[2025-11-06T14:06:09.706Z] [ERROR  ] 2025-11-06T14:06:09.706Z [ERROR]    Error: Discord resource not found. Check if the server or channel still exists.
+[2025-11-06T14:06:11.349Z] [ERROR  ] 2025-11-06T14:06:11.348Z [ERROR] ❌ Discord API Error (attempt 2/3): {"status":403,"statusText":"Forbidden","url":"https://discord.com/api/v10/applications/1378595955212812308/guilds/1391236319807541270/commands","headers":{"alt-svc":"h3=\":443\"; ma=86400","cf-cache-status":"BYPASS","cf-ray":"99a526682e9d50ec-MCI","connection":"keep-alive","content-length":"44","content-security-policy":"frame-ancestors 'none'; default-src https://o64374.ingest.sentry.io; report-to csp-sentry; report-uri https://o64374.ingest.sentry.io/api/5441894/security/?sentry_key=8fbbce30bf5244ec9429546beef21870&sentry_environment=stable","content-type":"application/json","date":"Thu, 06 Nov 2025 14:06:11 GMT","nel":"{\"success_fraction\":0,\"report_to\":\"cf-nel\",\"max_age\":604800}","report-to":"{\"endpoints\":[{\"url\":\"https:\\/\\/a.nel.cloudflare.com\\/report\\/v4?s=Ho4tujlH9gHq%2B2rg0fb%2FCUA%2FEkD1dvOSrui5iawKyaaajZrwtyhAkdoM7cZ0VZHo8sw%2BzJEueWBzGFbDAvvXJlDPYBOoxLzk1fSqyXnXNGAhXuTFNWXNmGhlj3wM\"}],\"group\":\"cf-nel\",\"max_age\":604800}","reporting-endpoints":"csp-sentry=\"https://o64374.ingest.sentry.io/api/5441894/security/?sentry_key=8fbbce30bf5244ec9429546beef21870&sentry_environment=stable\"","server":"cloudflare","set-cookie":"_cfuvid=02tDuATV2YmLMw0X7T8XqB4EaUrALtUgmxFmailpfmU-1762437971339-0.0.1.1-604800000; path=/; domain=.discord.com; HttpOnly; Secure; SameSite=None","strict-transport-security":"max-age=31536000; includeSubDomains; preload","vary":"Accept-Encoding","via":"1.1 google","x-content-type-options":"nosniff","x-discord-features":"bots","x-ratelimit-bucket":"b4534d2461fcb2e2d83a853d9e887f1c","x-ratelimit-limit":"1000","x-ratelimit-remaining":"999","x-ratelimit-reset":"1762437971.290","x-ratelimit-reset-after":"0.001"},"body":"{\"message\": \"Missing Access\", \"code\": 50001}"}
+[2025-11-06T14:06:11.350Z] [INFO   ] 2025-11-06T14:06:11.349Z [DEBUG] 🔄 Discord request failed (attempt 2/3), retrying in 4000ms...
+[2025-11-06T14:06:11.350Z] [ERROR  ] 2025-11-06T14:06:11.350Z [ERROR]    Error: Discord API access forbidden. Check your permissions.
+[2025-11-06T14:06:11.835Z] [ERROR  ] 2025-11-06T14:06:11.834Z [ERROR] ❌ Discord API Error (attempt 2/3): {"status":404,"statusText":"Not Found","url":"https://discord.com/api/v10/guilds/1391236319807541270/members/1378595955212812308","headers":{"alt-svc":"h3=\":443\"; ma=86400","cf-cache-status":"BYPASS","cf-ray":"99a5266b3d2450ec-MCI","connection":"keep-alive","content-length":"43","content-security-policy":"frame-ancestors 'none'; default-src https://o64374.ingest.sentry.io; report-to csp-sentry; report-uri https://o64374.ingest.sentry.io/api/5441894/security/?sentry_key=8fbbce30bf5244ec9429546beef21870&sentry_environment=stable","content-type":"application/json","date":"Thu, 06 Nov 2025 14:06:11 GMT","nel":"{\"success_fraction\":0,\"report_to\":\"cf-nel\",\"max_age\":604800}","report-to":"{\"endpoints\":[{\"url\":\"https:\\/\\/a.nel.cloudflare.com\\/report\\/v4?s=%2BnXi8G6BwFR1%2BUS0oUPVYu9vqCmKVwwY3LoRJ16YeuqUaIw%2FHhv2jqd638zX1WSxcG%2BoM%2FzsuMeVVDX%2FmgEyqwjgRO0VRb02j5x1FeT0IntWgTu5u3Q9PozM%2B3Pk\"}],\"group\":\"cf-nel\",\"max_age\":604800}","reporting-endpoints":"csp-sentry=\"https://o64374.ingest.sentry.io/api/5441894/security/?sentry_key=8fbbce30bf5244ec9429546beef21870&sentry_environment=stable\"","server":"cloudflare","set-cookie":"_cfuvid=WdVvxi52Wxrn2MAiAhzU4Vp39ohp31oFK8fBcBiIo2w-1762437971824-0.0.1.1-604800000; path=/; domain=.discord.com; HttpOnly; Secure; SameSite=None","strict-transport-security":"max-age=31536000; includeSubDomains; preload","vary":"Accept-Encoding","via":"1.1 google","x-content-type-options":"nosniff","x-discord-features":"guilds","x-ratelimit-bucket":"e06f83c33559dfd4dc34f5666fdfa1d3","x-ratelimit-limit":"5","x-ratelimit-remaining":"4","x-ratelimit-reset":"1762437972.781","x-ratelimit-reset-after":"1.000"},"body":"{\"message\": \"Unknown Guild\", \"code\": 10004}"}
+[2025-11-06T14:06:11.836Z] [INFO   ] 2025-11-06T14:06:11.835Z [DEBUG] 🔄 Discord request failed (attempt 2/3), retrying in 4000ms...
+[2025-11-06T14:06:11.836Z] [ERROR  ] 2025-11-06T14:06:11.836Z [ERROR]    Error: Discord resource not found. Check if the server or channel still exists.
+[2025-11-06T14:06:12.170Z] [INFO   ] 2025-11-06T14:06:12.170Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_commands","status":"connected","hasToken":true}
+[2025-11-06T14:06:12.170Z] [INFO   ] 2025-11-06T14:06:12.170Z [DEBUG] 🔍 [Discord Commands] Fetching slash commands: {"guildId":"1378950884045623406","clientId":"13785959..."}
+[2025-11-06T14:06:12.170Z] [INFO   ] 2025-11-06T14:06:12.170Z [DEBUG] 📡 [Discord Commands] Fetching guild-specific commands...
+[2025-11-06T14:06:12.223Z] [INFO   ] 2025-11-06T14:06:12.223Z [DEBUG] 🔍 Checking bot status for guild: 1378950884045623406
+[2025-11-06T14:06:12.224Z] [INFO   ] 2025-11-06T14:06:12.224Z [DEBUG] 🔍 Trying to fetch guild channels...
+[2025-11-06T14:06:12.309Z] [INFO   ] 2025-11-06T14:06:12.308Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:06:12.309Z] [INFO   ] 2025-11-06T14:06:12.309Z [DEBUG] ✅ [Discord Commands] Found 0 guild-specific commands
+[2025-11-06T14:06:12.309Z] [INFO   ] 2025-11-06T14:06:12.309Z [DEBUG] 📡 [Discord Commands] Fetching global commands...
+[2025-11-06T14:06:12.388Z] [INFO   ] 2025-11-06T14:06:12.388Z [DEBUG] 🔍 Channels API response status: 200
+[2025-11-06T14:06:12.390Z] [INFO   ] 2025-11-06T14:06:12.390Z [DEBUG] 🔍 Successfully fetched channels: 22
+[2025-11-06T14:06:12.390Z] [INFO   ] 2025-11-06T14:06:12.390Z [DEBUG] 🔍 Bot status check result for guild: 1378950884045623406
+[2025-11-06T14:06:12.425Z] [INFO   ] 2025-11-06T14:06:12.413Z [DEBUG] ⏱️ Global queue throttling: waiting 8ms
+[2025-11-06T14:06:12.611Z] [INFO   ] 2025-11-06T14:06:12.611Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:06:12.612Z] [INFO   ] 2025-11-06T14:06:12.612Z [DEBUG] ✅ [Discord Commands] Found 0 global commands
+[2025-11-06T14:06:12.612Z] [INFO   ] 2025-11-06T14:06:12.612Z [DEBUG] 📋 [Discord Commands] Total commands available: 0 {"commands":[]}
+[2025-11-06T14:06:12.612Z] [INFO   ] 2025-11-06T14:06:12.612Z [DEBUG] ✅ [Discord API] Successfully processed discord_commands: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T14:06:12.723Z] [INFO   ] 2025-11-06T14:06:12.723Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_channels","status":"connected","hasToken":true}
+[2025-11-06T14:06:12.724Z] [INFO   ] 2025-11-06T14:06:12.724Z [DEBUG] 📦 Using cached Discord data for https://discord.com/api/v10/users/@me (age: 3s)
+[2025-11-06T14:06:12.724Z] [INFO   ] 2025-11-06T14:06:12.724Z [DEBUG] 🔍 Making Discord API request to: https://discord.com/api/v10/guilds/1378950884045623406/members/1378595955212812308
+[2025-11-06T14:06:12.850Z] [INFO   ] 2025-11-06T14:06:12.850Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:06:12.850Z] [INFO   ] 2025-11-06T14:06:12.850Z [DEBUG] 📦 Cached Discord response for https://discord.com/api/v10/guilds/1378950884045623406/members/1378595955212812308
+[2025-11-06T14:06:12.850Z] [INFO   ] 2025-11-06T14:06:12.850Z [DEBUG] 🔍 Making Discord API request to: https://discord.com/api/v10/guilds/1378950884045623406/channels
+[2025-11-06T14:06:12.951Z] [INFO   ] 2025-11-06T14:06:12.950Z [DEBUG] ⏱️ Global queue throttling: waiting 24ms
+[2025-11-06T14:06:13.176Z] [INFO   ] 2025-11-06T14:06:13.176Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:06:13.177Z] [INFO   ] 2025-11-06T14:06:13.176Z [DEBUG] 📦 Cached Discord response for https://discord.com/api/v10/guilds/1378950884045623406/channels
+[2025-11-06T14:06:13.178Z] [INFO   ] 2025-11-06T14:06:13.177Z [DEBUG] Including channel: general (1378950885044125758) - Type: 0
+[2025-11-06T14:06:13.178Z] [INFO   ] 2025-11-06T14:06:13.178Z [DEBUG] Including channel: rules (1415172962788573316) - Type: 0
+[2025-11-06T14:06:13.178Z] [INFO   ] 2025-11-06T14:06:13.178Z [DEBUG] Bot cannot access channel: moderator-only (1415172962788573319)
+[2025-11-06T14:06:13.178Z] [INFO   ] 2025-11-06T14:06:13.178Z [DEBUG] Including channel: welcome (1415174831183499415) - Type: 5
+[2025-11-06T14:06:13.178Z] [INFO   ] 2025-11-06T14:06:13.178Z [DEBUG] Including channel: announcements (1415175144451739790) - Type: 5
+[2025-11-06T14:06:13.178Z] [INFO   ] 2025-11-06T14:06:13.178Z [DEBUG] Including channel: faq (1415175175237799986) - Type: 0
+[2025-11-06T14:06:13.179Z] [INFO   ] 2025-11-06T14:06:13.179Z [DEBUG] Including channel: general (1415309693282287687) - Type: 0
+[2025-11-06T14:06:13.179Z] [INFO   ] 2025-11-06T14:06:13.179Z [DEBUG] Including channel: introductions (1415309737880195142) - Type: 0
+[2025-11-06T14:06:13.179Z] [INFO   ] 2025-11-06T14:06:13.179Z [DEBUG] Including channel: feedback (1415309773989085205) - Type: 15
+[2025-11-06T14:06:13.179Z] [INFO   ] 2025-11-06T14:06:13.179Z [DEBUG] Including channel: showcase (1415309842733862972) - Type: 0
+[2025-11-06T14:06:13.179Z] [INFO   ] 2025-11-06T14:06:13.179Z [DEBUG] Including channel: support-questions (1415310146183106560) - Type: 15
+[2025-11-06T14:06:13.179Z] [INFO   ] 2025-11-06T14:06:13.179Z [DEBUG] Including channel: bug-reports (1415310187820220426) - Type: 15
+[2025-11-06T14:06:13.179Z] [INFO   ] 2025-11-06T14:06:13.179Z [DEBUG] Including channel: general-voice (1415310483979899042) - Type: 2
+[2025-11-06T14:06:13.179Z] [INFO   ] 2025-11-06T14:06:13.179Z [DEBUG] Bot cannot access channel: support-voice (1415310587696779365)
+[2025-11-06T14:06:13.179Z] [INFO   ] 2025-11-06T14:06:13.179Z [DEBUG] Including channel: off-topic (1415310845092691988) - Type: 0
+[2025-11-06T14:06:13.179Z] [INFO   ] 2025-11-06T14:06:13.179Z [DEBUG] Including channel: resources (1415310890940502077) - Type: 5
+[2025-11-06T14:06:13.179Z] [INFO   ] 2025-11-06T14:06:13.179Z [DEBUG] Bot cannot access channel: beta-testing (1415310954912157787)
+[2025-11-06T14:06:13.180Z] [INFO   ] 2025-11-06T14:06:13.179Z [DEBUG] Discord channel access summary for guild 1378950884045623406: 19/22 channels accessible to bot
+[2025-11-06T14:06:13.180Z] [INFO   ] 2025-11-06T14:06:13.180Z [DEBUG] ✅ [Discord API] Successfully processed discord_channels: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":14}
+[2025-11-06T14:06:15.505Z] [ERROR  ] 2025-11-06T14:06:15.505Z [ERROR] ❌ Discord API Error (attempt 3/3): {"status":403,"statusText":"Forbidden","url":"https://discord.com/api/v10/applications/1378595955212812308/guilds/1391236319807541270/commands","headers":{"alt-svc":"h3=\":443\"; ma=86400","cf-cache-status":"BYPASS","cf-ray":"99a5268218ca50ec-MCI","connection":"keep-alive","content-length":"44","content-security-policy":"frame-ancestors 'none'; default-src https://o64374.ingest.sentry.io; report-to csp-sentry; report-uri https://o64374.ingest.sentry.io/api/5441894/security/?sentry_key=8fbbce30bf5244ec9429546beef21870&sentry_environment=stable","content-type":"application/json","date":"Thu, 06 Nov 2025 14:06:15 GMT","nel":"{\"success_fraction\":0,\"report_to\":\"cf-nel\",\"max_age\":604800}","report-to":"{\"endpoints\":[{\"url\":\"https:\\/\\/a.nel.cloudflare.com\\/report\\/v4?s=rYV9TZu2bCcNZX%2FR%2FDm2MsnFSxFm7OCooL08GuBRL2T6LA0j8JE96Y34%2BTgLsU3fZo27Jd%2FrfnyNcQK7DzdeFBfodKXKvFuLkoSUdT03P%2FoY0vzJyxyQJtDUxCXm\"}],\"group\":\"cf-nel\",\"max_age\":604800}","reporting-endpoints":"csp-sentry=\"https://o64374.ingest.sentry.io/api/5441894/security/?sentry_key=8fbbce30bf5244ec9429546beef21870&sentry_environment=stable\"","server":"cloudflare","set-cookie":"_cfuvid=veypmvLbZRJW_DaOH4m.hXiT0StDyuRQAGN5AJW767Q-1762437975495-0.0.1.1-604800000; path=/; domain=.discord.com; HttpOnly; Secure; SameSite=None","strict-transport-security":"max-age=31536000; includeSubDomains; preload","vary":"Accept-Encoding","via":"1.1 google","x-content-type-options":"nosniff","x-discord-features":"bots","x-ratelimit-bucket":"b4534d2461fcb2e2d83a853d9e887f1c","x-ratelimit-limit":"1000","x-ratelimit-remaining":"999","x-ratelimit-reset":"1762437975.451","x-ratelimit-reset-after":"0.001"},"body":"{\"message\": \"Missing Access\", \"code\": 50001}"}
+[2025-11-06T14:06:15.507Z] [WARN   ] 2025-11-06T14:06:15.507Z [WARN] ⚠️ [Discord Commands] Failed to fetch guild commands: Discord API access forbidden. Check your permissions.
+[2025-11-06T14:06:15.507Z] [INFO   ] 2025-11-06T14:06:15.507Z [DEBUG] 📡 [Discord Commands] Fetching global commands...
+[2025-11-06T14:06:15.734Z] [INFO   ] 2025-11-06T14:06:15.734Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:06:15.735Z] [INFO   ] 2025-11-06T14:06:15.735Z [DEBUG] ✅ [Discord Commands] Found 0 global commands
+[2025-11-06T14:06:15.735Z] [INFO   ] 2025-11-06T14:06:15.735Z [DEBUG] 📋 [Discord Commands] Total commands available: 0 {"commands":[]}
+[2025-11-06T14:06:15.735Z] [INFO   ] 2025-11-06T14:06:15.735Z [DEBUG] ✅ [Discord API] Successfully processed discord_commands: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T14:06:15.838Z] [INFO   ] 2025-11-06T14:06:15.838Z [DEBUG] ⏱️ Global queue throttling: waiting 18ms
+[2025-11-06T14:06:16.033Z] [ERROR  ] 2025-11-06T14:06:16.033Z [ERROR] ❌ Discord API Error (attempt 3/3): {"status":404,"statusText":"Not Found","url":"https://discord.com/api/v10/guilds/1391236319807541270/members/1378595955212812308","headers":{"alt-svc":"h3=\":443\"; ma=86400","cf-cache-status":"BYPASS","cf-ray":"99a526853ed950ec-MCI","connection":"keep-alive","content-length":"43","content-security-policy":"frame-ancestors 'none'; default-src https://o64374.ingest.sentry.io; report-to csp-sentry; report-uri https://o64374.ingest.sentry.io/api/5441894/security/?sentry_key=8fbbce30bf5244ec9429546beef21870&sentry_environment=stable","content-type":"application/json","date":"Thu, 06 Nov 2025 14:06:16 GMT","nel":"{\"success_fraction\":0,\"report_to\":\"cf-nel\",\"max_age\":604800}","report-to":"{\"endpoints\":[{\"url\":\"https:\\/\\/a.nel.cloudflare.com\\/report\\/v4?s=Tx210lZemgZj8xVR6ABWSaoiNEAs5fwoeJZ%2BxiNRShiuxLqvDMU9ll7I2fmiDECdkYZMbcEXuAHzpK%2FdqZtRbol0zpWcFYsJ49amhM%2F%2B45pND5qyuJRa2Y8hTyIr\"}],\"group\":\"cf-nel\",\"max_age\":604800}","reporting-endpoints":"csp-sentry=\"https://o64374.ingest.sentry.io/api/5441894/security/?sentry_key=8fbbce30bf5244ec9429546beef21870&sentry_environment=stable\"","server":"cloudflare","set-cookie":"_cfuvid=A._yM9wb13QgveiU.Hxy9rBaiP4s211hVCHlyPcp8r4-1762437976026-0.0.1.1-604800000; path=/; domain=.discord.com; HttpOnly; Secure; SameSite=None","strict-transport-security":"max-age=31536000; includeSubDomains; preload","vary":"Accept-Encoding","via":"1.1 google","x-content-type-options":"nosniff","x-discord-features":"guilds","x-ratelimit-bucket":"e06f83c33559dfd4dc34f5666fdfa1d3","x-ratelimit-limit":"5","x-ratelimit-remaining":"4","x-ratelimit-reset":"1762437976.973","x-ratelimit-reset-after":"1.000"},"body":"{\"message\": \"Unknown Guild\", \"code\": 10004}"}
+[2025-11-06T14:06:16.034Z] [INFO   ] 2025-11-06T14:06:16.034Z [DEBUG] Could not fetch bot member info, will show all channels: {"status":404,"name":"DiscordApiError"}
+[2025-11-06T14:06:16.034Z] [INFO   ] 2025-11-06T14:06:16.034Z [DEBUG] 🔍 Making Discord API request to: https://discord.com/api/v10/guilds/1391236319807541270/channels
+[2025-11-06T14:06:16.257Z] [ERROR  ] 2025-11-06T14:06:16.256Z [ERROR] ❌ Discord API Error (attempt 1/3): {"status":403,"statusText":"Forbidden","url":"https://discord.com/api/v10/guilds/1391236319807541270/channels","headers":{"alt-svc":"h3=\":443\"; ma=86400","cf-cache-status":"BYPASS","cf-ray":"99a52686ea5450ec-MCI","connection":"keep-alive","content-length":"44","content-security-policy":"frame-ancestors 'none'; default-src https://o64374.ingest.sentry.io; report-to csp-sentry; report-uri https://o64374.ingest.sentry.io/api/5441894/security/?sentry_key=8fbbce30bf5244ec9429546beef21870&sentry_environment=stable","content-type":"application/json","date":"Thu, 06 Nov 2025 14:06:16 GMT","nel":"{\"success_fraction\":0,\"report_to\":\"cf-nel\",\"max_age\":604800}","report-to":"{\"endpoints\":[{\"url\":\"https:\\/\\/a.nel.cloudflare.com\\/report\\/v4?s=JN1ABZMSfyojgutL0KVmGQQ0s%2FuJ42y7P8oRfyaAsLHFL0qmFHMgGxPlZZ54ZyHu61irqeHdOd2ldRgwzi%2Btwmm4ib0lzw%2F6DKuF6U2RJFCvkX5b2xA3nW3e9d8J\"}],\"group\":\"cf-nel\",\"max_age\":604800}","reporting-endpoints":"csp-sentry=\"https://o64374.ingest.sentry.io/api/5441894/security/?sentry_key=8fbbce30bf5244ec9429546beef21870&sentry_environment=stable\"","server":"cloudflare","set-cookie":"_cfuvid=7P_RCq0AgtXTGNpds0K48bkiOjL0tbkpxjb1.RJYDS0-1762437976247-0.0.1.1-604800000; path=/; domain=.discord.com; HttpOnly; Secure; SameSite=None","strict-transport-security":"max-age=31536000; includeSubDomains; preload","vary":"Accept-Encoding","via":"1.1 google","x-content-type-options":"nosniff","x-discord-features":"chat","x-ratelimit-bucket":"a66d55b18e9649f0915c93ce4c0677af","x-ratelimit-limit":"10","x-ratelimit-remaining":"8","x-ratelimit-reset":"1762438029.275","x-ratelimit-reset-after":"53.071"},"body":"{\"message\": \"Missing Access\", \"code\": 50001}"}
+[2025-11-06T14:06:16.258Z] [INFO   ] 2025-11-06T14:06:16.257Z [DEBUG] 🔄 Discord request failed (attempt 1/3), retrying in 2000ms...
+[2025-11-06T14:06:16.258Z] [ERROR  ] 2025-11-06T14:06:16.258Z [ERROR]    Error: Discord API access forbidden. Check your permissions.
+[2025-11-06T14:06:18.391Z] [ERROR  ] 2025-11-06T14:06:18.390Z [ERROR] ❌ Discord API Error (attempt 2/3): {"status":403,"statusText":"Forbidden","url":"https://discord.com/api/v10/guilds/1391236319807541270/channels","headers":{"alt-svc":"h3=\":443\"; ma=86400","cf-cache-status":"BYPASS","cf-ray":"99a52694395450ec-MCI","connection":"keep-alive","content-length":"44","content-security-policy":"frame-ancestors 'none'; default-src https://o64374.ingest.sentry.io; report-to csp-sentry; report-uri https://o64374.ingest.sentry.io/api/5441894/security/?sentry_key=8fbbce30bf5244ec9429546beef21870&sentry_environment=stable","content-type":"application/json","date":"Thu, 06 Nov 2025 14:06:18 GMT","nel":"{\"success_fraction\":0,\"report_to\":\"cf-nel\",\"max_age\":604800}","report-to":"{\"endpoints\":[{\"url\":\"https:\\/\\/a.nel.cloudflare.com\\/report\\/v4?s=wpaWNHk%2FNG5FLICIQJ7O4gA8RRw23IU7XG7VjfEyfodIxxHBkJ47N2NVM2WvqHp2d8ju3zoR44CKX%2F5MOkFpy%2F9JOllkbUatz8HNuBn4VQ9I%2B0Ij0h5nvY2XpAV1\"}],\"group\":\"cf-nel\",\"max_age\":604800}","reporting-endpoints":"csp-sentry=\"https://o64374.ingest.sentry.io/api/5441894/security/?sentry_key=8fbbce30bf5244ec9429546beef21870&sentry_environment=stable\"","server":"cloudflare","set-cookie":"_cfuvid=PgpCczTS4ZKbD9XB6Majrom38Cbg4sBQFqn9Dgtslxs-1762437978383-0.0.1.1-604800000; path=/; domain=.discord.com; HttpOnly; Secure; SameSite=None","strict-transport-security":"max-age=31536000; includeSubDomains; preload","vary":"Accept-Encoding","via":"1.1 google","x-content-type-options":"nosniff","x-discord-features":"chat","x-ratelimit-bucket":"a66d55b18e9649f0915c93ce4c0677af","x-ratelimit-limit":"10","x-ratelimit-remaining":"7","x-ratelimit-reset":"1762438029.276","x-ratelimit-reset-after":"50.941"},"body":"{\"message\": \"Missing Access\", \"code\": 50001}"}
+[2025-11-06T14:06:18.391Z] [INFO   ] 2025-11-06T14:06:18.391Z [DEBUG] 🔄 Discord request failed (attempt 2/3), retrying in 4000ms...
+[2025-11-06T14:06:18.391Z] [ERROR  ] 2025-11-06T14:06:18.391Z [ERROR]    Error: Discord API access forbidden. Check your permissions.
+[2025-11-06T14:06:18.606Z] [INFO   ] 2025-11-06T14:06:18.606Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_commands","status":"connected","hasToken":true}
+[2025-11-06T14:06:18.607Z] [INFO   ] 2025-11-06T14:06:18.607Z [DEBUG] 🔍 [Discord Commands] Fetching slash commands: {"guildId":"1378950884045623406","clientId":"13785959..."}
+[2025-11-06T14:06:18.607Z] [INFO   ] 2025-11-06T14:06:18.607Z [DEBUG] 📡 [Discord Commands] Fetching guild-specific commands...
+[2025-11-06T14:06:18.743Z] [INFO   ] 2025-11-06T14:06:18.743Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:06:18.744Z] [INFO   ] 2025-11-06T14:06:18.744Z [DEBUG] ✅ [Discord Commands] Found 0 guild-specific commands
+[2025-11-06T14:06:18.744Z] [INFO   ] 2025-11-06T14:06:18.744Z [DEBUG] 📡 [Discord Commands] Fetching global commands...
+[2025-11-06T14:06:18.844Z] [INFO   ] 2025-11-06T14:06:18.844Z [DEBUG] ⏱️ Global queue throttling: waiting 13ms
+[2025-11-06T14:06:19.005Z] [INFO   ] 2025-11-06T14:06:19.005Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:06:19.006Z] [INFO   ] 2025-11-06T14:06:19.006Z [DEBUG] ✅ [Discord Commands] Found 0 global commands
+[2025-11-06T14:06:19.006Z] [INFO   ] 2025-11-06T14:06:19.006Z [DEBUG] 📋 [Discord Commands] Total commands available: 0 {"commands":[]}
+[2025-11-06T14:06:19.006Z] [INFO   ] 2025-11-06T14:06:19.006Z [DEBUG] ✅ [Discord API] Successfully processed discord_commands: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T14:06:22.510Z] [ERROR  ] 2025-11-06T14:06:22.510Z [ERROR] ❌ Discord API Error (attempt 3/3): {"status":403,"statusText":"Forbidden","url":"https://discord.com/api/v10/guilds/1391236319807541270/channels","headers":{"alt-svc":"h3=\":443\"; ma=86400","cf-cache-status":"BYPASS","cf-ray":"99a526ae0c8a50ec-MCI","connection":"keep-alive","content-length":"44","content-security-policy":"frame-ancestors 'none'; default-src https://o64374.ingest.sentry.io; report-to csp-sentry; report-uri https://o64374.ingest.sentry.io/api/5441894/security/?sentry_key=8fbbce30bf5244ec9429546beef21870&sentry_environment=stable","content-type":"application/json","date":"Thu, 06 Nov 2025 14:06:22 GMT","nel":"{\"success_fraction\":0,\"report_to\":\"cf-nel\",\"max_age\":604800}","report-to":"{\"endpoints\":[{\"url\":\"https:\\/\\/a.nel.cloudflare.com\\/report\\/v4?s=DeTD94QjSpICDDZ1hR%2BUFeQRHZnrfF%2BTVXDsQlqre9O5FiYzMGE0n4seoyShQ%2B7%2B6HOCfkQMFg7XQLjG6x%2FSU0opuLnkRDRXNyF8%2F%2F6%2FS%2FJaYAFlsSZRiMHjAWxb\"}],\"group\":\"cf-nel\",\"max_age\":604800}","reporting-endpoints":"csp-sentry=\"https://o64374.ingest.sentry.io/api/5441894/security/?sentry_key=8fbbce30bf5244ec9429546beef21870&sentry_environment=stable\"","server":"cloudflare","set-cookie":"_cfuvid=j4Zv41ubnd.Vw5gYdnT_JGXVukuE68f7qztw0iMtlg4-1762437982503-0.0.1.1-604800000; path=/; domain=.discord.com; HttpOnly; Secure; SameSite=None","strict-transport-security":"max-age=31536000; includeSubDomains; preload","vary":"Accept-Encoding","via":"1.1 google","x-content-type-options":"nosniff","x-discord-features":"chat","x-ratelimit-bucket":"a66d55b18e9649f0915c93ce4c0677af","x-ratelimit-limit":"10","x-ratelimit-remaining":"6","x-ratelimit-reset":"1762438029.275","x-ratelimit-reset-after":"46.812"},"body":"{\"message\": \"Missing Access\", \"code\": 50001}"}
+[2025-11-06T14:06:22.511Z] [INFO   ] 2025-11-06T14:06:22.511Z [DEBUG] Discord API fetch error for guild 1391236319807541270: Discord API access forbidden. Check your permissions.
+[2025-11-06T14:06:22.511Z] [INFO   ] 2025-11-06T14:06:22.511Z [DEBUG] Bot missing permissions or not in server 1391236319807541270 - returning empty channels list
+[2025-11-06T14:06:22.511Z] [INFO   ] 2025-11-06T14:06:22.511Z [DEBUG] ✅ [Discord API] Successfully processed discord_channels: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T14:06:28.671Z] [INFO   ] 2025-11-06T14:06:28.671Z [DEBUG] 🔍 [Discord API] Processing request: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","dataType":"discord_commands","status":"connected","hasToken":true}
+[2025-11-06T14:06:28.672Z] [INFO   ] 2025-11-06T14:06:28.672Z [DEBUG] 🔍 [Discord Commands] Fetching slash commands: {"guildId":"1378950884045623406","clientId":"13785959..."}
+[2025-11-06T14:06:28.672Z] [INFO   ] 2025-11-06T14:06:28.672Z [DEBUG] 📡 [Discord Commands] Fetching guild-specific commands...
+[2025-11-06T14:06:28.881Z] [INFO   ] 2025-11-06T14:06:28.881Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:06:28.882Z] [INFO   ] 2025-11-06T14:06:28.882Z [DEBUG] ✅ [Discord Commands] Found 0 guild-specific commands
+[2025-11-06T14:06:28.882Z] [INFO   ] 2025-11-06T14:06:28.882Z [DEBUG] 📡 [Discord Commands] Fetching global commands...
+[2025-11-06T14:06:29.126Z] [INFO   ] 2025-11-06T14:06:29.126Z [DEBUG] ✅ Discord API success on attempt 1
+[2025-11-06T14:06:29.126Z] [INFO   ] 2025-11-06T14:06:29.126Z [DEBUG] ✅ [Discord Commands] Found 0 global commands
+[2025-11-06T14:06:29.127Z] [INFO   ] 2025-11-06T14:06:29.127Z [DEBUG] 📋 [Discord Commands] Total commands available: 0 {"commands":[]}
+[2025-11-06T14:06:29.127Z] [INFO   ] 2025-11-06T14:06:29.127Z [DEBUG] ✅ [Discord API] Successfully processed discord_commands: {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","resultCount":0}
+[2025-11-06T14:06:34.686Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/airtable/data ...
+[2025-11-06T14:06:34.723Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/airtable/data in 690ms (4058 modules)
+[2025-11-06T14:06:34.936Z] [INFO   ] 2025-11-06T14:06:34.936Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_bases","status":"connected","hasToken":true}
+[2025-11-06T14:06:34.936Z] [INFO   ] 2025-11-06T14:06:34.936Z [DEBUG] 🔍 Airtable bases fetcher called with integration: {"id":"23c9b660-dff1-40e3-be7a-f47816751245","provider":"airtable","hasToken":true,"tokenLength":334}
+[2025-11-06T14:06:34.936Z] [INFO   ] 2025-11-06T14:06:34.936Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-06T14:06:34.936Z] [INFO   ] 2025-11-06T14:06:34.936Z [DEBUG] 🔍 Fetching Airtable bases from API...
+[2025-11-06T14:06:34.947Z] [INFO   ] 2025-11-06T14:06:34.947Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_bases","status":"connected","hasToken":true}
+[2025-11-06T14:06:34.947Z] [INFO   ] 2025-11-06T14:06:34.947Z [DEBUG] 🔍 Airtable bases fetcher called with integration: {"id":"23c9b660-dff1-40e3-be7a-f47816751245","provider":"airtable","hasToken":true,"tokenLength":334}
+[2025-11-06T14:06:34.947Z] [INFO   ] 2025-11-06T14:06:34.947Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-06T14:06:34.948Z] [INFO   ] 2025-11-06T14:06:34.947Z [DEBUG] 🔍 Fetching Airtable bases from API...
+[2025-11-06T14:06:36.313Z] [INFO   ] 2025-11-06T14:06:36.313Z [DEBUG] ✅ Airtable bases fetched successfully: 3 bases
+[2025-11-06T14:06:36.314Z] [INFO   ] 2025-11-06T14:06:36.314Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_bases: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":3}
+[2025-11-06T14:06:36.321Z] [INFO   ] 2025-11-06T14:06:36.320Z [DEBUG] ✅ Airtable bases fetched successfully: 3 bases
+[2025-11-06T14:06:36.321Z] [INFO   ] 2025-11-06T14:06:36.321Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_bases: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":3}
+[2025-11-06T14:06:38.504Z] [INFO   ] 2025-11-06T14:06:38.504Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_tables","status":"connected","hasToken":true}
+[2025-11-06T14:06:38.504Z] [INFO   ] 2025-11-06T14:06:38.504Z [DEBUG] 🔍 Airtable tables fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","hasToken":true}
+[2025-11-06T14:06:38.504Z] [INFO   ] 2025-11-06T14:06:38.504Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-06T14:06:38.504Z] [INFO   ] 2025-11-06T14:06:38.504Z [DEBUG] 🔍 Fetching Airtable tables from API...
+[2025-11-06T14:06:38.505Z] [INFO   ] 2025-11-06T14:06:38.505Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_tables","status":"connected","hasToken":true}
+[2025-11-06T14:06:38.505Z] [INFO   ] 2025-11-06T14:06:38.505Z [DEBUG] 🔍 Airtable tables fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","hasToken":true}
+[2025-11-06T14:06:38.505Z] [INFO   ] 2025-11-06T14:06:38.505Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-06T14:06:38.505Z] [INFO   ] 2025-11-06T14:06:38.505Z [DEBUG] 🔍 Fetching Airtable tables from API...
+[2025-11-06T14:06:41.752Z] [INFO   ] 2025-11-06T14:06:41.752Z [DEBUG] ✅ Airtable tables fetched successfully: 5 tables from base "app2KiMxZofDhMOmZ"
+[2025-11-06T14:06:41.753Z] [INFO   ] 2025-11-06T14:06:41.753Z [DEBUG] 🔍 Available tables: [{"id":"tbl86Pvq1rJ8tsJZA","name":"Design Drafts"},{"id":"tblwRsE3U48r4EB8J","name":"Feedback"},{"id":"tblnuq35Gtq0tZrRO","name":"Collaboration Insights"},{"id":"tbl5J3AgOjpwad7ql","name":"Tasks"},{"id":"tblbW3PQQkNW88hMY","name":"Projects"}]
+[2025-11-06T14:06:41.753Z] [INFO   ] 2025-11-06T14:06:41.753Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_tables: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-06T14:06:41.777Z] [INFO   ] 2025-11-06T14:06:41.777Z [DEBUG] ✅ Airtable tables fetched successfully: 5 tables from base "app2KiMxZofDhMOmZ"
+[2025-11-06T14:06:41.777Z] [INFO   ] 2025-11-06T14:06:41.777Z [DEBUG] 🔍 Available tables: [{"id":"tbl86Pvq1rJ8tsJZA","name":"Design Drafts"},{"id":"tblwRsE3U48r4EB8J","name":"Feedback"},{"id":"tblnuq35Gtq0tZrRO","name":"Collaboration Insights"},{"id":"tbl5J3AgOjpwad7ql","name":"Tasks"},{"id":"tblbW3PQQkNW88hMY","name":"Projects"}]
+[2025-11-06T14:06:41.778Z] [INFO   ] 2025-11-06T14:06:41.778Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_tables: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-06T14:06:43.691Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/airtable/metadata in 284ms (4060 modules)
+[2025-11-06T14:06:43.741Z] [INFO   ] 2025-11-06T14:06:43.741Z [DEBUG] Metadata API called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","tableName":"Design Drafts"}
+[2025-11-06T14:06:44.005Z] [INFO   ] 2025-11-06T14:06:44.005Z [DEBUG] Access token decrypted successfully
+[2025-11-06T14:06:44.006Z] [INFO   ] 2025-11-06T14:06:44.006Z [DEBUG] Fetching metadata from Airtable: https://api.airtable.com/v0/meta/bases/app2KiMxZofDhMOmZ/tables
+[2025-11-06T14:06:44.259Z] [INFO   ] 2025-11-06T14:06:44.259Z [DEBUG] Airtable metadata response received: {"hasData":true,"tableCount":5,"baseId":"app2KiMxZofDhMOmZ","requestedTable":"Design Drafts"}
+[2025-11-06T14:06:44.259Z] [INFO   ] 2025-11-06T14:06:44.259Z [DEBUG] Table fields found: [{"name":"Draft Name","type":"singleLineText","id":"fldpeH75nEzotVaIz"},{"name":"Designer","type":"singleLineText","id":"fldHwBT4DpJNynoDs"},{"name":"Upload Date","type":"date","id":"fldeyYCl5huNfhp00"},{"name":"Draft Image","type":"multipleAttachments","id":"fldGgF9IiZev9ifPo"},{"name":"Status","type":"singleSelect","id":"fldvgqaHX9d378Hr6"},{"name":"Associated Project","type":"multipleRecordLinks","id":"fldUDIP1gDZA1jozK"},{"name":"Feedback","type":"multipleRecordLinks","id":"fldSoktSheZaqPQ7j"},{"name":"Tasks","type":"multipleRecordLinks","id":"fldYEXb0ggEwxMsfJ"}]
+[2025-11-06T14:06:44.317Z] [INFO   ] 2025-11-06T14:06:44.317Z [DEBUG] Metadata API called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","tableName":"Design Drafts"}
+[2025-11-06T14:06:44.466Z] [INFO   ] 2025-11-06T14:06:44.466Z [DEBUG] Access token decrypted successfully
+[2025-11-06T14:06:44.467Z] [INFO   ] 2025-11-06T14:06:44.467Z [DEBUG] Fetching metadata from Airtable: https://api.airtable.com/v0/meta/bases/app2KiMxZofDhMOmZ/tables
+[2025-11-06T14:06:44.699Z] [INFO   ] 2025-11-06T14:06:44.699Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-06T14:06:44.700Z] [INFO   ] 2025-11-06T14:06:44.700Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Tasks","hasToken":true}
+[2025-11-06T14:06:44.700Z] [INFO   ] 2025-11-06T14:06:44.700Z [DEBUG] 🔍 Fetching records from linked table: Tasks
+[2025-11-06T14:06:44.701Z] [INFO   ] 2025-11-06T14:06:44.701Z [DEBUG] Airtable metadata response received: {"hasData":true,"tableCount":5,"baseId":"app2KiMxZofDhMOmZ","requestedTable":"Design Drafts"}
+[2025-11-06T14:06:44.701Z] [INFO   ] 2025-11-06T14:06:44.701Z [DEBUG] Table fields found: [{"name":"Draft Name","type":"singleLineText","id":"fldpeH75nEzotVaIz"},{"name":"Designer","type":"singleLineText","id":"fldHwBT4DpJNynoDs"},{"name":"Upload Date","type":"date","id":"fldeyYCl5huNfhp00"},{"name":"Draft Image","type":"multipleAttachments","id":"fldGgF9IiZev9ifPo"},{"name":"Status","type":"singleSelect","id":"fldvgqaHX9d378Hr6"},{"name":"Associated Project","type":"multipleRecordLinks","id":"fldUDIP1gDZA1jozK"},{"name":"Feedback","type":"multipleRecordLinks","id":"fldSoktSheZaqPQ7j"},{"name":"Tasks","type":"multipleRecordLinks","id":"fldYEXb0ggEwxMsfJ"}]
+[2025-11-06T14:06:44.706Z] [INFO   ] 2025-11-06T14:06:44.706Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-06T14:06:44.706Z] [INFO   ] 2025-11-06T14:06:44.706Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Projects","hasToken":true}
+[2025-11-06T14:06:44.706Z] [INFO   ] 2025-11-06T14:06:44.706Z [DEBUG] 🔍 Fetching records from linked table: Projects
+[2025-11-06T14:06:44.723Z] [INFO   ] 2025-11-06T14:06:44.723Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_draft_names","status":"connected","hasToken":true}
+[2025-11-06T14:06:44.723Z] [INFO   ] 2025-11-06T14:06:44.723Z [DEBUG] 🔍 Airtable draft names fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","tableName":"Design Drafts","hasToken":true}
+[2025-11-06T14:06:44.723Z] [INFO   ] 2025-11-06T14:06:44.723Z [DEBUG] 🔍 Fetching Airtable draft names from API...
+[2025-11-06T14:06:44.731Z] [INFO   ] 2025-11-06T14:06:44.731Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_designers","status":"connected","hasToken":true}
+[2025-11-06T14:06:44.731Z] [INFO   ] 2025-11-06T14:06:44.731Z [DEBUG] 🔍 Airtable designers fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","tableName":"Design Drafts","hasToken":true}
+[2025-11-06T14:06:44.731Z] [INFO   ] 2025-11-06T14:06:44.731Z [DEBUG] 🔍 Fetching Airtable designers from API...
+[2025-11-06T14:06:44.743Z] [INFO   ] 2025-11-06T14:06:44.743Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-06T14:06:44.744Z] [INFO   ] 2025-11-06T14:06:44.744Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Feedback","hasToken":true}
+[2025-11-06T14:06:44.744Z] [INFO   ] 2025-11-06T14:06:44.744Z [DEBUG] 🔍 Fetching records from linked table: Feedback
+[2025-11-06T14:06:44.865Z] [INFO   ] 2025-11-06T14:06:44.865Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_records","status":"connected","hasToken":true}
+[2025-11-06T14:06:44.866Z] [INFO   ] 2025-11-06T14:06:44.866Z [DEBUG] 🔍 Airtable records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","tableName":"Design Drafts","maxRecords":100,"hasToken":true}
+[2025-11-06T14:06:44.866Z] [INFO   ] 2025-11-06T14:06:44.866Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-06T14:06:44.866Z] [INFO   ] 2025-11-06T14:06:44.866Z [DEBUG] 🔍 Fetching Airtable records from API...
+[2025-11-06T14:06:45.960Z] [INFO   ] 2025-11-06T14:06:45.960Z [DEBUG] ✅ Fetched 5 records from linked table Tasks
+[2025-11-06T14:06:45.960Z] [INFO   ] 2025-11-06T14:06:45.960Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-06T14:06:45.999Z] [INFO   ] 2025-11-06T14:06:45.999Z [DEBUG] ✅ Fetched 5 records from linked table Projects
+[2025-11-06T14:06:46.000Z] [INFO   ] 2025-11-06T14:06:46.000Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-06T14:06:46.047Z] [INFO   ] 2025-11-06T14:06:46.047Z [DEBUG] 📊 [Airtable] Sample record fields: ["Draft Name","Designer","Upload Date","Draft Image","Status","Associated Project","Feedback","Tasks"]
+[2025-11-06T14:06:46.047Z] [INFO   ] 2025-11-06T14:06:46.047Z [DEBUG] 📊 [Airtable] Found matching field 'Draft Name' for draft names
+[2025-11-06T14:06:46.047Z] [INFO   ] 2025-11-06T14:06:46.047Z [DEBUG] 📊 [Airtable] Found matching field 'Draft Name' for draft names
+[2025-11-06T14:06:46.047Z] [INFO   ] 2025-11-06T14:06:46.047Z [DEBUG] 📊 [Airtable] Found matching field 'Draft Name' for draft names
+[2025-11-06T14:06:46.047Z] [INFO   ] 2025-11-06T14:06:46.047Z [DEBUG] 📊 [Airtable] Found matching field 'Draft Name' for draft names
+[2025-11-06T14:06:46.047Z] [INFO   ] 2025-11-06T14:06:46.047Z [DEBUG] 📊 [Airtable] Found matching field 'Draft Name' for draft names
+[2025-11-06T14:06:46.047Z] [INFO   ] 2025-11-06T14:06:46.047Z [DEBUG] 📊 [Airtable] Found matching field 'Draft Name' for draft names
+[2025-11-06T14:06:46.047Z] [INFO   ] 2025-11-06T14:06:46.047Z [DEBUG] 📊 [Airtable] Found matching field 'Draft Name' for draft names
+[2025-11-06T14:06:46.047Z] [INFO   ] 2025-11-06T14:06:46.047Z [DEBUG] ✅ Airtable draft names fetched successfully: 6 unique names
+[2025-11-06T14:06:46.047Z] [INFO   ] 2025-11-06T14:06:46.047Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_draft_names: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":6}
+[2025-11-06T14:06:46.111Z] [INFO   ] 2025-11-06T14:06:46.111Z [DEBUG] ✅ Fetched 6 records from linked table Feedback
+[2025-11-06T14:06:46.112Z] [INFO   ] 2025-11-06T14:06:46.112Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":6}
+[2025-11-06T14:06:46.143Z] [INFO   ] 2025-11-06T14:06:46.143Z [DEBUG] ✅ Airtable designers fetched successfully: 4 unique designers
+[2025-11-06T14:06:46.144Z] [INFO   ] 2025-11-06T14:06:46.144Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_designers: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":4}
+[2025-11-06T14:06:48.328Z] [INFO   ] 2025-11-06T14:06:48.328Z [DEBUG] ✅ Airtable records fetched successfully: 7 records
+[2025-11-06T14:06:48.329Z] [INFO   ] 2025-11-06T14:06:48.329Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":7}
+[2025-11-06T14:06:51.237Z] [INFO   ] 2025-11-06T14:06:51.237Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-06T14:06:51.238Z] [INFO   ] 2025-11-06T14:06:51.238Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Projects","hasToken":true}
+[2025-11-06T14:06:51.238Z] [INFO   ] 2025-11-06T14:06:51.238Z [DEBUG] 🔍 Fetching records from linked table: Projects
+[2025-11-06T14:06:51.256Z] [INFO   ] 2025-11-06T14:06:51.256Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-06T14:06:51.257Z] [INFO   ] 2025-11-06T14:06:51.257Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Tasks","hasToken":true}
+[2025-11-06T14:06:51.257Z] [INFO   ] 2025-11-06T14:06:51.257Z [DEBUG] 🔍 Fetching records from linked table: Tasks
+[2025-11-06T14:06:51.289Z] [INFO   ] 2025-11-06T14:06:51.288Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-06T14:06:51.289Z] [INFO   ] 2025-11-06T14:06:51.289Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Feedback","hasToken":true}
+[2025-11-06T14:06:51.289Z] [INFO   ] 2025-11-06T14:06:51.289Z [DEBUG] 🔍 Fetching records from linked table: Feedback
+[2025-11-06T14:06:52.413Z] [INFO   ] 2025-11-06T14:06:52.412Z [DEBUG] ✅ Fetched 5 records from linked table Projects
+[2025-11-06T14:06:52.413Z] [INFO   ] 2025-11-06T14:06:52.413Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-06T14:06:52.551Z] [INFO   ] 2025-11-06T14:06:52.551Z [DEBUG] ✅ Fetched 5 records from linked table Tasks
+[2025-11-06T14:06:52.552Z] [INFO   ] 2025-11-06T14:06:52.551Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-06T14:06:52.655Z] [INFO   ] 2025-11-06T14:06:52.655Z [DEBUG] ✅ Fetched 6 records from linked table Feedback
+[2025-11-06T14:06:52.656Z] [INFO   ] 2025-11-06T14:06:52.656Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":6}

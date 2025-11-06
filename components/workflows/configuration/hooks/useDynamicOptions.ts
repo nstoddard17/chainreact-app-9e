@@ -122,6 +122,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
   
   // Enhanced loading prevention with request deduplication
   const loadingFields = useRef<Set<string>>(new Set());
+  const loadingStartTimes = useRef<Map<string, number>>(new Map()); // Track when each field started loading
   const activeRequests = useRef<Map<string, Promise<void>>>(new Map());
   const abortControllers = useRef<Map<string, AbortController>>(new Map());
   const staleTimers = useRef<Map<string, any>>(new Map());
@@ -152,7 +153,8 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       dependsOn,
       dependsOnValue,
       forceRefresh,
-      silent
+      silent,
+      currentLoadingFields: Array.from(loadingFields.current)
     });
 
     if (!nodeType || !providerId) {
@@ -220,14 +222,31 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       }
     }
     
-    // Prevent duplicate calls for the same field (unless forcing refresh)
-    // But allow if it's been more than 1 second since the field started loading
-    const isStaleLoading = loadingFields.current.has(requestKey) &&
-      Date.now() - (loadingFields.current as any).getTime?.(requestKey) > 1000;
+    // Check if field is currently loading
+    if (!forceRefresh && loadingFields.current.has(requestKey)) {
+      const loadStartTime = loadingStartTimes.current.get(requestKey);
+      const loadDuration = loadStartTime ? Date.now() - loadStartTime : 0;
 
-    if (!forceRefresh && loadingFields.current.has(requestKey) && !isStaleLoading) {
-      console.log(`🔄 [useDynamicOptions] EARLY RETURN: Duplicate loading check for ${requestKey}`);
-      return;
+      logger.warn(`🔄 [useDynamicOptions] Field appears to be loading: ${requestKey}`, {
+        fieldName,
+        dependsOn,
+        dependsOnValue,
+        loadDuration,
+        loadingFields: Array.from(loadingFields.current)
+      });
+
+      // If it's been loading for more than 5 seconds, it's likely stuck - clear it
+      // Otherwise, this is probably a legitimate duplicate request - skip it
+      if (loadDuration > 5000 || !loadStartTime) {
+        logger.warn(`🧹 [useDynamicOptions] Clearing stuck loading state (${loadDuration}ms) for ${requestKey}`);
+        loadingFields.current.delete(requestKey);
+        loadingStartTimes.current.delete(requestKey);
+        setLoading(false);
+        // Continue with the load
+      } else {
+        logger.debug(`⏳ [useDynamicOptions] Skipping duplicate request (${loadDuration}ms old)`);
+        return;
+      }
     }
 
     // For authorFilter (Discord), only skip if we have data for the specific channel
@@ -302,6 +321,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       // Only set loading states if not in silent mode
       if (!silent) {
         loadingFields.current.add(requestKey);
+        loadingStartTimes.current.set(requestKey, Date.now()); // Track when loading started
         setLoading(true);
 
         // Enhanced logging for critical fields
@@ -336,9 +356,22 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
             discordIntegration = getIntegrationByProvider('discord');
           }
 
-          if (!discordIntegration || discordIntegration.status !== 'connected') {
+          // Be lenient with status - only reject explicitly bad statuses
+          if (!discordIntegration) {
+            logger.warn('⚠️ [DynamicOptions] Discord integration not found', {
+              fieldName,
+              providerId
+            });
+            setDynamicOptions(prev => ({
+              ...prev,
+              [fieldName]: []
+            }));
+            return;
+          }
+
+          // Only reject if explicitly disconnected or in error state
+          if (discordIntegration.status === 'disconnected' || discordIntegration.status === 'error') {
             logger.warn('⚠️ [DynamicOptions] Discord not connected', {
-              hasIntegration: !!discordIntegration,
               status: discordIntegration?.status,
               fieldName,
               providerId
@@ -348,6 +381,14 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
               [fieldName]: []
             }));
             return;
+          }
+
+          // Log warning for non-standard statuses but continue
+          if (discordIntegration.status !== 'connected' && discordIntegration.status !== 'active') {
+            logger.warn('⚠️ [DynamicOptions] Non-standard Discord status, continuing anyway:', {
+              status: discordIntegration.status,
+              fieldName
+            });
           }
 
           logger.debug('✅ [DynamicOptions] Loading Discord guilds', {
@@ -582,6 +623,26 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       integration = resolveResult.resolvedIntegration;
       lookupProviderId = resolveResult.resolvedLookupProviderId;
 
+      // Special logging for Discord commands field
+      if ((fieldName === 'command' && providerId === 'discord') || (providerId === 'discord' && !integration)) {
+        // Get all integrations from store to debug
+        const allIntegrations = useIntegrationStore.getState().integrations;
+        logger.debug('🐛 [useDynamicOptions] Discord integration debug:', {
+          fieldName,
+          providerId,
+          resourceType,
+          integrationFound: !!integration,
+          totalIntegrations: allIntegrations.length,
+          allProviderIds: allIntegrations.map(i => i.provider),
+          discordIntegrations: allIntegrations.filter(i => i.provider?.toLowerCase().includes('discord')),
+          lookupProviderId,
+          integrationStore: {
+            loading: useIntegrationStore.getState().loading,
+            lastFetchTime: useIntegrationStore.getState().lastFetchTime
+          }
+        });
+      }
+
       // Special logging for Trello template field
       if (fieldName === 'template' && providerId === 'trello') {
         logger.debug('🎯 [useDynamicOptions] Trello template field integration check:', {
@@ -619,6 +680,18 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
           const retryResult = resolveIntegration();
           integration = retryResult.resolvedIntegration;
           lookupProviderId = retryResult.resolvedLookupProviderId;
+
+          // Log retry result for Discord
+          if (providerId === 'discord') {
+            const allIntegrations = useIntegrationStore.getState().integrations;
+            logger.debug('🔁 [useDynamicOptions] Discord integration after retry:', {
+              fieldName,
+              integrationFound: !!integration,
+              integrationId: integration?.id,
+              totalIntegrations: allIntegrations.length,
+              allProviderIds: allIntegrations.map(i => i.provider)
+            });
+          }
         }
 
         if (!integration) {
@@ -1633,12 +1706,14 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       lastLoadedAt.current.set(requestKey, Date.now());
       
       // Clear loading state on successful completion
-      // For critical fields (authorFilter, Trello cards/lists), always clear the loading state when we have data
+      // For critical fields (authorFilter, Trello cards/lists, watchedTables), always clear the loading state when we have data
       if (fieldName === 'authorFilter' ||
           fieldName === 'cardId' ||
           fieldName === 'listId' ||
+          fieldName === 'watchedTables' ||
           resourceType === 'trello_cards' ||
-          resourceType === 'trello_lists') {
+          resourceType === 'trello_lists' ||
+          resourceType === 'airtable_tables') {
         logger.debug(`🧹 [useDynamicOptions] Clearing loading state for ${fieldName} (critical field)`);
         loadingFields.current.delete(requestKey);
         setLoading(false);

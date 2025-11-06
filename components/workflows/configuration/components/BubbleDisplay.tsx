@@ -3,6 +3,7 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 import { X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface BubbleSuggestion {
   value: any;
@@ -21,27 +22,19 @@ interface BubbleSuggestion {
 interface BubbleDisplayProps {
   fieldName: string;
   suggestions: BubbleSuggestion[];
-  activeBubbles: number | number[] | undefined;
-  isMultiple: boolean;
-  onBubbleClick: (index: number, suggestion: BubbleSuggestion) => void;
   onBubbleRemove: (index: number, suggestion: BubbleSuggestion) => void;
+  onClearAll?: () => void;
   onBubbleUndo?: (index: number, suggestion: BubbleSuggestion, originalValue: any) => void;
   originalValues?: Record<string, any>;
-  values?: Record<string, any>;
-  handleFieldChange?: (fieldName: string, value: any, skipBubbleCreation?: boolean) => void;
 }
 
 export function BubbleDisplay({
   fieldName,
   suggestions,
-  activeBubbles,
-  isMultiple,
-  onBubbleClick,
   onBubbleRemove,
+  onClearAll,
   onBubbleUndo,
-  originalValues = {},
-  values = {},
-  handleFieldChange
+  originalValues = {}
 }: BubbleDisplayProps) {
   if (!suggestions || suggestions.length === 0) {
     return null;
@@ -49,25 +42,33 @@ export function BubbleDisplay({
 
   return (
     <div className="mt-2 space-y-2">
+      {/* Header with Clear All button */}
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-gray-500">
+          {suggestions.length} {suggestions.length === 1 ? 'value' : 'values'}
+        </span>
+        {onClearAll && suggestions.length > 0 && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onClearAll}
+            className="h-6 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+          >
+            Clear all
+          </Button>
+        )}
+      </div>
+
+      {/* Bubbles */}
       <div className="flex flex-wrap gap-2">
         {suggestions.map((suggestion, idx) => {
-          // Check if this bubble is active
-          const isActive = Array.isArray(activeBubbles)
-            ? activeBubbles.includes(idx)
-            : activeBubbles === idx;
-
           // Render image bubble differently
           if (suggestion.isImage) {
             return (
               <div
                 key={`${fieldName}-suggestion-${idx}-${suggestion.value}`}
-                className={cn(
-                  "group relative rounded-md cursor-pointer transition-all",
-                  isActive
-                    ? "ring-2 ring-green-400 ring-offset-2"
-                    : "hover:ring-2 hover:ring-blue-400 hover:ring-offset-2"
-                )}
-                onClick={() => onBubbleClick(idx, suggestion)}
+                className="group relative rounded-md"
                 title={`${suggestion.filename || suggestion.label} ${
                   suggestion.size ? `(${(suggestion.size / 1024).toFixed(1)}KB)` : ''
                 }`}
@@ -114,45 +115,14 @@ export function BubbleDisplay({
             );
           }
 
-          // Regular text bubble
+          // Regular text bubble - simplified to single style
           return (
             <div
               key={`${fieldName}-suggestion-${idx}-${suggestion.value}`}
-              className={cn(
-                "group relative flex items-center gap-1 px-2 py-1 rounded-md cursor-pointer transition-colors",
-                isActive
-                  ? "bg-green-100 hover:bg-green-200 border border-green-300"
-                  : "bg-blue-50 hover:bg-blue-100 border border-blue-200"
-              )}
-              onClick={() => {
-                // Handle active bubble selection
-                if (isMultiple && handleFieldChange) {
-                  // For multi-value fields, handle the toggle here
-                  const currentValue = values[fieldName];
-                  const currentArray = Array.isArray(currentValue) ? currentValue : [];
-                  let newValue;
-
-                  if (currentArray.includes(suggestion.value)) {
-                    newValue = currentArray.filter(v => v !== suggestion.value);
-                  } else {
-                    newValue = [...currentArray, suggestion.value];
-                  }
-                  handleFieldChange(fieldName, newValue, true); // Skip bubble creation when clicking existing bubble
-                }
-                
-                // Also call the click handler for state management
-                onBubbleClick(idx, suggestion);
-              }}
-              title={`Click to ${isActive ? 'deselect' : 'select'}: ${suggestion.label}`}
+              className="group relative flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors"
             >
-              <span
-                className={cn(
-                  "text-sm flex items-center gap-1",
-                  isActive ? "text-green-700 font-medium" : "text-blue-700"
-                )}
-              >
+              <span className="text-sm text-blue-700">
                 {suggestion.label}
-                {isActive && " ✓"}
               </span>
 
               {/* Undo button for changed bubbles */}
@@ -179,9 +149,9 @@ export function BubbleDisplay({
                   e.stopPropagation();
                   onBubbleRemove(idx, suggestion);
                 }}
-                className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white rounded-full p-0.5 shadow-md hover:bg-white/90"
+                className="opacity-0 group-hover:opacity-100 transition-opacity"
               >
-                <X className="h-3 w-3 text-red-500 hover:text-red-700" />
+                <X className="h-3.5 w-3.5 text-gray-400 hover:text-red-600" />
               </button>
             </div>
           );

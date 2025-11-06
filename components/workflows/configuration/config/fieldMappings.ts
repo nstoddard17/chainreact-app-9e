@@ -52,6 +52,10 @@ const discordMappings: Record<string, FieldMapping> = {
   discord_trigger_member_join: {
     guildId: "discord_guilds",
   },
+  discord_trigger_slash_command: {
+    guildId: "discord_guilds",
+    command: "discord_commands",
+  },
   discord_action_send_message: {
     channelId: "discord_channels",
     guildId: "discord_guilds",

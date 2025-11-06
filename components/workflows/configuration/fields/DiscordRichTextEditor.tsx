@@ -782,7 +782,7 @@ export function DiscordRichTextEditor({
               checked={useEmbed}
               onCheckedChange={setUseEmbed}
             />
-            <Label htmlFor="use-embed" className="text-sm">
+            <Label htmlFor="use-embed" className="text-sm text-slate-200">
               Rich Embed
             </Label>
           </div>

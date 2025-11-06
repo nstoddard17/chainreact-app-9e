@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { ProfessionalSearch } from "@/components/ui/professional-search";
-import { RefreshCw, X } from "lucide-react";
+import { RefreshCw, X, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AirtableRecordsTableProps {
@@ -12,6 +12,7 @@ interface AirtableRecordsTableProps {
   onRefresh?: () => void;
   isPreview?: boolean;
   tableName?: string;
+  onRecordSelected?: () => void; // Callback after selection animation completes
 }
 
 export function AirtableRecordsTable({
@@ -21,10 +22,13 @@ export function AirtableRecordsTable({
   onSelectRecord,
   onRefresh,
   isPreview = false,
-  tableName = ''
+  tableName = '',
+  onRecordSelected
 }: AirtableRecordsTableProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [recordsPerPage, setRecordsPerPage] = useState(10);
+  const [justSelectedId, setJustSelectedId] = useState<string | null>(null);
+  const tableRef = useRef<HTMLDivElement>(null);
 
   // Filter records based on search query
   const filteredRecords = useMemo(() => {
@@ -58,6 +62,22 @@ export function AirtableRecordsTable({
     Object.keys(record.fields || {}).forEach(field => allFields.add(field));
   });
   const fieldNames = Array.from(allFields);
+
+  // Handle record selection with animation
+  const handleRecordClick = (record: any) => {
+    // Show success animation
+    setJustSelectedId(record.id);
+
+    // Call the parent's selection handler
+    onSelectRecord?.(record);
+
+    // Clear animation after it completes
+    setTimeout(() => {
+      setJustSelectedId(null);
+      // Notify parent that selection is complete (for scrolling)
+      onRecordSelected?.();
+    }, 2000); // Extended duration for better visibility
+  };
 
   if (loading) {
     return (
@@ -135,7 +155,7 @@ export function AirtableRecordsTable({
           {/* Search and controls */}
           <div className="flex items-center gap-2 flex-shrink-0">
             {/* Search Bar */}
-            <div className="w-40">
+            <div className="w-52">
               <ProfessionalSearch
                 placeholder="Search records..."
                 value={searchQuery}
@@ -188,16 +208,29 @@ export function AirtableRecordsTable({
               </tr>
             </thead>
           <tbody className="divide-y divide-gray-800">
-            {displayRecords.map((record, idx) => (
+            {displayRecords.map((record, idx) => {
+              const isJustSelected = justSelectedId === record.id;
+              const isSelected = selectedRecord?.id === record.id;
+
+              return (
               <tr
                 key={record.id}
                 className={cn(
-                  "hover:bg-gray-800 transition-colors cursor-pointer",
+                  "hover:bg-gray-800 transition-all cursor-pointer relative",
                   idx % 2 === 0 ? "bg-gray-900" : "bg-gray-850",
-                  selectedRecord?.id === record.id && "bg-blue-900 bg-opacity-30 hover:bg-blue-900 hover:bg-opacity-40"
+                  isSelected && "bg-blue-900 bg-opacity-30 hover:bg-blue-900 hover:bg-opacity-40",
+                  isJustSelected && "animate-pulse bg-green-600 bg-opacity-40"
                 )}
-                onClick={() => onSelectRecord?.(record)}
+                onClick={() => handleRecordClick(record)}
               >
+                {/* Success checkmark indicator */}
+                {isJustSelected && (
+                  <td className="absolute inset-0 flex items-center justify-center pointer-events-none bg-green-500 bg-opacity-20">
+                    <div className="bg-green-500 rounded-full p-2 animate-bounce">
+                      <Check className="h-6 w-6 text-white" />
+                    </div>
+                  </td>
+                )}
                 <td className="px-4 py-3 text-sm text-blue-400 whitespace-nowrap">
                   <span title={record.id}>
                     {record.id}
@@ -250,7 +283,8 @@ export function AirtableRecordsTable({
                   );
                 })}
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

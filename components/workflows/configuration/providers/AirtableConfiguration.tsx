@@ -997,6 +997,24 @@ export function AirtableConfiguration({
     }
   }, [isCreateRecord, isUpdateRecord, values.tableName, values.baseId, fetchAirtableTableSchema, loadAirtableRecords]);
 
+  // Helper function to get a proper string label from any value
+  const getLabelFromValue = useCallback((val: any): string => {
+    // Handle attachment objects
+    if (val && typeof val === 'object' && (val.url || val.filename)) {
+      return val.filename || val.url || 'Attachment';
+    }
+    // Handle arrays
+    if (Array.isArray(val)) {
+      return val.map(v => getLabelFromValue(v)).join(', ');
+    }
+    // Handle null/undefined
+    if (val === null || val === undefined) {
+      return '';
+    }
+    // Convert to string
+    return String(val);
+  }, []);
+
   // Handle field changes with bubble creation
   const handleFieldChange = useCallback((fieldName: string, value: any, skipBubbleCreation = false) => {
     // First, set the actual field value
@@ -1006,19 +1024,19 @@ export function AirtableConfiguration({
     if (fieldName.startsWith('airtable_field_') && !skipBubbleCreation && value) {
       const field = dynamicFields.find(f => f.name === fieldName);
       if (!field) return;
-      
+
       // Handle multi-select fields
       if (field.airtableFieldType === 'multipleSelects' || field.type === 'multi_select') {
         // For multi-select, value might be an array or a single value to add
         const valuesToAdd = Array.isArray(value) ? value : [value];
-        
+
         valuesToAdd.forEach(val => {
           // Check if bubble already exists
           const exists = fieldSuggestions[fieldName]?.some(s => s.value === val);
           if (!exists) {
             const newBubble = {
               value: val,
-              label: val,
+              label: getLabelFromValue(val),
               fieldName: field.name
             };
             
@@ -1046,7 +1064,7 @@ export function AirtableConfiguration({
         // For single select, replace existing bubble
         const newBubble = {
           value: value,
-          label: value,
+          label: getLabelFromValue(value),
           fieldName: field.name
         };
         
@@ -1139,7 +1157,7 @@ export function AirtableConfiguration({
         setValue(fieldName, null);
       }
     }
-  }, [dynamicFields, fieldSuggestions, setValue]);
+  }, [dynamicFields, fieldSuggestions, setValue, getLabelFromValue]);
   
   // Track loaded linked fields to avoid reloading
   const [loadedLinkedFields, setLoadedLinkedFields] = useState<Set<string>>(new Set());
@@ -1735,55 +1753,38 @@ export function AirtableConfiguration({
             <BubbleDisplay
               fieldName={actualFieldName}
               suggestions={suggestions}
-              activeBubbles={active}
-            isMultiple={field.airtableFieldType === 'multipleSelects' || field.type === 'multi_select' || field.multiple}
-              onBubbleClick={(idx, suggestion) => {
-                // Toggle active state
-                if (field.airtableFieldType === 'multipleSelects' || field.type === 'multi_select' || field.multiple) {
-                  setActiveBubbles(prev => {
-                    const current = Array.isArray(prev[actualFieldName]) ? prev[actualFieldName] as number[] : [];
-                    if (current.includes(idx)) {
-                      return {
-                        ...prev,
-                        [actualFieldName]: current.filter(i => i !== idx)
-                      };
-                    } 
-                      return {
-                        ...prev,
-                        [actualFieldName]: [...current, idx]
-                      };
-                    
-                  });
-                } else {
-                  setActiveBubbles(prev => ({
-                    ...prev,
-                    [actualFieldName]: prev[actualFieldName] === idx ? undefined : idx
-                  }));
-                }
-              }}
               onBubbleRemove={(idx) => {
+                // Get the value being removed
+                const suggestionBeingRemoved = suggestions[idx];
+
+                // Update the actual field value
+                const currentFieldValue = values[actualFieldName];
+                if (Array.isArray(currentFieldValue)) {
+                  // Multi-select: remove the value from the array
+                  const newFieldValue = currentFieldValue.filter(v => v !== suggestionBeingRemoved.value);
+                  setValue(actualFieldName, newFieldValue);
+                } else if (currentFieldValue === suggestionBeingRemoved.value) {
+                  // Single-select: clear the value
+                  setValue(actualFieldName, null);
+                }
+
+                // Update visual bubble list
                 setFieldSuggestions(prev => ({
                   ...prev,
                   [actualFieldName]: prev[actualFieldName].filter((_: any, i: number) => i !== idx)
                 }));
-              
-                // Clear active bubble if this was it
-                if (Array.isArray(active)) {
-                  setActiveBubbles(prev => ({
-                    ...prev,
-                    [actualFieldName]: (prev[actualFieldName] as number[]).filter(i => i !== idx)
-                  }));
-                } else if (active === idx) {
-                  setActiveBubbles(prev => {
-                    const newBubbles = { ...prev };
-                    delete newBubbles[actualFieldName];
-                    return newBubbles;
-                  });
-                }
+              }}
+              onClearAll={() => {
+                // Clear all bubbles for this field
+                setFieldSuggestions(prev => {
+                  const { [actualFieldName]: _, ...rest } = prev;
+                  return rest;
+                });
+
+                // Clear the field value
+                setValue(actualFieldName, null);
               }}
               originalValues={originalBubbleValues}
-              values={values}
-              handleFieldChange={(fieldName, value) => setValue(fieldName, value)}
             />
           );
         })()}
@@ -2109,13 +2110,25 @@ export function AirtableConfiguration({
                   }
                 }}
                   onRefresh={() => loadAirtableRecords(values.baseId, values.tableName)}
+                  onRecordSelected={() => {
+                    // Wait for selection animation to complete (2000ms + 50ms buffer)
+                    setTimeout(() => {
+                      const fieldsSection = document.querySelector('[data-dynamic-fields]');
+                      if (fieldsSection) {
+                        fieldsSection.scrollIntoView({
+                          behavior: 'smooth',
+                          block: 'nearest' // Only scroll if not already visible
+                        });
+                      }
+                    }, 2050);
+                  }}
                 />
               </div>
             )}
             
             {/* Dynamic fields for create/update */}
             {(isCreateRecord || (isUpdateRecord && selectedRecord)) && dynamicFields.length > 0 && (
-              <div className="space-y-3">
+              <div className="space-y-3" data-dynamic-fields>
                 <div className="mt-6 border-t border-slate-200 pt-4">
                   <h3 className="text-sm font-semibold text-slate-700 mb-1">Table Fields</h3>
                   <p className="text-xs text-slate-500 mb-4">Configure the values for each field in the {values.tableName} table</p>
