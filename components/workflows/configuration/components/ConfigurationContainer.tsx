@@ -2,7 +2,6 @@
 
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { ChevronLeft } from "lucide-react";
 
 import { logger } from '@/lib/utils/logger'
 
@@ -63,17 +62,7 @@ export function ConfigurationContainer({
       {/* Footer */}
       {showFooter && (
         <div className="border-t border-border px-6 py-4">
-          <div className="flex justify-between items-center">
-            {/* Back button on the left */}
-            <div>
-              {onBack && (
-                <Button type="button" variant="outline" onClick={onBack}>
-                  <ChevronLeft className="mr-2 h-4 w-4" />
-                  Back
-                </Button>
-              )}
-            </div>
-
+          <div className="flex justify-end items-center">
             {/* Save button on the right */}
             <div>
               <Button

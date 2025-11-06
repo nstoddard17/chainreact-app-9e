@@ -1,17 +1,20 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { ProfessionalSearch } from "@/components/ui/professional-search";
-import { RefreshCw, X, Check } from "lucide-react";
+import { RefreshCw, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AirtableRecordsTableProps {
   records: any[];
   loading: boolean;
   selectedRecord?: any;
+  selectedRecords?: any[]; // For multi-select mode
   onSelectRecord?: (record: any) => void;
+  onSelectRecords?: (records: any[]) => void; // For multi-select mode
   onRefresh?: () => void;
   isPreview?: boolean;
   tableName?: string;
+  multiSelect?: boolean; // Enable multi-select mode
   onRecordSelected?: () => void; // Callback after selection animation completes
 }
 
@@ -19,15 +22,18 @@ export function AirtableRecordsTable({
   records,
   loading,
   selectedRecord,
+  selectedRecords,
   onSelectRecord,
+  onSelectRecords,
   onRefresh,
   isPreview = false,
   tableName = '',
+  multiSelect = false,
   onRecordSelected
 }: AirtableRecordsTableProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [recordsPerPage, setRecordsPerPage] = useState(10);
-  const [justSelectedId, setJustSelectedId] = useState<string | null>(null);
+  const [recordsPerPage, setRecordsPerPage] = useState(20);
+  const [showAll, setShowAll] = useState(false);
   const tableRef = useRef<HTMLDivElement>(null);
 
   // Filter records based on search query
@@ -50,11 +56,14 @@ export function AirtableRecordsTable({
     });
   }, [records, searchQuery]);
 
-  // Get records to display based on recordsPerPage setting
+  // Get records to display based on showAll state
   const displayRecords = useMemo(() => {
-    if (recordsPerPage === -1) return filteredRecords;
+    if (showAll) return filteredRecords;
     return filteredRecords.slice(0, recordsPerPage);
-  }, [filteredRecords, recordsPerPage]);
+  }, [filteredRecords, recordsPerPage, showAll]);
+
+  // Determine if we should show the "Show All" button
+  const shouldShowToggle = filteredRecords.length > recordsPerPage && filteredRecords.length <= 50;
 
   // Get all unique field names from ALL records (not just displayed ones)
   const allFields = new Set<string>();
@@ -63,20 +72,30 @@ export function AirtableRecordsTable({
   });
   const fieldNames = Array.from(allFields);
 
-  // Handle record selection with animation
+  // Handle record selection
   const handleRecordClick = (record: any) => {
-    // Show success animation
-    setJustSelectedId(record.id);
+    if (multiSelect && onSelectRecords) {
+      // Multi-select mode: toggle record selection
+      const currentSelected = selectedRecords || [];
+      const isSelected = currentSelected.some(r => r.id === record.id);
 
-    // Call the parent's selection handler
-    onSelectRecord?.(record);
-
-    // Clear animation after it completes
-    setTimeout(() => {
-      setJustSelectedId(null);
-      // Notify parent that selection is complete (for scrolling)
+      if (isSelected) {
+        // Deselect: remove from array
+        const newSelected = currentSelected.filter(r => r.id !== record.id);
+        onSelectRecords(newSelected);
+      } else {
+        // Select: add to array (max 10 records for Airtable API limit)
+        if (currentSelected.length < 10) {
+          const newSelected = [...currentSelected, record];
+          onSelectRecords(newSelected);
+        }
+      }
+      // No auto-scroll for multi-select mode
+    } else {
+      // Single select mode (existing behavior)
+      onSelectRecord?.(record);
       onRecordSelected?.();
-    }, 2000); // Extended duration for better visibility
+    }
   };
 
   if (loading) {
@@ -145,10 +164,13 @@ export function AirtableRecordsTable({
           {/* Title and subtitle */}
           <div className="min-w-0">
             <h3 className="text-white font-medium">
-              {isPreview ? 'Preview Data' : `Select Record: ${tableName || 'Records'}`}
+              {isPreview ? 'Preview Data' : `Select Record${multiSelect ? 's' : ''}: ${tableName || 'Records'}`}
             </h3>
             <p className="text-gray-400 text-sm mt-0.5">
-              {filteredRecords.length} record{filteredRecords.length !== 1 ? 's' : ''} • Click to select
+              {showAll || displayRecords.length === filteredRecords.length
+                ? `${filteredRecords.length} record${filteredRecords.length !== 1 ? 's' : ''}`
+                : `Showing ${displayRecords.length} of ${filteredRecords.length} records`}
+              {multiSelect ? ' • Click to select (max 10)' : ' • Click to select'}
             </p>
           </div>
 
@@ -165,29 +187,31 @@ export function AirtableRecordsTable({
               />
             </div>
 
-            {/* Records per page selector */}
-            <select
-              value={recordsPerPage}
-              onChange={(e) => setRecordsPerPage(Number(e.target.value))}
-              className="px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value={5}>Show 5</option>
-              <option value={10}>Show 10</option>
-              <option value={20}>Show 20</option>
-              <option value={50}>Show 50</option>
-              <option value={100}>Show 100</option>
-              <option value={-1}>Show All</option>
-            </select>
+            {/* Show All toggle button (only for tables with 21-50 records) */}
+            {shouldShowToggle && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAll(!showAll)}
+                className="h-8 px-3 text-xs bg-gray-800 border-gray-600 hover:bg-gray-700 text-gray-200"
+              >
+                {showAll ? `Show First ${recordsPerPage}` : `Show All ${filteredRecords.length}`}
+              </Button>
+            )}
 
-            {/* Close button (if in modal context) */}
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="text-gray-400 hover:text-white p-1"
-            >
-              <X className="h-5 w-5" />
-            </Button>
+            {/* Refresh button */}
+            {onRefresh && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={onRefresh}
+                className="text-gray-400 hover:text-white p-1"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -209,28 +233,20 @@ export function AirtableRecordsTable({
             </thead>
           <tbody className="divide-y divide-gray-800">
             {displayRecords.map((record, idx) => {
-              const isJustSelected = justSelectedId === record.id;
-              const isSelected = selectedRecord?.id === record.id;
+              const isSelected = multiSelect
+                ? (selectedRecords || []).some(r => r.id === record.id)
+                : selectedRecord?.id === record.id;
 
               return (
               <tr
                 key={record.id}
                 className={cn(
-                  "hover:bg-gray-800 transition-all cursor-pointer relative",
+                  "hover:bg-gray-800 transition-all cursor-pointer",
                   idx % 2 === 0 ? "bg-gray-900" : "bg-gray-850",
-                  isSelected && "bg-blue-900 bg-opacity-30 hover:bg-blue-900 hover:bg-opacity-40",
-                  isJustSelected && "animate-pulse bg-green-600 bg-opacity-40"
+                  isSelected && "bg-green-600 bg-opacity-40 hover:bg-green-600 hover:bg-opacity-50 border-l-4 border-green-500"
                 )}
                 onClick={() => handleRecordClick(record)}
               >
-                {/* Success checkmark indicator */}
-                {isJustSelected && (
-                  <td className="absolute inset-0 flex items-center justify-center pointer-events-none bg-green-500 bg-opacity-20">
-                    <div className="bg-green-500 rounded-full p-2 animate-bounce">
-                      <Check className="h-6 w-6 text-white" />
-                    </div>
-                  </td>
-                )}
                 <td className="px-4 py-3 text-sm text-blue-400 whitespace-nowrap">
                   <span title={record.id}>
                     {record.id}

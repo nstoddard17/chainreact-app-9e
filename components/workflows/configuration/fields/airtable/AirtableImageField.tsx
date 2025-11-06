@@ -28,7 +28,7 @@ export function AirtableImageField({
   aiFields,
   setAiFields,
 }: AirtableImageFieldProps) {
-  const [showPreview, setShowPreview] = useState(false);
+  const [showPreview, setShowPreview] = useState(true);
   const [uploadingFile, setUploadingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 

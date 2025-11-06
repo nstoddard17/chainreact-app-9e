@@ -24,7 +24,9 @@ import { DiscordRichTextEditor } from "./DiscordRichTextEditor";
 // import { DiscordRichTextEditor } from "./DiscordRichTextEditorOptimized";
 import { GmailLabelManager } from "./GmailLabelManager";
 import { GmailLabelSelector } from "./GmailLabelSelector";
+import { SlashCommandManager } from "./SlashCommandManager";
 import { useAuthStore } from "@/stores/authStore";
+import { useIntegrationStore } from "@/stores/integrationStore";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -211,6 +213,9 @@ export function FieldRenderer({
   // State for Improve Prompt button
   const [isImprovingPrompt, setIsImprovingPrompt] = useState(false);
   const { toast } = useToast();
+
+  // Get integration store (must be at top level due to Rules of Hooks)
+  const { getIntegrationByProvider } = useIntegrationStore();
 
   // State for Connect mode - check if value is already a connected variable
   const isConnectedValue = (val: any) => {
@@ -467,6 +472,63 @@ export function FieldRenderer({
 
   // Render the appropriate field based on type
   const renderFieldByType = () => {
+    // Special handling for Discord slash command trigger
+    // Hide all fields except guildId until a server is selected
+    if (nodeInfo?.type === 'discord_trigger_slash_command') {
+      // Always show the guildId field
+      if (field.name === 'guildId') {
+        // Let it render normally via the switch statement below
+      } else {
+        // For all other fields, check if guildId is selected
+        const hasGuildId = parentValues?.guildId;
+
+        if (!hasGuildId) {
+          // Hide all other fields until guildId is selected
+          return null;
+        }
+
+        // For the "command" field, render the full SlashCommandManager
+        if (field.name === 'command') {
+          // Get Discord integration (getIntegrationByProvider is from top-level hook)
+          const discordIntegration = getIntegrationByProvider('discord');
+
+          if (!discordIntegration) {
+            return (
+              <div className="text-sm text-muted-foreground">
+                Discord integration not found. Please connect Discord first.
+              </div>
+            );
+          }
+
+          return (
+            <SlashCommandManager
+              guildId={parentValues.guildId}
+              commandName={value || ''}
+              commandDescription={parentValues?.commandDescription || ''}
+              commandOptions={parentValues?.commandOptions || []}
+              onCommandNameChange={onChange}
+              onDescriptionChange={(desc: string) => {
+                if (setFieldValue) {
+                  setFieldValue('commandDescription', desc);
+                }
+              }}
+              onOptionsChange={(opts: any[]) => {
+                if (setFieldValue) {
+                  setFieldValue('commandOptions', opts);
+                }
+              }}
+              integrationId={discordIntegration.id}
+            />
+          );
+        }
+
+        // Hide commandDescription and commandOptions fields - they're handled by SlashCommandManager
+        if (field.name === 'commandDescription' || field.name === 'commandOptions') {
+          return null;
+        }
+      }
+    }
+
     switch (field.type) {
       case "file-with-toggle":
         // File field with integrated multi-option toggle
@@ -1136,10 +1198,12 @@ export function FieldRenderer({
           : fieldOptions;
 
         // Determine if we should show empty state
+        // For creatable fields (like Discord slash commands), always show the combobox so users can type custom values
         const shouldShowEmptyState = field.dynamic &&
                                       comboboxOptions.length === 0 &&
                                       !loadingDynamic &&
-                                      !value;
+                                      !value &&
+                                      !field.creatable; // Don't show empty state for creatable fields
 
         // Determine empty state type based on field context
         const getEmptyStateType = (): React.ComponentProps<typeof EmptyStateCard>['type'] => {
@@ -1159,9 +1223,15 @@ export function FieldRenderer({
         };
 
         // Check if this is an integration field and get provider name for better messaging
-        const isIntegrationField = field.dynamic && typeof field.dynamic === 'string';
         const providerName = nodeInfo?.providerId || integrationProvider || 'the integration';
         const providerDisplayName = providerName.charAt(0).toUpperCase() + providerName.slice(1).replace(/-/g, ' ');
+
+        // Check if integration is actually connected (getIntegrationByProvider is from top-level hook)
+        const integration = providerName !== 'the integration' ? getIntegrationByProvider(providerName) : null;
+        const isIntegrationConnected = integration?.status === 'connected' || integration?.status === 'active';
+
+        // Only treat as "integration not connected" if it's a dynamic field AND integration is NOT connected
+        const isIntegrationField = field.dynamic && typeof field.dynamic === 'string' && !isIntegrationConnected;
 
         return (
           <div className="space-y-2">
@@ -1897,6 +1967,25 @@ export function FieldRenderer({
 
   // Render the field content
   const fieldContent = renderFieldByType();
+
+  // Special handling for Discord slash command trigger - hide entire field (including label)
+  // until guildId is selected
+  if (nodeInfo?.type === 'discord_trigger_slash_command') {
+    // Always show guildId field
+    if (field.name !== 'guildId') {
+      // Check if guildId is selected
+      const hasGuildId = parentValues?.guildId;
+      if (!hasGuildId) {
+        // Hide entire field including label
+        return null;
+      }
+    }
+  }
+
+  // If fieldContent is null (field was hidden), don't render anything
+  if (fieldContent === null) {
+    return null;
+  }
 
   // New inline label design - no cards, grid layout
   // Only exclude label for button-toggle and boolean (which have inline labels), and fields with hideLabel flag

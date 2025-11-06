@@ -864,12 +864,16 @@ export function DiscordRichTextEditor({
         {isPreviewMode ? (
           <div className="discord-preview bg-gray-800 text-white rounded-lg p-4 min-h-[200px]">
             <div className="flex items-start gap-3">
-              <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-medium">
-                B
+              <div className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden bg-white">
+                <img
+                  src="/logo.png"
+                  alt="ChainReact-Bot"
+                  className="w-full h-full object-contain"
+                />
               </div>
               <div className="flex-1">
                 <div className="flex items-baseline gap-2 mb-1">
-                  <span className="font-medium text-white">Bot</span>
+                  <span className="font-medium text-white">ChainReact-Bot</span>
                   <span className="text-xs text-gray-400">Today at 12:00 PM</span>
                 </div>
                 {internalValue && (
