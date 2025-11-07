@@ -188,10 +188,8 @@ export function Combobox({
   // We need to handle the input within the Command component separately
   const handleCommandInputChange = (search: string) => {
     setInputValue(search);
-    // Don't call onChange here for creatable comboboxes - only when item is selected/created
-    if (!creatable) {
-      onChange(search);
-    }
+    // Don't call onChange during typing - only when an item is actually selected
+    // This prevents dependent fields from appearing while user is still typing
   }
 
   // Handle Enter key for creatable
@@ -385,7 +383,7 @@ export function Combobox({
                   disabled={option.disabled}
                   className={cn(
                     option.disabled ? "opacity-50 pointer-events-none cursor-not-allowed" : "",
-                    value === option.value && "bg-accent"
+                    value === option.value && "bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100 data-[selected=true]:bg-blue-100 data-[selected=true]:dark:bg-blue-900/30 data-[selected=true]:text-blue-900 data-[selected=true]:dark:text-blue-100"
                   )}
                 >
                   <div className="flex flex-col">
@@ -952,7 +950,7 @@ export function HierarchicalCombobox({
                               onSelect={handleSelect}
                               className={cn(
                                 "pl-8",
-                                value === email.value && "bg-accent"
+                                value === email.value && "bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100 data-[selected=true]:bg-blue-100 data-[selected=true]:dark:bg-blue-900/30 data-[selected=true]:text-blue-900 data-[selected=true]:dark:text-blue-100"
                               )}
                             >
                               <div className="flex flex-col">
@@ -974,7 +972,7 @@ export function HierarchicalCombobox({
                     value={option.value}
                     onSelect={handleSelect}
                     className={cn(
-                      value === option.value && "bg-accent"
+                      value === option.value && "bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100 data-[selected=true]:bg-blue-100 data-[selected=true]:dark:bg-blue-900/30 data-[selected=true]:text-blue-900 data-[selected=true]:dark:text-blue-100"
                     )}
                   >
                     <div className="flex flex-col">
