@@ -3,7 +3,7 @@ import { NodeComponent } from "../../../types"
 export const findRecordActionSchema: NodeComponent = {
   type: "airtable_action_find_record",
   title: "Find Record",
-  description: "Find a single record matching search criteria",
+  description: "Find record(s) matching search criteria",
   icon: "Search" as any,
   isTrigger: false,
   providerId: "airtable",
@@ -12,10 +12,12 @@ export const findRecordActionSchema: NodeComponent = {
   category: "Productivity",
   producesOutput: true,
   outputSchema: [
-    { name: "recordId", label: "Record ID", type: "string", description: "The ID of the found record" },
-    { name: "fields", label: "Fields", type: "object", description: "All field values of the record" },
+    { name: "recordId", label: "Record ID", type: "string", description: "The ID of the found record (or first record if multiple)" },
+    { name: "fields", label: "Fields", type: "object", description: "All field values of the record (or first record if multiple)" },
     { name: "createdTime", label: "Created Time", type: "string", description: "When the record was created" },
-    { name: "found", label: "Found", type: "boolean", description: "Whether a matching record was found" }
+    { name: "found", label: "Found", type: "boolean", description: "Whether matching record(s) were found" },
+    { name: "matchCount", label: "Match Count", type: "number", description: "Number of records that matched" },
+    { name: "records", label: "All Records", type: "array", description: "Array of all matching records (when 'Return all matches' is selected)" }
   ],
   configSchema: [
     {
@@ -112,10 +114,11 @@ export const findRecordActionSchema: NodeComponent = {
       options: [
         { value: "first", label: "Return first match" },
         { value: "newest", label: "Return newest (by created time)" },
-        { value: "oldest", label: "Return oldest (by created time)" }
+        { value: "oldest", label: "Return oldest (by created time)" },
+        { value: "all", label: "Return all matches" }
       ],
       defaultValue: "first",
-      description: "Which record to return if multiple match",
+      description: "Which record(s) to return if multiple match",
       dependsOn: "tableName"
     }
   ]

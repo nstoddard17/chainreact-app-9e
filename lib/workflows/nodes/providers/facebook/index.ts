@@ -187,21 +187,71 @@ const facebookActionCreatePost: NodeComponent = {
     { name: "pageId", label: "Select Facebook Page", type: "select", dynamic: true, required: true, placeholder: "Choose which page to post to", loadOnMount: true, description: "The Facebook page where your content will be published" },
 
     // Main content fields - only visible after page selection
-    { name: "message", label: "Post Message", type: "textarea", required: true, placeholder: "What's on your mind?", dependsOn: "pageId", hidden: true, description: "The main text content of your Facebook post" },
-    { name: "mediaFile", label: "Attach Photo or Video", type: "file", required: false, accept: "image/*,video/*", maxSize: 10485760, dependsOn: "pageId", hidden: true, description: "Add visual content to make your post more engaging (Max 10MB)" },
+    { name: "message", label: "Post Message", type: "textarea", required: true, placeholder: "What's on your mind?", dependsOn: "pageId", description: "The main text content of your Facebook post" },
 
-    // Schedule options
-    { name: "scheduledPublishTime", label: "Schedule for Later", type: "datetime-local", required: false, placeholder: "Leave empty to post immediately", dependsOn: "pageId", hidden: true, description: "Schedule your post for the optimal time when your audience is most active" },
+    // Link sharing fields
+    { name: "link", label: "Link URL", type: "text", required: false, placeholder: "https://example.com", dependsOn: "pageId", description: "Share a link with automatic preview card. Facebook will extract metadata from the URL." },
+    { name: "linkName", label: "Link Title (Optional)", type: "text", required: false, placeholder: "Custom title for link preview", dependsOn: "pageId", visibilityCondition: { field: "link", operator: "isNotEmpty" }, description: "Override the automatic title. Leave empty to use the page's Open Graph title." },
+    { name: "linkDescription", label: "Link Description (Optional)", type: "textarea", required: false, placeholder: "Custom description for link preview", dependsOn: "pageId", visibilityCondition: { field: "link", operator: "isNotEmpty" }, description: "Override the automatic description. Leave empty to use the page's Open Graph description." },
+
+    // Media options
+    { name: "mediaFile", label: "Attach Photo or Video", type: "file", required: false, accept: "image/*,video/*", maxSize: 10485760, dependsOn: "pageId", description: "Upload visual content to make your post more engaging (Max 10MB)" },
+    { name: "photoUrl", label: "Photo URL (Alternative to Upload)", type: "text", required: false, placeholder: "https://example.com/image.jpg", dependsOn: "pageId", description: "Provide a direct URL to an image instead of uploading. Cannot be used with video or file upload." },
+
+    // Publishing options
+    { name: "published", label: "Publish Status", type: "select", required: false, defaultValue: "true", dependsOn: "pageId", options: [
+      { value: "true", label: "Publish immediately" },
+      { value: "false", label: "Save as draft" }
+    ], description: "Choose whether to publish the post immediately or save it as an unpublished draft" },
+    { name: "scheduledPublishTime", label: "Schedule for Later", type: "datetime-local", required: false, placeholder: "Leave empty to post immediately", dependsOn: "pageId", visibilityCondition: { field: "published", operator: "equals", value: "true" }, description: "Schedule your post for the optimal time when your audience is most active" },
+
+    // Audience targeting
+    { name: "targeting", label: "🎯 Audience Targeting", type: "boolean", required: false, defaultValue: false, dependsOn: "pageId", description: "Enable targeting options to show your post to specific audiences" },
+    { name: "targetLocales", label: "Target Languages", type: "multi-select", required: false, placeholder: "Select languages", dependsOn: "pageId", visibilityCondition: { field: "targeting", operator: "equals", value: true }, options: [
+      { value: "en_US", label: "English (US)" },
+      { value: "en_GB", label: "English (UK)" },
+      { value: "es_ES", label: "Spanish (Spain)" },
+      { value: "es_LA", label: "Spanish (Latin America)" },
+      { value: "fr_FR", label: "French" },
+      { value: "de_DE", label: "German" },
+      { value: "it_IT", label: "Italian" },
+      { value: "pt_BR", label: "Portuguese (Brazil)" },
+      { value: "ja_JP", label: "Japanese" },
+      { value: "ko_KR", label: "Korean" },
+      { value: "zh_CN", label: "Chinese (Simplified)" },
+      { value: "zh_TW", label: "Chinese (Traditional)" }
+    ], description: "Show this post only to people who speak these languages" },
+    { name: "targetCountries", label: "Target Countries", type: "multi-select", required: false, placeholder: "Select countries", dependsOn: "pageId", visibilityCondition: { field: "targeting", operator: "equals", value: true }, options: [
+      { value: "US", label: "United States" },
+      { value: "GB", label: "United Kingdom" },
+      { value: "CA", label: "Canada" },
+      { value: "AU", label: "Australia" },
+      { value: "DE", label: "Germany" },
+      { value: "FR", label: "France" },
+      { value: "ES", label: "Spain" },
+      { value: "IT", label: "Italy" },
+      { value: "BR", label: "Brazil" },
+      { value: "MX", label: "Mexico" },
+      { value: "JP", label: "Japan" },
+      { value: "IN", label: "India" }
+    ], description: "Show this post only to people in these countries" },
+    { name: "targetAgeMin", label: "Minimum Age", type: "select", required: false, defaultValue: "13", dependsOn: "pageId", visibilityCondition: { field: "targeting", operator: "equals", value: true }, options: [
+      { value: "13", label: "13+" },
+      { value: "17", label: "17+" },
+      { value: "18", label: "18+" },
+      { value: "19", label: "19+" },
+      { value: "21", label: "21+" }
+    ], description: "Minimum age for viewers (per Facebook policy, only specific values allowed)" },
 
     // Share to groups - Note: Facebook API has limited group access
-    { name: "shareToGroups", label: "Cross-post to Groups", type: "multi-select", dynamic: true, required: false, placeholder: "Select groups where you're an admin", description: "Share your post to multiple Facebook groups simultaneously (Limited to groups where you have admin access)", dependsOn: "pageId", hidden: true },
+    { name: "shareToGroups", label: "Cross-post to Groups", type: "multi-select", dynamic: true, required: false, placeholder: "Select groups where you're an admin", description: "Share your post to multiple Facebook groups simultaneously (Limited to groups where you have admin access)", dependsOn: "pageId" },
 
     // Monetization section with clear descriptions
-    { name: "enableMonetization", label: "💰 Enable Monetization Features", type: "boolean", required: false, defaultValue: false, dependsOn: "pageId", hidden: true, description: "Turn on advanced monetization options to add product links, promo codes, and partnership disclosures to your post" },
-    { name: "productLinkUrl", label: "Product Link", type: "text", required: true, placeholder: "https://example.com/product", dependsOn: "pageId", visibilityCondition: { field: "enableMonetization", operator: "equals", value: true }, hidden: true, description: "The URL where users can purchase or learn more about your product" },
-    { name: "productLinkName", label: "Call-to-Action Text", type: "text", required: false, placeholder: "e.g., 'Shop Now' or 'Learn More'", dependsOn: "pageId", visibilityCondition: { field: "enableMonetization", operator: "equals", value: true }, hidden: true, description: "Custom text for your product link button (optional)" },
-    { name: "productPromoCode", label: "Discount Code", type: "text", required: false, placeholder: "e.g., SAVE20", dependsOn: "pageId", visibilityCondition: { field: "enableMonetization", operator: "equals", value: true }, hidden: true, description: "Share an exclusive promo code with your audience (optional)" },
-    { name: "paidPartnershipLabel", label: "🤝 Paid Partnership Disclosure", type: "boolean", required: false, defaultValue: false, dependsOn: "pageId", visibilityCondition: { field: "enableMonetization", operator: "equals", value: true }, hidden: true, description: "Add a 'Paid partnership' label to comply with advertising disclosure requirements" }
+    { name: "enableMonetization", label: "💰 Enable Monetization Features", type: "boolean", required: false, defaultValue: false, dependsOn: "pageId", description: "Turn on advanced monetization options to add product links, promo codes, and partnership disclosures to your post" },
+    { name: "productLinkUrl", label: "Product Link", type: "text", required: true, placeholder: "https://example.com/product", dependsOn: "pageId", visibilityCondition: { field: "enableMonetization", operator: "equals", value: true }, description: "The URL where users can purchase or learn more about your product" },
+    { name: "productLinkName", label: "Call-to-Action Text", type: "text", required: false, placeholder: "e.g., 'Shop Now' or 'Learn More'", dependsOn: "pageId", visibilityCondition: { field: "enableMonetization", operator: "equals", value: true }, description: "Custom text for your product link button (optional)" },
+    { name: "productPromoCode", label: "Discount Code", type: "text", required: false, placeholder: "e.g., SAVE20", dependsOn: "pageId", visibilityCondition: { field: "enableMonetization", operator: "equals", value: true }, description: "Share an exclusive promo code with your audience (optional)" },
+    { name: "paidPartnershipLabel", label: "🤝 Paid Partnership Disclosure", type: "boolean", required: false, defaultValue: false, dependsOn: "pageId", visibilityCondition: { field: "enableMonetization", operator: "equals", value: true }, description: "Add a 'Paid partnership' label to comply with advertising disclosure requirements" }
   ],
   outputSchema: [
     {

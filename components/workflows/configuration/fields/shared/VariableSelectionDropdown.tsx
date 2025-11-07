@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select"
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 
 interface VariableSelectionDropdownProps {
   workflowData: { nodes: any[]; edges: any[] }
@@ -86,6 +87,22 @@ export function VariableSelectionDropdown({
 
   // Check if any upstream nodes have variables
   const hasAnyVariables = upstreamNodes.some(node => node.outputSchema.length > 0)
+  const hasContent = upstreamNodes.length > 0 && hasAnyVariables
+
+  // If no variables, show message directly in the trigger
+  if (upstreamNodes.length === 0 || !hasAnyVariables) {
+    const emptyMessage = upstreamNodes.length === 0
+      ? "No upstream nodes found. Connect nodes to this one to see available data."
+      : "No variables available. The connected nodes don't output any data."
+
+    return (
+      <div className="relative">
+        <div className="h-9 w-full flex items-center rounded-md border border-input bg-white dark:bg-background px-3 py-2 text-sm text-muted-foreground">
+          {emptyMessage}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <Select
@@ -99,23 +116,8 @@ export function VariableSelectionDropdown({
         </SelectValue>
       </SelectTrigger>
       <SelectContent position="popper" className="w-full">
-        {upstreamNodes.length === 0 ? (
-          <SelectItem value="__empty__" disabled className="text-center justify-center opacity-100">
-            <div className="py-2 text-sm text-muted-foreground">
-              No upstream nodes found.<br />
-              Connect nodes to this one to see available data.
-            </div>
-          </SelectItem>
-        ) : !hasAnyVariables ? (
-          <SelectItem value="__no_variables__" disabled className="text-center justify-center opacity-100">
-            <div className="py-2 text-sm text-muted-foreground">
-              No variables available.<br />
-              The connected nodes don't output any data.
-            </div>
-          </SelectItem>
-        ) : (
-          <>
-            {upstreamNodes.map((node, nodeIndex) => (
+        <>
+          {upstreamNodes.map((node, nodeIndex) => (
               <React.Fragment key={node.id}>
                 {nodeIndex > 0 && <SelectSeparator />}
                 <SelectGroup>
@@ -148,8 +150,7 @@ export function VariableSelectionDropdown({
                 </SelectGroup>
               </React.Fragment>
             ))}
-          </>
-        )}
+        </>
       </SelectContent>
     </Select>
   )

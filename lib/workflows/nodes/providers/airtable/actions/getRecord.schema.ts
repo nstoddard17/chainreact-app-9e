@@ -43,7 +43,8 @@ export const getRecordActionSchema: NodeComponent = {
       placeholder: "{{trigger.recordId}} or rec123abc",
       supportsAI: true,
       description: "The ID of the record to retrieve",
-      tooltip: "Airtable record IDs start with 'rec' followed by alphanumeric characters."
+      tooltip: "Airtable record IDs start with 'rec' followed by alphanumeric characters.",
+      dependsOn: "tableName"
     }
   ]
 }

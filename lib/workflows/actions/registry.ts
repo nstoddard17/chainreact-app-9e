@@ -56,6 +56,8 @@ import {
   createAirtableRecord,
   updateAirtableRecord,
   listAirtableRecords,
+  findAirtableRecord,
+  deleteAirtableRecord,
 } from './airtable'
 
 // Monday.com actions
@@ -423,6 +425,10 @@ export const actionHandlerRegistry: Record<string, Function> = {
     updateAirtableRecord(params.config, params.userId, params.input),
   "airtable_action_list_records": (params: { config: any; userId: string; input: Record<string, any> }) =>
     listAirtableRecords(params.config, params.userId, params.input),
+  "airtable_action_find_record": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    findAirtableRecord(params.config, params.userId, params.input),
+  "airtable_action_delete_record": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    deleteAirtableRecord(params.config, params.userId, params.input),
 
   // Monday.com actions - wrapped to handle new calling convention
   "monday_action_create_item": (params: { config: any; userId: string; input: Record<string, any> }) =>
