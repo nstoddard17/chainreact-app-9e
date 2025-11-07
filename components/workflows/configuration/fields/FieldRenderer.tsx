@@ -227,7 +227,8 @@ const shouldUseConnectMode = (field: ConfigField | NodeField) => {
     'to', 'from', 'email', 'cc', 'bcc',
     'status', 'priority', 'assignee',
     'repository', 'label', 'milestone',
-    'repo', 'branch', 'tag'
+    'repo', 'branch', 'tag',
+    'schedule', 'scheduled', 'datetime', 'timestamp'
   ]
   if (simpleFields.some(sf => fieldName.includes(sf) || fieldLabel.includes(sf))) {
     return true
@@ -990,7 +991,38 @@ export function FieldRenderer({
             />
           );
         }
-        
+
+        // Special handling for Airtable file uploads (field name is uploadedFile)
+        if (integrationProvider === 'airtable' && field.name === 'uploadedFile') {
+          // Custom onChange that auto-populates the filename field
+          const handleFileUpload = (files: FileList | File[]) => {
+            onChange(files);
+
+            // Auto-populate filename field with the uploaded file's name
+            if (files && files.length > 0) {
+              const uploadedFile = files[0];
+              const fileName = uploadedFile instanceof File ? uploadedFile.name : (uploadedFile as any).name;
+
+              if (fileName && setFieldValue) {
+                logger.debug('[FieldRenderer] Auto-populating filename field:', fileName);
+                setFieldValue('filename', fileName);
+              }
+            }
+          };
+
+          return (
+            <FileUpload
+              value={value}
+              onChange={handleFileUpload}
+              accept="*/*"
+              placeholder={field.placeholder || "Choose files to upload..."}
+              disabled={field.disabled}
+              maxFiles={1}
+              multiple={false}
+            />
+          );
+        }
+
         // Special handling for Google Drive file uploads
         if (integrationProvider === 'google-drive' && 
             (field.name === 'uploadedFiles' || field.name === 'fileUrl' || field.name === 'fileFromNode')) {
@@ -1348,7 +1380,7 @@ export function FieldRenderer({
                   searchPlaceholder={`Search ${field.label || field.name}...`}
                   emptyPlaceholder={loadingDynamic ? "Loading options..." : getComboboxEmptyMessage(field)}
                   disabled={false} // Don't disable during loading so dropdown can stay open
-                  creatable={field.creatable || false}
+                  creatable={field.dynamic ? false : (field.creatable || false)} // Never allow creating new options for dynamic fields (they load from existing data)
                     onOpenChange={(open) => {
                       // Only trigger load on actual open (not close)
                       if (!open) return;
@@ -1807,45 +1839,63 @@ export function FieldRenderer({
           return '';
         }, [value, isVariableDateTime]);
 
+        // Check if this field should use connect mode
+        const useConnectMode = shouldUseConnectMode(field);
+
         return (
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <Input
-                type={isVariableDateTime ? "text" : "datetime-local"}
-                value={isVariableDateTime ? rawDateTime : datetimeValue}
-                onChange={(e) => {
-                  const newValue = e.target.value;
-                  if (isVariableDateTime || e.target.type === "text") {
-                    onChange(newValue);
-                    return;
-                  }
+              {/* Show variable dropdown if in connect mode */}
+              {useConnectMode && isConnectedMode ? (
+                <VariableSelectionDropdown
+                  workflowData={workflowData}
+                  currentNodeId={currentNodeId}
+                  currentNodeType={nodeInfo?.type}
+                  onVariableSelect={(variable) => onChange(variable)}
+                  value={value}
+                  className="flex-1"
+                />
+              ) : (
+                <Input
+                  type={isVariableDateTime ? "text" : "datetime-local"}
+                  value={isVariableDateTime ? rawDateTime : datetimeValue}
+                  onChange={(e) => {
+                    const newValue = e.target.value;
+                    if (isVariableDateTime || e.target.type === "text") {
+                      onChange(newValue);
+                      return;
+                    }
 
-                  if (newValue) {
-                    const date = new Date(newValue);
-                    onChange(date.toISOString());
-                  } else {
-                    onChange('');
-                  }
-                }}
-                min={field.min}
-                max={field.max}
-                className={cn(
-                  "w-full",
-                  error && "border-red-500"
-                )}
-                placeholder={field.placeholder || "Select date & time or insert variable"}
-              />
-              <SimpleVariablePicker
-                workflowData={workflowData}
-                currentNodeId={currentNodeId}
-                currentNodeType={nodeInfo?.type}
-                onVariableSelect={(variable) => onChange(variable)}
-              />
+                    if (newValue) {
+                      const date = new Date(newValue);
+                      onChange(date.toISOString());
+                    } else {
+                      onChange('');
+                    }
+                  }}
+                  min={field.min}
+                  max={field.max}
+                  className={cn(
+                    "w-full",
+                    error && "border-red-500"
+                  )}
+                  placeholder={field.placeholder || "Select date & time or insert variable"}
+                />
+              )}
+              {/* Show old variable picker if NOT using connect mode */}
+              {!useConnectMode && (
+                <SimpleVariablePicker
+                  workflowData={workflowData}
+                  currentNodeId={currentNodeId}
+                  currentNodeType={nodeInfo?.type}
+                  onVariableSelect={(variable) => onChange(variable)}
+                />
+              )}
             </div>
             {field.description && (
               <p className="text-sm text-muted-foreground">{field.description}</p>
             )}
-            {isVariableDateTime && (
+            {isVariableDateTime && !useConnectMode && (
               <p className="text-xs text-muted-foreground">
                 Variable value will be resolved at runtime.
               </p>

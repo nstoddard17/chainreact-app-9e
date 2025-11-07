@@ -58,6 +58,8 @@ import {
   listAirtableRecords,
   findAirtableRecord,
   deleteAirtableRecord,
+  addAirtableAttachment,
+  duplicateAirtableRecord,
 } from './airtable'
 
 // Monday.com actions
@@ -189,6 +191,10 @@ import {
   getFacebookPageInsights,
   sendFacebookMessage,
   commentOnFacebookPost,
+  deleteFacebookPost,
+  updateFacebookPost,
+  uploadFacebookPhoto,
+  uploadFacebookVideo,
 } from './facebook'
 
 // Twitter actions - now imported from the new module
@@ -429,6 +435,10 @@ export const actionHandlerRegistry: Record<string, Function> = {
     findAirtableRecord(params.config, params.userId, params.input),
   "airtable_action_delete_record": (params: { config: any; userId: string; input: Record<string, any> }) =>
     deleteAirtableRecord(params.config, params.userId, params.input),
+  "airtable_action_add_attachment": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    addAirtableAttachment(params.config, params.userId, params.input),
+  "airtable_action_duplicate_record": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    duplicateAirtableRecord(params.config, params.userId, params.input),
 
   // Monday.com actions - wrapped to handle new calling convention
   "monday_action_create_item": (params: { config: any; userId: string; input: Record<string, any> }) =>
@@ -620,6 +630,14 @@ export const actionHandlerRegistry: Record<string, Function> = {
     sendFacebookMessage(params.config, params.userId, params.input),
   "facebook_action_comment_on_post": (params: { config: any; userId: string; input: Record<string, any> }) =>
     commentOnFacebookPost(params.config, params.userId, params.input),
+  "facebook_action_delete_post": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    deleteFacebookPost(params.config, params.userId, params.input),
+  "facebook_action_update_post": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    updateFacebookPost(params.config, params.userId, params.input),
+  "facebook_action_upload_photo": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    uploadFacebookPhoto(params.config, params.userId, params.input),
+  "facebook_action_upload_video": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    uploadFacebookVideo(params.config, params.userId, params.input),
 
   // Dropbox actions - wrapped to handle new calling convention
   "dropbox_action_upload_file": (params: { config: any; userId: string; input: Record<string, any> }) =>

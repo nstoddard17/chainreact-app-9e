@@ -4,7 +4,11 @@ import {
   MessageSquare,
   Share,
   BarChart,
-  MessageCircle
+  MessageCircle,
+  Trash2,
+  Edit,
+  Image,
+  Video
 } from "lucide-react"
 
 // Facebook Triggers
@@ -203,7 +207,7 @@ const facebookActionCreatePost: NodeComponent = {
       { value: "true", label: "Publish immediately" },
       { value: "false", label: "Save as draft" }
     ], description: "Choose whether to publish the post immediately or save it as an unpublished draft" },
-    { name: "scheduledPublishTime", label: "Schedule for Later", type: "datetime-local", required: false, placeholder: "Leave empty to post immediately", dependsOn: "pageId", visibilityCondition: { field: "published", operator: "equals", value: "true" }, description: "Schedule your post for the optimal time when your audience is most active" },
+    { name: "scheduledPublishTime", label: "Schedule for Later", type: "datetime-local", required: false, placeholder: "Leave empty to post immediately", dependsOn: "pageId", description: "Schedule your post for the optimal time when your audience is most active" },
 
     // Audience targeting
     { name: "targeting", label: "🎯 Audience Targeting", type: "boolean", required: false, defaultValue: false, dependsOn: "pageId", description: "Enable targeting options to show your post to specific audiences" },
@@ -307,7 +311,7 @@ const facebookActionGetPageInsights: NodeComponent = {
     { name: "pageId", label: "Page", type: "select", dynamic: true, required: true, placeholder: "Select a Facebook page", loadOnMount: true },
     
     // Metric selection - only visible after page selection
-    { name: "metric", label: "Metric", type: "select", required: true, defaultValue: "page_impressions", dependsOn: "pageId", hidden: true, options: [
+    { name: "metric", label: "Metric", type: "select", required: true, defaultValue: "page_impressions", dependsOn: "pageId", options: [
       // Engagement Metrics
       { value: "page_engaged_users", label: "📊 Engaged Users" },
       { value: "page_post_engagements", label: "📊 Post Engagements" },
@@ -376,7 +380,7 @@ const facebookActionGetPageInsights: NodeComponent = {
     ]},
     
     // Time period settings - visible after page selection
-    { name: "period", label: "Period", type: "select", required: true, defaultValue: "day", dependsOn: "pageId", hidden: true, options: [
+    { name: "period", label: "Period", type: "select", required: true, defaultValue: "day", dependsOn: "pageId", options: [
       { value: "day", label: "Daily" },
       { value: "week", label: "Weekly" },
       { value: "days_28", label: "28 Days" },
@@ -385,7 +389,7 @@ const facebookActionGetPageInsights: NodeComponent = {
     ]},
     
     // Date range for custom period
-    { name: "dateRange", label: "Date Range", type: "select", required: false, defaultValue: "last_7_days", dependsOn: "pageId", hidden: true, options: [
+    { name: "dateRange", label: "Date Range", type: "select", required: false, defaultValue: "last_7_days", dependsOn: "pageId", options: [
       { value: "today", label: "Today" },
       { value: "yesterday", label: "Yesterday" },
       { value: "last_7_days", label: "Last 7 Days" },
@@ -399,8 +403,8 @@ const facebookActionGetPageInsights: NodeComponent = {
     ]},
     
     // Custom date range (only shown when dateRange is "custom")
-    { name: "since", label: "Start Date", type: "date", required: false, dependsOn: "pageId", visibilityCondition: { field: "dateRange", operator: "equals", value: "custom" }, hidden: true },
-    { name: "until", label: "End Date", type: "date", required: false, dependsOn: "pageId", visibilityCondition: { field: "dateRange", operator: "equals", value: "custom" }, hidden: true }
+    { name: "since", label: "Start Date", type: "date", required: false, dependsOn: "pageId", visibilityCondition: { field: "dateRange", operator: "equals", value: "custom" } },
+    { name: "until", label: "End Date", type: "date", required: false, dependsOn: "pageId", visibilityCondition: { field: "dateRange", operator: "equals", value: "custom" } }
   ],
   outputSchema: [
     {
@@ -447,11 +451,11 @@ const facebookActionSendMessage: NodeComponent = {
   isTrigger: false,
   comingSoon: true,
   configSchema: [
-    { name: "pageId", label: "Page", type: "select", dynamic: true, required: true, placeholder: "Select a Facebook page", uiTab: "basic" },
-    { name: "recipientId", label: "Message", type: "select", dynamic: "facebook_conversations", required: true, placeholder: "Select a conversation", uiTab: "basic", dependsOn: "pageId" },
-    { name: "message", label: "Message", type: "textarea", required: true, placeholder: "Enter your message", uiTab: "basic" },
-    { name: "quickReplies", label: "Quick Reply Options", type: "textarea", required: false, placeholder: "Enter quick reply options (one per line)", uiTab: "advanced" },
-    { name: "typingIndicator", label: "Show Typing Indicator", type: "boolean", required: false, defaultValue: true, uiTab: "advanced" }
+    { name: "pageId", label: "Page", type: "select", dynamic: true, required: true, placeholder: "Select a Facebook page", loadOnMount: true },
+    { name: "recipientId", label: "Conversation", type: "select", dynamic: "facebook_conversations", required: true, placeholder: "Select a conversation", dependsOn: "pageId", description: "Choose the conversation thread to send the message to" },
+    { name: "message", label: "Message", type: "textarea", required: true, placeholder: "Enter your message", dependsOn: "pageId", description: "The text content of your message" },
+    { name: "quickReplies", label: "Quick Reply Options", type: "textarea", required: false, placeholder: "Enter quick reply options (one per line)", dependsOn: "pageId", description: "Add quick reply buttons for common responses (optional)" },
+    { name: "typingIndicator", label: "Show Typing Indicator", type: "boolean", required: false, defaultValue: true, dependsOn: "pageId", description: "Show typing indicator before sending to make interaction feel more natural" }
   ],
   outputSchema: [
     {
@@ -492,15 +496,15 @@ const facebookActionCommentOnPost: NodeComponent = {
   isTrigger: false,
   comingSoon: true,
   configSchema: [
-    { name: "pageId", label: "Page", type: "select", dynamic: true, required: true, placeholder: "Select a Facebook page", uiTab: "basic" },
-    { name: "postId", label: "Post", type: "select", dynamic: "facebook_posts", required: true, placeholder: "Select a post", uiTab: "basic", dependsOn: "pageId" },
-    { name: "comment", label: "Comment", type: "textarea", required: true, placeholder: "Enter your comment", uiTab: "basic" },
-    { name: "attachmentUrl", label: "Attachment URL", type: "text", required: false, placeholder: "URL to attach to the comment", uiTab: "advanced" },
-    { name: "attachmentType", label: "Attachment Type", type: "select", required: false, options: [
+    { name: "pageId", label: "Page", type: "select", dynamic: true, required: true, placeholder: "Select a Facebook page", loadOnMount: true, description: "The Facebook page where the post is located" },
+    { name: "postId", label: "Post", type: "select", dynamic: "facebook_posts", required: true, placeholder: "Select a post", dependsOn: "pageId", description: "Choose which post to comment on" },
+    { name: "comment", label: "Comment", type: "textarea", required: true, placeholder: "Enter your comment", dependsOn: "pageId", description: "The text content of your comment" },
+    { name: "attachmentUrl", label: "Attachment URL (Optional)", type: "text", required: false, placeholder: "https://example.com/image.jpg", dependsOn: "pageId", description: "Add a photo, video, or link to your comment" },
+    { name: "attachmentType", label: "Attachment Type", type: "select", required: false, dependsOn: "pageId", visibilityCondition: { field: "attachmentUrl", operator: "isNotEmpty" }, options: [
       { value: "photo", label: "Photo" },
       { value: "video", label: "Video" },
       { value: "link", label: "Link" }
-    ], uiTab: "advanced" }
+    ], description: "Specify what type of content you're attaching" }
   ],
   outputSchema: [
     {
@@ -536,15 +540,375 @@ const facebookActionCommentOnPost: NodeComponent = {
   ]
 }
 
+const facebookActionDeletePost: NodeComponent = {
+  type: "facebook_action_delete_post",
+  title: "Delete Post",
+  description: "Permanently delete a post from a Facebook page",
+  icon: Trash2,
+  providerId: "facebook",
+  requiredScopes: ["pages_manage_posts"],
+  category: "Social",
+  isTrigger: false,
+  configSchema: [
+    { name: "pageId", label: "Facebook Page", type: "select", dynamic: true, required: true, placeholder: "Select a Facebook page", loadOnMount: true, description: "The Facebook page where the post is located" },
+    { name: "postId", label: "Post to Delete", type: "combobox", dynamic: "facebook_posts", required: true, placeholder: "Select a post to delete", dependsOn: "pageId", description: "Choose which post to permanently delete. This action cannot be undone." }
+  ],
+  outputSchema: [
+    {
+      name: "success",
+      label: "Success",
+      type: "boolean",
+      description: "Whether the post was successfully deleted"
+    },
+    {
+      name: "postId",
+      label: "Deleted Post ID",
+      type: "string",
+      description: "ID of the post that was deleted"
+    },
+    {
+      name: "deletedAt",
+      label: "Deleted At",
+      type: "string",
+      description: "ISO timestamp when the post was deleted"
+    }
+  ]
+}
+
+const facebookActionUpdatePost: NodeComponent = {
+  type: "facebook_action_update_post",
+  title: "Update Post",
+  description: "Update the message and settings of an existing Facebook post",
+  icon: Edit,
+  providerId: "facebook",
+  requiredScopes: ["pages_manage_posts"],
+  category: "Social",
+  isTrigger: false,
+  configSchema: [
+    { name: "pageId", label: "Facebook Page", type: "select", dynamic: true, required: true, placeholder: "Select a Facebook page", loadOnMount: true, description: "The Facebook page where the post is located" },
+    { name: "postId", label: "Post to Update", type: "combobox", dynamic: "facebook_posts", required: true, placeholder: "Select a post to update", dependsOn: "pageId", description: "Choose which post to update" },
+
+    // Content update
+    { name: "message", label: "New Message", type: "textarea", required: false, placeholder: "Enter the updated post message", dependsOn: "pageId", description: "The new text content for the post. Leave empty to keep existing message." },
+
+    // Publishing options
+    { name: "published", label: "Publishing Status", type: "select", required: false, dependsOn: "pageId", options: [
+      { value: "unchanged", label: "Keep current status" },
+      { value: "true", label: "Publish now" },
+      { value: "false", label: "Unpublish (save as draft)" }
+    ], defaultValue: "unchanged", description: "Change the publishing status of the post" },
+    { name: "scheduledPublishTime", label: "Reschedule Post", type: "datetime-local", required: false, placeholder: "Leave empty to keep current schedule", dependsOn: "pageId", description: "Update the scheduled publish time for this post" },
+
+    // Tags
+    { name: "tags", label: "Post Tags", type: "text", required: false, placeholder: "Comma-separated page IDs or usernames", dependsOn: "pageId", description: "Update who is tagged in this post (comma-separated)" },
+
+    // Targeting - Make audience restrictions editable
+    { name: "updateTargeting", label: "Update Audience Targeting", type: "boolean", required: false, defaultValue: false, dependsOn: "pageId", description: "Enable to modify audience targeting for this post" },
+    { name: "targetCountries", label: "Target Countries", type: "multi-select", required: false, placeholder: "Select countries", dependsOn: "pageId", visibilityCondition: { field: "updateTargeting", operator: "equals", value: true }, options: [
+      { value: "US", label: "United States" },
+      { value: "GB", label: "United Kingdom" },
+      { value: "CA", label: "Canada" },
+      { value: "AU", label: "Australia" },
+      { value: "DE", label: "Germany" },
+      { value: "FR", label: "France" },
+      { value: "ES", label: "Spain" },
+      { value: "IT", label: "Italy" },
+      { value: "BR", label: "Brazil" },
+      { value: "MX", label: "Mexico" },
+      { value: "JP", label: "Japan" },
+      { value: "IN", label: "India" }
+    ], description: "Update which countries can see this post" },
+    { name: "targetLocales", label: "Target Languages", type: "multi-select", required: false, placeholder: "Select languages", dependsOn: "pageId", visibilityCondition: { field: "updateTargeting", operator: "equals", value: true }, options: [
+      { value: "en_US", label: "English (US)" },
+      { value: "en_GB", label: "English (UK)" },
+      { value: "es_ES", label: "Spanish (Spain)" },
+      { value: "es_LA", label: "Spanish (Latin America)" },
+      { value: "fr_FR", label: "French" },
+      { value: "de_DE", label: "German" },
+      { value: "it_IT", label: "Italian" },
+      { value: "pt_BR", label: "Portuguese (Brazil)" },
+      { value: "ja_JP", label: "Japanese" },
+      { value: "ko_KR", label: "Korean" },
+      { value: "zh_CN", label: "Chinese (Simplified)" },
+      { value: "zh_TW", label: "Chinese (Traditional)" }
+    ], description: "Update which languages can see this post" },
+    { name: "targetAgeMin", label: "Minimum Age", type: "select", required: false, dependsOn: "pageId", visibilityCondition: { field: "updateTargeting", operator: "equals", value: true }, options: [
+      { value: "13", label: "13+" },
+      { value: "17", label: "17+" },
+      { value: "18", label: "18+" },
+      { value: "19", label: "19+" },
+      { value: "21", label: "21+" }
+    ], description: "Update minimum age for viewers" }
+  ],
+  outputSchema: [
+    {
+      name: "success",
+      label: "Success",
+      type: "boolean",
+      description: "Whether the post was successfully updated"
+    },
+    {
+      name: "postId",
+      label: "Post ID",
+      type: "string",
+      description: "ID of the updated post"
+    },
+    {
+      name: "message",
+      label: "Updated Message",
+      type: "string",
+      description: "The new message content"
+    },
+    {
+      name: "updatedAt",
+      label: "Updated At",
+      type: "string",
+      description: "ISO timestamp when the post was updated"
+    }
+  ]
+}
+
+const facebookActionUploadPhoto: NodeComponent = {
+  type: "facebook_action_upload_photo",
+  title: "Upload Photo",
+  description: "Upload a photo to a Facebook page with optional posting",
+  icon: Image,
+  providerId: "facebook",
+  requiredScopes: ["pages_manage_posts"],
+  category: "Social",
+  isTrigger: false,
+  configSchema: [
+    { name: "pageId", label: "Facebook Page", type: "select", dynamic: true, required: true, placeholder: "Select a Facebook page", loadOnMount: true, description: "The Facebook page to upload the photo to" },
+
+    // Photo source
+    { name: "photoSource", label: "Photo Source", type: "select", required: true, defaultValue: "upload", dependsOn: "pageId", options: [
+      { value: "upload", label: "Upload from file" },
+      { value: "url", label: "Photo URL" }
+    ], description: "Choose whether to upload a file or provide a URL" },
+    { name: "photoFile", label: "Photo File", type: "file", required: false, accept: "image/*", maxSize: 10485760, dependsOn: "pageId", visibilityCondition: { field: "photoSource", operator: "equals", value: "upload" }, description: "Upload an image file (Max 10MB)" },
+    { name: "photoUrl", label: "Photo URL", type: "text", required: false, placeholder: "https://example.com/image.jpg", dependsOn: "pageId", visibilityCondition: { field: "photoSource", operator: "equals", value: "url" }, description: "Direct URL to the image to upload" },
+
+    // Caption and content
+    { name: "caption", label: "Caption (Optional)", type: "textarea", required: false, placeholder: "Add a caption to your photo", dependsOn: "pageId", description: "Text to accompany the photo" },
+
+    // Posting options
+    { name: "noStory", label: "Upload Without Posting", type: "boolean", required: false, defaultValue: false, dependsOn: "pageId", description: "Upload to page album without creating a post (useful for later use)" },
+    { name: "published", label: "Publish Status", type: "select", required: false, defaultValue: "true", dependsOn: "pageId", visibilityCondition: { field: "noStory", operator: "equals", value: false }, options: [
+      { value: "true", label: "Publish immediately" },
+      { value: "false", label: "Save as draft" }
+    ], description: "Choose whether to publish immediately or save as draft" },
+    { name: "scheduledPublishTime", label: "Schedule for Later", type: "datetime-local", required: false, placeholder: "Leave empty to post immediately", dependsOn: "pageId", visibilityCondition: { field: "noStory", operator: "equals", value: false }, description: "Schedule your photo post for optimal engagement time" },
+
+    // Album selection
+    { name: "targetAlbum", label: "Upload to Specific Album", type: "combobox", required: false, placeholder: "Select an album or leave empty for Timeline Photos", dependsOn: "pageId", dynamic: "facebook_albums", dynamicDependsOn: "pageId", description: "Choose which album to upload the photo to (leave empty for Timeline Photos)" },
+
+    // Audience targeting
+    { name: "targeting", label: "🎯 Audience Targeting", type: "boolean", required: false, defaultValue: false, dependsOn: "pageId", visibilityCondition: { field: "noStory", operator: "equals", value: false }, description: "Enable targeting options to show your photo to specific audiences" },
+    { name: "targetCountries", label: "Target Countries", type: "multi-select", required: false, placeholder: "Select countries", dependsOn: "pageId", visibilityCondition: { field: "targeting", operator: "equals", value: true }, options: [
+      { value: "US", label: "United States" },
+      { value: "GB", label: "United Kingdom" },
+      { value: "CA", label: "Canada" },
+      { value: "AU", label: "Australia" },
+      { value: "DE", label: "Germany" },
+      { value: "FR", label: "France" },
+      { value: "ES", label: "Spain" },
+      { value: "IT", label: "Italy" },
+      { value: "BR", label: "Brazil" },
+      { value: "MX", label: "Mexico" },
+      { value: "JP", label: "Japan" },
+      { value: "IN", label: "India" }
+    ], description: "Show this photo only to people in these countries" },
+    { name: "targetLocales", label: "Target Languages", type: "multi-select", required: false, placeholder: "Select languages", dependsOn: "pageId", visibilityCondition: { field: "targeting", operator: "equals", value: true }, options: [
+      { value: "en_US", label: "English (US)" },
+      { value: "en_GB", label: "English (UK)" },
+      { value: "es_ES", label: "Spanish (Spain)" },
+      { value: "es_LA", label: "Spanish (Latin America)" },
+      { value: "fr_FR", label: "French" },
+      { value: "de_DE", label: "German" },
+      { value: "it_IT", label: "Italian" },
+      { value: "pt_BR", label: "Portuguese (Brazil)" },
+      { value: "ja_JP", label: "Japanese" },
+      { value: "ko_KR", label: "Korean" },
+      { value: "zh_CN", label: "Chinese (Simplified)" },
+      { value: "zh_TW", label: "Chinese (Traditional)" }
+    ], description: "Show this photo only to people who speak these languages" },
+
+    // Alt text for accessibility
+    { name: "altText", label: "Alt Text (Accessibility)", type: "text", required: false, placeholder: "Describe the photo for screen readers", dependsOn: "pageId", description: "Alternative text describing the photo for visually impaired users" }
+  ],
+  outputSchema: [
+    {
+      name: "photoId",
+      label: "Photo ID",
+      type: "string",
+      description: "Unique identifier for the uploaded photo"
+    },
+    {
+      name: "postId",
+      label: "Post ID",
+      type: "string",
+      description: "ID of the post containing the photo"
+    },
+    {
+      name: "permalink",
+      label: "Photo URL",
+      type: "string",
+      description: "Direct URL to view the photo on Facebook"
+    },
+    {
+      name: "createdTime",
+      label: "Created Time",
+      type: "string",
+      description: "ISO timestamp when the photo was uploaded"
+    }
+  ]
+}
+
+const facebookActionUploadVideo: NodeComponent = {
+  type: "facebook_action_upload_video",
+  title: "Upload Video",
+  description: "Upload a video to a Facebook page with comprehensive options",
+  icon: Video,
+  providerId: "facebook",
+  requiredScopes: ["pages_manage_posts"],
+  category: "Social",
+  isTrigger: false,
+  configSchema: [
+    { name: "pageId", label: "Facebook Page", type: "select", dynamic: true, required: true, placeholder: "Select a Facebook page", loadOnMount: true, description: "The Facebook page to upload the video to" },
+
+    // Video source
+    { name: "videoSource", label: "Video Source", type: "select", required: true, dependsOn: "pageId", options: [
+      { value: "upload", label: "Upload from file" },
+      { value: "url", label: "Video URL" }
+    ], description: "Choose whether to upload a file or provide a URL" },
+    { name: "videoFile", label: "Video File", type: "file", required: false, accept: "video/*", maxSize: 104857600, dependsOn: "pageId", visibilityCondition: { field: "videoSource", operator: "equals", value: "upload" }, description: "Upload a video file (Max 100MB)" },
+    { name: "videoUrl", label: "Video URL", type: "text", required: false, placeholder: "https://example.com/video.mp4", dependsOn: "pageId", visibilityCondition: { field: "videoSource", operator: "equals", value: "url" }, description: "Direct URL to the video to upload" },
+
+    // Video metadata
+    { name: "title", label: "Video Title", type: "text", required: false, placeholder: "Enter video title", dependsOn: "pageId", description: "Title for the video (recommended for better discoverability)" },
+    { name: "description", label: "Description", type: "textarea", required: false, placeholder: "Add a description to your video", dependsOn: "pageId", description: "Text to accompany the video post" },
+
+    // Thumbnail
+    { name: "customThumbnail", label: "Custom Thumbnail URL", type: "text", required: false, placeholder: "https://example.com/thumbnail.jpg", dependsOn: "pageId", description: "Upload custom thumbnail image for your video (optional)" },
+
+    // Publishing options
+    { name: "published", label: "Publish Status", type: "select", required: false, defaultValue: "true", dependsOn: "pageId", options: [
+      { value: "true", label: "Publish immediately" },
+      { value: "false", label: "Save as draft" }
+    ], description: "Choose whether to publish immediately or save as draft" },
+    { name: "scheduledPublishTime", label: "Schedule for Later", type: "datetime-local", required: false, placeholder: "Leave empty to post immediately", dependsOn: "pageId", description: "Schedule your video post for optimal viewing time" },
+
+    // Video settings
+    { name: "embeddable", label: "Allow Video Embedding", type: "boolean", required: false, defaultValue: true, dependsOn: "pageId", description: "Allow others to embed this video on their websites" },
+    { name: "allowSocialSharing", label: "Allow Social Sharing", type: "boolean", required: false, defaultValue: true, dependsOn: "pageId", description: "Allow viewers to share this video" },
+
+    // Captions & accessibility
+    { name: "captionsFile", label: "Captions File URL (SRT)", type: "text", required: false, placeholder: "https://example.com/captions.srt", dependsOn: "pageId", description: "Upload captions/subtitles file for accessibility (SRT format)" },
+
+    // Content classification
+    { name: "contentCategory", label: "Content Category", type: "select", required: false, dependsOn: "pageId", options: [
+      { value: "OTHER", label: "Other" },
+      { value: "BEAUTY_FASHION", label: "Beauty & Fashion" },
+      { value: "BUSINESS", label: "Business" },
+      { value: "CARS_TRUCKS", label: "Cars & Trucks" },
+      { value: "COMEDY", label: "Comedy" },
+      { value: "CUTE_ANIMALS", label: "Cute Animals" },
+      { value: "ENTERTAINMENT", label: "Entertainment" },
+      { value: "FAMILY", label: "Family" },
+      { value: "FOOD_HEALTH", label: "Food & Health" },
+      { value: "HOME", label: "Home" },
+      { value: "LIFESTYLE", label: "Lifestyle" },
+      { value: "MUSIC", label: "Music" },
+      { value: "NEWS", label: "News" },
+      { value: "POLITICS", label: "Politics" },
+      { value: "SCIENCE", label: "Science" },
+      { value: "SPORTS", label: "Sports" },
+      { value: "TECHNOLOGY", label: "Technology" },
+      { value: "VIDEO_GAMING", label: "Video Gaming" }
+    ], description: "Categorize your video for better discovery" },
+
+    // Audience targeting
+    { name: "targeting", label: "🎯 Audience Targeting", type: "boolean", required: false, defaultValue: false, dependsOn: "pageId", description: "Enable targeting options to show your video to specific audiences" },
+    { name: "targetCountries", label: "Target Countries", type: "multi-select", required: false, placeholder: "Select countries", dependsOn: "pageId", visibilityCondition: { field: "targeting", operator: "equals", value: true }, options: [
+      { value: "US", label: "United States" },
+      { value: "GB", label: "United Kingdom" },
+      { value: "CA", label: "Canada" },
+      { value: "AU", label: "Australia" },
+      { value: "DE", label: "Germany" },
+      { value: "FR", label: "France" },
+      { value: "ES", label: "Spain" },
+      { value: "IT", label: "Italy" },
+      { value: "BR", label: "Brazil" },
+      { value: "MX", label: "Mexico" },
+      { value: "JP", label: "Japan" },
+      { value: "IN", label: "India" }
+    ], description: "Show this video only to people in these countries" },
+    { name: "targetLocales", label: "Target Languages", type: "multi-select", required: false, placeholder: "Select languages", dependsOn: "pageId", visibilityCondition: { field: "targeting", operator: "equals", value: true }, options: [
+      { value: "en_US", label: "English (US)" },
+      { value: "en_GB", label: "English (UK)" },
+      { value: "es_ES", label: "Spanish (Spain)" },
+      { value: "es_LA", label: "Spanish (Latin America)" },
+      { value: "fr_FR", label: "French" },
+      { value: "de_DE", label: "German" },
+      { value: "it_IT", label: "Italian" },
+      { value: "pt_BR", label: "Portuguese (Brazil)" },
+      { value: "ja_JP", label: "Japanese" },
+      { value: "ko_KR", label: "Korean" },
+      { value: "zh_CN", label: "Chinese (Simplified)" },
+      { value: "zh_TW", label: "Chinese (Traditional)" }
+    ], description: "Show this video only to people who speak these languages" },
+    { name: "targetAgeMin", label: "Minimum Age", type: "select", required: false, dependsOn: "pageId", visibilityCondition: { field: "targeting", operator: "equals", value: true }, options: [
+      { value: "13", label: "13+" },
+      { value: "17", label: "17+" },
+      { value: "18", label: "18+" },
+      { value: "19", label: "19+" },
+      { value: "21", label: "21+" }
+    ], description: "Minimum age for viewers" },
+
+    // Monetization
+    { name: "enableMonetization", label: "💰 Enable Video Monetization", type: "boolean", required: false, defaultValue: false, dependsOn: "pageId", description: "Enable ad breaks for eligible videos (must meet Facebook's monetization requirements)" }
+  ],
+  outputSchema: [
+    {
+      name: "videoId",
+      label: "Video ID",
+      type: "string",
+      description: "Unique identifier for the uploaded video"
+    },
+    {
+      name: "postId",
+      label: "Post ID",
+      type: "string",
+      description: "ID of the post containing the video"
+    },
+    {
+      name: "permalink",
+      label: "Video URL",
+      type: "string",
+      description: "Direct URL to view the video on Facebook"
+    },
+    {
+      name: "createdTime",
+      label: "Created Time",
+      type: "string",
+      description: "ISO timestamp when the video was uploaded"
+    }
+  ]
+}
+
 // Export all Facebook nodes
 export const facebookNodes: NodeComponent[] = [
   // Triggers (2)
   facebookTriggerNewPost,
   facebookTriggerNewComment,
-  
-  // Actions (4)
+
+  // Actions (8)
   facebookActionCreatePost,
   facebookActionGetPageInsights,
   facebookActionSendMessage,
   facebookActionCommentOnPost,
+  facebookActionDeletePost,
+  facebookActionUpdatePost,
+  facebookActionUploadPhoto,
+  facebookActionUploadVideo,
 ]

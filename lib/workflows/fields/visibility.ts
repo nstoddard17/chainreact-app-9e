@@ -147,11 +147,16 @@ export class FieldVisibilityEngine {
     }
 
     // Modern pattern: visibilityCondition
+    // Note: This should NOT short-circuit other checks like dependsOn
+    // Only return false if condition fails; if it passes, continue checking other conditions
     if (field.visibilityCondition !== undefined) {
-      if (field.visibilityCondition === 'always') return true;
-
-      if (typeof field.visibilityCondition === 'object') {
-        return this.evaluateCondition(field.visibilityCondition, formValues);
+      if (field.visibilityCondition === 'always') {
+        // Continue to check other conditions (don't return immediately)
+      } else if (typeof field.visibilityCondition === 'object') {
+        if (!this.evaluateCondition(field.visibilityCondition, formValues)) {
+          return false; // If visibility condition fails, hide field immediately
+        }
+        // If visibility condition passes, continue to check other conditions like dependsOn
       }
     }
 

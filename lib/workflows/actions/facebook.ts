@@ -897,4 +897,424 @@ export async function commentOnFacebookPost(
       }
     }
   }
+}
+
+/**
+ * Delete a post from a Facebook page
+ */
+export async function deleteFacebookPost(
+  config: any,
+  userId: string,
+  input: Record<string, any>
+): Promise<ActionResult> {
+  try {
+    const resolvedConfig = resolveValue(config, { input })
+
+    const { pageId, postId } = resolvedConfig
+
+    if (!pageId || !postId) {
+      throw new Error("Page ID and Post ID are required")
+    }
+
+    logger.debug('[Facebook] Starting delete post action', { pageId, postId })
+
+    // Get decrypted access token
+    const accessToken = await getDecryptedAccessToken(userId, "facebook")
+
+    // Get page access token
+    const pageAccessToken = await getPageAccessToken(pageId, accessToken)
+
+    // Create appsecret_proof
+    const crypto = require('crypto')
+    const appSecret = process.env.FACEBOOK_CLIENT_SECRET
+
+    if (!appSecret) {
+      throw new Error("Facebook app secret not configured")
+    }
+
+    const appsecretProof = crypto
+      .createHmac('sha256', appSecret)
+      .update(pageAccessToken)
+      .digest('hex')
+
+    // Delete the post
+    const deleteUrl = `https://graph.facebook.com/v19.0/${postId}?appsecret_proof=${appsecretProof}`
+
+    const response = await fetch(deleteUrl, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${pageAccessToken}`
+      }
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(`Facebook API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
+    }
+
+    const result = await response.json()
+
+    return {
+      success: true,
+      output: {
+        postId: postId,
+        pageId: pageId,
+        deleted: result.success || true,
+        facebookResponse: result
+      },
+      message: `Post ${postId} deleted successfully`
+    }
+
+  } catch (error: any) {
+    logger.error('[Facebook] Delete post action failed:', error)
+    return {
+      success: false,
+      error: error.message || "Failed to delete Facebook post",
+      output: {
+        error: error.message,
+        timestamp: new Date().toISOString()
+      }
+    }
+  }
+}
+
+/**
+ * Update an existing post on a Facebook page
+ */
+export async function updateFacebookPost(
+  config: any,
+  userId: string,
+  input: Record<string, any>
+): Promise<ActionResult> {
+  try {
+    const resolvedConfig = resolveValue(config, { input })
+
+    const {
+      pageId,
+      postId,
+      message,
+      scheduledPublishTime,
+      isPublished
+    } = resolvedConfig
+
+    if (!pageId || !postId) {
+      throw new Error("Page ID and Post ID are required")
+    }
+
+    logger.debug('[Facebook] Starting update post action', { pageId, postId, message })
+
+    // Get decrypted access token
+    const accessToken = await getDecryptedAccessToken(userId, "facebook")
+
+    // Get page access token
+    const pageAccessToken = await getPageAccessToken(pageId, accessToken)
+
+    // Create appsecret_proof
+    const crypto = require('crypto')
+    const appSecret = process.env.FACEBOOK_CLIENT_SECRET
+
+    if (!appSecret) {
+      throw new Error("Facebook app secret not configured")
+    }
+
+    const appsecretProof = crypto
+      .createHmac('sha256', appSecret)
+      .update(pageAccessToken)
+      .digest('hex')
+
+    // Build update payload
+    const updatePayload: any = {}
+
+    if (message !== undefined) {
+      updatePayload.message = message
+    }
+
+    if (scheduledPublishTime) {
+      const scheduledTime = new Date(scheduledPublishTime)
+      updatePayload.scheduled_publish_time = Math.floor(scheduledTime.getTime() / 1000)
+      updatePayload.published = false
+    }
+
+    if (isPublished !== undefined) {
+      updatePayload.is_published = isPublished
+    }
+
+    // Update the post
+    const updateUrl = `https://graph.facebook.com/v19.0/${postId}?appsecret_proof=${appsecretProof}`
+
+    const response = await fetch(updateUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${pageAccessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(updatePayload)
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(`Facebook API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
+    }
+
+    const result = await response.json()
+
+    return {
+      success: true,
+      output: {
+        postId: postId,
+        pageId: pageId,
+        updated: result.success || true,
+        message: message,
+        scheduledPublishTime: scheduledPublishTime,
+        facebookResponse: result
+      },
+      message: scheduledPublishTime
+        ? `Post updated and rescheduled for ${new Date(scheduledPublishTime).toLocaleString()}`
+        : "Post updated successfully on Facebook"
+    }
+
+  } catch (error: any) {
+    logger.error('[Facebook] Update post action failed:', error)
+    return {
+      success: false,
+      error: error.message || "Failed to update Facebook post",
+      output: {
+        error: error.message,
+        timestamp: new Date().toISOString()
+      }
+    }
+  }
+}
+
+/**
+ * Upload a photo to a Facebook page (standalone action)
+ */
+export async function uploadFacebookPhoto(
+  config: any,
+  userId: string,
+  input: Record<string, any>
+): Promise<ActionResult> {
+  try {
+    const resolvedConfig = resolveValue(config, { input })
+
+    const {
+      pageId,
+      photoFile,
+      caption,
+      targetAlbum,
+      noStory,
+      published
+    } = resolvedConfig
+
+    if (!pageId || !photoFile) {
+      throw new Error("Page ID and photo file are required")
+    }
+
+    logger.debug('[Facebook] Starting upload photo action', { pageId, photoFile, caption })
+
+    // Get decrypted access token
+    const accessToken = await getDecryptedAccessToken(userId, "facebook")
+
+    // Get page access token
+    const pageAccessToken = await getPageAccessToken(pageId, accessToken)
+
+    // Download photo from Supabase storage
+    const fileBuffer = await getFileBuffer(photoFile, userId)
+
+    if (!fileBuffer) {
+      throw new Error("Failed to retrieve photo file from storage")
+    }
+
+    // Create FormData for upload
+    const formData = new FormData()
+    const blob = new Blob([fileBuffer], { type: 'image/jpeg' })
+    formData.append('source', blob, 'photo.jpg')
+
+    if (caption) {
+      formData.append('caption', caption)
+    }
+
+    if (published !== undefined) {
+      formData.append('published', String(published))
+    } else {
+      formData.append('published', 'true')
+    }
+
+    if (noStory) {
+      formData.append('no_story', 'true')
+    }
+
+    // Determine upload endpoint
+    const uploadEndpoint = targetAlbum
+      ? `https://graph.facebook.com/v19.0/${targetAlbum}/photos`
+      : `https://graph.facebook.com/v19.0/${pageId}/photos`
+
+    logger.debug('[Facebook] Uploading photo to:', uploadEndpoint)
+
+    // Upload photo
+    const response = await fetch(uploadEndpoint, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${pageAccessToken}`
+      },
+      body: formData
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(`Facebook API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
+    }
+
+    const result = await response.json()
+
+    logger.debug('[Facebook] Photo uploaded successfully:', result)
+
+    return {
+      success: true,
+      output: {
+        photoId: result.id,
+        pageId: pageId,
+        albumId: targetAlbum || null,
+        postId: result.post_id || null,
+        caption: caption,
+        published: published !== false,
+        facebookResponse: result
+      },
+      message: "Photo uploaded successfully to Facebook"
+    }
+
+  } catch (error: any) {
+    logger.error('[Facebook] Upload photo action failed:', error)
+    return {
+      success: false,
+      error: error.message || "Failed to upload photo to Facebook",
+      output: {
+        error: error.message,
+        timestamp: new Date().toISOString()
+      }
+    }
+  }
+}
+
+/**
+ * Upload a video to a Facebook page (standalone action)
+ */
+export async function uploadFacebookVideo(
+  config: any,
+  userId: string,
+  input: Record<string, any>
+): Promise<ActionResult> {
+  try {
+    const resolvedConfig = resolveValue(config, { input })
+
+    const {
+      pageId,
+      videoFile,
+      title,
+      description,
+      scheduledPublishTime,
+      published,
+      targeting,
+      contentCategory
+    } = resolvedConfig
+
+    if (!pageId || !videoFile) {
+      throw new Error("Page ID and video file are required")
+    }
+
+    logger.debug('[Facebook] Starting upload video action', { pageId, videoFile, title })
+
+    // Get decrypted access token
+    const accessToken = await getDecryptedAccessToken(userId, "facebook")
+
+    // Get page access token
+    const pageAccessToken = await getPageAccessToken(pageId, accessToken)
+
+    // Download video from Supabase storage
+    const fileBuffer = await getFileBuffer(videoFile, userId)
+
+    if (!fileBuffer) {
+      throw new Error("Failed to retrieve video file from storage")
+    }
+
+    // Create FormData for upload
+    const formData = new FormData()
+    const blob = new Blob([fileBuffer], { type: 'video/mp4' })
+    formData.append('source', blob, 'video.mp4')
+
+    if (title) {
+      formData.append('title', title)
+    }
+
+    if (description) {
+      formData.append('description', description)
+    }
+
+    if (published !== undefined) {
+      formData.append('published', String(published))
+    } else {
+      formData.append('published', 'true')
+    }
+
+    if (scheduledPublishTime) {
+      const scheduledTime = new Date(scheduledPublishTime)
+      formData.append('scheduled_publish_time', String(Math.floor(scheduledTime.getTime() / 1000)))
+      formData.append('published', 'false')
+    }
+
+    if (targeting) {
+      formData.append('targeting', JSON.stringify(targeting))
+    }
+
+    if (contentCategory) {
+      formData.append('content_category', contentCategory)
+    }
+
+    logger.debug('[Facebook] Uploading video to page:', pageId)
+
+    // Upload video
+    const response = await fetch(`https://graph.facebook.com/v19.0/${pageId}/videos`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${pageAccessToken}`
+      },
+      body: formData
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(`Facebook API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
+    }
+
+    const result = await response.json()
+
+    logger.debug('[Facebook] Video uploaded successfully:', result)
+
+    return {
+      success: true,
+      output: {
+        videoId: result.id,
+        pageId: pageId,
+        title: title,
+        description: description,
+        published: published !== false && !scheduledPublishTime,
+        scheduledPublishTime: scheduledPublishTime,
+        facebookResponse: result
+      },
+      message: scheduledPublishTime
+        ? `Video uploaded and scheduled for ${new Date(scheduledPublishTime).toLocaleString()}`
+        : "Video uploaded successfully to Facebook"
+    }
+
+  } catch (error: any) {
+    logger.error('[Facebook] Upload video action failed:', error)
+    return {
+      success: false,
+      error: error.message || "Failed to upload video to Facebook",
+      output: {
+        error: error.message,
+        timestamp: new Date().toISOString()
+      }
+    }
+  }
 } 
