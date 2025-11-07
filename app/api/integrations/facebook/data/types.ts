@@ -23,6 +23,13 @@ export interface FacebookPage {
   tasks: string[]
 }
 
+export interface FacebookPost {
+  id: string
+  message?: string
+  created_time: string
+  type: string
+}
+
 export interface FacebookApiError extends Error {
   status?: number
   code?: string

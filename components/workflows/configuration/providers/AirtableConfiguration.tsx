@@ -239,6 +239,7 @@ export function AirtableConfiguration({
   const isCreateRecord = nodeInfo?.type === 'airtable_action_create_record';
   const isListRecord = nodeInfo?.type === 'airtable_action_list_records';
   const isFindRecord = nodeInfo?.type === 'airtable_action_find_record';
+  const isDeleteRecord = nodeInfo?.type === 'airtable_action_delete_record';
 
   // Initialize bubble handler
   const airtableBubbleHandler = useAirtableBubbleHandler({
@@ -763,6 +764,78 @@ export function AirtableConfiguration({
       }
     }
 
+    // Progressive disclosure for Delete Record
+    if (isDeleteRecord) {
+      const isDeleteRelated = ['recordId', 'deleteMode', 'searchMode', 'searchField', 'searchValue', 'matchType', 'caseSensitive', 'filterFormula', 'maxRecords'].includes(field.name);
+
+      if (isDeleteRelated) {
+        console.log(`🗑️ [shouldShowField] Checking ${field.name}:`, {
+          fieldName: field.name,
+          baseId: values.baseId,
+          tableName: values.tableName,
+          deleteMode: values.deleteMode,
+        });
+      }
+
+      // Step 1: Only show baseId initially
+      if (field.name !== 'baseId' && (!values.baseId || values.baseId === '')) {
+        if (isDeleteRelated) {
+          console.log(`❌ [shouldShowField] ${field.name}: Progressive disclosure - no baseId`);
+        }
+        return false;
+      }
+
+      // Step 2: After baseId selected, show tableName
+      if (field.name !== 'baseId' && field.name !== 'tableName' && (!values.tableName || values.tableName === '')) {
+        if (isDeleteRelated) {
+          console.log(`❌ [shouldShowField] ${field.name}: Progressive disclosure - no tableName`);
+        }
+        return false;
+      }
+
+      // Step 3: After tableName selected, show deleteMode and fields based on deleteMode value
+      // CRITICAL: Don't use defaultValue here, only use actual form value
+      if (field.name !== 'baseId' && field.name !== 'tableName' && field.name !== 'deleteMode') {
+        const actualDeleteMode = values.deleteMode; // Don't fall back to defaultValue
+
+        if (isDeleteRelated) {
+          console.log(`🗑️ [shouldShowField] ${field.name}: Checking actual deleteMode:`, {
+            actualDeleteMode,
+            actualDeleteModeType: typeof actualDeleteMode,
+            hasActualValue: !!actualDeleteMode
+          });
+        }
+
+        // If deleteMode hasn't been set yet, hide all other fields
+        if (!actualDeleteMode) {
+          if (isDeleteRelated) {
+            console.log(`❌ [shouldShowField] ${field.name}: Progressive disclosure - no deleteMode value yet`);
+          }
+          return false;
+        }
+
+        // If deleteMode is "single_record", only show recordId
+        if (actualDeleteMode === 'single_record' && field.name !== 'recordId') {
+          if (isDeleteRelated) {
+            console.log(`❌ [shouldShowField] ${field.name}: deleteMode is single_record, hiding search fields`);
+          }
+          return false;
+        }
+
+        // If deleteMode is "matching_records", hide recordId
+        if (actualDeleteMode === 'matching_records' && field.name === 'recordId') {
+          if (isDeleteRelated) {
+            console.log(`❌ [shouldShowField] ${field.name}: deleteMode is matching_records, hiding recordId`);
+          }
+          return false;
+        }
+      }
+
+      if (isDeleteRelated) {
+        console.log(`✅ [shouldShowField] ${field.name}: Delete Record progressive disclosure passed`);
+      }
+    }
+
     if (isSearchRelated) {
       console.log(`✅✅✅ [shouldShowField] ${field.name}: PASSED ALL CHECKS - SHOULD BE VISIBLE`);
     }
@@ -1102,6 +1175,22 @@ export function AirtableConfiguration({
       setValue('searchMode', 'field_match');
     }
   }, [isFindRecord, values.tableName, values.searchMode, setValue]);
+
+  // Initialize default values for Delete Record when table is selected
+  useEffect(() => {
+    console.log('🗑️ [Delete Record] deleteMode check:', {
+      isDeleteRecord,
+      tableName: values.tableName,
+      deleteMode: values.deleteMode,
+      deleteModeType: typeof values.deleteMode,
+      willSet: isDeleteRecord && values.tableName && !values.deleteMode
+    });
+
+    if (isDeleteRecord && values.tableName && !values.deleteMode) {
+      console.log('🗑️ [Delete Record] Setting default deleteMode to single_record');
+      setValue('deleteMode', 'single_record');
+    }
+  }, [isDeleteRecord, values.tableName, values.deleteMode, setValue]);
 
   // Log all values for Find Record debugging
   useEffect(() => {

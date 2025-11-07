@@ -1,4 +1,6 @@
 export * from './moveRecord'
 export * from './createRecord'
 export * from './updateRecord'
-export * from './listRecords' 
+export * from './listRecords'
+export * from './findRecord'
+export * from './deleteRecord' 
