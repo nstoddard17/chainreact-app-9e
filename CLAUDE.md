@@ -3,6 +3,155 @@
 # CLAUDE.md
 Guidance for Claude Code when working with this repository.
 
+## 🚨 CRITICAL: API Capability Verification - MANDATORY
+**VERIFY API SUPPORT BEFORE ADDING ANY TRIGGER/ACTION FIELDS**
+
+When adding new fields to triggers or actions:
+
+### Rule 1: Verify Before Implementation
+- **NEVER** add a configuration field without verifying the API supports it
+- **ALWAYS** check the provider's API documentation first
+- **CONFIRM** webhooks can filter by that property (for triggers)
+- **CONFIRM** the API endpoint accepts that parameter (for actions)
+
+### Rule 2: Document API Research
+- Add a comment above the field with API endpoint/webhook details
+- Note any limitations or caveats from the API
+- Include link to API documentation if possible
+
+### Rule 3: If API Doesn't Support It
+- **DO NOT** add the field to the schema
+- **RETHINK** the strategy for how to achieve the user's goal
+- **PROPOSE** alternative approaches that work within API constraints
+- **DOCUMENT** why the feature isn't available
+
+### Example - WRONG Approach:
+❌ Add "Watch Specific Properties" to Trello Card Updated trigger
+❌ Assume Trello webhooks can filter by property changes
+❌ Implement UI without checking API
+❌ Users configure it but it doesn't work as expected
+
+### Example - CORRECT Approach:
+✅ Check Trello webhook documentation
+✅ Discover webhooks send all updates, no filtering
+✅ Either: Don't add the field, OR implement client-side filtering
+✅ Document the limitation clearly
+✅ Set realistic user expectations
+
+### Checklist Before Adding Fields:
+- [ ] Read the provider's API documentation
+- [ ] Verify webhook filtering capabilities (for triggers)
+- [ ] Verify API endpoint parameters (for actions)
+- [ ] Search for real-world examples (GitHub, Stack Overflow, community forums)
+- [ ] Confirm webhook payload structure (what data is actually sent?)
+- [ ] Document findings in code comments with links to sources
+- [ ] Only add fields the API actually supports
+
+**This prevents building features that don't work and wasting user time.**
+
+---
+
+## ✅ CASE STUDY: Trello "Watch Specific Properties" Feature
+
+**This is an example of the CORRECT approach to API verification.**
+
+### Initial Request:
+User asked: "The Trello trigger Card Updated should have an option to choose all properties or specific properties after you choose the list"
+
+### Step 1: Verify API Support
+❓ **Question:** Does Trello's API support filtering webhooks by specific property changes?
+
+**Research Process:**
+1. Searched: "Trello API webhooks filter by property changes"
+2. Found: Official Trello webhook docs
+3. Discovered: Webhooks fire for ANY update (no server-side filtering)
+4. **BUT** - Found webhook payload examples showing `action.data.old` object
+
+### Step 2: Check Webhook Payload Structure
+❓ **Question:** Does the webhook tell us WHICH properties changed?
+
+**Research Process:**
+1. Searched: "Trello webhook updateCard old object example"
+2. Found: GitHub repository with real webhook examples (https://github.com/fiatjaf/trello-webhooks)
+3. Found: Stack Overflow discussions with payload examples
+4. Confirmed: `action.data.old` contains ONLY the fields that changed
+
+**Example Payloads:**
+```json
+// Card name changed:
+{ "action": { "data": { "old": { "name": "Old Name" } } } }
+
+// Card moved to different list:
+{ "action": { "data": { "old": { "idList": "previous-list-id" } } } }
+
+// Multiple fields changed:
+{ "action": { "data": { "old": { "name": "Old", "desc": "Old desc" } } } }
+```
+
+### Step 3: Determine Implementation Strategy
+✅ **Conclusion:** Client-side filtering IS possible
+
+**How it works:**
+1. Trello sends webhook for ANY card update
+2. We receive the payload with `action.data.old` object
+3. Extract keys from `old` object: `Object.keys(action.data.old)` → `["name", "desc"]`
+4. Check if ANY key matches user's selected `watchedProperties`
+5. If match → trigger workflow | If no match → discard webhook
+
+### Step 4: Document in Code
+Added comment above the field:
+```typescript
+// API VERIFICATION: Trello webhooks fire for ANY card update, but the webhook
+// payload includes action.data.old object containing ONLY the changed fields.
+// We can implement client-side filtering by checking which keys exist in action.data.old
+// Examples: https://github.com/fiatjaf/trello-webhooks
+// Docs: https://developer.atlassian.com/cloud/trello/guides/rest-api/webhooks/
+```
+
+### Step 5: Implement Field
+```typescript
+{
+  name: "watchedProperties",
+  label: "Watch Specific Properties",
+  type: "multi-select",
+  required: false,
+  options: [
+    { value: "name", label: "Card Name" },
+    { value: "desc", label: "Description" },
+    { value: "due", label: "Due Date" },
+    // ... more options based on action.data.old keys
+  ],
+  placeholder: "All Properties",
+  tooltip: "Only trigger when these specific properties change. Leave empty to trigger on any change."
+}
+```
+
+### Why This Approach Succeeded:
+✅ Verified API capabilities before implementation
+✅ Found real-world payload examples
+✅ Documented sources in code comments
+✅ Chose implementation strategy that works within API constraints
+✅ Set realistic user expectations
+
+### What Would Have Failed:
+❌ Assuming server-side filtering exists (it doesn't)
+❌ Adding field without checking webhook payload structure
+❌ Not documenting how it will be implemented
+❌ Promising features the API can't deliver
+
+---
+
+## 🔁 Apply This Process to EVERY New Field
+
+When adding ANY configuration field:
+1. **Ask:** "Can the API actually do this?"
+2. **Research:** Find documentation + real examples
+3. **Verify:** Check actual API responses/payloads
+4. **Document:** Add comment with sources
+5. **Implement:** Only if verified ✅
+
+---
+
 ## 🔄 Loop Progress Tracking - NEW
 **ALL LOOPS NOW HAVE REAL-TIME PROGRESS INDICATION**
 

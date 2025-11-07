@@ -1302,17 +1302,28 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
         };
       }
 
-      // Special handling for Trello cards - API expects boardId but the field depends on boardId
-      if (resourceType === 'trello_cards' && dependsOn === 'boardId') {
-        logger.debug('🎯 [useDynamicOptions] Special handling for Trello cards:', {
-          fieldName,
-          resourceType,
-          dependsOn,
-          dependsOnValue,
-          originalOptions: options
-        });
-        options = { boardId: dependsOnValue };
-        logger.debug('🎯 [useDynamicOptions] Updated options for Trello cards:', options);
+      // Special handling for Trello cards - API expects boardId and optionally listId
+      if (resourceType === 'trello_cards') {
+        const formValues = getFormValues?.() || {};
+
+        // If cardId depends on listId, use listId as the primary filter and get boardId from form
+        if (dependsOn === 'listId') {
+          const boardId = formValues.boardId;
+
+          if (!boardId) {
+            // Don't proceed without boardId
+            return;
+          }
+
+          options = { boardId, listId: dependsOnValue };
+        }
+        // If cardId depends on boardId, check if listId is available for filtering
+        else if (dependsOn === 'boardId') {
+          const listId = formValues.listId;
+          options = listId
+            ? { boardId: dependsOnValue, listId }
+            : { boardId: dependsOnValue };
+        }
       }
 
       // For Google Sheets sheets, don't call API without spreadsheetId

@@ -44,7 +44,7 @@ export const trelloNodes: NodeComponent[] = [
   {
     type: "trello_trigger_card_updated",
     title: "Card Updated",
-    description: "Triggers when a card's properties change (name, desc, due, fields, labels, etc.)",
+    description: "Triggers when a card's properties change (name, description, due date, labels, members, etc.)",
     icon: Briefcase,
     providerId: "trello",
     category: "Productivity",
@@ -66,16 +66,46 @@ export const trelloNodes: NodeComponent[] = [
         dynamic: "trello_lists",
         dependsOn: "boardId",
         required: false,
-        placeholder: "Select a list",
-        hidden: { $deps: ["boardId"], $condition: { boardId: { $exists: false } } }
+        placeholder: "Select a list (optional)",
+        hidden: { $condition: { boardId: { $exists: false } } },
+        tooltip: "Only trigger for cards in a specific list"
+      },
+      // API VERIFICATION: Trello webhooks fire for ANY card update, but the webhook
+      // payload includes action.data.old object containing ONLY the changed fields.
+      // We can implement client-side filtering by checking which keys exist in action.data.old
+      // Examples: https://github.com/fiatjaf/trello-webhooks
+      // Docs: https://developer.atlassian.com/cloud/trello/guides/rest-api/webhooks/
+      {
+        name: "watchedProperties",
+        label: "Watch Specific Properties",
+        type: "multi-select",
+        required: false,
+        options: [
+          { value: "name", label: "Card Name" },
+          { value: "desc", label: "Description" },
+          { value: "due", label: "Due Date" },
+          { value: "dueComplete", label: "Due Date Completion" },
+          { value: "closed", label: "Archive Status" },
+          { value: "idList", label: "List" },
+          { value: "pos", label: "Position in List" },
+          { value: "idLabels", label: "Labels" },
+          { value: "idMembers", label: "Members" },
+          { value: "idChecklists", label: "Checklists" },
+          { value: "cover", label: "Card Cover" }
+        ],
+        placeholder: "All Properties",
+        hidden: { $condition: { boardId: { $exists: false } } },
+        tooltip: "Only trigger when these specific properties change. Leave empty to trigger on any change."
       }
     ],
     outputSchema: [
       { name: "boardId", label: "Board ID", type: "string", description: "The ID of the board" },
       { name: "listId", label: "List ID", type: "string", description: "The ID of the list" },
       { name: "cardId", label: "Card ID", type: "string", description: "The unique ID of the card" },
-      { name: "changedFields", label: "Changed Fields", type: "object", description: "The fields that were changed" },
-      { name: "previousValues", label: "Previous Values", type: "object", description: "The previous values of changed fields" },
+      { name: "name", label: "Card Name", type: "string", description: "The name of the card" },
+      { name: "desc", label: "Description", type: "string", description: "The card's description" },
+      { name: "changedFields", label: "Changed Fields", type: "array", description: "Array of field names that were changed (from action.data.old keys)" },
+      { name: "oldValues", label: "Old Values", type: "object", description: "The previous values of changed fields (from action.data.old)" },
       { name: "updatedAt", label: "Updated At", type: "string", description: "When the card was updated" }
     ]
   },
@@ -120,9 +150,32 @@ export const trelloNodes: NodeComponent[] = [
         label: "Board",
         type: "select",
         dynamic: "trello_boards",
-        required: false,
+        required: true,
         loadOnMount: true,
-        placeholder: "Select a board"
+        placeholder: "Select a board",
+        tooltip: "Select the board to monitor for comments"
+      },
+      {
+        name: "listId",
+        label: "List",
+        type: "select",
+        dynamic: "trello_lists",
+        dependsOn: "boardId",
+        required: false,
+        placeholder: "Select a list (optional)",
+        hidden: { $condition: { boardId: { $exists: false } } },
+        tooltip: "Only trigger for cards in a specific list"
+      },
+      {
+        name: "cardId",
+        label: "Card",
+        type: "select",
+        dynamic: "trello_cards",
+        dependsOn: "listId",
+        required: false,
+        placeholder: "Select a card (optional)",
+        hidden: { $condition: { listId: { $exists: false } } },
+        tooltip: "Optionally filter to only comments on a specific card"
       }
     ],
     outputSchema: [
@@ -270,7 +323,7 @@ export const trelloNodes: NodeComponent[] = [
       {
         name: "due",
         label: "Due Date & Time",
-        type: "datetime",
+        type: "date",
         required: false,
         placeholder: "Select a due date and time for the card",
         hidden: { $deps: ["boardId"], $condition: { boardId: { $exists: false } } },
@@ -289,7 +342,7 @@ export const trelloNodes: NodeComponent[] = [
       {
         name: "start",
         label: "Start Date & Time",
-        type: "datetime",
+        type: "date",
         required: false,
         placeholder: "Select a start date and time for the card",
         hidden: { $deps: ["boardId"], $condition: { boardId: { $exists: false } } },
@@ -583,6 +636,429 @@ export const trelloNodes: NodeComponent[] = [
     outputSchema: [
       { name: "cards", label: "Cards", type: "array", description: "Array of cards from the board" },
       { name: "count", label: "Count", type: "number", description: "Number of cards retrieved" }
+    ]
+  },
+  {
+    type: "trello_action_update_card",
+    title: "Update Card",
+    description: "Update an existing card's properties (name, description, due date, position, etc.)",
+    icon: Briefcase,
+    providerId: "trello",
+    requiredScopes: ["write"],
+    category: "Productivity",
+    isTrigger: false,
+    configSchema: [
+      {
+        name: "boardId",
+        label: "Board",
+        type: "select",
+        required: true,
+        dynamic: "trello_boards",
+        placeholder: "Select a board",
+        loadOnMount: true,
+        tooltip: "Select the board containing the card"
+      },
+      {
+        name: "cardId",
+        label: "Card",
+        type: "select",
+        required: true,
+        dynamic: "trello_cards",
+        dependsOn: "boardId",
+        placeholder: "Select a card to update",
+        hidden: { $condition: { boardId: { $exists: false } } },
+        tooltip: "Select the card you want to update"
+      },
+      {
+        name: "name",
+        label: "Card Name",
+        type: "text",
+        required: false,
+        placeholder: "Enter new card name (leave empty to keep current)",
+        hidden: { $condition: { boardId: { $exists: false } } },
+        tooltip: "Update the card title",
+        supportsAI: true
+      },
+      {
+        name: "desc",
+        label: "Description",
+        type: "textarea",
+        required: false,
+        placeholder: "Enter new description (leave empty to keep current)",
+        hidden: { $condition: { boardId: { $exists: false } } },
+        tooltip: "Update the card description. Supports Markdown.",
+        supportsAI: true
+      },
+      {
+        name: "listId",
+        label: "Move to List",
+        type: "select",
+        required: false,
+        dynamic: "trello_lists",
+        dependsOn: "boardId",
+        placeholder: "Select a list (optional)",
+        hidden: { $condition: { boardId: { $exists: false } } },
+        tooltip: "Move the card to a different list"
+      },
+      {
+        name: "pos",
+        label: "Position in List",
+        type: "select",
+        required: false,
+        options: [
+          { value: "top", label: "Top of list" },
+          { value: "bottom", label: "Bottom of list" }
+        ],
+        hidden: { $condition: { boardId: { $exists: false } } },
+        tooltip: "Change the card's position in the list"
+      },
+      {
+        name: "due",
+        label: "Due Date",
+        type: "date",
+        required: false,
+        placeholder: "Select a new due date (optional)",
+        hidden: { $condition: { boardId: { $exists: false } } },
+        tooltip: "Update the card's due date"
+      },
+      {
+        name: "dueComplete",
+        label: "Mark Due Date Complete",
+        type: "boolean",
+        defaultValue: false,
+        required: false,
+        dependsOn: "due",
+        hidden: { $condition: { due: { $exists: false } } },
+        tooltip: "Mark the due date as completed"
+      },
+      {
+        name: "closed",
+        label: "Archive Card",
+        type: "boolean",
+        defaultValue: false,
+        required: false,
+        hidden: { $condition: { boardId: { $exists: false } } },
+        tooltip: "Set to true to archive the card, false to unarchive"
+      }
+    ],
+    outputSchema: [
+      { name: "id", label: "Card ID", type: "string", description: "The ID of the updated card" },
+      { name: "name", label: "Card Name", type: "string", description: "The updated name of the card" },
+      { name: "desc", label: "Description", type: "string", description: "The updated description" },
+      { name: "url", label: "Card URL", type: "string", description: "URL to view the card" },
+      { name: "idList", label: "List ID", type: "string", description: "The ID of the list containing the card" },
+      { name: "due", label: "Due Date", type: "string", description: "The card's due date" },
+      { name: "closed", label: "Is Archived", type: "boolean", description: "Whether the card is archived" }
+    ]
+  },
+  {
+    type: "trello_action_archive_card",
+    title: "Archive Card",
+    description: "Archive or unarchive a card on a Trello board",
+    icon: Briefcase,
+    providerId: "trello",
+    requiredScopes: ["write"],
+    category: "Productivity",
+    isTrigger: false,
+    configSchema: [
+      {
+        name: "boardId",
+        label: "Board",
+        type: "select",
+        required: true,
+        dynamic: "trello_boards",
+        placeholder: "Select a board",
+        loadOnMount: true,
+        tooltip: "Select the board containing the card"
+      },
+      {
+        name: "cardId",
+        label: "Card",
+        type: "select",
+        required: true,
+        dynamic: "trello_cards",
+        dependsOn: "boardId",
+        placeholder: "Select a card",
+        hidden: { $condition: { boardId: { $exists: false } } },
+        tooltip: "Select the card to archive"
+      },
+      {
+        name: "closed",
+        label: "Archive Action",
+        type: "select",
+        required: true,
+        defaultValue: "true",
+        options: [
+          { value: "true", label: "Archive card" },
+          { value: "false", label: "Unarchive card" }
+        ],
+        hidden: { $condition: { boardId: { $exists: false } } },
+        tooltip: "Choose whether to archive or unarchive the card"
+      }
+    ],
+    outputSchema: [
+      { name: "id", label: "Card ID", type: "string", description: "The ID of the card" },
+      { name: "name", label: "Card Name", type: "string", description: "The name of the card" },
+      { name: "closed", label: "Is Archived", type: "boolean", description: "Whether the card is archived" },
+      { name: "url", label: "Card URL", type: "string", description: "URL to view the card" }
+    ]
+  },
+  {
+    type: "trello_action_add_comment",
+    title: "Add Comment",
+    description: "Add a comment to a Trello card",
+    icon: MessageSquare,
+    providerId: "trello",
+    requiredScopes: ["write"],
+    category: "Productivity",
+    isTrigger: false,
+    configSchema: [
+      {
+        name: "boardId",
+        label: "Board",
+        type: "select",
+        required: true,
+        dynamic: "trello_boards",
+        placeholder: "Select a board",
+        loadOnMount: true,
+        tooltip: "Select the board containing the card"
+      },
+      {
+        name: "cardId",
+        label: "Card",
+        type: "select",
+        required: true,
+        dynamic: "trello_cards",
+        dependsOn: "boardId",
+        placeholder: "Select a card",
+        hidden: { $condition: { boardId: { $exists: false } } },
+        tooltip: "Select the card to comment on"
+      },
+      {
+        name: "text",
+        label: "Comment Text",
+        type: "textarea",
+        required: true,
+        placeholder: "Enter your comment",
+        hidden: { $condition: { boardId: { $exists: false } } },
+        tooltip: "The text of the comment. Supports Markdown.",
+        supportsAI: true
+      }
+    ],
+    outputSchema: [
+      { name: "id", label: "Comment ID", type: "string", description: "The ID of the comment" },
+      { name: "data", label: "Comment Data", type: "object", description: "Comment data including text" },
+      { name: "date", label: "Created At", type: "string", description: "When the comment was created" },
+      { name: "memberCreator", label: "Creator", type: "object", description: "Information about who created the comment" }
+    ]
+  },
+  {
+    type: "trello_trigger_card_archived",
+    title: "Card Archived",
+    description: "Triggers when a card is archived or unarchived",
+    icon: Briefcase,
+    providerId: "trello",
+    category: "Productivity",
+    isTrigger: true,
+    configSchema: [
+      {
+        name: "boardId",
+        label: "Board",
+        type: "select",
+        dynamic: "trello_boards",
+        required: false,
+        loadOnMount: true,
+        placeholder: "Select a board (optional)"
+      }
+    ],
+    outputSchema: [
+      { name: "boardId", label: "Board ID", type: "string", description: "The ID of the board" },
+      { name: "cardId", label: "Card ID", type: "string", description: "The ID of the card" },
+      { name: "name", label: "Card Name", type: "string", description: "The name of the card" },
+      { name: "closed", label: "Is Archived", type: "boolean", description: "Whether the card was archived (true) or unarchived (false)" },
+      { name: "archivedAt", label: "Archived At", type: "string", description: "When the action occurred" }
+    ]
+  },
+  {
+    type: "trello_action_add_label_to_card",
+    title: "Add Label to Card",
+    description: "Add an existing label to a card",
+    icon: Briefcase,
+    providerId: "trello",
+    requiredScopes: ["write"],
+    category: "Productivity",
+    isTrigger: false,
+    configSchema: [
+      {
+        name: "boardId",
+        label: "Board",
+        type: "select",
+        required: true,
+        dynamic: "trello_boards",
+        placeholder: "Select a board",
+        loadOnMount: true,
+        tooltip: "Select the board containing the card"
+      },
+      {
+        name: "cardId",
+        label: "Card",
+        type: "select",
+        required: true,
+        dynamic: "trello_cards",
+        dependsOn: "boardId",
+        placeholder: "Select a card",
+        hidden: { $condition: { boardId: { $exists: false } } },
+        tooltip: "Select the card to add a label to"
+      },
+      {
+        name: "labelId",
+        label: "Label",
+        type: "select",
+        required: true,
+        dynamic: "trello_board_labels",
+        dependsOn: "boardId",
+        placeholder: "Select a label",
+        hidden: { $condition: { boardId: { $exists: false } } },
+        tooltip: "Select the label to add to the card"
+      }
+    ],
+    outputSchema: [
+      { name: "id", label: "Card ID", type: "string", description: "The ID of the card" },
+      { name: "name", label: "Card Name", type: "string", description: "The name of the card" },
+      { name: "idLabels", label: "Label IDs", type: "array", description: "Array of all label IDs on the card" },
+      { name: "labels", label: "Labels", type: "array", description: "Array of all labels on the card" }
+    ]
+  },
+  {
+    type: "trello_action_add_checklist",
+    title: "Add Checklist to Card",
+    description: "Add a new checklist to a card",
+    icon: List,
+    providerId: "trello",
+    requiredScopes: ["write"],
+    category: "Productivity",
+    isTrigger: false,
+    configSchema: [
+      {
+        name: "boardId",
+        label: "Board",
+        type: "select",
+        required: true,
+        dynamic: "trello_boards",
+        placeholder: "Select a board",
+        loadOnMount: true,
+        tooltip: "Select the board containing the card"
+      },
+      {
+        name: "cardId",
+        label: "Card",
+        type: "select",
+        required: true,
+        dynamic: "trello_cards",
+        dependsOn: "boardId",
+        placeholder: "Select a card",
+        hidden: { $condition: { boardId: { $exists: false } } },
+        tooltip: "Select the card to add a checklist to"
+      },
+      {
+        name: "name",
+        label: "Checklist Name",
+        type: "text",
+        required: true,
+        placeholder: "Enter checklist name",
+        hidden: { $condition: { boardId: { $exists: false } } },
+        tooltip: "Name of the checklist",
+        supportsAI: true
+      }
+    ],
+    outputSchema: [
+      { name: "id", label: "Checklist ID", type: "string", description: "The ID of the created checklist" },
+      { name: "name", label: "Checklist Name", type: "string", description: "The name of the checklist" },
+      { name: "idCard", label: "Card ID", type: "string", description: "The ID of the card" },
+      { name: "checkItems", label: "Check Items", type: "array", description: "Array of checklist items" }
+    ]
+  },
+  {
+    type: "trello_action_create_checklist_item",
+    title: "Create Checklist Item",
+    description: "Add a new item to a checklist on a card",
+    icon: List,
+    providerId: "trello",
+    requiredScopes: ["write"],
+    category: "Productivity",
+    isTrigger: false,
+    configSchema: [
+      {
+        name: "boardId",
+        label: "Board",
+        type: "select",
+        required: true,
+        dynamic: "trello_boards",
+        placeholder: "Select a board",
+        loadOnMount: true,
+        tooltip: "Select the board containing the card"
+      },
+      {
+        name: "cardId",
+        label: "Card",
+        type: "select",
+        required: true,
+        dynamic: "trello_cards",
+        dependsOn: "boardId",
+        placeholder: "Select a card",
+        hidden: { $condition: { boardId: { $exists: false } } },
+        tooltip: "Select the card containing the checklist"
+      },
+      {
+        name: "checklistId",
+        label: "Checklist",
+        type: "select",
+        required: true,
+        dynamic: "trello_card_checklists",
+        dependsOn: "cardId",
+        placeholder: "Select a checklist",
+        hidden: { $condition: { cardId: { $exists: false } } },
+        tooltip: "Select the checklist to add an item to"
+      },
+      {
+        name: "name",
+        label: "Item Text",
+        type: "text",
+        required: true,
+        placeholder: "Enter checklist item text",
+        hidden: { $condition: { checklistId: { $exists: false } } },
+        tooltip: "The text of the checklist item",
+        supportsAI: true
+      },
+      {
+        name: "checked",
+        label: "Mark as Complete",
+        type: "boolean",
+        defaultValue: false,
+        required: false,
+        hidden: { $condition: { checklistId: { $exists: false } } },
+        tooltip: "Whether to mark this item as complete immediately"
+      },
+      {
+        name: "pos",
+        label: "Position",
+        type: "select",
+        required: false,
+        defaultValue: "bottom",
+        options: [
+          { value: "top", label: "Top of checklist" },
+          { value: "bottom", label: "Bottom of checklist" }
+        ],
+        hidden: { $condition: { checklistId: { $exists: false } } },
+        tooltip: "Where to place the item in the checklist"
+      }
+    ],
+    outputSchema: [
+      { name: "id", label: "Item ID", type: "string", description: "The ID of the checklist item" },
+      { name: "name", label: "Item Text", type: "string", description: "The text of the item" },
+      { name: "state", label: "State", type: "string", description: "Complete or incomplete" },
+      { name: "idChecklist", label: "Checklist ID", type: "string", description: "The ID of the checklist" },
+      { name: "pos", label: "Position", type: "number", description: "The position in the checklist" }
     ]
   },
 ]
