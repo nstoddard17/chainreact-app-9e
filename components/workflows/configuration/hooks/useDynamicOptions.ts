@@ -1,6 +1,6 @@
 "use client"
 // Force recompile
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, startTransition } from 'react';
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { DynamicOptionsState } from '../utils/types';
 import { getResourceTypeForField } from '../config/fieldMappings';
@@ -1175,6 +1175,9 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
           logger.debug(`✅ [useDynamicOptions] Setting dynamic options for ${fieldName} with ${formattedOptions?.length || 0} options`);
 
+          // Track performance for searchField
+          const setOptionsStartTime = performance.now();
+
           setDynamicOptions(prev => {
             // Check if the options are actually different before updating
             const currentFieldOptions = prev[fieldName];
@@ -1208,6 +1211,18 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
             });
             return newState;
           });
+
+          // Log how long setState took for searchField
+          if (fieldName === 'searchField') {
+            const setOptionsDuration = performance.now() - setOptionsStartTime;
+            console.log(`⏱️ [useDynamicOptions] searchField setState took ${setOptionsDuration.toFixed(2)}ms`);
+
+            // Use requestAnimationFrame to check when React has painted
+            requestAnimationFrame(() => {
+              const totalDuration = performance.now() - setOptionsStartTime;
+              console.log(`🎨 [useDynamicOptions] searchField RAF after setState: ${totalDuration.toFixed(2)}ms total`);
+            });
+          }
 
           // Record last loaded time for throttle
           lastLoadedAt.current.set(requestKey, Date.now());

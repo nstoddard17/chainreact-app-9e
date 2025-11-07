@@ -41,42 +41,19 @@ export const duplicateRecordActionSchema: NodeComponent = {
       label: "Record ID to Duplicate",
       type: "text",
       required: true,
-      placeholder: "{{trigger.recordId}} or rec123abc",
+      placeholder: "Paste record ID or select from table below",
       supportsAI: true,
-      description: "The ID of the record to duplicate"
+      description: "The ID of the record to duplicate",
+      dependsOn: "tableName"
     },
+    // Hidden field that stores the field selection and override configuration
+    // Format: { fieldsToCopy: ["field1", "field2"], fieldsToOverride: { field1: "new value" } }
     {
-      name: "fieldsToCopy",
-      label: "Fields to Copy",
-      type: "select",
+      name: "duplicateConfig",
+      label: "Duplicate Configuration",
+      type: "hidden",
       required: false,
-      options: [
-        { value: "all", label: "All Fields" },
-        { value: "specific", label: "Specific Fields Only" }
-      ],
-      defaultValue: "all",
-      description: "Which fields to copy to the duplicate"
-    },
-    {
-      name: "specificFields",
-      label: "Specific Fields",
-      type: "multiselect",
-      dynamic: "airtable_fields",
-      required: false,
-      dependsOn: "tableName",
-      placeholder: "Select fields to copy...",
-      description: "Select which fields to copy",
-      visibleWhen: { field: "fieldsToCopy", value: "specific" }
-    },
-    {
-      name: "fieldsToOverride",
-      label: "Fields to Override (Optional)",
-      type: "object",
-      required: false,
-      placeholder: JSON.stringify({ Name: "Copy of {{trigger.Name}}", Status: "Draft" }, null, 2),
-      supportsAI: true,
-      description: "Field values to override in the duplicate",
-      tooltip: "These values will replace the copied values. Useful for marking duplicates or changing status."
+      description: "Internal storage for field selection and overrides"
     }
   ]
 }

@@ -43,7 +43,8 @@ export const addAttachmentActionSchema: NodeComponent = {
       required: true,
       placeholder: "{{trigger.recordId}}",
       supportsAI: true,
-      description: "The ID of the record to add attachment to"
+      description: "The ID of the record to add attachment to",
+      dependsOn: "tableName"
     },
     {
       name: "attachmentField",
@@ -56,16 +57,38 @@ export const addAttachmentActionSchema: NodeComponent = {
       description: "The attachment-type field to add the file to"
     },
     {
+      name: "preserveExisting",
+      label: "Preserve Existing Attachments",
+      type: "boolean",
+      required: false,
+      defaultValue: false,
+      description: "Keep existing attachments and add this file to them",
+      tooltip: "When enabled, new file will be appended to existing attachments instead of replacing them",
+      dependsOn: "tableName"
+    },
+    {
       name: "fileSource",
       label: "File Source",
       type: "select",
       required: true,
       options: [
+        { value: "upload", label: "Upload File" },
         { value: "url", label: "From URL" },
         { value: "base64", label: "From Base64 Data" }
       ],
       defaultValue: "url",
-      description: "How to provide the file data"
+      description: "How to provide the file data",
+      dependsOn: "tableName"
+    },
+    {
+      name: "uploadedFile",
+      label: "Upload File",
+      type: "file",
+      required: true,
+      description: "Upload a file from your computer",
+      placeholder: "Choose files to upload...",
+      visibleWhen: { field: "fileSource", value: "upload" },
+      dependsOn: "tableName"
     },
     {
       name: "fileUrl",
@@ -76,7 +99,8 @@ export const addAttachmentActionSchema: NodeComponent = {
       supportsAI: true,
       description: "URL of the file to attach",
       tooltip: "Must be a publicly accessible URL. Airtable will download the file from this URL.",
-      visibleWhen: { field: "fileSource", value: "url" }
+      visibleWhen: { field: "fileSource", value: "url" },
+      dependsOn: "tableName"
     },
     {
       name: "base64Data",
@@ -87,7 +111,8 @@ export const addAttachmentActionSchema: NodeComponent = {
       placeholder: "JVBERi0xLjQK...",
       supportsAI: true,
       description: "Base64-encoded file data",
-      visibleWhen: { field: "fileSource", value: "base64" }
+      visibleWhen: { field: "fileSource", value: "base64" },
+      dependsOn: "tableName"
     },
     {
       name: "filename",
@@ -96,7 +121,20 @@ export const addAttachmentActionSchema: NodeComponent = {
       required: true,
       placeholder: "document.pdf",
       supportsAI: true,
-      description: "Name for the attachment (include file extension)"
+      description: "Name for the attachment (include file extension)",
+      tooltip: "Used as the display name for the file in Airtable",
+      dependsOn: "tableName"
+    },
+    {
+      name: "contentType",
+      label: "Content Type (Optional)",
+      type: "text",
+      required: false,
+      placeholder: "application/pdf",
+      description: "MIME type of the file (e.g., image/png, application/pdf)",
+      tooltip: "If not specified, Airtable will attempt to detect it from the filename",
+      advanced: true,
+      dependsOn: "tableName"
     }
   ]
 }

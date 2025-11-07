@@ -30,6 +30,13 @@ export interface FacebookPost {
   type: string
 }
 
+export interface FacebookConversation {
+  id: string
+  participants?: Array<{ name: string; id: string }>
+  updated_time: string
+  message_count?: number
+}
+
 export interface FacebookApiError extends Error {
   status?: number
   code?: string
