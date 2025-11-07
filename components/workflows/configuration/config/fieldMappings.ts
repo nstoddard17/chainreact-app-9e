@@ -133,6 +133,8 @@ const trelloMappings: Record<string, FieldMapping> = {
   },
   trello_trigger_comment_added: {
     boardId: "trello_boards",
+    listId: "trello_lists",
+    cardId: "trello_cards",
   },
   trello_trigger_member_changed: {
     boardId: "trello_boards",
