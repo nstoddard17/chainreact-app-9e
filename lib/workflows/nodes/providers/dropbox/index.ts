@@ -1,5 +1,5 @@
 import { NodeComponent } from "../../types"
-import { Upload, Download } from "lucide-react"
+import { Upload, Download, Search } from "lucide-react"
 
 // Dropbox Triggers
 const dropboxTriggerNewFile: NodeComponent = {
@@ -336,12 +336,148 @@ const dropboxActionGetFile: NodeComponent = {
   ]
 }
 
+const dropboxActionFindFiles: NodeComponent = {
+  type: "dropbox_action_find_files",
+  title: "Find Files",
+  description: "Search for files in Dropbox with filters and return matching results",
+  icon: Search,
+  providerId: "dropbox",
+  requiredScopes: ["files.metadata.read", "files.content.read"],
+  category: "Storage",
+  isTrigger: false,
+  producesOutput: true,
+  configSchema: [
+    {
+      name: "path",
+      label: "Folder to Search",
+      type: "select",
+      dynamic: "dropbox-folders",
+      required: false,
+      loadOnMount: true,
+      placeholder: "Search entire Dropbox (leave empty) or select folder",
+      description: "Choose a specific folder to search in, or leave empty to search all of Dropbox"
+    },
+    {
+      name: "searchQuery",
+      label: "Search Query (Optional)",
+      type: "text",
+      required: false,
+      placeholder: "Enter file name or keywords",
+      description: "Search by file name or keywords. Leave empty to return all files.",
+      supportsAI: true
+    },
+    {
+      name: "fileType",
+      label: "File Type Filter",
+      type: "select",
+      required: false,
+      defaultValue: "any",
+      options: [
+        { value: "any", label: "Any file type" },
+        { value: "folder", label: "Folders only" },
+        { value: "file", label: "Files only" },
+        { value: "image", label: "Images (jpg, png, gif, etc.)" },
+        { value: "video", label: "Videos (mp4, avi, mov, etc.)" },
+        { value: "audio", label: "Audio (mp3, wav, etc.)" },
+        { value: "document", label: "Documents (pdf, doc, txt, etc.)" },
+        { value: "spreadsheet", label: "Spreadsheets (xlsx, csv, etc.)" },
+        { value: "presentation", label: "Presentations (pptx, key, etc.)" },
+        { value: "archive", label: "Archives (zip, rar, tar, etc.)" }
+      ],
+      description: "Filter results by file type category"
+    },
+    {
+      name: "modifiedAfter",
+      label: "Modified After (Optional)",
+      type: "text",
+      required: false,
+      placeholder: "2024-01-01 or {{Previous Node.date}}",
+      description: "Only return files modified after this date (YYYY-MM-DD format or ISO 8601)",
+      supportsAI: true
+    },
+    {
+      name: "modifiedBefore",
+      label: "Modified Before (Optional)",
+      type: "text",
+      required: false,
+      placeholder: "2024-12-31 or {{Previous Node.date}}",
+      description: "Only return files modified before this date (YYYY-MM-DD format or ISO 8601)",
+      supportsAI: true
+    },
+    {
+      name: "limit",
+      label: "Maximum Results",
+      type: "number",
+      required: false,
+      defaultValue: 100,
+      placeholder: "100",
+      description: "Maximum number of files to return (default: 100, max: 1000)"
+    },
+    {
+      name: "sortBy",
+      label: "Sort By",
+      type: "select",
+      required: false,
+      defaultValue: "modified_desc",
+      options: [
+        { value: "modified_desc", label: "Modified Date (Newest First)" },
+        { value: "modified_asc", label: "Modified Date (Oldest First)" },
+        { value: "name_asc", label: "Name (A-Z)" },
+        { value: "name_desc", label: "Name (Z-A)" },
+        { value: "size_desc", label: "Size (Largest First)" },
+        { value: "size_asc", label: "Size (Smallest First)" }
+      ],
+      description: "How to sort the results"
+    },
+    {
+      name: "downloadContent",
+      label: "Download File Content",
+      type: "boolean",
+      defaultValue: false,
+      description: "⚠️ Enable to download file content for all results. Only use for small batches (< 20 files, < 50MB total) to avoid memory/timeout issues."
+    }
+  ],
+  outputSchema: [
+    {
+      name: "files",
+      label: "Files",
+      type: "array",
+      description: "Array of files matching the search criteria. Each file contains: id, name, path, size, modifiedAt, isFolder, and content (if downloaded)"
+    },
+    {
+      name: "totalCount",
+      label: "Total Count",
+      type: "number",
+      description: "Total number of files found"
+    },
+    {
+      name: "hasMore",
+      label: "Has More Results",
+      type: "boolean",
+      description: "Whether there are more results beyond the limit"
+    },
+    {
+      name: "searchQuery",
+      label: "Search Query Used",
+      type: "string",
+      description: "The search query that was used"
+    },
+    {
+      name: "folderPath",
+      label: "Folder Path Searched",
+      type: "string",
+      description: "The folder path that was searched"
+    }
+  ]
+}
+
 // Export all Dropbox nodes
 export const dropboxNodes: NodeComponent[] = [
   // Triggers (1)
   dropboxTriggerNewFile,
 
-  // Actions (2)
+  // Actions (3)
   dropboxActionUploadFile,
   dropboxActionGetFile,
+  dropboxActionFindFiles,
 ]

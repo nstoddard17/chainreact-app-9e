@@ -3,6 +3,58 @@
 # CLAUDE.md
 Guidance for Claude Code when working with this repository.
 
+## 🔄 Loop Progress Tracking - NEW
+**ALL LOOPS NOW HAVE REAL-TIME PROGRESS INDICATION**
+
+When implementing or working with Loop nodes:
+
+### Required Files
+- **Migration**: `/supabase/migrations/20251106000000_create_loop_executions_table.sql`
+- **Handler**: `/lib/workflows/actions/logic/loop.ts`
+- **UI Component**: `/components/workflows/execution/LoopProgressIndicator.tsx`
+- **Registry**: Registered in `/lib/workflows/actions/registry.ts` as `"loop"`
+- **Docs**: `/learning/docs/loop-progress-tracking-guide.md`
+
+### Progress Features
+✅ Real-time progress bar (iteration X of Y)
+✅ Percentage complete (0-100%)
+✅ Time estimates (elapsed + remaining)
+✅ Current item tracking
+✅ Error reporting
+✅ Visual status indicators (running/completed/failed)
+✅ Batch processing support
+
+### Usage in UI
+```tsx
+import { LoopProgressIndicator } from '@/components/workflows/execution/LoopProgressIndicator'
+
+<LoopProgressIndicator
+  sessionId={executionId}
+  nodeId={loopNodeId}  // optional
+  compact={false}       // false = full card, true = inline
+/>
+```
+
+### Loop Output Schema
+Every loop iteration provides:
+- `currentItem` - Current item being processed
+- `index` - Zero-based index (0, 1, 2...)
+- `iteration` - One-based (1, 2, 3...)
+- `totalItems` - Total array length
+- `isFirst` / `isLast` - Boolean flags
+- `batch` - Array of items in batch (if batchSize > 1)
+- `progressPercentage` - 0-100
+- `remainingItems` - Count remaining
+
+### When Adding Loop Support
+1. Ensure loop_executions table exists (apply migration)
+2. Import LoopProgressIndicator where execution is displayed
+3. Pass sessionId from execution context
+4. Test with 5-10 item array first
+5. Test with 100+ item array for performance
+
+See `/LOOP_PROGRESS_IMPLEMENTATION.md` for complete implementation details.
+
 ## 🚨 CRITICAL: Follow Explicit User Instructions - MANDATORY
 **THIS IS THE HIGHEST PRIORITY. EXPLICIT INSTRUCTIONS OVERRIDE EVERYTHING.**
 

@@ -1,3 +1,115 @@
+## 2025-11-06 – Loop Progress Tracking & Enhanced Workflow Features
+
+Implemented comprehensive real-time progress tracking for Loop nodes, Discord channel-based invite filtering, and Dropbox advanced file search.
+
+### Major Features Added:
+
+#### Loop Progress Tracking System
+**Real-time visual progress indication for all loop operations**
+
+- **Database Layer**: Created `loop_executions` table with full RLS policies
+  - Tracks iteration count, status, timing, and errors
+  - Enables real-time Supabase subscriptions for instant updates
+  - Migration: `20251106000000_create_loop_executions_table.sql`
+
+- **Progress UI Component**: `LoopProgressIndicator.tsx`
+  - Progress bar showing "Iteration X of Y" with percentage (0-100%)
+  - Time estimates: elapsed time + estimated remaining time
+  - Current item tracking (shows which item is being processed)
+  - Visual status indicators (running/completed/failed with colors)
+  - Error reporting with inline messages
+  - Two display modes: Compact (inline `⟳ 5/10 (50%)`) and Full (detailed card)
+
+- **Loop Action Handler**: `lib/workflows/actions/logic/loop.ts`
+  - Processes arrays with item-by-item or batch support
+  - Returns rich metadata: currentItem, index, iteration, totalItems, isFirst, isLast, batch, progressPercentage, remainingItems
+  - Handles strings, arrays, objects, and primitives
+  - Registered in actions registry as `"loop"`
+
+- **Complete Documentation**:
+  - Guide: `/learning/docs/loop-progress-tracking-guide.md`
+  - Summary: `/LOOP_PROGRESS_IMPLEMENTATION.md`
+  - Updated `/CLAUDE.md` with loop tracking requirements
+
+**Benefits**: Users can monitor long-running loops in real-time, get accurate time estimates, debug per-iteration errors, and safely process large arrays (100+ items) with batch processing.
+
+#### Discord Channel-Based Invite Filtering
+**Granular control over role assignment based on invite source**
+
+- Enhanced `InviteData` interface with `channelId` and `channelName` tracking
+- New `channelFilter` config field in "User Joined Server" trigger
+- Backend filtering logic in `discordInviteTracker.ts`
+- Progressive field disclosure: hides fields until Discord server selected
+- Fixed API spam issues and 400 Bad Request errors
+
+**Use Case**: Assign different roles based on which channel's invite link was used (e.g., #general → Member role, #vip → VIP role).
+
+#### Dropbox Find Files Node
+**Advanced file search with comprehensive filtering**
+
+- New `dropbox_action_find_files` action node
+- Search by: folder, query, file type (10 categories), date range (modified after/before)
+- Multiple sort options: name, modified date, size (ascending/descending)
+- Optional content download with safety limits (max 20 files or 100MB)
+- Smart search strategy: uses Dropbox search API for queries, list_folder for browsing
+- Returns array of files perfect for Loop node integration
+
+**Implementation**: `lib/workflows/actions/dropbox/findFiles.ts`
+
+### Enhancements:
+
+#### Loop Node Activation
+- Removed "coming soon" status
+- Added complete output schema with 7 metadata fields
+- Added `batchSize` config field (1-1000)
+- Set `producesOutput: true` for full functionality
+- Ready for production use
+
+#### Discord Configuration UX
+- Progressive field disclosure for better user experience
+- Fields load only when needed (after server selection)
+- Reduced API calls and prevented loading errors
+
+### Fixes:
+
+#### Discord API Integration
+- Fixed `loadChannels()` missing `integrationId` parameter
+- Resolved 400 Bad Request errors when loading channels
+- Fixed infinite loading state on channel filter field
+- Prevented API request spam with proper caching
+- Added `channelFilter` to supported fields list and switch case
+
+### Technical Improvements:
+- Database migrations for loop tracking
+- Real-time Supabase subscriptions
+- Standardized action registry patterns
+- Complete TypeScript types
+- Comprehensive error handling
+- Batch processing and memory safety limits
+- Extensive documentation and implementation checklists
+
+### Files Created:
+- `supabase/migrations/20251106000000_create_loop_executions_table.sql`
+- `lib/workflows/actions/logic/loop.ts`
+- `components/workflows/execution/LoopProgressIndicator.tsx`
+- `lib/workflows/actions/dropbox/findFiles.ts`
+- `learning/docs/loop-progress-tracking-guide.md`
+- `LOOP_PROGRESS_IMPLEMENTATION.md`
+
+### Files Modified:
+- `lib/workflows/actions/registry.ts` - Added loop handler registration
+- `lib/workflows/actions/dropbox/index.ts` - Exported findDropboxFiles
+- `lib/workflows/nodes/providers/logic/index.ts` - Activated Loop node
+- `lib/workflows/nodes/providers/dropbox/index.ts` - Added Find Files node
+- `lib/services/discordInviteTracker.ts` - Added channel tracking
+- `lib/workflows/nodes/providers/discord/index.ts` - Added channel filter
+- `components/workflows/configuration/providers/DiscordConfiguration.tsx` - Progressive disclosure
+- `components/workflows/configuration/config/fieldMappings.ts` - Added channelFilter mapping
+- `components/workflows/configuration/providers/discord/discordOptionsLoader.ts` - Fixed channel loading
+- `CLAUDE.md` - Added Loop Progress Tracking section
+
+---
+
 ## 2025-10-23 – Security Headers Enhancement
 
 Implemented comprehensive security headers to address security scan findings and strengthen defense-in-depth protection.
