@@ -18,6 +18,100 @@ const FILE_TYPE_EXTENSIONS: Record<string, string[]> = {
 }
 
 /**
+ * Parse relative date strings like "last 30 days", "last year", "today", etc.
+ * Returns ISO date string (YYYY-MM-DD)
+ */
+function parseRelativeDate(input: string): string {
+  if (!input || typeof input !== 'string') return input
+
+  const lowerInput = input.toLowerCase().trim()
+  const now = new Date()
+
+  // TODAY
+  if (lowerInput === 'today') {
+    return now.toISOString().split('T')[0]
+  }
+
+  // YESTERDAY
+  if (lowerInput === 'yesterday') {
+    const yesterday = new Date(now)
+    yesterday.setDate(yesterday.getDate() - 1)
+    return yesterday.toISOString().split('T')[0]
+  }
+
+  // LAST X DAYS
+  const lastDaysMatch = lowerInput.match(/^last (\d+) days?$/)
+  if (lastDaysMatch) {
+    const days = parseInt(lastDaysMatch[1])
+    const date = new Date(now)
+    date.setDate(date.getDate() - days)
+    return date.toISOString().split('T')[0]
+  }
+
+  // LAST X WEEKS
+  const lastWeeksMatch = lowerInput.match(/^last (\d+) weeks?$/)
+  if (lastWeeksMatch) {
+    const weeks = parseInt(lastWeeksMatch[1])
+    const date = new Date(now)
+    date.setDate(date.getDate() - (weeks * 7))
+    return date.toISOString().split('T')[0]
+  }
+
+  // LAST X MONTHS
+  const lastMonthsMatch = lowerInput.match(/^last (\d+) months?$/)
+  if (lastMonthsMatch) {
+    const months = parseInt(lastMonthsMatch[1])
+    const date = new Date(now)
+    date.setMonth(date.getMonth() - months)
+    return date.toISOString().split('T')[0]
+  }
+
+  // LAST 6 MONTHS (specific case)
+  if (lowerInput === 'last 6 months') {
+    const date = new Date(now)
+    date.setMonth(date.getMonth() - 6)
+    return date.toISOString().split('T')[0]
+  }
+
+  // LAST MONTH
+  if (lowerInput === 'last month') {
+    const date = new Date(now)
+    date.setMonth(date.getMonth() - 1)
+    return date.toISOString().split('T')[0]
+  }
+
+  // THIS MONTH
+  if (lowerInput === 'this month') {
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+  }
+
+  // LAST YEAR
+  if (lowerInput === 'last year') {
+    const date = new Date(now)
+    date.setFullYear(date.getFullYear() - 1)
+    return date.toISOString().split('T')[0]
+  }
+
+  // THIS YEAR
+  if (lowerInput === 'this year') {
+    return `${now.getFullYear()}-01-01`
+  }
+
+  // LAST X YEARS
+  const lastYearsMatch = lowerInput.match(/^last (\d+) years?$/)
+  if (lastYearsMatch) {
+    const years = parseInt(lastYearsMatch[1])
+    const date = new Date(now)
+    date.setFullYear(date.getFullYear() - years)
+    return date.toISOString().split('T')[0]
+  }
+
+  // If it's already in YYYY-MM-DD format or ISO 8601, return as-is
+  // Otherwise return original input (could be a variable)
+  return input
+}
+
+/**
  * Check if file matches the type filter
  */
 function matchesFileType(fileName: string, fileType: string, isFolder: boolean): boolean {
@@ -70,11 +164,25 @@ export async function findDropboxFiles(
     const path = context.dataFlowManager.resolveVariable(config.path) || ""
     const searchQuery = context.dataFlowManager.resolveVariable(config.searchQuery) || ""
     const fileType = context.dataFlowManager.resolveVariable(config.fileType) || "any"
-    const modifiedAfter = context.dataFlowManager.resolveVariable(config.modifiedAfter) || ""
-    const modifiedBefore = context.dataFlowManager.resolveVariable(config.modifiedBefore) || ""
+    const includeSubfolders = context.dataFlowManager.resolveVariable(config.includeSubfolders) !== false // Default true
     const limit = parseInt(context.dataFlowManager.resolveVariable(config.limit)) || 100
     const sortBy = context.dataFlowManager.resolveVariable(config.sortBy) || "modified_desc"
     const downloadContent = context.dataFlowManager.resolveVariable(config.downloadContent) === true
+
+    // Handle date fields (dropdown + custom)
+    let modifiedAfterRaw = context.dataFlowManager.resolveVariable(config.modifiedAfter) || ""
+    if (modifiedAfterRaw === "custom") {
+      modifiedAfterRaw = context.dataFlowManager.resolveVariable(config.modifiedAfterCustom) || ""
+    }
+
+    let modifiedBeforeRaw = context.dataFlowManager.resolveVariable(config.modifiedBefore) || ""
+    if (modifiedBeforeRaw === "custom") {
+      modifiedBeforeRaw = context.dataFlowManager.resolveVariable(config.modifiedBeforeCustom) || ""
+    }
+
+    // Parse relative dates
+    const modifiedAfter = parseRelativeDate(modifiedAfterRaw)
+    const modifiedBefore = parseRelativeDate(modifiedBeforeRaw)
 
     // Validate and cap limit
     const actualLimit = Math.min(Math.max(1, limit), 1000)
@@ -131,7 +239,7 @@ export async function findDropboxFiles(
         },
         body: JSON.stringify({
           path: path || "",
-          recursive: true, // Search in subfolders
+          recursive: includeSubfolders, // Respect user's subfolder preference
           limit: Math.min(actualLimit * 2, 2000)
         })
       })
