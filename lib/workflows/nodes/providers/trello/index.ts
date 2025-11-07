@@ -224,7 +224,8 @@ export const trelloNodes: NodeComponent[] = [
           { value: "members", label: "Members (assigned people)" },
           { value: "stickers", label: "Stickers (fun decorations)" }
         ],
-        hidden: { $deps: ["boardId", "idCardSource"], $condition: { $or: [{ boardId: { $exists: false } }, { idCardSource: { $exists: false } }] } },
+        dependsOn: "idCardSource",
+        hidden: { $condition: { idCardSource: { $exists: false } } },
         tooltip: "Choose which elements to copy from the source card. By default, all elements are copied. Use this to selectively copy only what you need - for example, copy just the checklists and labels while assigning different members."
       },
 
@@ -281,7 +282,8 @@ export const trelloNodes: NodeComponent[] = [
         type: "boolean",
         defaultValue: false,
         required: false,
-        hidden: { $deps: ["boardId", "due"], $condition: { $or: [{ boardId: { $exists: false } }, { due: { $exists: false } }] } },
+        dependsOn: "due",
+        hidden: { $condition: { due: { $exists: false } } },
         tooltip: "Whether to mark the due date as already completed"
       },
       {
