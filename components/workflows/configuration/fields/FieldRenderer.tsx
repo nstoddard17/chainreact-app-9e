@@ -51,6 +51,7 @@ import { GoogleDriveFileField } from "./googledrive/GoogleDriveFileField";
 import { GenericSelectField } from "./shared/GenericSelectField";
 import { GenericTextInput } from "./shared/GenericTextInput";
 import { ConnectButton } from "./shared/ConnectButton";
+import { VariableSelectionDropdown } from "./shared/VariableSelectionDropdown";
 
 // Notion-specific field components
 import { NotionBlockFields } from "./notion/NotionBlockFields";
@@ -232,8 +233,8 @@ const shouldUseConnectMode = (field: ConfigField | NodeField) => {
     return true
   }
 
-  // Default: use connect mode for text and email type fields
-  return field.type === 'text' || field.type === 'email'
+  // Default: use connect mode for text, email, and date type fields
+  return field.type === 'text' || field.type === 'email' || field.type === 'date'
 }
 
 /**
@@ -1511,6 +1512,20 @@ export function FieldRenderer({
               </div>
               {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
             </div>
+          );
+        }
+
+        // If connect mode is enabled, show variable dropdown when in connected mode
+        if (shouldUseConnectMode(field) && workflowData && currentNodeId && isConnectedMode) {
+          return (
+            <VariableSelectionDropdown
+              workflowData={workflowData}
+              currentNodeId={currentNodeId}
+              value={value || ''}
+              onChange={onChange}
+              placeholder="Select a date variable..."
+              disabled={false}
+            />
           );
         }
 

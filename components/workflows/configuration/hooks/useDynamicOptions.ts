@@ -136,11 +136,18 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
   
   // Reset options for a field
   const resetOptions = useCallback((fieldName: string) => {
-    setDynamicOptions(prev => ({
-      ...prev,
-      [fieldName]: []
-    }));
-
+    setDynamicOptions(prev => {
+      // Remove the base field entry and any dependency-specific caches
+      let changed = false;
+      const updated = { ...prev };
+      Object.keys(updated).forEach((key) => {
+        if (key === fieldName || key.startsWith(`${fieldName}_`)) {
+          delete updated[key];
+          changed = true;
+        }
+      });
+      return changed ? updated : prev;
+    });
   }, []);
   
   // Load options for a dynamic field with request deduplication
@@ -176,12 +183,25 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
     const requestKey = `${fieldName}-${dependsOn || 'none'}-${dependsOnValue || 'none'}`;
     // If we already have dependency-specific options cached, skip reload
     if (!forceRefresh && dependsOn && dependsOnValue) {
-      const depKey = `${fieldName}_${dependsOnValue}`
-      const depOptions = dynamicOptions[depKey]
+      const depKey = `${fieldName}_${dependsOnValue}`;
+      const depOptions = dynamicOptions[depKey];
       if (depOptions && Array.isArray(depOptions) && depOptions.length > 0) {
         console.log(`🔄 [useDynamicOptions] EARLY RETURN: Has cached dependency options for ${fieldName}`);
+
+        // If the base field options were cleared (e.g., after dependency reset),
+        // repopulate them from the dependency-specific cache so the UI has data.
+        if (!dynamicOptions[fieldName] || dynamicOptions[fieldName].length === 0) {
+          setDynamicOptions(prev => ({
+            ...prev,
+            [fieldName]: depOptions
+          }));
+        }
+
         setLoading(false); // Clear loading state
-        return
+        if (!silent) {
+          onLoadingChangeRef.current?.(fieldName, false);
+        }
+        return;
       }
     }
 
@@ -193,10 +213,43 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       return
     }
     
-    // Generate a unique request ID
+    // Check if there's already an active request for this exact field/dependency combination
+    const activeRequestKey = requestKey;
+    const existingPromise = activeRequests.current.get(activeRequestKey);
+
+    if (existingPromise && !forceRefresh) {
+      logger.debug(`⏳ [useDynamicOptions] Waiting for existing request: ${activeRequestKey}`);
+      let shouldReturn = true;
+      try {
+        await existingPromise;
+      } catch (error) {
+        logger.debug(`⚠️ [useDynamicOptions] Previous request failed, continuing with new request`);
+        shouldReturn = false;
+      }
+      if (shouldReturn) {
+        return; // Data should now be available
+      }
+    }
+
+    if (existingPromise && forceRefresh) {
+      logger.debug(`🔁 [useDynamicOptions] Force refresh requested, aborting existing request: ${activeRequestKey}`);
+      const inFlightController = abortControllers.current.get(requestKey);
+      if (inFlightController) {
+        inFlightController.abort();
+        abortControllers.current.delete(requestKey);
+      }
+      activeRequests.current.delete(activeRequestKey);
+      const existingTimer = staleTimers.current.get(requestKey);
+      if (existingTimer) {
+        clearTimeout(existingTimer);
+        staleTimers.current.delete(requestKey);
+      }
+    }
+    
+    // Generate a unique request ID (after deduplication)
     const requestId = ++requestCounter.current;
     
-    // Cancel any existing request for this field before starting a new one
+    // Cancel any existing request controller before starting a new one (should only be leftovers)
     const existingController = abortControllers.current.get(requestKey);
     if (existingController) {
       existingController.abort();
@@ -205,24 +258,6 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
     
     // Track the current request ID for this cache key
     activeRequestIds.current.set(requestKey, requestId);
-    
-    // Check if there's already an active request for this exact field/dependency combination
-    const activeRequestKey = requestKey;
-    if (!forceRefresh && activeRequests.current.has(activeRequestKey)) {
-      logger.debug(`⏳ [useDynamicOptions] Waiting for existing request: ${activeRequestKey}`);
-      try {
-        await activeRequests.current.get(activeRequestKey);
-        // Check if this request is still the most recent one
-        if (activeRequestIds.current.get(requestKey) !== requestId) {
-          logger.debug(`⏭️ [useDynamicOptions] Request ${requestId} superseded, skipping`);
-          return;
-        }
-        return; // Data should now be available
-      } catch (error) {
-        logger.debug(`⚠️ [useDynamicOptions] Previous request failed, continuing with new request`);
-        // Continue with new request
-      }
-    }
     
     // Check if field is currently loading
     if (!forceRefresh && loadingFields.current.has(requestKey)) {

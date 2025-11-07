@@ -84,23 +84,35 @@ export function VariableSelectionDropdown({
     return `${node.title} → ${field?.label || parsed.fieldName}`
   }
 
+  // Check if any upstream nodes have variables
+  const hasAnyVariables = upstreamNodes.some(node => node.outputSchema.length > 0)
+
   return (
     <Select
       value={value}
       onValueChange={onChange}
       disabled={disabled}
     >
-      <SelectTrigger className="h-9">
+      <SelectTrigger className="h-9 bg-white dark:bg-background">
         <SelectValue placeholder={placeholder}>
           {value && getDisplayValue()}
         </SelectValue>
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent position="popper" className="w-full">
         {upstreamNodes.length === 0 ? (
-          <div className="p-4 text-center text-sm text-muted-foreground">
-            No upstream nodes found.<br />
-            Connect nodes to this one to see available data.
-          </div>
+          <SelectItem value="__empty__" disabled className="text-center justify-center opacity-100">
+            <div className="py-2 text-sm text-muted-foreground">
+              No upstream nodes found.<br />
+              Connect nodes to this one to see available data.
+            </div>
+          </SelectItem>
+        ) : !hasAnyVariables ? (
+          <SelectItem value="__no_variables__" disabled className="text-center justify-center opacity-100">
+            <div className="py-2 text-sm text-muted-foreground">
+              No variables available.<br />
+              The connected nodes don't output any data.
+            </div>
+          </SelectItem>
         ) : (
           <>
             {upstreamNodes.map((node, nodeIndex) => (
