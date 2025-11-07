@@ -89,6 +89,7 @@ export function GenericSelectField({
   const [hasAttemptedLoad, setHasAttemptedLoad] = React.useState(false);
   const [lastLoadTimestamp, setLastLoadTimestamp] = React.useState(0);
   const isLoadingRef = React.useRef(false); // Prevent concurrent loads
+  const isOpenRef = React.useRef(false); // Track if dropdown is currently open
 
   // Track the last dependency value to detect actual changes (not just object reference changes)
   const lastDependencyValueRef = React.useRef<any>(null);
@@ -426,8 +427,17 @@ export function GenericSelectField({
   
   // Generic loading behavior
   const handleFieldOpen = (open: boolean) => {
+    // Track open/close state transitions
+    const wasOpen = isOpenRef.current;
+    isOpenRef.current = open;
+
+    // Only trigger load on transition from closed to open (not on every render while open)
+    const isOpeningNow = open && !wasOpen;
+
     logger.debug('🔍 [GenericSelectField] handleFieldOpen called:', {
       open,
+      wasOpen,
+      isOpeningNow,
       fieldName: field.name,
       fieldDynamic: field.dynamic,
       fieldDependsOn: field.dependsOn,
@@ -437,6 +447,19 @@ export function GenericSelectField({
       hasAttemptedLoad,
       timeSinceLastLoad: Date.now() - lastLoadTimestamp
     });
+
+    // If not opening now (just a re-render while already open), skip
+    if (!isOpeningNow) {
+      if (field.name === 'searchField') {
+        console.log('⏭️ [GenericSelectField] searchField not opening now:', { open, wasOpen, isOpeningNow });
+      }
+      return;
+    }
+
+    // Log when searchField is actually opening
+    if (field.name === 'searchField') {
+      console.log('🎯 [GenericSelectField] searchField IS OPENING NOW!', { open, wasOpen, isOpeningNow });
+    }
 
     const hasOptions = processedOptions.length > 0
     const timeSinceLastLoad = Date.now() - lastLoadTimestamp
@@ -460,16 +483,31 @@ export function GenericSelectField({
     const isLoadOnMountWithData = field.loadOnMount && hasOptions
 
     // Only load if:
-    // 1. Dropdown is open
-    // 2. Field is dynamic
-    // 3. Not currently loading
-    // 4. Not a loadOnMount field that already has data (avoid double loading)
-    // 5. Either hasn't attempted to load, OR (has no options AND hasn't loaded recently)
-    // 6. For special fields (Google Sheets sheetName, OneDrive fileId), also check if we haven't loaded recently
-    const shouldLoad = open && field.dynamic && onDynamicLoad && !isLoading &&
+    // 1. Field is dynamic
+    // 2. Not currently loading
+    // 3. Not a loadOnMount field that already has data (avoid double loading)
+    // 4. Either hasn't attempted to load, OR (has no options AND hasn't loaded recently)
+    // 5. For special fields (Google Sheets sheetName, OneDrive fileId), also check if we haven't loaded recently
+    const shouldLoad = field.dynamic && onDynamicLoad && !isLoading &&
                       !isLoadOnMountWithData &&
                       (!hasAttemptedLoad || (!hasOptions && !recentlyLoaded)) &&
                       (!(isGoogleSheetsSheetName || isOneDriveFileId) || !recentlyLoaded)
+
+    // Debug why searchField might not load
+    if (field.name === 'searchField') {
+      console.log('🔍 [GenericSelectField] searchField shouldLoad check:', {
+        shouldLoad,
+        dynamic: field.dynamic,
+        hasOnDynamicLoad: !!onDynamicLoad,
+        isLoading,
+        isLoadOnMountWithData,
+        hasAttemptedLoad,
+        hasOptions,
+        recentlyLoaded,
+        optionsArray: options,
+        processedOptionsLength: processedOptions.length
+      });
+    }
 
     if (shouldLoad) {
       // Prevent concurrent loads using ref
@@ -510,18 +548,39 @@ export function GenericSelectField({
       setLastLoadTimestamp(Date.now())
 
       // Trigger load and clear loading flag when done
-      const loadPromise = field.dependsOn && dependencyValue
-        ? onDynamicLoad(field.name, field.dependsOn, dependencyValue, forceRefresh)
-        : !field.dependsOn
-        ? onDynamicLoad(field.name, undefined, undefined, forceRefresh)
-        : Promise.resolve();
+      // Always create a promise so finally() is guaranteed to run
+      let loadPromise: Promise<void>;
 
-      loadPromise?.finally(() => {
+      if (field.dependsOn && dependencyValue) {
+        loadPromise = onDynamicLoad(field.name, field.dependsOn, dependencyValue, forceRefresh);
+      } else if (!field.dependsOn) {
+        loadPromise = onDynamicLoad(field.name, undefined, undefined, forceRefresh);
+      } else {
+        // Dependency required but not provided - clear loading immediately
         isLoadingRef.current = false;
         if (field.name === 'searchField') {
-          console.log('✅ [GenericSelectField] searchField load complete');
+          console.log('⚠️ [GenericSelectField] searchField dependency not met, clearing loading');
         }
+        return;
+      }
+
+      // Always clear loading flag when done
+      loadPromise.finally(() => {
+        isLoadingRef.current = false;
+        if (field.name === 'searchField') {
+          console.log('✅ [GenericSelectField] searchField load complete, options:', {
+            optionsCount: options?.length,
+            processedOptionsCount: processedOptions.length,
+            optionsSample: options?.slice(0, 3),
+            isLoading
+          });
+        }
+      }).catch((error) => {
+        // Catch any errors to ensure finally runs
+        logger.error('[GenericSelectField] Load error for field:', field.name, error);
       });
+    } else if (field.name === 'searchField') {
+      console.log('❌ [GenericSelectField] searchField NOT loading - shouldLoad is false');
     }
   };
 

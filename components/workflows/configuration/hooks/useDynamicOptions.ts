@@ -180,6 +180,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       const depOptions = dynamicOptions[depKey]
       if (depOptions && Array.isArray(depOptions) && depOptions.length > 0) {
         console.log(`🔄 [useDynamicOptions] EARLY RETURN: Has cached dependency options for ${fieldName}`);
+        setLoading(false); // Clear loading state
         return
       }
     }
@@ -188,6 +189,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
     const lastTs = lastLoadedAt.current.get(requestKey)
     if (!forceRefresh && lastTs && Date.now() - lastTs < 5000) {
       console.log(`🔄 [useDynamicOptions] EARLY RETURN: Recently loaded ${requestKey} (${Date.now() - lastTs}ms ago)`);
+      setLoading(false); // Clear loading state
       return
     }
     
@@ -254,6 +256,8 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       const channelSpecificData = dynamicOptions[`${fieldName}_${dependsOnValue}`];
       if (channelSpecificData && channelSpecificData.length > 0) {
         console.log(`🔄 [useDynamicOptions] EARLY RETURN: Has channel-specific data for ${fieldName}`);
+        // Ensure loading state is cleared on early return
+        setLoading(false);
         return;
       }
     }
@@ -261,6 +265,8 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
     // For other fields, use simple data check (exclude authorFilter since it's channel-specific)
     if (!forceRefresh && fieldName !== 'authorFilter' && dynamicOptions[fieldName] && dynamicOptions[fieldName].length > 0) {
       console.log(`🔄 [useDynamicOptions] EARLY RETURN: Field already has options (${dynamicOptions[fieldName].length}) for ${fieldName}`);
+      // CRITICAL: Clear loading state on early return so UI doesn't stay stuck loading
+      setLoading(false);
       return;
     }
     // Determine data to load based on field name (moved outside try block for error handling)

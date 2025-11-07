@@ -347,25 +347,35 @@ const dropboxActionFindFiles: NodeComponent = {
   isTrigger: false,
   producesOutput: true,
   configSchema: [
+    // === BASIC SEARCH ===
     {
       name: "path",
-      label: "Folder to Search",
+      label: "Folder",
       type: "select",
       dynamic: "dropbox-folders",
-      required: false,
+      required: true,
       loadOnMount: true,
-      placeholder: "Search entire Dropbox (leave empty) or select folder",
-      description: "Choose a specific folder to search in, or leave empty to search all of Dropbox"
+      placeholder: "Select a folder to search",
+      description: "The folder to search in. Will search subfolders by default."
     },
     {
       name: "searchQuery",
-      label: "Search Query (Optional)",
+      label: "Search Term",
       type: "text",
       required: false,
-      placeholder: "Enter file name or keywords",
-      description: "Search by file name or keywords. Leave empty to return all files.",
+      placeholder: "report.pdf",
+      description: "Search for files by name. Leave empty to return all files in the folder.",
       supportsAI: true
     },
+    {
+      name: "includeSubfolders",
+      label: "Include Subfolders",
+      type: "boolean",
+      defaultValue: true,
+      description: "Search within subfolders of the selected folder. Disable to search only the top level."
+    },
+
+    // === FILTERS (Optional) ===
     {
       name: "fileType",
       label: "File Type Filter",
@@ -388,31 +398,64 @@ const dropboxActionFindFiles: NodeComponent = {
     },
     {
       name: "modifiedAfter",
-      label: "Modified After (Optional)",
+      label: "Modified After",
+      type: "select",
+      required: false,
+      options: [
+        { value: "", label: "Any time" },
+        { value: "last 7 days", label: "Last 7 days" },
+        { value: "last 30 days", label: "Last 30 days" },
+        { value: "last 90 days", label: "Last 90 days" },
+        { value: "last 6 months", label: "Last 6 months" },
+        { value: "last year", label: "Last year" },
+        { value: "this year", label: "This year" },
+        { value: "custom", label: "Custom date..." }
+      ],
+      placeholder: "Select a time range",
+      description: "Filter files by when they were last modified. Select 'Custom date...' to enter a specific date (YYYY-MM-DD) or variable.",
+      supportsAI: true
+    },
+    {
+      name: "modifiedAfterCustom",
+      label: "Custom Date",
       type: "text",
       required: false,
-      placeholder: "2024-01-01 or {{Previous Node.date}}",
-      description: "Only return files modified after this date (YYYY-MM-DD format or ISO 8601)",
-      supportsAI: true
+      placeholder: "2024-01-01 or {{Variable}}",
+      description: "Enter a specific date (YYYY-MM-DD format) or use a variable from a previous node.",
+      supportsAI: true,
+      visibilityCondition: { field: "modifiedAfter", operator: "equals", value: "custom" }
     },
     {
       name: "modifiedBefore",
-      label: "Modified Before (Optional)",
-      type: "text",
+      label: "Modified Before",
+      type: "select",
       required: false,
-      placeholder: "2024-12-31 or {{Previous Node.date}}",
-      description: "Only return files modified before this date (YYYY-MM-DD format or ISO 8601)",
+      options: [
+        { value: "", label: "Any time" },
+        { value: "today", label: "Today" },
+        { value: "yesterday", label: "Yesterday" },
+        { value: "last 7 days", label: "Last 7 days" },
+        { value: "last 30 days", label: "Last 30 days" },
+        { value: "last month", label: "Last month" },
+        { value: "this month", label: "This month" },
+        { value: "custom", label: "Custom date..." }
+      ],
+      placeholder: "Select a time range",
+      description: "Filter files by when they were last modified. Select 'Custom date...' to enter a specific date (YYYY-MM-DD) or variable.",
       supportsAI: true
     },
     {
-      name: "limit",
-      label: "Maximum Results",
-      type: "number",
+      name: "modifiedBeforeCustom",
+      label: "Custom Date",
+      type: "text",
       required: false,
-      defaultValue: 100,
-      placeholder: "100",
-      description: "Maximum number of files to return (default: 100, max: 1000)"
+      placeholder: "2024-12-31 or {{Variable}}",
+      description: "Enter a specific date (YYYY-MM-DD format) or use a variable from a previous node.",
+      supportsAI: true,
+      visibilityCondition: { field: "modifiedBefore", operator: "equals", value: "custom" }
     },
+
+    // === RESULTS SETTINGS ===
     {
       name: "sortBy",
       label: "Sort By",
@@ -430,11 +473,22 @@ const dropboxActionFindFiles: NodeComponent = {
       description: "How to sort the results"
     },
     {
+      name: "limit",
+      label: "Maximum Results",
+      type: "number",
+      required: false,
+      defaultValue: 100,
+      placeholder: "100",
+      description: "Maximum files to return (1-1000). If more files match, check the 'Has More Results' output. Default: 100"
+    },
+
+    // === ADVANCED OPTIONS ===
+    {
       name: "downloadContent",
       label: "Download File Content",
       type: "boolean",
       defaultValue: false,
-      description: "⚠️ Enable to download file content for all results. Only use for small batches (< 20 files, < 50MB total) to avoid memory/timeout issues."
+      description: "⚠️ Download the actual file data as base64. Use when you need to process file contents or upload to another service. Limited to 20 files or 100MB total to prevent memory/timeout issues. If disabled, returns only file metadata (name, size, path, etc.)."
     }
   ],
   outputSchema: [
