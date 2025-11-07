@@ -60,7 +60,8 @@ export const findRecordActionSchema: NodeComponent = {
       dependsOn: "tableName",
       placeholder: "Select field to search in...",
       description: "Field to search in",
-      visibleWhen: { field: "searchMode", value: "field_match" }
+      visibleWhen: { field: "searchMode", value: "field_match" },
+      autoLoad: true
     },
     {
       name: "searchValue",

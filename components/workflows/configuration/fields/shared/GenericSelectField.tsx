@@ -566,6 +566,7 @@ export function GenericSelectField({
 
       // Always clear loading flag when done
       loadPromise.finally(() => {
+        const endTime = performance.now();
         isLoadingRef.current = false;
         if (field.name === 'searchField') {
           console.log('✅ [GenericSelectField] searchField load complete, options:', {
@@ -573,6 +574,11 @@ export function GenericSelectField({
             processedOptionsCount: processedOptions.length,
             optionsSample: options?.slice(0, 3),
             isLoading
+          });
+
+          // Schedule a check to see when options actually appear in the UI
+          requestAnimationFrame(() => {
+            console.log(`🎨 [GenericSelectField] searchField RAF complete - UI should be painted`);
           });
         }
       }).catch((error) => {
@@ -584,12 +590,34 @@ export function GenericSelectField({
     }
   };
 
-  // Generic option processing
-  const processOptions = (opts: any[]) => {
+  // Generic option processing - MEMOIZED to prevent re-processing on every render
+  const processOptions = React.useCallback((opts: any[]) => {
     return opts.filter(opt => opt && (opt.value || opt.id));
-  };
+  }, []);
 
-  const processedOptions = processOptions(options);
+  const processedOptions = React.useMemo(() => {
+    const startTime = performance.now();
+    const processed = processOptions(options);
+    const duration = performance.now() - startTime;
+
+    // Log performance for searchField
+    if (field.name === 'searchField') {
+      console.log(`⚡ [GenericSelectField] searchField processOptions took ${duration.toFixed(2)}ms for ${processed.length} options`);
+    }
+
+    return processed;
+  }, [options, processOptions, field.name]);
+
+  // Track when options change for performance monitoring
+  React.useEffect(() => {
+    if (field.name === 'searchField' && processedOptions.length > 0) {
+      console.log(`📊 [GenericSelectField] searchField options updated in React:`, {
+        count: processedOptions.length,
+        timestamp: Date.now(),
+        sample: processedOptions.slice(0, 5).map(o => o.label)
+      });
+    }
+  }, [processedOptions, field.name]);
 
   // Drag and drop handlers
   const handleDragOver = React.useCallback((e: React.DragEvent) => {
@@ -742,7 +770,7 @@ export function GenericSelectField({
             emptyPlaceholder={isLoading ? loadingPlaceholder : "No options available"}
             searchPlaceholder="Search options..."
             disabled={false}
-            creatable={true} // Always allow custom input for variables
+            creatable={field.dynamic ? false : true} // Never allow creating new options for dynamic fields (they load from existing data), but allow variables for static fields
             onOpenChange={handleFieldOpen}
             selectedValues={effectiveSelectedValues} // Pass selected values for checkmarks
             hideSelectedBadges={isAirtableLinkedField} // Hide badges for Airtable fields with bubbles
@@ -806,7 +834,7 @@ export function GenericSelectField({
             searchPlaceholder="Search options..."
             emptyPlaceholder={isLoading ? loadingPlaceholder : "No options found"}
             disabled={false}
-            creatable={true} // Always allow custom input for variables
+            creatable={field.dynamic ? false : true} // Never allow creating new options for dynamic fields (they load from existing data), but allow variables for static fields
             onOpenChange={handleFieldOpen} // Add missing onOpenChange handler
             selectedValues={effectiveSelectedValues} // Pass selected values for checkmarks
             displayLabel={displayLabel} // Pass the saved display label
@@ -863,7 +891,7 @@ export function GenericSelectField({
           searchPlaceholder="Search options..."
           emptyPlaceholder={isLoading ? loadingPlaceholder : getEmptyMessage(field.name, field.label)}
           disabled={false}
-          creatable={true} // Always allow custom input for variables
+          creatable={field.dynamic ? false : true} // Never allow creating new options for dynamic fields (they load from existing data), but allow variables for static fields
           onOpenChange={handleFieldOpen}
           selectedValues={effectiveSelectedValues}
           displayLabel={displayLabel}

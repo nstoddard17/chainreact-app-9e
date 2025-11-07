@@ -100,15 +100,15 @@ export function AirtableRecordsTable({
 
   if (loading) {
     return (
-      <div className="bg-gray-900 rounded-lg overflow-hidden w-full max-w-full" style={{ minWidth: 0 }}>
+      <div className="bg-white rounded-lg overflow-hidden w-full max-w-full border border-gray-300" style={{ minWidth: 0 }}>
         {/* Header Section - Same as loaded state */}
-        <div className="bg-gray-800 px-4 py-3 border-b border-gray-700">
+        <div className="bg-gray-50 px-4 py-3 border-b border-gray-300">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-white font-medium">
+              <h3 className="text-gray-900 font-medium text-sm">
                 {isPreview ? 'Preview Data' : `Select Record: ${tableName || 'Records'}`}
               </h3>
-              <p className="text-gray-400 text-sm mt-0.5">
+              <p className="text-gray-600 text-xs mt-0.5">
                 Loading records...
               </p>
             </div>
@@ -119,19 +119,19 @@ export function AirtableRecordsTable({
         <div className="overflow-auto" style={{ maxHeight: '400px', minHeight: '200px' }}>
           <div className="animate-pulse">
             {/* Skeleton table structure */}
-            <div className="bg-gray-800 px-4 py-3 border-b border-gray-700">
+            <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
               <div className="flex gap-4">
-                <div className="w-24 h-4 bg-gray-700 rounded"></div>
-                <div className="w-32 h-4 bg-gray-700 rounded"></div>
-                <div className="w-28 h-4 bg-gray-700 rounded"></div>
+                <div className="w-24 h-4 bg-gray-300 rounded"></div>
+                <div className="w-32 h-4 bg-gray-300 rounded"></div>
+                <div className="w-28 h-4 bg-gray-300 rounded"></div>
               </div>
             </div>
             {[...Array(5)].map((_, i) => (
-              <div key={i} className="px-4 py-3 border-b border-gray-800">
+              <div key={i} className="px-4 py-3 border-b border-gray-200">
                 <div className="flex gap-4">
-                  <div className="w-20 h-4 bg-gray-700 rounded"></div>
-                  <div className="w-36 h-4 bg-gray-700 rounded"></div>
-                  <div className="w-24 h-4 bg-gray-700 rounded"></div>
+                  <div className="w-20 h-4 bg-gray-300 rounded"></div>
+                  <div className="w-36 h-4 bg-gray-300 rounded"></div>
+                  <div className="w-24 h-4 bg-gray-300 rounded"></div>
                 </div>
               </div>
             ))}
@@ -139,8 +139,8 @@ export function AirtableRecordsTable({
         </div>
 
         {/* Footer Section */}
-        <div className="bg-gray-800 px-4 py-3 border-t border-gray-700">
-          <div className="text-sm text-gray-400">
+        <div className="bg-gray-50 px-4 py-3 border-t border-gray-300">
+          <div className="text-xs text-gray-600">
             Loading table data...
           </div>
         </div>
@@ -150,23 +150,23 @@ export function AirtableRecordsTable({
 
   if (records.length === 0) {
     return (
-      <div className="text-center py-8 text-gray-400 bg-gray-900 rounded-lg w-full max-w-full" style={{ minWidth: 0 }}>
+      <div className="text-center py-8 text-gray-600 bg-white rounded-lg w-full max-w-full border border-gray-300" style={{ minWidth: 0 }}>
         No records found in this table.
       </div>
     );
   }
 
   return (
-    <div className="bg-gray-900 rounded-lg w-full" style={{ maxWidth: '100%', overflow: 'hidden' }}>
+    <div className="bg-white rounded-lg w-full border border-gray-300" style={{ maxWidth: '100%', overflow: 'hidden' }}>
       {/* Header Section - Same structure as loading state */}
-      <div className="bg-gray-800 px-4 py-3 border-b border-gray-700">
+      <div className="bg-gray-50 px-4 py-3 border-b border-gray-300">
         <div className="flex items-center justify-between flex-wrap gap-2">
           {/* Title and subtitle */}
           <div className="min-w-0">
-            <h3 className="text-white font-medium">
+            <h3 className="text-gray-900 font-medium text-sm">
               {isPreview ? 'Preview Data' : `Select Record${multiSelect ? 's' : ''}: ${tableName || 'Records'}`}
             </h3>
-            <p className="text-gray-400 text-sm mt-0.5">
+            <p className="text-gray-600 text-xs mt-0.5">
               {showAll || displayRecords.length === filteredRecords.length
                 ? `${filteredRecords.length} record${filteredRecords.length !== 1 ? 's' : ''}`
                 : `Showing ${displayRecords.length} of ${filteredRecords.length} records`}
@@ -183,7 +183,7 @@ export function AirtableRecordsTable({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onClear={() => setSearchQuery('')}
-                className="h-8 text-sm bg-gray-800 border-gray-600 text-gray-200 placeholder:text-gray-500"
+                className="h-8 text-sm bg-white border-gray-300 text-gray-900 placeholder:text-gray-500"
               />
             </div>
 
@@ -194,7 +194,7 @@ export function AirtableRecordsTable({
                 variant="outline"
                 size="sm"
                 onClick={() => setShowAll(!showAll)}
-                className="h-8 px-3 text-xs bg-gray-800 border-gray-600 hover:bg-gray-700 text-gray-200"
+                className="h-8 px-3 text-xs bg-white border-gray-300 hover:bg-gray-50 text-gray-900"
               >
                 {showAll ? `Show First ${recordsPerPage}` : `Show All ${filteredRecords.length}`}
               </Button>
@@ -207,7 +207,7 @@ export function AirtableRecordsTable({
                 variant="ghost"
                 size="sm"
                 onClick={onRefresh}
-                className="text-gray-400 hover:text-white p-1"
+                className="text-gray-600 hover:text-gray-900 p-1"
               >
                 <RefreshCw className="h-4 w-4" />
               </Button>
@@ -219,19 +219,19 @@ export function AirtableRecordsTable({
       {/* Table Container with horizontal scroll */}
       <div className="w-full" style={{ maxHeight: '400px', overflowX: 'auto', overflowY: 'auto' }}>
         <table style={{ minWidth: '100%' }}>
-            <thead className="sticky top-0 bg-gray-800 z-20">
-              <tr className="border-b border-gray-700">
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider whitespace-nowrap">
+            <thead className="sticky top-0 bg-gray-50 z-20">
+              <tr className="border-b border-gray-300">
+                <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap">
                   ID
                 </th>
                 {fieldNames.map(field => (
-                  <th key={field} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider whitespace-nowrap">
+                  <th key={field} className="px-4 py-2.5 text-left text-xs font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap">
                     {field}
                   </th>
                 ))}
               </tr>
             </thead>
-          <tbody className="divide-y divide-gray-800">
+          <tbody className="divide-y divide-gray-200">
             {displayRecords.map((record, idx) => {
               const isSelected = multiSelect
                 ? (selectedRecords || []).some(r => r.id === record.id)
@@ -241,13 +241,13 @@ export function AirtableRecordsTable({
               <tr
                 key={record.id}
                 className={cn(
-                  "hover:bg-gray-800 transition-all cursor-pointer",
-                  idx % 2 === 0 ? "bg-gray-900" : "bg-gray-850",
-                  isSelected && "bg-green-600 bg-opacity-40 hover:bg-green-600 hover:bg-opacity-50 border-l-4 border-green-500"
+                  "hover:bg-blue-50 transition-all cursor-pointer",
+                  idx % 2 === 0 ? "bg-white" : "bg-gray-50",
+                  isSelected && "bg-blue-100 hover:bg-blue-100 border-l-4 border-blue-500"
                 )}
                 onClick={() => handleRecordClick(record)}
               >
-                <td className="px-4 py-3 text-sm text-blue-400 whitespace-nowrap">
+                <td className="px-4 py-3 text-sm text-blue-600 whitespace-nowrap font-medium">
                   <span title={record.id}>
                     {record.id}
                   </span>
@@ -261,7 +261,7 @@ export function AirtableRecordsTable({
                   );
 
                   return (
-                    <td key={field} className="px-4 py-3 text-sm text-gray-300">
+                    <td key={field} className="px-4 py-3 text-sm text-gray-900">
                       {isImage ? (
                         <div className="flex items-center gap-2">
                           {Array.isArray(value) ? (
@@ -270,7 +270,7 @@ export function AirtableRecordsTable({
                                 key={idx}
                                 src={img.url || img.thumbnails?.small?.url || img.thumbnails?.large?.url}
                                 alt={img.filename || 'Image'}
-                                className="w-10 h-10 object-cover rounded border border-gray-600 flex-shrink-0"
+                                className="w-10 h-10 object-cover rounded border border-gray-300 flex-shrink-0"
                                 onError={(e) => {
                                   e.currentTarget.style.display = 'none';
                                 }}
@@ -280,14 +280,14 @@ export function AirtableRecordsTable({
                             <img
                               src={value.url || value.thumbnails?.small?.url || value.thumbnails?.large?.url}
                               alt={value.filename || 'Image'}
-                              className="w-10 h-10 object-cover rounded border border-gray-600 flex-shrink-0"
+                              className="w-10 h-10 object-cover rounded border border-gray-300 flex-shrink-0"
                               onError={(e) => {
                                 e.currentTarget.style.display = 'none';
                               }}
                             />
                           )}
                           {Array.isArray(value) && value.length > 3 && (
-                            <span className="text-xs text-gray-500 flex-shrink-0">+{value.length - 3}</span>
+                            <span className="text-xs text-gray-600 flex-shrink-0">+{value.length - 3}</span>
                           )}
                         </div>
                       ) : (
@@ -306,19 +306,19 @@ export function AirtableRecordsTable({
       </div>
 
       {/* Footer Section */}
-      <div className="bg-gray-800 px-4 py-3 border-t border-gray-700 flex items-center justify-between">
-        <div className="text-sm text-gray-400">
-          Total: {filteredRecords.length} record{filteredRecords.length !== 1 ? 's' : ''} • 
+      <div className="bg-gray-50 px-4 py-3 border-t border-gray-300 flex items-center justify-between">
+        <div className="text-xs text-gray-600">
+          Total: {filteredRecords.length} record{filteredRecords.length !== 1 ? 's' : ''} •
           Showing {recordsPerPage === -1 ? 'all' : `${Math.min(displayRecords.length, recordsPerPage)}`} of {fieldNames.length + 1} fields
         </div>
-        
+
         {onRefresh && (
           <Button
             type="button"
             variant="ghost"
             size="sm"
             onClick={onRefresh}
-            className="text-gray-400 hover:text-white flex items-center gap-2"
+            className="text-gray-600 hover:text-gray-900 flex items-center gap-2"
           >
             <RefreshCw className="h-4 w-4" />
             Refresh

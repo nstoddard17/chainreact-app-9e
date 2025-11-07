@@ -15,6 +15,7 @@ import { useIntegrationStore } from '@/stores/integrationStore';
 import { useAirtableBubbleHandler } from '../hooks/useAirtableBubbleHandler';
 import { useFieldValidation } from '../hooks/useFieldValidation';
 import { AirtableRecordsTable } from '../AirtableRecordsTable';
+import { FieldChecklistWithOverride } from '../FieldChecklistWithOverride';
 import { getAirtableFieldTypeFromSchema, isEditableFieldType } from '../utils/airtableHelpers';
 import { BubbleDisplay } from '../components/BubbleDisplay';
 
@@ -173,6 +174,10 @@ export function AirtableConfiguration({
 
   const [selectedMultipleRecords, setSelectedMultipleRecords] = useState<any[]>([]);
 
+  // Duplicate record state
+  const [selectedDuplicateRecord, setSelectedDuplicateRecord] = useState<any>(null);
+  const [duplicateFieldChecklist, setDuplicateFieldChecklist] = useState<any[]>([]);
+
   const [localAirtableTableSchema, setLocalAirtableTableSchema] = useState<any>(null);
   const airtableTableSchema = parentAirtableTableSchema ?? localAirtableTableSchema;
   const setAirtableTableSchema = parentSetAirtableTableSchema ?? setLocalAirtableTableSchema;
@@ -240,6 +245,7 @@ export function AirtableConfiguration({
   const isListRecord = nodeInfo?.type === 'airtable_action_list_records';
   const isFindRecord = nodeInfo?.type === 'airtable_action_find_record';
   const isDeleteRecord = nodeInfo?.type === 'airtable_action_delete_record';
+  const isDuplicateRecord = nodeInfo?.type === 'airtable_action_duplicate_record';
 
   // Initialize bubble handler
   const airtableBubbleHandler = useAirtableBubbleHandler({
@@ -515,6 +521,61 @@ export function AirtableConfiguration({
       setLoadingRecords(false);
     }
   }, [airtableIntegration, airtableTableSchema, fetchAirtableTableSchema]);
+
+  // Handle record selection for duplicate record
+  const handleDuplicateRecordSelection = useCallback((record: any) => {
+    logger.debug('[DuplicateRecord] Record selected:', record);
+
+    setSelectedDuplicateRecord(record);
+    setValue('recordId', record.id);
+
+    // Build field checklist from record data and schema
+    if (record.fields && airtableTableSchema?.fields) {
+      const checklist = airtableTableSchema.fields.map((field: any) => ({
+        name: field.name,
+        label: field.name,
+        value: record.fields[field.name] ?? null,
+        type: field.type,
+        enabled: true, // Auto-select all fields by default
+        override: false, // Override disabled by default
+        overrideValue: undefined
+      }));
+
+      logger.debug('[DuplicateRecord] Created field checklist:', checklist);
+      setDuplicateFieldChecklist(checklist);
+
+      // Store in duplicateConfig hidden field
+      const config = {
+        fieldsToCopy: checklist.filter(f => f.enabled).map(f => f.name),
+        fieldsToOverride: {}
+      };
+      setValue('duplicateConfig', config);
+    }
+  }, [airtableTableSchema, setValue]);
+
+  // Handle changes to duplicate field checklist
+  const handleDuplicateFieldsChange = useCallback((updatedFields: any[]) => {
+    logger.debug('[DuplicateRecord] Fields updated:', updatedFields);
+    setDuplicateFieldChecklist(updatedFields);
+
+    // Update duplicateConfig with new settings
+    const fieldsToCopy = updatedFields.filter(f => f.enabled).map(f => f.name);
+    const fieldsToOverride: Record<string, any> = {};
+
+    updatedFields.forEach(field => {
+      if (field.enabled && field.override && field.overrideValue !== undefined) {
+        fieldsToOverride[field.name] = field.overrideValue;
+      }
+    });
+
+    const config = {
+      fieldsToCopy,
+      fieldsToOverride
+    };
+
+    logger.debug('[DuplicateRecord] Updated config:', config);
+    setValue('duplicateConfig', config);
+  }, [setValue]);
 
   // Get dynamic fields from schema
   const getDynamicFields = () => {
@@ -1229,8 +1290,8 @@ export function AirtableConfiguration({
       // Clear loaded dropdown fields when table changes so they reload for new table
       setLoadedDropdownFields(new Set());
 
-      // For update record or update multiple records, load both schema and records
-      if (isUpdateRecord || isUpdateMultipleRecords) {
+      // For update record, update multiple records, or duplicate record, load both schema and records
+      if (isUpdateRecord || isUpdateMultipleRecords || isDuplicateRecord) {
         // Load schema first, then records (records loading checks for schema)
         fetchAirtableTableSchema(values.baseId, values.tableName).then(() => {
           loadAirtableRecords(values.baseId, values.tableName);
@@ -1245,7 +1306,7 @@ export function AirtableConfiguration({
         fetchAirtableTableSchema(values.baseId, values.tableName);
       }
     }
-  }, [isCreateRecord, isUpdateRecord, isUpdateMultipleRecords, isFindRecord, values.tableName, values.baseId, fetchAirtableTableSchema, loadAirtableRecords]);
+  }, [isCreateRecord, isUpdateRecord, isUpdateMultipleRecords, isDuplicateRecord, isFindRecord, values.tableName, values.baseId, fetchAirtableTableSchema, loadAirtableRecords]);
 
   // Helper function to get a proper string label from any value
   const getLabelFromValue = useCallback((val: any): string => {
@@ -1422,8 +1483,8 @@ export function AirtableConfiguration({
 
   // Auto-load all dynamic dropdown fields when they become visible
   useEffect(() => {
-    // Only for create/update record actions
-    if (!isCreateRecord && !isUpdateRecord && !isUpdateMultipleRecords) return;
+    // Only for create/update/find record actions
+    if (!isCreateRecord && !isUpdateRecord && !isUpdateMultipleRecords && !isFindRecord) return;
     if (!values.tableName || !values.baseId) return;
     if (dynamicFields.length === 0) return;
 
@@ -1514,13 +1575,106 @@ export function AirtableConfiguration({
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dynamicFields, values.tableName, values.baseId, isCreateRecord, isUpdateRecord, isUpdateMultipleRecords,
+  }, [dynamicFields, values.tableName, values.baseId, isCreateRecord, isUpdateRecord, isUpdateMultipleRecords, isFindRecord,
       dynamicOptions, autoLoadedFields, airtableTableSchema]); // Don't include loadOptions
 
   // Clear auto-loaded fields when table changes
   useEffect(() => {
     setAutoLoadedFields(new Set());
   }, [values.tableName]);
+
+  // Auto-load config schema fields with autoLoad: true when they become visible
+  useEffect(() => {
+    if (!isFindRecord) return;
+    if (!values.tableName || !values.baseId) return;
+
+    // Find config schema fields that should auto-load
+    const autoLoadFields = nodeInfo?.configSchema?.filter((field: any) => {
+      // Must have autoLoad: true
+      if (!field.autoLoad) return false;
+
+      // Must have dynamic data source
+      if (!field.dynamic) return false;
+
+      // Skip if already auto-loaded
+      if (autoLoadedFields.has(field.name)) return false;
+
+      // Skip if already has options
+      if (dynamicOptions[field.name]?.length > 0) return false;
+
+      // Check if field's dependencies are satisfied
+      if (field.dependsOn) {
+        const depValue = values[field.dependsOn];
+        if (!depValue) return false;
+      }
+
+      // Check if field's visibleWhen condition is satisfied
+      if (field.visibleWhen) {
+        const { field: condField, value: condValue } = field.visibleWhen;
+        const currentValue = values[condField];
+        if (currentValue !== condValue) return false;
+      }
+
+      return true;
+    }) || [];
+
+    if (autoLoadFields.length > 0) {
+      logger.debug('🚀 [AUTO-LOAD CONFIG] Auto-loading config schema fields:', autoLoadFields.map((f: any) => ({
+        name: f.name,
+        label: f.label,
+        dynamic: f.dynamic
+      })));
+
+      // Mark as auto-loaded
+      setAutoLoadedFields(prev => {
+        const newSet = new Set(prev);
+        autoLoadFields.forEach((field: any) => newSet.add(field.name));
+        return newSet;
+      });
+
+      // Load each field
+      autoLoadFields.forEach((field: any) => {
+        setLocalLoadingFields(prev => {
+          const newSet = new Set(prev);
+          newSet.add(field.name);
+          return newSet;
+        });
+
+        const extraOptions = {
+          baseId: values.baseId,
+          tableName: values.tableName,
+          tableFields: airtableTableSchema?.fields || []
+        };
+
+        logger.debug(`🔄 [AUTO-LOAD CONFIG] Loading options for: ${field.label}`, {
+          fieldName: field.name,
+          dynamic: field.dynamic,
+          dependsOn: field.dependsOn
+        });
+
+        if (field.dependsOn === 'tableName') {
+          loadOptions(field.name, 'tableName', values.tableName, true, false, extraOptions)
+            .finally(() => {
+              setLocalLoadingFields(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(field.name);
+                return newSet;
+              });
+            });
+        } else {
+          loadOptions(field.name, undefined, undefined, true, false, extraOptions)
+            .finally(() => {
+              setLocalLoadingFields(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(field.name);
+                return newSet;
+              });
+            });
+        }
+      });
+    }
+  }, [isFindRecord, values.tableName, values.baseId, values.searchMode, nodeInfo?.configSchema,
+      dynamicOptions, autoLoadedFields, airtableTableSchema, loadOptions]);
 
   // Auto-load fields with loadOnMount: true on initial component mount (for triggers)
   useEffect(() => {
@@ -2407,6 +2561,49 @@ export function AirtableConfiguration({
                 {selectedMultipleRecords.length > 0 && (
                   <div className="mt-3 text-sm text-green-400">
                     {selectedMultipleRecords.length} record{selectedMultipleRecords.length !== 1 ? 's' : ''} selected
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Records table and field checklist for duplicate record */}
+            {isDuplicateRecord && values.tableName && values.baseId && (
+              <div className="w-full space-y-6">
+                {/* Record selection table */}
+                <div className="overflow-hidden">
+                  <div className="mb-3">
+                    <h3 className="text-sm font-semibold text-slate-200 mb-1">
+                      Select Record to Duplicate
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Click a row to select the record you want to duplicate, or paste a record ID above
+                    </p>
+                  </div>
+                  <AirtableRecordsTable
+                    records={airtableRecords}
+                    loading={loadingRecords}
+                    selectedRecord={selectedDuplicateRecord}
+                    tableName={values.tableName}
+                    onSelectRecord={handleDuplicateRecordSelection}
+                    onRefresh={() => loadAirtableRecords(values.baseId, values.tableName)}
+                  />
+                </div>
+
+                {/* Field checklist with override toggles */}
+                {selectedDuplicateRecord && duplicateFieldChecklist.length > 0 && (
+                  <div className="border border-slate-700 rounded-lg p-4 bg-slate-800/30">
+                    <div className="mb-4">
+                      <h3 className="text-sm font-semibold text-slate-200 mb-1">
+                        Select Fields to Duplicate
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        Check fields to copy, and enable "Override" to change their values in the duplicate
+                      </p>
+                    </div>
+                    <FieldChecklistWithOverride
+                      fields={duplicateFieldChecklist}
+                      onChange={handleDuplicateFieldsChange}
+                    />
                   </div>
                 )}
               </div>
