@@ -123,9 +123,21 @@ export const trelloNodes: NodeComponent[] = [
         label: "Board",
         type: "select",
         dynamic: "trello_boards",
-        required: false,
+        required: true,
         loadOnMount: true,
-        placeholder: "Select a board"
+        placeholder: "Select a board",
+        tooltip: "Select the board to monitor for card moves"
+      },
+      {
+        name: "watchedLists",
+        label: "Watch Specific Lists",
+        type: "multi-select",
+        dynamic: "trello_lists",
+        dependsOn: "boardId",
+        required: false,
+        placeholder: "All lists",
+        hidden: { $condition: { boardId: { $exists: false } } },
+        tooltip: "Only trigger when cards move into or out of these lists. Leave empty to monitor all lists."
       }
     ],
     outputSchema: [
