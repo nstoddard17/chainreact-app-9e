@@ -126,6 +126,7 @@ export function AirtableConfiguration({
   
   // Use parent state if provided, otherwise use local state
   const [localLoadingFields, setLocalLoadingFields] = useState<Set<string>>(new Set());
+  const [searchFieldOptions, setSearchFieldOptions] = useState<Array<{ value: string; label: string }>>([]);
 
   // Combine all loading states for display
   const loadingFields = React.useMemo(() => {
@@ -889,6 +890,91 @@ export function AirtableConfiguration({
     setAirtableTableSchema?.(null);
     logger.debug('✅ [AirtableConfig] Cleared schema to force reload for new table');
   }, [values.tableName, setAiFields, setAirtableTableSchema]);
+
+  // Pre-load searchField options for Find Record nodes so the dropdown never appears empty
+  useEffect(() => {
+    if (!isFindRecord || !values.baseId || !values.tableName || !airtableIntegration?.id) {
+      setSearchFieldOptions([]);
+      setLocalLoadingFields(prev => {
+        if (!prev.has('searchField')) return prev;
+        const next = new Set(prev);
+        next.delete('searchField');
+        return next;
+      });
+      return;
+    }
+
+    let isCancelled = false;
+    const abortController = new AbortController();
+
+    setLocalLoadingFields(prev => {
+      if (prev.has('searchField')) return prev;
+      const next = new Set(prev);
+      next.add('searchField');
+      return next;
+    });
+
+    (async () => {
+      try {
+        const response = await fetch('/api/integrations/airtable/data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            integrationId: airtableIntegration.id,
+            dataType: 'airtable_fields',
+            options: {
+              baseId: values.baseId,
+              tableName: values.tableName
+            }
+          }),
+          signal: abortController.signal
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Failed to load Airtable fields (${response.status})`);
+        }
+
+        const payload = await response.json();
+        const fields = payload?.data || [];
+        if (!isCancelled) {
+          setSearchFieldOptions(
+            fields.map((field: any) => ({
+              value: field.value || field.name || field.id,
+              label: field.label || field.name || field.id
+            }))
+          );
+        }
+      } catch (error) {
+        if (!abortController.signal.aborted) {
+          logger.error('❌ [AirtableConfig] Failed to load searchField options:', error);
+          if (!isCancelled) {
+            setSearchFieldOptions([]);
+          }
+        }
+      } finally {
+        if (!isCancelled) {
+          setLocalLoadingFields(prev => {
+            if (!prev.has('searchField')) return prev;
+            const next = new Set(prev);
+            next.delete('searchField');
+            return next;
+          });
+        }
+      }
+    })();
+
+    return () => {
+      isCancelled = true;
+      abortController.abort();
+      setLocalLoadingFields(prev => {
+        if (!prev.has('searchField')) return prev;
+        const next = new Set(prev);
+        next.delete('searchField');
+        return next;
+      });
+    };
+  }, [airtableIntegration?.id, isFindRecord, values.baseId, values.tableName]);
 
   // Log component mount and initial state
   useEffect(() => {
@@ -1761,6 +1847,12 @@ export function AirtableConfiguration({
       }
 
       let effectiveField = field;
+      if (field.name === 'searchField' && searchFieldOptions.length > 0) {
+        effectiveField = {
+          ...effectiveField,
+          options: searchFieldOptions
+        };
+      }
       if (shouldShowTemplateHints && field.name?.startsWith('airtable_field_')) {
         const rawKey = field.label || field.name.replace('airtable_field_', '');
         const normalizedKey = typeof rawKey === 'string' ? rawKey.trim() : rawKey;

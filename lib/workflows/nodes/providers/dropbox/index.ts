@@ -418,10 +418,9 @@ const dropboxActionFindFiles: NodeComponent = {
     {
       name: "modifiedAfterCustom",
       label: "Custom Date",
-      type: "text",
+      type: "date",
       required: false,
-      placeholder: "2024-01-01 or {{Variable}}",
-      description: "Enter a specific date (YYYY-MM-DD format) or use a variable from a previous node.",
+      description: "Select a specific date or use a variable from a previous node.",
       supportsAI: true,
       visibilityCondition: { field: "modifiedAfter", operator: "equals", value: "custom" }
     },
@@ -447,10 +446,9 @@ const dropboxActionFindFiles: NodeComponent = {
     {
       name: "modifiedBeforeCustom",
       label: "Custom Date",
-      type: "text",
+      type: "date",
       required: false,
-      placeholder: "2024-12-31 or {{Variable}}",
-      description: "Enter a specific date (YYYY-MM-DD format) or use a variable from a previous node.",
+      description: "Select a specific date or use a variable from a previous node.",
       supportsAI: true,
       visibilityCondition: { field: "modifiedBefore", operator: "equals", value: "custom" }
     },

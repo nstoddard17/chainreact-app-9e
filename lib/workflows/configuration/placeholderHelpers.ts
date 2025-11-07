@@ -20,8 +20,14 @@ export function generatePlaceholder(options: PlaceholderOptions): string {
   const { fieldName, fieldType, integrationId = '' } = options
   const nameLower = fieldName.toLowerCase()
 
-  // Email fields
-  if (nameLower.includes('email') || nameLower.includes('recipient') || nameLower.includes('to')) {
+  // Dates (check before email to avoid "custom" containing "to")
+  if (nameLower.includes('date') || nameLower.includes('due') || nameLower.includes('modified') || nameLower.includes('created') || nameLower.includes('custom')) {
+    return '2024-01-01 or {{Variable}}'
+  }
+
+  // Email fields (more specific check to avoid matching "to" within words like "custom")
+  if (nameLower.includes('email') || nameLower.includes('recipient') ||
+      (nameLower.includes('to') && (nameLower.startsWith('to') || nameLower.includes(' to') || nameLower.includes('_to')))) {
     if (fieldName.includes('cc') || fieldName.includes('bcc')) {
       return 'Comma-separated email addresses (optional)'
     }
@@ -79,11 +85,6 @@ export function generatePlaceholder(options: PlaceholderOptions): string {
     if (nameLower.includes('channel')) return 'Enter channel ID'
     if (nameLower.includes('workspace')) return 'Enter workspace ID'
     return 'Enter ID'
-  }
-
-  // Dates
-  if (nameLower.includes('date') || nameLower.includes('due')) {
-    return 'YYYY-MM-DD format'
   }
 
   // Tags/Labels
