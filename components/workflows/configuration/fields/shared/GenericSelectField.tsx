@@ -88,6 +88,10 @@ export function GenericSelectField({
   // Track if we've attempted to load for this field to prevent repeated attempts
   const [hasAttemptedLoad, setHasAttemptedLoad] = React.useState(false);
   const [lastLoadTimestamp, setLastLoadTimestamp] = React.useState(0);
+  const isLoadingRef = React.useRef(false); // Prevent concurrent loads
+
+  // Track the last dependency value to detect actual changes (not just object reference changes)
+  const lastDependencyValueRef = React.useRef<any>(null);
 
   // Refresh handler - must be at top level before any conditional returns
   const handleRefresh = React.useCallback(async () => {
@@ -396,13 +400,29 @@ export function GenericSelectField({
     }
   }, [displayLabel, value, loadCachedLabel]);
   
-  // Reset load attempt tracking when dependencies change
+  // Check if dependency value has changed and reset load tracking if needed
+  // This runs on every render but only updates state when the value actually changes
   React.useEffect(() => {
-    if (field.dependsOn && parentValues[field.dependsOn]) {
-      setHasAttemptedLoad(false);
-      setLastLoadTimestamp(0);
+    if (field.dependsOn) {
+      const currentValue = parentValues[field.dependsOn];
+      const previousValue = lastDependencyValueRef.current;
+
+      // Only reset if the VALUE actually changed (not just object reference)
+      if (currentValue !== previousValue && currentValue !== undefined) {
+        // Debug logging for searchField specifically
+        if (field.name === 'searchField') {
+          console.log('🔄 [GenericSelectField] searchField dependency VALUE changed, resetting load attempt:', {
+            fieldDependsOn: field.dependsOn,
+            currentValue: currentValue,
+            previousValue: previousValue,
+          });
+        }
+        lastDependencyValueRef.current = currentValue;
+        setHasAttemptedLoad(false);
+        setLastLoadTimestamp(0);
+      }
     }
-  }, [field.dependsOn, parentValues[field.dependsOn]]);
+  }); // No dependency array - runs every render but only updates when value changes
   
   // Generic loading behavior
   const handleFieldOpen = (open: boolean) => {
@@ -452,25 +472,56 @@ export function GenericSelectField({
                       (!(isGoogleSheetsSheetName || isOneDriveFileId) || !recentlyLoaded)
 
     if (shouldLoad) {
+      // Prevent concurrent loads using ref
+      if (isLoadingRef.current) {
+        if (field.name === 'searchField') {
+          console.log('⏸️ [GenericSelectField] searchField already loading, skipping');
+        }
+        return;
+      }
+
       const forceRefresh = hasAttemptedLoad && !hasOptions // Only force refresh if we tried but got no options
 
-      logger.debug('🚀 [GenericSelectField] Triggering dynamic load for field:', field.name, 'with dependencies:', {
-        dependsOn: field.dependsOn,
-        dependsOnValue: dependencyValue,
-        forceRefresh,
-        timeSinceLastLoad,
-        recentlyLoaded
-      })
+      // Debug logging for searchField specifically
+      if (field.name === 'searchField') {
+        console.log('🚀🚀🚀 [GenericSelectField] LOADING searchField:', {
+          dependsOn: field.dependsOn,
+          dependsOnValue: dependencyValue,
+          forceRefresh,
+          hasAttemptedLoad,
+          hasOptions,
+          timeSinceLastLoad,
+          recentlyLoaded,
+          isLoadingRefCurrent: isLoadingRef.current
+        });
+      } else {
+        logger.debug('🚀 [GenericSelectField] Triggering dynamic load for field:', field.name, 'with dependencies:', {
+          dependsOn: field.dependsOn,
+          dependsOnValue: dependencyValue,
+          forceRefresh,
+          timeSinceLastLoad,
+          recentlyLoaded
+        });
+      }
 
+      // Mark as loading
+      isLoadingRef.current = true;
       setHasAttemptedLoad(true)
       setLastLoadTimestamp(Date.now())
 
-      if (field.dependsOn && dependencyValue) {
-        onDynamicLoad(field.name, field.dependsOn, dependencyValue, forceRefresh)
-      } else if (!field.dependsOn) {
-        // Only load fields without dependencies if dependency not required
-        onDynamicLoad(field.name, undefined, undefined, forceRefresh)
-      }
+      // Trigger load and clear loading flag when done
+      const loadPromise = field.dependsOn && dependencyValue
+        ? onDynamicLoad(field.name, field.dependsOn, dependencyValue, forceRefresh)
+        : !field.dependsOn
+        ? onDynamicLoad(field.name, undefined, undefined, forceRefresh)
+        : Promise.resolve();
+
+      loadPromise?.finally(() => {
+        isLoadingRef.current = false;
+        if (field.name === 'searchField') {
+          console.log('✅ [GenericSelectField] searchField load complete');
+        }
+      });
     }
   };
 

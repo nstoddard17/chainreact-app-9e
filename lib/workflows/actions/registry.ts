@@ -207,7 +207,7 @@ import {
 } from './twitter/handlers'
 
 // Dropbox actions
-import { uploadDropboxFile } from './dropbox'
+import { uploadDropboxFile, findDropboxFiles } from './dropbox'
 
 // Utility actions
 import {
@@ -229,6 +229,7 @@ import {
 import { executePath } from './logic/executePath'
 import { executeFilter } from './logic/executeFilter'
 import { executeHttpRequest } from './logic/executeHttpRequest'
+import { executeLoop } from './logic/loop'
 
 // HITL (Human-in-the-Loop) action
 import { executeHITL } from './hitl'
@@ -618,6 +619,7 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "dropbox_action_upload_file": (params: { config: any; userId: string; input: Record<string, any> }) =>
     uploadDropboxFile(params.config, { userId: params.userId, ...params.input }),
   "dropbox_action_get_file": createExecutionContextWrapper(getDropboxFile),
+  "dropbox_action_find_files": createExecutionContextWrapper(findDropboxFiles),
 
   // Slack Get actions
   "slack_action_get_messages": createExecutionContextWrapper(getSlackMessages),
@@ -708,6 +710,7 @@ export const actionHandlerRegistry: Record<string, Function> = {
       previousOutputs: params.input,
       trigger: params.input.trigger
     }),
+  "loop": createExecutionContextWrapper(executeLoop),
 
   // HITL (Human-in-the-Loop) - needs execution context for pausing
   "hitl_conversation": (params: { config: any; userId: string; input: Record<string, any>; context?: any }) =>

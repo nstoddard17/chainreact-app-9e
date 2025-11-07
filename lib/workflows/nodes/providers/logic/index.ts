@@ -534,14 +534,75 @@ export const logicNodes: NodeComponent[] = [
   {
     type: "loop",
     title: "Loop",
-    description: "Repeat a set of actions for each item in a list",
+    description: "Iterate through an array and execute actions for each item",
     icon: Repeat,
     category: "Logic",
     providerId: "logic",
     isTrigger: false,
-    comingSoon: true,
+    producesOutput: true,
     configSchema: [
-      { name: "items", label: "Items to loop over", type: "text", placeholder: "{{data.array}}", description: "Array or list of items to iterate through" },
+      {
+        name: "items",
+        label: "Items to Loop Over",
+        type: "text",
+        required: true,
+        placeholder: "{{Previous Node.items}}",
+        description: "Array of items to iterate through. Can be from a previous node or a JSON array.",
+        supportsAI: true
+      },
+      {
+        name: "batchSize",
+        label: "Batch Size (Optional)",
+        type: "number",
+        required: false,
+        defaultValue: 1,
+        placeholder: "1",
+        description: "Number of items to process in each iteration (default: 1)"
+      }
     ],
+    outputSchema: [
+      {
+        name: "currentItem",
+        label: "Current Item",
+        type: "object",
+        description: "The current item being processed in the loop"
+      },
+      {
+        name: "index",
+        label: "Index",
+        type: "number",
+        description: "Zero-based index of the current item (0, 1, 2, ...)"
+      },
+      {
+        name: "iteration",
+        label: "Iteration Number",
+        type: "number",
+        description: "One-based iteration number (1, 2, 3, ...)"
+      },
+      {
+        name: "totalItems",
+        label: "Total Items",
+        type: "number",
+        description: "Total number of items in the array"
+      },
+      {
+        name: "isFirst",
+        label: "Is First",
+        type: "boolean",
+        description: "True if this is the first iteration"
+      },
+      {
+        name: "isLast",
+        label: "Is Last",
+        type: "boolean",
+        description: "True if this is the last iteration"
+      },
+      {
+        name: "batch",
+        label: "Current Batch",
+        type: "array",
+        description: "Array of items in the current batch (if batch size > 1)"
+      }
+    ]
   },
 ]
