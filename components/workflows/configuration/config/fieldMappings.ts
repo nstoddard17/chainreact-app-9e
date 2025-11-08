@@ -25,6 +25,7 @@ const gmailMappings: Record<string, FieldMapping> = {
     to: "gmail-enhanced-recipients",
   },
   gmail_action_send_email: {
+    from: "gmail_from_addresses",
     to: "gmail-enhanced-recipients",
     cc: "gmail-enhanced-recipients",
     bcc: "gmail-enhanced-recipients",
@@ -859,6 +860,10 @@ const githubMappings: Record<string, FieldMapping> = {
     head: "github_branches",
     base: "github_branches",
   },
+  github_action_add_comment: {
+    repository: "github_repositories",
+    issueNumber: "github_issues",
+  },
 };
 
 // Twitter field mappings
@@ -880,6 +885,32 @@ const stripeMappings: Record<string, FieldMapping> = {
   },
   stripe_action_find_customer: {
     customerId: "stripe_customers",
+  },
+};
+
+// Google Analytics field mappings
+const googleAnalyticsMappings: Record<string, FieldMapping> = {
+  google_analytics_trigger_goal_completion: {
+    accountId: "google-analytics_accounts",
+    propertyId: "google-analytics_properties",
+    conversionEvent: "google-analytics_conversion_events",
+  },
+  google_analytics_action_send_event: {
+    accountId: "google-analytics_accounts",
+    propertyId: "google-analytics_properties",
+    measurementId: "google-analytics_measurement_ids",
+  },
+  google_analytics_action_get_realtime_data: {
+    accountId: "google-analytics_accounts",
+    propertyId: "google-analytics_properties",
+  },
+  google_analytics_action_run_report: {
+    accountId: "google-analytics_accounts",
+    propertyId: "google-analytics_properties",
+  },
+  google_analytics_action_get_user_activity: {
+    accountId: "google-analytics_accounts",
+    propertyId: "google-analytics_properties",
   },
 };
 
@@ -907,6 +938,7 @@ export const fieldToResourceMap: NodeFieldMappings = {
   ...googleSheetsMappings,
   ...googleDriveMappings,
   ...googleDocsMappings,
+  ...googleAnalyticsMappings,
   ...airtableMappings,
   ...dropboxMappings,
   ...outlookMappings,

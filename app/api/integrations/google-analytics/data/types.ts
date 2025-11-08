@@ -14,6 +14,12 @@ export interface GoogleAnalyticsIntegration {
   updated_at: string
 }
 
+export interface GoogleAnalyticsAccount {
+  id: string
+  name: string
+  displayName: string
+}
+
 export interface GoogleAnalyticsProperty {
   id: string
   name: string

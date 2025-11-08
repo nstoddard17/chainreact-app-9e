@@ -56,6 +56,17 @@ export const sendEmailActionSchema: NodeComponent = {
   ],
   configSchema: [
     {
+      name: "from",
+      label: "From",
+      type: "select",
+      dynamic: "gmail_from_addresses",
+      loadOnMount: true,
+      required: false,
+      placeholder: "Select sender email address (default: your primary email)...",
+      description: "Choose which email address to send from. Includes your primary email, send-as aliases, and recent sender addresses.",
+      tooltip: "If not specified, Gmail will use your primary email address"
+    },
+    {
       name: "to",
       label: "To",
       type: "email-autocomplete",

@@ -8,6 +8,7 @@ import { getGitHubBranches } from './branches'
 import { getGitHubAssignees } from './assignees'
 import { getGitHubLabels } from './labels'
 import { getGitHubMilestones } from './milestones'
+import { getGitHubIssues } from './issues'
 
 /**
  * Registry of all GitHub data handlers
@@ -18,6 +19,7 @@ export const githubHandlers: Record<string, GitHubDataHandler> = {
   'github_assignees': getGitHubAssignees,
   'github_labels': getGitHubLabels,
   'github_milestones': getGitHubMilestones,
+  'github_issues': getGitHubIssues,
 }
 
 /**

@@ -4,8 +4,9 @@
  */
 
 import { ProviderOptionsLoader, LoadOptionsParams, FormattedOption } from '../types';
-
-import { logger } from '@/lib/utils/logger'
+import { logger } from '@/lib/utils/logger';
+import { useConfigCacheStore } from '@/stores/configCacheStore';
+import { buildCacheKey, getFieldTTL } from '@/lib/workflows/configuration/cache-utils';
 
 // Debounce map to prevent rapid consecutive calls
 const debounceTimers = new Map<string, NodeJS.Timeout>();
@@ -126,11 +127,32 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
   }
 
   private async loadCommands(params: LoadOptionsParams): Promise<FormattedOption[]> {
-    const { dependsOnValue: guildId, integrationId, signal } = params
+    const { dependsOnValue: guildId, integrationId, signal, forceRefresh } = params
     if (!guildId) {
       logger.debug('🔍 [Discord] Cannot load commands without guildId')
       return []
     }
+
+    // Build cache key
+    const cacheKey = buildCacheKey('discord', integrationId, 'command', { guildId });
+    const cacheStore = useConfigCacheStore.getState();
+
+    // Force refresh handling
+    if (forceRefresh) {
+      logger.debug(`🔄 [Discord] Force refresh - invalidating cache:`, cacheKey);
+      cacheStore.invalidate(cacheKey);
+    }
+
+    // Try cache first
+    if (!forceRefresh) {
+      const cached = cacheStore.get(cacheKey);
+      if (cached) {
+        logger.debug(`💾 [Discord] Cache HIT for command:`, { cacheKey, count: cached.length });
+        return cached;
+      }
+      logger.debug(`❌ [Discord] Cache MISS for command:`, { cacheKey });
+    }
+
     try {
       const response = await fetch('/api/integrations/discord/data', {
         method: 'POST',
@@ -147,11 +169,19 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
       }
       const result = await response.json()
       const commands = result.data || []
-      return commands.map((cmd: any) => ({
+
+      const formattedCommands = commands.map((cmd: any) => ({
         value: cmd.name,
         label: `/${cmd.name}`,
         id: cmd.id
       }))
+
+      // Store in cache
+      const ttl = getFieldTTL('command');
+      cacheStore.set(cacheKey, formattedCommands, ttl);
+      logger.debug(`💾 [Discord] Cached ${formattedCommands.length} options for command (TTL: ${ttl / 1000}s)`);
+
+      return formattedCommands
     } catch (error) {
       logger.error('❌ [Discord] Error loading commands:', error)
       return []
@@ -165,6 +195,24 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
   private static channelLoadingPromises: Map<string, Promise<FormattedOption[]>> = new Map();
 
   private async loadGuilds(forceRefresh?: boolean): Promise<FormattedOption[]> {
+    // Build cache key (no integrationId needed for guilds)
+    const cacheKey = buildCacheKey('discord', 'global', 'guildId');
+    const cacheStore = useConfigCacheStore.getState();
+
+    // Force refresh handling
+    if (forceRefresh) {
+      logger.debug(`🔄 [Discord] Force refresh - invalidating cache:`, cacheKey);
+      cacheStore.invalidate(cacheKey);
+    } else {
+      // Try cache first
+      const cached = cacheStore.get(cacheKey);
+      if (cached) {
+        logger.debug(`💾 [Discord] Cache HIT for guildId:`, { cacheKey, count: cached.length });
+        return cached;
+      }
+      logger.debug(`❌ [Discord] Cache MISS for guildId:`, { cacheKey });
+    }
+
     // If there's already a guild loading in progress and we're not forcing refresh, return it
     if (!forceRefresh && DiscordOptionsLoader.guildLoadingPromise) {
       logger.debug('🔄 [Discord] Reusing existing guild loading promise');
@@ -194,10 +242,17 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
           return [];
         }
 
-        return guilds.map((guild: any) => ({
+        const formattedGuilds = guilds.map((guild: any) => ({
           value: guild.id,
           label: guild.name,
         }));
+
+        // Store in cache
+        const ttl = getFieldTTL('guildId');
+        cacheStore.set(cacheKey, formattedGuilds, ttl);
+        logger.debug(`💾 [Discord] Cached ${formattedGuilds.length} options for guildId (TTL: ${ttl / 1000}s)`);
+
+        return formattedGuilds;
       } catch (error: any) {
         logger.error('❌ [Discord] Error loading guilds:', error);
 
@@ -490,6 +545,20 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
     }
   }
 
+  /**
+   * Clear cache
+   */
+  clearCache(): void {
+    pendingPromises.clear();
+    debounceTimers.forEach(timer => clearTimeout(timer));
+    debounceTimers.clear();
+
+    const cacheStore = useConfigCacheStore.getState();
+    cacheStore.invalidateProvider('discord');
+
+    logger.debug('🧹 [Discord] Cache cleared');
+  }
+
   getFieldDependencies(fieldName: string): string[] {
     switch (fieldName) {
       case 'channelId':
@@ -509,7 +578,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
       case 'messageId':
       case 'messageIds': // Plural version
         return ['channelId'];
-      
+
       default:
         return [];
     }

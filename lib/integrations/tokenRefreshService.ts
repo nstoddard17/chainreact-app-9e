@@ -609,8 +609,9 @@ export async function refreshTokenForProvider(
       }
     }
 
-    // Add scope if configured
-    if (config.scope) {
+    // Add scope if configured AND the provider supports it during refresh
+    // Some providers like Discord don't accept scope in refresh requests
+    if (config.scope && config.sendScopeWithRefresh !== false) {
       // Teams uses config.scope directly (same as other Microsoft services)
       if (provider === "teams") {
         const scopeString = config.scope || ""
@@ -621,6 +622,8 @@ export async function refreshTokenForProvider(
         bodyParams.scope = scopeString
         if (verbose) logger.debug(`Added scope to body for ${provider}: ${scopeString}`)
       }
+    } else if (config.scope && config.sendScopeWithRefresh === false) {
+      if (verbose) logger.debug(`Skipping scope for ${provider} as sendScopeWithRefresh is false`)
     }
 
     // Add redirect_uri if required
@@ -721,8 +724,29 @@ export async function refreshTokenForProvider(
       let finalErrorMessage = errorMessage
       let needsReauth = isInvalidOrExpiredToken
 
+      // Special handling for Gmail and Google services
+      if (provider === "gmail" || provider.startsWith("google")) {
+        if (verbose) logger.debug(`Google error type: ${responseData.error}`)
+        if (responseData.error === "invalid_grant") {
+          finalErrorMessage = `Google refresh token has been revoked or expired. This can happen if you changed your password, revoked access, or haven't used this integration in over 6 months. Please reconnect your ${provider} account in Settings → Integrations.`
+          needsReauth = true
+        }
+      }
+
+      // Special handling for Discord errors
+      else if (provider === "discord") {
+        if (verbose) logger.debug(`Discord error type: ${responseData.error}`)
+        if (responseData.error === "invalid_scope") {
+          finalErrorMessage = "Discord authentication scopes have changed. Please reconnect your Discord account in Settings → Integrations."
+          needsReauth = true
+        } else if (responseData.error === "invalid_grant") {
+          finalErrorMessage = "Discord refresh token expired or invalid. Please reconnect your Discord account in Settings → Integrations."
+          needsReauth = true
+        }
+      }
+
       // Special handling for Airtable errors
-      if (provider === "airtable") {
+      else if (provider === "airtable") {
         if (verbose) logger.debug(`Airtable error type: ${responseData.error}`)
         if (responseData.error === "invalid_grant") {
           finalErrorMessage = "Airtable refresh token expired or invalid. User must re-authorize."
@@ -731,7 +755,7 @@ export async function refreshTokenForProvider(
       }
 
       // Special handling for Microsoft-related providers (Teams, OneDrive)
-      if (provider === "teams" || provider === "onedrive" || provider.startsWith("microsoft")) {
+      else if (provider === "teams" || provider === "onedrive" || provider.startsWith("microsoft")) {
         if (verbose) logger.debug(`Microsoft error type: ${responseData.error}`)
         if (responseData.error === "invalid_grant") {
           finalErrorMessage = `${provider} refresh token expired or invalid. User must re-authorize.`

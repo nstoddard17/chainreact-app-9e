@@ -40,6 +40,7 @@ export async function sendGmailEmail(
     logger.debug('📧 [sendGmailEmail] Resolved config.to:', resolvedConfig.to)
     logger.debug('📧 [sendGmailEmail] Resolved config.body:', resolvedConfig.body)
     const {
+      from,
       to,
       cc,
       bcc,
@@ -77,7 +78,7 @@ export async function sendGmailEmail(
     const headers: Record<string, string> = {
       'To': Array.isArray(to) ? to.join(', ') : to,
       'Subject': subject,
-      'From': 'me', // Gmail API uses 'me' for authenticated user
+      'From': from || 'me', // Use specified sender or default to authenticated user
     }
 
     if (cc) {

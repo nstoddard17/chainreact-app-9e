@@ -5,6 +5,8 @@
 
 import { ProviderOptionsLoader, LoadOptionsParams, FormattedOption } from '../types';
 import { logger } from '@/lib/utils/logger';
+import { useConfigCacheStore } from '@/stores/configCacheStore';
+import { buildCacheKey, getFieldTTL } from '@/lib/workflows/configuration/cache-utils';
 
 // Debounce map to prevent rapid consecutive calls
 const debounceTimers = new Map<string, NodeJS.Timeout>();
@@ -37,8 +39,34 @@ export class MondayOptionsLoader implements ProviderOptionsLoader {
   async loadOptions(params: LoadOptionsParams): Promise<FormattedOption[]> {
     const { fieldName, dependsOnValue, integrationId, forceRefresh, signal } = params;
 
-    // Create a unique key for this request
-    const requestKey = `${fieldName}:${dependsOnValue || 'none'}:${forceRefresh}`;
+    // Build cache key
+    const options = (fieldName === 'groupId' || fieldName === 'group' ||
+                     fieldName === 'columnId' || fieldName === 'column') && dependsOnValue
+      ? { boardId: dependsOnValue }
+      : undefined;
+    const cacheKey = buildCacheKey('monday', integrationId, fieldName, options);
+
+    // Get cache store
+    const cacheStore = useConfigCacheStore.getState();
+
+    // Check if we should force refresh (invalidate cache first)
+    if (forceRefresh) {
+      logger.debug(`🔄 [Monday] Force refresh - invalidating cache:`, cacheKey);
+      cacheStore.invalidate(cacheKey);
+    }
+
+    // Try to get from cache first (unless force refresh)
+    if (!forceRefresh) {
+      const cached = cacheStore.get(cacheKey);
+      if (cached) {
+        logger.debug(`💾 [Monday] Cache HIT for ${fieldName}:`, { cacheKey, count: cached.length });
+        return cached;
+      }
+      logger.debug(`❌ [Monday] Cache MISS for ${fieldName}:`, { cacheKey });
+    }
+
+    // Create a unique key for pending promises (includes forceRefresh to prevent reuse during refresh)
+    const requestKey = `${cacheKey}:${forceRefresh}`;
 
     // Check if there's already a pending promise for this exact request
     const pendingPromise = pendingPromises.get(requestKey);
@@ -73,15 +101,15 @@ export class MondayOptionsLoader implements ProviderOptionsLoader {
           }
 
           // Build options object for API request
-          const options: Record<string, any> = {};
+          const apiOptions: Record<string, any> = {};
 
           // Add board parameter for dependent fields (groups, columns)
           if ((fieldName === 'groupId' || fieldName === 'group' ||
                fieldName === 'columnId' || fieldName === 'column') && dependsOnValue) {
-            options.boardId = dependsOnValue;
+            apiOptions.boardId = dependsOnValue;
           }
 
-          logger.debug(`📡 [Monday] Loading ${dataType}:`, { integrationId, options });
+          logger.debug(`📡 [Monday] Loading ${dataType}:`, { integrationId, options: apiOptions });
 
           // Make API request
           const response = await fetch('/api/integrations/monday/data', {
@@ -90,7 +118,7 @@ export class MondayOptionsLoader implements ProviderOptionsLoader {
             body: JSON.stringify({
               integrationId,
               dataType,
-              options
+              options: apiOptions
             }),
             signal
           });
@@ -103,6 +131,11 @@ export class MondayOptionsLoader implements ProviderOptionsLoader {
           result = responseData.data || [];
 
           logger.debug(`✅ [Monday] Loaded ${result.length} ${dataType}`);
+
+          // Store in cache with appropriate TTL
+          const ttl = getFieldTTL(fieldName);
+          cacheStore.set(cacheKey, result, ttl);
+          logger.debug(`💾 [Monday] Cached ${result.length} options for ${fieldName} (TTL: ${ttl / 1000}s)`);
 
           // Clean up pending promise
           pendingPromises.delete(requestKey);
@@ -146,9 +179,15 @@ export class MondayOptionsLoader implements ProviderOptionsLoader {
    * Clear cache
    */
   clearCache(): void {
+    // Clear pending promises and debounce timers
     pendingPromises.clear();
     debounceTimers.forEach(timer => clearTimeout(timer));
     debounceTimers.clear();
+
+    // Clear cache store for this provider
+    const cacheStore = useConfigCacheStore.getState();
+    cacheStore.invalidateProvider('monday');
+
     logger.debug('🧹 [Monday] Cache cleared');
   }
 }

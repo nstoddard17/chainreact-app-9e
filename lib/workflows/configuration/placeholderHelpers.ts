@@ -82,7 +82,7 @@ export function generatePlaceholder(options: PlaceholderOptions): string {
 
   // Titles
   if (nameLower.includes('title') || nameLower.includes('name')) {
-    return 'Enter title or {{Title Variable}}'
+    return 'Enter value'
   }
 
   // Descriptions

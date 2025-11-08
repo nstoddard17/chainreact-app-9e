@@ -773,9 +773,10 @@ export function GenericSelectField({
   }, [field.name, field.multiple, value, onChange, getFriendlyVariableLabel, workflowNodes, saveLabelToCache])
 
   // Show loading state for dynamic fields
-  // Always show loading indicator when the field is actively loading
-  // This ensures users see feedback even when cached options exist
-  const shouldShowLoading = field.dynamic && isLoading;
+  // Show full LoadingFieldState when:
+  // 1. Field is dynamic AND currently loading AND has no options yet (initial load)
+  // This ensures a clean loading experience like Airtable fields
+  const shouldShowLoading = field.dynamic && isLoading && (!options || options.length === 0);
 
   // If in AI mode, show the "Defined by AI" UI
   if (isAIEnabled) {
