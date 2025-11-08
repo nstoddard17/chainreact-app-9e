@@ -392,9 +392,9 @@ export function Combobox({
                     disabled={option.disabled}
                     className={cn(
                       option.disabled && "opacity-50 pointer-events-none cursor-not-allowed",
-                      // Selected item: always blue
-                      isSelected && "bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100",
-                      // Hover state: grey, but blue overrides if selected
+                      // Selected item: always blue (including on hover) - !important to override data-selected
+                      isSelected && "!bg-blue-100 dark:!bg-blue-900/30 !text-blue-900 dark:!text-blue-100",
+                      // Hover state: grey for non-selected items
                       !isSelected && "hover:bg-accent hover:text-accent-foreground"
                     )}
                   >
@@ -970,9 +970,9 @@ export function HierarchicalCombobox({
                                 onSelect={handleSelect}
                                 className={cn(
                                   "pl-8",
-                                  // Selected item: always blue
-                                  isSelected && "bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100",
-                                  // Hover state: grey, but blue overrides if selected
+                                  // Selected item: always blue (including on hover) - !important to override data-selected
+                                  isSelected && "!bg-blue-100 dark:!bg-blue-900/30 !text-blue-900 dark:!text-blue-100",
+                                  // Hover state: grey for non-selected items
                                   !isSelected && "hover:bg-accent hover:text-accent-foreground"
                                 )}
                               >
@@ -997,9 +997,9 @@ export function HierarchicalCombobox({
                     value={option.value}
                     onSelect={handleSelect}
                     className={cn(
-                      // Selected item: always blue
-                      isSelected && "bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100",
-                      // Hover state: grey, but blue overrides if selected
+                      // Selected item: always blue (including on hover) - !important to override data-selected
+                      isSelected && "!bg-blue-100 dark:!bg-blue-900/30 !text-blue-900 dark:!text-blue-100",
+                      // Hover state: grey for non-selected items
                       !isSelected && "hover:bg-accent hover:text-accent-foreground"
                     )}
                   >

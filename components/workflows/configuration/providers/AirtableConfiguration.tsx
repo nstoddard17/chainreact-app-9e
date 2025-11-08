@@ -895,7 +895,7 @@ export function AirtableConfiguration({
         : field.description;
 
       const placeholder = isEditable
-        ? shouldUseDynamicDropdown ? `Select ${field.name}` : `Enter value for ${field.name}`
+        ? shouldUseDynamicDropdown ? `Select ${field.name}` : `Enter value`
         : `${field.name} is managed by Airtable`;
 
       return {
