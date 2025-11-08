@@ -403,7 +403,7 @@ export function FieldRenderer({
   // Auto-load options for combobox fields with dynamic data
   useEffect(() => {
     if (field.type === 'combobox' && field.dynamic && onDynamicLoad) {
-      
+
       // Only load if we don't have options yet
       if (!fieldOptions.length && !loadingDynamic) {
         // Check if we need to load based on parent dependency
@@ -419,7 +419,10 @@ export function FieldRenderer({
         }
       }
     }
-  }, [field.type, field.dynamic, field.name, field.dependsOn, parentValues[field.dependsOn], fieldOptions.length, loadingDynamic, onDynamicLoad]);
+    // IMPORTANT: Do NOT include loadingDynamic in dependencies - it causes infinite loops
+    // when data loads successfully but returns empty array
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [field.type, field.dynamic, field.name, field.dependsOn, parentValues[field.dependsOn], fieldOptions.length, onDynamicLoad]);
 
   // Determine which integration this field belongs to
   const getIntegrationProvider = (field: any) => {
