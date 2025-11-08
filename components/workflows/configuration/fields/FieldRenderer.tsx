@@ -12,7 +12,7 @@ import { HelpCircle, Mail, Hash, Calendar, FileText, Link, User, MessageSquare, 
 import { FileUpload } from "@/components/ui/file-upload";
 import { cn } from "@/lib/utils";
 import { SimpleVariablePicker } from "./SimpleVariablePicker";
-import { Combobox, MultiCombobox } from "@/components/ui/combobox";
+import { MultiCombobox } from "@/components/ui/combobox";
 import { TimePicker } from "@/components/ui/time-picker";
 import EnhancedFileInput from "./EnhancedFileInput";
 import { Card, CardContent } from "@/components/ui/card";
@@ -54,6 +54,7 @@ import { GenericSelectField } from "./shared/GenericSelectField";
 import { GenericTextInput } from "./shared/GenericTextInput";
 import { ConnectButton } from "./shared/ConnectButton";
 import { VariableSelectionDropdown } from "./shared/VariableSelectionDropdown";
+import { LoadingFieldState } from "./shared/LoadingFieldState";
 
 // Notion-specific field components
 import { NotionBlockFields } from "./notion/NotionBlockFields";
@@ -1255,7 +1256,7 @@ export function FieldRenderer({
         const selectOptions = Array.isArray(field.options)
           ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
           : fieldOptions;
-        
+
         // Debug logging for board field
         if (field.name === 'boardId') {
           logger.debug('[FieldRenderer] Board field select options:', {
@@ -1357,180 +1358,26 @@ export function FieldRenderer({
         );
 
       case "combobox":
-        // Combobox fields with search capability and dynamic loading
-        const comboboxOptions = Array.isArray(field.options)
-          ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
-          : fieldOptions;
-
-        // Determine if we should show empty state
-        // For creatable fields (like Discord slash commands), always show the combobox so users can type custom values
-        const shouldShowEmptyState = field.dynamic &&
-                                      comboboxOptions.length === 0 &&
-                                      !loadingDynamic &&
-                                      !value &&
-                                      !field.creatable; // Don't show empty state for creatable fields
-
-        // Determine empty state type based on field context
-        const getEmptyStateType = (): React.ComponentProps<typeof EmptyStateCard>['type'] => {
-          const fieldNameLower = field.name.toLowerCase();
-          const labelLower = field.label?.toLowerCase() || '';
-
-          if (fieldNameLower.includes('file') || labelLower.includes('file')) return 'files';
-          if (fieldNameLower.includes('table') || fieldNameLower.includes('spreadsheet')) return 'tables';
-          if (fieldNameLower.includes('email')) return 'emails';
-          if (fieldNameLower.includes('calendar') || fieldNameLower.includes('event')) return 'calendar';
-          if (fieldNameLower.includes('image') || fieldNameLower.includes('photo')) return 'images';
-          if (fieldNameLower.includes('database') || fieldNameLower.includes('record')) return 'database';
-          if (fieldNameLower.includes('link') || fieldNameLower.includes('url')) return 'links';
-          if (fieldNameLower.includes('contact') || fieldNameLower.includes('person')) return 'contacts';
-          if (fieldNameLower.includes('tag') || fieldNameLower.includes('category')) return 'tags';
-          return 'generic';
-        };
-
-        // Check if this is an integration field and get provider name for better messaging
-        const providerName = nodeInfo?.providerId || integrationProvider || 'the integration';
-        const providerDisplayName = providerName.charAt(0).toUpperCase() + providerName.slice(1).replace(/-/g, ' ');
-
-        // Check if integration is actually connected (getIntegrationByProvider is from top-level hook)
-        const integration = providerName !== 'the integration' ? getIntegrationByProvider(providerName) : null;
-        const isIntegrationConnected = integration?.status === 'connected' || integration?.status === 'active';
-
-        // Only treat as "integration not connected" if it's a dynamic field AND integration is NOT connected
-        const isIntegrationField = field.dynamic && typeof field.dynamic === 'string' && !isIntegrationConnected;
-
+        // Use GenericSelectField for all combobox fields to ensure consistent loading states
         return (
-          <div className="space-y-2">
-            {/* Show EmptyStateCard when no options and not loading */}
-            {shouldShowEmptyState ? (
-              <EmptyStateCard
-                type={getEmptyStateType()}
-                title={isIntegrationField ? `${providerDisplayName} Not Connected` : undefined}
-                description={isIntegrationField
-                  ? `Connect your ${providerDisplayName} account using the connection selector above to load ${field.label?.toLowerCase() || 'options'}.`
-                  : field.dependsOn
-                    ? `No ${field.label?.toLowerCase() || 'options'} found. Make sure you've selected a ${field.dependsOn}.`
-                    : `No ${field.label?.toLowerCase() || 'options'} found. Try refreshing or creating new items.`
-                }
-                suggestion={isIntegrationField ? null : undefined}
-                {...(!isIntegrationField && {
-                  actionLabel: 'Refresh',
-                  onAction: () => {
-                    // Trigger refresh if onDynamicLoad is available
-                    if (onDynamicLoad) {
-                      const dependencyValue = field.dependsOn ? parentValues?.[field.dependsOn] : undefined;
-                      if (field.dependsOn && dependencyValue) {
-                        onDynamicLoad(field.name, field.dependsOn, dependencyValue, true);
-                      } else if (!field.dependsOn) {
-                        onDynamicLoad(field.name, undefined, undefined, true);
-                      }
-                    }
-                  }
-                })}
-              />
-            ) : (
-              /* Always show Combobox, even while loading, so saved values are visible */
-              <div className="flex items-center gap-2">
-              <div className="flex-1">
-                <Combobox
-                  value={value || ""}
-                  onChange={onChange}
-                  options={loadingDynamic && comboboxOptions.length === 0 ? [] : comboboxOptions} // Show existing options while loading new ones
-                  placeholder={
-                    loadingDynamic && field.dynamic && !value
-                      ? `Loading ${field.label?.toLowerCase() || 'options'}...`
-                      : (field.placeholder || `Select ${field.label || field.name}...`)
-                  }
-                  searchPlaceholder={`Search ${field.label || field.name}...`}
-                  emptyPlaceholder={loadingDynamic ? "Loading options..." : getComboboxEmptyMessage(field)}
-                  disabled={loadingDynamic} // Disable during loading to match other fields
-                  loading={loadingDynamic} // Show loading spinner
-                  creatable={field.creatable === true ? true : (field.dynamic ? false : (field.creatable || false))} // Allow creating new options if explicitly enabled (e.g., Facebook albums)
-                    onOpenChange={(open) => {
-                      // Only trigger load on actual open (not close)
-                      if (!open) return;
-
-                      // Check if this is a dynamic field
-                      if (!field.dynamic || !onDynamicLoad) return;
-
-                      // For certain fields like parentPage, always refresh when opened
-                      // This ensures users see the most up-to-date list
-                      const shouldRefreshOnOpen = ['parentPage', 'parentDatabase', 'page'].includes(field.name);
-
-                      // Use a ref-based approach to track loading state
-                      const loadKey = `combobox_loading_${field.name}_${parentValues?.[field.dependsOn] || 'no-dep'}`;
-                      const lastRefreshKey = `combobox_last_refresh_${field.name}`;
-
-                      // Check if we're already loading this specific combination
-                      if (window[loadKey]) {
-                        logger.debug('🔄 [FieldRenderer] Already loading options for:', field.name);
-                        return;
-                      }
-
-                      // For refresh fields, check if enough time has passed since last refresh (5 seconds)
-                      if (shouldRefreshOnOpen && comboboxOptions.length > 0) {
-                        const lastRefresh = window[lastRefreshKey] || 0;
-                        const timeSinceRefresh = Date.now() - lastRefresh;
-                        if (timeSinceRefresh < 5000) {
-                          logger.debug('⏱️ [FieldRenderer] Skipping refresh, too soon since last refresh:', field.name);
-                          return;
-                        }
-                      }
-
-                      // Skip loading if we already have options, unless it's a field that should refresh
-                      if (comboboxOptions.length > 0 && !shouldRefreshOnOpen) {
-                        return;
-                      }
-
-                      // Determine if this is a refresh (has options) or initial load
-                      const isRefresh = comboboxOptions.length > 0;
-
-                      logger.debug(`🔄 [FieldRenderer] ${ isRefresh ? 'Refreshing' : 'Loading' } options for combobox:`, field.name);
-                      window[loadKey] = true;
-
-                      // Track refresh time
-                      if (shouldRefreshOnOpen) {
-                        window[lastRefreshKey] = Date.now();
-                      }
-
-                      // Trigger the load with forceRefresh for fields that should always update
-                      const loadPromise = field.dependsOn && parentValues?.[field.dependsOn]
-                        ? onDynamicLoad(field.name, field.dependsOn, parentValues[field.dependsOn], shouldRefreshOnOpen)
-                        : onDynamicLoad(field.name, undefined, undefined, shouldRefreshOnOpen);
-
-                      loadPromise.finally(() => {
-                        delete window[loadKey];
-                      });
-                    }}
-                  />
-              </div>
-              {field.dynamic && onDynamicLoad && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        onClick={handleRefreshField}
-                        disabled={isRefreshingField || loadingDynamic}
-                        className="flex-shrink-0"
-                      >
-                        <RefreshCw className={cn("h-4 w-4", isRefreshingField && "animate-spin")} />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Refresh options</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-              </div>
-            )}
-            {error && (
-              <p className="text-xs text-red-500 mt-1">{error}</p>
-            )}
-          </div>
+          <GenericSelectField
+            field={field}
+            value={value}
+            onChange={onChange}
+            error={error}
+            options={fieldOptions}
+            isLoading={loadingDynamic}
+            onDynamicLoad={onDynamicLoad}
+            nodeInfo={nodeInfo}
+            selectedValues={selectedValues}
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
+            aiFields={aiFields}
+            setAiFields={setAiFields}
+            isConnectedToAIAgent={isConnectedToAIAgent}
+          />
         );
+
 
       case "boolean":
         const isBooleanDisabled = isFieldDisabled();

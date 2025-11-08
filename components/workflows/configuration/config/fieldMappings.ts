@@ -844,11 +844,20 @@ const hitlMappings: Record<string, FieldMapping> = {
 
 // GitHub field mappings
 const githubMappings: Record<string, FieldMapping> = {
+  github_trigger_new_commit: {
+    repository: "github_repositories",
+    branch: "github_branches",
+  },
   github_action_create_issue: {
     repository: "github_repositories",
     assignees: "github_assignees",
     labels: "github_labels",
     milestone: "github_milestones",
+  },
+  github_action_create_pull_request: {
+    repository: "github_repositories",
+    head: "github_branches",
+    base: "github_branches",
   },
 };
 
