@@ -161,6 +161,18 @@ function formatTrelloCardsField(data: any[]): FormattedOption[] {
 }
 
 /**
+ * Format Trello checklists field
+ */
+function formatTrelloChecklistsField(data: any[]): FormattedOption[] {
+  return data.map((item: any) => ({
+    value: item.id,
+    label: item.name || item.id,
+    pos: item.pos,
+    checkItems: item.checkItems
+  }));
+}
+
+/**
  * Format database fields
  */
 function formatDatabaseField(data: any[]): FormattedOption[] {
@@ -322,8 +334,10 @@ const fieldFormatters: Record<string, (data: any[]) => FormattedOption[]> = {
   // Trello specific fields
   idMembers: formatTrelloMembersField,
   idLabels: formatTrelloLabelsField,
+  labelId: formatTrelloLabelsField, // For single label selection (Add Label to Card)
   idCardSource: formatTrelloCardsField,
   cardId: formatTrelloCardsField, // For update card action - includes full card data
+  checklistId: formatTrelloChecklistsField,
   
   // Database fields
   databaseId: formatDatabaseField,
