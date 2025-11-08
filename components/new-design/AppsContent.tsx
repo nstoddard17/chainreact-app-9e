@@ -25,7 +25,7 @@ import {
 import { CheckCircle2, Plus, ExternalLink, MoreVertical, Unplug, RefreshCw, Settings, AlertCircle, Shield, Eye } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { logger } from "@/lib/utils/logger"
-import { fetchWithTimeout } from "@/lib/utils/fetch-with-timeout"
+import { IntegrationService } from "@/services/integration-service"
 import { getIntegrationLogoClasses, getIntegrationLogoPath } from "@/lib/integrations/logoStyles"
 import { useTheme } from "next-themes"
 import { useWorkspaceContext } from "@/hooks/useWorkspaceContext"
@@ -122,27 +122,16 @@ export function AppsContent() {
     setLocalLoading(prev => ({ ...prev, [integrationId]: true }))
 
     try {
-      const response = await fetchWithTimeout(`/api/integrations/${integrationId}`, { method: "DELETE" }, 8000)
+      // Use IntegrationService which properly includes auth headers
+      await IntegrationService.disconnectIntegration(integrationId)
 
-      if (!response.ok) {
-        throw new Error(`Failed to disconnect: ${response.status}`)
-      }
+      toast({
+        title: "Disconnected",
+        description: `${providerName} has been disconnected.`,
+      })
 
-      const data = await response.json()
-
-      if (data.success) {
-        toast({
-          title: "Disconnected",
-          description: `${providerName} has been disconnected.`,
-        })
-        fetchIntegrations(false)
-      } else {
-        toast({
-          title: "Error",
-          description: data.error || "Failed to disconnect.",
-          variant: "destructive",
-        })
-      }
+      // Refresh integrations list
+      fetchIntegrations(false)
     } catch (error: any) {
       logger.error("Failed to disconnect integration:", error)
       toast({
