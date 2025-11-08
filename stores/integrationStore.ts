@@ -630,9 +630,16 @@ export const useIntegrationStore = create<IntegrationStore>()(
         // Clear the timeout on error
         clearTimeout(connectionTimeout)
         const errorMessage = error?.message || "Connection failed"
-        // Only set error if we have a provider name
-        const providerName = provider?.name || providerId.charAt(0).toUpperCase() + providerId.slice(1)
-        setError(`Failed to connect to ${providerName}: ${errorMessage}`)
+
+        // Don't set error message if user cancelled (no need to show error for cancellation)
+        const isCancellation = errorMessage.toLowerCase().includes('cancel')
+
+        if (!isCancellation) {
+          // Only set error if we have a provider name
+          const providerName = provider?.name || providerId.charAt(0).toUpperCase() + providerId.slice(1)
+          setError(`Failed to connect to ${providerName}: ${errorMessage}`)
+        }
+
         setLoading(`connect-${providerId}`, false)
       }
     },

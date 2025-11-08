@@ -67,6 +67,8 @@ export interface OAuthCallbackConfig {
   transformTokenData: (tokenData: any) => TokenData
   additionalIntegrationData?: (tokenData: any, state: OAuthState) => Record<string, any>
   onSuccess?: (integrationId: string, state: OAuthState) => Promise<void>
+  // GitHub returns URL-encoded by default, needs JSON Accept header
+  useJsonResponse?: boolean
 }
 
 // ================================================================
@@ -139,7 +141,8 @@ export async function handleOAuthCallback(
       config.tokenEndpoint,
       config.clientId,
       config.clientSecret,
-      config.getRedirectUri(baseUrl)
+      config.getRedirectUri(baseUrl),
+      config.useJsonResponse
     )
 
     // Transform token data to standard format
@@ -202,13 +205,21 @@ async function exchangeCodeForToken(
   tokenEndpoint: string,
   clientId: string,
   clientSecret: string,
-  redirectUri: string
+  redirectUri: string,
+  useJsonResponse?: boolean
 ): Promise<any> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/x-www-form-urlencoded',
+  }
+
+  // GitHub needs Accept: application/json to return JSON instead of URL-encoded
+  if (useJsonResponse) {
+    headers['Accept'] = 'application/json'
+  }
+
   const tokenResponse = await fetch(tokenEndpoint, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
+    headers,
     body: new URLSearchParams({
       code,
       client_id: clientId,
