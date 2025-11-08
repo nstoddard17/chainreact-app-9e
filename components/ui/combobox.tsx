@@ -380,27 +380,33 @@ export function Combobox({
           >
             <CommandEmpty>{emptyPlaceholder || "No results found."}</CommandEmpty>
             <CommandGroup>
-              {filteredOptions.map((option, index) => (
-                <CommandItem
-                  key={`${index}-${option.value || 'undefined'}`}
-                  value={option.value}
-                  onSelect={() => {
-                    if (!option.disabled) handleSelect(option.value)
-                  }}
-                  disabled={option.disabled}
-                  aria-selected={value === option.value}
-                  className={cn(
-                    option.disabled && "opacity-50 pointer-events-none cursor-not-allowed"
-                  )}
-                >
-                  <div className="flex flex-col">
-                    {option.label !== undefined && option.label !== null ? option.label : String(option.value)}
-                    {option.description && (
-                      <span className="text-xs sm:text-sm text-muted-foreground">{option.description}</span>
+              {filteredOptions.map((option, index) => {
+                const isSelected = value === option.value;
+                return (
+                  <CommandItem
+                    key={`${index}-${option.value || 'undefined'}`}
+                    value={option.value}
+                    onSelect={() => {
+                      if (!option.disabled) handleSelect(option.value)
+                    }}
+                    disabled={option.disabled}
+                    className={cn(
+                      option.disabled && "opacity-50 pointer-events-none cursor-not-allowed",
+                      // Selected item: always blue
+                      isSelected && "bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100",
+                      // Hover state: grey, but blue overrides if selected
+                      !isSelected && "hover:bg-accent hover:text-accent-foreground"
                     )}
-                  </div>
-                </CommandItem>
-              ))}
+                  >
+                    <div className="flex flex-col">
+                      {option.label !== undefined && option.label !== null ? option.label : String(option.value)}
+                      {option.description && (
+                        <span className="text-xs sm:text-sm text-muted-foreground">{option.description}</span>
+                      )}
+                    </div>
+                  </CommandItem>
+                );
+              })}
               {/* Show create option if creatable and inputValue is not empty and not in options */}
               {creatable && inputValue.trim() && !filteredOptions.some(option => option.value === inputValue.trim()) && (
                 <CommandItem
@@ -955,33 +961,47 @@ export function HierarchicalCombobox({
                       </CommandItem>
                       {isExpanded && (
                         <div className="ml-4">
-                          {option.emails.map((email, emailIndex) => (
-                            <CommandItem
-                              key={`sub-${optionIndex}-${emailIndex}-${email.value || 'undefined'}`}
-                              value={email.value}
-                              onSelect={handleSelect}
-                              aria-selected={value === email.value}
-                              className="pl-8"
-                            >
-                              <div className="flex flex-col">
-                                <span>{email.label}</span>
-                                {email.description && (
-                                  <span className="text-xs sm:text-sm text-muted-foreground">{email.description}</span>
+                          {option.emails.map((email, emailIndex) => {
+                            const isSelected = value === email.value;
+                            return (
+                              <CommandItem
+                                key={`sub-${optionIndex}-${emailIndex}-${email.value || 'undefined'}`}
+                                value={email.value}
+                                onSelect={handleSelect}
+                                className={cn(
+                                  "pl-8",
+                                  // Selected item: always blue
+                                  isSelected && "bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100",
+                                  // Hover state: grey, but blue overrides if selected
+                                  !isSelected && "hover:bg-accent hover:text-accent-foreground"
                                 )}
-                              </div>
-                            </CommandItem>
-                          ))}
+                              >
+                                <div className="flex flex-col">
+                                  <span>{email.label}</span>
+                                  {email.description && (
+                                    <span className="text-xs sm:text-sm text-muted-foreground">{email.description}</span>
+                                  )}
+                                </div>
+                              </CommandItem>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
                   )
                 }
+                const isSelected = value === option.value;
                 return (
                   <CommandItem
                     key={`item-${optionIndex}-${option.value || 'undefined'}`}
                     value={option.value}
                     onSelect={handleSelect}
-                    aria-selected={value === option.value}
+                    className={cn(
+                      // Selected item: always blue
+                      isSelected && "bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100",
+                      // Hover state: grey, but blue overrides if selected
+                      !isSelected && "hover:bg-accent hover:text-accent-foreground"
+                    )}
                   >
                     <div className="flex flex-col">
                       <span>{option.label}</span>

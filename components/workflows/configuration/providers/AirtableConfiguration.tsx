@@ -4,12 +4,6 @@ import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, Database, RefreshCw, ChevronDown } from "lucide-react";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion"
 import { FieldRenderer } from '../fields/FieldRenderer';
 import { useIntegrationStore } from '@/stores/integrationStore';
 import { useAirtableBubbleHandler } from '../hooks/useAirtableBubbleHandler';
@@ -2513,26 +2507,14 @@ export function AirtableConfiguration({
             {/* Base fields */}
             {renderFields(baseFields)}
 
-            {/* Advanced fields - Collapsible section (closed by default) */}
+            {/* Advanced fields - Always visible section */}
             {advancedFields.length > 0 && (
               <div className="border-t border-slate-200 pt-4 mt-6">
-                <Accordion type="single" collapsible className="w-full">
-                  <AccordionItem value="advanced-settings" className="border-none">
-                    <AccordionTrigger className="py-2 hover:no-underline">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-slate-700">
-                          Advanced Settings
-                        </span>
-                        <span className="text-xs text-slate-500">(optional)</span>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-3 pt-3">
-                        {renderFields(advancedFields)}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
+                <h3 className="text-sm font-semibold text-slate-700 mb-1">Advanced Settings</h3>
+                <p className="text-xs text-slate-500 mb-4">Optional configuration for batch processing</p>
+                <div className="space-y-3">
+                  {renderFields(advancedFields)}
+                </div>
               </div>
             )}
 
