@@ -11,6 +11,7 @@ import { getTrelloCards } from './cards'
 import { getTrelloBoardMembers } from './members'
 import { getTrelloBoardLabels } from './labels'
 import { getTrelloAllCards } from './allCards'
+import { getTrelloCardChecklists } from './cardChecklists'
 
 export const trelloHandlers = {
   'trello-boards': getTrelloBoards,
@@ -24,7 +25,8 @@ export const trelloHandlers = {
   'trello_cards': getTrelloCards,
   'trello_board_members': getTrelloBoardMembers,
   'trello_board_labels': getTrelloBoardLabels,
-  'trello_all_cards': getTrelloAllCards
+  'trello_all_cards': getTrelloAllCards,
+  'trello_card_checklists': getTrelloCardChecklists
 }
 
 export {
@@ -36,5 +38,6 @@ export {
   getTrelloCards,
   getTrelloBoardMembers,
   getTrelloBoardLabels,
-  getTrelloAllCards
+  getTrelloAllCards,
+  getTrelloCardChecklists
 }
