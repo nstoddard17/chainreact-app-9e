@@ -1102,7 +1102,7 @@ export async function POST(req: NextRequest) {
       dataType === 'box-folders'
     )) {
       logger.debug(`🔄 [SERVER] Routing Box request to dedicated API: ${dataType}`);
-      
+
       try {
         const baseUrl = req.nextUrl.origin
         const boxApiResponse = await fetch(`${baseUrl}/api/integrations/box/data`, {
@@ -1131,16 +1131,77 @@ export async function POST(req: NextRequest) {
 
         // Return the Box API response directly (it's already in the correct format)
         return jsonResponse(boxResult);
-        
+
       } catch (error: any) {
         logger.error(`❌ [SERVER] Box API routing error:`, error);
         return jsonResponse({ error: 'Failed to route Box request' }, { status: 500 });
       }
     }
 
+    // Stripe integration delegation
+    if ((
+      dataType === 'stripe_customers' ||
+      dataType === 'stripe_subscriptions' ||
+      dataType.startsWith('stripe_')
+    )) {
+      logger.debug(`🔄 [SERVER] Routing Stripe request to dedicated API: ${dataType}`, {
+        integrationId,
+        options
+      });
+
+      try {
+        const baseUrl = req.nextUrl.origin
+        const stripeApiResponse = await fetch(`${baseUrl}/api/integrations/stripe/data`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            integrationId,
+            dataType,
+            options
+          })
+        });
+
+        logger.debug(`📡 [SERVER] Stripe API response status:`, {
+          status: stripeApiResponse.status,
+          ok: stripeApiResponse.ok
+        });
+
+        if (!stripeApiResponse.ok) {
+          const error = await stripeApiResponse.json();
+          logger.error(`❌ [SERVER] Stripe API error:`, error);
+          return jsonResponse(error, { status: stripeApiResponse.status });
+        }
+
+        const stripeResult = await stripeApiResponse.json();
+        logger.debug(`✅ [SERVER] Stripe API success:`, {
+          dataType,
+          resultCount: stripeResult.data?.length || 0,
+          sampleData: stripeResult.data?.slice(0, 2)
+        });
+
+        // Return the Stripe API response directly (it's already in the correct format)
+        return jsonResponse(stripeResult);
+
+      } catch (error: any) {
+        logger.error(`❌ [SERVER] Stripe API routing error:`, error);
+        return jsonResponse({ error: 'Failed to route Stripe request' }, { status: 500 });
+      }
+    }
+
     // Find the data fetcher for the requested data type (legacy path)
+    logger.debug(`⚠️ [SERVER] Using legacy data fetcher path for ${dataType}`, {
+      integrationProvider: integration?.provider,
+      availableFetchers: Object.keys(dataFetchers)
+    });
     const dataFetcher = dataFetchers[dataType];
     if (!dataFetcher) {
+      logger.error(`❌ [SERVER] No data fetcher found for ${dataType}`, {
+        dataType,
+        integration: integration?.provider,
+        availableFetchers: Object.keys(dataFetchers)
+      });
       return jsonResponse({ error: `Unsupported data type: ${dataType}` }, { status: 400 });
     }
 

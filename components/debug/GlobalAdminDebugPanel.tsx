@@ -54,8 +54,14 @@ export function GlobalAdminDebugPanel() {
     return null
   }
 
-  // Hide on /test/nodes page
-  if (typeof window !== 'undefined' && window.location.pathname === '/test/nodes') {
+  // Check if we're on /test/nodes page to position on left instead of right
+  const isTestNodesPage = typeof window !== 'undefined' && window.location.pathname === '/test/nodes'
+
+  // Hide debug panel on home screen (landing page)
+  const isHomePage = typeof window !== 'undefined' && (window.location.pathname === '/' || window.location.pathname === '')
+
+  // Don't show panel on home page
+  if (isHomePage) {
     return null
   }
 
@@ -179,7 +185,7 @@ export function GlobalAdminDebugPanel() {
           variant="outline"
           size="sm"
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-4 right-4 z-[9999] shadow-lg"
+          className={`fixed bottom-4 z-30 shadow-lg ${isTestNodesPage ? 'left-4' : 'right-4'}`}
         >
           <Bug className="w-4 h-4 mr-2" />
           Debug
@@ -194,10 +200,11 @@ export function GlobalAdminDebugPanel() {
       {/* Floating Panel */}
       {isOpen && (
         <div
-          className="fixed bottom-4 right-4 z-[9999] bg-white dark:bg-slate-900 border rounded-lg shadow-2xl flex flex-col"
+          className={`fixed bottom-4 z-30 bg-white dark:bg-slate-900 border rounded-lg shadow-2xl flex flex-col ${isTestNodesPage ? 'left-4' : 'right-4'}`}
           style={{
-            width: isMinimized ? '320px' : '900px',
-            height: isMinimized ? 'auto' : '650px',
+            width: isMinimized ? '320px' : (isTestNodesPage ? '500px' : '900px'),
+            height: isMinimized ? 'auto' : (isTestNodesPage ? '500px' : '650px'),
+            maxHeight: isTestNodesPage ? '70vh' : '650px',
           }}
         >
           {/* Header */}
