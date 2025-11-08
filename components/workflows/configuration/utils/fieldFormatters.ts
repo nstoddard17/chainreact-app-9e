@@ -149,8 +149,14 @@ function formatTrelloCardsField(data: any[]): FormattedOption[] {
   return data.map((item: any) => ({
     value: item.id,
     label: item.name || item.id,
+    // Include full card data for pre-filling update form
+    name: item.name,
     desc: item.desc,
-    idList: item.idList
+    idList: item.idList,
+    closed: item.closed,
+    due: item.due,
+    dueComplete: item.dueComplete,
+    pos: item.pos
   }));
 }
 
@@ -317,6 +323,7 @@ const fieldFormatters: Record<string, (data: any[]) => FormattedOption[]> = {
   idMembers: formatTrelloMembersField,
   idLabels: formatTrelloLabelsField,
   idCardSource: formatTrelloCardsField,
+  cardId: formatTrelloCardsField, // For update card action - includes full card data
   
   // Database fields
   databaseId: formatDatabaseField,

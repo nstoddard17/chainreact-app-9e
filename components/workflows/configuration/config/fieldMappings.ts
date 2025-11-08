@@ -163,6 +163,11 @@ const trelloMappings: Record<string, FieldMapping> = {
     boardId: "trello_boards",
     listId: "trello_lists",
   },
+  trello_action_update_card: {
+    boardId: "trello_boards",
+    cardId: "trello_cards",
+    listId: "trello_lists",
+  },
 };
 
 // Google Calendar field mappings

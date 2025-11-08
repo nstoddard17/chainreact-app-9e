@@ -687,7 +687,7 @@ export const trelloNodes: NodeComponent[] = [
         type: "text",
         required: false,
         placeholder: "Enter new card name (leave empty to keep current)",
-        hidden: { $condition: { boardId: { $exists: false } } },
+        hidden: { $condition: { cardId: { $exists: false } } },
         tooltip: "Update the card title",
         supportsAI: true
       },
@@ -697,7 +697,7 @@ export const trelloNodes: NodeComponent[] = [
         type: "textarea",
         required: false,
         placeholder: "Enter new description (leave empty to keep current)",
-        hidden: { $condition: { boardId: { $exists: false } } },
+        hidden: { $condition: { cardId: { $exists: false } } },
         tooltip: "Update the card description. Supports Markdown.",
         supportsAI: true
       },
@@ -709,7 +709,7 @@ export const trelloNodes: NodeComponent[] = [
         dynamic: "trello_lists",
         dependsOn: "boardId",
         placeholder: "Select a list (optional)",
-        hidden: { $condition: { boardId: { $exists: false } } },
+        hidden: { $condition: { cardId: { $exists: false } } },
         tooltip: "Move the card to a different list"
       },
       {
@@ -721,7 +721,7 @@ export const trelloNodes: NodeComponent[] = [
           { value: "top", label: "Top of list" },
           { value: "bottom", label: "Bottom of list" }
         ],
-        hidden: { $condition: { boardId: { $exists: false } } },
+        hidden: { $condition: { cardId: { $exists: false } } },
         tooltip: "Change the card's position in the list"
       },
       {
@@ -730,7 +730,7 @@ export const trelloNodes: NodeComponent[] = [
         type: "date",
         required: false,
         placeholder: "Select a new due date (optional)",
-        hidden: { $condition: { boardId: { $exists: false } } },
+        hidden: { $condition: { cardId: { $exists: false } } },
         tooltip: "Update the card's due date"
       },
       {
@@ -749,7 +749,7 @@ export const trelloNodes: NodeComponent[] = [
         type: "boolean",
         defaultValue: false,
         required: false,
-        hidden: { $condition: { boardId: { $exists: false } } },
+        hidden: { $condition: { cardId: { $exists: false } } },
         tooltip: "Set to true to archive the card, false to unarchive"
       }
     ],
