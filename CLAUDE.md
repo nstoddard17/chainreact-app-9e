@@ -152,6 +152,178 @@ When adding ANY configuration field:
 
 ---
 
+## 🎯 CRITICAL: Cascading Fields Pattern - MANDATORY
+**IMPROVE UX BY HIDING FIELDS UNTIL PARENT SELECTIONS ARE MADE**
+
+When implementing actions or triggers with multiple fields:
+
+### When to Use Cascading Fields
+
+**ALWAYS use cascading fields when:**
+- Action requires selecting a resource FIRST (customer, project, list, channel, etc.)
+- Fields only make sense AFTER a parent resource is selected
+- Form has 5+ fields that would overwhelm users if shown all at once
+- Field values depend on or relate to a parent selection
+
+**Common Patterns:**
+- **Update actions**: Select resource → show update fields
+- **Create actions**: Select parent (board, channel, folder) → show creation fields
+- **Search actions**: Select search type → show relevant filters
+- **Triggers**: Select watch target (list, channel, folder) → show trigger options
+
+### Required Properties
+
+Every cascaded field must have:
+```typescript
+{
+  name: "fieldName",
+  label: "Field Label",
+  type: "text",
+  required: false,
+  dependsOn: "parentFieldId",  // Field that must be selected first
+  hidden: {
+    $deps: ["parentFieldId"],
+    $condition: { parentFieldId: { $exists: false } }
+  }
+}
+```
+
+### Pattern Breakdown
+
+**`dependsOn`**: Declares which field must be filled first
+- Simple dependency: `dependsOn: "customerId"`
+- Multiple dependencies: `dependsOn: ["boardId", "listId"]`
+
+**`hidden`**: Controls visibility using conditional logic
+- `$deps`: Array of field names to watch
+- `$condition`: Object with field existence checks
+- Field shows when condition is FALSE (i.e., when parent field EXISTS)
+
+### Real Example: Stripe Update Customer
+
+**Before (WRONG):**
+```typescript
+configSchema: [
+  { name: "customerId", type: "text", required: true },
+  { name: "email", type: "email", required: false },
+  { name: "name", type: "text", required: false },
+  { name: "phone", type: "text", required: false },
+  // ... 28 more fields all visible at once = overwhelming!
+]
+```
+
+**After (CORRECT):**
+```typescript
+configSchema: [
+  // Parent field - always visible
+  {
+    name: "customerId",
+    label: "Customer",
+    type: "combobox",
+    dynamic: "stripe_customers",
+    required: true,
+    loadOnMount: true,
+    searchable: true
+  },
+
+  // Cascaded fields - only show after customer selected
+  {
+    name: "email",
+    label: "Email Address",
+    type: "email",
+    required: false,
+    dependsOn: "customerId",
+    hidden: { $deps: ["customerId"], $condition: { customerId: { $exists: false } } }
+  },
+  {
+    name: "name",
+    label: "Full Name",
+    type: "text",
+    required: false,
+    dependsOn: "customerId",
+    hidden: { $deps: ["customerId"], $condition: { customerId: { $exists: false } } }
+  }
+  // ... all 31 fields cascade after customer selection
+]
+```
+
+### Multi-Level Cascading
+
+Some fields depend on OTHER cascaded fields:
+
+```typescript
+{
+  name: "tax_id_type",
+  label: "Tax ID Type",
+  type: "select",
+  required: false,
+  dependsOn: "customerId",  // Level 1: Must select customer first
+  hidden: { $deps: ["customerId"], $condition: { customerId: { $exists: false } } }
+},
+{
+  name: "tax_id_value",
+  label: "Tax ID Value",
+  type: "text",
+  required: false,
+  dependsOn: "tax_id_type",  // Level 2: Must select tax ID type first
+  hidden: { $deps: ["customerId"], $condition: { customerId: { $exists: false } } }
+  // Still hides if customer not selected (inherits parent cascade)
+}
+```
+
+### UX Benefits
+
+✅ **Progressive Disclosure**: Show fields only when relevant
+✅ **Reduced Cognitive Load**: Users see 1-3 fields instead of 30+
+✅ **Clear Flow**: Guides users through logical configuration steps
+✅ **Context-Aware**: Fields appear in context of selected resource
+✅ **Less Scrolling**: Compact initial form expands as needed
+
+### Implementation Checklist
+
+When creating or updating actions/triggers with 5+ fields:
+- [ ] Identify the "parent" field (resource selector)
+- [ ] Make parent field dynamic/searchable if possible (combobox with `dynamic` property)
+- [ ] Add `dependsOn` to all fields that relate to parent selection
+- [ ] Add `hidden` condition to cascade fields after parent selected
+- [ ] Test UX: Confirm fields appear/disappear correctly
+- [ ] Check multi-level cascades preserve both dependencies
+- [ ] Verify form loads with only parent field visible
+- [ ] Confirm all fields become accessible after parent selection
+
+### Common Action Types Requiring Cascading
+
+**Update Actions** (ALWAYS cascade):
+- Update Customer, Update Subscription, Update Card, Update Task, Update Project
+- Pattern: Select resource → show all update fields
+
+**Resource-Based Triggers**:
+- Watch List, Watch Channel, Watch Folder, Watch Project
+- Pattern: Select watch target → show trigger configuration options
+
+**Hierarchical Creates**:
+- Create Card (select board → select list → show card fields)
+- Create Task (select project → select section → show task fields)
+- Pattern: Select parent containers → show creation fields
+
+### Anti-Patterns (DO NOT DO THIS)
+
+❌ **Showing all 20+ fields at once** without cascading
+❌ **Cascading only some fields** inconsistently (all or nothing after parent)
+❌ **Wrong parent field** (cascading from non-essential field)
+❌ **Forgetting multi-level** (child of cascaded field still shows without parent)
+
+### Files That Use Cascading
+
+**Reference implementations**:
+- `/lib/workflows/nodes/providers/stripe/index.ts` - Update Customer (31 cascaded fields)
+- `/lib/workflows/nodes/providers/trello/actions/*.ts` - Various actions with cascading
+- `/lib/workflows/nodes/providers/airtable/actions/*.ts` - Hierarchical cascading
+
+**Pattern library**: `/learning/docs/field-implementation-guide.md`
+
+---
+
 ## 🔄 Loop Progress Tracking - NEW
 **ALL LOOPS NOW HAVE REAL-TIME PROGRESS INDICATION**
 

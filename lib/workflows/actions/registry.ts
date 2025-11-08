@@ -270,6 +270,27 @@ import { mailchimpSendCampaign } from './mailchimp/sendCampaign'
 import { mailchimpCreateCampaign } from './mailchimp/createCampaign'
 import { stripeGetCustomers } from './stripe/getCustomers'
 import { stripeGetPayments } from './stripe/getPayments'
+import { stripeUpdateCustomer } from './stripe/updateCustomer'
+import { stripeCreateRefund } from './stripe/createRefund'
+import { stripeCancelSubscription } from './stripe/cancelSubscription'
+import { stripeUpdateSubscription } from './stripe/updateSubscription'
+import { stripeCreateCheckoutSession } from './stripe/createCheckoutSession'
+import { stripeCreatePaymentLink } from './stripe/createPaymentLink'
+import { stripeFindCustomer } from './stripe/findCustomer'
+import { stripeFindSubscription } from './stripe/findSubscription'
+import { stripeFindPaymentIntent } from './stripe/findPaymentIntent'
+import { stripeCreateProduct } from './stripe/createProduct'
+import { stripeCreatePrice } from './stripe/createPrice'
+import { stripeUpdateProduct } from './stripe/updateProduct'
+import { stripeListProducts } from './stripe/listProducts'
+import { stripeCreateInvoiceItem } from './stripe/createInvoiceItem'
+import { stripeFinalizeInvoice } from './stripe/finalizeInvoice'
+import { stripeVoidInvoice } from './stripe/voidInvoice'
+import { stripeUpdateInvoice } from './stripe/updateInvoice'
+import { stripeConfirmPaymentIntent } from './stripe/confirmPaymentIntent'
+import { stripeCapturePaymentIntent } from './stripe/capturePaymentIntent'
+import { stripeFindCharge } from './stripe/findCharge'
+import { stripeFindInvoice } from './stripe/findInvoice'
 
 // Import resolveValue for wrapper functions
 import { resolveValue as resolveValueCore } from './core/resolveValue'
@@ -664,6 +685,27 @@ export const actionHandlerRegistry: Record<string, Function> = {
   // Stripe actions
   "stripe_action_get_customers": createExecutionContextWrapper(stripeGetCustomers),
   "stripe_action_get_payments": createExecutionContextWrapper(stripeGetPayments),
+  "stripe_action_update_customer": createExecutionContextWrapper(stripeUpdateCustomer),
+  "stripe_action_create_refund": createExecutionContextWrapper(stripeCreateRefund),
+  "stripe_action_cancel_subscription": createExecutionContextWrapper(stripeCancelSubscription),
+  "stripe_action_update_subscription": createExecutionContextWrapper(stripeUpdateSubscription),
+  "stripe_action_create_checkout_session": createExecutionContextWrapper(stripeCreateCheckoutSession),
+  "stripe_action_create_payment_link": createExecutionContextWrapper(stripeCreatePaymentLink),
+  "stripe_action_find_customer": createExecutionContextWrapper(stripeFindCustomer),
+  "stripe_action_find_subscription": createExecutionContextWrapper(stripeFindSubscription),
+  "stripe_action_find_payment_intent": createExecutionContextWrapper(stripeFindPaymentIntent),
+  "stripe_action_create_product": createExecutionContextWrapper(stripeCreateProduct),
+  "stripe_action_create_price": createExecutionContextWrapper(stripeCreatePrice),
+  "stripe_action_update_product": createExecutionContextWrapper(stripeUpdateProduct),
+  "stripe_action_list_products": createExecutionContextWrapper(stripeListProducts),
+  "stripe_action_create_invoice_item": createExecutionContextWrapper(stripeCreateInvoiceItem),
+  "stripe_action_finalize_invoice": createExecutionContextWrapper(stripeFinalizeInvoice),
+  "stripe_action_void_invoice": createExecutionContextWrapper(stripeVoidInvoice),
+  "stripe_action_update_invoice": createExecutionContextWrapper(stripeUpdateInvoice),
+  "stripe_action_confirm_payment_intent": createExecutionContextWrapper(stripeConfirmPaymentIntent),
+  "stripe_action_capture_payment_intent": createExecutionContextWrapper(stripeCapturePaymentIntent),
+  "stripe_action_find_charge": createExecutionContextWrapper(stripeFindCharge),
+  "stripe_action_find_invoice": createExecutionContextWrapper(stripeFindInvoice),
 
   // Twitter actions - wrapped to handle new calling convention
   "twitter_action_post_tweet": (params: { config: any; userId: string; input: Record<string, any> }) =>
