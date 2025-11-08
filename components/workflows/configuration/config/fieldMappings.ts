@@ -846,6 +846,19 @@ const twitterMappings: Record<string, FieldMapping> = {
   twitter_trigger_user_tweet: {},
 };
 
+// Stripe field mappings
+const stripeMappings: Record<string, FieldMapping> = {
+  stripe_action_update_customer: {
+    customerId: "stripe_customers",
+  },
+  stripe_action_cancel_subscription: {
+    subscriptionId: "stripe_subscriptions",
+  },
+  stripe_action_find_customer: {
+    customerId: "stripe_customers",
+  },
+};
+
 // Default field mappings for unmapped fields
 const defaultMappings: FieldMapping = {
   channelId: "channels",
@@ -887,6 +900,7 @@ export const fieldToResourceMap: NodeFieldMappings = {
   ...hitlMappings,
   ...githubMappings,
   ...twitterMappings,
+  ...stripeMappings,
   default: defaultMappings,
 };
 
