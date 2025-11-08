@@ -130,9 +130,12 @@ const trelloMappings: Record<string, FieldMapping> = {
   },
   trello_trigger_card_moved: {
     boardId: "trello_boards",
+    watchedLists: "trello_lists",
   },
   trello_trigger_comment_added: {
     boardId: "trello_boards",
+    listId: "trello_lists",
+    cardId: "trello_cards",
   },
   trello_trigger_member_changed: {
     boardId: "trello_boards",
@@ -159,6 +162,36 @@ const trelloMappings: Record<string, FieldMapping> = {
   trello_action_get_cards: {
     boardId: "trello_boards",
     listId: "trello_lists",
+  },
+  trello_action_update_card: {
+    boardId: "trello_boards",
+    cardId: "trello_cards",
+    listId: "trello_lists",
+  },
+  trello_action_archive_card: {
+    boardId: "trello_boards",
+    cardId: "trello_cards",
+  },
+  trello_action_add_comment: {
+    boardId: "trello_boards",
+    cardId: "trello_cards",
+  },
+  trello_trigger_card_archived: {
+    boardId: "trello_boards",
+  },
+  trello_action_add_label_to_card: {
+    boardId: "trello_boards",
+    cardId: "trello_cards",
+    labelId: "trello_board_labels",
+  },
+  trello_action_add_checklist: {
+    boardId: "trello_boards",
+    cardId: "trello_cards",
+  },
+  trello_action_create_checklist_item: {
+    boardId: "trello_boards",
+    cardId: "trello_cards",
+    checklistId: "trello_card_checklists",
   },
 };
 
