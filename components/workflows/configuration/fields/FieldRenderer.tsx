@@ -1363,12 +1363,10 @@ export function FieldRenderer({
           : fieldOptions;
 
         // Determine if we should show empty state
-        // For creatable fields (like Discord slash commands), always show the combobox so users can type custom values
-        const shouldShowEmptyState = field.dynamic &&
-                                      comboboxOptions.length === 0 &&
-                                      !loadingDynamic &&
-                                      !value &&
-                                      !field.creatable; // Don't show empty state for creatable fields
+        // NEVER show empty state for dynamic API fields - just show empty combobox
+        // Empty state is only for workflow variable fields (field.dynamic = true, not a string)
+        const isDynamicAPIField = typeof field.dynamic === 'string'; // e.g., "stripe_customers"
+        const shouldShowEmptyState = false; // Disabled - always show combobox for dynamic fields
 
         // Determine empty state type based on field context
         const getEmptyStateType = (): React.ComponentProps<typeof EmptyStateCard>['type'] => {
@@ -1382,7 +1380,7 @@ export function FieldRenderer({
           if (fieldNameLower.includes('image') || fieldNameLower.includes('photo')) return 'images';
           if (fieldNameLower.includes('database') || fieldNameLower.includes('record')) return 'database';
           if (fieldNameLower.includes('link') || fieldNameLower.includes('url')) return 'links';
-          if (fieldNameLower.includes('contact') || fieldNameLower.includes('person')) return 'contacts';
+          if (fieldNameLower.includes('contact') || fieldNameLower.includes('customer') || fieldNameLower.includes('person')) return 'contacts';
           if (fieldNameLower.includes('tag') || fieldNameLower.includes('category')) return 'tags';
           return 'generic';
         };
