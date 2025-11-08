@@ -3,12 +3,14 @@
 import React from "react";
 import { Combobox, MultiCombobox } from "@/components/ui/combobox";
 import { cn } from "@/lib/utils";
-import { Bot, X, RefreshCw } from "lucide-react";
+import { Bot, X, RefreshCw, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { parseVariableReference } from "@/lib/workflows/variableReferences";
 
 import { logger } from '@/lib/utils/logger'
+import { useConfigCacheStore } from "@/stores/configCacheStore"
+import { buildCacheKey, getFieldTTL, shouldCacheField } from "@/lib/workflows/configuration/cache-utils"
 
 interface GenericSelectFieldProps {
   field: any;
@@ -77,6 +79,9 @@ export function GenericSelectField({
   setAiFields,
   isConnectedToAIAgent,
 }: GenericSelectFieldProps) {
+  // Cache store - must be at top level
+  const { get: getCache, set: setCache, invalidate: invalidateCache } = useConfigCacheStore()
+
   // All hooks must be at the top level before any conditional returns
   // Store the display label for the selected value
   const [displayLabel, setDisplayLabel] = React.useState<string | null>(null);
@@ -84,6 +89,9 @@ export function GenericSelectField({
 
   // State for refresh button - must be at top level before any returns
   const [isRefreshing, setIsRefreshing] = React.useState(false);
+
+  // Track if current options are from cache
+  const [isFromCache, setIsFromCache] = React.useState(false);
 
   // Track if we've attempted to load for this field to prevent repeated attempts
   const [hasAttemptedLoad, setHasAttemptedLoad] = React.useState(false);
@@ -94,6 +102,51 @@ export function GenericSelectField({
   // Track the last dependency value to detect actual changes (not just object reference changes)
   const lastDependencyValueRef = React.useRef<any>(null);
 
+  // Cached dynamic load wrapper - checks cache before calling onDynamicLoad
+  const cachedDynamicLoad = React.useCallback(async (
+    fieldName: string,
+    dependsOn?: string,
+    dependsOnValue?: any,
+    forceRefresh = false
+  ) => {
+    if (!onDynamicLoad) return;
+
+    // Build cache key
+    const providerId = nodeInfo?.providerId || 'generic'
+    const integrationId = nodeInfo?.integrationId || 'default'
+    const params = dependsOnValue ? { [dependsOn || 'parent']: dependsOnValue } : undefined
+    const cacheKey = buildCacheKey(providerId, integrationId, fieldName, params)
+
+    // Check if this field should be cached
+    const shouldCache = shouldCacheField(fieldName)
+
+    // If force refresh, invalidate cache first
+    if (forceRefresh && shouldCache) {
+      logger.debug('[GenericSelectField] Force refresh - invalidating cache:', cacheKey)
+      invalidateCache(cacheKey)
+      setIsFromCache(false)
+    }
+
+    // Try to get from cache (unless force refresh)
+    if (!forceRefresh && shouldCache) {
+      const cached = getCache(cacheKey)
+      if (cached) {
+        logger.debug('[GenericSelectField] Cache HIT:', { fieldName, cacheKey, optionsCount: cached.length })
+        setIsFromCache(true)
+        // Cache hit! No need to call onDynamicLoad - options are already set via parent component
+        return
+      }
+      logger.debug('[GenericSelectField] Cache MISS:', { fieldName, cacheKey })
+    }
+
+    // Cache miss or no cache - load from API
+    setIsFromCache(false)
+    await onDynamicLoad(fieldName, dependsOn, dependsOnValue, forceRefresh)
+
+    // Note: We don't cache here because we don't have direct access to the options
+    // The parent component (ConfigurationModal) will need to handle caching after receiving data
+  }, [nodeInfo, onDynamicLoad, getCache, invalidateCache])
+
   // Refresh handler - must be at top level before any conditional returns
   const handleRefresh = React.useCallback(async () => {
     if (!field.dynamic || !onDynamicLoad || isRefreshing) return;
@@ -102,14 +155,14 @@ export function GenericSelectField({
     try {
       const dependencyValue = field.dependsOn ? parentValues[field.dependsOn] : undefined;
       if (field.dependsOn && dependencyValue) {
-        await onDynamicLoad(field.name, field.dependsOn, dependencyValue, true);
+        await cachedDynamicLoad(field.name, field.dependsOn, dependencyValue, true);
       } else if (!field.dependsOn) {
-        await onDynamicLoad(field.name, undefined, undefined, true);
+        await cachedDynamicLoad(field.name, undefined, undefined, true);
       }
     } finally {
       setIsRefreshing(false);
     }
-  }, [field.dynamic, field.name, field.dependsOn, parentValues, onDynamicLoad, isRefreshing]);
+  }, [field.dynamic, field.name, field.dependsOn, parentValues, cachedDynamicLoad, isRefreshing]);
 
   // Check if this field is in AI mode
   const isAIEnabled = aiFields?.[field.name] || (typeof value === 'string' && value.startsWith('{{AI_FIELD:'));
@@ -315,7 +368,7 @@ export function GenericSelectField({
     return label
   }, [])
 
-  const loadingPlaceholder = field.loadingPlaceholder || 'Loading options...';
+  const loadingPlaceholder = field.loadingPlaceholder || (field.label ? `Loading ${field.label}...` : 'Loading options...');
   const basePlaceholder = field.placeholder || (field.label ? `Select ${field.label}...` : 'Select an option...');
   const placeholderText = field.dynamic && isLoading ? loadingPlaceholder : basePlaceholder;
 
@@ -552,9 +605,9 @@ export function GenericSelectField({
       let loadPromise: Promise<void>;
 
       if (field.dependsOn && dependencyValue) {
-        loadPromise = onDynamicLoad(field.name, field.dependsOn, dependencyValue, forceRefresh);
+        loadPromise = cachedDynamicLoad(field.name, field.dependsOn, dependencyValue, forceRefresh);
       } else if (!field.dependsOn) {
-        loadPromise = onDynamicLoad(field.name, undefined, undefined, forceRefresh);
+        loadPromise = cachedDynamicLoad(field.name, undefined, undefined, forceRefresh);
       } else {
         // Dependency required but not provided - clear loading immediately
         isLoadingRef.current = false;
@@ -761,6 +814,20 @@ export function GenericSelectField({
 
     return (
       <div className="flex items-center gap-2">
+        {isFromCache && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex-shrink-0">
+                  <Zap className="h-3 w-3 text-yellow-500" />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Loaded from cache</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
         <div className="flex-1">
           <MultiCombobox
             value={Array.isArray(value) ? value : (value ? [value] : [])}
@@ -769,7 +836,8 @@ export function GenericSelectField({
             placeholder={placeholderText}
             emptyPlaceholder={isLoading ? loadingPlaceholder : "No options available"}
             searchPlaceholder="Search options..."
-            disabled={false}
+            disabled={isLoading}
+            loading={isLoading}
             creatable={field.dynamic ? false : true} // Never allow creating new options for dynamic fields (they load from existing data), but allow variables for static fields
             onOpenChange={handleFieldOpen}
             selectedValues={effectiveSelectedValues} // Pass selected values for checkmarks
@@ -815,6 +883,20 @@ export function GenericSelectField({
   if (field.type === 'select' && !field.multiple) {
     return (
       <div className="flex items-center gap-2">
+        {isFromCache && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex-shrink-0">
+                  <Zap className="h-3 w-3 text-yellow-500" />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Loaded from cache</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
         <div className="flex-1">
           <Combobox
             value={value ?? ""}
@@ -833,7 +915,8 @@ export function GenericSelectField({
             placeholder={placeholderText}
             searchPlaceholder="Search options..."
             emptyPlaceholder={isLoading ? loadingPlaceholder : "No options found"}
-            disabled={false}
+            disabled={isLoading}
+            loading={isLoading}
             creatable={field.dynamic ? false : true} // Never allow creating new options for dynamic fields (they load from existing data), but allow variables for static fields
             onOpenChange={handleFieldOpen} // Add missing onOpenChange handler
             selectedValues={effectiveSelectedValues} // Pass selected values for checkmarks
@@ -872,6 +955,20 @@ export function GenericSelectField({
   // Default fallback: Use Combobox for all remaining select fields to support variables
   return (
     <div className="flex items-center gap-2">
+      {isFromCache && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex-shrink-0">
+                <Zap className="h-3 w-3 text-yellow-500" />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Loaded from cache</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
       <div className="flex-1">
         <Combobox
           value={value ?? ""}
@@ -890,7 +987,8 @@ export function GenericSelectField({
           placeholder={placeholderText}
           searchPlaceholder="Search options..."
           emptyPlaceholder={isLoading ? loadingPlaceholder : getEmptyMessage(field.name, field.label)}
-          disabled={false}
+          disabled={isLoading}
+          loading={isLoading}
           creatable={field.dynamic ? false : true} // Never allow creating new options for dynamic fields (they load from existing data), but allow variables for static fields
           onOpenChange={handleFieldOpen}
           selectedValues={effectiveSelectedValues}

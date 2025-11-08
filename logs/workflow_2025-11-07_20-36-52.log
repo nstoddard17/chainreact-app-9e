@@ -1,0 +1,212 @@
+=== Log Session Started: 2025-11-08T02:36:52.961Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-11-08T02:36:52.962Z] [INFO   ] File logging initialized
+[2025-11-08T02:36:52.962Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-07_20-36-52.log
+[2025-11-08T02:36:52.964Z] [INFO   ] Deleted old log file: workflow_2025-10-31_19-30-29.log
+[2025-11-08T02:36:52.966Z] [INFO   ] Deleted old log file: workflow_2025-10-31_17-55-53.log
+[2025-11-08T02:36:52.966Z] [INFO   ] 📁 File logging enabled
+[2025-11-08T02:36:52.966Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-07_20-36-52.log
+[2025-11-08T02:36:52.966Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-07_20-36-52.log
+[2025-11-08T02:36:52.966Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-07_20-36-52.log
+[2025-11-08T02:36:52.967Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-07_20-36-52.log
+[2025-11-08T02:36:52.967Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-11-08T02:36:52.967Z] [DEBUG  ] 📁 File logging system initialized
+[2025-11-08T02:36:52.981Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 3.6s
+[2025-11-08T02:36:53.496Z] [INFO   ]  [37m[1m○[22m[39m Compiling /test/nodes ...
+[2025-11-08T02:36:54.002Z] [INFO   ] 2025-11-08T02:36:54.002Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-11-08T02:36:56.126Z] [INFO   ] 2025-11-08T02:36:56.126Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-11-08T02:36:56.126Z] [INFO   ] 2025-11-08T02:36:56.126Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-08T02:36:56.435Z] [INFO   ] 2025-11-08T02:36:56.435Z [DEBUG] Discord Gateway initialization complete
+[2025-11-08T02:36:56.436Z] [INFO   ] 2025-11-08T02:36:56.436Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-11-08T02:36:56.853Z] [INFO   ] 2025-11-08T02:36:56.853Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-08T02:36:56.854Z] [INFO   ] 2025-11-08T02:36:56.854Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-08T02:36:57.073Z] [INFO   ] 2025-11-08T02:36:57.073Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"33ed008471307848ba5f27d126f624f9","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-11-08T02:36:57.073Z] [INFO   ] 2025-11-08T02:36:57.073Z [DEBUG] 📋 Initializing invite cache...
+[2025-11-08T02:36:57.074Z] [INFO   ] 2025-11-08T02:36:57.074Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-08T02:36:57.078Z] [INFO   ] 2025-11-08T02:36:57.078Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-08T02:36:57.319Z] [INFO   ] 2025-11-08T02:36:57.319Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-11-08T02:37:00.509Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /test/nodes in 7.5s (4962 modules)
+[2025-11-08T02:37:01.067Z] [INFO   ] 2025-11-08T02:37:01.067Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-08T02:37:01.066Z"}
+[2025-11-08T02:37:01.084Z] [INFO   ] 2025-11-08T02:37:01.084Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-08T02:37:01.084Z"}
+[2025-11-08T02:37:01.084Z] [INFO   ] 2025-11-08T02:37:01.084Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-08T02:37:01.084Z"}
+[2025-11-08T02:37:01.651Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1118ms (1056 modules)
+[2025-11-08T02:37:02.573Z] [INFO   ]  [37m[1m○[22m[39m Compiling /middleware ...
+[2025-11-08T02:37:05.357Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 3.3s (5311 modules)
+[2025-11-08T02:37:06.071Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 398ms (5081 modules)
+[2025-11-08T02:37:06.178Z] [INFO   ] 2025-11-08T02:37:06.178Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-08T02:37:06.178Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-08T02:37:06.308Z] [INFO   ] 2025-11-08T02:37:06.308Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-08T02:37:06.308Z] [INFO   ] 2025-11-08T02:37:06.308Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-08T02:37:06.488Z] [INFO   ] 2025-11-08T02:37:06.488Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":14,"permissionsCount":14,"integrationsError":null,"permissionsError":null}
+[2025-11-08T02:37:06.489Z] [INFO   ] 2025-11-08T02:37:06.489Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"73eb00b5-f035-4c99-81e1-6f2700e7d1b8","provider":"notion","permission":"admin"}
+[2025-11-08T02:37:06.489Z] [INFO   ] 2025-11-08T02:37:06.489Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"21d15a49-a011-41fc-b20a-813fd9a6ac0e","provider":"mailchimp","permission":"admin"}
+[2025-11-08T02:37:06.489Z] [INFO   ] 2025-11-08T02:37:06.489Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"610e4069-9323-4f4c-a80a-a5e56b700c1f","provider":"gmail","permission":"admin"}
+[2025-11-08T02:37:06.489Z] [INFO   ] 2025-11-08T02:37:06.489Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fa8ff906-fe58-416e-9328-245b65d2fe34","provider":"google-docs","permission":"admin"}
+[2025-11-08T02:37:06.489Z] [INFO   ] 2025-11-08T02:37:06.489Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"683b99fe-5a31-45a8-93a9-b6535930c566","provider":"google-drive","permission":"admin"}
+[2025-11-08T02:37:06.489Z] [INFO   ] 2025-11-08T02:37:06.489Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"7cbd7f8f-75ea-4775-842f-bfc68aa9d73c","provider":"trello","permission":"admin"}
+[2025-11-08T02:37:06.489Z] [INFO   ] 2025-11-08T02:37:06.489Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"918ff057-e567-4e7c-b829-4fe0ca428dcc","provider":"facebook","permission":"admin"}
+[2025-11-08T02:37:06.489Z] [INFO   ] 2025-11-08T02:37:06.489Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fce6756a-efec-4bf7-927e-dba227ca2149","provider":"google-sheets","permission":"admin"}
+[2025-11-08T02:37:06.489Z] [INFO   ] 2025-11-08T02:37:06.489Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"4386d41f-07dd-4e5d-ae50-417fdbcf0974","provider":"slack","permission":"admin"}
+[2025-11-08T02:37:06.489Z] [INFO   ] 2025-11-08T02:37:06.489Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"6b250358-6441-499c-a711-37e7ae101507","provider":"dropbox","permission":"admin"}
+[2025-11-08T02:37:06.489Z] [INFO   ] 2025-11-08T02:37:06.489Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","provider":"discord","permission":"admin"}
+[2025-11-08T02:37:06.489Z] [INFO   ] 2025-11-08T02:37:06.489Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"54248f26-c543-4e8f-8285-0b0fbfbf82dd","provider":"twitter","permission":"admin"}
+[2025-11-08T02:37:06.489Z] [INFO   ] 2025-11-08T02:37:06.489Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"c8d02b5a-3a01-49f9-abdf-693f30c28ab9","provider":"google-calendar","permission":"admin"}
+[2025-11-08T02:37:06.489Z] [INFO   ] 2025-11-08T02:37:06.489Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","provider":"airtable","permission":"admin"}
+[2025-11-08T02:37:06.489Z] [INFO   ] 2025-11-08T02:37:06.489Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-08T02:37:06.580Z] [INFO   ] 2025-11-08T02:37:06.580Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-08T02:37:06.580Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-08T02:37:06.717Z] [INFO   ] 2025-11-08T02:37:06.717Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-08T02:37:06.717Z] [INFO   ] 2025-11-08T02:37:06.717Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-08T02:37:06.846Z] [INFO   ] 2025-11-08T02:37:06.846Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":14,"permissionsCount":14,"integrationsError":null,"permissionsError":null}
+[2025-11-08T02:37:06.846Z] [INFO   ] 2025-11-08T02:37:06.846Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"73eb00b5-f035-4c99-81e1-6f2700e7d1b8","provider":"notion","permission":"admin"}
+[2025-11-08T02:37:06.846Z] [INFO   ] 2025-11-08T02:37:06.846Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"21d15a49-a011-41fc-b20a-813fd9a6ac0e","provider":"mailchimp","permission":"admin"}
+[2025-11-08T02:37:06.847Z] [INFO   ] 2025-11-08T02:37:06.847Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"610e4069-9323-4f4c-a80a-a5e56b700c1f","provider":"gmail","permission":"admin"}
+[2025-11-08T02:37:06.847Z] [INFO   ] 2025-11-08T02:37:06.847Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fa8ff906-fe58-416e-9328-245b65d2fe34","provider":"google-docs","permission":"admin"}
+[2025-11-08T02:37:06.847Z] [INFO   ] 2025-11-08T02:37:06.847Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"683b99fe-5a31-45a8-93a9-b6535930c566","provider":"google-drive","permission":"admin"}
+[2025-11-08T02:37:06.847Z] [INFO   ] 2025-11-08T02:37:06.847Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"7cbd7f8f-75ea-4775-842f-bfc68aa9d73c","provider":"trello","permission":"admin"}
+[2025-11-08T02:37:06.847Z] [INFO   ] 2025-11-08T02:37:06.847Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"918ff057-e567-4e7c-b829-4fe0ca428dcc","provider":"facebook","permission":"admin"}
+[2025-11-08T02:37:06.847Z] [INFO   ] 2025-11-08T02:37:06.847Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fce6756a-efec-4bf7-927e-dba227ca2149","provider":"google-sheets","permission":"admin"}
+[2025-11-08T02:37:06.847Z] [INFO   ] 2025-11-08T02:37:06.847Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"4386d41f-07dd-4e5d-ae50-417fdbcf0974","provider":"slack","permission":"admin"}
+[2025-11-08T02:37:06.847Z] [INFO   ] 2025-11-08T02:37:06.847Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"6b250358-6441-499c-a711-37e7ae101507","provider":"dropbox","permission":"admin"}
+[2025-11-08T02:37:06.847Z] [INFO   ] 2025-11-08T02:37:06.847Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","provider":"discord","permission":"admin"}
+[2025-11-08T02:37:06.847Z] [INFO   ] 2025-11-08T02:37:06.847Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"54248f26-c543-4e8f-8285-0b0fbfbf82dd","provider":"twitter","permission":"admin"}
+[2025-11-08T02:37:06.847Z] [INFO   ] 2025-11-08T02:37:06.847Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"c8d02b5a-3a01-49f9-abdf-693f30c28ab9","provider":"google-calendar","permission":"admin"}
+[2025-11-08T02:37:06.847Z] [INFO   ] 2025-11-08T02:37:06.847Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","provider":"airtable","permission":"admin"}
+[2025-11-08T02:37:06.848Z] [INFO   ] 2025-11-08T02:37:06.848Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-08T02:37:07.222Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/airtable/data ...
+[2025-11-08T02:37:07.385Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/airtable/data in 662ms (5101 modules)
+[2025-11-08T02:37:07.477Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-11-08T02:37:07.875Z] [INFO   ] 2025-11-08T02:37:07.875Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-08T02:37:07.875Z"}
+[2025-11-08T02:37:07.887Z] [INFO   ] 2025-11-08T02:37:07.886Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-08T02:37:07.886Z"}
+[2025-11-08T02:37:07.887Z] [INFO   ] 2025-11-08T02:37:07.887Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-08T02:37:07.887Z"}
+[2025-11-08T02:37:08.165Z] [INFO   ] 2025-11-08T02:37:08.165Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_bases","status":"connected","hasToken":true}
+[2025-11-08T02:37:08.166Z] [INFO   ] 2025-11-08T02:37:08.166Z [DEBUG] 🔍 Airtable bases fetcher called with integration: {"id":"23c9b660-dff1-40e3-be7a-f47816751245","provider":"airtable","hasToken":true,"tokenLength":334}
+[2025-11-08T02:37:08.166Z] [INFO   ] 2025-11-08T02:37:08.166Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-08T02:37:08.166Z] [INFO   ] 2025-11-08T02:37:08.166Z [DEBUG] 🔍 Fetching Airtable bases from API...
+[2025-11-08T02:37:09.557Z] [INFO   ] 2025-11-08T02:37:09.557Z [DEBUG] ✅ Airtable bases fetched successfully: 3 bases
+[2025-11-08T02:37:09.558Z] [INFO   ] 2025-11-08T02:37:09.558Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_bases: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":3}
+[2025-11-08T02:37:10.185Z] [INFO   ] 2025-11-08T02:37:10.185Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-08T02:37:10.185Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-08T02:37:10.262Z] [INFO   ] 2025-11-08T02:37:10.262Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-08T02:37:10.262Z] [INFO   ] 2025-11-08T02:37:10.262Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-08T02:37:10.388Z] [INFO   ] 2025-11-08T02:37:10.388Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":14,"permissionsCount":14,"integrationsError":null,"permissionsError":null}
+[2025-11-08T02:37:10.388Z] [INFO   ] 2025-11-08T02:37:10.388Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"73eb00b5-f035-4c99-81e1-6f2700e7d1b8","provider":"notion","permission":"admin"}
+[2025-11-08T02:37:10.388Z] [INFO   ] 2025-11-08T02:37:10.388Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"21d15a49-a011-41fc-b20a-813fd9a6ac0e","provider":"mailchimp","permission":"admin"}
+[2025-11-08T02:37:10.388Z] [INFO   ] 2025-11-08T02:37:10.388Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"610e4069-9323-4f4c-a80a-a5e56b700c1f","provider":"gmail","permission":"admin"}
+[2025-11-08T02:37:10.389Z] [INFO   ] 2025-11-08T02:37:10.388Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fa8ff906-fe58-416e-9328-245b65d2fe34","provider":"google-docs","permission":"admin"}
+[2025-11-08T02:37:10.389Z] [INFO   ] 2025-11-08T02:37:10.389Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"683b99fe-5a31-45a8-93a9-b6535930c566","provider":"google-drive","permission":"admin"}
+[2025-11-08T02:37:10.389Z] [INFO   ] 2025-11-08T02:37:10.389Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"7cbd7f8f-75ea-4775-842f-bfc68aa9d73c","provider":"trello","permission":"admin"}
+[2025-11-08T02:37:10.389Z] [INFO   ] 2025-11-08T02:37:10.389Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"918ff057-e567-4e7c-b829-4fe0ca428dcc","provider":"facebook","permission":"admin"}
+[2025-11-08T02:37:10.389Z] [INFO   ] 2025-11-08T02:37:10.389Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fce6756a-efec-4bf7-927e-dba227ca2149","provider":"google-sheets","permission":"admin"}
+[2025-11-08T02:37:10.389Z] [INFO   ] 2025-11-08T02:37:10.389Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"4386d41f-07dd-4e5d-ae50-417fdbcf0974","provider":"slack","permission":"admin"}
+[2025-11-08T02:37:10.389Z] [INFO   ] 2025-11-08T02:37:10.389Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"6b250358-6441-499c-a711-37e7ae101507","provider":"dropbox","permission":"admin"}
+[2025-11-08T02:37:10.389Z] [INFO   ] 2025-11-08T02:37:10.389Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","provider":"discord","permission":"admin"}
+[2025-11-08T02:37:10.389Z] [INFO   ] 2025-11-08T02:37:10.389Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"54248f26-c543-4e8f-8285-0b0fbfbf82dd","provider":"twitter","permission":"admin"}
+[2025-11-08T02:37:10.389Z] [INFO   ] 2025-11-08T02:37:10.389Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"c8d02b5a-3a01-49f9-abdf-693f30c28ab9","provider":"google-calendar","permission":"admin"}
+[2025-11-08T02:37:10.389Z] [INFO   ] 2025-11-08T02:37:10.389Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","provider":"airtable","permission":"admin"}
+[2025-11-08T02:37:10.389Z] [INFO   ] 2025-11-08T02:37:10.389Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-08T02:37:10.649Z] [INFO   ] 2025-11-08T02:37:10.649Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_bases","status":"connected","hasToken":true}
+[2025-11-08T02:37:10.650Z] [INFO   ] 2025-11-08T02:37:10.650Z [DEBUG] 🔍 Airtable bases fetcher called with integration: {"id":"23c9b660-dff1-40e3-be7a-f47816751245","provider":"airtable","hasToken":true,"tokenLength":334}
+[2025-11-08T02:37:10.650Z] [INFO   ] 2025-11-08T02:37:10.650Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-08T02:37:10.650Z] [INFO   ] 2025-11-08T02:37:10.650Z [DEBUG] 🔍 Fetching Airtable bases from API...
+[2025-11-08T02:37:11.792Z] [INFO   ] 2025-11-08T02:37:11.792Z [DEBUG] ✅ Airtable bases fetched successfully: 3 bases
+[2025-11-08T02:37:11.792Z] [INFO   ] 2025-11-08T02:37:11.792Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_bases: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":3}
+[2025-11-08T02:38:23.020Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1208ms (4963 modules)
+[2025-11-08T02:38:23.506Z] [INFO   ] 2025-11-08T02:38:23.506Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-08T02:38:23.506Z"}
+[2025-11-08T02:38:23.516Z] [INFO   ] 2025-11-08T02:38:23.516Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-08T02:38:23.516Z"}
+[2025-11-08T02:38:23.516Z] [INFO   ] 2025-11-08T02:38:23.516Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-08T02:38:23.516Z"}
+[2025-11-08T02:38:24.358Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 249ms (3922 modules)
+[2025-11-08T02:38:24.584Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4035 modules)
+[2025-11-08T02:38:28.546Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 206ms (4038 modules)
+[2025-11-08T02:38:28.620Z] [INFO   ] 2025-11-08T02:38:28.620Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-08T02:38:28.619Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-08T02:38:28.716Z] [INFO   ] 2025-11-08T02:38:28.716Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-08T02:38:28.717Z] [INFO   ] 2025-11-08T02:38:28.717Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-08T02:38:28.837Z] [INFO   ] 2025-11-08T02:38:28.837Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":14,"permissionsCount":14,"integrationsError":null,"permissionsError":null}
+[2025-11-08T02:38:28.838Z] [INFO   ] 2025-11-08T02:38:28.838Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"73eb00b5-f035-4c99-81e1-6f2700e7d1b8","provider":"notion","permission":"admin"}
+[2025-11-08T02:38:28.838Z] [INFO   ] 2025-11-08T02:38:28.838Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"21d15a49-a011-41fc-b20a-813fd9a6ac0e","provider":"mailchimp","permission":"admin"}
+[2025-11-08T02:38:28.838Z] [INFO   ] 2025-11-08T02:38:28.838Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"610e4069-9323-4f4c-a80a-a5e56b700c1f","provider":"gmail","permission":"admin"}
+[2025-11-08T02:38:28.838Z] [INFO   ] 2025-11-08T02:38:28.838Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fa8ff906-fe58-416e-9328-245b65d2fe34","provider":"google-docs","permission":"admin"}
+[2025-11-08T02:38:28.838Z] [INFO   ] 2025-11-08T02:38:28.838Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"683b99fe-5a31-45a8-93a9-b6535930c566","provider":"google-drive","permission":"admin"}
+[2025-11-08T02:38:28.838Z] [INFO   ] 2025-11-08T02:38:28.838Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"7cbd7f8f-75ea-4775-842f-bfc68aa9d73c","provider":"trello","permission":"admin"}
+[2025-11-08T02:38:28.838Z] [INFO   ] 2025-11-08T02:38:28.838Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"918ff057-e567-4e7c-b829-4fe0ca428dcc","provider":"facebook","permission":"admin"}
+[2025-11-08T02:38:28.838Z] [INFO   ] 2025-11-08T02:38:28.838Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fce6756a-efec-4bf7-927e-dba227ca2149","provider":"google-sheets","permission":"admin"}
+[2025-11-08T02:38:28.838Z] [INFO   ] 2025-11-08T02:38:28.838Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"4386d41f-07dd-4e5d-ae50-417fdbcf0974","provider":"slack","permission":"admin"}
+[2025-11-08T02:38:28.838Z] [INFO   ] 2025-11-08T02:38:28.838Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"6b250358-6441-499c-a711-37e7ae101507","provider":"dropbox","permission":"admin"}
+[2025-11-08T02:38:28.838Z] [INFO   ] 2025-11-08T02:38:28.838Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","provider":"discord","permission":"admin"}
+[2025-11-08T02:38:28.838Z] [INFO   ] 2025-11-08T02:38:28.838Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"54248f26-c543-4e8f-8285-0b0fbfbf82dd","provider":"twitter","permission":"admin"}
+[2025-11-08T02:38:28.838Z] [INFO   ] 2025-11-08T02:38:28.838Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"c8d02b5a-3a01-49f9-abdf-693f30c28ab9","provider":"google-calendar","permission":"admin"}
+[2025-11-08T02:38:28.838Z] [INFO   ] 2025-11-08T02:38:28.838Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","provider":"airtable","permission":"admin"}
+[2025-11-08T02:38:28.838Z] [INFO   ] 2025-11-08T02:38:28.838Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-08T02:43:25.049Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/airtable/data ...
+[2025-11-08T02:43:25.268Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/airtable/data in 721ms (4050 modules)
+[2025-11-08T02:43:25.533Z] [INFO   ] 2025-11-08T02:43:25.533Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_bases","status":"connected","hasToken":true}
+[2025-11-08T02:43:25.534Z] [INFO   ] 2025-11-08T02:43:25.534Z [DEBUG] 🔍 Airtable bases fetcher called with integration: {"id":"23c9b660-dff1-40e3-be7a-f47816751245","provider":"airtable","hasToken":true,"tokenLength":334}
+[2025-11-08T02:43:25.534Z] [INFO   ] 2025-11-08T02:43:25.534Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-08T02:43:25.534Z] [INFO   ] 2025-11-08T02:43:25.534Z [DEBUG] 🔍 Fetching Airtable bases from API...
+[2025-11-08T02:43:26.946Z] [INFO   ] 2025-11-08T02:43:26.946Z [DEBUG] ✅ Airtable bases fetched successfully: 3 bases
+[2025-11-08T02:43:26.947Z] [INFO   ] 2025-11-08T02:43:26.947Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_bases: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":3}
+[2025-11-08T02:43:32.339Z] [INFO   ] 2025-11-08T02:43:32.339Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_tables","status":"connected","hasToken":true}
+[2025-11-08T02:43:32.340Z] [INFO   ] 2025-11-08T02:43:32.340Z [DEBUG] 🔍 Airtable tables fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","hasToken":true}
+[2025-11-08T02:43:32.340Z] [INFO   ] 2025-11-08T02:43:32.340Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-08T02:43:32.340Z] [INFO   ] 2025-11-08T02:43:32.340Z [DEBUG] 🔍 Fetching Airtable tables from API...
+[2025-11-08T02:43:32.362Z] [INFO   ] 2025-11-08T02:43:32.362Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_tables","status":"connected","hasToken":true}
+[2025-11-08T02:43:32.362Z] [INFO   ] 2025-11-08T02:43:32.362Z [DEBUG] 🔍 Airtable tables fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","hasToken":true}
+[2025-11-08T02:43:32.362Z] [INFO   ] 2025-11-08T02:43:32.362Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-08T02:43:32.362Z] [INFO   ] 2025-11-08T02:43:32.362Z [DEBUG] 🔍 Fetching Airtable tables from API...
+[2025-11-08T02:43:35.053Z] [INFO   ] 2025-11-08T02:43:35.053Z [DEBUG] ✅ Airtable tables fetched successfully: 5 tables from base "app2KiMxZofDhMOmZ"
+[2025-11-08T02:43:35.054Z] [INFO   ] 2025-11-08T02:43:35.054Z [DEBUG] 🔍 Available tables: [{"id":"tbl86Pvq1rJ8tsJZA","name":"Design Drafts"},{"id":"tblwRsE3U48r4EB8J","name":"Feedback"},{"id":"tblnuq35Gtq0tZrRO","name":"Collaboration Insights"},{"id":"tbl5J3AgOjpwad7ql","name":"Tasks"},{"id":"tblbW3PQQkNW88hMY","name":"Projects"}]
+[2025-11-08T02:43:35.055Z] [INFO   ] 2025-11-08T02:43:35.055Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_tables: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-08T02:43:35.074Z] [INFO   ] 2025-11-08T02:43:35.074Z [DEBUG] ✅ Airtable tables fetched successfully: 5 tables from base "app2KiMxZofDhMOmZ"
+[2025-11-08T02:43:35.074Z] [INFO   ] 2025-11-08T02:43:35.074Z [DEBUG] 🔍 Available tables: [{"id":"tbl86Pvq1rJ8tsJZA","name":"Design Drafts"},{"id":"tblwRsE3U48r4EB8J","name":"Feedback"},{"id":"tblnuq35Gtq0tZrRO","name":"Collaboration Insights"},{"id":"tbl5J3AgOjpwad7ql","name":"Tasks"},{"id":"tblbW3PQQkNW88hMY","name":"Projects"}]
+[2025-11-08T02:43:35.074Z] [INFO   ] 2025-11-08T02:43:35.074Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_tables: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-08T02:54:57.016Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/facebook/data ...
+[2025-11-08T02:54:57.614Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/facebook/data in 1099ms (5062 modules)
+[2025-11-08T02:54:58.258Z] [INFO   ] 2025-11-08T02:54:58.258Z [DEBUG] 🔍 [Facebook API] Processing request: {"integrationId":"918ff057-e567-4e7c-b829-4fe0ca428dcc","dataType":"facebook_pages","status":"connected","hasToken":true}
+[2025-11-08T02:54:58.259Z] [INFO   ] 2025-11-08T02:54:58.259Z [DEBUG] 🔍 Facebook pages fetcher called with integration: {"id":"918ff057-e567-4e7c-b829-4fe0ca428dcc","provider":"facebook","hasToken":true}
+[2025-11-08T02:54:58.259Z] [INFO   ] 2025-11-08T02:54:58.259Z [DEBUG] 🔍 Validating Facebook token...
+[2025-11-08T02:54:58.259Z] [INFO   ] 2025-11-08T02:54:58.259Z [DEBUG] 🔍 Token validation result: {"success":true,"hasToken":true,"tokenLength":254,"tokenPreview":"EAAaHqHjzOn4BPfZClO3..."}
+[2025-11-08T02:54:58.259Z] [INFO   ] 2025-11-08T02:54:58.259Z [DEBUG] 🔍 Making Facebook API call with appsecret_proof
+[2025-11-08T02:54:58.761Z] [INFO   ] 2025-11-08T02:54:58.761Z [DEBUG] 🔍 Facebook API response: {"data":[{"access_token":"EAAaHqHjzOn4BPZBtVl8ZAQcVZBpz2uT27hu9MgsY5ZC6vPFVtZAYUspz9cLvqgilG1gbr2cLIZCLgf8qQ4seDC9OAWyaqjTyWgGJrJKzMy6BptunZAvVK4ZB4A5CstGOdZB75kFrZCeUWINhLijpLpkRAvYfM2iZARVAjmAUbJnoExMRZCLJVbQ80raqecT9ZAld9tlkZAqdw9twZDZD","category":"Software","category_list":[{"id":"2211","name":"Software"}],"name":"Chain React","id":"698233016701214","tasks":["ADVERTISE","ANALYZE","CREATE_CONTENT","MESSAGING","MODERATE","MANAGE"]}],"paging":{"cursors":{"before":"QVFIU2tNTWhibDF4VlRRbHJIV1NNeGZAYS2QtazRBNWxIbnpoczhGcENnX3VCdTRfbHVwdDltSlZAhcXp2UGJzZA2ZALelBMNlBCVWNPUlk1OUl0ZA2dCU1M4b01n","after":"QVFIU2tNTWhibDF4VlRRbHJIV1NNeGZAYS2QtazRBNWxIbnpoczhGcENnX3VCdTRfbHVwdDltSlZAhcXp2UGJzZA2ZALelBMNlBCVWNPUlk1OUl0ZA2dCU1M4b01n"}}}
+[2025-11-08T02:54:58.761Z] [INFO   ] 2025-11-08T02:54:58.761Z [DEBUG] 🔍 Processed Facebook pages: [{"id":"698233016701214","name":"Chain React","value":"698233016701214","access_token":"EAAaHqHjzOn4BPZBtVl8ZAQcVZBpz2uT27hu9MgsY5ZC6vPFVtZAYUspz9cLvqgilG1gbr2cLIZCLgf8qQ4seDC9OAWyaqjTyWgGJrJKzMy6BptunZAvVK4ZB4A5CstGOdZB75kFrZCeUWINhLijpLpkRAvYfM2iZARVAjmAUbJnoExMRZCLJVbQ80raqecT9ZAld9tlkZAqdw9twZDZD","category":"Software","tasks":["ADVERTISE","ANALYZE","CREATE_CONTENT","MESSAGING","MODERATE","MANAGE"]}]
+[2025-11-08T02:54:58.762Z] [INFO   ] 2025-11-08T02:54:58.761Z [DEBUG] ✅ [Facebook API] Successfully processed facebook_pages: {"integrationId":"918ff057-e567-4e7c-b829-4fe0ca428dcc","resultCount":1}
+[2025-11-08T02:55:18.044Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1215ms (5076 modules)
+[2025-11-08T02:55:43.296Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 700ms (5076 modules)
+[2025-11-08T02:56:12.059Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 829ms (4963 modules)
+[2025-11-08T02:56:15.383Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 902ms (4963 modules)
+[2025-11-08T02:56:30.694Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 586ms (4963 modules)
+[2025-11-08T02:58:24.909Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-11-08T02:58:24.944Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 586ms (4029 modules)
+[2025-11-08T02:58:35.060Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 710ms (5086 modules)
+[2025-11-08T02:58:40.341Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 578ms (5086 modules)
+[2025-11-08T02:59:09.778Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 932ms (5086 modules)
+[2025-11-08T03:15:57.498Z] [INFO   ] 2025-11-08T03:15:57.497Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-11-08T03:38:29.796Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/airtable/data ...
+[2025-11-08T03:38:30.183Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/airtable/data in 919ms (4050 modules)
+[2025-11-08T03:38:30.497Z] [INFO   ] 2025-11-08T03:38:30.497Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_bases","status":"connected","hasToken":true}
+[2025-11-08T03:38:30.498Z] [INFO   ] 2025-11-08T03:38:30.497Z [DEBUG] 🔍 Airtable bases fetcher called with integration: {"id":"23c9b660-dff1-40e3-be7a-f47816751245","provider":"airtable","hasToken":true,"tokenLength":334}
+[2025-11-08T03:38:30.498Z] [INFO   ] 2025-11-08T03:38:30.498Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-08T03:38:30.498Z] [INFO   ] 2025-11-08T03:38:30.498Z [DEBUG] 🔍 Fetching Airtable bases from API...
+[2025-11-08T03:38:31.991Z] [INFO   ] 2025-11-08T03:38:31.991Z [DEBUG] ✅ Airtable bases fetched successfully: 3 bases
+[2025-11-08T03:38:31.992Z] [INFO   ] 2025-11-08T03:38:31.992Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_bases: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":3}
+[2025-11-08T03:38:33.803Z] [INFO   ] 2025-11-08T03:38:33.803Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_tables","status":"connected","hasToken":true}
+[2025-11-08T03:38:33.804Z] [INFO   ] 2025-11-08T03:38:33.803Z [DEBUG] 🔍 Airtable tables fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","hasToken":true}
+[2025-11-08T03:38:33.804Z] [INFO   ] 2025-11-08T03:38:33.804Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-08T03:38:33.804Z] [INFO   ] 2025-11-08T03:38:33.804Z [DEBUG] 🔍 Fetching Airtable tables from API...
+[2025-11-08T03:38:33.867Z] [INFO   ] 2025-11-08T03:38:33.867Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_tables","status":"connected","hasToken":true}
+[2025-11-08T03:38:33.868Z] [INFO   ] 2025-11-08T03:38:33.868Z [DEBUG] 🔍 Airtable tables fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","hasToken":true}
+[2025-11-08T03:38:33.868Z] [INFO   ] 2025-11-08T03:38:33.868Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-08T03:38:33.868Z] [INFO   ] 2025-11-08T03:38:33.868Z [DEBUG] 🔍 Fetching Airtable tables from API...
+[2025-11-08T03:38:36.412Z] [INFO   ] 2025-11-08T03:38:36.412Z [DEBUG] ✅ Airtable tables fetched successfully: 5 tables from base "app2KiMxZofDhMOmZ"
+[2025-11-08T03:38:36.413Z] [INFO   ] 2025-11-08T03:38:36.413Z [DEBUG] 🔍 Available tables: [{"id":"tbl86Pvq1rJ8tsJZA","name":"Design Drafts"},{"id":"tblwRsE3U48r4EB8J","name":"Feedback"},{"id":"tblnuq35Gtq0tZrRO","name":"Collaboration Insights"},{"id":"tbl5J3AgOjpwad7ql","name":"Tasks"},{"id":"tblbW3PQQkNW88hMY","name":"Projects"}]
+[2025-11-08T03:38:36.413Z] [INFO   ] 2025-11-08T03:38:36.413Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_tables: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-08T03:38:36.433Z] [INFO   ] 2025-11-08T03:38:36.433Z [DEBUG] ✅ Airtable tables fetched successfully: 5 tables from base "app2KiMxZofDhMOmZ"
+[2025-11-08T03:38:36.434Z] [INFO   ] 2025-11-08T03:38:36.434Z [DEBUG] 🔍 Available tables: [{"id":"tbl86Pvq1rJ8tsJZA","name":"Design Drafts"},{"id":"tblwRsE3U48r4EB8J","name":"Feedback"},{"id":"tblnuq35Gtq0tZrRO","name":"Collaboration Insights"},{"id":"tbl5J3AgOjpwad7ql","name":"Tasks"},{"id":"tblbW3PQQkNW88hMY","name":"Projects"}]
+[2025-11-08T03:38:36.434Z] [INFO   ] 2025-11-08T03:38:36.434Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_tables: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-08T03:38:41.927Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/airtable/metadata ...
+[2025-11-08T03:38:42.072Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/airtable/metadata in 645ms (5096 modules)
+[2025-11-08T03:38:42.203Z] [INFO   ] 2025-11-08T03:38:42.203Z [DEBUG] Metadata API called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","tableName":"Design Drafts"}
+[2025-11-08T03:38:42.360Z] [INFO   ] 2025-11-08T03:38:42.360Z [DEBUG] Access token decrypted successfully
+[2025-11-08T03:38:42.360Z] [INFO   ] 2025-11-08T03:38:42.360Z [DEBUG] Fetching metadata from Airtable: https://api.airtable.com/v0/meta/bases/app2KiMxZofDhMOmZ/tables
+[2025-11-08T03:38:42.663Z] [INFO   ] 2025-11-08T03:38:42.663Z [DEBUG] Airtable metadata response received: {"hasData":true,"tableCount":5,"baseId":"app2KiMxZofDhMOmZ","requestedTable":"Design Drafts"}
+[2025-11-08T03:38:42.663Z] [INFO   ] 2025-11-08T03:38:42.663Z [DEBUG] Table fields found: [{"name":"Draft Name","type":"singleLineText","id":"fldpeH75nEzotVaIz"},{"name":"Designer","type":"singleLineText","id":"fldHwBT4DpJNynoDs"},{"name":"Upload Date","type":"date","id":"fldeyYCl5huNfhp00"},{"name":"Draft Image","type":"multipleAttachments","id":"fldGgF9IiZev9ifPo"},{"name":"Status","type":"singleSelect","id":"fldvgqaHX9d378Hr6"},{"name":"Associated Project","type":"multipleRecordLinks","id":"fldUDIP1gDZA1jozK"},{"name":"Feedback","type":"multipleRecordLinks","id":"fldSoktSheZaqPQ7j"},{"name":"Tasks","type":"multipleRecordLinks","id":"fldYEXb0ggEwxMsfJ"}]

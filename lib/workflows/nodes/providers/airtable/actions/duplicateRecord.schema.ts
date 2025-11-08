@@ -41,9 +41,10 @@ export const duplicateRecordActionSchema: NodeComponent = {
       label: "Record ID to Duplicate",
       type: "text",
       required: true,
-      placeholder: "Paste record ID or select from table below",
+      placeholder: "Use {{variable}} or select from table below",
       supportsAI: true,
-      description: "The ID of the record to duplicate",
+      description: "The ID of the record to duplicate. Use variables from previous steps or select a record from the table.",
+      helpText: "Use variables like {{trigger.recordId}} from previous workflow steps, or click a record in the table below to auto-populate this field.",
       dependsOn: "tableName"
     },
     // Hidden field that stores the field selection and override configuration

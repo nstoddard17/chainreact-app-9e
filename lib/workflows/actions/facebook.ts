@@ -1144,9 +1144,45 @@ export async function uploadFacebookPhoto(
       formData.append('no_story', 'true')
     }
 
+    // Handle album selection: can be either an existing album ID or a new album name
+    let albumId = targetAlbum
+
+    if (targetAlbum) {
+      // Check if targetAlbum is a numeric ID or a name
+      // Facebook album IDs are numeric strings
+      const isNumericId = /^\d+$/.test(targetAlbum)
+
+      if (!isNumericId) {
+        // It's a new album name - create the album first
+        logger.debug('[Facebook] Creating new album:', targetAlbum)
+
+        const createAlbumResponse = await fetch(`https://graph.facebook.com/v19.0/${pageId}/albums`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${pageAccessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            name: targetAlbum,
+            message: `Album created by ChainReact workflow`
+          })
+        })
+
+        if (!createAlbumResponse.ok) {
+          const errorData = await createAlbumResponse.json().catch(() => ({}))
+          logger.warn('[Facebook] Failed to create album, uploading to Timeline Photos instead:', errorData.error?.message)
+          albumId = null // Fall back to default album
+        } else {
+          const albumData = await createAlbumResponse.json()
+          albumId = albumData.id
+          logger.debug('[Facebook] Album created successfully:', albumId)
+        }
+      }
+    }
+
     // Determine upload endpoint
-    const uploadEndpoint = targetAlbum
-      ? `https://graph.facebook.com/v19.0/${targetAlbum}/photos`
+    const uploadEndpoint = albumId
+      ? `https://graph.facebook.com/v19.0/${albumId}/photos`
       : `https://graph.facebook.com/v19.0/${pageId}/photos`
 
     logger.debug('[Facebook] Uploading photo to:', uploadEndpoint)
@@ -1169,18 +1205,28 @@ export async function uploadFacebookPhoto(
 
     logger.debug('[Facebook] Photo uploaded successfully:', result)
 
+    // Determine success message
+    let successMessage = "Photo uploaded successfully to Facebook"
+    if (albumId && albumId !== targetAlbum) {
+      successMessage = `Photo uploaded successfully to newly created album "${targetAlbum}"`
+    } else if (albumId) {
+      successMessage = "Photo uploaded successfully to selected album"
+    }
+
     return {
       success: true,
       output: {
         photoId: result.id,
         pageId: pageId,
-        albumId: targetAlbum || null,
+        albumId: albumId || null,
+        albumName: targetAlbum || null,
+        albumCreated: albumId && albumId !== targetAlbum,
         postId: result.post_id || null,
         caption: caption,
         published: published !== false,
         facebookResponse: result
       },
-      message: "Photo uploaded successfully to Facebook"
+      message: successMessage
     }
 
   } catch (error: any) {

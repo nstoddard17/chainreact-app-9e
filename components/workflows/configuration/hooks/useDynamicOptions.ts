@@ -5,6 +5,8 @@ import { useIntegrationStore } from "@/stores/integrationStore"
 import { DynamicOptionsState } from '../utils/types';
 import { getResourceTypeForField } from '../config/fieldMappings';
 import { formatOptionsForField } from '../utils/fieldFormatters';
+import { useConfigCacheStore } from "@/stores/configCacheStore"
+import { buildCacheKey, getFieldTTL, shouldCacheField } from "@/lib/workflows/configuration/cache-utils"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -82,6 +84,9 @@ function setCachedOptions(providerId: string, nodeType: string, options: Dynamic
 }
 
 export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingChange, onOptionsUpdated, getFormValues, initialOptions }: UseDynamicOptionsProps) => {
+  // Cache store for field-level caching
+  const { get: getCache, set: setCache } = useConfigCacheStore()
+
   // Store callbacks in refs to avoid dependency issues
   const onLoadingChangeRef = useRef(onLoadingChange);
   onLoadingChangeRef.current = onLoadingChange;
@@ -179,6 +184,44 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       // Note: dependsOnValue will be handled below by looking at current form values
     }
     
+    // Build cache key for field-level caching
+    const cacheKey = buildCacheKey(
+      providerId,
+      providerId, // Use providerId as integrationId for cache key (will be same for all nodes of this provider)
+      fieldName,
+      dependsOnValue ? { [dependsOn || 'parent']: dependsOnValue } : undefined
+    )
+
+    // Check new cache store first (if not forcing refresh and field should be cached)
+    if (!forceRefresh && shouldCacheField(fieldName)) {
+      const cached = getCache(cacheKey)
+      if (cached && Array.isArray(cached) && cached.length > 0) {
+        logger.debug(`💾 [useDynamicOptions] Cache HIT for ${fieldName}:`, {
+          cacheKey,
+          optionsCount: cached.length,
+          fieldName,
+          dependsOn,
+          dependsOnValue
+        })
+
+        // Update dynamic options with cached data
+        setDynamicOptions(prev => ({
+          ...prev,
+          [fieldName]: cached,
+          ...(dependsOn && dependsOnValue ? { [`${fieldName}_${dependsOnValue}`]: cached } : {})
+        }))
+
+        // Clear loading state
+        setLoading(false)
+        if (!silent) {
+          onLoadingChangeRef.current?.(fieldName, false)
+        }
+
+        return // Early return - no need to fetch from API
+      }
+      logger.debug(`❌ [useDynamicOptions] Cache MISS for ${fieldName}:`, { cacheKey })
+    }
+
     // Create a key that includes dependencies
     const requestKey = `${fieldName}-${dependsOn || 'none'}-${dependsOnValue || 'none'}`;
     // If we already have dependency-specific options cached, skip reload
@@ -1175,6 +1218,14 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
           logger.debug(`✅ [useDynamicOptions] Setting dynamic options for ${fieldName} with ${formattedOptions?.length || 0} options`);
 
+          // Save to cache store if field should be cached
+          if (shouldCacheField(fieldName) && formattedOptions && formattedOptions.length > 0) {
+            const cacheKey = buildCacheKey(providerId, providerId, fieldName, dependsOnValue ? { [dependsOn || 'parent']: dependsOnValue } : undefined)
+            const ttl = getFieldTTL(fieldName)
+            setCache(cacheKey, formattedOptions, ttl)
+            logger.debug(`💾 [useDynamicOptions] Cached ${formattedOptions.length} options for ${fieldName}:`, { cacheKey, ttl })
+          }
+
           // Track performance for searchField
           const setOptionsStartTime = performance.now();
 
@@ -1788,11 +1839,19 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       }
       
       // Special handling for Discord channels - if empty and we have a guildId, it likely means bot is not in server
-      if (fieldName === 'channelId' && resourceType === 'discord_channels' && 
+      if (fieldName === 'channelId' && resourceType === 'discord_channels' &&
           formattedOptions.length === 0 && dependsOnValue) {
         throw new Error('Bot not added to server - no channels available');
       }
-      
+
+      // Save to cache store if field should be cached
+      if (shouldCacheField(fieldName) && formattedOptions && formattedOptions.length > 0) {
+        const cacheKey = buildCacheKey(providerId, providerId, fieldName, dependsOnValue ? { [dependsOn || 'parent']: dependsOnValue } : undefined)
+        const ttl = getFieldTTL(fieldName)
+        setCache(cacheKey, formattedOptions, ttl)
+        logger.debug(`💾 [useDynamicOptions] Cached ${formattedOptions.length} options for ${fieldName} after loadIntegrationData:`, { cacheKey, ttl })
+      }
+
       // Update dynamic options - store both general and dependency-specific data
       const updateObject: any = { [fieldName]: formattedOptions };
       

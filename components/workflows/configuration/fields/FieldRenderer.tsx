@@ -45,6 +45,8 @@ import { DiscordServerField } from "./discord/DiscordServerField";
 import { DiscordChannelField } from "./discord/DiscordChannelField";
 import { DiscordGenericField } from "./discord/DiscordGenericField";
 import { AirtableImageField } from "./airtable/AirtableImageField";
+import { MultipleRecordsField } from "./airtable/MultipleRecordsField";
+import { FieldMapperField } from "./airtable/FieldMapperField";
 import { GoogleDriveFileField } from "./googledrive/GoogleDriveFileField";
 
 // Shared field components
@@ -162,6 +164,7 @@ interface FieldProps {
   currentNodeId?: string;
   dynamicOptions?: Record<string, { value: string; label: string; fields?: any[] }[]>;
   loadingDynamic?: boolean;
+  loadingFields?: Set<string>; // Loading states for individual fields
   onDynamicLoad?: (fieldName: string, dependsOn?: string, dependsOnValue?: any, forceRefresh?: boolean) => Promise<void>;
   nodeInfo?: any; // Node information for context-aware field behavior
   bubbleValues?: string[]; // Values that have bubbles created
@@ -172,6 +175,7 @@ interface FieldProps {
   isConnectedToAIAgent?: boolean; // Whether an AI agent exists in the workflow
   setFieldValue?: (field: string, value: any) => void; // Update other form fields
   aiToggleButton?: React.ReactNode; // AI toggle button to render alongside label
+  airtableTableSchema?: any; // Airtable table schema for dynamic field rendering
 }
 
 /**
@@ -251,6 +255,7 @@ export function FieldRenderer({
   currentNodeId,
   dynamicOptions,
   loadingDynamic,
+  loadingFields,
   onDynamicLoad,
   nodeInfo,
   bubbleValues = [],
@@ -261,6 +266,7 @@ export function FieldRenderer({
   isConnectedToAIAgent,
   setFieldValue,
   aiToggleButton,
+  airtableTableSchema,
 }: FieldProps) {
   // State for file-with-toggle mode - moved outside of render function to prevent infinite loop
   const [inputMode, setInputMode] = useState(() => {
@@ -466,7 +472,7 @@ export function FieldRenderer({
    */
   const renderLabel = () => {
     const providerId = getProviderId();
-    const helpText = field.tooltip || field.description || generateHelpText({
+    const helpText = field.helpText || field.tooltip || field.description || generateHelpText({
       fieldName: field.name,
       fieldType: field.type,
       integrationId: providerId,
@@ -944,35 +950,10 @@ export function FieldRenderer({
       case "tags":
         return <TagsInput value={value} onChange={onChange} field={field} error={error} />;
 
-      case "text":
-      case "email":
-      case "number":
-      case "textarea":
-      case "time":
       case "file":
-        
-        // Special handling for Google Drive file preview
-        if (integrationProvider === 'google-drive' && field.name === 'filePreview' && field.type === 'textarea') {
-          // For now, use the standard textarea but with enhanced preview text
-          // In the future, we could create a custom component that renders images
-          return (
-            <GenericTextInput
-              field={{
-                ...field,
-                rows: 15, // Make it larger for better preview
-                disabled: true, // Keep it read-only
-                placeholder: getSmartPlaceholder()
-              }}
-              value={value}
-              onChange={onChange}
-              error={error}
-              dynamicOptions={fieldOptions}
-              onDynamicLoad={onDynamicLoad}
-              workflowNodes={workflowData?.nodes}
-            />
-          );
-        }
-        
+        // Generic file upload handling - render FileUpload component for all file fields
+        // unless they have specific custom implementations below
+
         // Special handling for Gmail attachments (field name is uploadedFiles)
         if (integrationProvider === 'gmail' && field.name === 'uploadedFiles') {
           return (
@@ -1024,7 +1005,7 @@ export function FieldRenderer({
         }
 
         // Special handling for Google Drive file uploads
-        if (integrationProvider === 'google-drive' && 
+        if (integrationProvider === 'google-drive' &&
             (field.name === 'uploadedFiles' || field.name === 'fileUrl' || field.name === 'fileFromNode')) {
           const sourceType = parentValues?.sourceType || 'file';
           return (
@@ -1042,9 +1023,51 @@ export function FieldRenderer({
               setFieldValue={setFieldValue}
             />
           );
-        } 
-        
-        
+        }
+
+        // Default file upload for all other file fields (Facebook video, Teams attachments, etc.)
+        return (
+          <FileUpload
+            value={value}
+            onChange={onChange}
+            accept={field.accept || "*/*"}
+            placeholder={field.placeholder || "Choose files to upload..."}
+            disabled={field.disabled}
+            maxFiles={field.multiple ? (field.maxFiles || 10) : 1}
+            multiple={field.multiple || false}
+            maxSize={field.maxSize}
+            className={cn(error && "border-red-500")}
+          />
+        );
+
+      case "text":
+      case "email":
+      case "number":
+      case "textarea":
+      case "time":
+
+        // Special handling for Google Drive file preview
+        if (integrationProvider === 'google-drive' && field.name === 'filePreview' && field.type === 'textarea') {
+          // For now, use the standard textarea but with enhanced preview text
+          // In the future, we could create a custom component that renders images
+          return (
+            <GenericTextInput
+              field={{
+                ...field,
+                rows: 15, // Make it larger for better preview
+                disabled: true, // Keep it read-only
+                placeholder: getSmartPlaceholder()
+              }}
+              value={value}
+              onChange={onChange}
+              error={error}
+              dynamicOptions={fieldOptions}
+              onDynamicLoad={onDynamicLoad}
+              workflowNodes={workflowData?.nodes}
+            />
+          );
+        }
+
         // Special handling for Airtable image/attachment fields
         if (integrationProvider === 'airtable' && field.name?.startsWith('airtable_field_')) {
           const airtableFieldType = (field as any).airtableFieldType;
@@ -1379,8 +1402,9 @@ export function FieldRenderer({
                   }
                   searchPlaceholder={`Search ${field.label || field.name}...`}
                   emptyPlaceholder={loadingDynamic ? "Loading options..." : getComboboxEmptyMessage(field)}
-                  disabled={false} // Don't disable during loading so dropdown can stay open
-                  creatable={field.dynamic ? false : (field.creatable || false)} // Never allow creating new options for dynamic fields (they load from existing data)
+                  disabled={loadingDynamic} // Disable during loading to match other fields
+                  loading={loadingDynamic} // Show loading spinner
+                  creatable={field.creatable === true ? true : (field.dynamic ? false : (field.creatable || false))} // Allow creating new options if explicitly enabled (e.g., Facebook albums)
                     onOpenChange={(open) => {
                       // Only trigger load on actual open (not close)
                       if (!open) return;
@@ -1478,7 +1502,7 @@ export function FieldRenderer({
               <Label htmlFor={field.name} className="text-sm font-medium text-slate-700">
                 {field.label || field.name}
               </Label>
-              {(field.tooltip || field.description) && tooltipsEnabled && (
+              {(field.helpText || field.tooltip || field.description) && tooltipsEnabled && (
                 <TooltipProvider delayDuration={0}>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -1489,7 +1513,7 @@ export function FieldRenderer({
                       className="max-w-xs bg-slate-900 text-white border-slate-700"
                       sideOffset={8}
                     >
-                      <p className="text-xs">{field.tooltip || field.description}</p>
+                      <p className="text-xs">{field.helpText || field.tooltip || field.description}</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -2046,6 +2070,40 @@ export function FieldRenderer({
         // Add more custom field types here as needed
         return null;
 
+      case "custom_multiple_records":
+        // Multiple Records Field for Airtable bulk create
+        return (
+          <MultipleRecordsField
+            value={value}
+            onChange={onChange}
+            field={field}
+            nodeInfo={nodeInfo}
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
+            dynamicOptions={dynamicOptions}
+            loadingFields={loadingFields}
+            loadOptions={onDynamicLoad}
+            parentValues={parentValues}
+            aiFields={aiFields}
+            setAiFields={setAiFields}
+            airtableTableSchema={airtableTableSchema}
+          />
+        );
+
+      case "custom_field_mapper":
+        // Field Mapper for mapping source data to Airtable fields
+        return (
+          <FieldMapperField
+            value={value}
+            onChange={onChange}
+            field={field}
+            airtableTableSchema={airtableTableSchema}
+            parentValues={parentValues}
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
+          />
+        );
+
       case "unified-document-picker":
         // Unified Document Picker for selecting documents across multiple providers
         return (
@@ -2145,7 +2203,7 @@ export function FieldRenderer({
   // Stacked layout - label above input
   // Generate help text for tooltip
   const providerId = getProviderId();
-  const helpText = field.tooltip || field.description || generateHelpText({
+  const helpText = field.helpText || field.tooltip || field.description || generateHelpText({
     fieldName: field.name,
     fieldType: field.type,
     integrationId: providerId,

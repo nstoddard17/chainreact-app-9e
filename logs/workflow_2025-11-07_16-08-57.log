@@ -1,0 +1,522 @@
+=== Log Session Started: 2025-11-07T22:08:57.278Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-11-07T22:08:57.279Z] [INFO   ] File logging initialized
+[2025-11-07T22:08:57.279Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-07_16-08-57.log
+[2025-11-07T22:08:57.280Z] [INFO   ] 📁 File logging enabled
+[2025-11-07T22:08:57.281Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-07_16-08-57.log
+[2025-11-07T22:08:57.281Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-07_16-08-57.log
+[2025-11-07T22:08:57.281Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-07_16-08-57.log
+[2025-11-07T22:08:57.281Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-07_16-08-57.log
+[2025-11-07T22:08:57.281Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-11-07T22:08:57.281Z] [DEBUG  ] 📁 File logging system initialized
+[2025-11-07T22:08:57.295Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 3.5s
+[2025-11-07T22:08:57.813Z] [INFO   ]  [37m[1m○[22m[39m Compiling /test/nodes ...
+[2025-11-07T22:08:58.297Z] [INFO   ] 2025-11-07T22:08:58.297Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-11-07T22:09:00.278Z] [INFO   ] 2025-11-07T22:09:00.278Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-11-07T22:09:00.278Z] [INFO   ] 2025-11-07T22:09:00.278Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-07T22:09:00.906Z] [INFO   ] 2025-11-07T22:09:00.906Z [DEBUG] Discord Gateway initialization complete
+[2025-11-07T22:09:00.908Z] [INFO   ] 2025-11-07T22:09:00.908Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-11-07T22:09:01.115Z] [INFO   ] 2025-11-07T22:09:01.115Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-07T22:09:01.116Z] [INFO   ] 2025-11-07T22:09:01.116Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-07T22:09:01.285Z] [INFO   ] 2025-11-07T22:09:01.285Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"031e9eb33509cd3bf8ecf4d99c4b8135","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-11-07T22:09:01.286Z] [INFO   ] 2025-11-07T22:09:01.286Z [DEBUG] 📋 Initializing invite cache...
+[2025-11-07T22:09:01.287Z] [INFO   ] 2025-11-07T22:09:01.287Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-07T22:09:01.330Z] [INFO   ] 2025-11-07T22:09:01.330Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-07T22:09:01.509Z] [INFO   ] 2025-11-07T22:09:01.509Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-11-07T22:09:07.323Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /test/nodes in 10s (4947 modules)
+[2025-11-07T22:09:07.815Z] [INFO   ] 2025-11-07T22:09:07.815Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-07T22:09:07.815Z"}
+[2025-11-07T22:09:07.826Z] [INFO   ] 2025-11-07T22:09:07.826Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-07T22:09:07.826Z"}
+[2025-11-07T22:09:07.826Z] [INFO   ] 2025-11-07T22:09:07.826Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-07T22:09:07.826Z"}
+[2025-11-07T22:09:09.354Z] [INFO   ]  [37m[1m○[22m[39m Compiling /middleware ...
+[2025-11-07T22:09:10.694Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 1906ms (5296 modules)
+[2025-11-07T22:09:15.174Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 375ms (5066 modules)
+[2025-11-07T22:09:15.290Z] [INFO   ] 2025-11-07T22:09:15.290Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-07T22:09:15.290Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-07T22:09:15.400Z] [INFO   ] 2025-11-07T22:09:15.400Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-07T22:09:15.401Z] [INFO   ] 2025-11-07T22:09:15.400Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-07T22:09:15.552Z] [INFO   ] 2025-11-07T22:09:15.552Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":14,"permissionsCount":14,"integrationsError":null,"permissionsError":null}
+[2025-11-07T22:09:15.553Z] [INFO   ] 2025-11-07T22:09:15.553Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"73eb00b5-f035-4c99-81e1-6f2700e7d1b8","provider":"notion","permission":"admin"}
+[2025-11-07T22:09:15.553Z] [INFO   ] 2025-11-07T22:09:15.553Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"21d15a49-a011-41fc-b20a-813fd9a6ac0e","provider":"mailchimp","permission":"admin"}
+[2025-11-07T22:09:15.553Z] [INFO   ] 2025-11-07T22:09:15.553Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"610e4069-9323-4f4c-a80a-a5e56b700c1f","provider":"gmail","permission":"admin"}
+[2025-11-07T22:09:15.553Z] [INFO   ] 2025-11-07T22:09:15.553Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fa8ff906-fe58-416e-9328-245b65d2fe34","provider":"google-docs","permission":"admin"}
+[2025-11-07T22:09:15.553Z] [INFO   ] 2025-11-07T22:09:15.553Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"683b99fe-5a31-45a8-93a9-b6535930c566","provider":"google-drive","permission":"admin"}
+[2025-11-07T22:09:15.553Z] [INFO   ] 2025-11-07T22:09:15.553Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"7cbd7f8f-75ea-4775-842f-bfc68aa9d73c","provider":"trello","permission":"admin"}
+[2025-11-07T22:09:15.553Z] [INFO   ] 2025-11-07T22:09:15.553Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"918ff057-e567-4e7c-b829-4fe0ca428dcc","provider":"facebook","permission":"admin"}
+[2025-11-07T22:09:15.553Z] [INFO   ] 2025-11-07T22:09:15.553Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fce6756a-efec-4bf7-927e-dba227ca2149","provider":"google-sheets","permission":"admin"}
+[2025-11-07T22:09:15.553Z] [INFO   ] 2025-11-07T22:09:15.553Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"4386d41f-07dd-4e5d-ae50-417fdbcf0974","provider":"slack","permission":"admin"}
+[2025-11-07T22:09:15.553Z] [INFO   ] 2025-11-07T22:09:15.553Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"6b250358-6441-499c-a711-37e7ae101507","provider":"dropbox","permission":"admin"}
+[2025-11-07T22:09:15.553Z] [INFO   ] 2025-11-07T22:09:15.553Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","provider":"discord","permission":"admin"}
+[2025-11-07T22:09:15.553Z] [INFO   ] 2025-11-07T22:09:15.553Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"54248f26-c543-4e8f-8285-0b0fbfbf82dd","provider":"twitter","permission":"admin"}
+[2025-11-07T22:09:15.553Z] [INFO   ] 2025-11-07T22:09:15.553Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"c8d02b5a-3a01-49f9-abdf-693f30c28ab9","provider":"google-calendar","permission":"admin"}
+[2025-11-07T22:09:15.553Z] [INFO   ] 2025-11-07T22:09:15.553Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","provider":"airtable","permission":"admin"}
+[2025-11-07T22:09:15.553Z] [INFO   ] 2025-11-07T22:09:15.553Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-07T22:09:16.796Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/airtable/data ...
+[2025-11-07T22:09:16.867Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/airtable/data in 571ms (5086 modules)
+[2025-11-07T22:09:17.036Z] [INFO   ] 2025-11-07T22:09:17.036Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_bases","status":"connected","hasToken":true}
+[2025-11-07T22:09:17.037Z] [INFO   ] 2025-11-07T22:09:17.037Z [DEBUG] 🔍 Airtable bases fetcher called with integration: {"id":"23c9b660-dff1-40e3-be7a-f47816751245","provider":"airtable","hasToken":true,"tokenLength":334}
+[2025-11-07T22:09:17.037Z] [INFO   ] 2025-11-07T22:09:17.037Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-07T22:09:17.037Z] [INFO   ] 2025-11-07T22:09:17.037Z [DEBUG] 🔍 Fetching Airtable bases from API...
+[2025-11-07T22:09:18.414Z] [INFO   ] 2025-11-07T22:09:18.414Z [DEBUG] ✅ Airtable bases fetched successfully: 3 bases
+[2025-11-07T22:09:18.414Z] [INFO   ] 2025-11-07T22:09:18.414Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_bases: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":3}
+[2025-11-07T22:09:20.505Z] [INFO   ] 2025-11-07T22:09:20.505Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_tables","status":"connected","hasToken":true}
+[2025-11-07T22:09:20.506Z] [INFO   ] 2025-11-07T22:09:20.506Z [DEBUG] 🔍 Airtable tables fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","hasToken":true}
+[2025-11-07T22:09:20.506Z] [INFO   ] 2025-11-07T22:09:20.506Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-07T22:09:20.506Z] [INFO   ] 2025-11-07T22:09:20.506Z [DEBUG] 🔍 Fetching Airtable tables from API...
+[2025-11-07T22:09:20.582Z] [INFO   ] 2025-11-07T22:09:20.582Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_tables","status":"connected","hasToken":true}
+[2025-11-07T22:09:20.582Z] [INFO   ] 2025-11-07T22:09:20.582Z [DEBUG] 🔍 Airtable tables fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","hasToken":true}
+[2025-11-07T22:09:20.582Z] [INFO   ] 2025-11-07T22:09:20.582Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-07T22:09:20.582Z] [INFO   ] 2025-11-07T22:09:20.582Z [DEBUG] 🔍 Fetching Airtable tables from API...
+[2025-11-07T22:09:23.190Z] [INFO   ] 2025-11-07T22:09:23.190Z [DEBUG] ✅ Airtable tables fetched successfully: 5 tables from base "app2KiMxZofDhMOmZ"
+[2025-11-07T22:09:23.191Z] [INFO   ] 2025-11-07T22:09:23.191Z [DEBUG] 🔍 Available tables: [{"id":"tbl86Pvq1rJ8tsJZA","name":"Design Drafts"},{"id":"tblwRsE3U48r4EB8J","name":"Feedback"},{"id":"tblnuq35Gtq0tZrRO","name":"Collaboration Insights"},{"id":"tbl5J3AgOjpwad7ql","name":"Tasks"},{"id":"tblbW3PQQkNW88hMY","name":"Projects"}]
+[2025-11-07T22:09:23.191Z] [INFO   ] 2025-11-07T22:09:23.191Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_tables: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-07T22:09:23.225Z] [INFO   ] 2025-11-07T22:09:23.225Z [DEBUG] ✅ Airtable tables fetched successfully: 5 tables from base "app2KiMxZofDhMOmZ"
+[2025-11-07T22:09:23.225Z] [INFO   ] 2025-11-07T22:09:23.225Z [DEBUG] 🔍 Available tables: [{"id":"tbl86Pvq1rJ8tsJZA","name":"Design Drafts"},{"id":"tblwRsE3U48r4EB8J","name":"Feedback"},{"id":"tblnuq35Gtq0tZrRO","name":"Collaboration Insights"},{"id":"tbl5J3AgOjpwad7ql","name":"Tasks"},{"id":"tblbW3PQQkNW88hMY","name":"Projects"}]
+[2025-11-07T22:09:23.226Z] [INFO   ] 2025-11-07T22:09:23.226Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_tables: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-07T22:09:24.967Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/airtable/metadata ...
+[2025-11-07T22:09:25.046Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/airtable/metadata in 583ms (5089 modules)
+[2025-11-07T22:09:25.121Z] [INFO   ] 2025-11-07T22:09:25.121Z [DEBUG] Metadata API called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","tableName":"Design Drafts"}
+[2025-11-07T22:09:25.294Z] [INFO   ] 2025-11-07T22:09:25.294Z [DEBUG] Access token decrypted successfully
+[2025-11-07T22:09:25.294Z] [INFO   ] 2025-11-07T22:09:25.294Z [DEBUG] Fetching metadata from Airtable: https://api.airtable.com/v0/meta/bases/app2KiMxZofDhMOmZ/tables
+[2025-11-07T22:09:25.441Z] [INFO   ] 2025-11-07T22:09:25.441Z [DEBUG] Airtable metadata response received: {"hasData":true,"tableCount":5,"baseId":"app2KiMxZofDhMOmZ","requestedTable":"Design Drafts"}
+[2025-11-07T22:09:25.441Z] [INFO   ] 2025-11-07T22:09:25.441Z [DEBUG] Table fields found: [{"name":"Draft Name","type":"singleLineText","id":"fldpeH75nEzotVaIz"},{"name":"Designer","type":"singleLineText","id":"fldHwBT4DpJNynoDs"},{"name":"Upload Date","type":"date","id":"fldeyYCl5huNfhp00"},{"name":"Draft Image","type":"multipleAttachments","id":"fldGgF9IiZev9ifPo"},{"name":"Status","type":"singleSelect","id":"fldvgqaHX9d378Hr6"},{"name":"Associated Project","type":"multipleRecordLinks","id":"fldUDIP1gDZA1jozK"},{"name":"Feedback","type":"multipleRecordLinks","id":"fldSoktSheZaqPQ7j"},{"name":"Tasks","type":"multipleRecordLinks","id":"fldYEXb0ggEwxMsfJ"}]
+[2025-11-07T22:09:25.501Z] [INFO   ] 2025-11-07T22:09:25.501Z [DEBUG] Metadata API called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","tableName":"Design Drafts"}
+[2025-11-07T22:09:25.584Z] [INFO   ] 2025-11-07T22:09:25.584Z [DEBUG] Access token decrypted successfully
+[2025-11-07T22:09:25.585Z] [INFO   ] 2025-11-07T22:09:25.585Z [DEBUG] Fetching metadata from Airtable: https://api.airtable.com/v0/meta/bases/app2KiMxZofDhMOmZ/tables
+[2025-11-07T22:09:25.725Z] [INFO   ] 2025-11-07T22:09:25.725Z [DEBUG] Airtable metadata response received: {"hasData":true,"tableCount":5,"baseId":"app2KiMxZofDhMOmZ","requestedTable":"Design Drafts"}
+[2025-11-07T22:09:25.725Z] [INFO   ] 2025-11-07T22:09:25.725Z [DEBUG] Table fields found: [{"name":"Draft Name","type":"singleLineText","id":"fldpeH75nEzotVaIz"},{"name":"Designer","type":"singleLineText","id":"fldHwBT4DpJNynoDs"},{"name":"Upload Date","type":"date","id":"fldeyYCl5huNfhp00"},{"name":"Draft Image","type":"multipleAttachments","id":"fldGgF9IiZev9ifPo"},{"name":"Status","type":"singleSelect","id":"fldvgqaHX9d378Hr6"},{"name":"Associated Project","type":"multipleRecordLinks","id":"fldUDIP1gDZA1jozK"},{"name":"Feedback","type":"multipleRecordLinks","id":"fldSoktSheZaqPQ7j"},{"name":"Tasks","type":"multipleRecordLinks","id":"fldYEXb0ggEwxMsfJ"}]
+[2025-11-07T22:09:25.858Z] [INFO   ] 2025-11-07T22:09:25.858Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_records","status":"connected","hasToken":true}
+[2025-11-07T22:09:25.858Z] [INFO   ] 2025-11-07T22:09:25.858Z [DEBUG] 🔍 Airtable records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","tableName":"Design Drafts","maxRecords":100,"hasToken":true}
+[2025-11-07T22:09:25.858Z] [INFO   ] 2025-11-07T22:09:25.858Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-07T22:09:25.858Z] [INFO   ] 2025-11-07T22:09:25.858Z [DEBUG] 🔍 Fetching Airtable records from API...
+[2025-11-07T22:09:27.139Z] [INFO   ] 2025-11-07T22:09:27.139Z [DEBUG] ✅ Airtable records fetched successfully: 7 records
+[2025-11-07T22:09:27.139Z] [INFO   ] 2025-11-07T22:09:27.139Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":7}
+[2025-11-07T22:09:28.885Z] [INFO   ] 2025-11-07T22:09:28.885Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-07T22:09:28.885Z] [INFO   ] 2025-11-07T22:09:28.885Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Feedback","hasToken":true}
+[2025-11-07T22:09:28.885Z] [INFO   ] 2025-11-07T22:09:28.885Z [DEBUG] 🔍 Fetching records from linked table: Feedback
+[2025-11-07T22:09:28.980Z] [INFO   ] 2025-11-07T22:09:28.980Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-07T22:09:28.980Z] [INFO   ] 2025-11-07T22:09:28.980Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Tasks","hasToken":true}
+[2025-11-07T22:09:28.980Z] [INFO   ] 2025-11-07T22:09:28.980Z [DEBUG] 🔍 Fetching records from linked table: Tasks
+[2025-11-07T22:09:28.981Z] [INFO   ] 2025-11-07T22:09:28.981Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-07T22:09:28.981Z] [INFO   ] 2025-11-07T22:09:28.981Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Projects","hasToken":true}
+[2025-11-07T22:09:28.981Z] [INFO   ] 2025-11-07T22:09:28.981Z [DEBUG] 🔍 Fetching records from linked table: Projects
+[2025-11-07T22:09:30.036Z] [INFO   ] 2025-11-07T22:09:30.036Z [DEBUG] ✅ Fetched 6 records from linked table Feedback
+[2025-11-07T22:09:30.036Z] [INFO   ] 2025-11-07T22:09:30.036Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":6}
+[2025-11-07T22:09:30.298Z] [INFO   ] 2025-11-07T22:09:30.298Z [DEBUG] ✅ Fetched 5 records from linked table Projects
+[2025-11-07T22:09:30.299Z] [INFO   ] 2025-11-07T22:09:30.299Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-07T22:09:30.334Z] [INFO   ] 2025-11-07T22:09:30.334Z [DEBUG] ✅ Fetched 5 records from linked table Tasks
+[2025-11-07T22:09:30.335Z] [INFO   ] 2025-11-07T22:09:30.335Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-07T22:09:35.525Z] [INFO   ] 2025-11-07T22:09:35.524Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-07T22:09:35.525Z] [INFO   ] 2025-11-07T22:09:35.525Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Projects","hasToken":true}
+[2025-11-07T22:09:35.525Z] [INFO   ] 2025-11-07T22:09:35.525Z [DEBUG] 🔍 Fetching records from linked table: Projects
+[2025-11-07T22:09:35.540Z] [INFO   ] 2025-11-07T22:09:35.540Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-07T22:09:35.541Z] [INFO   ] 2025-11-07T22:09:35.541Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Feedback","hasToken":true}
+[2025-11-07T22:09:35.541Z] [INFO   ] 2025-11-07T22:09:35.541Z [DEBUG] 🔍 Fetching records from linked table: Feedback
+[2025-11-07T22:09:35.551Z] [INFO   ] 2025-11-07T22:09:35.551Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-07T22:09:35.551Z] [INFO   ] 2025-11-07T22:09:35.551Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Tasks","hasToken":true}
+[2025-11-07T22:09:35.552Z] [INFO   ] 2025-11-07T22:09:35.552Z [DEBUG] 🔍 Fetching records from linked table: Tasks
+[2025-11-07T22:09:35.707Z] [INFO   ] 2025-11-07T22:09:35.707Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-07T22:09:35.707Z] [INFO   ] 2025-11-07T22:09:35.707Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Projects","hasToken":true}
+[2025-11-07T22:09:35.707Z] [INFO   ] 2025-11-07T22:09:35.707Z [DEBUG] 🔍 Fetching records from linked table: Projects
+[2025-11-07T22:09:35.726Z] [INFO   ] 2025-11-07T22:09:35.726Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-07T22:09:35.726Z] [INFO   ] 2025-11-07T22:09:35.726Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Tasks","hasToken":true}
+[2025-11-07T22:09:35.726Z] [INFO   ] 2025-11-07T22:09:35.726Z [DEBUG] 🔍 Fetching records from linked table: Tasks
+[2025-11-07T22:09:35.731Z] [INFO   ] 2025-11-07T22:09:35.731Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-07T22:09:35.731Z] [INFO   ] 2025-11-07T22:09:35.731Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Feedback","hasToken":true}
+[2025-11-07T22:09:35.731Z] [INFO   ] 2025-11-07T22:09:35.731Z [DEBUG] 🔍 Fetching records from linked table: Feedback
+[2025-11-07T22:09:36.921Z] [INFO   ] 2025-11-07T22:09:36.921Z [DEBUG] ✅ Fetched 5 records from linked table Projects
+[2025-11-07T22:09:36.922Z] [INFO   ] 2025-11-07T22:09:36.922Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-07T22:09:36.997Z] [INFO   ] 2025-11-07T22:09:36.996Z [DEBUG] ✅ Fetched 5 records from linked table Tasks
+[2025-11-07T22:09:36.998Z] [INFO   ] 2025-11-07T22:09:36.998Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-07T22:09:37.002Z] [INFO   ] 2025-11-07T22:09:37.002Z [DEBUG] ✅ Fetched 6 records from linked table Feedback
+[2025-11-07T22:09:37.003Z] [INFO   ] 2025-11-07T22:09:37.003Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":6}
+[2025-11-07T22:09:37.032Z] [INFO   ] 2025-11-07T22:09:37.032Z [DEBUG] ✅ Fetched 6 records from linked table Feedback
+[2025-11-07T22:09:37.033Z] [INFO   ] 2025-11-07T22:09:37.033Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":6}
+[2025-11-07T22:09:37.056Z] [INFO   ] 2025-11-07T22:09:37.056Z [DEBUG] ✅ Fetched 5 records from linked table Projects
+[2025-11-07T22:09:37.056Z] [INFO   ] 2025-11-07T22:09:37.056Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-07T22:09:39.107Z] [INFO   ] 2025-11-07T22:09:39.107Z [DEBUG] ✅ Fetched 5 records from linked table Tasks
+[2025-11-07T22:09:39.108Z] [INFO   ] 2025-11-07T22:09:39.108Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-07T22:09:42.998Z] [INFO   ] 2025-11-07T22:09:42.997Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-07T22:09:42.998Z] [INFO   ] 2025-11-07T22:09:42.998Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Projects","hasToken":true}
+[2025-11-07T22:09:42.998Z] [INFO   ] 2025-11-07T22:09:42.998Z [DEBUG] 🔍 Fetching records from linked table: Projects
+[2025-11-07T22:09:43.017Z] [INFO   ] 2025-11-07T22:09:43.017Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-07T22:09:43.017Z] [INFO   ] 2025-11-07T22:09:43.017Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Feedback","hasToken":true}
+[2025-11-07T22:09:43.017Z] [INFO   ] 2025-11-07T22:09:43.017Z [DEBUG] 🔍 Fetching records from linked table: Feedback
+[2025-11-07T22:09:43.021Z] [INFO   ] 2025-11-07T22:09:43.021Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-07T22:09:43.021Z] [INFO   ] 2025-11-07T22:09:43.021Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Tasks","hasToken":true}
+[2025-11-07T22:09:43.021Z] [INFO   ] 2025-11-07T22:09:43.021Z [DEBUG] 🔍 Fetching records from linked table: Tasks
+[2025-11-07T22:09:43.399Z] [INFO   ] 2025-11-07T22:09:43.399Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-07T22:09:43.399Z] [INFO   ] 2025-11-07T22:09:43.399Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Projects","hasToken":true}
+[2025-11-07T22:09:43.399Z] [INFO   ] 2025-11-07T22:09:43.399Z [DEBUG] 🔍 Fetching records from linked table: Projects
+[2025-11-07T22:09:43.459Z] [INFO   ] 2025-11-07T22:09:43.459Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-07T22:09:43.459Z] [INFO   ] 2025-11-07T22:09:43.459Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Tasks","hasToken":true}
+[2025-11-07T22:09:43.459Z] [INFO   ] 2025-11-07T22:09:43.459Z [DEBUG] 🔍 Fetching records from linked table: Tasks
+[2025-11-07T22:09:43.473Z] [INFO   ] 2025-11-07T22:09:43.473Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-07T22:09:43.473Z] [INFO   ] 2025-11-07T22:09:43.473Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Feedback","hasToken":true}
+[2025-11-07T22:09:43.473Z] [INFO   ] 2025-11-07T22:09:43.473Z [DEBUG] 🔍 Fetching records from linked table: Feedback
+[2025-11-07T22:09:44.330Z] [INFO   ] 2025-11-07T22:09:44.330Z [DEBUG] ✅ Fetched 6 records from linked table Feedback
+[2025-11-07T22:09:44.331Z] [INFO   ] 2025-11-07T22:09:44.331Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":6}
+[2025-11-07T22:09:44.367Z] [INFO   ] 2025-11-07T22:09:44.366Z [DEBUG] ✅ Fetched 5 records from linked table Projects
+[2025-11-07T22:09:44.367Z] [INFO   ] 2025-11-07T22:09:44.367Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-07T22:09:44.384Z] [INFO   ] 2025-11-07T22:09:44.384Z [DEBUG] ✅ Fetched 5 records from linked table Tasks
+[2025-11-07T22:09:44.385Z] [INFO   ] 2025-11-07T22:09:44.385Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-07T22:09:44.545Z] [INFO   ] 2025-11-07T22:09:44.545Z [DEBUG] ✅ Fetched 5 records from linked table Projects
+[2025-11-07T22:09:44.545Z] [INFO   ] 2025-11-07T22:09:44.545Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-07T22:09:44.613Z] [INFO   ] 2025-11-07T22:09:44.613Z [DEBUG] ✅ Fetched 6 records from linked table Feedback
+[2025-11-07T22:09:44.613Z] [INFO   ] 2025-11-07T22:09:44.613Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":6}
+[2025-11-07T22:09:45.171Z] [INFO   ] 2025-11-07T22:09:45.171Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-07T22:09:45.171Z] [INFO   ] 2025-11-07T22:09:45.171Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Projects","hasToken":true}
+[2025-11-07T22:09:45.171Z] [INFO   ] 2025-11-07T22:09:45.171Z [DEBUG] 🔍 Fetching records from linked table: Projects
+[2025-11-07T22:09:45.191Z] [INFO   ] 2025-11-07T22:09:45.191Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-07T22:09:45.191Z] [INFO   ] 2025-11-07T22:09:45.191Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Feedback","hasToken":true}
+[2025-11-07T22:09:45.191Z] [INFO   ] 2025-11-07T22:09:45.191Z [DEBUG] 🔍 Fetching records from linked table: Feedback
+[2025-11-07T22:09:45.202Z] [INFO   ] 2025-11-07T22:09:45.202Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-07T22:09:45.202Z] [INFO   ] 2025-11-07T22:09:45.202Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Tasks","hasToken":true}
+[2025-11-07T22:09:45.202Z] [INFO   ] 2025-11-07T22:09:45.202Z [DEBUG] 🔍 Fetching records from linked table: Tasks
+[2025-11-07T22:09:46.316Z] [INFO   ] 2025-11-07T22:09:46.316Z [DEBUG] ✅ Fetched 5 records from linked table Projects
+[2025-11-07T22:09:46.317Z] [INFO   ] 2025-11-07T22:09:46.317Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-07T22:09:46.359Z] [INFO   ] 2025-11-07T22:09:46.359Z [DEBUG] ✅ Fetched 6 records from linked table Feedback
+[2025-11-07T22:09:46.360Z] [INFO   ] 2025-11-07T22:09:46.360Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":6}
+[2025-11-07T22:09:46.384Z] [INFO   ] 2025-11-07T22:09:46.384Z [DEBUG] ✅ Fetched 5 records from linked table Tasks
+[2025-11-07T22:09:46.384Z] [INFO   ] 2025-11-07T22:09:46.384Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-07T22:09:46.741Z] [INFO   ] 2025-11-07T22:09:46.741Z [DEBUG] ✅ Fetched 5 records from linked table Tasks
+[2025-11-07T22:09:46.742Z] [INFO   ] 2025-11-07T22:09:46.742Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-07T22:11:29.129Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1530ms (4948 modules)
+[2025-11-07T22:11:41.471Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 650ms (4948 modules)
+[2025-11-07T22:11:41.640Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-11-07T22:11:42.120Z] [INFO   ] 2025-11-07T22:11:42.120Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-07T22:11:42.120Z"}
+[2025-11-07T22:11:42.131Z] [INFO   ] 2025-11-07T22:11:42.131Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-07T22:11:42.131Z"}
+[2025-11-07T22:11:42.131Z] [INFO   ] 2025-11-07T22:11:42.131Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-07T22:11:42.131Z"}
+[2025-11-07T22:11:43.280Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 240ms (3913 modules)
+[2025-11-07T22:11:43.479Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4026 modules)
+[2025-11-07T22:11:47.536Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 362ms (4029 modules)
+[2025-11-07T22:11:47.627Z] [INFO   ] 2025-11-07T22:11:47.627Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-07T22:11:47.627Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-07T22:11:47.711Z] [INFO   ] 2025-11-07T22:11:47.711Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-07T22:11:47.711Z] [INFO   ] 2025-11-07T22:11:47.711Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-07T22:11:47.865Z] [INFO   ] 2025-11-07T22:11:47.865Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":14,"permissionsCount":14,"integrationsError":null,"permissionsError":null}
+[2025-11-07T22:11:47.866Z] [INFO   ] 2025-11-07T22:11:47.866Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"73eb00b5-f035-4c99-81e1-6f2700e7d1b8","provider":"notion","permission":"admin"}
+[2025-11-07T22:11:47.866Z] [INFO   ] 2025-11-07T22:11:47.866Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"21d15a49-a011-41fc-b20a-813fd9a6ac0e","provider":"mailchimp","permission":"admin"}
+[2025-11-07T22:11:47.866Z] [INFO   ] 2025-11-07T22:11:47.866Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"610e4069-9323-4f4c-a80a-a5e56b700c1f","provider":"gmail","permission":"admin"}
+[2025-11-07T22:11:47.866Z] [INFO   ] 2025-11-07T22:11:47.866Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fa8ff906-fe58-416e-9328-245b65d2fe34","provider":"google-docs","permission":"admin"}
+[2025-11-07T22:11:47.866Z] [INFO   ] 2025-11-07T22:11:47.866Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"683b99fe-5a31-45a8-93a9-b6535930c566","provider":"google-drive","permission":"admin"}
+[2025-11-07T22:11:47.866Z] [INFO   ] 2025-11-07T22:11:47.866Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"7cbd7f8f-75ea-4775-842f-bfc68aa9d73c","provider":"trello","permission":"admin"}
+[2025-11-07T22:11:47.866Z] [INFO   ] 2025-11-07T22:11:47.866Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"918ff057-e567-4e7c-b829-4fe0ca428dcc","provider":"facebook","permission":"admin"}
+[2025-11-07T22:11:47.866Z] [INFO   ] 2025-11-07T22:11:47.866Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fce6756a-efec-4bf7-927e-dba227ca2149","provider":"google-sheets","permission":"admin"}
+[2025-11-07T22:11:47.866Z] [INFO   ] 2025-11-07T22:11:47.866Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"4386d41f-07dd-4e5d-ae50-417fdbcf0974","provider":"slack","permission":"admin"}
+[2025-11-07T22:11:47.866Z] [INFO   ] 2025-11-07T22:11:47.866Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"6b250358-6441-499c-a711-37e7ae101507","provider":"dropbox","permission":"admin"}
+[2025-11-07T22:11:47.866Z] [INFO   ] 2025-11-07T22:11:47.866Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","provider":"discord","permission":"admin"}
+[2025-11-07T22:11:47.866Z] [INFO   ] 2025-11-07T22:11:47.866Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"54248f26-c543-4e8f-8285-0b0fbfbf82dd","provider":"twitter","permission":"admin"}
+[2025-11-07T22:11:47.866Z] [INFO   ] 2025-11-07T22:11:47.866Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"c8d02b5a-3a01-49f9-abdf-693f30c28ab9","provider":"google-calendar","permission":"admin"}
+[2025-11-07T22:11:47.867Z] [INFO   ] 2025-11-07T22:11:47.866Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","provider":"airtable","permission":"admin"}
+[2025-11-07T22:11:47.867Z] [INFO   ] 2025-11-07T22:11:47.867Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-07T22:18:58.915Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.2s (4948 modules)
+[2025-11-07T22:18:59.405Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-11-07T22:18:59.788Z] [INFO   ] 2025-11-07T22:18:59.788Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-07T22:18:59.788Z"}
+[2025-11-07T22:18:59.801Z] [INFO   ] 2025-11-07T22:18:59.801Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-07T22:18:59.801Z"}
+[2025-11-07T22:18:59.801Z] [INFO   ] 2025-11-07T22:18:59.801Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-07T22:18:59.801Z"}
+[2025-11-07T22:19:00.953Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 278ms (3913 modules)
+[2025-11-07T22:19:01.177Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4026 modules)
+[2025-11-07T22:19:05.425Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 260ms (4029 modules)
+[2025-11-07T22:19:05.519Z] [INFO   ] 2025-11-07T22:19:05.519Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-07T22:19:05.519Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-07T22:19:05.606Z] [INFO   ] 2025-11-07T22:19:05.606Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-07T22:19:05.607Z] [INFO   ] 2025-11-07T22:19:05.607Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-07T22:19:05.737Z] [INFO   ] 2025-11-07T22:19:05.737Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":14,"permissionsCount":14,"integrationsError":null,"permissionsError":null}
+[2025-11-07T22:19:05.737Z] [INFO   ] 2025-11-07T22:19:05.737Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"73eb00b5-f035-4c99-81e1-6f2700e7d1b8","provider":"notion","permission":"admin"}
+[2025-11-07T22:19:05.737Z] [INFO   ] 2025-11-07T22:19:05.737Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"21d15a49-a011-41fc-b20a-813fd9a6ac0e","provider":"mailchimp","permission":"admin"}
+[2025-11-07T22:19:05.737Z] [INFO   ] 2025-11-07T22:19:05.737Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"610e4069-9323-4f4c-a80a-a5e56b700c1f","provider":"gmail","permission":"admin"}
+[2025-11-07T22:19:05.737Z] [INFO   ] 2025-11-07T22:19:05.737Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fa8ff906-fe58-416e-9328-245b65d2fe34","provider":"google-docs","permission":"admin"}
+[2025-11-07T22:19:05.737Z] [INFO   ] 2025-11-07T22:19:05.737Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"683b99fe-5a31-45a8-93a9-b6535930c566","provider":"google-drive","permission":"admin"}
+[2025-11-07T22:19:05.737Z] [INFO   ] 2025-11-07T22:19:05.737Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"7cbd7f8f-75ea-4775-842f-bfc68aa9d73c","provider":"trello","permission":"admin"}
+[2025-11-07T22:19:05.737Z] [INFO   ] 2025-11-07T22:19:05.737Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"918ff057-e567-4e7c-b829-4fe0ca428dcc","provider":"facebook","permission":"admin"}
+[2025-11-07T22:19:05.738Z] [INFO   ] 2025-11-07T22:19:05.738Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fce6756a-efec-4bf7-927e-dba227ca2149","provider":"google-sheets","permission":"admin"}
+[2025-11-07T22:19:05.738Z] [INFO   ] 2025-11-07T22:19:05.738Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"4386d41f-07dd-4e5d-ae50-417fdbcf0974","provider":"slack","permission":"admin"}
+[2025-11-07T22:19:05.738Z] [INFO   ] 2025-11-07T22:19:05.738Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"6b250358-6441-499c-a711-37e7ae101507","provider":"dropbox","permission":"admin"}
+[2025-11-07T22:19:05.738Z] [INFO   ] 2025-11-07T22:19:05.738Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"67c08136-3021-4b5a-ba37-343adefeb40e","provider":"discord","permission":"admin"}
+[2025-11-07T22:19:05.738Z] [INFO   ] 2025-11-07T22:19:05.738Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"54248f26-c543-4e8f-8285-0b0fbfbf82dd","provider":"twitter","permission":"admin"}
+[2025-11-07T22:19:05.738Z] [INFO   ] 2025-11-07T22:19:05.738Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"c8d02b5a-3a01-49f9-abdf-693f30c28ab9","provider":"google-calendar","permission":"admin"}
+[2025-11-07T22:19:05.738Z] [INFO   ] 2025-11-07T22:19:05.738Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","provider":"airtable","permission":"admin"}
+[2025-11-07T22:19:05.738Z] [INFO   ] 2025-11-07T22:19:05.738Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":14,"workspaceType":"personal"}
+[2025-11-07T22:19:30.495Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1930ms (5080 modules)
+[2025-11-07T22:19:40.850Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 733ms (5080 modules)
+[2025-11-07T22:20:01.225Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 985ms (5080 modules)
+[2025-11-07T22:23:37.030Z] [INFO   ] 2025-11-07T22:23:37.026Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-11-07T22:37:38.217Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/airtable/data ...
+[2025-11-07T22:37:38.643Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/airtable/data in 1000ms (4021 modules)
+[2025-11-07T22:37:39.132Z] [INFO   ] 2025-11-07T22:37:39.131Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_bases","status":"connected","hasToken":true}
+[2025-11-07T22:37:39.133Z] [INFO   ] 2025-11-07T22:37:39.133Z [DEBUG] 🔍 Airtable bases fetcher called with integration: {"id":"23c9b660-dff1-40e3-be7a-f47816751245","provider":"airtable","hasToken":true,"tokenLength":334}
+[2025-11-07T22:37:39.133Z] [INFO   ] 2025-11-07T22:37:39.133Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-07T22:37:39.133Z] [INFO   ] 2025-11-07T22:37:39.133Z [DEBUG] 🔍 Fetching Airtable bases from API...
+[2025-11-07T22:37:40.539Z] [INFO   ] 2025-11-07T22:37:40.538Z [DEBUG] ✅ Airtable bases fetched successfully: 3 bases
+[2025-11-07T22:37:40.540Z] [INFO   ] 2025-11-07T22:37:40.540Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_bases: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":3}
+[2025-11-07T22:37:41.873Z] [INFO   ] 2025-11-07T22:37:41.873Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_tables","status":"connected","hasToken":true}
+[2025-11-07T22:37:41.877Z] [INFO   ] 2025-11-07T22:37:41.877Z [DEBUG] 🔍 Airtable tables fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","hasToken":true}
+[2025-11-07T22:37:41.877Z] [INFO   ] 2025-11-07T22:37:41.877Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-07T22:37:41.877Z] [INFO   ] 2025-11-07T22:37:41.877Z [DEBUG] 🔍 Fetching Airtable tables from API...
+[2025-11-07T22:37:41.943Z] [INFO   ] 2025-11-07T22:37:41.943Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_tables","status":"connected","hasToken":true}
+[2025-11-07T22:37:41.944Z] [INFO   ] 2025-11-07T22:37:41.944Z [DEBUG] 🔍 Airtable tables fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","hasToken":true}
+[2025-11-07T22:37:41.944Z] [INFO   ] 2025-11-07T22:37:41.944Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-07T22:37:41.944Z] [INFO   ] 2025-11-07T22:37:41.944Z [DEBUG] 🔍 Fetching Airtable tables from API...
+[2025-11-07T22:37:44.477Z] [INFO   ] 2025-11-07T22:37:44.477Z [DEBUG] ✅ Airtable tables fetched successfully: 5 tables from base "app2KiMxZofDhMOmZ"
+[2025-11-07T22:37:44.479Z] [INFO   ] 2025-11-07T22:37:44.478Z [DEBUG] 🔍 Available tables: [{"id":"tbl86Pvq1rJ8tsJZA","name":"Design Drafts"},{"id":"tblwRsE3U48r4EB8J","name":"Feedback"},{"id":"tblnuq35Gtq0tZrRO","name":"Collaboration Insights"},{"id":"tbl5J3AgOjpwad7ql","name":"Tasks"},{"id":"tblbW3PQQkNW88hMY","name":"Projects"}]
+[2025-11-07T22:37:44.479Z] [INFO   ] 2025-11-07T22:37:44.479Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_tables: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-07T22:37:44.498Z] [INFO   ] 2025-11-07T22:37:44.497Z [DEBUG] ✅ Airtable tables fetched successfully: 5 tables from base "app2KiMxZofDhMOmZ"
+[2025-11-07T22:37:44.498Z] [INFO   ] 2025-11-07T22:37:44.498Z [DEBUG] 🔍 Available tables: [{"id":"tbl86Pvq1rJ8tsJZA","name":"Design Drafts"},{"id":"tblwRsE3U48r4EB8J","name":"Feedback"},{"id":"tblnuq35Gtq0tZrRO","name":"Collaboration Insights"},{"id":"tbl5J3AgOjpwad7ql","name":"Tasks"},{"id":"tblbW3PQQkNW88hMY","name":"Projects"}]
+[2025-11-07T22:37:44.498Z] [INFO   ] 2025-11-07T22:37:44.498Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_tables: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-07T22:37:46.198Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/airtable/metadata in 411ms (4024 modules)
+[2025-11-07T22:37:46.299Z] [INFO   ] 2025-11-07T22:37:46.299Z [DEBUG] Metadata API called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","tableName":"Design Drafts"}
+[2025-11-07T22:37:46.435Z] [INFO   ] 2025-11-07T22:37:46.435Z [DEBUG] Access token decrypted successfully
+[2025-11-07T22:37:46.435Z] [INFO   ] 2025-11-07T22:37:46.435Z [DEBUG] Fetching metadata from Airtable: https://api.airtable.com/v0/meta/bases/app2KiMxZofDhMOmZ/tables
+[2025-11-07T22:37:46.592Z] [INFO   ] 2025-11-07T22:37:46.592Z [DEBUG] Airtable metadata response received: {"hasData":true,"tableCount":5,"baseId":"app2KiMxZofDhMOmZ","requestedTable":"Design Drafts"}
+[2025-11-07T22:37:46.593Z] [INFO   ] 2025-11-07T22:37:46.593Z [DEBUG] Table fields found: [{"name":"Draft Name","type":"singleLineText","id":"fldpeH75nEzotVaIz"},{"name":"Designer","type":"singleLineText","id":"fldHwBT4DpJNynoDs"},{"name":"Upload Date","type":"date","id":"fldeyYCl5huNfhp00"},{"name":"Draft Image","type":"multipleAttachments","id":"fldGgF9IiZev9ifPo"},{"name":"Status","type":"singleSelect","id":"fldvgqaHX9d378Hr6"},{"name":"Associated Project","type":"multipleRecordLinks","id":"fldUDIP1gDZA1jozK"},{"name":"Feedback","type":"multipleRecordLinks","id":"fldSoktSheZaqPQ7j"},{"name":"Tasks","type":"multipleRecordLinks","id":"fldYEXb0ggEwxMsfJ"}]
+[2025-11-07T22:37:46.667Z] [INFO   ] 2025-11-07T22:37:46.667Z [DEBUG] Metadata API called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","tableName":"Design Drafts"}
+[2025-11-07T22:37:46.751Z] [INFO   ] 2025-11-07T22:37:46.751Z [DEBUG] Access token decrypted successfully
+[2025-11-07T22:37:46.752Z] [INFO   ] 2025-11-07T22:37:46.752Z [DEBUG] Fetching metadata from Airtable: https://api.airtable.com/v0/meta/bases/app2KiMxZofDhMOmZ/tables
+[2025-11-07T22:37:46.884Z] [INFO   ] 2025-11-07T22:37:46.884Z [DEBUG] Airtable metadata response received: {"hasData":true,"tableCount":5,"baseId":"app2KiMxZofDhMOmZ","requestedTable":"Design Drafts"}
+[2025-11-07T22:37:46.885Z] [INFO   ] 2025-11-07T22:37:46.885Z [DEBUG] Table fields found: [{"name":"Draft Name","type":"singleLineText","id":"fldpeH75nEzotVaIz"},{"name":"Designer","type":"singleLineText","id":"fldHwBT4DpJNynoDs"},{"name":"Upload Date","type":"date","id":"fldeyYCl5huNfhp00"},{"name":"Draft Image","type":"multipleAttachments","id":"fldGgF9IiZev9ifPo"},{"name":"Status","type":"singleSelect","id":"fldvgqaHX9d378Hr6"},{"name":"Associated Project","type":"multipleRecordLinks","id":"fldUDIP1gDZA1jozK"},{"name":"Feedback","type":"multipleRecordLinks","id":"fldSoktSheZaqPQ7j"},{"name":"Tasks","type":"multipleRecordLinks","id":"fldYEXb0ggEwxMsfJ"}]
+[2025-11-07T22:37:47.036Z] [INFO   ] 2025-11-07T22:37:47.036Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_records","status":"connected","hasToken":true}
+[2025-11-07T22:37:47.036Z] [INFO   ] 2025-11-07T22:37:47.036Z [DEBUG] 🔍 Airtable records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","tableName":"Design Drafts","maxRecords":100,"hasToken":true}
+[2025-11-07T22:37:47.036Z] [INFO   ] 2025-11-07T22:37:47.036Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-07T22:37:47.037Z] [INFO   ] 2025-11-07T22:37:47.036Z [DEBUG] 🔍 Fetching Airtable records from API...
+[2025-11-07T22:37:48.263Z] [INFO   ] 2025-11-07T22:37:48.263Z [DEBUG] ✅ Airtable records fetched successfully: 7 records
+[2025-11-07T22:37:48.265Z] [INFO   ] 2025-11-07T22:37:48.265Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":7}
+[2025-11-07T22:38:10.822Z] [INFO   ] 2025-11-07T22:38:10.822Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-07T22:38:10.823Z] [INFO   ] 2025-11-07T22:38:10.823Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Tasks","hasToken":true}
+[2025-11-07T22:38:10.823Z] [INFO   ] 2025-11-07T22:38:10.823Z [DEBUG] 🔍 Fetching records from linked table: Tasks
+[2025-11-07T22:38:10.824Z] [INFO   ] 2025-11-07T22:38:10.824Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-07T22:38:10.824Z] [INFO   ] 2025-11-07T22:38:10.824Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Projects","hasToken":true}
+[2025-11-07T22:38:10.824Z] [INFO   ] 2025-11-07T22:38:10.824Z [DEBUG] 🔍 Fetching records from linked table: Projects
+[2025-11-07T22:38:10.830Z] [INFO   ] 2025-11-07T22:38:10.830Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-07T22:38:10.830Z] [INFO   ] 2025-11-07T22:38:10.830Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Feedback","hasToken":true}
+[2025-11-07T22:38:10.831Z] [INFO   ] 2025-11-07T22:38:10.831Z [DEBUG] 🔍 Fetching records from linked table: Feedback
+[2025-11-07T22:38:12.264Z] [INFO   ] 2025-11-07T22:38:12.264Z [DEBUG] ✅ Fetched 6 records from linked table Feedback
+[2025-11-07T22:38:12.265Z] [INFO   ] 2025-11-07T22:38:12.265Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":6}
+[2025-11-07T22:38:12.279Z] [INFO   ] 2025-11-07T22:38:12.279Z [DEBUG] ✅ Fetched 5 records from linked table Projects
+[2025-11-07T22:38:12.280Z] [INFO   ] 2025-11-07T22:38:12.280Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-07T22:38:12.295Z] [INFO   ] 2025-11-07T22:38:12.295Z [DEBUG] ✅ Fetched 5 records from linked table Tasks
+[2025-11-07T22:38:12.295Z] [INFO   ] 2025-11-07T22:38:12.295Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-07T22:38:47.474Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/facebook/data ...
+[2025-11-07T22:38:48.733Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/facebook/data in 1759ms (5070 modules)
+[2025-11-07T22:38:49.037Z] [INFO   ] 2025-11-07T22:38:49.037Z [DEBUG] 🔍 [Facebook API] Processing request: {"integrationId":"918ff057-e567-4e7c-b829-4fe0ca428dcc","dataType":"facebook_pages","status":"connected","hasToken":true}
+[2025-11-07T22:38:49.043Z] [INFO   ] 2025-11-07T22:38:49.042Z [DEBUG] 🔍 Facebook pages fetcher called with integration: {"id":"918ff057-e567-4e7c-b829-4fe0ca428dcc","provider":"facebook","hasToken":true}
+[2025-11-07T22:38:49.043Z] [INFO   ] 2025-11-07T22:38:49.043Z [DEBUG] 🔍 Validating Facebook token...
+[2025-11-07T22:38:49.044Z] [INFO   ] 2025-11-07T22:38:49.044Z [DEBUG] 🔍 Token validation result: {"success":true,"hasToken":true,"tokenLength":254,"tokenPreview":"EAAaHqHjzOn4BPfZClO3..."}
+[2025-11-07T22:38:49.044Z] [INFO   ] 2025-11-07T22:38:49.044Z [DEBUG] 🔍 Making Facebook API call with appsecret_proof
+[2025-11-07T22:38:50.156Z] [INFO   ] 2025-11-07T22:38:50.156Z [DEBUG] 🔍 Facebook API response: {"data":[{"access_token":"EAAaHqHjzOn4BPZCHpcYisbYaZA2PQZCDWElsBqkgjcjUIssZCM152KjY6AABX8UOZAqPDgDZBsPbdxTBIYYn3oqZCXEHYgTvrOHUjRZBGybZBSt4dbQF0XiXjBAaZBlPvh0d1pas7FgXASoRZCDZCxCe91PdHnX16Mcj74tJIRv5PrKcrsYBtXZASxLg3TJRKwKshqVgXhwZDZD","category":"Software","category_list":[{"id":"2211","name":"Software"}],"name":"Chain React","id":"698233016701214","tasks":["ADVERTISE","ANALYZE","CREATE_CONTENT","MESSAGING","MODERATE","MANAGE"]}],"paging":{"cursors":{"before":"QVFIU2tNTWhibDF4VlRRbHJIV1NNeGZAYS2QtazRBNWxIbnpoczhGcENnX3VCdTRfbHVwdDltSlZAhcXp2UGJzZA2ZALelBMNlBCVWNPUlk1OUl0ZA2dCU1M4b01n","after":"QVFIU2tNTWhibDF4VlRRbHJIV1NNeGZAYS2QtazRBNWxIbnpoczhGcENnX3VCdTRfbHVwdDltSlZAhcXp2UGJzZA2ZALelBMNlBCVWNPUlk1OUl0ZA2dCU1M4b01n"}}}
+[2025-11-07T22:38:50.157Z] [INFO   ] 2025-11-07T22:38:50.157Z [DEBUG] 🔍 Processed Facebook pages: [{"id":"698233016701214","name":"Chain React","value":"698233016701214","access_token":"EAAaHqHjzOn4BPZCHpcYisbYaZA2PQZCDWElsBqkgjcjUIssZCM152KjY6AABX8UOZAqPDgDZBsPbdxTBIYYn3oqZCXEHYgTvrOHUjRZBGybZBSt4dbQF0XiXjBAaZBlPvh0d1pas7FgXASoRZCDZCxCe91PdHnX16Mcj74tJIRv5PrKcrsYBtXZASxLg3TJRKwKshqVgXhwZDZD","category":"Software","tasks":["ADVERTISE","ANALYZE","CREATE_CONTENT","MESSAGING","MODERATE","MANAGE"]}]
+[2025-11-07T22:38:50.157Z] [INFO   ] 2025-11-07T22:38:50.157Z [DEBUG] ✅ [Facebook API] Successfully processed facebook_pages: {"integrationId":"918ff057-e567-4e7c-b829-4fe0ca428dcc","resultCount":1}
+[2025-11-07T22:39:00.652Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1584ms (5081 modules)
+[2025-11-07T22:39:01.919Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-11-07T22:39:02.697Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1538ms (4050 modules)
+[2025-11-07T22:39:55.170Z] [INFO   ] 2025-11-07T22:39:55.169Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_tables","status":"connected","hasToken":true}
+[2025-11-07T22:39:55.174Z] [INFO   ] 2025-11-07T22:39:55.174Z [DEBUG] 🔍 Airtable tables fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","hasToken":true}
+[2025-11-07T22:39:55.174Z] [INFO   ] 2025-11-07T22:39:55.174Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-07T22:39:55.174Z] [INFO   ] 2025-11-07T22:39:55.174Z [DEBUG] 🔍 Fetching Airtable tables from API...
+[2025-11-07T22:39:55.179Z] [INFO   ] 2025-11-07T22:39:55.179Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_tables","status":"connected","hasToken":true}
+[2025-11-07T22:39:55.179Z] [INFO   ] 2025-11-07T22:39:55.179Z [DEBUG] 🔍 Airtable tables fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","hasToken":true}
+[2025-11-07T22:39:55.179Z] [INFO   ] 2025-11-07T22:39:55.179Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-07T22:39:55.179Z] [INFO   ] 2025-11-07T22:39:55.179Z [DEBUG] 🔍 Fetching Airtable tables from API...
+[2025-11-07T22:39:56.622Z] [INFO   ] 2025-11-07T22:39:56.621Z [DEBUG] ✅ Airtable tables fetched successfully: 5 tables from base "app2KiMxZofDhMOmZ"
+[2025-11-07T22:39:56.622Z] [INFO   ] 2025-11-07T22:39:56.622Z [DEBUG] 🔍 Available tables: [{"id":"tbl86Pvq1rJ8tsJZA","name":"Design Drafts"},{"id":"tblwRsE3U48r4EB8J","name":"Feedback"},{"id":"tblnuq35Gtq0tZrRO","name":"Collaboration Insights"},{"id":"tbl5J3AgOjpwad7ql","name":"Tasks"},{"id":"tblbW3PQQkNW88hMY","name":"Projects"}]
+[2025-11-07T22:39:56.622Z] [INFO   ] 2025-11-07T22:39:56.622Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_tables: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-07T22:39:56.646Z] [INFO   ] 2025-11-07T22:39:56.646Z [DEBUG] ✅ Airtable tables fetched successfully: 5 tables from base "app2KiMxZofDhMOmZ"
+[2025-11-07T22:39:56.646Z] [INFO   ] 2025-11-07T22:39:56.646Z [DEBUG] 🔍 Available tables: [{"id":"tbl86Pvq1rJ8tsJZA","name":"Design Drafts"},{"id":"tblwRsE3U48r4EB8J","name":"Feedback"},{"id":"tblnuq35Gtq0tZrRO","name":"Collaboration Insights"},{"id":"tbl5J3AgOjpwad7ql","name":"Tasks"},{"id":"tblbW3PQQkNW88hMY","name":"Projects"}]
+[2025-11-07T22:39:56.646Z] [INFO   ] 2025-11-07T22:39:56.646Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_tables: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-07T22:39:58.097Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/airtable/metadata in 461ms (4044 modules)
+[2025-11-07T22:39:58.189Z] [INFO   ] 2025-11-07T22:39:58.189Z [DEBUG] Metadata API called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","tableName":"Design Drafts"}
+[2025-11-07T22:39:58.264Z] [INFO   ] 2025-11-07T22:39:58.264Z [DEBUG] Access token decrypted successfully
+[2025-11-07T22:39:58.264Z] [INFO   ] 2025-11-07T22:39:58.264Z [DEBUG] Fetching metadata from Airtable: https://api.airtable.com/v0/meta/bases/app2KiMxZofDhMOmZ/tables
+[2025-11-07T22:39:58.425Z] [INFO   ] 2025-11-07T22:39:58.425Z [DEBUG] Airtable metadata response received: {"hasData":true,"tableCount":5,"baseId":"app2KiMxZofDhMOmZ","requestedTable":"Design Drafts"}
+[2025-11-07T22:39:58.425Z] [INFO   ] 2025-11-07T22:39:58.425Z [DEBUG] Table fields found: [{"name":"Draft Name","type":"singleLineText","id":"fldpeH75nEzotVaIz"},{"name":"Designer","type":"singleLineText","id":"fldHwBT4DpJNynoDs"},{"name":"Upload Date","type":"date","id":"fldeyYCl5huNfhp00"},{"name":"Draft Image","type":"multipleAttachments","id":"fldGgF9IiZev9ifPo"},{"name":"Status","type":"singleSelect","id":"fldvgqaHX9d378Hr6"},{"name":"Associated Project","type":"multipleRecordLinks","id":"fldUDIP1gDZA1jozK"},{"name":"Feedback","type":"multipleRecordLinks","id":"fldSoktSheZaqPQ7j"},{"name":"Tasks","type":"multipleRecordLinks","id":"fldYEXb0ggEwxMsfJ"}]
+[2025-11-07T22:39:58.500Z] [INFO   ] 2025-11-07T22:39:58.500Z [DEBUG] Metadata API called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","tableName":"Design Drafts"}
+[2025-11-07T22:39:58.572Z] [INFO   ] 2025-11-07T22:39:58.572Z [DEBUG] Access token decrypted successfully
+[2025-11-07T22:39:58.573Z] [INFO   ] 2025-11-07T22:39:58.573Z [DEBUG] Fetching metadata from Airtable: https://api.airtable.com/v0/meta/bases/app2KiMxZofDhMOmZ/tables
+[2025-11-07T22:39:58.702Z] [INFO   ] 2025-11-07T22:39:58.702Z [DEBUG] Airtable metadata response received: {"hasData":true,"tableCount":5,"baseId":"app2KiMxZofDhMOmZ","requestedTable":"Design Drafts"}
+[2025-11-07T22:39:58.702Z] [INFO   ] 2025-11-07T22:39:58.702Z [DEBUG] Table fields found: [{"name":"Draft Name","type":"singleLineText","id":"fldpeH75nEzotVaIz"},{"name":"Designer","type":"singleLineText","id":"fldHwBT4DpJNynoDs"},{"name":"Upload Date","type":"date","id":"fldeyYCl5huNfhp00"},{"name":"Draft Image","type":"multipleAttachments","id":"fldGgF9IiZev9ifPo"},{"name":"Status","type":"singleSelect","id":"fldvgqaHX9d378Hr6"},{"name":"Associated Project","type":"multipleRecordLinks","id":"fldUDIP1gDZA1jozK"},{"name":"Feedback","type":"multipleRecordLinks","id":"fldSoktSheZaqPQ7j"},{"name":"Tasks","type":"multipleRecordLinks","id":"fldYEXb0ggEwxMsfJ"}]
+[2025-11-07T22:39:58.849Z] [INFO   ] 2025-11-07T22:39:58.849Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_records","status":"connected","hasToken":true}
+[2025-11-07T22:39:58.849Z] [INFO   ] 2025-11-07T22:39:58.849Z [DEBUG] 🔍 Airtable records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","tableName":"Design Drafts","maxRecords":100,"hasToken":true}
+[2025-11-07T22:39:58.849Z] [INFO   ] 2025-11-07T22:39:58.849Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-07T22:39:58.849Z] [INFO   ] 2025-11-07T22:39:58.849Z [DEBUG] 🔍 Fetching Airtable records from API...
+[2025-11-07T22:40:00.024Z] [INFO   ] 2025-11-07T22:40:00.024Z [DEBUG] ✅ Airtable records fetched successfully: 7 records
+[2025-11-07T22:40:00.025Z] [INFO   ] 2025-11-07T22:40:00.025Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":7}
+[2025-11-07T22:40:01.629Z] [INFO   ] 2025-11-07T22:40:01.629Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-07T22:40:01.630Z] [INFO   ] 2025-11-07T22:40:01.630Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Projects","hasToken":true}
+[2025-11-07T22:40:01.630Z] [INFO   ] 2025-11-07T22:40:01.630Z [DEBUG] 🔍 Fetching records from linked table: Projects
+[2025-11-07T22:40:01.709Z] [INFO   ] 2025-11-07T22:40:01.709Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-07T22:40:01.709Z] [INFO   ] 2025-11-07T22:40:01.709Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Feedback","hasToken":true}
+[2025-11-07T22:40:01.710Z] [INFO   ] 2025-11-07T22:40:01.710Z [DEBUG] 🔍 Fetching records from linked table: Feedback
+[2025-11-07T22:40:01.711Z] [INFO   ] 2025-11-07T22:40:01.711Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-07T22:40:01.711Z] [INFO   ] 2025-11-07T22:40:01.711Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Tasks","hasToken":true}
+[2025-11-07T22:40:01.711Z] [INFO   ] 2025-11-07T22:40:01.711Z [DEBUG] 🔍 Fetching records from linked table: Tasks
+[2025-11-07T22:40:02.764Z] [INFO   ] 2025-11-07T22:40:02.764Z [DEBUG] ✅ Fetched 5 records from linked table Projects
+[2025-11-07T22:40:02.764Z] [INFO   ] 2025-11-07T22:40:02.764Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-07T22:40:02.993Z] [INFO   ] 2025-11-07T22:40:02.993Z [DEBUG] ✅ Fetched 6 records from linked table Feedback
+[2025-11-07T22:40:02.993Z] [INFO   ] 2025-11-07T22:40:02.993Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":6}
+[2025-11-07T22:40:03.024Z] [INFO   ] 2025-11-07T22:40:03.024Z [DEBUG] ✅ Fetched 5 records from linked table Tasks
+[2025-11-07T22:40:03.025Z] [INFO   ] 2025-11-07T22:40:03.025Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"23c9b660-dff1-40e3-be7a-f47816751245","resultCount":5}
+[2025-11-07T22:41:40.558Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1578ms (4948 modules)
+[2025-11-07T22:43:55.330Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 930ms (1051 modules)
+[2025-11-07T22:44:02.552Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-11-07T22:44:02.628Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1328ms (4020 modules)
+[2025-11-07T22:44:03.401Z] [INFO   ]  [37m[1m○[22m[39m Compiling /_not-found ...
+[2025-11-07T22:44:04.696Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_not-found in 1828ms (5062 modules)
+[2025-11-07T22:44:05.325Z] [ERROR  ]  [31m[1m⨯[22m[39m Cannot read properties of undefined (reading 'call')
+TypeError: Cannot read properties of undefined (reading 'call')
+    at __webpack_require__ (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:25:43)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2F_not-found%2Fpage&page=%2F_not-found%2Fpage&appPaths=&pagePath=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fnode_modules%2Fnext%2Fdist%2Fclient%2Fcomponents%2Fbuiltin%2Fglobal-not-found.js&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:10:113)
+    at (rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2F_not-found%2Fpage&page=%2F_not-found%2Fpage&appPaths=&pagePath=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fnode_modules%2Fnext%2Fdist%2Fclient%2Fcomponents%2Fbuiltin%2Fglobal-not-found.js&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=! (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/_not-found/page.js:165:1)
+    at __webpack_require__ (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:25:43)
+    at __webpack_exec__ (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/_not-found/page.js:2348:39)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/_not-found/page.js:2349:578
+    at __webpack_require__.X (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:160:21)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/_not-found/page.js:2349:47
+    at Object.<anonymous> (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/_not-found/page.js:2352:3)
+    at Module._compile (node:internal/modules/cjs/loader:1723:14)
+    at Object..js (node:internal/modules/cjs/loader:1888:10)
+    at Module.load (node:internal/modules/cjs/loader:1458:32)
+    at Function._load (node:internal/modules/cjs/loader:1275:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:234:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1480:12)
+    at mod.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:68:28)
+    at require (node:internal/modules/helpers:135:16)
+    at requirePage (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js:99:80)
+    at loadComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js:132:57)
+    at async DevServer.findPageComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:899:36)
+    at async DevServer.findPageComponents (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:705:16)
+    at async DevServer.renderErrorToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1643:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-11-07T22:44:09.017Z] [INFO   ]  [37m[1m○[22m[39m Compiling /_error ...
+[2025-11-07T22:44:10.724Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload when ?608e changed. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-11-07T22:44:11.546Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_error in 3.2s (5416 modules)
+[2025-11-07T22:44:12.807Z] [ERROR  ]  [31m[1m⨯[22m[39m Cannot read properties of undefined (reading 'call')
+TypeError: Cannot read properties of undefined (reading 'call')
+    at __webpack_require__ (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:25:43)
+    at eval (webpack-internal:///(ssr)/./components/providers/SupabaseProvider.tsx:7:71)
+    at (ssr)/./components/providers/SupabaseProvider.tsx (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/test/nodes/page.js:327:1)
+    at Object.__webpack_require__ [as require] (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:25:43)
+    at Object.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:38:28541)
+    at globalThis.__next_require__ (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:38:29364)
+    at requireModule (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:318257)
+    at initializeModuleChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:346827)
+    at readChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:340657)
+    at getComponentNameFromType (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:76927)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194224)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:203204)
+    at renderChildrenArray (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:200308)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:195061)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:203204)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:176646)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:203204)
+    at renderChildrenArray (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:200308)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:195061)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:203204)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:176646)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:203204)
+    at renderChildrenArray (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:200308)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:195061)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:177546)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:203204)
+    at renderChildrenArray (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:200308)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:195061)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:177546)
+[2025-11-07T22:44:13.737Z] [INFO   ]  [37m[1m○[22m[39m Compiling /icon.png ...
+[2025-11-07T22:44:14.259Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /icon.png in 1058ms (4212 modules)
+[2025-11-07T22:44:54.063Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1476ms (5418 modules)
+[2025-11-07T22:45:22.512Z] [ERROR  ]  [31m[1m⨯[22m[39m Cannot read properties of undefined (reading 'call')
+TypeError: Cannot read properties of undefined (reading 'call')
+    at __webpack_require__ (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:25:43)
+    at eval (webpack-internal:///(ssr)/./components/providers/SupabaseProvider.tsx:7:71)
+    at (ssr)/./components/providers/SupabaseProvider.tsx (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/test/nodes/page.js:327:1)
+    at Object.__webpack_require__ [as require] (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:25:43)
+    at Object.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:38:28541)
+    at globalThis.__next_require__ (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:38:29364)
+    at requireModule (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:318257)
+    at initializeModuleChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:346827)
+    at readChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:340657)
+    at getComponentNameFromType (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:76927)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194224)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:203204)
+    at renderChildrenArray (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:200308)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:195061)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:203204)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:176646)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:203204)
+    at renderChildrenArray (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:200308)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:195061)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:203204)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:176646)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:203204)
+    at renderChildrenArray (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:200308)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:195061)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:177546)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:203204)
+    at renderChildrenArray (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:200308)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:195061)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:177546)
+
+=== Log Session Ended: 2025-11-07T22:45:28.363Z ===
