@@ -150,56 +150,52 @@ export const getLinkedTableRecords = async (
     const options: LinkedRecordOption[] = []
 
     if (data.records && Array.isArray(data.records)) {
-      data.records.forEach((record: any) => {
+      data.records.forEach((record: any, index: number) => {
         if (record.fields) {
           // Find the best field to use as a label
           const fields = record.fields
           let label = record.id
 
-          // For Tasks table, prefer 'Name' or 'Task Name' field, then extract from description if needed
-          if (linkedTableName === 'Tasks') {
-            // Check for task name fields first
-            const taskNameField = ['Name', 'name', 'Task Name', 'TaskName', 'Task'].find(
-              fieldName => fields[fieldName] && typeof fields[fieldName] === 'string'
-            )
+          // Smart field selection: Try name/title fields FIRST, before falling back to description
+          // This works for any table type, not just Tasks
+          const nameFields = ['Name', 'name', 'Task Name', 'TaskName', 'Task', 'Title', 'title'];
+          const descriptionFields = ['Description', 'description', 'Details', 'details'];
 
-            if (taskNameField) {
-              label = extractTaskName(String(fields[taskNameField]))
-            } else {
-              // If no name field, check Description or other text fields
-              const descField = ['Description', 'description', 'Details', 'details'].find(
-                fieldName => fields[fieldName] && typeof fields[fieldName] === 'string'
-              )
+          // First priority: Look for name/title fields
+          const nameField = nameFields.find(
+            fieldName => fields[fieldName] && typeof fields[fieldName] === 'string'
+          );
 
-              if (descField) {
-                label = extractTaskName(String(fields[descField]))
-              } else {
-                // Use first string field as fallback
-                const firstTextField = Object.entries(fields).find(
-                  ([_, value]) => typeof value === 'string' && value.length > 0
-                )
-                if (firstTextField) {
-                  label = extractTaskName(String(firstTextField[1]))
-                }
-              }
-            }
+          if (nameField) {
+            const rawValue = String(fields[nameField]);
+            label = extractTaskName(rawValue);
+            logger.debug(`📝 [Record ${index + 1}/${data.records.length}] Using "${nameField}":`, {
+              rawValue: rawValue.substring(0, 100),
+              extractedLabel: label
+            });
           } else {
-            // For non-Tasks tables, use the original logic
-            const possibleNameFields = ['Name', 'name', 'Title', 'title', 'Description', 'description']
-            for (const fieldName of possibleNameFields) {
-              if (fields[fieldName]) {
-                label = String(fields[fieldName])
-                break
-              }
-            }
+            // Second priority: Try description fields only if no name field exists
+            const descField = descriptionFields.find(
+              fieldName => fields[fieldName] && typeof fields[fieldName] === 'string'
+            );
 
-            // If no name field found, use the first string field
-            if (label === record.id) {
+            if (descField) {
+              const rawValue = String(fields[descField]);
+              label = extractTaskName(rawValue);
+              logger.debug(`📝 [Record ${index + 1}/${data.records.length}] No name field, using "${descField}":`, {
+                rawValue: rawValue.substring(0, 100),
+                extractedLabel: label
+              });
+            } else {
+              // Final fallback: Use first string field
               const firstTextField = Object.entries(fields).find(
                 ([_, value]) => typeof value === 'string' && value.length > 0
-              )
+              );
               if (firstTextField) {
-                label = String(firstTextField[1])
+                label = extractTaskName(String(firstTextField[1]));
+                logger.debug(`📝 [Record ${index + 1}/${data.records.length}] Using first text field "${firstTextField[0]}":`, {
+                  value: String(firstTextField[1]).substring(0, 100)
+                });
               }
             }
           }

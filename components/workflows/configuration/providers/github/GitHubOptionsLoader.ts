@@ -13,6 +13,9 @@ const pendingPromises = new Map<string, Promise<FormattedOption[]>>();
 export class GitHubOptionsLoader implements ProviderOptionsLoader {
   private supportedFields = [
     'repository',
+    'branch',
+    'head',
+    'base',
     'assignees',
     'labels',
     'milestone'
@@ -21,6 +24,9 @@ export class GitHubOptionsLoader implements ProviderOptionsLoader {
   // Map field names to GitHub API data types
   private fieldToDataType: Record<string, string> = {
     repository: 'github_repositories',
+    branch: 'github_branches',
+    head: 'github_branches',
+    base: 'github_branches',
     assignees: 'github_assignees',
     labels: 'github_labels',
     milestone: 'github_milestones'
@@ -138,6 +144,9 @@ export class GitHubOptionsLoader implements ProviderOptionsLoader {
    */
   getFieldDependencies(fieldName: string): string[] {
     switch (fieldName) {
+      case 'branch':
+      case 'head':
+      case 'base':
       case 'assignees':
       case 'labels':
       case 'milestone':

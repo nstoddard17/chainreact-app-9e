@@ -388,9 +388,9 @@ export function Combobox({
                     if (!option.disabled) handleSelect(option.value)
                   }}
                   disabled={option.disabled}
+                  aria-selected={value === option.value}
                   className={cn(
-                    option.disabled ? "opacity-50 pointer-events-none cursor-not-allowed" : "",
-                    value === option.value && "bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100 data-[selected=true]:bg-blue-100 data-[selected=true]:dark:bg-blue-900/30 data-[selected=true]:text-blue-900 data-[selected=true]:dark:text-blue-100"
+                    option.disabled && "opacity-50 pointer-events-none cursor-not-allowed"
                   )}
                 >
                   <div className="flex flex-col">
@@ -960,10 +960,8 @@ export function HierarchicalCombobox({
                               key={`sub-${optionIndex}-${emailIndex}-${email.value || 'undefined'}`}
                               value={email.value}
                               onSelect={handleSelect}
-                              className={cn(
-                                "pl-8",
-                                value === email.value && "bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100 data-[selected=true]:bg-blue-100 data-[selected=true]:dark:bg-blue-900/30 data-[selected=true]:text-blue-900 data-[selected=true]:dark:text-blue-100"
-                              )}
+                              aria-selected={value === email.value}
+                              className="pl-8"
                             >
                               <div className="flex flex-col">
                                 <span>{email.label}</span>
@@ -983,9 +981,7 @@ export function HierarchicalCombobox({
                     key={`item-${optionIndex}-${option.value || 'undefined'}`}
                     value={option.value}
                     onSelect={handleSelect}
-                    className={cn(
-                      value === option.value && "bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100 data-[selected=true]:bg-blue-100 data-[selected=true]:dark:bg-blue-900/30 data-[selected=true]:text-blue-900 data-[selected=true]:dark:text-blue-100"
-                    )}
+                    aria-selected={value === option.value}
                   >
                     <div className="flex flex-col">
                       <span>{option.label}</span>
