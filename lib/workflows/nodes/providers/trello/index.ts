@@ -852,7 +852,7 @@ export const trelloNodes: NodeComponent[] = [
         type: "textarea",
         required: true,
         placeholder: "Enter your comment",
-        hidden: { $condition: { boardId: { $exists: false } } },
+        hidden: { $condition: { cardId: { $exists: false } } },
         tooltip: "The text of the comment. Supports Markdown.",
         supportsAI: true
       }
@@ -930,7 +930,7 @@ export const trelloNodes: NodeComponent[] = [
         dynamic: "trello_board_labels",
         dependsOn: "boardId",
         placeholder: "Select a label",
-        hidden: { $condition: { boardId: { $exists: false } } },
+        hidden: { $condition: { cardId: { $exists: false } } },
         tooltip: "Select the label to add to the card"
       }
     ],
@@ -978,7 +978,7 @@ export const trelloNodes: NodeComponent[] = [
         type: "text",
         required: true,
         placeholder: "Enter checklist name",
-        hidden: { $condition: { boardId: { $exists: false } } },
+        hidden: { $condition: { cardId: { $exists: false } } },
         tooltip: "Name of the checklist",
         supportsAI: true
       }
