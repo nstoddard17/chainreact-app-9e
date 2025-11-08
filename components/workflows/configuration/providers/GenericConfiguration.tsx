@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, ChevronLeft, Mail, Loader2 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -68,6 +68,12 @@ export function GenericConfiguration({
   const loadingFields = loadingFieldsProp || localLoadingFields;
   const setLoadingFields = loadingFieldsProp ? () => {} : setLocalLoadingFields;
 
+  // Store current values in a ref to avoid re-creating callbacks
+  const valuesRef = useRef(values);
+  useEffect(() => {
+    valuesRef.current = values;
+  }, [values]);
+
   // Handle dynamic field loading
   const handleDynamicLoad = useCallback(async (
     fieldName: string,
@@ -75,13 +81,13 @@ export function GenericConfiguration({
     dependsOnValue?: any,
     forceReload?: boolean
   ) => {
-    logger.debug('🔍 [GenericConfig] handleDynamicLoad called:', { 
-      fieldName, 
-      dependsOn, 
+    logger.debug('🔍 [GenericConfig] handleDynamicLoad called:', {
+      fieldName,
+      dependsOn,
       dependsOnValue,
-      forceReload 
+      forceReload
     });
-    
+
     const field = nodeInfo?.configSchema?.find((f: any) => f.name === fieldName);
     if (!field) {
       logger.warn('Field not found in schema:', fieldName);
@@ -89,30 +95,33 @@ export function GenericConfiguration({
     }
 
     // Don't set loading state here - useDynamicOptions handles it
-    
+
     try {
       // If explicit dependencies are provided, use them
       if (dependsOn && dependsOnValue !== undefined) {
         logger.debug('🔄 [GenericConfig] Calling loadOptions with dependencies:', { fieldName, dependsOn, dependsOnValue, forceReload });
         await loadOptions(fieldName, dependsOn, dependsOnValue, forceReload);
-      } 
-      // Otherwise check field's defined dependencies
-      else if (field.dependsOn && values[field.dependsOn]) {
-        logger.debug('🔄 [GenericConfig] Calling loadOptions with field dependencies:', { fieldName, dependsOn: field.dependsOn, dependsOnValue: values[field.dependsOn], forceReload });
-        await loadOptions(fieldName, field.dependsOn, values[field.dependsOn], forceReload);
-      } 
+      }
+      // Otherwise check field's defined dependencies - get values from ref (avoids dependency on values prop)
+      else if (field.dependsOn) {
+        const parentValue = valuesRef.current[field.dependsOn];
+        if (parentValue) {
+          logger.debug('🔄 [GenericConfig] Calling loadOptions with field dependencies:', { fieldName, dependsOn: field.dependsOn, dependsOnValue: parentValue, forceReload });
+          await loadOptions(fieldName, field.dependsOn, parentValue, forceReload);
+        } else {
+          // Field has dependency but no value yet - don't try to load
+          logger.debug('⏸️ [GenericConfig] Skipping load - field has dependency but no parent value:', { fieldName, dependsOn: field.dependsOn });
+        }
+      }
       // No dependencies, just load the field
-      else if (!field.dependsOn) {
+      else {
         logger.debug('🔄 [GenericConfig] Calling loadOptions without dependencies:', { fieldName, forceReload });
         await loadOptions(fieldName, undefined, undefined, forceReload);
-      } else {
-        // Field has dependency but no value yet - don't try to load
-        logger.debug('⏸️ [GenericConfig] Skipping load - field has dependency but no parent value:', { fieldName, dependsOn: field.dependsOn });
       }
     } catch (error) {
       logger.error('❌ [GenericConfig] Error loading dynamic options:', error);
     }
-  }, [nodeInfo, values, loadOptions]);
+  }, [nodeInfo, loadOptions]);
 
   // Validate form whenever values or visible fields change
   useEffect(() => {

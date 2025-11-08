@@ -251,7 +251,6 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
     // If we recently loaded this key, skip reloading to prevent API spam
     const lastTs = lastLoadedAt.current.get(requestKey)
     if (!forceRefresh && lastTs && Date.now() - lastTs < 5000) {
-      console.log(`🔄 [useDynamicOptions] EARLY RETURN: Recently loaded ${requestKey} (${Date.now() - lastTs}ms ago)`);
       setLoading(false); // Clear loading state
       return
     }
@@ -779,15 +778,32 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
         });
       }
 
+      // Debug: Check what integrations we have
+      const allIntegrations = useIntegrationStore.getState().integrations;
+
+      // Logging removed - field working correctly
+
       logger.debug('🔍 [useDynamicOptions] Looking for integration:', {
         providerId,
         fieldName,
         integrationFound: !!integration,
-        integrationId: integration?.id
+        integrationId: integration?.id,
+        totalIntegrations: allIntegrations.length,
+        allProviders: allIntegrations.map(i => i.provider),
+        stripeIntegrations: allIntegrations.filter(i => i.provider?.toLowerCase().includes('stripe'))
       });
 
       if (!integration) {
+        console.error('⚠️ [useDynamicOptions] No integration found for provider:', providerId);
+        console.error('🔍 [useDynamicOptions] Total integrations in store:', allIntegrations.length);
+        console.error('🔍 [useDynamicOptions] All provider IDs:', allIntegrations.map(i => i.provider));
+        console.error('🔍 [useDynamicOptions] Stripe integrations:', allIntegrations.filter(i => i.provider?.toLowerCase().includes('stripe')));
         logger.warn('⚠️ [useDynamicOptions] No integration found for provider:', providerId);
+        logger.warn('🔍 [useDynamicOptions] Available integrations:', allIntegrations.map(i => ({
+          provider: i.provider,
+          status: i.status,
+          id: i.id
+        })));
 
         const providerKey = lookupProviderId || providerId;
         const lastAttempt = integrationFetchAttempts.current.get(providerKey);
@@ -1761,6 +1777,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       // Fetch from API
       let formattedOptions: any[] = [];
       try {
+
           logger.debug('📡 [useDynamicOptions] Calling loadIntegrationData:', {
             fieldName,
             resourceType,
@@ -1770,6 +1787,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
             dependsOnValue
           });
           const result = await loadIntegrationData(resourceType, integration.id, options, forceRefresh);
+
 
           // Check if this is still the current request
           // This is crucial because loadIntegrationData might not support abort signals
@@ -1808,6 +1826,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
           // Format the results - extract data array from response object if needed
           const dataArray = result.data || result;
+
           formattedOptions = formatOptionsForField(fieldName, dataArray);
 
           // Log for watchedTables / airtable_tables
@@ -1865,12 +1884,12 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
       // Update dynamic options - store both general and dependency-specific data
       const updateObject: any = { [fieldName]: formattedOptions };
-      
+
       // For dependent fields, also store with dependency-specific key for better caching
       if (dependsOn && dependsOnValue) {
         updateObject[`${fieldName}_${dependsOnValue}`] = formattedOptions;
       }
-      
+
       setDynamicOptions(prev => {
         const updated = {
           ...prev,

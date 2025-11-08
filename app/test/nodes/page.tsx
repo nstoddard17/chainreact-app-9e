@@ -15,7 +15,7 @@
  * - Rapidly iterate on config menu designs
  */
 
-import React, { useState, useMemo } from "react"
+import React, { useState, useMemo, useEffect } from "react"
 import { ALL_NODE_COMPONENTS, NodeComponent } from "@/lib/workflows/availableNodes"
 import { ConfigurationModal } from "@/components/workflows/configuration/ConfigurationModal"
 import { Button } from "@/components/ui/button"
@@ -24,6 +24,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Search, Zap, Settings, AlertCircle, CheckCircle, ChevronDown, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { getProviderBrandName } from "@/lib/integrations/brandNames"
+import { useIntegrationStore } from "@/stores/integrationStore"
 
 // Group nodes by providerId
 const groupNodesByProvider = (nodes: NodeComponent[]): Record<string, NodeComponent[]> => {
@@ -60,6 +61,14 @@ export default function NodeTestHarnessPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [filterType, setFilterType] = useState<"all" | "triggers" | "actions">("all")
   const [showIssuesOnly, setShowIssuesOnly] = useState(false)
+
+  // Load integrations on mount so config modals can access them
+  const { fetchIntegrations } = useIntegrationStore()
+
+  useEffect(() => {
+    console.log('🔧 [NodeTestHarness] Loading integrations...')
+    fetchIntegrations()
+  }, [fetchIntegrations])
 
   // Suppress browser extension errors (not our code)
   React.useEffect(() => {
