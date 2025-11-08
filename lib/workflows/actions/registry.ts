@@ -60,6 +60,8 @@ import {
   deleteAirtableRecord,
   addAirtableAttachment,
   duplicateAirtableRecord,
+  getAirtableTableSchema,
+  getAirtableBaseSchema,
 } from './airtable'
 
 // Monday.com actions
@@ -439,6 +441,10 @@ export const actionHandlerRegistry: Record<string, Function> = {
     addAirtableAttachment(params.config, params.userId, params.input),
   "airtable_action_duplicate_record": (params: { config: any; userId: string; input: Record<string, any> }) =>
     duplicateAirtableRecord(params.config, params.userId, params.input),
+  "airtable_action_get_table_schema": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    getAirtableTableSchema(params.config, params.userId, params.input),
+  "airtable_action_get_base_schema": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    getAirtableBaseSchema(params.config, params.userId, params.input),
 
   // Monday.com actions - wrapped to handle new calling convention
   "monday_action_create_item": (params: { config: any; userId: string; input: Record<string, any> }) =>

@@ -549,6 +549,21 @@ const facebookMappings: Record<string, FieldMapping> = {
     pageId: "facebook_pages",
     postId: "facebook_posts",
   },
+  facebook_action_delete_post: {
+    pageId: "facebook_pages",
+    postId: "facebook_posts",
+  },
+  facebook_action_update_post: {
+    pageId: "facebook_pages",
+    postId: "facebook_posts",
+  },
+  facebook_action_upload_photo: {
+    pageId: "facebook_pages",
+    targetAlbum: "facebook_albums",
+  },
+  facebook_action_upload_video: {
+    pageId: "facebook_pages",
+  },
 };
 
 // Box field mappings

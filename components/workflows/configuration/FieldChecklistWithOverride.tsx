@@ -127,7 +127,7 @@ export function FieldChecklistWithOverride({
     // Read-only display
     if (isReadOnly) {
       return (
-        <div className="px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded-md text-slate-400 truncate">
+        <div className="px-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-md text-gray-700 truncate">
           {displayValue}
         </div>
       );
@@ -177,7 +177,7 @@ export function FieldChecklistWithOverride({
 
   if (fields.length === 0) {
     return (
-      <div className="p-4 text-center text-sm text-slate-500">
+      <div className="p-4 text-center text-sm text-gray-600">
         No fields available. Select a record first.
       </div>
     );
@@ -186,7 +186,7 @@ export function FieldChecklistWithOverride({
   return (
     <div className="space-y-4">
       {/* Select All / Deselect All buttons */}
-      <div className="flex items-center gap-2 pb-2 border-b border-slate-700">
+      <div className="flex items-center gap-2 pb-2 border-b border-gray-300">
         <Button
           type="button"
           variant="outline"
@@ -207,7 +207,7 @@ export function FieldChecklistWithOverride({
         >
           Deselect All
         </Button>
-        <span className="text-xs text-slate-500 ml-auto">
+        <span className="text-xs text-gray-600 ml-auto">
           {fields.filter(f => f.enabled).length} of {fields.length} fields selected
         </span>
       </div>
@@ -218,30 +218,30 @@ export function FieldChecklistWithOverride({
           <div
             key={field.name}
             className={cn(
-              "p-3 rounded-lg border transition-colors",
+              "p-2.5 rounded-lg border transition-colors",
               field.enabled
-                ? "bg-slate-800/50 border-slate-700"
-                : "bg-slate-900/30 border-slate-800"
+                ? "bg-white border-gray-300"
+                : "bg-gray-50 border-gray-200"
             )}
           >
-            <div className="flex items-start gap-3">
+            <div className="flex gap-2.5">
               {/* Checkbox to enable/disable field */}
               <Checkbox
                 id={`field-${field.name}`}
                 checked={field.enabled}
                 onCheckedChange={() => handleToggleField(field.name)}
                 disabled={disabled}
-                className="mt-1"
+                className="flex-shrink-0 mt-px"
               />
 
               {/* Field info and value */}
-              <div className="flex-1 min-w-0 space-y-2">
+              <div className="flex-1 min-w-0 space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
                   <Label
                     htmlFor={`field-${field.name}`}
                     className={cn(
                       "text-sm font-medium cursor-pointer",
-                      field.enabled ? "text-slate-200" : "text-slate-500"
+                      field.enabled ? "text-gray-900" : "text-gray-500"
                     )}
                   >
                     {field.label}
@@ -279,7 +279,7 @@ export function FieldChecklistWithOverride({
 
                 {/* Show help text for override mode */}
                 {field.override && field.enabled && (
-                  <p className="text-xs text-blue-400 mt-1">
+                  <p className="text-xs text-blue-600 mt-1">
                     This value will replace the original value in the duplicate
                   </p>
                 )}
@@ -291,8 +291,8 @@ export function FieldChecklistWithOverride({
 
       {/* Summary */}
       {hasEnabledFields && (
-        <div className="p-3 bg-slate-800/30 border border-slate-700 rounded-lg text-xs text-slate-400">
-          <strong className="text-slate-300">Summary:</strong>
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-gray-700">
+          <strong className="text-gray-900">Summary:</strong>
           <ul className="mt-1 space-y-1 ml-4 list-disc">
             <li>{fields.filter(f => f.enabled).length} fields will be copied</li>
             <li>{fields.filter(f => f.enabled && f.override).length} fields will be overridden with new values</li>

@@ -29,43 +29,49 @@ export function generatePlaceholder(options: PlaceholderOptions): string {
   if (nameLower.includes('email') || nameLower.includes('recipient') ||
       (nameLower.includes('to') && (nameLower.startsWith('to') || nameLower.includes(' to') || nameLower.includes('_to')))) {
     if (fieldName.includes('cc') || fieldName.includes('bcc')) {
-      return 'Comma-separated email addresses (optional)'
+      return 'user@example.com or {{Email}}'
     }
-    return 'Enter email address or comma-separated list'
+    return 'user@example.com or {{Email Variable}}'
   }
 
   // Subject lines
   if (nameLower.includes('subject')) {
-    return 'Enter email subject'
+    return 'Your subject here or {{Subject Variable}}'
   }
 
   // Message/Body/Content
   if (nameLower.includes('message') || nameLower.includes('body') || nameLower.includes('content')) {
     if (integrationId.includes('slack')) {
-      return 'Enter message content'
+      return 'Type your message or use {{Variables}}'
     }
     if (integrationId.includes('discord')) {
-      return 'Enter message content'
+      return 'Type your message or use {{Variables}}'
     }
     if (integrationId.includes('email') || integrationId.includes('gmail') || integrationId.includes('outlook')) {
-      return 'Enter email body'
+      return 'Type email body or use {{Variables}}'
     }
-    return 'Enter message content'
+    return 'Type your message or use {{Variables}}'
   }
 
   // Titles
   if (nameLower.includes('title') || nameLower.includes('name')) {
-    return 'Enter title'
+    return 'Enter title or {{Title Variable}}'
   }
 
   // Descriptions
   if (nameLower.includes('description') || nameLower.includes('summary')) {
-    return 'Enter description'
+    return 'Enter description or {{Description Variable}}'
   }
 
   // URLs
   if (nameLower.includes('url') || nameLower.includes('link') || nameLower.includes('webhook')) {
-    return 'Enter URL (https://...)'
+    if (nameLower.includes('thumbnail') || nameLower.includes('image') || nameLower.includes('avatar')) {
+      return 'https://example.com/image.jpg or {{Image URL}}'
+    }
+    if (nameLower.includes('webhook')) {
+      return 'https://hooks.example.com/webhook or {{Webhook URL}}'
+    }
+    return 'https://example.com or {{Variable}}'
   }
 
   // Channels/Rooms
@@ -81,15 +87,15 @@ export function generatePlaceholder(options: PlaceholderOptions): string {
 
   // IDs
   if (nameLower.includes('id') && !nameLower.includes('video')) {
-    if (nameLower.includes('user')) return 'Enter user ID'
-    if (nameLower.includes('channel')) return 'Enter channel ID'
-    if (nameLower.includes('workspace')) return 'Enter workspace ID'
-    return 'Enter ID'
+    if (nameLower.includes('user')) return '12345 or {{User ID}}'
+    if (nameLower.includes('channel')) return 'C1234567890 or {{Channel ID}}'
+    if (nameLower.includes('workspace')) return 'W1234567890 or {{Workspace ID}}'
+    return '12345 or {{ID Variable}}'
   }
 
   // Tags/Labels
   if (nameLower.includes('tag') || nameLower.includes('label')) {
-    return 'Comma-separated tags'
+    return 'tag1, tag2 or {{Tags Variable}}'
   }
 
   // Priority
@@ -105,12 +111,12 @@ export function generatePlaceholder(options: PlaceholderOptions): string {
   // Numbers
   if (fieldType === 'number') {
     if (nameLower.includes('amount') || nameLower.includes('price')) {
-      return 'Enter amount (e.g., 19.99)'
+      return '19.99 or {{Amount Variable}}'
     }
     if (nameLower.includes('quantity') || nameLower.includes('count')) {
-      return 'Enter number'
+      return '5 or {{Count Variable}}'
     }
-    return 'Enter number'
+    return '100 or {{Number Variable}}'
   }
 
   // Boolean/Checkbox
@@ -118,14 +124,15 @@ export function generatePlaceholder(options: PlaceholderOptions): string {
     return 'Check to enable'
   }
 
-  // File paths
-  if (nameLower.includes('file') || nameLower.includes('path')) {
-    return 'Enter file path'
+  // File paths (only for TEXT fields that reference file paths, not actual file upload fields)
+  // File upload fields use FileUpload component which has its own placeholder
+  if (fieldType !== 'file' && fieldType !== 'file-with-toggle' && (nameLower.includes('filepath') || nameLower.includes('file_path') || nameLower.includes('path'))) {
+    return '/path/to/file.pdf or {{File Path}}'
   }
 
   // Phone numbers
   if (nameLower.includes('phone')) {
-    return 'Enter phone number'
+    return '+1 (555) 123-4567 or {{Phone}}'
   }
 
   // Default fallback

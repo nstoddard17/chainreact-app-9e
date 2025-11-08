@@ -45,6 +45,7 @@ export const getTableSchemaActionSchema: NodeComponent = {
       type: "boolean",
       required: false,
       defaultValue: true,
+      dependsOn: "tableName",
       description: "Include information about table views",
       tooltip: "When enabled, returns details about all views including their filters and sorts."
     }

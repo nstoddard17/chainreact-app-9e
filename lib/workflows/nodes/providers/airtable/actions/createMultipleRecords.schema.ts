@@ -3,7 +3,7 @@ import { NodeComponent } from "../../../types"
 export const createMultipleRecordsActionSchema: NodeComponent = {
   type: "airtable_action_create_multiple_records",
   title: "Create Multiple Records",
-  description: "Create multiple records at once in an Airtable table (bulk create)",
+  description: "Create multiple records at once in an Airtable table (bulk create up to 10 records)",
   icon: "Plus" as any,
   isTrigger: false,
   providerId: "airtable",
@@ -14,7 +14,8 @@ export const createMultipleRecordsActionSchema: NodeComponent = {
   outputSchema: [
     { name: "createdRecords", label: "Created Records", type: "array", description: "Array of all created records with their IDs and field values" },
     { name: "createCount", label: "Create Count", type: "number", description: "Number of records successfully created" },
-    { name: "success", label: "Success", type: "boolean", description: "Whether all creates completed successfully" }
+    { name: "success", label: "Success", type: "boolean", description: "Whether all creates completed successfully" },
+    { name: "recordIds", label: "Record IDs", type: "array", description: "Array of created record IDs" }
   ],
   configSchema: [
     {
@@ -34,22 +35,106 @@ export const createMultipleRecordsActionSchema: NodeComponent = {
       required: true,
       placeholder: "Select a table",
       dependsOn: "baseId",
-      description: "The table to create records in"
+      description: "Choose the table to create records in"
+    },
+    {
+      name: "inputMode",
+      label: "Input Mode",
+      type: "select",
+      required: false,
+      defaultValue: "individual",
+      options: [
+        { value: "individual", label: "Fill Out Fields (Recommended)" },
+        { value: "from_previous_step", label: "Use Data from Previous Step" },
+        { value: "json", label: "JSON Array (Advanced)" }
+      ],
+      dependsOn: "tableName",
+      description: "How to provide the records data",
+      tooltip: "Individual: Fill out fields for each record one by one. From Previous Step: Use array data from a previous action. JSON: Paste a JSON array (advanced users)."
+    },
+    {
+      name: "recordsData",
+      label: "Records",
+      type: "custom_multiple_records",
+      required: true,
+      dependsOn: "tableName",
+      conditional: { field: "inputMode", value: "individual" },
+      description: "Fill out the fields for each record you want to create",
+      tooltip: "Click 'Add Record' to create additional records. Each record will be shown in an expandable section.",
+      metadata: {
+        maxRecords: 10,
+        expandable: true,
+        showAddButton: true,
+        addButtonText: "Add Another Record"
+      }
+    },
+    {
+      name: "sourceArray",
+      label: "Source Data",
+      type: "text",
+      required: true,
+      placeholder: "{{previousStep.records}}",
+      supportsAI: false,
+      dependsOn: "tableName",
+      conditional: { field: "inputMode", value: "from_previous_step" },
+      description: "Reference to array data from previous step",
+      tooltip: "Use merge fields to reference array data (e.g., {{trigger.items}} or {{step1.records}}). Each item in the array will create a new record."
+    },
+    {
+      name: "fieldMapping",
+      label: "Field Mapping",
+      type: "custom_field_mapper",
+      required: false,
+      dependsOn: "sourceArray",
+      conditional: { field: "inputMode", value: "from_previous_step" },
+      description: "Map fields from your source data to Airtable fields",
+      tooltip: "Match the fields from your previous step's data to the corresponding Airtable fields. Unmapped fields will be skipped.",
+      metadata: {
+        sourceLabel: "Source Field",
+        targetLabel: "Airtable Field",
+        allowAutoMap: true
+      }
     },
     {
       name: "records",
-      label: "Records to Create",
+      label: "Records Data (JSON)",
       type: "textarea",
       required: true,
-      rows: 12,
+      rows: 10,
       placeholder: JSON.stringify([
         { Name: "Record 1", Status: "Active" },
         { Name: "Record 2", Status: "Pending" },
         { Name: "Record 3", Status: "Active" }
       ], null, 2),
       supportsAI: true,
-      description: "Array of field objects for records to create (max 10)",
-      tooltip: "Enter a JSON array where each object represents one record. Airtable API allows up to 10 records per request."
+      dependsOn: "tableName",
+      conditional: { field: "inputMode", value: "json" },
+      description: "JSON array of records to create (max 10)",
+      tooltip: "Each object in the array represents one record. Field names must match your Airtable field names exactly. Format: [{Field1: 'value1'}, {Field1: 'value2'}]"
+    },
+    {
+      name: "maxRecords",
+      label: "Max Records to Create",
+      type: "number",
+      required: false,
+      defaultValue: 10,
+      min: 1,
+      max: 10,
+      dependsOn: "tableName",
+      description: "Maximum number of records to create (Airtable API limit: 10)",
+      tooltip: "Airtable allows a maximum of 10 records per API request. If your input has more items, only the first 10 will be created.",
+      advanced: true
+    },
+    {
+      name: "continueOnError",
+      label: "Continue on Error",
+      type: "boolean",
+      required: false,
+      defaultValue: false,
+      dependsOn: "tableName",
+      description: "Continue creating remaining records if one fails",
+      tooltip: "When enabled, individual record failures won't stop the entire batch. Successful creates will still be returned.",
+      advanced: true
     }
   ]
 }

@@ -242,6 +242,7 @@ export function AirtableConfiguration({
   const isUpdateRecord = nodeInfo?.type === 'airtable_action_update_record';
   const isUpdateMultipleRecords = nodeInfo?.type === 'airtable_action_update_multiple_records';
   const isCreateRecord = nodeInfo?.type === 'airtable_action_create_record';
+  const isCreateMultipleRecords = nodeInfo?.type === 'airtable_action_create_multiple_records';
   const isListRecord = nodeInfo?.type === 'airtable_action_list_records';
   const isFindRecord = nodeInfo?.type === 'airtable_action_find_record';
   const isDeleteRecord = nodeInfo?.type === 'airtable_action_delete_record';
@@ -1297,8 +1298,8 @@ export function AirtableConfiguration({
           loadAirtableRecords(values.baseId, values.tableName);
         });
       }
-      // For create record, only load schema
-      else if (isCreateRecord) {
+      // For create record or create multiple records, only load schema
+      else if (isCreateRecord || isCreateMultipleRecords) {
         fetchAirtableTableSchema(values.baseId, values.tableName);
       }
       // For find record, load schema for field selection
@@ -1306,7 +1307,7 @@ export function AirtableConfiguration({
         fetchAirtableTableSchema(values.baseId, values.tableName);
       }
     }
-  }, [isCreateRecord, isUpdateRecord, isUpdateMultipleRecords, isDuplicateRecord, isFindRecord, values.tableName, values.baseId, fetchAirtableTableSchema, loadAirtableRecords]);
+  }, [isCreateRecord, isCreateMultipleRecords, isUpdateRecord, isUpdateMultipleRecords, isDuplicateRecord, isFindRecord, values.tableName, values.baseId, fetchAirtableTableSchema, loadAirtableRecords]);
 
   // Helper function to get a proper string label from any value
   const getLabelFromValue = useCallback((val: any): string => {
@@ -2141,12 +2142,14 @@ export function AirtableConfiguration({
           currentNodeId={currentNodeId}
           dynamicOptions={dynamicOptions}
           loadingDynamic={fieldIsLoading}
+          loadingFields={loadingFields}
           nodeInfo={nodeInfo}
           onDynamicLoad={handleDynamicLoad}
           parentValues={values}
           selectedValues={selectedBubbleValues}
           aiFields={aiFields}
           setAiFields={setAiFields}
+          airtableTableSchema={airtableTableSchema}
         />
         
         {/* Bubble display for multi-select fields */}
@@ -2253,6 +2256,16 @@ export function AirtableConfiguration({
     await onSubmit(submissionValues);
   };
 
+  // Handle keydown to prevent Enter from submitting form on input fields
+  // IMPORTANT: This hook must be defined BEFORE any early returns to avoid hook order issues
+  const handleFormKeyDown = useCallback((e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'BUTTON' && (e.target as HTMLElement).tagName !== 'TEXTAREA') {
+      e.preventDefault();
+      // Prevent form submission when Enter is pressed on input fields
+      // RecordId field is meant for variables (e.g., {{trigger.recordId}}) or direct paste
+    }
+  }, []);
+
   // Show connection required state
   if (needsConnection) {
     return (
@@ -2270,7 +2283,7 @@ export function AirtableConfiguration({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col h-full overflow-hidden">
+    <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="flex flex-col h-full overflow-hidden">
       <div className="flex-1 min-h-0 overflow-hidden">
         <div className="h-full overflow-y-auto overflow-x-hidden px-6 py-4">
           <div className="space-y-3 pb-4 pr-4">
@@ -2572,10 +2585,10 @@ export function AirtableConfiguration({
                 {/* Record selection table */}
                 <div className="overflow-hidden">
                   <div className="mb-3">
-                    <h3 className="text-sm font-semibold text-slate-200 mb-1">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-1">
                       Select Record to Duplicate
                     </h3>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-gray-600">
                       Click a row to select the record you want to duplicate, or paste a record ID above
                     </p>
                   </div>
@@ -2591,12 +2604,12 @@ export function AirtableConfiguration({
 
                 {/* Field checklist with override toggles */}
                 {selectedDuplicateRecord && duplicateFieldChecklist.length > 0 && (
-                  <div className="border border-slate-700 rounded-lg p-4 bg-slate-800/30">
+                  <div className="border border-gray-300 rounded-lg p-4 bg-white">
                     <div className="mb-4">
-                      <h3 className="text-sm font-semibold text-slate-200 mb-1">
+                      <h3 className="text-sm font-semibold text-gray-900 mb-1">
                         Select Fields to Duplicate
                       </h3>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-gray-600">
                         Check fields to copy, and enable "Override" to change their values in the duplicate
                       </p>
                     </div>
