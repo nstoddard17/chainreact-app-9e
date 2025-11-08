@@ -203,9 +203,14 @@ const shouldUseConnectMode = (field: ConfigField | NodeField) => {
   const fieldName = field.name?.toLowerCase() || ''
   const fieldLabel = field.label?.toLowerCase() || ''
 
+  // Fields with explicit supportsAI flag should use connect mode
+  if ('supportsAI' in field && field.supportsAI) {
+    return true
+  }
+
   // Structural fields - NEVER use connect mode (these are design-time configuration, not runtime data)
   // No current triggers/actions output these values, so there's no use case for dynamic references
-  const structuralFields = ['baseid', 'tablename', 'guildid', 'channelid', 'databaseid', 'teamid']
+  const structuralFields = ['baseid', 'tablename', 'guildid', 'channelid', 'databaseid', 'teamid', 'listid']
   if (structuralFields.some(sf => fieldName === sf)) {
     return false
   }

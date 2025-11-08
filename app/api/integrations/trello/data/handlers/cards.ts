@@ -25,9 +25,9 @@ export const getTrelloCards: TrelloDataHandler<TrelloCard> = async (integration:
     let apiUrl: string
 
     if (listId) {
-      apiUrl = buildTrelloApiUrl(`/1/lists/${listId}/cards?fields=id,name,desc,idList,closed`)
+      apiUrl = buildTrelloApiUrl(`/1/lists/${listId}/cards?fields=id,name,desc,idList,closed,due,dueComplete,pos`)
     } else if (boardId) {
-      apiUrl = buildTrelloApiUrl(`/1/boards/${boardId}/cards?fields=id,name,desc,idList,closed`)
+      apiUrl = buildTrelloApiUrl(`/1/boards/${boardId}/cards?fields=id,name,desc,idList,closed,due,dueComplete,pos`)
     } else {
       throw new Error('Either Board ID or List ID is required for fetching cards')
     }
