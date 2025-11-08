@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { LoadingFieldState } from '../shared/LoadingFieldState';
 
 interface DiscordMessageOption {
   id: string;
@@ -255,12 +256,7 @@ export function DiscordMultiMessageSelector({
   // Render selected messages in field
   const renderSelectedInField = () => {
     if (isLoading) {
-      return (
-        <div className="flex items-center gap-2 text-slate-500">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span>Loading messages...</span>
-        </div>
-      );
+      return <LoadingFieldState message="Loading messages..." />;
     }
     
     if (selectedMessages.length === 0) {

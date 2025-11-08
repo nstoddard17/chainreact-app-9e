@@ -15,7 +15,7 @@
  * - Rapidly iterate on config menu designs
  */
 
-import React, { useState, useMemo } from "react"
+import React, { useState, useMemo, useEffect } from "react"
 import { ALL_NODE_COMPONENTS, NodeComponent } from "@/lib/workflows/availableNodes"
 import { ConfigurationModal } from "@/components/workflows/configuration/ConfigurationModal"
 import { Button } from "@/components/ui/button"
@@ -24,6 +24,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Search, Zap, Settings, AlertCircle, CheckCircle, ChevronDown, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { getProviderBrandName } from "@/lib/integrations/brandNames"
+import { useIntegrationStore } from "@/stores/integrationStore"
+import { useAuthStore } from "@/stores/authStore"
 
 // Group nodes by providerId
 const groupNodesByProvider = (nodes: NodeComponent[]): Record<string, NodeComponent[]> => {
@@ -60,6 +62,19 @@ export default function NodeTestHarnessPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [filterType, setFilterType] = useState<"all" | "triggers" | "actions">("all")
   const [showIssuesOnly, setShowIssuesOnly] = useState(false)
+
+  // Integration store hooks
+  const { fetchIntegrations } = useIntegrationStore()
+  const { initialized: authInitialized } = useAuthStore()
+
+  // Fetch integrations once on mount (cached for 5 seconds per integrationStore)
+  // This prevents repeated force fetches when config modals are opened
+  useEffect(() => {
+    if (!authInitialized) return
+
+    console.log('[Test Nodes] Fetching integrations on mount (uses cache if <5s old)')
+    fetchIntegrations(false) // Don't force - use cache if available
+  }, [authInitialized, fetchIntegrations])
 
   // Suppress browser extension errors (not our code)
   React.useEffect(() => {

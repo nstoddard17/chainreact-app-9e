@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useIntegrationStore } from '@/stores/integrationStore';
 
 import { logger } from '@/lib/utils/logger'
+import { LoadingFieldState } from '../shared/LoadingFieldState';
 
 interface DiscordReactionSelectorProps {
   channelId: string;
@@ -117,11 +118,8 @@ export function DiscordReactionSelector({
 
   if (isLoading) {
     return (
-      <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-        <div className="flex items-center gap-2">
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-          <span className="text-sm text-blue-700">Loading message reactions...</span>
-        </div>
+      <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+        <LoadingFieldState message="Loading message reactions..." />
       </div>
     );
   }
