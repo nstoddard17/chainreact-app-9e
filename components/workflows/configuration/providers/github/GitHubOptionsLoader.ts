@@ -104,7 +104,18 @@ export class GitHubOptionsLoader implements ProviderOptionsLoader {
 
           resolve(result);
         } catch (error: any) {
-          logger.error(`❌ [GitHub] Error loading ${fieldName}:`, error);
+          // Better error logging - show actual error details
+          const errorDetails = {
+            message: error?.message || 'Unknown error',
+            name: error?.name,
+            code: error?.code,
+            stack: error?.stack
+          };
+
+          // Don't log AbortErrors (they're expected when requests are cancelled)
+          if (error?.name !== 'AbortError') {
+            logger.error(`❌ [GitHub] Error loading ${fieldName}:`, errorDetails);
+          }
 
           // Clean up pending promise
           pendingPromises.delete(requestKey);

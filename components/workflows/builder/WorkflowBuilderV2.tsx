@@ -417,6 +417,15 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
     costTrackerRef.current = new CostTracker()
   }, [])
 
+  // Fetch integrations once on mount (cached for 5 seconds per integrationStore)
+  // This prevents repeated force fetches throughout the session
+  useEffect(() => {
+    if (!authInitialized) return
+
+    console.log('[Integration Cache] Fetching integrations on mount (uses cache if <5s old)')
+    fetchIntegrations(false) // Don't force - use cache if available
+  }, [flowId, authInitialized, fetchIntegrations])
+
   // Cleanup: Clear pending messages on unmount if workflow was never saved
   useEffect(() => {
     return () => {
@@ -1120,16 +1129,10 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
             if (vagueTermResult.found && vagueTermResult.category) {
               console.log('[URL Prompt Handler] Detected vague term:', vagueTermResult.category.vagueTerm)
 
-              // CRITICAL: Fetch fresh integrations before checking connection status
-              let freshIntegrations = integrations
-              try {
-                await fetchIntegrations(true) // force=true to bypass cache
-                // Get the fresh integrations directly from store after fetch completes
-                freshIntegrations = useIntegrationStore.getState().integrations
-                console.log('[URL Prompt Handler] Refreshed integrations:', freshIntegrations.length)
-              } catch (error) {
-                console.error('[URL Prompt Handler] Failed to refresh integrations:', error)
-              }
+              // Use cached integrations (refreshed on mount, cached for 5s)
+              // No need to force fetch - integrations are already fresh from mount effect
+              const freshIntegrations = useIntegrationStore.getState().integrations
+              console.log('[URL Prompt Handler] Using cached integrations:', freshIntegrations.length)
 
               const providerOptions = getProviderOptions(
                 vagueTermResult.category,
@@ -1621,18 +1624,10 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
     if (vagueTermResult.found && vagueTermResult.category) {
       console.log('[Provider Disambiguation] Detected vague term:', vagueTermResult.category.vagueTerm)
 
-      // CRITICAL: Fetch fresh integrations before checking connection status
-      // This ensures we have the latest connection state
-      let freshIntegrations = integrations
-      try {
-        await fetchIntegrations(true) // force=true to bypass cache
-        // Get the fresh integrations directly from store after fetch completes
-        freshIntegrations = useIntegrationStore.getState().integrations
-        console.log('[Provider Disambiguation] Refreshed integrations:', freshIntegrations.length)
-      } catch (error) {
-        console.error('[Provider Disambiguation] Failed to refresh integrations:', error)
-        // Continue with cached integrations if fetch fails
-      }
+      // Use cached integrations (refreshed on mount, cached for 5s)
+      // No need to force fetch - integrations are already fresh from mount effect
+      const freshIntegrations = useIntegrationStore.getState().integrations
+      console.log('[Provider Disambiguation] Using cached integrations:', freshIntegrations.length)
 
       // Get provider options for this category
       const providerOptions = getProviderOptions(

@@ -4,6 +4,7 @@
 
 import { GitHubDataHandler } from '../types'
 import { getGitHubRepositories } from './repositories'
+import { getGitHubBranches } from './branches'
 import { getGitHubAssignees } from './assignees'
 import { getGitHubLabels } from './labels'
 import { getGitHubMilestones } from './milestones'
@@ -13,6 +14,7 @@ import { getGitHubMilestones } from './milestones'
  */
 export const githubHandlers: Record<string, GitHubDataHandler> = {
   'github_repositories': getGitHubRepositories,
+  'github_branches': getGitHubBranches,
   'github_assignees': getGitHubAssignees,
   'github_labels': getGitHubLabels,
   'github_milestones': getGitHubMilestones,
