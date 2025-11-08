@@ -142,6 +142,25 @@ export function GenericConfiguration({
     validateForm();
   }, [values, nodeInfo]);
 
+  // Apply default values to fields when they become visible
+  useEffect(() => {
+    if (!nodeInfo?.configSchema) return;
+
+    nodeInfo.configSchema.forEach((field: any) => {
+      // Check if field has a default value defined
+      if (field.defaultValue !== undefined) {
+        // Check if field is now visible
+        const isVisible = FieldVisibilityEngine.isFieldVisible(field, values, nodeInfo);
+
+        // Apply default if field is visible and doesn't have a value yet
+        if (isVisible && (values[field.name] === undefined || values[field.name] === '')) {
+          logger.debug(`[GenericConfig] Applying default value to ${field.name}:`, field.defaultValue);
+          setValue(field.name, field.defaultValue);
+        }
+      }
+    });
+  }, [values, nodeInfo, setValue]);
+
   // Handle field value changes and trigger dependent field loading
   const handleFieldChange = useCallback(async (fieldName: string, value: any) => {
     // Update the field value

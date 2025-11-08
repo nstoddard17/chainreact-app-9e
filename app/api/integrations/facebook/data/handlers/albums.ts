@@ -61,16 +61,34 @@ export const getFacebookAlbums: FacebookDataHandler<FacebookAlbum> = async (inte
       albumCount: data.data?.length || 0
     })
 
-    const albums = (data.data || []).map((album: any) => ({
-      id: album.id,
-      name: album.name,
-      value: album.id,
-      count: album.count,
-      created_time: album.created_time,
-    }))
+    // Filter out any "Timeline Photos" from the API response to avoid duplicates
+    // (we'll add our own at the top)
+    // Note: Case-insensitive check because Facebook may return "Timeline photos" or "Timeline Photos"
+    const albums = (data.data || [])
+      .filter((album: any) => album.name?.toLowerCase() !== 'timeline photos')
+      .map((album: any) => ({
+        id: album.id,
+        name: album.name,
+        value: album.id,
+        count: album.count,
+        created_time: album.created_time,
+      }))
 
-    logger.debug(`✅ [Facebook Albums] Processed ${albums.length} albums`)
-    return albums
+    // Add "Timeline Photos" as the first option (default album)
+    // Note: Empty value means upload to Timeline Photos (user's default album)
+    const albumsWithDefault = [
+      {
+        id: '',
+        name: 'Timeline Photos',
+        value: '', // Empty value means use default Timeline Photos
+        count: undefined,
+        created_time: undefined,
+      },
+      ...albums
+    ]
+
+    logger.debug(`✅ [Facebook Albums] Processed ${albumsWithDefault.length} albums (including Timeline Photos)`)
+    return albumsWithDefault
   } catch (error: any) {
     logger.error("❌ [Facebook Albums] Error fetching albums:", error)
 

@@ -12,7 +12,8 @@ export class FacebookOptionsLoader implements ProviderOptionsLoader {
     'pageId',
     'recipientId',
     'postId',
-    'shareToGroups'
+    'shareToGroups',
+    'monetizationEligibility'
   ];
 
   canHandle(fieldName: string, providerId: string): boolean {
@@ -34,19 +35,23 @@ export class FacebookOptionsLoader implements ProviderOptionsLoader {
         case 'pageId':
           result = await this.loadPages(params);
           break;
-        
+
         case 'recipientId':
           result = await this.loadConversations(params);
           break;
-        
+
         case 'postId':
           result = await this.loadPosts(params);
           break;
-        
+
         case 'shareToGroups':
           result = await this.loadGroups(params);
           break;
-        
+
+        case 'monetizationEligibility':
+          result = await this.loadMonetizationEligibility(params);
+          break;
+
         default:
           result = [];
       }
@@ -239,15 +244,82 @@ export class FacebookOptionsLoader implements ProviderOptionsLoader {
     }
   }
 
+  private async loadMonetizationEligibility(params: LoadOptionsParams): Promise<FormattedOption[]> {
+    const { integrationId, dependsOnValue: pageId, signal } = params;
+
+    if (!pageId) {
+      logger.debug('🔍 [Facebook] Cannot check monetization eligibility without page ID');
+      return [{
+        value: 'no-page',
+        label: '⚠️ Select a page first',
+        disabled: true
+      }];
+    }
+
+    try {
+      const response = await fetch('/api/integrations/facebook/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          integrationId,
+          dataType: 'facebook_monetization_eligibility',
+          options: { pageId }
+        }),
+        signal
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to check monetization eligibility: ${response.status}`);
+      }
+
+      const result = await response.json();
+      const eligibilityData = result.data?.[0];
+
+      if (!eligibilityData) {
+        return [{
+          value: 'error',
+          label: '❌ Unable to check eligibility',
+          disabled: true
+        }];
+      }
+
+      // Create a single select option showing the eligibility status
+      const statusOption: FormattedOption = {
+        value: eligibilityData.eligible ? 'eligible' : 'not-eligible',
+        label: eligibilityData.message,
+        disabled: true,
+        metadata: {
+          eligible: eligibilityData.eligible,
+          requirements: eligibilityData.requirements,
+          followerCount: eligibilityData.followerCount,
+          viewMinutes: eligibilityData.viewMinutes
+        }
+      };
+
+      return [statusOption];
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        throw error;
+      }
+      logger.error('❌ [Facebook] Error checking monetization eligibility:', error);
+      return [{
+        value: 'error',
+        label: '❌ Error checking eligibility',
+        disabled: true
+      }];
+    }
+  }
+
   getFieldDependencies(fieldName: string): string[] {
     switch (fieldName) {
       case 'recipientId':
       case 'postId':
+      case 'monetizationEligibility':
         return ['pageId'];
-      
+
       case 'shareToGroups':
         return []; // Groups don't depend on page selection
-      
+
       default:
         return [];
     }
@@ -255,6 +327,6 @@ export class FacebookOptionsLoader implements ProviderOptionsLoader {
 
   shouldResetOnDependencyChange(fieldName: string): boolean {
     // Reset dependent fields when page changes
-    return ['recipientId', 'postId'].includes(fieldName);
+    return ['recipientId', 'postId', 'monetizationEligibility'].includes(fieldName);
   }
 }

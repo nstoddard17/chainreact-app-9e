@@ -121,6 +121,7 @@ export function HomeContent() {
   const [connectAppsDialog, setConnectAppsDialog] = useState(false)
   const [appSearchQuery, setAppSearchQuery] = useState("")
   const [connectingApp, setConnectingApp] = useState<string | null>(null)
+  const [newlyConnectedApp, setNewlyConnectedApp] = useState<string | null>(null)
   const [shareDialog, setShareDialog] = useState<{ open: boolean; workflowId: string | null }>({ open: false, workflowId: null })
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; workflowId: string | null; workflowName: string }>({ open: false, workflowId: null, workflowName: '' })
   const [loading, setLoading] = useState<Record<string, boolean>>({})
@@ -175,6 +176,23 @@ export function HomeContent() {
       window.removeEventListener('organization-changed', handleOrgChange as EventListener)
     }
   }, [organizations])
+
+  // Check for newly connected app and show green highlight that fades
+  useEffect(() => {
+    const newlyConnected = localStorage.getItem('newly_connected_app')
+    if (newlyConnected) {
+      setNewlyConnectedApp(newlyConnected)
+      // Clear from localStorage
+      localStorage.removeItem('newly_connected_app')
+
+      // Fade out after 2 seconds
+      const fadeTimeout = setTimeout(() => {
+        setNewlyConnectedApp(null)
+      }, 2000)
+
+      return () => clearTimeout(fadeTimeout)
+    }
+  }, [])
 
   const fetchExecutionStats = async () => {
     try {
@@ -1520,6 +1538,7 @@ export function HomeContent() {
                   .map(app => {
                     const isConnected = getConnectedProviders().includes(app.id)
                     const isConnecting = connectingApp === app.id
+                    const isNewlyConnected = newlyConnectedApp === app.id
 
                     return (
                       <button
@@ -1528,6 +1547,10 @@ export function HomeContent() {
                           if (isConnected || isConnecting) return
 
                           setConnectingApp(app.id)
+
+                          let cleanup: (() => void) | null = null
+                          let checkPopupInterval: NodeJS.Timeout | null = null
+
                           try {
                             // Generate OAuth URL
                             const response = await fetch('/api/integrations/auth/generate-url', {
@@ -1551,13 +1574,78 @@ export function HomeContent() {
                                 `width=${width},height=${height},left=${left},top=${top}`
                               )
 
-                              // Listen for OAuth completion
-                              const checkPopup = setInterval(() => {
+                              let messageReceived = false
+                              let broadcastChannel: BroadcastChannel | null = null
+
+                              // Cleanup function
+                              cleanup = () => {
+                                window.removeEventListener('message', handleOAuthMessage)
+                                if (broadcastChannel) {
+                                  broadcastChannel.close()
+                                }
+                                if (checkPopupInterval) {
+                                  clearInterval(checkPopupInterval)
+                                }
+                              }
+
+                              // Listen for OAuth completion message
+                              const handleOAuthMessage = (event: MessageEvent) => {
+                                if (event.data?.type === 'oauth-complete') {
+                                  messageReceived = true
+                                  cleanup?.()
+
+                                  if (event.data.success) {
+                                    // Store newly connected app in localStorage
+                                    localStorage.setItem('newly_connected_app', app.id)
+                                    // Success - refresh integrations
+                                    window.location.reload()
+                                  } else {
+                                    // Only show error toast - popup already showed visual feedback
+                                    toast({
+                                      title: "Connection Failed",
+                                      description: event.data.error || "Failed to connect. Please try again.",
+                                      variant: "destructive",
+                                    })
+                                    setConnectingApp(null)
+                                  }
+
+                                  popup?.close()
+                                }
+                              }
+
+                              window.addEventListener('message', handleOAuthMessage)
+
+                              // Also listen via BroadcastChannel (more reliable for same-origin)
+                              try {
+                                broadcastChannel = new BroadcastChannel('oauth_channel')
+                                broadcastChannel.onmessage = handleOAuthMessage
+                              } catch (e) {
+                                // BroadcastChannel not supported
+                              }
+
+                              // Check if popup was blocked
+                              if (!popup || popup.closed) {
+                                cleanup?.()
+                                toast({
+                                  title: "Popup Blocked",
+                                  description: "Please allow popups for this site and try again.",
+                                  variant: "destructive",
+                                })
+                                setConnectingApp(null)
+                                return
+                              }
+
+                              // Handle popup closed without OAuth completion message
+                              checkPopupInterval = setInterval(() => {
                                 if (popup?.closed) {
-                                  clearInterval(checkPopup)
-                                  setConnectingApp(null)
-                                  // Refresh integrations
-                                  window.location.reload()
+                                  clearInterval(checkPopupInterval!)
+                                  cleanup?.()
+
+                                  // If no message received, user likely cancelled
+                                  if (!messageReceived) {
+                                    setConnectingApp(null)
+                                    // No toast needed - user intentionally closed the window
+                                  }
                                 }
                               }, 500)
                             } else {
@@ -1571,10 +1659,15 @@ export function HomeContent() {
                               variant: "destructive"
                             })
                             setConnectingApp(null)
+                          } finally {
+                            // Ensure cleanup happens even if error occurs
+                            // Don't clear connecting state here - let the popup handlers do it
                           }
                         }}
-                        className={`flex flex-col items-start gap-3 p-4 rounded-lg border text-left transition-all ${
-                          isConnected
+                        className={`flex flex-col items-start gap-3 p-4 rounded-lg border text-left transition-all duration-500 ${
+                          isNewlyConnected
+                            ? 'bg-green-100 dark:bg-green-900/40 border-green-400 dark:border-green-600 shadow-lg shadow-green-500/20'
+                            : isConnected
                             ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800'
                             : isConnecting
                             ? 'bg-muted/50 border-muted-foreground/20 cursor-wait'
@@ -1592,7 +1685,13 @@ export function HomeContent() {
                               className="w-full h-full object-contain"
                             />
                           </div>
-                          {isConnected && (
+                          {isNewlyConnected && (
+                            <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-500 dark:bg-green-600 text-white text-xs font-bold animate-pulse">
+                              <Check className="w-3 h-3" />
+                              New!
+                            </div>
+                          )}
+                          {isConnected && !isNewlyConnected && (
                             <div className="flex items-center gap-1 text-xs font-medium text-green-600 dark:text-green-500">
                               <Check className="w-3 h-3" />
                               Connected

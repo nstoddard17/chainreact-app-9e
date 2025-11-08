@@ -1144,9 +1144,45 @@ export async function uploadFacebookPhoto(
       formData.append('no_story', 'true')
     }
 
+    // Handle album selection: can be either an existing album ID or a new album name
+    let albumId = targetAlbum
+
+    if (targetAlbum) {
+      // Check if targetAlbum is a numeric ID or a name
+      // Facebook album IDs are numeric strings
+      const isNumericId = /^\d+$/.test(targetAlbum)
+
+      if (!isNumericId) {
+        // It's a new album name - create the album first
+        logger.debug('[Facebook] Creating new album:', targetAlbum)
+
+        const createAlbumResponse = await fetch(`https://graph.facebook.com/v19.0/${pageId}/albums`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${pageAccessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            name: targetAlbum,
+            message: `Album created by ChainReact workflow`
+          })
+        })
+
+        if (!createAlbumResponse.ok) {
+          const errorData = await createAlbumResponse.json().catch(() => ({}))
+          logger.warn('[Facebook] Failed to create album, uploading to Timeline Photos instead:', errorData.error?.message)
+          albumId = null // Fall back to default album
+        } else {
+          const albumData = await createAlbumResponse.json()
+          albumId = albumData.id
+          logger.debug('[Facebook] Album created successfully:', albumId)
+        }
+      }
+    }
+
     // Determine upload endpoint
-    const uploadEndpoint = targetAlbum
-      ? `https://graph.facebook.com/v19.0/${targetAlbum}/photos`
+    const uploadEndpoint = albumId
+      ? `https://graph.facebook.com/v19.0/${albumId}/photos`
       : `https://graph.facebook.com/v19.0/${pageId}/photos`
 
     logger.debug('[Facebook] Uploading photo to:', uploadEndpoint)
@@ -1169,18 +1205,28 @@ export async function uploadFacebookPhoto(
 
     logger.debug('[Facebook] Photo uploaded successfully:', result)
 
+    // Determine success message
+    let successMessage = "Photo uploaded successfully to Facebook"
+    if (albumId && albumId !== targetAlbum) {
+      successMessage = `Photo uploaded successfully to newly created album "${targetAlbum}"`
+    } else if (albumId) {
+      successMessage = "Photo uploaded successfully to selected album"
+    }
+
     return {
       success: true,
       output: {
         photoId: result.id,
         pageId: pageId,
-        albumId: targetAlbum || null,
+        albumId: albumId || null,
+        albumName: targetAlbum || null,
+        albumCreated: albumId && albumId !== targetAlbum,
         postId: result.post_id || null,
         caption: caption,
         published: published !== false,
         facebookResponse: result
       },
-      message: "Photo uploaded successfully to Facebook"
+      message: successMessage
     }
 
   } catch (error: any) {
@@ -1215,7 +1261,12 @@ export async function uploadFacebookVideo(
       scheduledPublishTime,
       published,
       targeting,
-      contentCategory
+      contentCategory,
+      enableMonetization,
+      customThumbnail,
+      embeddable,
+      allowSocialSharing,
+      captionsFile
     } = resolvedConfig
 
     if (!pageId || !videoFile) {
@@ -1270,6 +1321,31 @@ export async function uploadFacebookVideo(
       formData.append('content_category', contentCategory)
     }
 
+    // Video settings
+    if (embeddable !== undefined) {
+      formData.append('embeddable', String(embeddable))
+    }
+
+    if (allowSocialSharing !== undefined) {
+      formData.append('social_actions', String(allowSocialSharing))
+    }
+
+    // Monetization
+    if (enableMonetization === true) {
+      formData.append('is_eligible_for_monetization', 'true')
+      logger.debug('[Facebook] Monetization enabled for video upload')
+    }
+
+    // Custom thumbnail
+    if (customThumbnail) {
+      formData.append('thumb', customThumbnail)
+    }
+
+    // Captions
+    if (captionsFile) {
+      formData.append('captions_file_url', captionsFile)
+    }
+
     logger.debug('[Facebook] Uploading video to page:', pageId)
 
     // Upload video
@@ -1290,6 +1366,66 @@ export async function uploadFacebookVideo(
 
     logger.debug('[Facebook] Video uploaded successfully:', result)
 
+    // If monetization was requested, check if it was actually enabled
+    let monetizationStatus = {
+      requested: enableMonetization === true,
+      enabled: false,
+      eligibilityStatus: 'unknown' as 'unknown' | 'eligible' | 'not_eligible' | 'pending_review',
+      rejectionReason: undefined as string | undefined
+    }
+
+    if (enableMonetization === true && result.id) {
+      try {
+        logger.debug('[Facebook] Checking monetization status for video:', result.id)
+
+        // Fetch video details to check monetization status
+        const videoDetailsResponse = await fetch(
+          `https://graph.facebook.com/v19.0/${result.id}?fields=id,is_eligible_for_monetization,monetization_status&access_token=${pageAccessToken}`,
+          { method: 'GET' }
+        )
+
+        if (videoDetailsResponse.ok) {
+          const videoDetails = await videoDetailsResponse.json()
+
+          monetizationStatus.enabled = videoDetails.is_eligible_for_monetization === true
+
+          // Check monetization_status field if available
+          if (videoDetails.monetization_status) {
+            monetizationStatus.eligibilityStatus = videoDetails.monetization_status
+          } else if (videoDetails.is_eligible_for_monetization === true) {
+            monetizationStatus.eligibilityStatus = 'eligible'
+          } else if (videoDetails.is_eligible_for_monetization === false) {
+            monetizationStatus.eligibilityStatus = 'not_eligible'
+          }
+
+          logger.debug('[Facebook] Monetization status:', monetizationStatus)
+        } else {
+          logger.warn('[Facebook] Could not fetch monetization status')
+        }
+      } catch (error: any) {
+        logger.error('[Facebook] Error checking monetization status:', error)
+        // Continue without monetization status rather than failing the entire action
+      }
+    }
+
+    // Build success message
+    let successMessage = scheduledPublishTime
+      ? `Video uploaded and scheduled for ${new Date(scheduledPublishTime).toLocaleString()}`
+      : "Video uploaded successfully to Facebook"
+
+    // Add monetization feedback to message
+    if (monetizationStatus.requested) {
+      if (monetizationStatus.enabled) {
+        successMessage += ". ✅ Monetization enabled!"
+      } else if (monetizationStatus.eligibilityStatus === 'not_eligible') {
+        successMessage += ". ⚠️ Monetization was NOT enabled - Common reasons: video < 3 minutes, page doesn't meet requirements (10K+ followers, 600K+ watch minutes), content not advertiser-friendly, or copyright issues. Check Facebook Creator Studio > Monetization for detailed feedback and next steps."
+      } else if (monetizationStatus.eligibilityStatus === 'pending_review') {
+        successMessage += ". ⏳ Monetization pending review by Facebook - Check Creator Studio in 24-48 hours for approval status."
+      } else {
+        successMessage += ". ℹ️ Monetization status unclear - Check Facebook Creator Studio > Monetization tab for details. Status may update within 24 hours."
+      }
+    }
+
     return {
       success: true,
       output: {
@@ -1299,11 +1435,10 @@ export async function uploadFacebookVideo(
         description: description,
         published: published !== false && !scheduledPublishTime,
         scheduledPublishTime: scheduledPublishTime,
+        monetization: monetizationStatus,
         facebookResponse: result
       },
-      message: scheduledPublishTime
-        ? `Video uploaded and scheduled for ${new Date(scheduledPublishTime).toLocaleString()}`
-        : "Video uploaded successfully to Facebook"
+      message: successMessage
     }
 
   } catch (error: any) {
