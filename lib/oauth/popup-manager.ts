@@ -26,7 +26,8 @@ export class OAuthPopupManager {
   private static currentPopup: Window | null = null
   private static windowHasLostFocus = false
   private static initialized = false
-  
+  private static currentCleanup: (() => void) | null = null
+
   /**
    * Initialize and clean up any stale references
    */
@@ -44,6 +45,22 @@ export class OAuthPopupManager {
         }
       }
       this.initialized = true
+    }
+  }
+
+  /**
+   * Clean up any existing OAuth listeners
+   * CRITICAL: Call this before starting a new OAuth flow
+   */
+  private static cleanupExistingListeners(): void {
+    if (this.currentCleanup) {
+      try {
+        this.currentCleanup()
+        this.currentCleanup = null
+      } catch (e) {
+        logger.warn("Failed to cleanup existing listeners:", e)
+        this.currentCleanup = null
+      }
     }
   }
 
@@ -78,17 +95,20 @@ export class OAuthPopupManager {
    * Open OAuth popup window
    */
   static openOAuthPopup(
-    authUrl: string, 
+    authUrl: string,
     options: PopupOptions
   ): Window | null {
     const { width = 600, height = 700, provider } = options
-    
+
     // Initialize on first use
     this.initialize()
-    
+
+    // CRITICAL: Clean up any existing listeners from previous OAuth attempts
+    this.cleanupExistingListeners()
+
     // Close any existing popup before opening a new one
     this.closeExistingPopup()
-    
+
     // Add timestamp to make popup name unique each time
     const popupName = `oauth_popup_${provider}_${Date.now()}`
     const popupFeatures = `width=${width},height=${height},scrollbars=yes,resizable=yes`
@@ -179,7 +199,14 @@ export class OAuthPopupManager {
       window.removeEventListener("message", messageHandler)
       broadcastChannel?.close()
       this.currentPopup = null
+      // Clear the stored cleanup function reference
+      if (this.currentCleanup === cleanup) {
+        this.currentCleanup = null
+      }
     }
+
+    // Store cleanup function so it can be called globally
+    this.currentCleanup = cleanup
 
     const handleOAuthResponse = (data: any) => {
       // Handle OAuth response from any source (postMessage, BroadcastChannel, or localStorage)
@@ -377,14 +404,20 @@ export class OAuthPopupManager {
     provider: string,
     integrationId: string
   ): Promise<void> {
+    // CRITICAL: Clean up any existing listeners from previous OAuth attempts
+    this.cleanupExistingListeners()
+
+    // Close any existing popup
+    this.closeExistingPopup()
+
     // Calculate centered position
     const width = 600
     const height = 700
     const left = Math.max(0, (screen.width - width) / 2)
     const top = Math.max(0, (screen.height - height) / 2)
-    
+
     const popupName = `oauth_reconnect_${provider}_${Date.now()}`
-    
+
     // Clean up any existing storage entries
     // Note: microsoft-onenote can have different naming patterns in storage
     const storageCheckPrefixes = [
@@ -399,10 +432,7 @@ export class OAuthPopupManager {
         localStorage.removeItem(key)
       }
     }
-    
-    // Close any existing popup
-    this.closeExistingPopup()
-    
+
     const popup = window.open(
       authUrl,
       popupName,
