@@ -131,13 +131,12 @@ export function SetupTab(props: SetupTabProps) {
 
           if (event.data.success) {
             // Refresh integrations to get the new connection
+            // The UI will automatically update to show connected state
             await fetchIntegrations(true)
-
-            toast({
-              title: "Connection Successful",
-              description: `Your ${getProviderBrandName(nodeInfo.providerId)} account has been connected.`,
-            })
+            // No success toast - the popup already showed beautiful visual feedback
+            // and the UI state updates immediately to show the connection
           } else {
+            // Only show error toast - helps user understand what went wrong
             toast({
               title: "Connection Failed",
               description: event.data.error || "Failed to connect account. Please try again.",

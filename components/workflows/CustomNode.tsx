@@ -60,6 +60,7 @@ export interface CustomNodeData {
   isListening?: boolean
   errorMessage?: string
   errorTimestamp?: string
+  resultMessage?: string // Success/warning message from action execution
   parentChainIndex?: number
   isAIAgentChild?: boolean
   parentAIAgentId?: string
@@ -276,6 +277,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
     isListening,
     errorMessage,
     errorTimestamp,
+    resultMessage,
     parentChainIndex,
     isAIAgentChild,
     parentAIAgentId,
@@ -1515,6 +1517,47 @@ function CustomNode({ id, data, selected }: NodeProps) {
             </span>
             <p className="text-sm text-red-600 font-medium leading-snug flex-1">
               {validationMessage}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Execution result message (success, warning, or info from action) */}
+      {resultMessage && executionStatus === 'completed' && (
+        <div className={cn(
+          "border-b px-4 py-3",
+          resultMessage.includes('✅') || resultMessage.includes('enabled!')
+            ? "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800"
+            : resultMessage.includes('⚠️') || resultMessage.includes('NOT enabled')
+            ? "bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800"
+            : resultMessage.includes('⏳') || resultMessage.includes('pending')
+            ? "bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800"
+            : "bg-gray-50 border-gray-200 dark:bg-gray-900/20 dark:border-gray-800"
+        )}>
+          <div className="flex items-start gap-2">
+            {resultMessage.includes('✅') && (
+              <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+            )}
+            {resultMessage.includes('⚠️') && (
+              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+            )}
+            {resultMessage.includes('⏳') && (
+              <Loader2 className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0 animate-spin" />
+            )}
+            {resultMessage.includes('ℹ️') && (
+              <Info className="w-4 h-4 text-gray-600 dark:text-gray-400 mt-0.5 flex-shrink-0" />
+            )}
+            <p className={cn(
+              "text-xs font-medium leading-snug flex-1 whitespace-pre-wrap",
+              resultMessage.includes('✅') || resultMessage.includes('enabled!')
+                ? "text-green-700 dark:text-green-300"
+                : resultMessage.includes('⚠️') || resultMessage.includes('NOT enabled')
+                ? "text-amber-700 dark:text-amber-300"
+                : resultMessage.includes('⏳') || resultMessage.includes('pending')
+                ? "text-blue-700 dark:text-blue-300"
+                : "text-gray-700 dark:text-gray-300"
+            )}>
+              {resultMessage}
             </p>
           </div>
         </div>

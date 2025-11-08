@@ -1551,13 +1551,73 @@ export function HomeContent() {
                                 `width=${width},height=${height},left=${left},top=${top}`
                               )
 
-                              // Listen for OAuth completion
+                              let messageReceived = false
+                              let broadcastChannel: BroadcastChannel | null = null
+
+                              // Cleanup function
+                              const cleanup = () => {
+                                window.removeEventListener('message', handleOAuthMessage)
+                                if (broadcastChannel) {
+                                  broadcastChannel.close()
+                                }
+                              }
+
+                              // Listen for OAuth completion message
+                              const handleOAuthMessage = (event: MessageEvent) => {
+                                if (event.data?.type === 'oauth-complete') {
+                                  messageReceived = true
+                                  cleanup()
+
+                                  if (event.data.success) {
+                                    // Success - refresh integrations
+                                    window.location.reload()
+                                  } else {
+                                    // Only show error toast - popup already showed visual feedback
+                                    toast({
+                                      title: "Connection Failed",
+                                      description: event.data.error || "Failed to connect. Please try again.",
+                                      variant: "destructive",
+                                    })
+                                    setConnectingApp(null)
+                                  }
+
+                                  popup?.close()
+                                }
+                              }
+
+                              window.addEventListener('message', handleOAuthMessage)
+
+                              // Also listen via BroadcastChannel (more reliable for same-origin)
+                              try {
+                                broadcastChannel = new BroadcastChannel('oauth_channel')
+                                broadcastChannel.onmessage = handleOAuthMessage
+                              } catch (e) {
+                                // BroadcastChannel not supported
+                              }
+
+                              // Check if popup was blocked
+                              if (!popup || popup.closed) {
+                                cleanup()
+                                toast({
+                                  title: "Popup Blocked",
+                                  description: "Please allow popups for this site and try again.",
+                                  variant: "destructive",
+                                })
+                                setConnectingApp(null)
+                                return
+                              }
+
+                              // Handle popup closed without OAuth completion message
                               const checkPopup = setInterval(() => {
                                 if (popup?.closed) {
                                   clearInterval(checkPopup)
-                                  setConnectingApp(null)
-                                  // Refresh integrations
-                                  window.location.reload()
+                                  cleanup()
+
+                                  // If no message received, user likely cancelled
+                                  if (!messageReceived) {
+                                    setConnectingApp(null)
+                                    // No toast needed - user intentionally closed the window
+                                  }
                                 }
                               }, 500)
                             } else {

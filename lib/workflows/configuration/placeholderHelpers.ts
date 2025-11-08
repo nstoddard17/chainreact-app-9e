@@ -10,6 +10,8 @@ interface PlaceholderOptions {
   fieldType: string
   integrationId?: string
   required?: boolean
+  fieldLabel?: string
+  existingPlaceholder?: string
 }
 
 /**
@@ -17,10 +19,35 @@ interface PlaceholderOptions {
  * Updated to show format instructions instead of examples
  */
 export function generatePlaceholder(options: PlaceholderOptions): string {
-  const { fieldName, fieldType, integrationId = '' } = options
-  const nameLower = fieldName.toLowerCase()
+  const { fieldName, fieldType, integrationId = '', fieldLabel = '', existingPlaceholder = '' } = options
 
-  // Dates (check before email to avoid "custom" containing "to")
+  // If field already has a good placeholder defined, use it
+  if (existingPlaceholder && existingPlaceholder !== '') {
+    return existingPlaceholder
+  }
+
+  const nameLower = fieldName.toLowerCase()
+  const labelLower = fieldLabel.toLowerCase()
+
+  // URLs (check BEFORE dates to avoid "custom" in "customThumbnail" triggering date logic)
+  // Check both field name AND label for URL indicators
+  if (nameLower.includes('url') || nameLower.includes('link') || nameLower.includes('webhook') ||
+      labelLower.includes('url') || labelLower.includes('link') || labelLower.includes('webhook')) {
+    if (nameLower.includes('thumbnail') || nameLower.includes('image') || nameLower.includes('avatar') ||
+        labelLower.includes('thumbnail') || labelLower.includes('image') || labelLower.includes('avatar')) {
+      return 'https://example.com/image.jpg or {{Image URL}}'
+    }
+    if (nameLower.includes('caption') || labelLower.includes('caption') ||
+        nameLower.includes('subtitle') || labelLower.includes('subtitle')) {
+      return 'https://example.com/captions.srt or {{Captions URL}}'
+    }
+    if (nameLower.includes('webhook') || labelLower.includes('webhook')) {
+      return 'https://hooks.example.com/webhook or {{Webhook URL}}'
+    }
+    return 'https://example.com or {{Variable}}'
+  }
+
+  // Dates (check after URLs to avoid "custom" in URL fields)
   if (nameLower.includes('date') || nameLower.includes('due') || nameLower.includes('modified') || nameLower.includes('created') || nameLower.includes('custom')) {
     return '2024-01-01 or {{Variable}}'
   }
@@ -61,17 +88,6 @@ export function generatePlaceholder(options: PlaceholderOptions): string {
   // Descriptions
   if (nameLower.includes('description') || nameLower.includes('summary')) {
     return 'Enter description or {{Description Variable}}'
-  }
-
-  // URLs
-  if (nameLower.includes('url') || nameLower.includes('link') || nameLower.includes('webhook')) {
-    if (nameLower.includes('thumbnail') || nameLower.includes('image') || nameLower.includes('avatar')) {
-      return 'https://example.com/image.jpg or {{Image URL}}'
-    }
-    if (nameLower.includes('webhook')) {
-      return 'https://hooks.example.com/webhook or {{Webhook URL}}'
-    }
-    return 'https://example.com or {{Variable}}'
   }
 
   // Channels/Rooms
@@ -143,8 +159,9 @@ export function generatePlaceholder(options: PlaceholderOptions): string {
  * Generate help text for a field based on its name and type
  */
 export function generateHelpText(options: PlaceholderOptions): string | undefined {
-  const { fieldName, fieldType, integrationId = '' } = options
+  const { fieldName, fieldType, integrationId = '', fieldLabel = '' } = options
   const nameLower = fieldName.toLowerCase()
+  const labelLower = fieldLabel.toLowerCase()
 
   // Email recipients
   if (nameLower.includes('recipient') || (nameLower.includes('email') && nameLower.includes('to'))) {
@@ -205,8 +222,9 @@ export function generateHelpText(options: PlaceholderOptions): string | undefine
  * Generate example values for field tooltips
  */
 export function generateExamples(options: PlaceholderOptions): string[] {
-  const { fieldName, fieldType, integrationId = '' } = options
+  const { fieldName, fieldType, integrationId = '', fieldLabel = '' } = options
   const nameLower = fieldName.toLowerCase()
+  const labelLower = fieldLabel.toLowerCase()
 
   // Email fields
   if (nameLower.includes('email') || nameLower.includes('recipient')) {

@@ -577,6 +577,24 @@ export function ExecutionHistoryModal({
 
                                 {expandedSteps.has(step.id) && (
                                   <div className="p-4 border-t bg-white dark:bg-gray-900">
+                                    {/* Display result message if available (human-friendly feedback) */}
+                                    {step.output_data?.message && (
+                                      <div className={cn(
+                                        "mb-4 p-4 rounded-lg border",
+                                        step.status === 'completed'
+                                          ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-900 dark:text-green-100"
+                                          : "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-100"
+                                      )}>
+                                        <div className="flex items-start gap-2">
+                                          <CheckCircle2 className="h-5 w-5 mt-0.5 flex-shrink-0" />
+                                          <div className="flex-1">
+                                            <div className="font-medium text-sm mb-1">Result</div>
+                                            <div className="text-sm whitespace-pre-wrap">{step.output_data.message}</div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+
                                     <Tabs defaultValue="output" className="w-full">
                                       <TabsList className="grid w-full grid-cols-4">
                                         <TabsTrigger value="input">Input</TabsTrigger>

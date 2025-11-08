@@ -157,18 +157,24 @@ export function MultipleRecordsField({
                   </span>
                 </div>
                 {records.length > 1 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
+                  <div
+                    role="button"
+                    tabIndex={0}
                     onClick={(e) => {
                       e.stopPropagation();
                       handleRemoveRecord(index);
                     }}
-                    className="h-8 w-8 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleRemoveRecord(index);
+                      }
+                    }}
+                    className="inline-flex items-center justify-center h-8 w-8 rounded-md hover:bg-destructive hover:text-destructive-foreground transition-colors cursor-pointer"
                   >
                     <Trash2 className="h-4 w-4" />
-                  </Button>
+                  </div>
                 )}
               </div>
             </AccordionTrigger>
@@ -176,17 +182,44 @@ export function MultipleRecordsField({
               <div className="space-y-4">
                 {editableFields.map((airtableField: any) => {
                   // Convert Airtable field to config field format
+                  const fieldType = getFieldType(airtableField.type);
+                  const fieldName = `airtable_field_${airtableField.name}`;
+
+                  // Determine if field should load dynamic options
+                  const needsDynamicOptions = [
+                    'multipleRecordLinks',
+                    'multipleCollaborators',
+                    'singleCollaborator',
+                    'singleSelect',
+                    'multipleSelects'
+                  ].includes(airtableField.type);
+
                   const configField = {
-                    name: airtableField.name,
+                    name: fieldName,
                     label: airtableField.name,
-                    type: getFieldType(airtableField.type),
+                    type: fieldType,
                     required: false,
                     description: airtableField.description,
+                    dynamic: needsDynamicOptions,
+                    airtableFieldType: airtableField.type,
+                    airtableFieldId: airtableField.id,
+                    // For select fields, provide static options from schema as fallback
                     options: airtableField.options?.choices?.map((choice: any) => ({
                       value: choice.name,
                       label: choice.name
-                    }))
+                    })),
+                    // Allow creating new values for select fields (even when dynamic)
+                    creatable: ['singleSelect', 'multipleSelects'].includes(airtableField.type)
                   };
+
+                  // Debug logging to see what options are available
+                  console.log(`[MultipleRecordsField] Field: ${fieldName}`, {
+                    fieldType: airtableField.type,
+                    needsDynamicOptions,
+                    hasOptionsInDynamicOptions: !!dynamicOptions[fieldName],
+                    optionsCount: dynamicOptions[fieldName]?.length || 0,
+                    allDynamicOptionsKeys: Object.keys(dynamicOptions)
+                  });
 
                   return (
                     <FieldRenderer

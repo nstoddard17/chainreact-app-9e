@@ -865,8 +865,36 @@ const facebookActionUploadVideo: NodeComponent = {
       { value: "21", label: "21+" }
     ], description: "Minimum age for viewers" },
 
-    // Monetization
-    { name: "enableMonetization", label: "💰 Enable Video Monetization", type: "boolean", required: false, defaultValue: false, dependsOn: "pageId", description: "Enable ad breaks for eligible videos (must meet Facebook's monetization requirements)" }
+    // Monetization eligibility check
+    {
+      name: "monetizationEligibility",
+      label: "Monetization Status",
+      type: "select",
+      dynamic: "facebook_monetization_eligibility",
+      required: false,
+      dependsOn: "pageId",
+      hideLabel: false,
+      disabled: true,
+      description: "Checking if your page meets Facebook's monetization requirements...",
+      helpText: "Facebook requires: 10,000+ followers, 600,000+ watch minutes (60 days), 3+ minute videos, eligible country, and compliance with Partner Monetization Policies"
+    },
+
+    // Monetization toggle (conditionally enabled based on eligibility)
+    {
+      name: "enableMonetization",
+      label: "💰 Enable Video Monetization",
+      type: "boolean",
+      required: false,
+      defaultValue: false,
+      dependsOn: "pageId",
+      disabledWhen: {
+        field: "monetizationEligibility",
+        operator: "equals",
+        value: "not-eligible"
+      },
+      description: "Enable ad breaks for eligible videos (must be 3+ minutes long). Toggle is disabled if your page doesn't meet follower requirements. Check workflow execution results to see if monetization was approved by Facebook.",
+      helpText: "Monetization allows you to earn revenue from ad breaks in your videos. Requirements: 10K+ page followers, 600K+ watch minutes (60 days), 3+ minute video, advertiser-friendly content. If rejected after upload, check: 1) Video length (must be 3+ mins), 2) Content guidelines compliance, 3) Copyright issues, 4) Facebook Creator Studio for detailed feedback. You can also use workflow conditions to send notifications if {{Monetization Enabled}} = false."
+    }
   ],
   outputSchema: [
     {
@@ -892,6 +920,30 @@ const facebookActionUploadVideo: NodeComponent = {
       label: "Created Time",
       type: "string",
       description: "ISO timestamp when the video was uploaded"
+    },
+    {
+      name: "monetization",
+      label: "Monetization Status",
+      type: "object",
+      description: "Object containing monetization status details including whether it was requested, enabled, and eligibility status"
+    },
+    {
+      name: "monetization.requested",
+      label: "Monetization Requested",
+      type: "boolean",
+      description: "Whether monetization was requested when uploading the video"
+    },
+    {
+      name: "monetization.enabled",
+      label: "Monetization Enabled",
+      type: "boolean",
+      description: "Whether Facebook actually enabled monetization for this video (false if requirements not met)"
+    },
+    {
+      name: "monetization.eligibilityStatus",
+      label: "Eligibility Status",
+      type: "string",
+      description: "Facebook's eligibility determination: 'eligible', 'not_eligible', 'pending_review', or 'unknown'"
     }
   ]
 }
