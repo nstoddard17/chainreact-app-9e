@@ -379,9 +379,10 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     accessTokenExpiryBuffer: 30,
     sendRedirectUriWithRefresh: true,
     redirectUriPath: "/api/integrations/hubspot/callback",
-    // NOTE: 'webhooks' scope is REQUIRED for Public App to create/manage webhook subscriptions via API
-    // Without this scope, you'll get 403 Forbidden when trying to create webhooks programmatically
-    scope: "oauth webhooks crm.lists.read crm.lists.write crm.objects.contacts.read crm.objects.contacts.write crm.objects.companies.read crm.objects.companies.write crm.objects.deals.read crm.objects.deals.write",
+    // NOTE: 'oauth' scope is REQUIRED for basic OAuth functionality
+    // 'webhooks' scope is optional - only needed if creating webhooks programmatically via API
+    // If you get a webhooks scope error, remove it from your HubSpot app settings
+    scope: "oauth crm.lists.read crm.lists.write crm.objects.contacts.read crm.objects.contacts.write crm.objects.companies.read crm.objects.companies.write crm.objects.deals.read crm.objects.deals.write",
   },
   airtable: {
     id: "airtable",

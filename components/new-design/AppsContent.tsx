@@ -89,32 +89,31 @@ export function AppsContent() {
 
     try {
       // Use the store's connectIntegration method which handles optimistic updates
-      const result = await connectIntegration(providerId)
+      await connectIntegration(providerId)
 
-      // Close the dialog to show the newly connected app
-      setShowConnectDialog(false)
+      // Keep modal open so user can connect more apps without reopening
+      // The connected app will automatically disappear from the list
 
-      // Get provider display name for better toast messaging
-      const provider = providers.find(p => p.id === providerId)
-      const displayName = provider?.name || providerId
-
-      toast({
-        title: "Integration Connected",
-        description: `${displayName} connected successfully.`,
-      })
+      // No toast on success - user requested removal
     } catch (error: any) {
-      logger.error("Connection error:", error)
+      // Don't show error toast if user cancelled (contains "cancel" in message)
+      const isCancellation = error?.message?.toLowerCase().includes('cancel')
 
-      // Get provider display name for error message too
-      const provider = providers.find(p => p.id === providerId)
-      const displayName = provider?.name || providerId
+      if (!isCancellation) {
+        logger.error("Connection error:", error)
 
-      toast({
-        title: "Connection Error",
-        description: error?.message || `Failed to connect ${displayName}. Please try again.`,
-        variant: "destructive",
-      })
+        // Get provider display name for error message
+        const provider = providers.find(p => p.id === providerId)
+        const displayName = provider?.name || providerId
+
+        toast({
+          title: "Connection Error",
+          description: error?.message || `Failed to connect ${displayName}. Please try again.`,
+          variant: "destructive",
+        })
+      }
     } finally {
+      // Always clear loading state immediately when OAuth closes
       setLocalLoading(prev => ({ ...prev, [providerId]: false }))
     }
   }

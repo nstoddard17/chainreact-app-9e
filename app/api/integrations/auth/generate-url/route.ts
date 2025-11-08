@@ -176,6 +176,9 @@ export async function POST(request: NextRequest) {
       case "youtube-studio":
         authUrl = generateGoogleAuthUrl("youtube-studio", finalState)
         break
+      case "google-analytics":
+        authUrl = generateGoogleAuthUrl("google-analytics", finalState)
+        break
 
       case "notion":
         authUrl = await generateNotionAuthUrl(stateObject, supabaseAdmin)
@@ -406,6 +409,9 @@ function generateGoogleAuthUrl(service: string, state: string): string {
       break
     case "youtube-studio":
       scopes += " https://www.googleapis.com/auth/youtubepartner"
+      break
+    case "google-analytics":
+      scopes += " https://www.googleapis.com/auth/analytics.readonly https://www.googleapis.com/auth/analytics.edit"
       break
     default:
       // Use base scopes for unknown services
@@ -796,8 +802,10 @@ async function generateHubSpotAuthUrl(stateObject: any, supabase: any): Promise<
   // https://app.hubspot.com/developer/{your-account-id}/application/{your-app-id}
   //
   // 'oauth' scope is REQUIRED for basic OAuth functionality
-  // 'webhooks' scope is REQUIRED for Public App to create/manage webhook subscriptions via API
-  const hubspotScopes = "oauth webhooks crm.lists.read crm.lists.write crm.objects.contacts.read crm.objects.contacts.write crm.objects.companies.read crm.objects.companies.write crm.objects.deals.read crm.objects.deals.write"
+  // 'webhooks' scope is only needed if you want to create webhooks programmatically
+  //   - If you get a webhooks scope error, you can remove it and still use the app
+  //   - Only include if your HubSpot app is configured as a Public App with webhooks enabled
+  const hubspotScopes = "oauth crm.lists.read crm.lists.write crm.objects.contacts.read crm.objects.contacts.write crm.objects.companies.read crm.objects.companies.write crm.objects.deals.read crm.objects.deals.write"
 
   const params = new URLSearchParams({
     client_id: clientId,
