@@ -443,7 +443,28 @@ export function GenericSelectField({
       }
     }
   }, [value, options, getFriendlyVariableLabel, workflowNodes, loadCachedLabel, saveLabelToCache]);
-  
+
+  // Auto-select single option for disabled fields (e.g., monetization eligibility status)
+  React.useEffect(() => {
+    // Only auto-select if:
+    // 1. Field is disabled (status/info fields)
+    // 2. There's exactly one option
+    // 3. Value is not already set
+    // 4. Not loading
+    if (field.disabled && options.length === 1 && !value && !isLoading) {
+      const singleOption = options[0];
+      const optionValue = singleOption.value || singleOption.id;
+
+      logger.debug('[GenericSelectField] Auto-selecting single option for disabled field:', {
+        fieldName: field.name,
+        optionValue,
+        optionLabel: singleOption.label
+      });
+
+      onChange(optionValue);
+    }
+  }, [field.disabled, field.name, options, value, isLoading, onChange]);
+
   // If we still don't have a display label yet but a value exists, attempt to load cached label once
   React.useEffect(() => {
     if (!displayLabel && value) {

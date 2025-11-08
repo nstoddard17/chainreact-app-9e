@@ -3101,8 +3101,28 @@ export function useWorkflowBuilder() {
       })
       return
     }
-    return executionHook.handleExecuteLive(currentNodes, currentEdges)
-  }, [getNodes, getEdges, executionHook, runPreflightCheck, toast])
+
+    // Callback to update nodes with result messages after execution
+    const onNodesUpdate = (nodeUpdates: Array<{ nodeId: string; resultMessage: string }>) => {
+      setNodes((nodes) =>
+        nodes.map((node) => {
+          const update = nodeUpdates.find(u => u.nodeId === node.id)
+          if (update) {
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                resultMessage: update.resultMessage,
+              }
+            }
+          }
+          return node
+        })
+      )
+    }
+
+    return executionHook.handleExecuteLive(currentNodes, currentEdges, onNodesUpdate)
+  }, [getNodes, getEdges, setNodes, executionHook, runPreflightCheck, toast])
 
   const handleExecuteLiveSequential = useCallback(async () => {
     const currentNodes = getNodes()
@@ -3118,8 +3138,28 @@ export function useWorkflowBuilder() {
       })
       return
     }
-    return executionHook.handleExecuteLiveSequential(currentNodes, currentEdges)
-  }, [getNodes, getEdges, executionHook, runPreflightCheck, toast])
+
+    // Callback to update nodes with result messages after execution
+    const onNodesUpdate = (nodeUpdates: Array<{ nodeId: string; resultMessage: string }>) => {
+      setNodes((nodes) =>
+        nodes.map((node) => {
+          const update = nodeUpdates.find(u => u.nodeId === node.id)
+          if (update) {
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                resultMessage: update.resultMessage,
+              }
+            }
+          }
+          return node
+        })
+      )
+    }
+
+    return executionHook.handleExecuteLiveSequential(currentNodes, currentEdges, onNodesUpdate)
+  }, [getNodes, getEdges, setNodes, executionHook, runPreflightCheck, toast])
 
   const templateSettingsLabel = useMemo(() => {
     if (!isTemplateEditing) return 'Template Settings'

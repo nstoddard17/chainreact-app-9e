@@ -790,31 +790,20 @@ async function generateHubSpotAuthUrl(stateObject: any, supabase: any): Promise<
     throw new Error(`Failed to store HubSpot OAuth state: ${error.message}`)
   }
 
-  // HubSpot scopes - using the minimum required for our actions
+  // HubSpot scopes - IMPORTANT: Must match oauthConfig.ts
   // Note: These scopes must be configured in your HubSpot app settings
   // If you get a scope error, ensure these are enabled in your HubSpot app at:
   // https://app.hubspot.com/developer/{your-account-id}/application/{your-app-id}
-  const hubspotScopes = [
-    "crm.objects.contacts.read",
-    "crm.objects.contacts.write",
-    "crm.objects.companies.read",
-    "crm.objects.companies.write",
-    "crm.objects.deals.read",
-    "crm.objects.deals.write",
-    "crm.lists.read", // Required for Add Contact to List action
-    "crm.lists.write" // Required for Add Contact to List action
-  ]
+  //
+  // 'oauth' scope is REQUIRED for basic OAuth functionality
+  // 'webhooks' scope is REQUIRED for Public App to create/manage webhook subscriptions via API
+  const hubspotScopes = "oauth webhooks crm.lists.read crm.lists.write crm.objects.contacts.read crm.objects.contacts.write crm.objects.companies.read crm.objects.companies.write crm.objects.deals.read crm.objects.deals.write"
 
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: `${baseUrl}/api/integrations/hubspot/callback`,
-    response_type: "code",
-    scope: hubspotScopes.join(" "),
-    access_type: "offline",
+    scope: hubspotScopes,
     state,
-    // Force re-approval to prevent cached authorization issues
-    // This ensures HubSpot shows the authorization screen instead of auto-redirecting
-    approval_prompt: "force"
   })
 
   return `https://app.hubspot.com/oauth/authorize?${params.toString()}`

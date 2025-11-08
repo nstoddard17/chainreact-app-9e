@@ -481,12 +481,14 @@ export function FieldRenderer({
       fieldName: field.name,
       fieldType: field.type,
       integrationId: providerId,
-      required: field.required
+      required: field.required,
+      fieldLabel: field.label || ''
     });
     const examples = generateExamples({
       fieldName: field.name,
       fieldType: field.type,
-      integrationId: providerId
+      integrationId: providerId,
+      fieldLabel: field.label || ''
     });
     const keyboardHint = getKeyboardHint({
       fieldName: field.name,
@@ -526,13 +528,43 @@ export function FieldRenderer({
    */
   const getSmartPlaceholder = (): string => {
     const providerId = getProviderId();
-    // Always generate smart placeholder (override field.placeholder)
+    // Generate smart placeholder, but respect existing field placeholder if defined
     return generatePlaceholder({
       fieldName: field.name,
       fieldType: field.type,
       integrationId: providerId,
-      required: field.required
+      required: field.required,
+      fieldLabel: field.label || '',
+      existingPlaceholder: field.placeholder || ''
     });
+  };
+
+  /**
+   * Check if field should be disabled based on disabledWhen condition
+   */
+  const isFieldDisabled = (): boolean => {
+    // Check if field has a base disabled property
+    if (field.disabled) return true;
+
+    // Check if field has a disabledWhen condition
+    const disabledWhen = (field as any).disabledWhen;
+    if (!disabledWhen) return false;
+
+    const { field: condField, operator, value: condValue } = disabledWhen;
+    const otherFieldValue = parentValues?.[condField];
+
+    switch (operator) {
+      case 'equals':
+        return otherFieldValue === condValue;
+      case 'notEquals':
+        return otherFieldValue !== condValue;
+      case 'isEmpty':
+        return !otherFieldValue || otherFieldValue === '';
+      case 'isNotEmpty':
+        return !!otherFieldValue && otherFieldValue !== '';
+      default:
+        return false;
+    }
   };
 
   // Handles checkbox changes
@@ -1498,13 +1530,20 @@ export function FieldRenderer({
         );
 
       case "boolean":
+        const isBooleanDisabled = isFieldDisabled();
         return (
           <div className="flex items-center justify-between">
             <div className="flex-1 flex items-center gap-2">
               <div className="p-1.5 bg-muted rounded-md text-muted-foreground">
                 {getFieldIcon(field.name, field.type)}
               </div>
-              <Label htmlFor={field.name} className="text-sm font-medium text-slate-700">
+              <Label
+                htmlFor={field.name}
+                className={cn(
+                  "text-sm font-medium",
+                  isBooleanDisabled ? "text-slate-400" : "text-slate-700"
+                )}
+              >
                 {field.label || field.name}
               </Label>
               {(field.helpText || field.tooltip || field.description) && tooltipsEnabled && (
@@ -1528,6 +1567,7 @@ export function FieldRenderer({
               id={field.name}
               checked={value || false}
               onCheckedChange={onChange}
+              disabled={isBooleanDisabled}
               className="ml-4"
             />
           </div>
@@ -2212,12 +2252,14 @@ export function FieldRenderer({
     fieldName: field.name,
     fieldType: field.type,
     integrationId: providerId,
-    required: field.required
+    required: field.required,
+    fieldLabel: field.label || ''
   });
   const examples = generateExamples({
     fieldName: field.name,
     fieldType: field.type,
-    integrationId: providerId
+    integrationId: providerId,
+    fieldLabel: field.label || ''
   });
   const hasTooltipContent = helpText || examples.length > 0;
 
