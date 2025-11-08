@@ -689,18 +689,18 @@ const facebookActionUploadPhoto: NodeComponent = {
     { name: "photoUrl", label: "Photo URL", type: "text", required: false, placeholder: "https://example.com/image.jpg", dependsOn: "pageId", visibilityCondition: { field: "photoSource", operator: "equals", value: "url" }, description: "Direct URL to the image to upload" },
 
     // Caption and content
-    { name: "caption", label: "Caption (Optional)", type: "textarea", required: false, placeholder: "Add a caption to your photo", dependsOn: "pageId", description: "Text to accompany the photo" },
+    { name: "caption", label: "Caption (Optional)", type: "textarea", required: false, placeholder: "Check out our new product! 🎉", dependsOn: "pageId", description: "Text to accompany the photo" },
 
     // Posting options
     { name: "noStory", label: "Upload Without Posting", type: "boolean", required: false, defaultValue: false, dependsOn: "pageId", description: "Upload to page album without creating a post (useful for later use)" },
     { name: "published", label: "Publish Status", type: "select", required: false, defaultValue: "true", dependsOn: "pageId", visibilityCondition: { field: "noStory", operator: "equals", value: false }, options: [
       { value: "true", label: "Publish immediately" },
-      { value: "false", label: "Save as draft" }
-    ], description: "Choose whether to publish immediately or save as draft" },
-    { name: "scheduledPublishTime", label: "Schedule for Later", type: "datetime-local", required: false, placeholder: "Leave empty to post immediately", dependsOn: "pageId", visibilityCondition: { field: "noStory", operator: "equals", value: false }, description: "Schedule your photo post for optimal engagement time" },
+      { value: "false", label: "Schedule for later" }
+    ], description: "Choose whether to publish immediately or schedule for later" },
+    { name: "scheduledPublishTime", label: "Scheduled Date & Time", type: "datetime-local", required: false, placeholder: "Select date and time", dependsOn: "pageId", visibilityCondition: { field: "published", operator: "equals", value: "false" }, description: "Schedule your photo post for optimal engagement time" },
 
     // Album selection
-    { name: "targetAlbum", label: "Upload to Specific Album", type: "combobox", required: false, placeholder: "Select an album or leave empty for Timeline Photos", dependsOn: "pageId", dynamic: "facebook_albums", dynamicDependsOn: "pageId", description: "Choose which album to upload the photo to (leave empty for Timeline Photos)" },
+    { name: "targetAlbum", label: "Upload to Specific Album", type: "combobox", required: false, placeholder: "Search or create album", dependsOn: "pageId", dynamic: "facebook_albums", dynamicDependsOn: "pageId", creatable: true, description: "Choose an existing album, type a name to create a new album, or select Timeline Photos (default)." },
 
     // Audience targeting
     { name: "targeting", label: "🎯 Audience Targeting", type: "boolean", required: false, defaultValue: false, dependsOn: "pageId", visibilityCondition: { field: "noStory", operator: "equals", value: false }, description: "Enable targeting options to show your photo to specific audiences" },
@@ -734,7 +734,7 @@ const facebookActionUploadPhoto: NodeComponent = {
     ], description: "Show this photo only to people who speak these languages" },
 
     // Alt text for accessibility
-    { name: "altText", label: "Alt Text (Accessibility)", type: "text", required: false, placeholder: "Describe the photo for screen readers", dependsOn: "pageId", description: "Alternative text describing the photo for visually impaired users" }
+    { name: "altText", label: "Alt Text (Accessibility)", type: "text", required: false, placeholder: "A red sports car on a mountain road", dependsOn: "pageId", description: "Alternative text describing the photo for visually impaired users" }
   ],
   outputSchema: [
     {
@@ -777,7 +777,7 @@ const facebookActionUploadVideo: NodeComponent = {
     { name: "pageId", label: "Facebook Page", type: "select", dynamic: true, required: true, placeholder: "Select a Facebook page", loadOnMount: true, description: "The Facebook page to upload the video to" },
 
     // Video source
-    { name: "videoSource", label: "Video Source", type: "select", required: true, dependsOn: "pageId", options: [
+    { name: "videoSource", label: "Video Source", type: "select", required: true, defaultValue: "upload", dependsOn: "pageId", options: [
       { value: "upload", label: "Upload from file" },
       { value: "url", label: "Video URL" }
     ], description: "Choose whether to upload a file or provide a URL" },
@@ -785,8 +785,8 @@ const facebookActionUploadVideo: NodeComponent = {
     { name: "videoUrl", label: "Video URL", type: "text", required: false, placeholder: "https://example.com/video.mp4", dependsOn: "pageId", visibilityCondition: { field: "videoSource", operator: "equals", value: "url" }, description: "Direct URL to the video to upload" },
 
     // Video metadata
-    { name: "title", label: "Video Title", type: "text", required: false, placeholder: "Enter video title", dependsOn: "pageId", description: "Title for the video (recommended for better discoverability)" },
-    { name: "description", label: "Description", type: "textarea", required: false, placeholder: "Add a description to your video", dependsOn: "pageId", description: "Text to accompany the video post" },
+    { name: "title", label: "Video Title", type: "text", required: true, placeholder: "My Product Launch Video", dependsOn: "pageId", description: "Title for the video (recommended for better discoverability)" },
+    { name: "description", label: "Description", type: "textarea", required: false, placeholder: "Check out our latest product announcement!", dependsOn: "pageId", description: "Text to accompany the video post" },
 
     // Thumbnail
     { name: "customThumbnail", label: "Custom Thumbnail URL", type: "text", required: false, placeholder: "https://example.com/thumbnail.jpg", dependsOn: "pageId", description: "Upload custom thumbnail image for your video (optional)" },
@@ -794,9 +794,9 @@ const facebookActionUploadVideo: NodeComponent = {
     // Publishing options
     { name: "published", label: "Publish Status", type: "select", required: false, defaultValue: "true", dependsOn: "pageId", options: [
       { value: "true", label: "Publish immediately" },
-      { value: "false", label: "Save as draft" }
-    ], description: "Choose whether to publish immediately or save as draft" },
-    { name: "scheduledPublishTime", label: "Schedule for Later", type: "datetime-local", required: false, placeholder: "Leave empty to post immediately", dependsOn: "pageId", description: "Schedule your video post for optimal viewing time" },
+      { value: "false", label: "Schedule for later" }
+    ], description: "Choose whether to publish immediately or schedule for later" },
+    { name: "scheduledPublishTime", label: "Scheduled Date & Time", type: "datetime-local", required: false, placeholder: "Select date and time", dependsOn: "pageId", visibilityCondition: { field: "published", operator: "equals", value: "false" }, description: "Schedule your video post for optimal viewing time" },
 
     // Video settings
     { name: "embeddable", label: "Allow Video Embedding", type: "boolean", required: false, defaultValue: true, dependsOn: "pageId", description: "Allow others to embed this video on their websites" },
@@ -865,8 +865,36 @@ const facebookActionUploadVideo: NodeComponent = {
       { value: "21", label: "21+" }
     ], description: "Minimum age for viewers" },
 
-    // Monetization
-    { name: "enableMonetization", label: "💰 Enable Video Monetization", type: "boolean", required: false, defaultValue: false, dependsOn: "pageId", description: "Enable ad breaks for eligible videos (must meet Facebook's monetization requirements)" }
+    // Monetization eligibility check
+    {
+      name: "monetizationEligibility",
+      label: "Monetization Status",
+      type: "select",
+      dynamic: "facebook_monetization_eligibility",
+      required: false,
+      dependsOn: "pageId",
+      hideLabel: false,
+      disabled: true,
+      description: "Checking if your page meets Facebook's monetization requirements...",
+      helpText: "Facebook requires: 10,000+ followers, 600,000+ watch minutes (60 days), 3+ minute videos, eligible country, and compliance with Partner Monetization Policies"
+    },
+
+    // Monetization toggle (conditionally enabled based on eligibility)
+    {
+      name: "enableMonetization",
+      label: "💰 Enable Video Monetization",
+      type: "boolean",
+      required: false,
+      defaultValue: false,
+      dependsOn: "pageId",
+      disabledWhen: {
+        field: "monetizationEligibility",
+        operator: "equals",
+        value: "not-eligible"
+      },
+      description: "Enable ad breaks for eligible videos (must be 3+ minutes long). Toggle is disabled if your page doesn't meet follower requirements. Check workflow execution results to see if monetization was approved by Facebook.",
+      helpText: "Monetization allows you to earn revenue from ad breaks in your videos. Requirements: 10K+ page followers, 600K+ watch minutes (60 days), 3+ minute video, advertiser-friendly content. If rejected after upload, check: 1) Video length (must be 3+ mins), 2) Content guidelines compliance, 3) Copyright issues, 4) Facebook Creator Studio for detailed feedback. You can also use workflow conditions to send notifications if {{Monetization Enabled}} = false."
+    }
   ],
   outputSchema: [
     {
@@ -892,6 +920,30 @@ const facebookActionUploadVideo: NodeComponent = {
       label: "Created Time",
       type: "string",
       description: "ISO timestamp when the video was uploaded"
+    },
+    {
+      name: "monetization",
+      label: "Monetization Status",
+      type: "object",
+      description: "Object containing monetization status details including whether it was requested, enabled, and eligibility status"
+    },
+    {
+      name: "monetization.requested",
+      label: "Monetization Requested",
+      type: "boolean",
+      description: "Whether monetization was requested when uploading the video"
+    },
+    {
+      name: "monetization.enabled",
+      label: "Monetization Enabled",
+      type: "boolean",
+      description: "Whether Facebook actually enabled monetization for this video (false if requirements not met)"
+    },
+    {
+      name: "monetization.eligibilityStatus",
+      label: "Eligibility Status",
+      type: "string",
+      description: "Facebook's eligibility determination: 'eligible', 'not_eligible', 'pending_review', or 'unknown'"
     }
   ]
 }

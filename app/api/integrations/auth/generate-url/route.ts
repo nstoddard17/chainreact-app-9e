@@ -176,6 +176,9 @@ export async function POST(request: NextRequest) {
       case "youtube-studio":
         authUrl = generateGoogleAuthUrl("youtube-studio", finalState)
         break
+      case "google-analytics":
+        authUrl = generateGoogleAuthUrl("google-analytics", finalState)
+        break
 
       case "notion":
         authUrl = await generateNotionAuthUrl(stateObject, supabaseAdmin)
@@ -406,6 +409,9 @@ function generateGoogleAuthUrl(service: string, state: string): string {
       break
     case "youtube-studio":
       scopes += " https://www.googleapis.com/auth/youtubepartner"
+      break
+    case "google-analytics":
+      scopes += " https://www.googleapis.com/auth/analytics.readonly https://www.googleapis.com/auth/analytics.edit"
       break
     default:
       // Use base scopes for unknown services
@@ -790,31 +796,22 @@ async function generateHubSpotAuthUrl(stateObject: any, supabase: any): Promise<
     throw new Error(`Failed to store HubSpot OAuth state: ${error.message}`)
   }
 
-  // HubSpot scopes - using the minimum required for our actions
+  // HubSpot scopes - IMPORTANT: Must match oauthConfig.ts
   // Note: These scopes must be configured in your HubSpot app settings
   // If you get a scope error, ensure these are enabled in your HubSpot app at:
   // https://app.hubspot.com/developer/{your-account-id}/application/{your-app-id}
-  const hubspotScopes = [
-    "crm.objects.contacts.read",
-    "crm.objects.contacts.write",
-    "crm.objects.companies.read",
-    "crm.objects.companies.write",
-    "crm.objects.deals.read",
-    "crm.objects.deals.write",
-    "crm.lists.read", // Required for Add Contact to List action
-    "crm.lists.write" // Required for Add Contact to List action
-  ]
+  //
+  // 'oauth' scope is REQUIRED for basic OAuth functionality
+  // 'webhooks' scope is only needed if you want to create webhooks programmatically
+  //   - If you get a webhooks scope error, you can remove it and still use the app
+  //   - Only include if your HubSpot app is configured as a Public App with webhooks enabled
+  const hubspotScopes = "oauth crm.lists.read crm.lists.write crm.objects.contacts.read crm.objects.contacts.write crm.objects.companies.read crm.objects.companies.write crm.objects.deals.read crm.objects.deals.write"
 
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: `${baseUrl}/api/integrations/hubspot/callback`,
-    response_type: "code",
-    scope: hubspotScopes.join(" "),
-    access_type: "offline",
+    scope: hubspotScopes,
     state,
-    // Force re-approval to prevent cached authorization issues
-    // This ensures HubSpot shows the authorization screen instead of auto-redirecting
-    approval_prompt: "force"
   })
 
   return `https://app.hubspot.com/oauth/authorize?${params.toString()}`

@@ -9,6 +9,7 @@ import { deleteRecordActionSchema } from "./actions/deleteRecord.schema"
 import { addAttachmentActionSchema } from "./actions/addAttachment.schema"
 import { duplicateRecordActionSchema } from "./actions/duplicateRecord.schema"
 import { getTableSchemaActionSchema } from "./actions/getTableSchema.schema"
+import { getBaseSchemaActionSchema } from "./actions/getBaseSchema.schema"
 import { createMultipleRecordsActionSchema } from "./actions/createMultipleRecords.schema"
 
 // Import Airtable action metadata if it exists
@@ -47,6 +48,11 @@ const duplicateRecord: NodeComponent = {
 
 const getTableSchema: NodeComponent = {
   ...getTableSchemaActionSchema,
+  icon: Database
+}
+
+const getBaseSchema: NodeComponent = {
+  ...getBaseSchemaActionSchema,
   icon: Database
 }
 
@@ -508,5 +514,6 @@ export const airtableNodes: NodeComponent[] = [
   addAttachment,
   duplicateRecord,
   getTableSchema,
+  getBaseSchema,
   createMultipleRecords,
 ]

@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Check, ChevronsUpDown, X, ChevronRight } from "lucide-react"
+import { Check, ChevronsUpDown, X, ChevronRight, Loader2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -39,6 +39,7 @@ interface ComboboxProps {
   searchPlaceholder?: string;
   emptyPlaceholder?: string;
   disabled?: boolean;
+  loading?: boolean; // Show loading spinner instead of chevron
   creatable?: boolean;
   onOpenChange?: (open: boolean) => void;
   selectedValues?: string[]; // Values that already have bubbles/are selected
@@ -57,6 +58,7 @@ interface MultiComboboxProps {
   searchPlaceholder?: string;
   emptyPlaceholder?: string;
   disabled?: boolean;
+  loading?: boolean; // Show loading spinner instead of chevron
   creatable?: boolean;
   onOpenChange?: (open: boolean) => void;
   selectedValues?: string[]; // Values that already have bubbles/are selected
@@ -100,6 +102,7 @@ export function Combobox({
   searchPlaceholder,
   emptyPlaceholder,
   disabled,
+  loading = false,
   creatable = false,
   onOpenChange,
   selectedValues = [],
@@ -344,7 +347,11 @@ export function Combobox({
                 <X className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-slate-400 group-hover:text-slate-600 transition-colors pointer-events-none" />
               </div>
             )}
-            <ChevronsUpDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 opacity-50" />
+            {loading ? (
+              <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 animate-spin" />
+            ) : (
+              <ChevronsUpDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 opacity-50" />
+            )}
           </div>
         </Button>
       </PopoverTrigger>
@@ -439,6 +446,7 @@ export function MultiCombobox({
   searchPlaceholder,
   emptyPlaceholder,
   disabled,
+  loading = false,
   creatable = false,
   onOpenChange,
   selectedValues = [],
@@ -898,7 +906,11 @@ export function HierarchicalCombobox({
           ) : (
             <span>{placeholder || "Select option..."}</span>
           )}
-          <ChevronsUpDown className="ml-2 h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 opacity-50" />
+          {loading ? (
+            <Loader2 className="ml-2 h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 animate-spin" />
+          ) : (
+            <ChevronsUpDown className="ml-2 h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 opacity-50" />
+          )}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[9999]" align="start" sideOffset={4}>

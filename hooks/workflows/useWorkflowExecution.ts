@@ -108,7 +108,11 @@ export function useWorkflowExecution() {
     }
   }, [])
 
-  const handleExecute = useCallback(async (nodes: Node[], edges: Edge[]) => {
+  const handleExecute = useCallback(async (
+    nodes: Node[],
+    edges: Edge[],
+    onNodesUpdate?: (nodeUpdates: Array<{ nodeId: string; resultMessage: string }>) => void
+  ) => {
     // Prevent duplicate executions
     if (isExecuting) {
       logger.debug('⚠️ [Workflow Execution] Already executing, ignoring duplicate request');
@@ -163,13 +167,13 @@ export function useWorkflowExecution() {
       setIsExecuting(true)
       logger.debug('🚀 [Workflow Execution] Starting execution for workflow:', currentWorkflow.id);
       clearErrorsForWorkflow(currentWorkflow.id)
-      
+
       const resetResults: Record<string, ExecutionResult> = {}
       nodes.forEach(node => {
         if (node.data?.nodeComponent) {
-          resetResults[node.id] = { 
-            status: 'pending', 
-            timestamp: Date.now() 
+          resetResults[node.id] = {
+            status: 'pending',
+            timestamp: Date.now()
           }
         }
       })
@@ -247,7 +251,30 @@ export function useWorkflowExecution() {
           title: "Success",
           description: "Workflow executed successfully!",
         })
-        
+
+        // Fetch execution steps to get result messages for nodes
+        if (executionResults.executionHistoryId && onNodesUpdate) {
+          try {
+            const stepsResponse = await fetch(`/api/workflows/history/${executionResults.executionHistoryId}/steps`)
+            if (stepsResponse.ok) {
+              const stepsData = await stepsResponse.json()
+              const nodeUpdates = stepsData.steps
+                .filter((step: any) => step.output_data?.message)
+                .map((step: any) => ({
+                  nodeId: step.node_id,
+                  resultMessage: step.output_data.message
+                }))
+
+              if (nodeUpdates.length > 0) {
+                logger.debug(`📨 Updating ${nodeUpdates.length} nodes with result messages`)
+                onNodesUpdate(nodeUpdates)
+              }
+            }
+          } catch (error) {
+            logger.error('Failed to fetch execution steps for result messages:', error)
+          }
+        }
+
         if (executionResults.executionId) {
           setTimeout(() => {
             router.push(`/executions/${executionResults.executionId}`)
@@ -274,7 +301,7 @@ export function useWorkflowExecution() {
 
       setIsExecuting(false)
       setActiveExecutionNodeId(null)
-      
+
       setTimeout(() => {
         setExecutionResults({})
       }, 5000)
@@ -1091,7 +1118,11 @@ export function useWorkflowExecution() {
     await handleExecute(updatedNodes, edges)
   }, [stopWebhookListening, toast, handleExecute])
 
-  const handleExecuteLive = useCallback(async (nodes: Node[], edges: Edge[]) => {
+  const handleExecuteLive = useCallback(async (
+    nodes: Node[],
+    edges: Edge[],
+    onNodesUpdate?: (nodeUpdates: Array<{ nodeId: string; resultMessage: string }>) => void
+  ) => {
     // Execute workflow with live data and parallel processing
     if (isExecuting) {
       logger.debug('⚠️ [Live Mode] Already executing, ignoring duplicate request');
@@ -1162,6 +1193,29 @@ export function useWorkflowExecution() {
         })
       }
 
+      // Fetch execution steps to get result messages for nodes
+      if (result.executionHistoryId && onNodesUpdate) {
+        try {
+          const stepsResponse = await fetch(`/api/workflows/history/${result.executionHistoryId}/steps`)
+          if (stepsResponse.ok) {
+            const stepsData = await stepsResponse.json()
+            const nodeUpdates = stepsData.steps
+              .filter((step: any) => step.output_data?.message)
+              .map((step: any) => ({
+                nodeId: step.node_id,
+                resultMessage: step.output_data.message
+              }))
+
+            if (nodeUpdates.length > 0) {
+              logger.debug(`📨 Updating ${nodeUpdates.length} nodes with result messages`)
+              onNodesUpdate(nodeUpdates)
+            }
+          }
+        } catch (error) {
+          logger.error('Failed to fetch execution steps for result messages:', error)
+        }
+      }
+
     } catch (error: any) {
       logger.error('❌ [Live Mode] Execution error:', error)
       addDebugLog('error', 'Live execution failed', { error: error.message })
@@ -1182,7 +1236,11 @@ export function useWorkflowExecution() {
     }
   }, [isExecuting, currentWorkflow, toast, addDebugLog, setNodeStatuses, setActiveExecutionNodeId])
 
-  const handleExecuteLiveSequential = useCallback(async (nodes: Node[], edges: Edge[]) => {
+  const handleExecuteLiveSequential = useCallback(async (
+    nodes: Node[],
+    edges: Edge[],
+    onNodesUpdate?: (nodeUpdates: Array<{ nodeId: string; resultMessage: string }>) => void
+  ) => {
     // Execute workflow with live data but sequential processing (for debugging)
     if (isExecuting) {
       logger.debug('⚠️ [Live Sequential] Already executing, ignoring duplicate request');
@@ -1251,6 +1309,29 @@ export function useWorkflowExecution() {
             }))
           }
         })
+      }
+
+      // Fetch execution steps to get result messages for nodes
+      if (result.executionHistoryId && onNodesUpdate) {
+        try {
+          const stepsResponse = await fetch(`/api/workflows/history/${result.executionHistoryId}/steps`)
+          if (stepsResponse.ok) {
+            const stepsData = await stepsResponse.json()
+            const nodeUpdates = stepsData.steps
+              .filter((step: any) => step.output_data?.message)
+              .map((step: any) => ({
+                nodeId: step.node_id,
+                resultMessage: step.output_data.message
+              }))
+
+            if (nodeUpdates.length > 0) {
+              logger.debug(`📨 Updating ${nodeUpdates.length} nodes with result messages`)
+              onNodesUpdate(nodeUpdates)
+            }
+          }
+        } catch (error) {
+          logger.error('Failed to fetch execution steps for result messages:', error)
+        }
       }
 
     } catch (error: any) {

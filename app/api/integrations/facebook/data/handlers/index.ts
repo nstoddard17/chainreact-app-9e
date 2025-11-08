@@ -8,6 +8,7 @@ import { getFacebookGroups } from './groups'
 import { getFacebookPosts } from './posts'
 import { getFacebookConversations } from './conversations'
 import { getFacebookAlbums } from './albums'
+import { getMonetizationEligibility } from './monetizationEligibility'
 
 export const facebookHandlers: Record<string, FacebookDataHandler> = {
   facebook_pages: getFacebookPages,
@@ -15,6 +16,7 @@ export const facebookHandlers: Record<string, FacebookDataHandler> = {
   facebook_posts: getFacebookPosts,
   facebook_conversations: getFacebookConversations,
   facebook_albums: getFacebookAlbums,
+  facebook_monetization_eligibility: getMonetizationEligibility,
 }
 
 export {
@@ -23,4 +25,5 @@ export {
   getFacebookPosts,
   getFacebookConversations,
   getFacebookAlbums,
+  getMonetizationEligibility,
 }

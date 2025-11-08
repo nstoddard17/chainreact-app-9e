@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
     clientId: process.env.GITHUB_CLIENT_ID!,
     clientSecret: process.env.GITHUB_CLIENT_SECRET!,
     getRedirectUri: (baseUrl) => `${baseUrl}/api/integrations/github/callback`,
+    useJsonResponse: true, // GitHub needs Accept: application/json header
     transformTokenData: (tokenData) => ({
       access_token: tokenData.access_token,
       refresh_token: tokenData.refresh_token || null,

@@ -98,7 +98,8 @@ export function AirtableRecordsTable({
     }
   };
 
-  if (loading) {
+  // Show loading state if explicitly loading OR if we have no records yet (to prevent flash of "no records")
+  if (loading || records.length === 0) {
     return (
       <div className="bg-white rounded-lg overflow-hidden w-full max-w-full border border-gray-300" style={{ minWidth: 0 }}>
         {/* Header Section - Same as loaded state */}
@@ -144,14 +145,6 @@ export function AirtableRecordsTable({
             Loading table data...
           </div>
         </div>
-      </div>
-    );
-  }
-
-  if (records.length === 0) {
-    return (
-      <div className="text-center py-8 text-gray-600 bg-white rounded-lg w-full max-w-full border border-gray-300" style={{ minWidth: 0 }}>
-        No records found in this table.
       </div>
     );
   }

@@ -37,7 +37,8 @@
       "Bash(curl:*)",
       "Bash(git checkout:*)",
       "Bash(sed:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(npm run dev:*)"
     ],
     "edit": [
       "*"

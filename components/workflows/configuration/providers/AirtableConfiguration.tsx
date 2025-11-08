@@ -128,6 +128,8 @@ export function AirtableConfiguration({
   // Use parent state if provided, otherwise use local state
   const [localLoadingFields, setLocalLoadingFields] = useState<Set<string>>(new Set());
   const [searchFieldOptions, setSearchFieldOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [batchLoadedOptions, setBatchLoadedOptions] = useState<Record<string, any[]>>({});
+  const [isBatchLoading, setIsBatchLoading] = useState(false);
 
   // Combine all loading states for display
   const loadingFields = React.useMemo(() => {
@@ -151,6 +153,36 @@ export function AirtableConfiguration({
 
   // Track which dropdown fields have been loaded to prevent reloading
   const [loadedDropdownFields, setLoadedDropdownFields] = useState<Set<string>>(new Set());
+
+  // Merge parent dynamicOptions with batch-loaded options
+  // Only use batch-loaded if they have data, don't overwrite existing parent data
+  const mergedDynamicOptions = React.useMemo(() => {
+    const merged = { ...dynamicOptions };
+
+    // Add batch-loaded options, but only if they have data OR parent doesn't have them
+    Object.entries(batchLoadedOptions).forEach(([key, value]) => {
+      const hasData = Array.isArray(value) && value.length > 0;
+      const parentHasData = Array.isArray(merged[key]) && merged[key].length > 0;
+
+      // Only overwrite if batch has data OR parent doesn't have data
+      if (hasData || !parentHasData) {
+        merged[key] = value;
+      } else {
+        console.log(`[AirtableConfig] Skipping batch option "${key}" - batch has no data (${value?.length || 0}) and parent has data (${merged[key]?.length || 0})`);
+      }
+    });
+
+    console.log('[AirtableConfig] Merged dynamic options:', {
+      parentOptionsKeys: Object.keys(dynamicOptions),
+      batchOptionsKeys: Object.keys(batchLoadedOptions),
+      mergedKeys: Object.keys(merged),
+      mergedOptionsSample: Object.entries(merged).slice(0, 5).map(([key, val]) => ({
+        key,
+        count: Array.isArray(val) ? val.length : 'not array'
+      }))
+    });
+    return merged;
+  }, [dynamicOptions, batchLoadedOptions]);
 
   // Debug: Log dynamicOptions changes for watchedTables
   React.useEffect(() => {
@@ -242,6 +274,7 @@ export function AirtableConfiguration({
   const isUpdateRecord = nodeInfo?.type === 'airtable_action_update_record';
   const isUpdateMultipleRecords = nodeInfo?.type === 'airtable_action_update_multiple_records';
   const isCreateRecord = nodeInfo?.type === 'airtable_action_create_record';
+  const isCreateMultipleRecords = nodeInfo?.type === 'airtable_action_create_multiple_records';
   const isListRecord = nodeInfo?.type === 'airtable_action_list_records';
   const isFindRecord = nodeInfo?.type === 'airtable_action_find_record';
   const isDeleteRecord = nodeInfo?.type === 'airtable_action_delete_record';
@@ -259,6 +292,92 @@ export function AirtableConfiguration({
     isUpdateRecord,
     isCreateRecord
   });
+
+  // Batch load field values for all dynamic fields
+  const batchLoadFieldValues = useCallback(async (baseId: string, tableName: string, schema: any) => {
+    if (!baseId || !tableName || !schema?.fields || !airtableIntegration) {
+      return;
+    }
+
+    logger.debug('🔄 [Batch Load] Starting batch field value loading...', {
+      baseId,
+      tableName,
+      fieldCount: schema.fields.length
+    });
+
+    setIsBatchLoading(true);
+
+    try {
+      // Identify fields that need dynamic loading
+      const needsDynamicOptions = ['multipleRecordLinks', 'multipleCollaborators', 'singleCollaborator', 'singleSelect', 'multipleSelects'];
+      const fieldsToLoad = schema.fields.filter((field: any) =>
+        needsDynamicOptions.includes(field.type)
+      );
+
+      if (fieldsToLoad.length === 0) {
+        logger.debug('✅ [Batch Load] No fields require dynamic loading');
+        setIsBatchLoading(false);
+        return;
+      }
+
+      logger.debug(`🔄 [Batch Load] Loading values for ${fieldsToLoad.length} fields:`, fieldsToLoad.map((f: any) => f.name));
+
+      // Make single API request to fetch all field values
+      const response = await fetch('/api/integrations/airtable/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          integrationId: airtableIntegration.id,
+          dataType: 'airtable_batch_field_values',
+          options: {
+            baseId,
+            tableName,
+            fields: fieldsToLoad.map((f: any) => ({ name: f.name, type: f.type }))
+          }
+        })
+      });
+
+      if (!response.ok) {
+        logger.error('❌ [Batch Load] Failed to fetch batch field values');
+        setIsBatchLoading(false);
+        return;
+      }
+
+      const result = await response.json();
+      const batchData = result.data || [];
+
+      logger.debug('✅ [Batch Load] Received batch data:', {
+        fieldCount: batchData.length,
+        fields: batchData.map((d: any) => ({ name: d.fieldName, count: d.values.length }))
+      });
+
+      // Update dynamicOptions for each field
+      const newOptions: Record<string, any[]> = {};
+      batchData.forEach((fieldData: any) => {
+        const fieldName = `airtable_field_${fieldData.fieldName}`;
+        newOptions[fieldName] = fieldData.values;
+        logger.debug(`  ✓ Loaded ${fieldData.values.length} values for ${fieldName}`);
+        console.log(`[Batch Load] Stored options for key: "${fieldName}"`, {
+          originalFieldName: fieldData.fieldName,
+          valueCount: fieldData.values.length,
+          sampleValues: fieldData.values.slice(0, 3)
+        });
+      });
+
+      // Store batch-loaded options in local state
+      setBatchLoadedOptions(newOptions);
+
+      logger.debug('✅ [Batch Load] Batch loading complete!', {
+        totalFields: Object.keys(newOptions).length,
+        totalValues: Object.values(newOptions).reduce((sum, arr) => sum + arr.length, 0)
+      });
+
+    } catch (error) {
+      logger.error('❌ [Batch Load] Error batch loading field values:', error);
+    } finally {
+      setIsBatchLoading(false);
+    }
+  }, [airtableIntegration]);
 
   // Fetch Airtable table schema
   const fetchAirtableTableSchema = useCallback(async (baseId: string, tableName: string) => {
@@ -380,12 +499,19 @@ export function AirtableConfiguration({
             });
           }
 
-          setAirtableTableSchema({
+          const newSchema = {
             table: { name: tableName, id: metadata.id },
             fields: metadata.fields,
             views: metadata.views || [],
             visibilityByFieldId
-          });
+          };
+          setAirtableTableSchema(newSchema);
+
+          // Batch load field values for actions that need dropdown data
+          if (isCreateMultipleRecords || isCreateRecord || isUpdateRecord || isUpdateMultipleRecords) {
+            await batchLoadFieldValues(baseId, tableName, newSchema);
+          }
+
           return;
         }
       }
@@ -458,19 +584,25 @@ export function AirtableConfiguration({
         });
       });
       
-      setAirtableTableSchema({
+      const fallbackSchema = {
         table: { name: tableName },
         fields: Array.from(fieldMap.values()),
         views: [],
         visibilityByFieldId: {}
-      });
+      };
+      setAirtableTableSchema(fallbackSchema);
+
+      // Batch load field values for actions that need dropdown data
+      if (isCreateMultipleRecords || isCreateRecord || isUpdateRecord || isUpdateMultipleRecords) {
+        await batchLoadFieldValues(baseId, tableName, fallbackSchema);
+      }
     } catch (error) {
       logger.error('Error fetching table schema:', error);
       setAirtableTableSchema(null);
     } finally {
       setIsLoadingTableSchema(false);
     }
-  }, [airtableIntegration]);
+  }, [airtableIntegration, isCreateMultipleRecords, isCreateRecord, isUpdateRecord, isUpdateMultipleRecords, batchLoadFieldValues]);
 
   // Load Airtable records
   const loadAirtableRecords = useCallback(async (baseId: string, tableName: string) => {
@@ -594,8 +726,8 @@ export function AirtableConfiguration({
           return false;
         }
 
-        // For CREATE record: filter out fields that can't be set during creation
-        if (isCreateRecord) {
+        // For CREATE record or CREATE MULTIPLE records: filter out fields that can't be set during creation
+        if (isCreateRecord || isCreateMultipleRecords) {
           // Always hide autoNumber fields - they're generated by Airtable on creation
           if (field.type === 'autoNumber') {
             logger.debug('🚫 [AirtableConfig] Excluding autoNumber field for create action:', field.name);
@@ -1297,8 +1429,8 @@ export function AirtableConfiguration({
           loadAirtableRecords(values.baseId, values.tableName);
         });
       }
-      // For create record, only load schema
-      else if (isCreateRecord) {
+      // For create record or create multiple records, only load schema
+      else if (isCreateRecord || isCreateMultipleRecords) {
         fetchAirtableTableSchema(values.baseId, values.tableName);
       }
       // For find record, load schema for field selection
@@ -1306,7 +1438,7 @@ export function AirtableConfiguration({
         fetchAirtableTableSchema(values.baseId, values.tableName);
       }
     }
-  }, [isCreateRecord, isUpdateRecord, isUpdateMultipleRecords, isDuplicateRecord, isFindRecord, values.tableName, values.baseId, fetchAirtableTableSchema, loadAirtableRecords]);
+  }, [isCreateRecord, isCreateMultipleRecords, isUpdateRecord, isUpdateMultipleRecords, isDuplicateRecord, isFindRecord, values.tableName, values.baseId, fetchAirtableTableSchema, loadAirtableRecords]);
 
   // Helper function to get a proper string label from any value
   const getLabelFromValue = useCallback((val: any): string => {
@@ -2139,14 +2271,16 @@ export function AirtableConfiguration({
           error={errors[field.name] || validationErrors[field.name]}
           workflowData={workflowData}
           currentNodeId={currentNodeId}
-          dynamicOptions={dynamicOptions}
+          dynamicOptions={mergedDynamicOptions}
           loadingDynamic={fieldIsLoading}
+          loadingFields={loadingFields}
           nodeInfo={nodeInfo}
           onDynamicLoad={handleDynamicLoad}
           parentValues={values}
           selectedValues={selectedBubbleValues}
           aiFields={aiFields}
           setAiFields={setAiFields}
+          airtableTableSchema={airtableTableSchema}
         />
         
         {/* Bubble display for multi-select fields */}
@@ -2253,6 +2387,16 @@ export function AirtableConfiguration({
     await onSubmit(submissionValues);
   };
 
+  // Handle keydown to prevent Enter from submitting form on input fields
+  // IMPORTANT: This hook must be defined BEFORE any early returns to avoid hook order issues
+  const handleFormKeyDown = useCallback((e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'BUTTON' && (e.target as HTMLElement).tagName !== 'TEXTAREA') {
+      e.preventDefault();
+      // Prevent form submission when Enter is pressed on input fields
+      // RecordId field is meant for variables (e.g., {{trigger.recordId}}) or direct paste
+    }
+  }, []);
+
   // Show connection required state
   if (needsConnection) {
     return (
@@ -2270,7 +2414,7 @@ export function AirtableConfiguration({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col h-full overflow-hidden">
+    <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="flex flex-col h-full overflow-hidden">
       <div className="flex-1 min-h-0 overflow-hidden">
         <div className="h-full overflow-y-auto overflow-x-hidden px-6 py-4">
           <div className="space-y-3 pb-4 pr-4">
@@ -2572,10 +2716,10 @@ export function AirtableConfiguration({
                 {/* Record selection table */}
                 <div className="overflow-hidden">
                   <div className="mb-3">
-                    <h3 className="text-sm font-semibold text-slate-200 mb-1">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-1">
                       Select Record to Duplicate
                     </h3>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-gray-600">
                       Click a row to select the record you want to duplicate, or paste a record ID above
                     </p>
                   </div>
@@ -2591,12 +2735,12 @@ export function AirtableConfiguration({
 
                 {/* Field checklist with override toggles */}
                 {selectedDuplicateRecord && duplicateFieldChecklist.length > 0 && (
-                  <div className="border border-slate-700 rounded-lg p-4 bg-slate-800/30">
+                  <div className="border border-gray-300 rounded-lg p-4 bg-white">
                     <div className="mb-4">
-                      <h3 className="text-sm font-semibold text-slate-200 mb-1">
+                      <h3 className="text-sm font-semibold text-gray-900 mb-1">
                         Select Fields to Duplicate
                       </h3>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-gray-600">
                         Check fields to copy, and enable "Override" to change their values in the duplicate
                       </p>
                     </div>
