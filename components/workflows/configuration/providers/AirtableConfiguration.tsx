@@ -172,13 +172,14 @@ export function AirtableConfiguration({
       }
     });
 
-    console.log('[AirtableConfig] Merged dynamic options:', {
+    console.log('[AirtableConfig] 🔍 Merged dynamic options:', {
       parentOptionsKeys: Object.keys(dynamicOptions),
       batchOptionsKeys: Object.keys(batchLoadedOptions),
       mergedKeys: Object.keys(merged),
-      mergedOptionsSample: Object.entries(merged).slice(0, 5).map(([key, val]) => ({
+      mergedOptionsSample: Object.entries(merged).map(([key, val]) => ({
         key,
-        count: Array.isArray(val) ? val.length : 'not array'
+        count: Array.isArray(val) ? val.length : 'not array',
+        sample: Array.isArray(val) ? val.slice(0, 2) : val
       }))
     });
     return merged;
@@ -308,68 +309,134 @@ export function AirtableConfiguration({
     setIsBatchLoading(true);
 
     try {
-      // Identify fields that need dynamic loading
-      const needsDynamicOptions = ['multipleRecordLinks', 'multipleCollaborators', 'singleCollaborator', 'singleSelect', 'multipleSelects'];
-      const fieldsToLoad = schema.fields.filter((field: any) =>
-        needsDynamicOptions.includes(field.type)
+      // Separate fields into different categories
+      const linkedRecordFields = schema.fields.filter((field: any) =>
+        field.type === 'multipleRecordLinks' || field.type === 'singleRecordLink'
       );
 
-      if (fieldsToLoad.length === 0) {
+      // Select fields with predefined choices (get from schema)
+      const selectFields = schema.fields.filter((field: any) =>
+        (field.type === 'singleSelect' || field.type === 'multipleSelects') && field.options?.choices
+      );
+
+      // Other dynamic fields (collaborators - fetch from records)
+      const collaboratorFields = schema.fields.filter((field: any) => {
+        const needsRecordData = ['multipleCollaborators', 'singleCollaborator'];
+        return needsRecordData.includes(field.type);
+      });
+
+      if (linkedRecordFields.length === 0 && selectFields.length === 0 && collaboratorFields.length === 0) {
         logger.debug('✅ [Batch Load] No fields require dynamic loading');
         setIsBatchLoading(false);
         return;
       }
 
-      logger.debug(`🔄 [Batch Load] Loading values for ${fieldsToLoad.length} fields:`, fieldsToLoad.map((f: any) => f.name));
-
-      // Make single API request to fetch all field values
-      const response = await fetch('/api/integrations/airtable/data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          integrationId: airtableIntegration.id,
-          dataType: 'airtable_batch_field_values',
-          options: {
-            baseId,
-            tableName,
-            fields: fieldsToLoad.map((f: any) => ({ name: f.name, type: f.type }))
-          }
-        })
+      logger.debug(`🔄 [Batch Load] Loading values in parallel:`, {
+        linkedRecordCount: linkedRecordFields.length,
+        selectFieldCount: selectFields.length,
+        collaboratorFieldCount: collaboratorFields.length
       });
 
-      if (!response.ok) {
-        logger.error('❌ [Batch Load] Failed to fetch batch field values');
-        setIsBatchLoading(false);
-        return;
+      // Build array of promises to fetch in parallel
+      const fetchPromises: Promise<any>[] = [];
+
+      // 1. Fetch collaborator field values from current table (if any)
+      if (collaboratorFields.length > 0) {
+        fetchPromises.push(
+          fetch('/api/integrations/airtable/data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              integrationId: airtableIntegration.id,
+              dataType: 'airtable_batch_field_values',
+              options: {
+                baseId,
+                tableName,
+                fields: collaboratorFields.map((f: any) => ({ name: f.name, type: f.type }))
+              }
+            })
+          }).then(r => r.json())
+        );
       }
 
-      const result = await response.json();
-      const batchData = result.data || [];
+      // 2. Fetch ALL records from each linked table in parallel
+      linkedRecordFields.forEach((field: any) => {
+        // Get linked table name from field options
+        const linkedTableId = field.options?.linkedTableId;
+        if (!linkedTableId) return;
 
-      logger.debug('✅ [Batch Load] Received batch data:', {
-        fieldCount: batchData.length,
-        fields: batchData.map((d: any) => ({ name: d.fieldName, count: d.values.length }))
+        fetchPromises.push(
+          fetch('/api/integrations/airtable/data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              integrationId: airtableIntegration.id,
+              dataType: 'airtable_linked_records',
+              options: {
+                baseId,
+                linkedTableName: linkedTableId
+              }
+            })
+          }).then(r => r.json()).then(result => ({
+            fieldName: field.name,
+            linkedRecords: result.data || []
+          }))
+        );
       });
 
-      // Update dynamicOptions for each field
+      // Execute all fetches in parallel
+      const results = await Promise.all(fetchPromises);
+
+      // Process results
       const newOptions: Record<string, any[]> = {};
-      batchData.forEach((fieldData: any) => {
-        const fieldName = `airtable_field_${fieldData.fieldName}`;
-        newOptions[fieldName] = fieldData.values;
-        logger.debug(`  ✓ Loaded ${fieldData.values.length} values for ${fieldName}`);
-        console.log(`[Batch Load] Stored options for key: "${fieldName}"`, {
-          originalFieldName: fieldData.fieldName,
-          valueCount: fieldData.values.length,
-          sampleValues: fieldData.values.slice(0, 3)
-        });
+
+      // 1. Extract select field choices from schema (no API call needed!)
+      selectFields.forEach((field: any) => {
+        const fieldName = `airtable_field_${field.name}`;
+        const choices = field.options?.choices || [];
+        newOptions[fieldName] = choices.map((choice: any) => ({
+          value: choice.name || choice.id,
+          label: choice.name || choice.id,
+          color: choice.color
+        }));
+        logger.debug(`  ✓ Loaded ${choices.length} choices from schema for ${fieldName}`);
+      });
+
+      // 2. Process API results
+      results.forEach((result: any) => {
+        if (result.data && Array.isArray(result.data)) {
+          // This is batch field values result (collaborators)
+          result.data.forEach((fieldData: any) => {
+            const fieldName = `airtable_field_${fieldData.fieldName}`;
+            newOptions[fieldName] = fieldData.values;
+            logger.debug(`  ✓ Loaded ${fieldData.values.length} values for ${fieldName}`);
+          });
+        } else if (result.linkedRecords) {
+          // This is linked records result
+          const fieldName = `airtable_field_${result.fieldName}`;
+
+          logger.debug(`🔍 [Linked Records] Processing ${result.linkedRecords.length} records for ${fieldName}:`, {
+            sampleRecord: result.linkedRecords[0],
+            recordKeys: result.linkedRecords[0] ? Object.keys(result.linkedRecords[0]) : []
+          });
+
+          // API already returns options in the correct {value, label} format - just use them directly!
+          newOptions[fieldName] = result.linkedRecords;
+          logger.debug(`  ✓ Loaded ${result.linkedRecords.length} linked records for ${fieldName}`);
+        }
       });
 
       // Store batch-loaded options in local state
       setBatchLoadedOptions(newOptions);
 
-      logger.debug('✅ [Batch Load] Batch loading complete!', {
+      logger.debug('✅ [Batch Load] Parallel loading complete!', {
         totalFields: Object.keys(newOptions).length,
-        totalValues: Object.values(newOptions).reduce((sum, arr) => sum + arr.length, 0)
+        totalValues: Object.values(newOptions).reduce((sum, arr) => sum + arr.length, 0),
+        fieldDetails: Object.entries(newOptions).map(([key, values]) => ({
+          field: key,
+          count: values.length,
+          sample: values.slice(0, 2)
+        }))
       });
 
     } catch (error) {
@@ -396,8 +463,11 @@ export function AirtableConfiguration({
     setIsLoadingTableSchema(true);
     
     try {
-      // First try to fetch the actual table metadata from Airtable API
-      const metaResponse = await fetch('/api/integrations/airtable/metadata', {
+      // PERFORMANCE: Fetch metadata AND field values in PARALLEL for faster loading
+      const shouldBatchLoadValues = isCreateMultipleRecords || isCreateRecord || isUpdateRecord || isUpdateMultipleRecords;
+
+      // Start metadata fetch
+      const metadataPromise = fetch('/api/integrations/airtable/metadata', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -406,17 +476,20 @@ export function AirtableConfiguration({
           tableName
         })
       });
-      
+
+      // Wait for metadata to get field list for batch loading
+      const metaResponse = await metadataPromise;
+
       if (metaResponse.ok) {
         const metadata = await metaResponse.json();
         logger.debug('📋 Fetched Airtable table metadata:', metadata);
-        
+
         // Log specific fields we care about
-        const linkedFields = metadata.fields?.filter((f: any) => 
+        const linkedFields = metadata.fields?.filter((f: any) =>
           f.type === 'multipleRecordLinks' || f.type === 'singleRecordLink'
         );
         logger.debug('🔗 Linked record fields found in metadata:', linkedFields);
-        
+
         if (metadata.fields && metadata.fields.length > 0) {
           logger.debug('📋 Setting table schema with fields:', metadata.fields.map((f: any) => ({
             name: f.name,
@@ -505,12 +578,18 @@ export function AirtableConfiguration({
             views: metadata.views || [],
             visibilityByFieldId
           };
-          setAirtableTableSchema(newSchema);
 
-          // Batch load field values for actions that need dropdown data
-          if (isCreateMultipleRecords || isCreateRecord || isUpdateRecord || isUpdateMultipleRecords) {
+          // CRITICAL: Batch load field values BEFORE setting schema
+          // This prevents auto-load effects from firing individual requests
+          if (shouldBatchLoadValues) {
+            logger.debug('🔄 [Schema Load] Batch loading field values before setting schema...');
             await batchLoadFieldValues(baseId, tableName, newSchema);
+            logger.debug('✅ [Schema Load] Batch loading complete, now setting schema');
           }
+
+          // Set schema AFTER batch loading completes
+          // This ensures auto-load effects see the batch-loaded options
+          setAirtableTableSchema(newSchema);
 
           return;
         }
@@ -590,12 +669,16 @@ export function AirtableConfiguration({
         views: [],
         visibilityByFieldId: {}
       };
-      setAirtableTableSchema(fallbackSchema);
 
-      // Batch load field values for actions that need dropdown data
+      // CRITICAL: Batch load field values BEFORE setting schema (same as above)
       if (isCreateMultipleRecords || isCreateRecord || isUpdateRecord || isUpdateMultipleRecords) {
+        logger.debug('🔄 [Fallback Schema] Batch loading field values before setting schema...');
         await batchLoadFieldValues(baseId, tableName, fallbackSchema);
+        logger.debug('✅ [Fallback Schema] Batch loading complete, now setting schema');
       }
+
+      // Set schema AFTER batch loading completes
+      setAirtableTableSchema(fallbackSchema);
     } catch (error) {
       logger.error('Error fetching table schema:', error);
       setAirtableTableSchema(null);
@@ -1638,8 +1721,13 @@ export function AirtableConfiguration({
                              field.dynamic !== 'true' &&
                              field.dynamic !== true;
 
-      // Skip if already has options loaded
-      if (dynamicOptions[field.name]?.length > 0) {
+      // Skip if already has options loaded OR if batch loading was attempted
+      // CRITICAL: Batch load stores with "airtable_field_" prefix, so check both
+      const fieldNameWithPrefix = `airtable_field_${field.name}`;
+      const wasBatchLoaded = (field.name in batchLoadedOptions) || (fieldNameWithPrefix in batchLoadedOptions);
+      const hasOptionsInDynamic = dynamicOptions[field.name]?.length > 0;
+
+      if (wasBatchLoaded || hasOptionsInDynamic) {
         // Mark as auto-loaded so we don't try again
         setAutoLoadedFields(prev => new Set(prev).add(field.name));
         return false;
@@ -1708,7 +1796,7 @@ export function AirtableConfiguration({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dynamicFields, values.tableName, values.baseId, isCreateRecord, isUpdateRecord, isUpdateMultipleRecords, isFindRecord,
-      dynamicOptions, autoLoadedFields, airtableTableSchema]); // Don't include loadOptions
+      dynamicOptions, batchLoadedOptions, autoLoadedFields, airtableTableSchema]); // Don't include loadOptions
 
   // Clear auto-loaded fields when table changes
   useEffect(() => {
@@ -1731,8 +1819,12 @@ export function AirtableConfiguration({
       // Skip if already auto-loaded
       if (autoLoadedFields.has(field.name)) return false;
 
-      // Skip if already has options
-      if (dynamicOptions[field.name]?.length > 0) return false;
+      // Skip if already has options OR if batch loading was attempted (even if empty)
+      // CRITICAL: Batch load stores with "airtable_field_" prefix, so check both
+      const fieldNameWithPrefix = `airtable_field_${field.name}`;
+      const wasBatchLoaded = (field.name in batchLoadedOptions) || (fieldNameWithPrefix in batchLoadedOptions);
+      const hasOptionsInDynamic = dynamicOptions[field.name]?.length > 0;
+      if (wasBatchLoaded || hasOptionsInDynamic) return false;
 
       // Check if field's dependencies are satisfied
       if (field.dependsOn) {
@@ -1806,7 +1898,7 @@ export function AirtableConfiguration({
       });
     }
   }, [isFindRecord, values.tableName, values.baseId, values.searchMode, nodeInfo?.configSchema,
-      dynamicOptions, autoLoadedFields, airtableTableSchema, loadOptions]);
+      dynamicOptions, batchLoadedOptions, autoLoadedFields, airtableTableSchema, loadOptions]);
 
   // Auto-load fields with loadOnMount: true on initial component mount (for triggers)
   useEffect(() => {

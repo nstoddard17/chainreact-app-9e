@@ -110,6 +110,7 @@ export const githubNodes: NodeComponent[] = [
         type: "combobox",
         required: true,
         dynamic: "github_repositories",
+        loadOnMount: true,
         description: "Select a repository from your GitHub account"
       },
       {
@@ -117,12 +118,14 @@ export const githubNodes: NodeComponent[] = [
         label: "Issue Title",
         type: "text",
         required: true,
+        dependsOn: "repository",
         description: "A brief, descriptive title for the issue"
       },
       {
         name: "body",
         label: "Issue Description",
         type: "textarea",
+        dependsOn: "repository",
         description: "Detailed description of the issue, including steps to reproduce if applicable"
       },
       {
@@ -221,11 +224,55 @@ export const githubNodes: NodeComponent[] = [
     category: "Developer",
     isTrigger: false,
     configSchema: [
-      { name: "repository", label: "Repository", type: "text", required: true, placeholder: "owner/repo (e.g., octocat/my-project)" },
-      { name: "title", label: "PR Title", type: "text", required: true, placeholder: "Summary of changes" },
-      { name: "body", label: "Description", type: "textarea", required: false, placeholder: "Detailed description of changes, testing notes, etc." },
-      { name: "head", label: "Source Branch", type: "text", required: true, placeholder: "feature-branch or feature/new-feature" },
-      { name: "base", label: "Target Branch", type: "text", required: true, defaultValue: "main", placeholder: "main (or develop, master, etc.)" }
+      {
+        name: "repository",
+        label: "Repository",
+        type: "combobox",
+        required: true,
+        dynamic: "github_repositories",
+        loadOnMount: true,
+        placeholder: "Select a repository",
+        description: "Select the repository where you want to create the pull request"
+      },
+      {
+        name: "head",
+        label: "Source Branch",
+        type: "combobox",
+        required: true,
+        dynamic: "github_branches",
+        dependsOn: "repository",
+        placeholder: "Select source branch",
+        description: "The branch that contains your changes (e.g., feature-branch)"
+      },
+      {
+        name: "base",
+        label: "Target Branch",
+        type: "combobox",
+        required: true,
+        dynamic: "github_branches",
+        dependsOn: "repository",
+        defaultValue: "main",
+        placeholder: "Select target branch",
+        description: "The branch you want to merge into (e.g., main, develop)"
+      },
+      {
+        name: "title",
+        label: "PR Title",
+        type: "text",
+        required: true,
+        dependsOn: "repository",
+        placeholder: "Summary of changes",
+        description: "A clear, concise title for the pull request"
+      },
+      {
+        name: "body",
+        label: "Description",
+        type: "textarea",
+        required: false,
+        dependsOn: "repository",
+        placeholder: "Detailed description of changes, testing notes, etc.",
+        description: "Detailed description of the changes in this pull request"
+      }
     ],
     outputSchema: [
       { name: "pullRequestId", label: "PR ID", type: "string", description: "The unique ID of the pull request" },

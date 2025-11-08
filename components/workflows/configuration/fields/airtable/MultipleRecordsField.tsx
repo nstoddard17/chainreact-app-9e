@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/accordion"
 import { FieldRenderer } from '../FieldRenderer';
 import { cn } from "@/lib/utils";
+import { LoadingFieldState } from '../shared/LoadingFieldState';
 
 interface MultipleRecordsFieldProps {
   value: any;
@@ -121,8 +122,8 @@ export function MultipleRecordsField({
   return (
     <div className="space-y-4">
       {isLoading ? (
-        <div className="p-4 border border-dashed rounded-md text-center text-sm text-muted-foreground">
-          Loading table schema...
+        <div className="p-4 border border-dashed rounded-md flex justify-center">
+          <LoadingFieldState message="Loading table schema..." />
         </div>
       ) : !hasSchemaAndFields ? (
         <div className="p-4 border border-dashed rounded-md text-center text-sm text-muted-foreground">
@@ -203,8 +204,9 @@ export function MultipleRecordsField({
                     dynamic: needsDynamicOptions,
                     airtableFieldType: airtableField.type,
                     airtableFieldId: airtableField.id,
-                    // For select fields, provide static options from schema as fallback
-                    options: airtableField.options?.choices?.map((choice: any) => ({
+                    // DON'T set static options if we're loading them dynamically
+                    // This was causing field.options to take precedence over dynamicOptions in FieldRenderer
+                    options: needsDynamicOptions ? undefined : airtableField.options?.choices?.map((choice: any) => ({
                       value: choice.name,
                       label: choice.name
                     })),
@@ -280,14 +282,14 @@ function getFieldType(airtableType: string): string {
     'currency': 'number',
     'percent': 'number',
     'singleSelect': 'select',
-    'multipleSelects': 'multiselect',
+    'multipleSelects': 'multi_select', // FIXED: Use underscore to route through GenericSelectField
     'date': 'date',
     'dateTime': 'datetime',
     'checkbox': 'boolean',
     'phoneNumber': 'text',
     'rating': 'number',
     'duration': 'number',
-    'multipleRecordLinks': 'multiselect',
+    'multipleRecordLinks': 'multi_select', // FIXED: Use underscore to route through GenericSelectField
     'singleCollaborator': 'text',
     'multipleCollaborators': 'text',
     'richText': 'textarea',

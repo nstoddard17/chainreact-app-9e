@@ -25,6 +25,7 @@ import { Search, Zap, Settings, AlertCircle, CheckCircle, ChevronDown, ChevronRi
 import { cn } from "@/lib/utils"
 import { getProviderBrandName } from "@/lib/integrations/brandNames"
 import { useIntegrationStore } from "@/stores/integrationStore"
+import { useAuthStore } from "@/stores/authStore"
 
 // Group nodes by providerId
 const groupNodesByProvider = (nodes: NodeComponent[]): Record<string, NodeComponent[]> => {
@@ -62,13 +63,18 @@ export default function NodeTestHarnessPage() {
   const [filterType, setFilterType] = useState<"all" | "triggers" | "actions">("all")
   const [showIssuesOnly, setShowIssuesOnly] = useState(false)
 
-  // Load integrations on mount so config modals can access them
+  // Integration store hooks
   const { fetchIntegrations } = useIntegrationStore()
+  const { initialized: authInitialized } = useAuthStore()
 
+  // Fetch integrations once on mount (cached for 5 seconds per integrationStore)
+  // This prevents repeated force fetches when config modals are opened
   useEffect(() => {
-    console.log('🔧 [NodeTestHarness] Loading integrations...')
-    fetchIntegrations()
-  }, [fetchIntegrations])
+    if (!authInitialized) return
+
+    console.log('[Test Nodes] Fetching integrations on mount (uses cache if <5s old)')
+    fetchIntegrations(false) // Don't force - use cache if available
+  }, [authInitialized, fetchIntegrations])
 
   // Suppress browser extension errors (not our code)
   React.useEffect(() => {

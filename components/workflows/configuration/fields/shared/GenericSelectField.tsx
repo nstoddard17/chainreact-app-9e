@@ -11,6 +11,7 @@ import { parseVariableReference } from "@/lib/workflows/variableReferences";
 import { logger } from '@/lib/utils/logger'
 import { useConfigCacheStore } from "@/stores/configCacheStore"
 import { buildCacheKey, getFieldTTL, shouldCacheField } from "@/lib/workflows/configuration/cache-utils"
+import { LoadingFieldState } from "./LoadingFieldState"
 
 interface GenericSelectFieldProps {
   field: any;
@@ -815,12 +816,7 @@ export function GenericSelectField({
 
   // Render field content (normal mode)
   if (shouldShowLoading) {
-    return (
-      <div className="flex items-center gap-2 text-sm text-slate-500">
-        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-        Loading options...
-      </div>
-    );
+    return <LoadingFieldState message={loadingPlaceholder} />;
   }
 
   // Handle multiple selection fields
