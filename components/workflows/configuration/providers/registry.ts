@@ -23,6 +23,7 @@ import { GitHubOptionsLoader } from './github/GitHubOptionsLoader';
 import { MondayOptionsLoader } from './monday/MondayOptionsLoader';
 import { MailchimpOptionsLoader } from './mailchimp/MailchimpOptionsLoader';
 import { TwitterOptionsLoader } from './twitter/TwitterOptionsLoader';
+import { GoogleAnalyticsOptionsLoader } from './google-analytics/GoogleAnalyticsOptionsLoader';
 
 import { logger } from '@/lib/utils/logger'
 
@@ -94,6 +95,9 @@ class ProviderRegistryImpl implements IProviderRegistry {
 
     // Register Twitter loader
     this.register('twitter', new TwitterOptionsLoader());
+
+    // Register Google Analytics loader
+    this.register('google-analytics', new GoogleAnalyticsOptionsLoader());
 
     // Additional providers can be registered here as they're implemented
     // this.register('gmail', new GmailOptionsLoader());

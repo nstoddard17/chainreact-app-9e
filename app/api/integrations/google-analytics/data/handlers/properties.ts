@@ -7,7 +7,8 @@ import { createGoogleAnalyticsAdminClient, parsePropertyId } from '../utils'
 import { logger } from '@/lib/utils/logger'
 
 export const getGoogleAnalyticsProperties: GoogleAnalyticsDataHandler<GoogleAnalyticsProperty[]> = async (
-  integration: GoogleAnalyticsIntegration
+  integration: GoogleAnalyticsIntegration,
+  options?: { accountId?: string }
 ): Promise<GoogleAnalyticsProperty[]> => {
   try {
     const analyticsAdmin = await createGoogleAnalyticsAdminClient(integration)
@@ -21,6 +22,14 @@ export const getGoogleAnalyticsProperties: GoogleAnalyticsDataHandler<GoogleAnal
 
     if (response.data.accountSummaries) {
       for (const accountSummary of response.data.accountSummaries) {
+        // Filter by account if specified
+        if (options?.accountId) {
+          const accountId = accountSummary.account?.replace('accounts/', '')
+          if (accountId !== options.accountId) {
+            continue
+          }
+        }
+
         if (accountSummary.propertySummaries) {
           for (const propertySummary of accountSummary.propertySummaries) {
             if (propertySummary.property && propertySummary.displayName) {
@@ -37,7 +46,7 @@ export const getGoogleAnalyticsProperties: GoogleAnalyticsDataHandler<GoogleAnal
       }
     }
 
-    logger.debug(`✅ [Google Analytics] Fetched ${properties.length} properties`)
+    logger.debug(`✅ [Google Analytics] Fetched ${properties.length} properties${options?.accountId ? ` for account ${options.accountId}` : ''}`)
     return properties
 
   } catch (error: any) {

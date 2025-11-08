@@ -1,13 +1,11 @@
-import { BarChart3, TrendingUp, Users, Activity, Eye, FileBarChart } from "lucide-react"
+import { BarChart3, TrendingUp, Users, FileBarChart } from "lucide-react"
 import { NodeComponent } from "../../types"
 
 /**
  * Google Analytics 4 Integration
  *
  * Triggers:
- * - New Page View
- * - Goal Completion
- * - New Event
+ * - Goal Completion (Conversion Events)
  *
  * Actions:
  * - Send Event
@@ -20,49 +18,6 @@ export const googleAnalyticsNodes: NodeComponent[] = [
   // ============================================================================
   // TRIGGERS
   // ============================================================================
-  {
-    type: "google_analytics_trigger_new_pageview",
-    title: "New Page View",
-    description: "Triggers when a new page view is recorded (requires Google Analytics 4)",
-    icon: Eye,
-    providerId: "google-analytics",
-    category: "Analytics",
-    isTrigger: true,
-    producesOutput: true,
-    requiredScopes: [
-      "https://www.googleapis.com/auth/analytics.readonly"
-    ],
-    configSchema: [
-      {
-        name: "propertyId",
-        label: "GA4 Property",
-        type: "select",
-        dynamic: "google-analytics_properties",
-        required: true,
-        loadOnMount: true,
-        placeholder: "Select a property",
-        description: "Choose a Google Analytics 4 property"
-      },
-      {
-        name: "pagePath",
-        label: "Page Path Filter (Optional)",
-        type: "text",
-        required: false,
-        placeholder: "/blog/*",
-        description: "Only trigger for specific pages (e.g., /blog/* for all blog posts)"
-      },
-    ],
-    outputSchema: [
-      { name: "page_path", label: "Page Path", type: "string", description: "The path of the page that was viewed" },
-      { name: "page_title", label: "Page Title", type: "string", description: "The title of the page" },
-      { name: "user_id", label: "User ID", type: "string", description: "Unique identifier for the user" },
-      { name: "session_id", label: "Session ID", type: "string", description: "Unique identifier for the session" },
-      { name: "timestamp", label: "Timestamp", type: "string", description: "ISO timestamp when the page view occurred" },
-      { name: "device_category", label: "Device Category", type: "string", description: "Device type (desktop, mobile, tablet)" },
-      { name: "country", label: "Country", type: "string", description: "Country of the user" },
-      { name: "city", label: "City", type: "string", description: "City of the user" },
-    ],
-  },
   {
     type: "google_analytics_trigger_goal_completion",
     title: "Goal Completion",
@@ -77,14 +32,28 @@ export const googleAnalyticsNodes: NodeComponent[] = [
     ],
     configSchema: [
       {
+        name: "accountId",
+        label: "Account",
+        type: "select",
+        dynamic: "google-analytics_accounts",
+        required: true,
+        loadOnMount: true,
+        placeholder: "Select an account",
+        description: "Choose a Google Analytics account"
+      },
+      {
         name: "propertyId",
         label: "GA4 Property",
         type: "select",
         dynamic: "google-analytics_properties",
         required: true,
-        loadOnMount: true,
+        dependsOn: "accountId",
         placeholder: "Select a property",
-        description: "Choose a Google Analytics 4 property"
+        description: "Choose a Google Analytics 4 property",
+        hidden: {
+          $deps: ["accountId"],
+          $condition: { accountId: { $exists: false } }
+        }
       },
       {
         name: "conversionEvent",
@@ -94,7 +63,11 @@ export const googleAnalyticsNodes: NodeComponent[] = [
         required: true,
         dependsOn: "propertyId",
         placeholder: "Select a conversion event",
-        description: "The specific conversion event to monitor"
+        description: "The specific conversion event to monitor",
+        hidden: {
+          $deps: ["accountId"],
+          $condition: { accountId: { $exists: false } }
+        }
       },
     ],
     outputSchema: [
@@ -105,47 +78,6 @@ export const googleAnalyticsNodes: NodeComponent[] = [
       { name: "timestamp", label: "Timestamp", type: "string", description: "ISO timestamp when the conversion happened" },
       { name: "page_path", label: "Page Path", type: "string", description: "Page where the conversion occurred" },
       { name: "device_category", label: "Device Category", type: "string", description: "Device type (desktop, mobile, tablet)" },
-    ],
-  },
-  {
-    type: "google_analytics_trigger_new_event",
-    title: "New Event",
-    description: "Triggers when a custom event is tracked",
-    icon: Activity,
-    providerId: "google-analytics",
-    category: "Analytics",
-    isTrigger: true,
-    producesOutput: true,
-    requiredScopes: [
-      "https://www.googleapis.com/auth/analytics.readonly"
-    ],
-    configSchema: [
-      {
-        name: "propertyId",
-        label: "GA4 Property",
-        type: "select",
-        dynamic: "google-analytics_properties",
-        required: true,
-        loadOnMount: true,
-        placeholder: "Select a property",
-        description: "Choose a Google Analytics 4 property"
-      },
-      {
-        name: "eventName",
-        label: "Event Name",
-        type: "text",
-        required: true,
-        placeholder: "button_click",
-        description: "The name of the event to monitor (e.g., 'purchase', 'sign_up')"
-      },
-    ],
-    outputSchema: [
-      { name: "event_name", label: "Event Name", type: "string", description: "Name of the custom event that was tracked" },
-      { name: "event_params", label: "Event Parameters", type: "object", description: "Custom parameters attached to the event" },
-      { name: "user_id", label: "User ID", type: "string", description: "Unique identifier for the user" },
-      { name: "session_id", label: "Session ID", type: "string", description: "Session ID where event occurred" },
-      { name: "timestamp", label: "Timestamp", type: "string", description: "ISO timestamp when the event was tracked" },
-      { name: "page_path", label: "Page Path", type: "string", description: "Page where the event occurred" },
     ],
   },
 
@@ -167,14 +99,28 @@ export const googleAnalyticsNodes: NodeComponent[] = [
     ],
     configSchema: [
       {
+        name: "accountId",
+        label: "Account",
+        type: "select",
+        dynamic: "google-analytics_accounts",
+        required: true,
+        loadOnMount: true,
+        placeholder: "Select an account",
+        description: "Choose a Google Analytics account"
+      },
+      {
         name: "propertyId",
         label: "GA4 Property",
         type: "select",
         dynamic: "google-analytics_properties",
         required: true,
-        loadOnMount: true,
+        dependsOn: "accountId",
         placeholder: "Select a property",
-        description: "Choose a Google Analytics 4 property"
+        description: "Choose a Google Analytics 4 property",
+        hidden: {
+          $deps: ["accountId"],
+          $condition: { accountId: { $exists: false } }
+        }
       },
       {
         name: "measurementId",
@@ -184,7 +130,11 @@ export const googleAnalyticsNodes: NodeComponent[] = [
         required: true,
         dependsOn: "propertyId",
         placeholder: "Select measurement ID",
-        description: "The measurement ID for your property (e.g., G-XXXXXXXXXX)"
+        description: "The measurement ID for your property (e.g., G-XXXXXXXXXX)",
+        hidden: {
+          $deps: ["accountId"],
+          $condition: { accountId: { $exists: false } }
+        }
       },
       {
         name: "clientId",
@@ -269,14 +219,28 @@ export const googleAnalyticsNodes: NodeComponent[] = [
     ],
     configSchema: [
       {
+        name: "accountId",
+        label: "Account",
+        type: "select",
+        dynamic: "google-analytics_accounts",
+        required: true,
+        loadOnMount: true,
+        placeholder: "Select an account",
+        description: "Choose a Google Analytics account"
+      },
+      {
         name: "propertyId",
         label: "GA4 Property",
         type: "select",
         dynamic: "google-analytics_properties",
         required: true,
-        loadOnMount: true,
+        dependsOn: "accountId",
         placeholder: "Select a property",
-        description: "Choose a Google Analytics 4 property"
+        description: "Choose a Google Analytics 4 property",
+        hidden: {
+          $deps: ["accountId"],
+          $condition: { accountId: { $exists: false } }
+        }
       },
       {
         name: "metrics",
@@ -360,14 +324,28 @@ export const googleAnalyticsNodes: NodeComponent[] = [
     ],
     configSchema: [
       {
+        name: "accountId",
+        label: "Account",
+        type: "select",
+        dynamic: "google-analytics_accounts",
+        required: true,
+        loadOnMount: true,
+        placeholder: "Select an account",
+        description: "Choose a Google Analytics account"
+      },
+      {
         name: "propertyId",
         label: "GA4 Property",
         type: "select",
         dynamic: "google-analytics_properties",
         required: true,
-        loadOnMount: true,
+        dependsOn: "accountId",
         placeholder: "Select a property",
-        description: "Choose a Google Analytics 4 property"
+        description: "Choose a Google Analytics 4 property",
+        hidden: {
+          $deps: ["accountId"],
+          $condition: { accountId: { $exists: false } }
+        }
       },
       {
         name: "dateRange",
@@ -505,14 +483,28 @@ export const googleAnalyticsNodes: NodeComponent[] = [
     ],
     configSchema: [
       {
+        name: "accountId",
+        label: "Account",
+        type: "select",
+        dynamic: "google-analytics_accounts",
+        required: true,
+        loadOnMount: true,
+        placeholder: "Select an account",
+        description: "Choose a Google Analytics account"
+      },
+      {
         name: "propertyId",
         label: "GA4 Property",
         type: "select",
         dynamic: "google-analytics_properties",
         required: true,
-        loadOnMount: true,
+        dependsOn: "accountId",
         placeholder: "Select a property",
-        description: "Choose a Google Analytics 4 property"
+        description: "Choose a Google Analytics 4 property",
+        hidden: {
+          $deps: ["accountId"],
+          $condition: { accountId: { $exists: false } }
+        }
       },
       {
         name: "userId",

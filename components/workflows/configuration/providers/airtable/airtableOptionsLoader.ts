@@ -4,8 +4,9 @@
  */
 
 import { ProviderOptionsLoader, LoadOptionsParams, FormattedOption } from '../types';
-
-import { logger } from '@/lib/utils/logger'
+import { logger } from '@/lib/utils/logger';
+import { useConfigCacheStore } from '@/stores/configCacheStore';
+import { buildCacheKey, getFieldTTL } from '@/lib/workflows/configuration/cache-utils';
 
 export class AirtableOptionsLoader implements ProviderOptionsLoader {
   private supportedFields = [
@@ -114,6 +115,26 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
       return [];
     }
 
+    // Build cache key
+    const cacheKey = buildCacheKey('airtable', integrationId, 'baseId');
+    const cacheStore = useConfigCacheStore.getState();
+
+    // Force refresh handling
+    if (forceRefresh) {
+      logger.debug(`🔄 [Airtable] Force refresh - invalidating cache:`, cacheKey);
+      cacheStore.invalidate(cacheKey);
+    }
+
+    // Try cache first
+    if (!forceRefresh) {
+      const cached = cacheStore.get(cacheKey);
+      if (cached) {
+        logger.debug(`💾 [Airtable] Cache HIT for baseId:`, { cacheKey, count: cached.length });
+        return cached;
+      }
+      logger.debug(`❌ [Airtable] Cache MISS for baseId:`, { cacheKey });
+    }
+
     try {
       const response = await fetch('/api/integrations/airtable/data', {
         method: 'POST',
@@ -134,10 +155,17 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
       const result = await response.json();
       const bases = result.data || [];
 
-      return bases.map((base: any) => ({
+      const formattedBases = bases.map((base: any) => ({
         value: base.id || base.value,
         label: base.name || base.label || base.id,
       }));
+
+      // Store in cache
+      const ttl = getFieldTTL('baseId');
+      cacheStore.set(cacheKey, formattedBases, ttl);
+      logger.debug(`💾 [Airtable] Cached ${formattedBases.length} options for baseId (TTL: ${ttl / 1000}s)`);
+
+      return formattedBases;
     } catch (error) {
       logger.error('❌ [Airtable] Error loading bases:', error);
       return [];
@@ -150,6 +178,26 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     if (!baseId || !integrationId) {
       logger.debug('🔍 [Airtable] Cannot load tables without baseId and integrationId');
       return [];
+    }
+
+    // Build cache key
+    const cacheKey = buildCacheKey('airtable', integrationId, 'tableName', { baseId });
+    const cacheStore = useConfigCacheStore.getState();
+
+    // Force refresh handling
+    if (forceRefresh) {
+      logger.debug(`🔄 [Airtable] Force refresh - invalidating cache:`, cacheKey);
+      cacheStore.invalidate(cacheKey);
+    }
+
+    // Try cache first
+    if (!forceRefresh) {
+      const cached = cacheStore.get(cacheKey);
+      if (cached) {
+        logger.debug(`💾 [Airtable] Cache HIT for tableName:`, { cacheKey, count: cached.length });
+        return cached;
+      }
+      logger.debug(`❌ [Airtable] Cache MISS for tableName:`, { cacheKey });
     }
 
     try {
@@ -172,12 +220,19 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
       const result = await response.json();
       const tables = result.data || [];
 
-      return tables.map((table: any) => ({
+      const formattedTables = tables.map((table: any) => ({
         value: table.name || table.id || table.value,
         label: table.name || table.label || table.id,
         fields: table.fields,
         description: table.description
       }));
+
+      // Store in cache
+      const ttl = getFieldTTL('tableName');
+      cacheStore.set(cacheKey, formattedTables, ttl);
+      logger.debug(`💾 [Airtable] Cached ${formattedTables.length} options for tableName (TTL: ${ttl / 1000}s)`);
+
+      return formattedTables;
     } catch (error) {
       logger.error('❌ [Airtable] Error loading tables:', error);
       return [];
@@ -196,6 +251,26 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     if (!baseId) {
       logger.debug('🔍 [Airtable] Cannot load fields without baseId');
       return [];
+    }
+
+    // Build cache key
+    const cacheKey = buildCacheKey('airtable', integrationId, 'filterField', { baseId, tableName });
+    const cacheStore = useConfigCacheStore.getState();
+
+    // Force refresh handling
+    if (forceRefresh) {
+      logger.debug(`🔄 [Airtable] Force refresh - invalidating cache:`, cacheKey);
+      cacheStore.invalidate(cacheKey);
+    }
+
+    // Try cache first
+    if (!forceRefresh) {
+      const cached = cacheStore.get(cacheKey);
+      if (cached) {
+        logger.debug(`💾 [Airtable] Cache HIT for filterField:`, { cacheKey, count: cached.length });
+        return cached;
+      }
+      logger.debug(`❌ [Airtable] Cache MISS for filterField:`, { cacheKey });
     }
 
     try {
@@ -222,16 +297,23 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
 
       const result = await response.json();
       const records = result.data || [];
-      
+
       // Extract field names from records
       const fieldNames = records.length > 0 ? Object.keys(records[0]?.fields || {}) : [];
-      
-      return fieldNames.map(name => ({
+
+      const formattedFields = fieldNames.map(name => ({
         value: name,
         label: name,
         type: 'text',
         id: name
       }));
+
+      // Store in cache
+      const ttl = getFieldTTL('filterField');
+      cacheStore.set(cacheKey, formattedFields, ttl);
+      logger.debug(`💾 [Airtable] Cached ${formattedFields.length} options for filterField (TTL: ${ttl / 1000}s)`);
+
+      return formattedFields;
     } catch (error) {
       logger.error('❌ [Airtable] Error loading fields:', error);
       return [];
@@ -263,6 +345,26 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
         extraOptions
       });
       return [];
+    }
+
+    // Build cache key
+    const cacheKey = buildCacheKey('airtable', integrationId, fieldName, { baseId, tableName, dataType });
+    const cacheStore = useConfigCacheStore.getState();
+
+    // Force refresh handling
+    if (forceRefresh) {
+      logger.debug(`🔄 [Airtable] Force refresh - invalidating cache:`, cacheKey);
+      cacheStore.invalidate(cacheKey);
+    }
+
+    // Try cache first
+    if (!forceRefresh) {
+      const cached = cacheStore.get(cacheKey);
+      if (cached) {
+        logger.debug(`💾 [Airtable] Cache HIT for ${fieldName}:`, { cacheKey, count: cached.length });
+        return cached;
+      }
+      logger.debug(`❌ [Airtable] Cache MISS for ${fieldName}:`, { cacheKey });
     }
 
     // For linked record fields, we need to fetch from the linked table
@@ -313,10 +415,17 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
           firstOption: options[0]
         });
 
-        return options.map((option: any) => ({
+        const formattedOptions = options.map((option: any) => ({
           value: option.value || option.id,
           label: option.label || option.name || option.value
         }));
+
+        // Store in cache
+        const ttl = getFieldTTL(fieldName);
+        cacheStore.set(cacheKey, formattedOptions, ttl);
+        logger.debug(`💾 [Airtable] Cached ${formattedOptions.length} options for ${fieldName} (TTL: ${ttl / 1000}s)`);
+
+        return formattedOptions;
       } catch (error) {
         logger.error(`❌ [Airtable] Error loading linked records from ${linkedTableName}:`, error);
         // Return empty array so form still works - user can type values manually
@@ -354,10 +463,17 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
         firstOption: options[0]
       });
 
-      return options.map((option: any) => ({
+      const formattedOptions = options.map((option: any) => ({
         value: option.value || option.id,
         label: option.label || option.name || option.value
       }));
+
+      // Store in cache
+      const ttl = getFieldTTL(fieldName);
+      cacheStore.set(cacheKey, formattedOptions, ttl);
+      logger.debug(`💾 [Airtable] Cached ${formattedOptions.length} options for ${fieldName} (TTL: ${ttl / 1000}s)`);
+
+      return formattedOptions;
     } catch (error) {
       logger.error(`❌ [Airtable] Error loading ${dataType}:`, error);
       return [];
@@ -378,6 +494,26 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     if (!baseId || !tableName) {
       logger.debug('🔍 [Airtable] Cannot load field values without baseId and tableName');
       return [];
+    }
+
+    // Build cache key
+    const cacheKey = buildCacheKey('airtable', integrationId, 'filterValue', { baseId, tableName, filterField });
+    const cacheStore = useConfigCacheStore.getState();
+
+    // Force refresh handling
+    if (forceRefresh) {
+      logger.debug(`🔄 [Airtable] Force refresh - invalidating cache:`, cacheKey);
+      cacheStore.invalidate(cacheKey);
+    }
+
+    // Try cache first
+    if (!forceRefresh) {
+      const cached = cacheStore.get(cacheKey);
+      if (cached) {
+        logger.debug(`💾 [Airtable] Cache HIT for filterValue:`, { cacheKey, count: cached.length });
+        return cached;
+      }
+      logger.debug(`❌ [Airtable] Cache MISS for filterValue:`, { cacheKey });
     }
 
     try {
@@ -404,10 +540,10 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
 
       const result = await response.json();
       const records = result.data || [];
-      
+
       // Extract unique values for the selected field
       const fieldValues = new Map<string, string>();
-      
+
       records.forEach((record: any) => {
         const value = record.fields?.[filterField];
         if (value != null) {
@@ -422,13 +558,20 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
           }
         }
       });
-      
-      return Array.from(fieldValues.entries())
+
+      const formattedValues = Array.from(fieldValues.entries())
         .sort((a, b) => a[1].localeCompare(b[1]))
         .map(([value, label]) => ({
           value,
           label
         }));
+
+      // Store in cache
+      const ttl = getFieldTTL('filterValue');
+      cacheStore.set(cacheKey, formattedValues, ttl);
+      logger.debug(`💾 [Airtable] Cached ${formattedValues.length} options for filterValue (TTL: ${ttl / 1000}s)`);
+
+      return formattedValues;
     } catch (error) {
       logger.error('❌ [Airtable] Error loading field values:', error);
       return [];
@@ -480,6 +623,26 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     if (!linkedTableId && !linkedTableName) {
       logger.debug('🔍 [Airtable] Cannot determine linked table');
       return [];
+    }
+
+    // Build cache key
+    const cacheKey = buildCacheKey('airtable', integrationId, fieldName, { baseId, tableName, linkedTableId, linkedTableName });
+    const cacheStore = useConfigCacheStore.getState();
+
+    // Force refresh handling
+    if (forceRefresh) {
+      logger.debug(`🔄 [Airtable] Force refresh - invalidating cache:`, cacheKey);
+      cacheStore.invalidate(cacheKey);
+    }
+
+    // Try cache first
+    if (!forceRefresh) {
+      const cached = cacheStore.get(cacheKey);
+      if (cached) {
+        logger.debug(`💾 [Airtable] Cache HIT for ${fieldName}:`, { cacheKey, count: cached.length });
+        return cached;
+      }
+      logger.debug(`❌ [Airtable] Cache MISS for ${fieldName}:`, { cacheKey });
     }
 
     try {
@@ -539,30 +702,37 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
 
       const recordsResult = await recordsResponse.json();
       const records = recordsResult.data || [];
-      
+
       // Find the best display field
       const displayField = this.findDisplayField(records);
-      
-      return records.map((record: any) => {
+
+      const formattedRecords = records.map((record: any) => {
         let label = record.id;
         let actualValue = record.id;
-        
+
         if (displayField && record.fields?.[displayField]) {
           label = String(record.fields[displayField]);
           // Store both ID and name for filtering
           actualValue = `${record.id}::${label}`;
-          
+
           if (label.length > 50) {
             label = `${label.substring(0, 47) }...`;
           }
         }
-        
+
         return {
           value: actualValue,
           label: label,
           recordId: record.id
         };
       });
+
+      // Store in cache
+      const ttl = getFieldTTL(fieldName);
+      cacheStore.set(cacheKey, formattedRecords, ttl);
+      logger.debug(`💾 [Airtable] Cached ${formattedRecords.length} options for ${fieldName} (TTL: ${ttl / 1000}s)`);
+
+      return formattedRecords;
     } catch (error) {
       logger.error('❌ [Airtable] Error loading linked records:', error);
       return [];
@@ -599,6 +769,16 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
       return value && (typeof value === 'string' || typeof value === 'number') && 
              !Array.isArray(value);
     });
+  }
+
+  /**
+   * Clear cache
+   */
+  clearCache(): void {
+    const cacheStore = useConfigCacheStore.getState();
+    cacheStore.invalidateProvider('airtable');
+
+    logger.debug('🧹 [Airtable] Cache cleared');
   }
 
   getFieldDependencies(fieldName: string): string[] {

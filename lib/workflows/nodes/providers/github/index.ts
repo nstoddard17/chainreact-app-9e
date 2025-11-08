@@ -315,9 +315,35 @@ export const githubNodes: NodeComponent[] = [
     category: "Developer",
     isTrigger: false,
     configSchema: [
-      { name: "repository", label: "Repository", type: "text", required: true, placeholder: "owner/repo (e.g., octocat/my-project)" },
-      { name: "issueNumber", label: "Issue/PR Number", type: "number", required: true, placeholder: "123" },
-      { name: "body", label: "Comment", type: "textarea", required: true, placeholder: "Enter your comment (supports Markdown)" }
+      {
+        name: "repository",
+        label: "Repository",
+        type: "combobox",
+        required: true,
+        dynamic: "github_repositories",
+        loadOnMount: true,
+        placeholder: "Select a repository",
+        description: "Select the repository containing the issue or pull request"
+      },
+      {
+        name: "issueNumber",
+        label: "Issue/PR Number",
+        type: "combobox",
+        required: true,
+        dynamic: "github_issues",
+        dependsOn: "repository",
+        placeholder: "Select an issue or pull request",
+        description: "Select the issue or pull request to comment on"
+      },
+      {
+        name: "body",
+        label: "Comment",
+        type: "textarea",
+        required: true,
+        dependsOn: "repository",
+        placeholder: "Enter your comment (supports Markdown)",
+        description: "The comment text (Markdown supported)"
+      }
     ],
     outputSchema: [
       { name: "commentId", label: "Comment ID", type: "string", description: "The unique ID of the comment" },

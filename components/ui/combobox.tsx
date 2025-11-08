@@ -29,6 +29,7 @@ export interface ComboboxOption {
   isExisting?: boolean;
   disabled?: boolean;
   searchValue?: string; // Additional searchable text for enhanced search
+  group?: string; // Optional group name for grouped display
 }
 
 interface ComboboxProps {
@@ -379,64 +380,113 @@ export function Combobox({
             }}
           >
             <CommandEmpty>{emptyPlaceholder || "No results found."}</CommandEmpty>
-            <CommandGroup>
-              {filteredOptions.map((option, index) => {
-                const isSelected = value === option.value;
+            {(() => {
+              // Check if any options have groups
+              const hasGroups = filteredOptions.some(option => option.group);
+
+              if (!hasGroups) {
+                // Render single CommandGroup for ungrouped options
                 return (
-                  <CommandItem
-                    key={`${index}-${option.value || 'undefined'}`}
-                    value={option.value}
-                    onSelect={() => {
-                      if (!option.disabled) handleSelect(option.value)
-                    }}
-                    disabled={option.disabled}
-                    className={cn(
-                      option.disabled && "opacity-50 pointer-events-none cursor-not-allowed",
-                      // Selected item: always blue (including on hover) - !important to override data-selected
-                      isSelected && "!bg-blue-100 dark:!bg-blue-900/30 !text-blue-900 dark:!text-blue-100",
-                      // Hover state: grey for non-selected items
-                      !isSelected && "hover:bg-accent hover:text-accent-foreground"
+                  <CommandGroup>
+                    {filteredOptions.map((option, index) => {
+                      const isSelected = value === option.value;
+                      return (
+                        <CommandItem
+                          key={`${index}-${option.value || 'undefined'}`}
+                          value={option.value}
+                          onSelect={() => {
+                            if (!option.disabled) handleSelect(option.value)
+                          }}
+                          disabled={option.disabled}
+                          className={cn(
+                            option.disabled && "opacity-50 pointer-events-none cursor-not-allowed",
+                            isSelected && "!bg-blue-100 dark:!bg-blue-900/30 !text-blue-900 dark:!text-blue-100",
+                            !isSelected && "hover:bg-accent hover:text-accent-foreground"
+                          )}
+                        >
+                          <div className="flex flex-col">
+                            {option.label !== undefined && option.label !== null ? option.label : String(option.value)}
+                            {option.description && (
+                              <span className="text-xs sm:text-sm text-muted-foreground">{option.description}</span>
+                            )}
+                          </div>
+                        </CommandItem>
+                      );
+                    })}
+                    {/* Show create option if creatable */}
+                    {creatable && inputValue.trim() && !filteredOptions.some(option => option.value === inputValue.trim()) && (
+                      <CommandItem
+                        key={`create-${inputValue.trim()}`}
+                        value={inputValue.trim()}
+                        onSelect={() => {
+                          const newOption = { value: inputValue.trim(), label: inputValue.trim(), isExisting: false }
+                          setLocalOptions((prev) => [...prev, newOption])
+                          onChange(inputValue.trim())
+                          setInputValue("")
+                          setOpen(false)
+                        }}
+                        className="bg-blue-50 dark:bg-blue-950/20 border-l-2 border-blue-500"
+                      >
+                        <div className="flex items-center w-full">
+                          <div className="flex items-center gap-2 flex-1">
+                            <div className="h-4 w-4 rounded bg-blue-500 flex items-center justify-center">
+                              <span className="text-white text-xs font-bold">+</span>
+                            </div>
+                            <span className="text-blue-700 dark:text-blue-300 font-semibold">
+                              {inputValue.trim().startsWith('{{') && inputValue.trim().endsWith('}}')
+                                ? `Use variable: ${inputValue.trim()}`
+                                : `Use custom value: "${inputValue.trim()}"`}
+                            </span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">Press Enter</span>
+                        </div>
+                      </CommandItem>
                     )}
-                  >
-                    <div className="flex flex-col">
-                      {option.label !== undefined && option.label !== null ? option.label : String(option.value)}
-                      {option.description && (
-                        <span className="text-xs sm:text-sm text-muted-foreground">{option.description}</span>
-                      )}
-                    </div>
-                  </CommandItem>
+                  </CommandGroup>
                 );
-              })}
-              {/* Show create option if creatable and inputValue is not empty and not in options */}
-              {creatable && inputValue.trim() && !filteredOptions.some(option => option.value === inputValue.trim()) && (
-                <CommandItem
-                  key={`create-${ inputValue.trim()}`}
-                  value={inputValue.trim()}
-                  onSelect={() => {
-                    const newOption = { value: inputValue.trim(), label: inputValue.trim(), isExisting: false }
-                    setLocalOptions((prev) => [...prev, newOption])
-                    onChange(inputValue.trim())
-                    setInputValue("")
-                    setOpen(false)
-                  }}
-                  className="bg-blue-50 dark:bg-blue-950/20 border-l-2 border-blue-500"
-                >
-                  <div className="flex items-center w-full">
-                    <div className="flex items-center gap-2 flex-1">
-                      <div className="h-4 w-4 rounded bg-blue-500 flex items-center justify-center">
-                        <span className="text-white text-xs font-bold">+</span>
-                      </div>
-                      <span className="text-blue-700 dark:text-blue-300 font-semibold">
-                        {inputValue.trim().startsWith('{{') && inputValue.trim().endsWith('}}')
-                          ? `Use variable: ${inputValue.trim()}`
-                          : `Use custom value: "${inputValue.trim()}"`}
-                      </span>
-                    </div>
-                    <span className="text-xs text-muted-foreground">Press Enter</span>
-                  </div>
-                </CommandItem>
-              )}
-            </CommandGroup>
+              }
+
+              // Group options by their group property
+              const grouped = filteredOptions.reduce((acc, option) => {
+                const groupName = option.group || 'Other';
+                if (!acc[groupName]) {
+                  acc[groupName] = [];
+                }
+                acc[groupName].push(option);
+                return acc;
+              }, {} as Record<string, ComboboxOption[]>);
+
+              // Render multiple CommandGroups with headers
+              return Object.entries(grouped).map(([groupName, groupOptions]) => (
+                <CommandGroup key={groupName} heading={groupName}>
+                  {groupOptions.map((option, index) => {
+                    const isSelected = value === option.value;
+                    return (
+                      <CommandItem
+                        key={`${groupName}-${index}-${option.value || 'undefined'}`}
+                        value={option.value}
+                        onSelect={() => {
+                          if (!option.disabled) handleSelect(option.value)
+                        }}
+                        disabled={option.disabled}
+                        className={cn(
+                          option.disabled && "opacity-50 pointer-events-none cursor-not-allowed",
+                          isSelected && "!bg-blue-100 dark:!bg-blue-900/30 !text-blue-900 dark:!text-blue-100",
+                          !isSelected && "hover:bg-accent hover:text-accent-foreground"
+                        )}
+                      >
+                        <div className="flex flex-col">
+                          {option.label !== undefined && option.label !== null ? option.label : String(option.value)}
+                          {option.description && (
+                            <span className="text-xs sm:text-sm text-muted-foreground">{option.description}</span>
+                          )}
+                        </div>
+                      </CommandItem>
+                    );
+                  })}
+                </CommandGroup>
+              ));
+            })()}
           </CommandList>
         </Command>
       </PopoverContent>
