@@ -74,17 +74,20 @@ export class OAuthConnectionFlow {
 
       // Step 3: Setup popup listeners and wait for completion
       return new Promise((resolve) => {
-        OAuthPopupManager.setupPopupListeners(
+        const { cleanup } = OAuthPopupManager.setupPopupListeners(
           popup,
           providerId,
           // onSuccess
           async (data) => {
             try {
+              // CRITICAL: Clean up listeners IMMEDIATELY on success
+              cleanup()
+
               // Step 4: Validate scopes if requested
               let scopeValidation
               if (validateScopes && data.scopes) {
                 scopeValidation = ScopeValidator.validateScopes(providerId, data.scopes)
-                
+
                 if (!scopeValidation.isValid) {
                   logger.warn(`⚠️ Missing required scopes for ${providerId}:`, scopeValidation.missingScopes)
                 }
@@ -99,6 +102,7 @@ export class OAuthConnectionFlow {
               onSuccess?.(data)
               resolve(result)
             } catch (error) {
+              cleanup() // Clean up on error too
               const errorMessage = error instanceof Error ? error.message : "Unknown error during connection"
               onError?.(errorMessage)
               resolve({ success: false, message: errorMessage })
@@ -106,16 +110,19 @@ export class OAuthConnectionFlow {
           },
           // onError
           (error) => {
+            cleanup() // Clean up on error
             onError?.(error)
             resolve({ success: false, message: error })
           },
           // onCancel
           () => {
+            cleanup() // Clean up on cancel
             onCancel?.()
             resolve({ success: false, message: "User cancelled connection" })
           },
           // onInfo
           (message) => {
+            cleanup() // Clean up on info
             onInfo?.(message)
             resolve({ success: false, message })
           }
