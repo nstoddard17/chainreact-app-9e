@@ -22,7 +22,7 @@ export const removeReactionActionSchema: NodeComponent = {
       label: "Channel",
       type: "select",
       required: true,
-      dynamic: "slack-channels",
+      dynamic: "slack_channels",
       loadOnMount: true,
       placeholder: "Select a channel",
       tooltip: "Select the channel where the message is located"

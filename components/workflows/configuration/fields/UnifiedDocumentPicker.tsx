@@ -8,7 +8,7 @@ import { CheckCircle2, Link2, Plus, RefreshCw, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface UnifiedDocumentPickerProps {
   field: any
@@ -285,38 +285,36 @@ export function UnifiedDocumentPicker({
               const selected = selectedProvider === provider.id
 
               return (
-                <TooltipProvider key={provider.id}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        variant={selected ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => handleProviderSelect(provider.id)}
-                        className={cn(
-                          "flex items-center gap-2 relative",
-                          selected && "ring-2 ring-offset-2 ring-primary"
-                        )}
-                      >
-                        <img
-                          src={provider.logo}
-                          alt={provider.name}
-                          className="w-4 h-4 object-contain"
-                          onError={(e) => e.currentTarget.style.display = 'none'}
-                        />
-                        <span>{provider.name}</span>
-                        {connected ? (
-                          <CheckCircle2 className="w-3 h-3 text-green-500" />
-                        ) : (
-                          <XCircle className="w-3 h-3 text-muted-foreground" />
-                        )}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{connected ? 'Connected' : 'Not connected'}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <Tooltip key={provider.id}>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant={selected ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handleProviderSelect(provider.id)}
+                      className={cn(
+                        "flex items-center gap-2 relative",
+                        selected && "ring-2 ring-offset-2 ring-primary"
+                      )}
+                    >
+                      <img
+                        src={provider.logo}
+                        alt={provider.name}
+                        className="w-4 h-4 object-contain"
+                        onError={(e) => e.currentTarget.style.display = 'none'}
+                      />
+                      <span>{provider.name}</span>
+                      {connected ? (
+                        <CheckCircle2 className="w-3 h-3 text-green-500" />
+                      ) : (
+                        <XCircle className="w-3 h-3 text-muted-foreground" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{connected ? 'Connected' : 'Not connected'}</p>
+                  </TooltipContent>
+                </Tooltip>
               )
             })}
           </div>
@@ -351,7 +349,6 @@ export function UnifiedDocumentPicker({
                   </Label>
                   <div className="flex gap-2">
                     {field.allowCreate && (
-                      <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button
@@ -368,9 +365,7 @@ export function UnifiedDocumentPicker({
                             <p>{field.createLabel || 'Create new document'}</p>
                           </TooltipContent>
                         </Tooltip>
-                      </TooltipProvider>
                     )}
-                    <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button
@@ -391,7 +386,6 @@ export function UnifiedDocumentPicker({
                           <p>Refresh documents</p>
                         </TooltipContent>
                       </Tooltip>
-                    </TooltipProvider>
                   </div>
                 </div>
 

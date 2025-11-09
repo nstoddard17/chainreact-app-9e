@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 import { logger } from '@/lib/utils/logger'
 
@@ -309,7 +309,6 @@ function DiscordServerFieldComponent({
           </SelectContent>
         </Select>
 
-        <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -332,7 +331,6 @@ function DiscordServerFieldComponent({
               <p className="text-xs">Refresh servers</p>
             </TooltipContent>
           </Tooltip>
-        </TooltipProvider>
       </div>
 
       <div className="flex items-center gap-2">

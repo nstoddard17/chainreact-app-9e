@@ -15,7 +15,7 @@ export const reactionAddedTriggerSchema: NodeComponent = {
       label: "Channel",
       type: "select",
       required: false,
-      dynamic: "slack-channels",
+      dynamic: "slack_channels",
       description: "Optional: Filter to a specific channel. Leave empty to listen to all channels.",
       loadOnMount: true
     },

@@ -184,6 +184,18 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       // Note: dependsOnValue will be handled below by looking at current form values
     }
     
+    // CRITICAL: Check if integration exists BEFORE starting any loading state
+    // This prevents "Loading..." from showing when integration isn't connected yet
+    const integrationExists = getIntegrationByProvider(providerId);
+    if (!integrationExists && !silent) {
+      logger.debug(`⚠️ [useDynamicOptions] No integration found for ${providerId}, skipping load for ${fieldName}`);
+      setDynamicOptions(prev => ({
+        ...prev,
+        [fieldName]: []
+      }));
+      return; // Don't show loading if integration doesn't exist
+    }
+
     // Build cache key for field-level caching
     const cacheKey = buildCacheKey(
       providerId,

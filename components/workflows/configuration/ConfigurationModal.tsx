@@ -65,6 +65,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { SetupTab, AdvancedTab, ResultsTab } from "./tabs"
 import { getProviderBrandName } from "@/lib/integrations/brandNames"
 import { StaticIntegrationLogo } from "@/components/ui/static-integration-logo"
+import { TooltipProvider } from "@/components/ui/tooltip"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -453,13 +454,14 @@ export function ConfigurationModal({
   const panelHeight = viewportHeight > 0 ? viewportHeight - headerHeight : undefined
 
   return (
-    <VariableDragProvider>
-      {/* Configuration Panel */}
-      <div
-        ref={dialogContentRef}
-        className={`fixed right-0 bg-white dark:bg-slate-950 border-l border-border z-40 overflow-hidden ${
-          isOpen ? 'translate-x-0' : 'translate-x-full'
-        }`}
+    <TooltipProvider>
+      <VariableDragProvider>
+        {/* Configuration Panel */}
+        <div
+          ref={dialogContentRef}
+          className={`fixed right-0 bg-white dark:bg-slate-950 border-l border-border z-40 overflow-hidden ${
+            isOpen ? 'translate-x-0' : 'translate-x-full'
+          }`}
         style={{
           transition: 'transform 700ms cubic-bezier(0.4, 0, 0.2, 1)',
           willChange: 'transform',
@@ -654,6 +656,7 @@ export function ConfigurationModal({
 
         </div>
       </div>
-    </VariableDragProvider>
+      </VariableDragProvider>
+    </TooltipProvider>
   );
 }

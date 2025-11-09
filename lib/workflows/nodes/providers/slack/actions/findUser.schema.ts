@@ -93,7 +93,7 @@ export const findUserActionSchema: NodeComponent = {
       name: "workspace",
       label: "Workspace",
       type: "select",
-      dynamic: "slack-workspaces",
+      dynamic: "slack_workspaces",
       required: true,
       loadOnMount: true,
       placeholder: "Select Slack workspace",
