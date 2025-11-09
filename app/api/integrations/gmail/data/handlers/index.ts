@@ -7,6 +7,7 @@ import { getGmailLabels } from './labels'
 import { getGmailEnhancedRecipients } from './enhanced-recipients'
 import { getGmailSignatures } from './signatures'
 import { getGmailFromAddresses } from './from-addresses'
+import { getGmailRecentSenders } from './recent-senders'
 
 /**
  * Registry of all Gmail data handlers
@@ -22,12 +23,11 @@ export const gmailHandlers: Record<string, GmailDataHandler> = {
   // Signatures
   'gmail_signatures': getGmailSignatures,
 
-  // From addresses (send-as aliases + recent senders)
+  // From addresses (send-as aliases + recent senders for Send Email action)
   'gmail_from_addresses': getGmailFromAddresses,
 
-  // Messages (placeholder - can be implemented later)
-  // 'gmail_messages': getGmailMessages,
-  // 'gmail_recent_senders': getGmailRecentSenders,
+  // Recent senders (for New Email trigger filtering)
+  'gmail_recent_senders': getGmailRecentSenders,
 }
 
 /**

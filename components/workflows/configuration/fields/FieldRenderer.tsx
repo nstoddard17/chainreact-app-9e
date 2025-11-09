@@ -1257,6 +1257,9 @@ export function FieldRenderer({
           ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
           : fieldOptions;
 
+        // Check if THIS specific field is loading (not global loadingDynamic)
+        const isFieldLoading = loadingFields?.has(field.name) || loadingDynamic;
+
         // Debug logging for board field
         if (field.name === 'boardId') {
           logger.debug('[FieldRenderer] Board field select options:', {
@@ -1284,7 +1287,7 @@ export function FieldRenderer({
                 onChange={onChange}
                 error={error}
                 options={selectOptions}
-                isLoading={loadingDynamic}
+                isLoading={isFieldLoading}
                 onDynamicLoad={onDynamicLoad}
                 nodeInfo={nodeInfo}
                 selectedValues={selectedValues}
@@ -1316,7 +1319,7 @@ export function FieldRenderer({
             onChange={onChange}
             error={error}
             options={selectOptions}
-            isLoading={loadingDynamic}
+            isLoading={isFieldLoading}
             onDynamicLoad={onDynamicLoad}
             nodeInfo={nodeInfo}
             selectedValues={selectedValues}
@@ -1334,6 +1337,9 @@ export function FieldRenderer({
           ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
           : fieldOptions;
 
+        // Check if THIS specific field is loading
+        const isMultiSelectLoading = loadingFields?.has(field.name) || loadingDynamic;
+
         return (
           <GenericSelectField
             field={{
@@ -1345,7 +1351,7 @@ export function FieldRenderer({
             onChange={onChange}
             error={error}
             options={multiSelectOptions}
-            isLoading={loadingDynamic}
+            isLoading={isMultiSelectLoading}
             onDynamicLoad={onDynamicLoad}
             nodeInfo={nodeInfo}
             selectedValues={selectedValues}

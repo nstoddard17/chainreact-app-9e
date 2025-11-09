@@ -139,16 +139,34 @@ export class GoogleAnalyticsOptionsLoader implements ProviderOptionsLoader {
         }));
       } else if (fieldName === 'conversionEvent') {
         // Conversion event selection
-        return items.map((event: any) => ({
-          value: event.eventName,
-          label: event.eventName,
-          description: event.name,
-          metadata: {
-            id: event.id,
-            counting_method: event.counting_method,
-            defaultValue: event.defaultValue
+        return items.map((event: any) => {
+          // Create user-friendly label: replace underscores with spaces and capitalize each word
+          const formattedLabel = event.eventName
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, (char: string) => char.toUpperCase());
+
+          // Create user-friendly description from counting method
+          let description = undefined;
+          if (event.counting_method) {
+            const methodLabel = event.counting_method === 'ONCE_PER_EVENT'
+              ? 'Once per event'
+              : event.counting_method === 'ONCE_PER_SESSION'
+              ? 'Once per session'
+              : event.counting_method;
+            description = methodLabel;
           }
-        }));
+
+          return {
+            value: event.eventName,
+            label: formattedLabel,
+            description: description,
+            metadata: {
+              id: event.id,
+              counting_method: event.counting_method,
+              defaultValue: event.defaultValue
+            }
+          };
+        });
       }
 
       return items;

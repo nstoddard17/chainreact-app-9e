@@ -13,12 +13,13 @@ export const newEmailTriggerSchema: NodeComponent = {
     {
       name: "from",
       label: "From",
-      type: "email-autocomplete",
-      dynamic: "gmail-recent-recipients",
+      type: "select",
+      dynamic: "gmail_recent_senders",
       required: false,
-      loadOnMount: true, // Load recipients immediately when modal opens
+      loadOnMount: true, // Load senders immediately when modal opens
       placeholder: "Leave blank for any sender",
-      description: "Filter by sender email address. Leave blank to trigger on emails from ANY sender."
+      description: "Filter by sender email address. Shows recent senders and your contacts grouped by category.",
+      tooltip: "Leave blank to trigger on emails from ANY sender"
     },
     {
       name: "subjectExactMatch",

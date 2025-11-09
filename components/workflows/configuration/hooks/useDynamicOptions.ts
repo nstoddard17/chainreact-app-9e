@@ -349,6 +349,17 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
     // Determine data to load based on field name (moved outside try block for error handling)
     const resourceType = getResourceTypeForField(fieldName, nodeType);
 
+    // Debug logging for Gmail "from" field
+    if (fieldName === 'from' && providerId === 'gmail') {
+      logger.debug('🔍 [useDynamicOptions] Loading Gmail from field:', {
+        fieldName,
+        nodeType,
+        providerId,
+        resourceType,
+        expectedNodeType: 'gmail_action_send_email'
+      });
+    }
+
     // Debug logging for searchField specifically
     if (fieldName === 'searchField') {
       console.log(`🔍🔍🔍 [useDynamicOptions] LOADING SEARCHFIELD:`, {
