@@ -890,6 +890,24 @@ const stripeMappings: Record<string, FieldMapping> = {
   stripe_action_find_customer: {
     customerId: "stripe_customers",
   },
+  stripe_action_create_payment_intent: {
+    customerId: "stripe_customers",
+  },
+  stripe_action_create_invoice: {
+    customerId: "stripe_customers",
+  },
+  stripe_action_create_subscription: {
+    customerId: "stripe_customers",
+  },
+  stripe_action_update_subscription: {
+    subscriptionId: "stripe_subscriptions",
+  },
+  stripe_action_find_subscription: {
+    subscriptionId: "stripe_subscriptions",
+  },
+  stripe_action_create_checkout_session: {
+    customer: "stripe_customers",
+  },
 };
 
 // Google Analytics field mappings

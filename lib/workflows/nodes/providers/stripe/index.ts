@@ -789,6 +789,7 @@ export const stripeNodes: NodeComponent[] = [
           { value: "reverse", label: "Reverse charge" }
         ],
         description: "Customer's tax exemption status",
+        supportsAI: false,
         dependsOn: "customerId",
         hidden: { $deps: ["customerId"], $condition: { customerId: { $exists: false } } }
       },
@@ -1206,7 +1207,17 @@ export const stripeNodes: NodeComponent[] = [
         { value: "eur", label: "EUR" },
         { value: "gbp", label: "GBP" }
       ] },
-      { name: "customerId", label: "Customer ID", type: "text", required: false, placeholder: "cus_1234567890" },
+      {
+        name: "customerId",
+        label: "Customer",
+        type: "combobox",
+        dynamic: "stripe_customers",
+        required: false,
+        loadOnMount: true,
+        searchable: true,
+        placeholder: "Search for a customer...",
+        description: "Select a customer (optional)"
+      },
       { name: "description", label: "Description", type: "text", required: false, placeholder: "Payment description" }
     ],
     outputSchema: [
@@ -1233,7 +1244,17 @@ export const stripeNodes: NodeComponent[] = [
     isTrigger: false,
     producesOutput: true,
     configSchema: [
-      { name: "customerId", label: "Customer ID", type: "text", required: true, placeholder: "cus_1234567890" },
+      {
+        name: "customerId",
+        label: "Customer",
+        type: "combobox",
+        dynamic: "stripe_customers",
+        required: true,
+        loadOnMount: true,
+        searchable: true,
+        placeholder: "Search for a customer...",
+        description: "Select the customer for this invoice"
+      },
       { name: "description", label: "Description", type: "text", required: false, placeholder: "Invoice description" },
       { name: "autoAdvance", label: "Auto Advance", type: "boolean", required: false, defaultValue: true }
     ],
@@ -1265,8 +1286,18 @@ export const stripeNodes: NodeComponent[] = [
     isTrigger: false,
     producesOutput: true,
     configSchema: [
-      { name: "customerId", label: "Customer ID", type: "text", required: true, placeholder: "cus_1234567890" },
-      { name: "priceId", label: "Price ID", type: "text", required: true, placeholder: "price_1234567890" },
+      {
+        name: "customerId",
+        label: "Customer",
+        type: "combobox",
+        dynamic: "stripe_customers",
+        required: true,
+        loadOnMount: true,
+        searchable: true,
+        placeholder: "Search for a customer...",
+        description: "Select the customer for this subscription"
+      },
+      { name: "priceId", label: "Price ID", type: "text", required: true, placeholder: "price_1234567890", description: "Stripe Price ID (e.g., price_1234567890)" },
       { name: "trialPeriodDays", label: "Trial Period (days)", type: "number", required: false, placeholder: "7" }
     ],
     outputSchema: [
@@ -1545,11 +1576,14 @@ export const stripeNodes: NodeComponent[] = [
     configSchema: [
       {
         name: "subscriptionId",
-        label: "Subscription ID",
-        type: "text",
+        label: "Subscription",
+        type: "combobox",
+        dynamic: "stripe_subscriptions",
         required: true,
-        placeholder: "sub_1234567890",
-        description: "The ID of the subscription to update"
+        loadOnMount: true,
+        searchable: true,
+        placeholder: "Search for a subscription...",
+        description: "Select the subscription to update"
       },
       {
         name: "priceId",
@@ -1706,11 +1740,14 @@ export const stripeNodes: NodeComponent[] = [
       },
       {
         name: "customer",
-        label: "Customer ID",
-        type: "text",
+        label: "Customer",
+        type: "combobox",
+        dynamic: "stripe_customers",
         required: false,
-        placeholder: "cus_1234567890",
-        description: "Existing customer ID (use this OR customer_email)"
+        loadOnMount: true,
+        searchable: true,
+        placeholder: "Search for a customer...",
+        description: "Existing customer (use this OR customer_email)"
       },
       {
         name: "customer_email",
@@ -1947,11 +1984,14 @@ export const stripeNodes: NodeComponent[] = [
     configSchema: [
       {
         name: "subscriptionId",
-        label: "Subscription ID",
-        type: "text",
+        label: "Subscription",
+        type: "combobox",
+        dynamic: "stripe_subscriptions",
         required: true,
-        placeholder: "sub_1234567890",
-        description: "The subscription ID to find"
+        loadOnMount: true,
+        searchable: true,
+        placeholder: "Search for a subscription...",
+        description: "Select the subscription to find"
       }
     ],
     outputSchema: [
