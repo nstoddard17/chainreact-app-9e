@@ -33,3 +33,21 @@ Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
 [2025-11-09T19:28:41.511Z] [INFO   ]  ✓ Compiled in 2.5s (2719 modules)
 [2025-11-09T19:29:15.004Z] [INFO   ]  ✓ Compiled in 476ms (2719 modules)
 [2025-11-09T19:35:37.127Z] [INFO   ]  ✓ Compiled in 1585ms (2719 modules)
+[2025-11-09T19:36:48.006Z] [INFO   ]  ✓ Compiled in 628ms (2718 modules)
+[2025-11-09T19:41:20.695Z] [INFO   ]  ✓ Compiled in 1276ms (2718 modules)
+[2025-11-09T19:41:33.104Z] [INFO   ]  ✓ Compiled in 434ms (2718 modules)
+[2025-11-09T19:41:46.462Z] [INFO   ]  ✓ Compiled in 421ms (2718 modules)
+[2025-11-09T19:49:35.474Z] [INFO   ]  ○ Compiling / ...
+[2025-11-09T19:49:45.554Z] [INFO   ]  ✓ Compiled / in 10.6s (5235 modules)
+[2025-11-09T19:49:46.322Z] [INFO   ] 2025-11-09T19:49:46.317Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-09T19:49:46.317Z"}
+[2025-11-09T19:49:46.323Z] [INFO   ] 2025-11-09T19:49:46.323Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-09T19:49:46.322Z"}
+[2025-11-09T19:49:46.323Z] [INFO   ] 2025-11-09T19:49:46.323Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-09T19:49:46.323Z"}
+[2025-11-09T19:49:47.190Z] [INFO   ]  ✓ Compiled in 1589ms (1152 modules)
+[2025-11-09T19:49:48.469Z] [ERROR  ] ENOENT: no such file or directory, stat '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/cache/webpack/client-development/39.pack.gz'
+Error: ENOENT: no such file or directory, stat '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/cache/webpack/client-development/39.pack.gz'
+[2025-11-09T19:49:48.470Z] [ERROR  ]  ⨯ unhandledRejection: ENOENT: no such file or directory, stat '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/cache/webpack/client-development/39.pack.gz'
+Error: ENOENT: no such file or directory, stat '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/cache/webpack/client-development/39.pack.gz'
+[2025-11-09T19:49:48.475Z] [ERROR  ]  ⨯ unhandledRejection:  ENOENT: no such file or directory, stat '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/cache/webpack/client-development/39.pack.gz'
+Error: ENOENT: no such file or directory, stat '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/cache/webpack/client-development/39.pack.gz'
+[2025-11-09T19:50:48.333Z] [INFO   ]  ✓ Compiled in 692ms (1152 modules)
+[2025-11-09T19:53:16.353Z] [INFO   ]  ✓ Compiled in 646ms (1152 modules)

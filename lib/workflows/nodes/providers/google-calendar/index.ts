@@ -1,6 +1,27 @@
 import { Calendar } from "lucide-react"
 import { NodeComponent } from "../../types"
 
+// Get user's current timezone, fallback to America/New_York
+const getUserTimeZone = (): string => {
+  try {
+    if (typeof window !== 'undefined') {
+      const detectedTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
+      // Verify it's a valid timezone by checking if it exists in our options
+      const validTimezones = [
+        "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles",
+        "America/Anchorage", "Pacific/Honolulu", "UTC", "Europe/London",
+        "Europe/Paris", "Europe/Berlin", "Europe/Moscow", "Asia/Tokyo",
+        "Asia/Shanghai", "Asia/Dubai", "Asia/Kolkata", "Australia/Sydney",
+        "Pacific/Auckland"
+      ]
+      return validTimezones.includes(detectedTimeZone) ? detectedTimeZone : "America/New_York"
+    }
+  } catch (error) {
+    console.error('Failed to detect timezone:', error)
+  }
+  return "America/New_York"
+}
+
 export const googleCalendarNodes: NodeComponent[] = [
   {
     type: "google_calendar_trigger_new_event",
@@ -568,7 +589,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         name: "startTimeZone",
         label: "Event Start Time Zone",
         type: "select",
-        defaultValue: "America/New_York",
+        defaultValue: getUserTimeZone(),
         required: false,
         hidden: {
           $deps: ["allDay"],
@@ -599,7 +620,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         name: "endTimeZone",
         label: "Event End Time Zone",
         type: "select",
-        defaultValue: "America/New_York",
+        defaultValue: getUserTimeZone(),
         required: false,
         hidden: {
           $deps: ["separateTimezones", "allDay"],
