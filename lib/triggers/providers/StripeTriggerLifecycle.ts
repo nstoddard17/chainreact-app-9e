@@ -248,7 +248,6 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
    */
   private getEventsForTrigger(triggerType: string): string[] {
     const eventMap: Record<string, string[]> = {
-      'stripe_trigger_payment_succeeded': ['payment_intent.succeeded'],
       'stripe_trigger_payment_failed': ['payment_intent.payment_failed'],
       'stripe_trigger_charge_succeeded': ['charge.succeeded'],
       'stripe_trigger_charge_failed': ['charge.failed'],
