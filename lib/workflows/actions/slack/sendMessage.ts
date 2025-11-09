@@ -12,47 +12,20 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
   const {
     channel,
     message,
-    asUser = false, // Default to false (don't customize bot appearance)
-    username,
-    icon, // Changed from iconEmoji to match schema
-    attachments, // Added attachments field from schema
-    linkNames = false, // Added from schema
-    unfurlLinks = true,
+    attachments,
     threadTimestamp,
-    unfurlMedia = true,
-    messageType = 'simple',
-    buttonConfig,
-    statusTitle,
-    statusMessage: statusText,
-    statusColor,
-    statusFields,
-    approvalTitle,
-    approvalDescription,
-    approvalApproveText,
-    approvalDenyText,
-    pollQuestion,
-    pollOptions,
-    customBlocks,
-    legacyAttachments
+    blocks
   } = context.config;
 
   const formattedMessage = formatRichTextForTarget(message, 'slack')
-  const formattedStatusMessage = formatRichTextForTarget(statusText, 'slack')
-  const formattedApprovalDescription = formatRichTextForTarget(approvalDescription, 'slack')
   const slackTextContent = formattedMessage ?? message ?? ''
 
   logger.debug('[Slack] Preparing to send message:', {
     channel,
     messageLength: slackTextContent.length,
-    messageType,
-    hasButtons: !!buttonConfig,
-    hasStatus: !!statusTitle,
-    hasPoll: !!pollQuestion,
-    asUser,
-    username,
-    icon,
-    hasUsername: !!username,
-    hasIcon: !!icon
+    hasAttachments: !!attachments,
+    hasBlocks: !!blocks,
+    hasThreadTimestamp: !!threadTimestamp
   });
 
   // Validate required fields
@@ -60,8 +33,8 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
     throw new Error('Channel is required for sending Slack messages');
   }
 
-  if (!slackTextContent && messageType === 'simple') {
-    throw new Error('Message text is required for simple messages');
+  if (!slackTextContent && !blocks) {
+    throw new Error('Message text or blocks are required');
   }
 
   // Check test mode
@@ -87,391 +60,25 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
     throw new Error('Slack access token not found. Please reconnect your Slack account.');
   }
 
-  // Log OAuth scopes for debugging customization issues
-  if (integration.scopes) {
-    const scopes = Array.isArray(integration.scopes)
-      ? integration.scopes
-      : (typeof integration.scopes === 'string' ? integration.scopes.split(',') : []);
-
-    const hasCustomizeScope = scopes.includes('chat:write.customize');
-    logger.debug('[Slack] 🔑 OAuth Scopes Available:', {
-      totalScopes: scopes.length,
-      hasCustomizeScope,
-      scopes: scopes.length > 0 ? scopes.join(', ') : 'none'
-    });
-
-    if ((username || icon) && !hasCustomizeScope) {
-      logger.warn('[Slack] ⚠️ Bot customization requested but chat:write.customize scope is missing!');
-      logger.warn('[Slack] ℹ️ To enable customization: Disconnect and reconnect your Slack integration');
-    }
-  } else {
-    logger.debug('[Slack] ⚠️ No scope information available for this integration');
-  }
-
   // Import decryptToken function for token handling
   const { decryptToken } = await import('@/lib/integrations/tokenUtils');
 
-  // Determine which token to use based on asUser flag
-  let tokenToUse: string;
-  let isActuallyUsingUserToken = false;
-
-  logger.debug('[Slack] Token selection - asUser:', asUser, 'has_user_token:', integration.metadata?.has_user_token);
-
-  if (asUser) {
-    // User wants to send as themselves
-    if (integration.metadata?.has_user_token && integration.metadata?.user_token) {
-      logger.debug('[Slack] Attempting to decrypt and use USER token to send as actual user');
-
-      // Decrypt the user token from metadata
-      const userToken = await decryptToken(integration.metadata.user_token);
-
-      if (userToken && userToken.startsWith('xoxp-')) {
-        tokenToUse = userToken;
-        isActuallyUsingUserToken = true;
-        logger.debug('[Slack] ✅ Successfully using USER token (xoxp-) - message will appear as sent by the user');
-      } else if (userToken) {
-        // Token exists but might not be the right format
-        logger.warn('[Slack] User token exists but may not be valid format');
-        tokenToUse = userToken;
-        isActuallyUsingUserToken = true;
-      } else {
-        // Failed to decrypt user token, fall back to bot token
-        logger.warn('[Slack] ⚠️ Failed to decrypt user token, falling back to BOT token with customization');
-        tokenToUse = await decryptToken(integration.access_token);
-        isActuallyUsingUserToken = false;
-      }
-    } else {
-      // No user token available
-      logger.debug('[Slack] ⚠️ User requested to send as user, but user token not available. Using BOT token.');
-      tokenToUse = await decryptToken(integration.access_token);
-      isActuallyUsingUserToken = false;
-    }
-  } else {
-    // User wants to send as bot
-    logger.debug('[Slack] Using BOT token (xoxb-) to send as bot/app');
-    tokenToUse = await decryptToken(integration.access_token);
-    isActuallyUsingUserToken = false;
-  }
+  // Use bot token
+  const tokenToUse = await decryptToken(integration.access_token);
 
   // Ensure we have a valid token
   if (!tokenToUse) {
     throw new Error('Failed to decrypt Slack token. Please reconnect your Slack account.');
   }
 
-  // Log token type for debugging (without exposing token data)
-  const tokenType = tokenToUse.startsWith('xoxp-') ? 'USER' : tokenToUse.startsWith('xoxb-') ? 'BOT' : 'UNKNOWN';
-  logger.debug(`[Slack] Using ${tokenType} token`);
-  logger.debug('[Slack] Will message appear as user?', isActuallyUsingUserToken);
+  logger.debug('[Slack] Using bot token to send message');
 
   try {
     // Prepare the message payload
-    // Channel format: Can be channel ID (C1234567890), channel name (#general), or user ID for DMs
-    // Bot tokens can use channel names with #, user tokens work better with IDs
     const messagePayload: any = {
       channel: channel.startsWith('#') ? channel : (channel.startsWith('C') || channel.startsWith('U') || channel.startsWith('D') ? channel : `#${channel}`),
-      text: slackTextContent,
-      unfurl_links: unfurlLinks,
-      unfurl_media: unfurlMedia,
-      link_names: linkNames // Added link_names from schema
+      text: slackTextContent
     };
-
-    // Declare iconUrl at a higher scope for use in diagnostic logging
-    let iconUrl: string | null = null;
-
-    if (isActuallyUsingUserToken) {
-      // When using user token, the message is automatically sent as the user
-      // Username/icon customization is ignored by Slack when using user token
-      logger.debug('[Slack] 👤 Using USER token - Message will appear as sent by the actual user');
-      logger.debug('[Slack] Note: Username/icon customization is ignored when using user token');
-      // Don't add any customization fields - the user's actual profile is used
-    } else {
-      // Using bot token - customization is allowed
-      logger.debug('[Slack] 🤖 Using BOT token - customization available');
-
-      // Add custom username if provided
-      // This overrides the bot's default name for this message only
-      if (username) {
-        messagePayload.username = username;
-        logger.debug('[Slack] Setting custom bot username:', username);
-      }
-
-      // Handle icon field - upload to Supabase if needed and get public URL
-      if (icon) {
-        logger.debug('[Slack] Processing icon field, type:', typeof icon, 'length:', typeof icon === 'string' ? icon.length : 'N/A');
-
-        // CRITICAL: If icon is just raw base64 (very long string), don't send it to Slack
-        // Slack has a limit and will reject large payloads
-        if (typeof icon === 'string' && icon.length > 10000 && !icon.startsWith('http') && !icon.startsWith('data:')) {
-          logger.warn('[Slack] ⚠️ Icon appears to be raw base64 data (length:', icon.length, '). Will attempt to upload to Supabase.');
-          // Force processing as raw base64
-        }
-
-        if (typeof icon === 'string') {
-          // Check if it's a URL
-          if (icon.startsWith('http://') || icon.startsWith('https://')) {
-            iconUrl = icon;
-            logger.debug('[Slack] Icon is already a URL');
-          } else if (icon.startsWith('data:')) {
-            // It's a base64 data URL - need to upload to Supabase
-            logger.debug('[Slack] Converting base64 data URL icon to public URL...');
-            try {
-              // Import Supabase client
-              const { createClient } = await import('@supabase/supabase-js');
-              const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-              const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-              const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-              // Extract base64 data and mime type
-              const matches = icon.match(/^data:([^;]+);base64,(.+)$/);
-              if (matches) {
-                const mimeType = matches[1];
-                const base64Data = matches[2];
-                const buffer = Buffer.from(base64Data, 'base64');
-
-                // Generate unique filename
-                const extension = mimeType.split('/')[1] || 'png';
-                const fileName = `slack-icons/${context.userId}/${Date.now()}.${extension}`;
-
-                // Ensure bucket exists
-                const { data: buckets } = await supabase.storage.listBuckets();
-                const bucketExists = buckets?.some(b => b.name === 'slack-attachments');
-
-                if (!bucketExists) {
-                  await supabase.storage.createBucket('slack-attachments', {
-                    public: true,
-                    fileSizeLimit: 50 * 1024 * 1024
-                  });
-                }
-
-                // Upload icon
-                const { data: uploadData, error: uploadError } = await supabase.storage
-                  .from('slack-attachments')
-                  .upload(fileName, buffer, {
-                    contentType: mimeType,
-                    upsert: false
-                  });
-
-                if (!uploadError && uploadData) {
-                  const { data: { publicUrl } } = supabase.storage
-                    .from('slack-attachments')
-                    .getPublicUrl(fileName);
-
-                  iconUrl = publicUrl;
-                  logger.debug('[Slack] Icon uploaded to public storage:', fileName);
-                }
-              }
-            } catch (error) {
-              logger.error('[Slack] Error uploading icon:', error);
-            }
-          } else {
-            // Raw base64 data without data URL prefix - common from file uploads
-            logger.debug('[Slack] Detected raw base64 data (no data: prefix), attempting to convert...');
-            try {
-              // Import Supabase client
-              const { createClient } = await import('@supabase/supabase-js');
-              const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-              const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-              const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-              // Assume it's base64 image data (likely PNG or JPEG)
-              const buffer = Buffer.from(icon, 'base64');
-
-              // Try to detect mime type from buffer magic numbers
-              let mimeType = 'image/png'; // default
-              if (buffer[0] === 0xFF && buffer[1] === 0xD8) {
-                mimeType = 'image/jpeg';
-              } else if (buffer[0] === 0x89 && buffer[1] === 0x50) {
-                mimeType = 'image/png';
-              } else if (buffer[0] === 0x47 && buffer[1] === 0x49) {
-                mimeType = 'image/gif';
-              }
-
-              // Generate unique filename
-              const extension = mimeType.split('/')[1] || 'png';
-              const fileName = `slack-icons/${context.userId}/${Date.now()}.${extension}`;
-
-              // Ensure bucket exists
-              const { data: buckets } = await supabase.storage.listBuckets();
-              const bucketExists = buckets?.some(b => b.name === 'slack-attachments');
-
-              if (!bucketExists) {
-                await supabase.storage.createBucket('slack-attachments', {
-                  public: true,
-                  fileSizeLimit: 50 * 1024 * 1024
-                });
-              }
-
-              // Upload icon
-              const { data: uploadData, error: uploadError } = await supabase.storage
-                .from('slack-attachments')
-                .upload(fileName, buffer, {
-                  contentType: mimeType,
-                  cacheControl: '3600',
-                  upsert: false
-                });
-
-              if (!uploadError && uploadData) {
-                const { data: { publicUrl } } = supabase.storage
-                  .from('slack-attachments')
-                  .getPublicUrl(fileName);
-
-                iconUrl = publicUrl;
-                logger.debug('[Slack] Raw base64 icon uploaded to public storage:', fileName);
-              } else if (uploadError) {
-                logger.error('[Slack] Error uploading raw base64 icon:', uploadError);
-              }
-            } catch (error) {
-              logger.error('[Slack] Error processing raw base64 icon:', error);
-              logger.warn('[Slack] Icon must be a valid URL (http:// or https://) or base64 data');
-            }
-          }
-        } else if (icon && typeof icon === 'object') {
-          // Handle uploaded file object
-          if (icon.url) {
-            iconUrl = icon.url;
-          } else if (icon.filePath) {
-            // Upload file from storage to public URL
-            logger.debug('[Slack] Converting uploaded icon to public URL...');
-            try {
-              const { createClient } = await import('@supabase/supabase-js');
-              const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-              const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-              const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-              // Download from workflow storage
-              const { data: storageFile, error } = await supabase.storage
-                .from('workflow-files')
-                .download(icon.filePath);
-
-              if (!error && storageFile) {
-                const arrayBuffer = await storageFile.arrayBuffer();
-                const buffer = Buffer.from(arrayBuffer);
-
-                // Upload to public storage
-                const fileName = `slack-icons/${context.userId}/${Date.now()}-icon`;
-
-                // Ensure bucket exists
-                const { data: buckets } = await supabase.storage.listBuckets();
-                const bucketExists = buckets?.some(b => b.name === 'slack-attachments');
-
-                if (!bucketExists) {
-                  await supabase.storage.createBucket('slack-attachments', {
-                    public: true,
-                    fileSizeLimit: 50 * 1024 * 1024
-                  });
-                }
-
-                const { data: uploadData, error: uploadError } = await supabase.storage
-                  .from('slack-attachments')
-                  .upload(fileName, buffer, {
-                    contentType: icon.mimeType || icon.fileType || 'image/png',
-                    upsert: false
-                  });
-
-                if (!uploadError && uploadData) {
-                  const { data: { publicUrl } } = supabase.storage
-                    .from('slack-attachments')
-                    .getPublicUrl(fileName);
-
-                  iconUrl = publicUrl;
-                  logger.debug('[Slack] Icon uploaded from storage:', fileName);
-                }
-              }
-            } catch (error) {
-              logger.error('[Slack] Error uploading icon from storage:', error);
-            }
-          } else if (icon.data || icon.content) {
-            // Handle base64 data in object format
-            const base64Data = icon.data || icon.content;
-            if (base64Data && typeof base64Data === 'string') {
-              logger.debug('[Slack] Converting icon data to public URL (object format, length:', base64Data.length, ')...');
-              try {
-                const { createClient } = await import('@supabase/supabase-js');
-                const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-                const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-                const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-                let buffer: Buffer;
-                let mimeType: string;
-
-                // Check if it has data URL prefix or is raw base64
-                const matches = base64Data.match(/^data:([^;]+);base64,(.+)$/);
-                if (matches) {
-                  // Has data URL prefix
-                  mimeType = matches[1];
-                  const base64Content = matches[2];
-                  buffer = Buffer.from(base64Content, 'base64');
-                } else {
-                  // Raw base64 data
-                  buffer = Buffer.from(base64Data, 'base64');
-
-                  // Try to detect mime type from buffer magic numbers
-                  mimeType = 'image/png'; // default
-                  if (buffer[0] === 0xFF && buffer[1] === 0xD8) {
-                    mimeType = 'image/jpeg';
-                  } else if (buffer[0] === 0x89 && buffer[1] === 0x50) {
-                    mimeType = 'image/png';
-                  } else if (buffer[0] === 0x47 && buffer[1] === 0x49) {
-                    mimeType = 'image/gif';
-                  }
-                }
-
-                  // Generate unique filename
-                  const extension = mimeType.split('/')[1] || 'png';
-                  const fileName = `slack-icons/${context.userId}/${Date.now()}.${extension}`;
-
-                  // Ensure bucket exists
-                  const { data: buckets } = await supabase.storage.listBuckets();
-                  const bucketExists = buckets?.some(b => b.name === 'slack-attachments');
-
-                  if (!bucketExists) {
-                    await supabase.storage.createBucket('slack-attachments', {
-                      public: true,
-                      fileSizeLimit: 50 * 1024 * 1024
-                    });
-                  }
-
-                  // Upload icon
-                  const { data: uploadData, error: uploadError } = await supabase.storage
-                    .from('slack-attachments')
-                    .upload(fileName, buffer, {
-                      contentType: mimeType,
-                        upsert: false
-                    });
-
-                if (!uploadError && uploadData) {
-                  const { data: { publicUrl } } = supabase.storage
-                    .from('slack-attachments')
-                    .getPublicUrl(fileName);
-
-                  iconUrl = publicUrl;
-                  logger.debug('[Slack] Icon data uploaded to public storage:', fileName);
-                } else if (uploadError) {
-                  logger.error('[Slack] Error uploading icon data:', uploadError);
-                }
-              } catch (error) {
-                logger.error('[Slack] Error uploading icon data:', error);
-              }
-            }
-          }
-        }
-
-        if (iconUrl) {
-          messagePayload.icon_url = iconUrl;
-          logger.debug('[Slack] Setting bot icon_url:', iconUrl);
-        } else if (icon && typeof icon === 'string' && icon.length > 1000) {
-          // If we couldn't process the icon and it's very long (likely base64), don't include it
-          logger.warn('[Slack] ⚠️ Icon could not be processed and appears to be raw data. Skipping icon to avoid API error.');
-          // Don't set any icon field - better to have no icon than to fail the entire message
-        }
-      }
-
-      if (!username && !icon) {
-        logger.debug('[Slack] No customization provided - using bot defaults');
-      } else {
-        logger.debug('[Slack] Note: Customization may be ignored if workspace has "Lock bot name & icon" enabled');
-      }
-    }
 
     // Handle file attachments from the schema's attachments field
     // Upload files to Supabase storage and get public URLs for Slack
@@ -617,6 +224,7 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
       }
     }
 
+    // Add thread timestamp if provided
     if (threadTimestamp) {
       // Handle datetime field - could be ISO string or Unix timestamp
       let timestamp = threadTimestamp;
@@ -634,226 +242,15 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
       messagePayload.thread_ts = timestamp;
     }
 
-    // Build blocks based on message type
-    if (messageType !== 'simple') {
-      const blocks: any[] = [];
-      
-      switch (messageType) {
-        case 'buttons': {
-          if (slackTextContent) {
-            blocks.push({
-              type: 'section',
-              text: {
-                type: 'mrkdwn',
-                text: slackTextContent
-              }
-            })
-          }
-
-          if (buttonConfig && Array.isArray(buttonConfig)) {
-            const buttonElements = buttonConfig.map((btn: any) => {
-              const button: any = {
-                type: 'button',
-                text: {
-                  type: 'plain_text',
-                  text: btn.buttonText || 'Click Me',
-                  emoji: true
-                },
-                action_id: btn.actionId || `button_${Date.now()}`
-              }
-
-              if (btn.style && btn.style !== 'default') {
-                button.style = btn.style
-              }
-
-              if (btn.url) {
-                button.url = btn.url
-              }
-
-              if (btn.value) {
-                button.value = btn.value
-              }
-
-              return button
-            })
-
-            blocks.push({
-              type: 'actions',
-              elements: buttonElements
-            })
-          }
-          break
-        }
-
-        case 'status': {
-          const statusAttachment: any = {
-            color: statusColor || 'good',
-            blocks: []
-          }
-
-          if (statusTitle) {
-            statusAttachment.blocks.push({
-              type: 'header',
-              text: {
-                type: 'plain_text',
-                text: statusTitle,
-                emoji: true
-              }
-            })
-          }
-
-          if (formattedStatusMessage ?? statusText) {
-            statusAttachment.blocks.push({
-              type: 'section',
-              text: {
-                type: 'mrkdwn',
-                text: formattedStatusMessage ?? statusText
-              }
-            })
-          }
-
-          if (statusFields && Array.isArray(statusFields)) {
-            const fields = statusFields.map((field: any) => ({
-              type: 'mrkdwn',
-              text: `*${field.fieldName || 'Field'}:*\n${field.fieldValue || 'Value'}`
-            }))
-
-            if (fields.length > 0) {
-              statusAttachment.blocks.push({
-                type: 'section',
-                fields: fields
-              })
-            }
-          }
-
-          messagePayload.attachments = [statusAttachment]
-          blocks.length = 0
-          break
-        }
-
-        case 'approval': {
-          if (approvalTitle) {
-            blocks.push({
-              type: 'header',
-              text: {
-                type: 'plain_text',
-                text: approvalTitle,
-                emoji: true
-              }
-            })
-          }
-
-          if (formattedApprovalDescription ?? approvalDescription) {
-            blocks.push({
-              type: 'section',
-              text: {
-                type: 'mrkdwn',
-                text: formattedApprovalDescription ?? approvalDescription
-              }
-            })
-          }
-
-          blocks.push({
-            type: 'actions',
-            elements: [
-              {
-                type: 'button',
-                text: {
-                  type: 'plain_text',
-                  text: approvalApproveText || 'Approve',
-                  emoji: true
-                },
-                style: 'primary',
-                action_id: 'approve_action',
-                value: 'approve'
-              },
-              {
-                type: 'button',
-                text: {
-                  type: 'plain_text',
-                  text: approvalDenyText || 'Deny',
-                  emoji: true
-                },
-                style: 'danger',
-                action_id: 'deny_action',
-                value: 'deny'
-              }
-            ]
-          })
-          break
-        }
-
-        case 'poll': {
-          if (pollQuestion) {
-            blocks.push({
-              type: 'section',
-              text: {
-                type: 'mrkdwn',
-                text: pollQuestion
-              }
-            })
-          }
-
-          if (pollOptions && Array.isArray(pollOptions)) {
-            const pollButtons = pollOptions.map((option: any, index: number) => ({
-              type: 'button',
-              text: {
-                type: 'plain_text',
-                text: option.optionText || `Option ${index + 1}`,
-                emoji: true
-              },
-              action_id: `poll_option_${index}`,
-              value: option.optionText || `option_${index}`
-            }))
-
-            for (let i = 0; i < pollButtons.length; i += 5) {
-              blocks.push({
-                type: 'actions',
-                elements: pollButtons.slice(i, i + 5)
-              })
-            }
-          }
-          break
-        }
-
-        case 'custom': {
-          if (customBlocks) {
-            try {
-              const parsedBlocks = typeof customBlocks === 'string' ? JSON.parse(customBlocks) : customBlocks
-              messagePayload.blocks = parsedBlocks
-              blocks.length = 0
-            } catch (error) {
-              logger.warn('[Slack] Failed to parse custom blocks JSON:', error)
-              throw new Error('Invalid custom blocks JSON format. Please check your Block Kit configuration.')
-            }
-          }
-          break
-        }
-
-        default:
-          break
-      }
-      
-      // Add blocks to payload if we have any
-      if (blocks.length > 0) {
-        messagePayload.blocks = blocks;
-      }
-    }
-    
-    // Add legacy attachments if provided (for advanced usage)
-    if (legacyAttachments) {
+    // Add custom blocks if provided
+    if (blocks) {
       try {
-        const parsedAttachments = typeof legacyAttachments === 'string' ? JSON.parse(legacyAttachments) : legacyAttachments;
-        
-        // Merge with existing attachments if status message already created some
-        if (messagePayload.attachments) {
-          messagePayload.attachments = [...messagePayload.attachments, ...parsedAttachments];
-        } else {
-          messagePayload.attachments = parsedAttachments;
-        }
+        const parsedBlocks = typeof blocks === 'string' ? JSON.parse(blocks) : blocks;
+        messagePayload.blocks = parsedBlocks;
+        logger.debug('[Slack] Using custom Block Kit blocks');
       } catch (error) {
-        logger.warn('[Slack] Failed to parse legacy attachments JSON:', error);
-        throw new Error('Invalid legacy attachments JSON format.');
+        logger.warn('[Slack] Failed to parse blocks JSON:', error);
+        throw new Error('Invalid Block Kit JSON format. Please check your configuration at https://app.slack.com/block-kit-builder');
       }
     }
 
@@ -861,35 +258,8 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
       channel: messagePayload.channel,
       hasText: !!messagePayload.text,
       hasBlocks: !!messagePayload.blocks,
-      hasAttachments: !!messagePayload.attachments,
-      username: messagePayload.username || 'none',
-      icon_url: messagePayload.icon_url || 'none',
-      tokenType: tokenToUse.startsWith('xoxp-') ? 'USER (xoxp-)' : tokenToUse.startsWith('xoxb-') ? 'BOT (xoxb-)' : 'UNKNOWN',
-      sendAsUserRequested: asUser,
-      actuallyUsingUserToken: isActuallyUsingUserToken
+      hasThreadTs: !!messagePayload.thread_ts
     });
-
-    // Safeguard: Check payload size and warn if it's too large
-    const payloadString = JSON.stringify(messagePayload);
-    if (payloadString.length > 100000) {
-      logger.warn('[Slack] ⚠️ Payload is very large:', payloadString.length, 'characters. This might cause issues.');
-
-      // Check if any field contains what looks like base64 data
-      for (const [key, value] of Object.entries(messagePayload)) {
-        if (typeof value === 'string' && value.length > 10000 && !value.startsWith('http')) {
-          logger.error(`[Slack] ❌ Field '${key}' contains very long data (${value.length} chars) that might be base64. This will likely fail.`);
-          // Remove the problematic field to prevent API failure
-          delete messagePayload[key];
-          logger.warn(`[Slack] Removed field '${key}' to prevent API failure`);
-        }
-      }
-    }
-
-    // Log the exact payload being sent to Slack API (truncated if too long)
-    const payloadForLogging = payloadString.length > 5000
-      ? `${payloadString.substring(0, 5000) }... (truncated)`
-      : payloadString;
-    logger.debug('[Slack] Full API payload:', payloadForLogging);
 
     // Send the message using Slack Web API with the appropriate token
     const response = await fetch('https://slack.com/api/chat.postMessage', {
@@ -913,38 +283,6 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
       timestamp: result.ts,
       messageId: result.message?.ts
     });
-
-    // Enhanced diagnostic logging for customization issues
-    if (username || icon) {
-      logger.debug('[Slack] 🔍 Bot Customization Diagnostic:');
-      logger.debug('  - Requested username:', username || 'none');
-      logger.debug('  - Requested icon:', iconUrl ? 'URL provided' : 'none');
-      logger.debug('  - Token type used:', tokenToUse.startsWith('xoxp-') ? 'USER TOKEN (xoxp-)' : tokenToUse.startsWith('xoxb-') ? 'BOT TOKEN (xoxb-)' : 'UNKNOWN');
-      logger.debug('  - Send as user enabled:', asUser);
-
-      // Check what was actually sent in the message
-      if (result.message) {
-        logger.debug('  - Actual bot name in response:', result.message.username || result.message.bot_profile?.name || 'default bot name');
-        logger.debug('  - Actual bot icon in response:', result.message.icons?.image_48 || result.message.bot_profile?.icons?.image_48 || 'default icon');
-      }
-
-      // Log potential reasons for customization failure
-      if (!username && !icon) {
-        logger.debug('  ℹ️ No customization was requested');
-      } else if (asUser) {
-        logger.debug('  ⚠️ Customization ignored: Send as User is enabled (messages appear as the authenticated user)');
-      } else if (tokenToUse.startsWith('xoxp-')) {
-        logger.debug('  ⚠️ Using user token but Send as User is disabled - customization may not work');
-      } else if (!result.message?.username || result.message?.username === 'bot') {
-        logger.debug('  ⚠️ Customization may have been ignored. Possible reasons:');
-        logger.debug('    1. Missing OAuth scope: chat:write.customize (requires reconnection)');
-        logger.debug('    2. Workspace setting: "Lock bot name & icon" is enabled');
-        logger.debug('    3. Using legacy integration that doesn\'t support customization');
-        logger.debug('  ℹ️ To fix scope issues: Disconnect and reconnect Slack integration');
-      } else {
-        logger.debug('  ✅ Customization appears to have been applied');
-      }
-    }
 
     return {
       success: true,

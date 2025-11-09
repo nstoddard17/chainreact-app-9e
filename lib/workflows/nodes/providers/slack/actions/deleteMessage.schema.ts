@@ -76,7 +76,12 @@ export const deleteMessageActionSchema: NodeComponent = {
       placeholder: "{{trigger.messageId}} or 1234567890.123456",
       supportsAI: true,
       description: "The timestamp of the message to delete",
-      tooltip: "This is the 'ts' value from Slack (e.g., 1234567890.123456). Get this from a trigger or the 'Send Message' action output. Only the message author, workspace admin, or workspace owner can delete messages."
+      tooltip: "This is the 'ts' value from Slack (e.g., 1234567890.123456). Get this from a trigger or the 'Send Message' action output. Only the message author, workspace admin, or workspace owner can delete messages.",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      }
     },
     {
       name: "asUser",
@@ -85,7 +90,12 @@ export const deleteMessageActionSchema: NodeComponent = {
       required: false,
       defaultValue: true,
       description: "Delete the message as the authenticated user instead of the bot",
-      tooltip: "When enabled, the delete action is performed as the user. When disabled, it's performed as the bot. You must have permission to delete the message."
+      tooltip: "When enabled, the delete action is performed as the user. When disabled, it's performed as the bot. You must have permission to delete the message.",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      }
     }
   ]
 }
