@@ -15,7 +15,7 @@ export const newLabeledEmailTriggerSchema: NodeComponent = {
       label: "Label",
       type: "select",
       required: true,
-      dynamic: "gmail-labels",
+      dynamic: "gmail_labels",
       loadOnMount: true,
       placeholder: "Select a label to watch...",
       description: "Trigger when emails receive this label"
@@ -23,9 +23,10 @@ export const newLabeledEmailTriggerSchema: NodeComponent = {
     {
       name: "from",
       label: "From (Optional)",
-      type: "email-autocomplete",
-      dynamic: "gmail-recent-senders",
+      type: "select",
+      dynamic: "gmail_recent_senders",
       required: false,
+      loadOnMount: true,
       placeholder: "Filter by sender email...",
       description: "Only trigger for emails from specific senders"
     },

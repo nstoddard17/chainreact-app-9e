@@ -22,19 +22,19 @@ export const newEmailTriggerSchema: NodeComponent = {
       tooltip: "Leave blank to trigger on emails from ANY sender"
     },
     {
+      name: "subject",
+      label: "Subject",
+      type: "text",
+      placeholder: "Leave blank for any subject",
+      description: "Filter by keywords in subject line. For semantic matching (e.g., 'about returns'), use AI Content Filter below instead."
+    },
+    {
       name: "subjectExactMatch",
       label: "Exact match",
       type: "boolean",
       required: false,
       defaultValue: true,
       description: "Match the subject exactly (case-insensitive). Turn off to match emails that contain the subject text anywhere in the subject line."
-    },
-    {
-      name: "subject",
-      label: "Subject",
-      type: "text",
-      placeholder: "Leave blank for any subject",
-      description: "Filter by exact keywords in subject line. For semantic matching (e.g., 'about returns'), use AI Content Filter below instead."
     },
     {
       name: "hasAttachment",
@@ -52,8 +52,10 @@ export const newEmailTriggerSchema: NodeComponent = {
       required: false,
       multiple: true,
       loadOnMount: true,
-      placeholder: "Select folders",
-      description: "Filter emails by Gmail folder. Select one or more folders to monitor for new emails.",
+      defaultValue: ["INBOX"],
+      placeholder: "Inbox (default)",
+      description: "Select one or more Gmail folders to monitor for new emails. Defaults to INBOX if not specified.",
+      tooltip: "Choose which Gmail folders to monitor. You can select multiple folders to watch for new emails across different labels.",
       defaultOptions: [
         { value: "INBOX", label: "Inbox" },
         { value: "SENT", label: "Sent" },
@@ -83,7 +85,11 @@ export const newEmailTriggerSchema: NodeComponent = {
         { value: "high", label: "Strict (90%+ match)" }
       ],
       description: "How closely must the email match your AI content filter? Only used if AI Content Filter is set.",
-      dependsOn: "aiContentFilter"
+      dependsOn: "aiContentFilter",
+      hidden: {
+        $deps: ["aiContentFilter"],
+        $condition: { aiContentFilter: { $exists: false } }
+      }
     }
   ],
   outputSchema: [

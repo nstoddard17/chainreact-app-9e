@@ -30,12 +30,13 @@ export class GoogleAnalyticsOptionsLoader implements ProviderOptionsLoader {
    * Load options for the field
    */
   async loadOptions(params: LoadOptionsParams): Promise<SelectOption[]> {
-    const { fieldName, integrationId, dependsOnValue } = params;
+    const { fieldName, integrationId, dependsOnValue, extraOptions } = params;
 
     logger.debug('📊 [GoogleAnalytics] Loading options:', {
       fieldName,
       integrationId,
-      dependsOnValue
+      dependsOnValue,
+      extraOptions
     });
 
     if (!integrationId) {

@@ -417,10 +417,10 @@ export const googleAnalyticsNodes: NodeComponent[] = [
       {
         name: "startDate",
         label: "Start Date",
-        type: "text",
+        type: "date",
         required: false,
         placeholder: "2024-01-01",
-        description: "Custom start date (YYYY-MM-DD) - only if date range is 'Custom'",
+        description: "Custom start date - only if date range is 'Custom'",
         showIf: { field: "dateRange", value: "custom" },
         supportsAI: true,
         hidden: {
@@ -431,10 +431,10 @@ export const googleAnalyticsNodes: NodeComponent[] = [
       {
         name: "endDate",
         label: "End Date",
-        type: "text",
+        type: "date",
         required: false,
         placeholder: "2024-01-31",
-        description: "Custom end date (YYYY-MM-DD) - only if date range is 'Custom'",
+        description: "Custom end date - only if date range is 'Custom'",
         showIf: { field: "dateRange", value: "custom" },
         supportsAI: true,
         hidden: {
@@ -581,8 +581,9 @@ export const googleAnalyticsNodes: NodeComponent[] = [
         type: "text",
         required: true,
         placeholder: "{{trigger.user_id}}",
-        description: "The user ID to look up",
+        description: "Enter the User ID to look up (supports variables like {{trigger.user_id}})",
         supportsAI: true,
+        tooltip: "This should be a User ID from your GA4 User-ID tracking implementation. You can use workflow variables or paste a specific User ID.",
         hidden: {
           $deps: ["accountId"],
           $condition: { accountId: { $exists: false } }
@@ -832,10 +833,10 @@ export const googleAnalyticsNodes: NodeComponent[] = [
       {
         name: "startDate",
         label: "Start Date",
-        type: "text",
+        type: "date",
         required: false,
         placeholder: "2024-01-01",
-        description: "Custom start date (YYYY-MM-DD) - only if date range is 'Custom'",
+        description: "Custom start date - only if date range is 'Custom'",
         showIf: { field: "dateRange", value: "custom" },
         supportsAI: true,
         hidden: {
@@ -846,10 +847,10 @@ export const googleAnalyticsNodes: NodeComponent[] = [
       {
         name: "endDate",
         label: "End Date",
-        type: "text",
+        type: "date",
         required: false,
         placeholder: "2024-01-31",
-        description: "Custom end date (YYYY-MM-DD) - only if date range is 'Custom'",
+        description: "Custom end date - only if date range is 'Custom'",
         showIf: { field: "dateRange", value: "custom" },
         supportsAI: true,
         hidden: {

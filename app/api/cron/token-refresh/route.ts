@@ -64,10 +64,12 @@ export async function GET(request: NextRequest) {
     const expiryThreshold = new Date(now.getTime() + 30 * 60 * 1000) // 30 minutes
 
     // Build the query to get integrations with refresh tokens that need refreshing
+    // Exclude integrations that already need reauthorization to avoid repeated error logs
     let query = supabase
       .from("integrations")
       .select("*")
       .not("refresh_token", "is", null)
+      .neq("status", "needs_reauthorization")
       .or(`expires_at.lt.${now.toISOString()},expires_at.lt.${expiryThreshold.toISOString()}`)
 
     // Filter by provider if specified
