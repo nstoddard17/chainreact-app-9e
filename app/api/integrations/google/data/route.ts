@@ -242,12 +242,18 @@ export async function POST(req: NextRequest) {
 
   } catch (error: any) {
     logger.error('❌ [Google API] Unexpected error:', {
-      error: error.message,
-      stack: error.stack
+      error: error?.message || String(error),
+      errorName: error?.name,
+      errorStatus: error?.status,
+      stack: error?.stack,
+      errorObject: error
     })
 
+    // Ensure we always have a valid error message
+    const errorMessage = error?.message || error?.error || (typeof error === 'string' ? error : 'Unknown error occurred')
+
     // Handle authentication errors
-    if (error.status === 401 || error.message?.includes('authentication') || error.message?.includes('expired')) {
+    if (error.status === 401 || error?.message?.includes('authentication') || error?.message?.includes('expired')) {
       return errorResponse(
         'Google authentication expired. Please reconnect your account.',
         401,
@@ -256,12 +262,17 @@ export async function POST(req: NextRequest) {
     }
 
     // Handle rate limit errors
-    if (error.message?.includes('rate limit') || error.message?.includes('quota')) {
-      return errorResponse('Google API rate limit exceeded. Please try again later.', 429, { retryAfter: 60
-       })
+    if (error?.message?.includes('rate limit') || error?.message?.includes('quota')) {
+      return errorResponse('Google API rate limit exceeded. Please try again later.', 429, { retryAfter: 60 })
     }
 
-    return errorResponse(error.message || 'Internal server error', 500, { details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-     })
+    return errorResponse(
+      errorMessage,
+      error?.status || 500,
+      {
+        details: process.env.NODE_ENV === 'development' ? error?.stack : undefined,
+        errorType: error?.name || 'UnknownError'
+      }
+    )
   }
 }
