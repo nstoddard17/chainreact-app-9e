@@ -106,7 +106,7 @@ export function CreateSignatureModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto bg-white">
         <DialogHeader>
           <DialogTitle>Create New Signature</DialogTitle>
           <DialogDescription>
