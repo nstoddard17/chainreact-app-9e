@@ -28,12 +28,14 @@ export class GoogleDriveOptionsLoader implements ProviderOptionsLoader {
     dependsOnValue?: any;
     forceRefresh?: boolean;
     extraOptions?: Record<string, any>;
-  }): Promise<{ value: string; label: string }[]> {
-    const { fieldName, providerId, dependsOnValue, forceRefresh } = params;
+  }): Promise<{ value: string; label: string; group?: string }[]> {
+    const { fieldName, providerId, integrationId, nodeType, dependsOnValue, forceRefresh } = params;
 
     logger.debug('[GoogleDriveOptionsLoader] Loading options for:', {
       fieldName,
       providerId,
+      integrationId,
+      nodeType,
       dependsOnValue,
       forceRefresh
     })
@@ -67,27 +69,46 @@ export class GoogleDriveOptionsLoader implements ProviderOptionsLoader {
       }
     }
 
-    // For file selection - load all files or filtered by folder
+    // For file selection - determine data type based on node type
     if (fieldName === 'fileId') {
-      // If there's a dependency value (folder selected), filter by folder
-      // Otherwise, load all files
-      const endpoint = (params.dependsOn === 'folderId' && dependsOnValue)
-        ? `/api/integrations/google-drive/data?type=files&folderId=${dependsOnValue}`
-        : '/api/integrations/google-drive/data?type=files'
-
       try {
-        const response = await fetch(endpoint, {
-          headers
+        // Determine data type based on node type
+        const dataType = this.getDataTypeForField(fieldName, nodeType)
+
+        // Get integration from Supabase
+        if (!integrationId) {
+          logger.error('[GoogleDriveOptionsLoader] No integration ID provided')
+          return []
+        }
+
+        logger.debug('[GoogleDriveOptionsLoader] Using data type:', dataType)
+
+        // Use POST endpoint for new data handler
+        const response = await fetch(`/api/integrations/google-drive/data`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            integrationId,
+            dataType,
+            options: {
+              folderId: dependsOnValue || undefined
+            }
+          })
         })
+
         if (!response.ok) {
           logger.error('[GoogleDriveOptionsLoader] Failed to fetch files')
           return []
         }
 
-        const files = await response.json()
-        return files.map((file: any) => ({
-          value: file.id,
-          label: file.name
+        const result = await response.json()
+        const items = result.data || result
+
+        // Map to options format, preserving group property for grouped display
+        return items.map((item: any) => ({
+          value: item.value || item.id,
+          label: item.label || item.name,
+          ...(item.group && { group: item.group })
         }))
       } catch (error) {
         logger.error('[GoogleDriveOptionsLoader] Error fetching files:', error)
@@ -95,28 +116,41 @@ export class GoogleDriveOptionsLoader implements ProviderOptionsLoader {
       }
     }
 
-    // Default: Use the standard data endpoint for folders
-    const dataType = this.getDataTypeForField(fieldName)
+    // Default: Use the POST endpoint for other fields (like folders)
+    const dataType = this.getDataTypeForField(fieldName, nodeType)
     if (!dataType) {
       logger.warn(`[GoogleDriveOptionsLoader] No data type mapping for field: ${fieldName}`)
       return []
     }
 
+    if (!integrationId) {
+      logger.error('[GoogleDriveOptionsLoader] No integration ID provided')
+      return []
+    }
+
     try {
-      const endpoint = `/api/integrations/google-drive/data?type=${dataType}`
-      const response = await fetch(endpoint, {
-        headers
+      const response = await fetch(`/api/integrations/google-drive/data`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          integrationId,
+          dataType,
+          options: {}
+        })
       })
-      
+
       if (!response.ok) {
         logger.error(`[GoogleDriveOptionsLoader] Failed to fetch ${dataType}`)
         return []
       }
 
-      const data = await response.json()
-      return data.map((item: any) => ({
-        value: item.id,
-        label: item.name
+      const result = await response.json()
+      const items = result.data || result
+
+      return items.map((item: any) => ({
+        value: item.value || item.id,
+        label: item.label || item.name,
+        ...(item.group && { group: item.group })
       }))
     } catch (error) {
       logger.error(`[GoogleDriveOptionsLoader] Error fetching ${dataType}:`, error)
@@ -124,7 +158,12 @@ export class GoogleDriveOptionsLoader implements ProviderOptionsLoader {
     }
   }
 
-  private getDataTypeForField(fieldName: string): string | null {
+  private getDataTypeForField(fieldName: string, nodeType?: string): string | null {
+    // For fileId field, check if it's the move_file action which needs grouped data
+    if (fieldName === 'fileId' && nodeType === 'google-drive:move_file') {
+      return 'google-drive-files-and-folders'
+    }
+
     const fieldDataTypeMap: Record<string, string> = {
       folderId: 'folders',
       parentFolderId: 'folders',

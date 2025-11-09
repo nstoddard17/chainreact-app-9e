@@ -120,13 +120,14 @@ export function Combobox({
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
   const uniqueId = React.useId()
-  
+
   const handleOpenChange = (newOpen: boolean) => {
     setOpen(newOpen);
     onOpenChange?.(newOpen);
   };
   const [inputValue, setInputValue] = React.useState("")
   const [localOptions, setLocalOptions] = React.useState<ComboboxOption[]>(options)
+  const [collapsedGroups, setCollapsedGroups] = React.useState<Set<string>>(new Set())
 
   React.useEffect(() => {
     setLocalOptions(options)
@@ -469,44 +470,87 @@ export function Combobox({
                 return acc;
               }, {} as Record<string, ComboboxOption[]>);
 
-              // Render multiple CommandGroups with headers
-              return Object.entries(grouped).map(([groupName, groupOptions]) => (
-                <CommandGroup key={groupName} heading={groupName}>
-                  {groupOptions.map((option, index) => {
-                    const isSelected = value === option.value;
-                    return (
-                      <CommandItem
-                        key={`${groupName}-${index}-${option.value || 'undefined'}`}
-                        value={option.value}
-                        onSelect={() => {
-                          if (!option.disabled) handleSelect(option.value)
-                        }}
-                        disabled={option.disabled}
+              // Toggle group collapse
+              const toggleGroup = (groupName: string) => {
+                setCollapsedGroups(prev => {
+                  const newSet = new Set(prev);
+                  if (newSet.has(groupName)) {
+                    newSet.delete(groupName);
+                  } else {
+                    newSet.add(groupName);
+                  }
+                  return newSet;
+                });
+              };
+
+              // Render groups with collapsible headers
+              return Object.entries(grouped).map(([groupName, groupOptions]) => {
+                const isCollapsed = collapsedGroups.has(groupName);
+                return (
+                  <CommandGroup key={groupName}>
+                    {/* Collapsible Group Header */}
+                    <div
+                      className="flex items-center gap-2 px-2 py-1.5 text-xs font-semibold text-muted-foreground cursor-pointer hover:bg-accent/50 select-none"
+                      onClick={() => toggleGroup(groupName)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          toggleGroup(groupName);
+                        }
+                      }}
+                    >
+                      <ChevronRight
                         className={cn(
-                          option.disabled && "opacity-50 pointer-events-none cursor-not-allowed",
-                          isSelected && "!bg-blue-100 dark:!bg-blue-900/30 !text-blue-900 dark:!text-blue-100",
-                          !isSelected && "hover:bg-accent hover:text-accent-foreground"
+                          "h-4 w-4 transition-transform",
+                          !isCollapsed && "rotate-90"
                         )}
-                      >
-                        <div className="flex items-center gap-2 w-full">
-                          {showColorPreview && option.color && (
-                            <div
-                              className="w-4 h-4 rounded-full flex-shrink-0 border border-gray-300 dark:border-gray-600"
-                              style={{ backgroundColor: option.color }}
-                            />
+                      />
+                      <span>{groupName}</span>
+                      <span className="ml-auto text-muted-foreground">
+                        {groupOptions.length}
+                      </span>
+                    </div>
+
+                    {/* Group Items */}
+                    {!isCollapsed && groupOptions.map((option, index) => {
+                      const isSelected = value === option.value;
+                      return (
+                        <CommandItem
+                          key={`${groupName}-${index}-${option.value || 'undefined'}`}
+                          value={option.value}
+                          onSelect={() => {
+                            if (!option.disabled) handleSelect(option.value)
+                          }}
+                          disabled={option.disabled}
+                          className={cn(
+                            "pl-8",
+                            option.disabled && "opacity-50 pointer-events-none cursor-not-allowed",
+                            isSelected && "!bg-blue-100 dark:!bg-blue-900/30 !text-blue-900 dark:!text-blue-100",
+                            !isSelected && "hover:bg-accent hover:text-accent-foreground"
                           )}
-                          <div className="flex flex-col flex-1">
-                            {option.label !== undefined && option.label !== null ? option.label : String(option.value)}
-                            {option.description && (
-                              <span className="text-xs sm:text-sm text-muted-foreground">{option.description}</span>
+                        >
+                          <div className="flex items-center gap-2 w-full">
+                            {showColorPreview && option.color && (
+                              <div
+                                className="w-4 h-4 rounded-full flex-shrink-0 border border-gray-300 dark:border-gray-600"
+                                style={{ backgroundColor: option.color }}
+                              />
                             )}
+                            <div className="flex flex-col flex-1">
+                              {option.label !== undefined && option.label !== null ? option.label : String(option.value)}
+                              {option.description && (
+                                <span className="text-xs sm:text-sm text-muted-foreground">{option.description}</span>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </CommandItem>
-                    );
-                  })}
-                </CommandGroup>
-              ));
+                        </CommandItem>
+                      );
+                    })}
+                  </CommandGroup>
+                );
+              });
             })()}
           </CommandList>
         </Command>
