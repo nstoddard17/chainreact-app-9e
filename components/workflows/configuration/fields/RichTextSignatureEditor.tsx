@@ -154,7 +154,7 @@ export function RichTextSignatureEditor({
       {/* Toolbar - single row compact design */}
       <div className="flex items-center gap-0.5 p-1.5 border-b bg-muted/30 flex-wrap">
         {/* Font Family */}
-        <div className="w-[110px]">
+        <div className="w-[150px]">
           <Combobox
             value=""
             onChange={handleFontFamily}
@@ -166,7 +166,7 @@ export function RichTextSignatureEditor({
         </div>
 
         {/* Font Size */}
-        <div className="w-[65px]">
+        <div className="w-[70px]">
           <Combobox
             value=""
             onChange={handleFontSize}
