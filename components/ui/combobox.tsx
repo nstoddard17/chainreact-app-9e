@@ -385,10 +385,14 @@ export function Combobox({
               e.stopPropagation()
             }}
           >
-            <CommandEmpty>{emptyPlaceholder || "No results found."}</CommandEmpty>
             {(() => {
               // Check if any options have groups
               const hasGroups = filteredOptions.some(option => option.group);
+
+              // Only show "No results" if there are truly no options, not just collapsed groups
+              if (filteredOptions.length === 0) {
+                return <CommandEmpty>{emptyPlaceholder || "No results found."}</CommandEmpty>
+              }
 
               if (!hasGroups) {
                 // Render single CommandGroup for ungrouped options
