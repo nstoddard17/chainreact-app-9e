@@ -565,55 +565,14 @@ export const googleCalendarNodes: NodeComponent[] = [
       },
 
       {
-        name: "timeZone",
-        label: "Time Zone",
-        type: "select",
-        defaultValue: "America/New_York",
-        required: false,
-        hidden: {
-          $deps: ["separateTimezones", "allDay"],
-          $condition: {
-            $or: [
-              { separateTimezones: { $eq: true } },
-              { allDay: { $eq: true } }
-            ]
-          }
-        },
-        options: [
-          { value: "America/New_York", label: "Eastern Time (ET)" },
-          { value: "America/Chicago", label: "Central Time (CT)" },
-          { value: "America/Denver", label: "Mountain Time (MT)" },
-          { value: "America/Los_Angeles", label: "Pacific Time (PT)" },
-          { value: "America/Anchorage", label: "Alaska Time (AKT)" },
-          { value: "Pacific/Honolulu", label: "Hawaii Time (HST)" },
-          { value: "UTC", label: "UTC (Coordinated Universal Time)" },
-          { value: "Europe/London", label: "London (GMT/BST)" },
-          { value: "Europe/Paris", label: "Paris (CET/CEST)" },
-          { value: "Europe/Berlin", label: "Berlin (CET/CEST)" },
-          { value: "Europe/Moscow", label: "Moscow (MSK)" },
-          { value: "Asia/Tokyo", label: "Tokyo (JST)" },
-          { value: "Asia/Shanghai", label: "Shanghai (CST)" },
-          { value: "Asia/Dubai", label: "Dubai (GST)" },
-          { value: "Asia/Kolkata", label: "Mumbai (IST)" },
-          { value: "Australia/Sydney", label: "Sydney (AEDT/AEST)" },
-          { value: "Pacific/Auckland", label: "Auckland (NZDT/NZST)" }
-        ]
-      },
-
-      {
         name: "startTimeZone",
         label: "Event Start Time Zone",
         type: "select",
         defaultValue: "America/New_York",
         required: false,
         hidden: {
-          $deps: ["separateTimezones", "allDay"],
-          $condition: {
-            $or: [
-              { separateTimezones: { $eq: false } },
-              { allDay: { $eq: true } }
-            ]
-          }
+          $deps: ["allDay"],
+          $condition: { allDay: { $eq: true } }
         },
         options: [
           { value: "America/New_York", label: "Eastern Time (ET)" },
