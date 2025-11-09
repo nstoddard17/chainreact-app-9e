@@ -8,6 +8,8 @@ import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-re
 import { createClient } from "@supabase/supabase-js"
 import { googleHandlers } from './handlers'
 import { GoogleIntegration } from './types'
+import { refreshTokenForProvider } from '@/lib/integrations/tokenRefreshService'
+import { encrypt } from '@/lib/security/encryption'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -38,17 +40,20 @@ export async function POST(req: NextRequest) {
     }
 
     // Fetch integration from database
-    const { data: integration, error: integrationError } = await supabase
+    const { data: integrationData, error: integrationError } = await supabase
       .from('integrations')
       .select('*')
       .eq('id', integrationId)
       .single()
 
-    if (integrationError || !integration) {
+    if (integrationError || !integrationData) {
       logger.error('❌ [Google API] Integration not found:', { integrationId, error: integrationError })
       return errorResponse('Google integration not found'
       , 404)
     }
+
+    // Use let so we can update it after token refresh
+    let integration = integrationData
 
     // Log the actual provider for debugging
     logger.debug('📊 [Google API] Integration provider check:', {
@@ -124,8 +129,96 @@ export async function POST(req: NextRequest) {
       hasToken: !!integration.access_token
     })
 
-    // Execute the handler
-    const data = await handler(integration as GoogleIntegration, options)
+    // Execute the handler with automatic token refresh on 401
+    let data: any
+    let retryCount = 0
+    const maxRetries = 1
+
+    while (retryCount <= maxRetries) {
+      try {
+        data = await handler(integration as GoogleIntegration, options)
+        break // Success, exit loop
+      } catch (handlerError: any) {
+        // Check if this is a 401 authentication error
+        const is401Error = handlerError.status === 401 ||
+                          handlerError.message?.includes('authentication') ||
+                          handlerError.message?.includes('expired') ||
+                          handlerError.message?.includes('401')
+
+        if (is401Error && retryCount === 0 && integration.refresh_token) {
+          logger.debug('🔄 [Google API] Token expired, attempting refresh...')
+
+          // Attempt to refresh the token
+          const refreshResult = await refreshTokenForProvider(
+            integration.provider,
+            integration.refresh_token,
+            integration,
+            { verbose: true }
+          )
+
+          if (refreshResult.success && refreshResult.accessToken) {
+            logger.debug('✅ [Google API] Token refreshed successfully, retrying request')
+
+            // Update the integration in database with new tokens
+            const encryptionKey = process.env.ENCRYPTION_KEY!
+            const updateData: any = {
+              access_token: encrypt(refreshResult.accessToken, encryptionKey),
+              status: 'connected',
+              expires_at: refreshResult.accessTokenExpiresIn
+                ? new Date(Date.now() + refreshResult.accessTokenExpiresIn * 1000).toISOString()
+                : null,
+              updated_at: new Date().toISOString(),
+              consecutive_failures: 0,
+              disconnect_reason: null
+            }
+
+            if (refreshResult.refreshToken) {
+              updateData.refresh_token = encrypt(refreshResult.refreshToken, encryptionKey)
+            }
+
+            const { error: updateError } = await supabase
+              .from('integrations')
+              .update(updateData)
+              .eq('id', integrationId)
+
+            if (updateError) {
+              logger.error('❌ [Google API] Failed to update integration with new tokens:', updateError)
+            } else {
+              // Fetch the updated integration
+              const { data: updatedIntegration, error: fetchError } = await supabase
+                .from('integrations')
+                .select('*')
+                .eq('id', integrationId)
+                .single()
+
+              if (fetchError || !updatedIntegration) {
+                logger.error('❌ [Google API] Failed to fetch updated integration:', fetchError)
+                throw handlerError
+              }
+
+              // Update integration object for retry
+              integration = updatedIntegration
+              retryCount++
+              continue // Retry with new token
+            }
+          } else {
+            // Token refresh failed, need reconnection
+            logger.error('❌ [Google API] Token refresh failed:', refreshResult.error)
+            return errorResponse(
+              'Google authentication expired. Please reconnect your account.',
+              401,
+              {
+                needsReconnection: true,
+                refreshError: refreshResult.error
+              }
+            )
+          }
+        }
+
+        // If not a 401 error, or retry failed, or no refresh token, throw the error
+        throw handlerError
+      }
+    }
 
     logger.debug(`✅ [Google API] Successfully processed ${dataType}:`, {
       integrationId,
@@ -146,9 +239,12 @@ export async function POST(req: NextRequest) {
     })
 
     // Handle authentication errors
-    if (error.message?.includes('authentication') || error.message?.includes('expired')) {
-      return errorResponse(error.message, 401, { needsReconnection: true
-       })
+    if (error.status === 401 || error.message?.includes('authentication') || error.message?.includes('expired')) {
+      return errorResponse(
+        'Google authentication expired. Please reconnect your account.',
+        401,
+        { needsReconnection: true }
+      )
     }
 
     // Handle rate limit errors
