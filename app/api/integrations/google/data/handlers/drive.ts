@@ -18,19 +18,28 @@ export const getGoogleDriveFolders: GoogleDataHandler<GoogleDriveFolder> = async
       status: integration.status,
       hasAccessToken: !!integration.access_token
     })
-    
-    validateGoogleIntegration(integration)
-    logger.debug("📁 [Google Drive] Integration validated")
 
+    logger.debug("📁 [Google Drive] Validating integration...")
+    validateGoogleIntegration(integration)
+    logger.debug("📁 [Google Drive] Integration validated successfully")
+
+    logger.debug("📁 [Google Drive] Decrypting access token...")
     const accessToken = getGoogleAccessToken(integration)
     logger.debug("📁 [Google Drive] Access token decrypted successfully")
+
+    logger.debug("📁 [Google Drive] Making API request to Google Drive...")
     const response = await makeGoogleApiRequest(
       "https://www.googleapis.com/drive/v3/files?q=mimeType='application/vnd.google-apps.folder' and trashed=false&pageSize=100&fields=files(id,name,parents,createdTime,modifiedTime,webViewLink,owners,shared)&orderBy=name",
       accessToken
     )
 
+    logger.debug("📁 [Google Drive] Parsing response...")
     const data = await response.json()
-    
+
+    logger.debug("📁 [Google Drive] Mapping folders...", {
+      filesCount: data.files?.length || 0
+    })
+
     const folders = (data.files || []).map((folder: any): GoogleDriveFolder => ({
       id: folder.id,
       name: folder.name,
@@ -47,7 +56,13 @@ export const getGoogleDriveFolders: GoogleDataHandler<GoogleDriveFolder> = async
     return folders
 
   } catch (error: any) {
-    logger.error("❌ [Google Drive] Error fetching folders:", error)
+    logger.error("❌ [Google Drive] Error fetching folders:", {
+      error: error?.message || String(error),
+      errorName: error?.name,
+      errorStatus: error?.status,
+      stack: error?.stack,
+      errorObject: error
+    })
     throw error
   }
 }

@@ -46,3 +46,69 @@ export async function GET(request: NextRequest) {
     return errorResponse(error.message || 'Failed to fetch Outlook signatures' , 500)
   }
 }
+
+export async function POST(request: NextRequest) {
+  try {
+    logger.debug('🔍 [OUTLOOK SIGNATURES] POST endpoint called')
+    const body = await request.json()
+    const { userId, name, content, isDefault } = body
+
+    logger.debug('🔍 [OUTLOOK SIGNATURES] Request body:', { userId, name, hasContent: !!content, isDefault })
+
+    if (!userId || !name || !content) {
+      logger.debug('❌ [SIGNATURES] Missing required fields')
+      return errorResponse('Missing required fields: userId, name, and content are required', 400)
+    }
+
+    const supabase = await createSupabaseRouteHandlerClient()
+
+    // Verify user exists
+    const { data: userData, error: userError } = await supabase
+      .from('user_profiles')
+      .select('id')
+      .eq('id', userId)
+      .single()
+
+    if (userError || !userData) {
+      logger.debug('❌ [SIGNATURES] User not found:', userError)
+      return errorResponse('User not found', 404)
+    }
+
+    // Check if user has Outlook integration
+    const { data: integration, error: integrationError } = await supabase
+      .from('integrations')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('provider', 'microsoft-outlook')
+      .eq('status', 'connected')
+      .single()
+
+    if (integrationError || !integration) {
+      logger.debug('❌ [OUTLOOK SIGNATURES] Outlook integration not connected')
+      return errorResponse('Microsoft Outlook integration not connected', 401)
+    }
+
+    // Note: Outlook doesn't support creating signatures via API
+    // We'll store custom signatures in our database instead
+    // TODO: Create a custom_signatures table to store user-created signatures
+
+    // For now, return success but note that Outlook signatures must be managed in Outlook
+    logger.debug('⚠️ [OUTLOOK SIGNATURES] Outlook API does not support signature creation')
+
+    return jsonResponse({
+      success: true,
+      message: 'Outlook does not support signature creation via API. Please create signatures in Outlook settings.',
+      signature: {
+        id: `outlook-custom-${Date.now()}`,
+        name: name,
+        content: content,
+        isDefault: isDefault,
+        isCustom: true
+      }
+    })
+
+  } catch (error: any) {
+    logger.error('[Outlook Signatures API] Error creating signature:', error)
+    return errorResponse(error.message || 'Failed to create Outlook signature', 500)
+  }
+}

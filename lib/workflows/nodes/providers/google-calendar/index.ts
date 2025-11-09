@@ -675,19 +675,20 @@ export const googleCalendarNodes: NodeComponent[] = [
         type: "select",
         defaultValue: "default",
         placeholder: "Calendar color",
+        showColorPreview: true,
         options: [
-          { value: "default", label: "Calendar color" },
-          { value: "1", label: "Lavender" },
-          { value: "2", label: "Sage" },
-          { value: "3", label: "Grape" },
-          { value: "4", label: "Flamingo" },
-          { value: "5", label: "Banana" },
-          { value: "6", label: "Tangerine" },
-          { value: "7", label: "Peacock" },
-          { value: "8", label: "Graphite" },
-          { value: "9", label: "Blueberry" },
-          { value: "10", label: "Basil" },
-          { value: "11", label: "Tomato" }
+          { value: "default", label: "Calendar color", color: "#808080" },
+          { value: "1", label: "Lavender", color: "#a4bdfc" },
+          { value: "2", label: "Sage", color: "#7ae7bf" },
+          { value: "3", label: "Grape", color: "#dbadff" },
+          { value: "4", label: "Flamingo", color: "#ff887c" },
+          { value: "5", label: "Banana", color: "#fbd75b" },
+          { value: "6", label: "Tangerine", color: "#ffb878" },
+          { value: "7", label: "Peacock", color: "#46d6db" },
+          { value: "8", label: "Graphite", color: "#e1e1e1" },
+          { value: "9", label: "Blueberry", color: "#5484ed" },
+          { value: "10", label: "Basil", color: "#51b749" },
+          { value: "11", label: "Tomato", color: "#dc2127" }
         ]
       },
 

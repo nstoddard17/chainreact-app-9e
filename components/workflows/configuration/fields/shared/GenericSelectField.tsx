@@ -940,6 +940,7 @@ export function GenericSelectField({
             displayLabel={displayLabel} // Pass the saved display label
             disableSearch={(field as any).disableSearch} // Support disabling search for simple dropdowns
             hideClearButton={(field as any).hideClearButton} // Support hiding clear button
+            showColorPreview={(field as any).showColorPreview} // Show color preview balls if enabled
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
@@ -1011,6 +1012,7 @@ export function GenericSelectField({
           onOpenChange={handleFieldOpen}
           selectedValues={effectiveSelectedValues}
           displayLabel={displayLabel}
+          showColorPreview={(field as any).showColorPreview} // Show color preview balls if enabled
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}

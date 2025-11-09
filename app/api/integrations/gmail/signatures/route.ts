@@ -128,3 +128,106 @@ export async function GET(request: NextRequest) {
      })
   }
 }
+
+export async function POST(request: NextRequest) {
+  try {
+    logger.debug('🔍 [GMAIL SIGNATURES] POST endpoint called')
+    const body = await request.json()
+    const { userId, name, content, isDefault } = body
+
+    logger.debug('🔍 [GMAIL SIGNATURES] Request body:', { userId, name, hasContent: !!content, isDefault })
+
+    if (!userId || !name || !content) {
+      logger.debug('❌ [SIGNATURES] Missing required fields')
+      return errorResponse('Missing required fields: userId, name, and content are required', 400)
+    }
+
+    // Use admin client to verify user exists
+    const supabase = createAdminClient()
+    const { data: userData, error: userError } = await supabase
+      .from('user_profiles')
+      .select('id')
+      .eq('id', userId)
+      .single()
+
+    if (userError || !userData) {
+      logger.debug('❌ [SIGNATURES] User not found:', userError)
+      return errorResponse('User not found', 404)
+    }
+
+    // Get Gmail access token
+    logger.debug('🔍 [GMAIL SIGNATURES] Getting access token for user:', userId)
+    let accessToken
+    try {
+      accessToken = await getDecryptedAccessToken(userId, 'gmail')
+      logger.debug('✅ [GMAIL SIGNATURES] Access token retrieved successfully')
+    } catch (error) {
+      logger.debug('❌ [GMAIL SIGNATURES] Gmail integration not found:', error)
+      return errorResponse('Gmail integration not connected', 401)
+    }
+
+    if (!accessToken) {
+      logger.debug('❌ [GMAIL SIGNATURES] Gmail access token missing')
+      return errorResponse('Gmail access token missing', 401)
+    }
+
+    // First, get the user's email to create/update sendAs settings
+    logger.debug('🔍 [GMAIL SIGNATURES] Fetching user profile to get email...')
+    const profileResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    })
+
+    if (!profileResponse.ok) {
+      const errorText = await profileResponse.text()
+      logger.error('❌ [GMAIL SIGNATURES] Failed to get user profile:', profileResponse.status, errorText)
+      return errorResponse('Failed to get user profile', 500)
+    }
+
+    const profileData = await profileResponse.json()
+    const userEmail = profileData.emailAddress
+    logger.debug('✅ [GMAIL SIGNATURES] User email:', userEmail)
+
+    // Update the sendAs settings to set/update the signature
+    logger.debug('🔍 [GMAIL SIGNATURES] Updating sendAs settings with new signature...')
+    const updateResponse = await fetch(
+      `https://gmail.googleapis.com/gmail/v1/users/me/settings/sendAs/${encodeURIComponent(userEmail)}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          signature: content
+        })
+      }
+    )
+
+    if (!updateResponse.ok) {
+      const errorText = await updateResponse.text()
+      logger.error('❌ [GMAIL SIGNATURES] Failed to update signature:', updateResponse.status, errorText)
+      return errorResponse('Failed to create signature in Gmail', 500)
+    }
+
+    const updatedSettings = await updateResponse.json()
+    logger.debug('✅ [GMAIL SIGNATURES] Signature updated successfully')
+
+    // Return success response
+    return jsonResponse({
+      success: true,
+      signature: {
+        id: `gmail-signature-0`,
+        name: name,
+        content: content,
+        isDefault: true,
+        email: userEmail
+      }
+    })
+
+  } catch (error) {
+    logger.error('Error creating Gmail signature:', error)
+    return errorResponse('Internal server error', 500)
+  }
+}
