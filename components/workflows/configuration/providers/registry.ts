@@ -24,6 +24,7 @@ import { MondayOptionsLoader } from './monday/MondayOptionsLoader';
 import { MailchimpOptionsLoader } from './mailchimp/MailchimpOptionsLoader';
 import { TwitterOptionsLoader } from './twitter/TwitterOptionsLoader';
 import { GoogleAnalyticsOptionsLoader } from './google-analytics/GoogleAnalyticsOptionsLoader';
+import { SlackOptionsLoader } from './slack/slackOptionsLoader';
 
 import { logger } from '@/lib/utils/logger'
 
@@ -99,9 +100,11 @@ class ProviderRegistryImpl implements IProviderRegistry {
     // Register Google Analytics loader
     this.register('google-analytics', new GoogleAnalyticsOptionsLoader());
 
+    // Register Slack loader
+    this.register('slack', new SlackOptionsLoader());
+
     // Additional providers can be registered here as they're implemented
     // this.register('gmail', new GmailOptionsLoader());
-    // this.register('slack', new SlackOptionsLoader());
     // this.register('trello', new TrelloOptionsLoader());
   }
 
