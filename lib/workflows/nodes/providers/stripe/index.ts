@@ -1872,19 +1872,11 @@ export const stripeNodes: NodeComponent[] = [
         label: "Customer",
         type: "combobox",
         dynamic: "stripe_customers",
-        required: false,
+        required: true,
         loadOnMount: true,
         searchable: true,
         placeholder: "Search for a customer by name or email...",
-        description: "Find by customer (use this OR email field)"
-      },
-      {
-        name: "email",
-        label: "Or Search by Email",
-        type: "email",
-        required: false,
-        placeholder: "customer@example.com",
-        description: "Alternatively, find by email address"
+        description: "Find a customer by selecting from the list or using the search"
       }
     ],
     outputSchema: [

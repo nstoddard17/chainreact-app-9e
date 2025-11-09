@@ -260,8 +260,10 @@ const shouldUseConnectMode = (field: ConfigField | NodeField) => {
     return true
   }
 
-  // Default: use connect mode for text, email, number, and date type fields
-  return field.type === 'text' || field.type === 'email' || field.type === 'number' || field.type === 'date'
+  // Default: use connect mode for text, email, number, date, dropdown, object, and array field types
+  return field.type === 'text' || field.type === 'email' || field.type === 'number' || field.type === 'date' ||
+         field.type === 'combobox' || field.type === 'select' || field.type === 'multi_select' ||
+         field.type === 'object' || field.type === 'array'
 }
 
 /**
