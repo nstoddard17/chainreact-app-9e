@@ -67,15 +67,28 @@ export function SetupTab(props: SetupTabProps) {
     )
 
     // Map to Connection format
-    return providerIntegrations.map(integration => ({
-      id: integration.id,
-      email: integration.email,
-      username: integration.username,
-      accountName: integration.account_name,
-      status: integration.status === 'connected' ? 'connected' : 'disconnected',
-      lastChecked: integration.last_checked ? new Date(integration.last_checked) : undefined,
-      error: integration.error,
-    }))
+    return providerIntegrations.map(integration => {
+      // Determine UI status based on integration status
+      let uiStatus: 'connected' | 'disconnected' | 'error' = 'disconnected'
+
+      if (integration.status === 'connected') {
+        uiStatus = 'connected'
+      } else if (integration.status === 'expired' || integration.status === 'needs_reauthorization') {
+        // Token expired or needs reauth → show as error so user can reconnect
+        uiStatus = 'error'
+      }
+
+      return {
+        id: integration.id,
+        email: integration.email,
+        username: integration.username,
+        accountName: integration.account_name,
+        status: uiStatus,
+        lastChecked: integration.last_checked ? new Date(integration.last_checked) : undefined,
+        // Use disconnect_reason for error message, fallback to generic error
+        error: integration.disconnect_reason || integration.error,
+      }
+    })
   }, [requiresConnection, nodeInfo?.providerId, integrations])
 
   // Get current/primary connection (first connected one)

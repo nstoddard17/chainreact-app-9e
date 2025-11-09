@@ -1,14 +1,15 @@
 "use client"
 
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
-import { FileSignature, ChevronDown, Building, User } from 'lucide-react'
+import { FileSignature, ChevronDown, Building, User, RefreshCw, Plus } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useVariableDropTarget } from '../hooks/useVariableDropTarget'
 import { insertVariableIntoContentEditable, normalizeDraggedVariable } from '@/lib/workflows/variableInsertion'
+import { CreateSignatureModal } from './CreateSignatureModal'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -31,17 +32,22 @@ interface OutlookEmailRichTextEditorProps {
   // autoIncludeSignature removed - signatures must be manually added
 }
 
-export function OutlookEmailRichTextEditor({
+export interface OutlookEmailRichTextEditorRef {
+  refreshSignatures: () => Promise<void>
+}
+
+export const OutlookEmailRichTextEditor = forwardRef<OutlookEmailRichTextEditorRef, OutlookEmailRichTextEditorProps>(({
   value,
   onChange,
   placeholder = "Compose your email...",
   className = "",
   error,
   userId
-}: OutlookEmailRichTextEditorProps) {
+}, ref) => {
   const [signatures, setSignatures] = useState<OutlookSignature[]>([])
   const [selectedSignature, setSelectedSignature] = useState<string>('')
   const [isLoadingSignatures, setIsLoadingSignatures] = useState(false)
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [profile, setProfile] = useState<any>(null)
   const { toast } = useToast()
   const editorRef = useRef<HTMLDivElement | null>(null)
@@ -64,22 +70,16 @@ export function OutlookEmailRichTextEditor({
   })
 
   // Load Outlook signatures
-  useEffect(() => {
-    if (userId) {
-      loadOutlookSignatures()
-    }
-  }, [userId])
-
-  const loadOutlookSignatures = async () => {
+  const loadOutlookSignatures = useCallback(async () => {
     try {
       setIsLoadingSignatures(true)
       const response = await fetch(`/api/integrations/microsoft-outlook/signatures?userId=${userId}`)
-      
+
       if (response.ok) {
         const data = await response.json()
         setSignatures(data.signatures || [])
         setProfile(data.profile)
-        
+
         // Check if signature is already present but DON'T auto-add
         const defaultSignature = data.signatures?.find((sig: OutlookSignature) => sig.isDefault)
         if (defaultSignature) {
@@ -98,22 +98,72 @@ export function OutlookEmailRichTextEditor({
     } finally {
       setIsLoadingSignatures(false)
     }
-  }
+  }, [userId, value])
+
+  // Expose refresh function via ref
+  useImperativeHandle(ref, () => ({
+    refreshSignatures: loadOutlookSignatures
+  }), [loadOutlookSignatures])
+
+  useEffect(() => {
+    if (userId) {
+      loadOutlookSignatures()
+    }
+  }, [userId, loadOutlookSignatures])
 
   const insertSignature = (signatureId: string) => {
     const signature = signatures.find(s => s.id === signatureId)
     if (signature) {
-      // Remove existing signature if any
-      let newValue = value
+      // Create a temporary div to parse HTML properly
+      const tempDiv = document.createElement('div')
+      tempDiv.innerHTML = value
+
+      // Remove all existing signatures first
       signatures.forEach(sig => {
-        newValue = newValue.replace(sig.content, '').trim()
+        const sigDiv = document.createElement('div')
+        sigDiv.innerHTML = sig.content
+        const sigText = sigDiv.textContent || ''
+
+        // Find and remove elements that match the signature content
+        const walker = document.createTreeWalker(
+          tempDiv,
+          NodeFilter.SHOW_TEXT,
+          null
+        )
+
+        const nodesToRemove: Element[] = []
+        let node: Node | null
+        while ((node = walker.nextNode())) {
+          if (node.textContent && node.textContent.includes(sigText)) {
+            // Mark parent element for removal
+            let parent = node.parentElement
+            if (parent) {
+              nodesToRemove.push(parent)
+            }
+          }
+        }
+
+        nodesToRemove.forEach(n => {
+          if (n.parentNode) {
+            n.parentNode.removeChild(n)
+          }
+        })
       })
-      
-      // Add new signature
-      newValue = `${newValue }\n\n${ signature.content}`
-      onChange(newValue)
+
+      // Add separator and new signature
+      const separator = document.createElement('br')
+      const separator2 = document.createElement('br')
+      tempDiv.appendChild(separator)
+      tempDiv.appendChild(separator2)
+
+      // Create a div for the signature to maintain formatting
+      const sigContainer = document.createElement('div')
+      sigContainer.innerHTML = signature.content
+      tempDiv.appendChild(sigContainer)
+
+      onChange(tempDiv.innerHTML)
       setSelectedSignature(signatureId)
-      
+
       toast({
         title: "Signature added",
         description: `${signature.name} signature has been added to your email.`,
@@ -122,94 +172,131 @@ export function OutlookEmailRichTextEditor({
   }
 
   return (
-    <div className={`space-y-4 ${className}`}>
-      {/* Outlook-specific toolbar */}
-      <div className="flex items-center gap-2 p-2 border rounded-lg bg-blue-50">
-        <Building className="h-4 w-4 text-blue-600" />
-        <span className="text-sm text-blue-600">Outlook Signatures</span>
-        
-        {profile && (
-          <div className="flex items-center gap-1 text-xs text-blue-600">
-            <User className="h-3 w-3" />
-            {profile.displayName} ({profile.emailAddress})
-          </div>
-        )}
-        
-        {signatures.length > 0 && (
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" disabled={isLoadingSignatures}>
-                {selectedSignature ? 
-                  signatures.find(s => s.id === selectedSignature)?.name || 'Select signature'
-                  : 'Select signature'
-                }
-                <ChevronDown className="ml-2 h-4 w-4" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80">
-              <div className="space-y-2">
-                <h4 className="font-medium">Outlook Signatures</h4>
-                <ScrollArea className="max-h-60">
-                  {signatures.map((signature) => (
-                    <div key={signature.id} className="p-2 hover:bg-gray-100 rounded cursor-pointer">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium">{signature.name}</span>
-                        {signature.isDefault && <Badge variant="secondary">Default</Badge>}
+    <>
+      <div className={`space-y-4 ${className}`}>
+        {/* Outlook-specific toolbar */}
+        <div className="flex items-center gap-2 p-2 border rounded-lg bg-blue-50">
+          <Building className="h-4 w-4 text-blue-600" />
+          <span className="text-sm text-blue-600">Outlook Signatures</span>
+
+          {profile && (
+            <div className="flex items-center gap-1 text-xs text-blue-600">
+              <User className="h-3 w-3" />
+              {profile.displayName} ({profile.emailAddress})
+            </div>
+          )}
+
+          {signatures.length > 0 && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" disabled={isLoadingSignatures}>
+                  {selectedSignature ?
+                    signatures.find(s => s.id === selectedSignature)?.name || 'Select signature'
+                    : 'Select signature'
+                  }
+                  <ChevronDown className="ml-2 h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80">
+                <div className="space-y-2">
+                  <h4 className="font-medium">Outlook Signatures</h4>
+                  <ScrollArea className="max-h-60">
+                    {signatures.map((signature) => (
+                      <div key={signature.id} className="p-2 hover:bg-gray-100 rounded cursor-pointer">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">{signature.name}</span>
+                          {signature.isDefault && <Badge variant="secondary">Default</Badge>}
+                        </div>
+                        {signature.email && (
+                          <div className="text-xs text-gray-500">{signature.email}</div>
+                        )}
+                        <div
+                          className="text-sm text-gray-600 mt-1 max-h-20 overflow-hidden"
+                          dangerouslySetInnerHTML={{ __html: signature.content }}
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="mt-2"
+                          onClick={() => insertSignature(signature.id)}
+                        >
+                          Insert
+                        </Button>
                       </div>
-                      {signature.email && (
-                        <div className="text-xs text-gray-500">{signature.email}</div>
-                      )}
-                      <div 
-                        className="text-sm text-gray-600 mt-1 max-h-20 overflow-hidden"
-                        dangerouslySetInnerHTML={{ __html: signature.content }}
-                      />
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="mt-2"
-                        onClick={() => insertSignature(signature.id)}
-                      >
-                        Insert
-                      </Button>
-                    </div>
-                  ))}
-                </ScrollArea>
-              </div>
-            </PopoverContent>
-          </Popover>
-        )}
+                    ))}
+                  </ScrollArea>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
+
+          {/* Create signature button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsCreateModalOpen(true)}
+            disabled={!userId}
+            title="Create new signature"
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Create
+          </Button>
+
+          {/* Refresh button */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={loadOutlookSignatures}
+            disabled={isLoadingSignatures}
+            className="ml-auto"
+            title="Refresh signatures"
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoadingSignatures ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
+
+        {/* Rich text area for Outlook with HTML support */}
+        <div className="relative">
+          <div
+            ref={editorRef}
+            contentEditable
+            dangerouslySetInnerHTML={{ __html: value }}
+            onInput={(e) => onChange(e.currentTarget.innerHTML)}
+            onFocus={dropHandlers.onFocus}
+            onBlur={dropHandlers.onBlur}
+            onDragOver={dropHandlers.onDragOver}
+            onDragLeave={dropHandlers.onDragLeave}
+            onDrop={dropHandlers.onDrop}
+            className={`w-full min-h-[200px] p-3 border rounded-lg resize-y focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              error ? 'border-red-500' : 'border-gray-300'
+            } ${isDragOver ? 'ring-2 ring-blue-500 ring-offset-1' : ''}`}
+            style={{
+              whiteSpace: 'pre-wrap',
+              fontFamily: 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif',
+              fontSize: '14px',
+              lineHeight: '1.5'
+            }}
+            suppressContentEditableWarning
+          />
+          {!value && (
+            <div className="absolute inset-0 p-3 pointer-events-none text-gray-400">
+              {placeholder}
+            </div>
+          )}
+          {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
+        </div>
       </div>
 
-      {/* Rich text area for Outlook with HTML support */}
-      <div className="relative">
-        <div
-          ref={editorRef}
-          contentEditable
-          dangerouslySetInnerHTML={{ __html: value }}
-          onInput={(e) => onChange(e.currentTarget.innerHTML)}
-          onFocus={dropHandlers.onFocus}
-          onBlur={dropHandlers.onBlur}
-          onDragOver={dropHandlers.onDragOver}
-          onDragLeave={dropHandlers.onDragLeave}
-          onDrop={dropHandlers.onDrop}
-          className={`w-full min-h-[200px] p-3 border rounded-lg resize-y focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-            error ? 'border-red-500' : 'border-gray-300'
-          } ${isDragOver ? 'ring-2 ring-blue-500 ring-offset-1' : ''}`}
-          style={{ 
-            whiteSpace: 'pre-wrap',
-            fontFamily: 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif',
-            fontSize: '14px',
-            lineHeight: '1.5'
-          }}
-          suppressContentEditableWarning
-        />
-        {!value && (
-          <div className="absolute inset-0 p-3 pointer-events-none text-gray-400">
-            {placeholder}
-          </div>
-        )}
-        {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
-      </div>
-    </div>
+      {/* Create Signature Modal */}
+      <CreateSignatureModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSignatureCreated={loadOutlookSignatures}
+        userId={userId}
+        provider="outlook"
+      />
+    </>
   )
-}
+})
+
+OutlookEmailRichTextEditor.displayName = 'OutlookEmailRichTextEditor'

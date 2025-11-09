@@ -1001,6 +1001,113 @@ type DriveChangeType = 'file_created' | 'file_updated' | 'folder_created'
 type SheetsChangeType = 'new_row' | 'updated_row' | 'new_worksheet'
 
 /**
+ * Check if a Google Drive file passes the configured filters
+ */
+function doesFilePassFilters(file: any, filters: any, parentIds: string[], configuredFolderId: string | null): boolean {
+  if (!filters || !file) return true
+
+  // Filter by file type
+  if (filters.fileTypes && Array.isArray(filters.fileTypes) && filters.fileTypes.length > 0) {
+    const fileMimeType = file.mimeType || file.mime_type || ''
+
+    const matchesType = filters.fileTypes.some((filterType: string) => {
+      // Handle wildcards like "image/*", "video/*", "audio/*"
+      if (filterType.endsWith('/*')) {
+        const prefix = filterType.replace('/*', '/')
+        return fileMimeType.startsWith(prefix)
+      }
+      // Exact match
+      return fileMimeType === filterType
+    })
+
+    if (!matchesType) {
+      logger.debug('[Google Drive] File type does not match filter', {
+        fileMimeType,
+        allowedTypes: filters.fileTypes
+      })
+      return false
+    }
+  }
+
+  // Filter by name pattern (case-insensitive)
+  if (filters.namePattern && typeof filters.namePattern === 'string' && filters.namePattern.trim() !== '') {
+    const fileName = file.name || ''
+    const pattern = filters.namePattern.toLowerCase()
+
+    if (!fileName.toLowerCase().includes(pattern)) {
+      logger.debug('[Google Drive] File name does not match pattern', {
+        fileName,
+        pattern: filters.namePattern
+      })
+      return false
+    }
+  }
+
+  // Filter by subfolder exclusion
+  if (filters.excludeSubfolders === true && configuredFolderId) {
+    // Check if file is in a subfolder (has parent other than configured folder)
+    const isInConfiguredFolder = parentIds.includes(configuredFolderId)
+    const isDirectChild = parentIds.length === 1 && isInConfiguredFolder
+
+    if (!isDirectChild) {
+      logger.debug('[Google Drive] File is in subfolder, skipping due to excludeSubfolders filter', {
+        fileId: file.id || file.fileId,
+        parentIds,
+        configuredFolderId
+      })
+      return false
+    }
+  }
+
+  // Filter by minimum file size
+  if (filters.minFileSize && typeof filters.minFileSize === 'number') {
+    const fileSizeBytes = parseInt(file.size || '0', 10)
+    const minSizeBytes = filters.minFileSize * 1024 * 1024 // Convert MB to bytes
+
+    if (fileSizeBytes < minSizeBytes) {
+      logger.debug('[Google Drive] File size below minimum', {
+        fileId: file.id || file.fileId,
+        fileSizeMB: (fileSizeBytes / (1024 * 1024)).toFixed(2),
+        minSizeMB: filters.minFileSize
+      })
+      return false
+    }
+  }
+
+  // Filter by maximum file size
+  if (filters.maxFileSize && typeof filters.maxFileSize === 'number') {
+    const fileSizeBytes = parseInt(file.size || '0', 10)
+    const maxSizeBytes = filters.maxFileSize * 1024 * 1024 // Convert MB to bytes
+
+    if (fileSizeBytes > maxSizeBytes) {
+      logger.debug('[Google Drive] File size exceeds maximum', {
+        fileId: file.id || file.fileId,
+        fileSizeMB: (fileSizeBytes / (1024 * 1024)).toFixed(2),
+        maxSizeMB: filters.maxFileSize
+      })
+      return false
+    }
+  }
+
+  // Filter by creator email
+  if (filters.createdByEmail && typeof filters.createdByEmail === 'string' && filters.createdByEmail.trim() !== '') {
+    const ownerEmail = file.owners?.[0]?.emailAddress || file.owners?.[0]?.email || ''
+    const expectedEmail = filters.createdByEmail.trim().toLowerCase()
+
+    if (ownerEmail.toLowerCase() !== expectedEmail) {
+      logger.debug('[Google Drive] File creator does not match filter', {
+        fileId: file.id || file.fileId,
+        ownerEmail,
+        expectedEmail: filters.createdByEmail
+      })
+      return false
+    }
+  }
+
+  return true
+}
+
+/**
  * Check if a calendar event passes the configured filters
  */
 function doesEventPassFilters(event: any, filters: any): boolean {
@@ -1483,36 +1590,68 @@ async function triggerMatchingDriveWorkflows(changeType: DriveChangeType, driveI
           }
         }
 
+        // Check folder matching first
+        let folderMatches = false
+        let configuredFolderId: string | null = null
+
         switch (changeType) {
           case 'file_created': {
-            const folderId = configData?.folderId || nodeConfig?.folderId || null
-            if (folderId) {
-              return parentIds.includes(folderId)
+            configuredFolderId = configData?.folderId || nodeConfig?.folderId || null
+            if (configuredFolderId) {
+              folderMatches = parentIds.includes(configuredFolderId)
+            } else {
+              folderMatches = true
             }
-            return true
+            break
           }
           case 'folder_created': {
-            const folderId = configData?.folderId || configData?.parentFolderId || nodeConfig?.folderId || nodeConfig?.parentFolderId || null
-            if (folderId) {
-              return parentIds.includes(folderId)
+            configuredFolderId = configData?.folderId || configData?.parentFolderId || nodeConfig?.folderId || nodeConfig?.parentFolderId || null
+            if (configuredFolderId) {
+              folderMatches = parentIds.includes(configuredFolderId)
+            } else {
+              folderMatches = true
             }
-            return true
+            break
           }
           case 'file_updated': {
             // Match by explicit fileId, otherwise by folderId containment, otherwise allow
             const explicitFileId = configData?.fileId || nodeConfig?.fileId || null
             if (explicitFileId) {
-              return explicitFileId === resourceId
+              folderMatches = explicitFileId === resourceId
+            } else {
+              configuredFolderId = configData?.folderId || nodeConfig?.folderId || null
+              if (configuredFolderId) {
+                folderMatches = parentIds.includes(configuredFolderId)
+              } else {
+                folderMatches = true
+              }
             }
-            const folderId = configData?.folderId || nodeConfig?.folderId || null
-            if (folderId) {
-              return parentIds.includes(folderId)
-            }
-            return true
+            break
           }
           default:
             return false
         }
+
+        if (!folderMatches) return false
+
+        // Apply filter criteria from node config (for file_created triggers)
+        if (changeType === 'file_created' && !doesFilePassFilters(drivePayload, nodeConfig, parentIds, configuredFolderId)) {
+          logger.debug('[Google Drive] File does not pass filter criteria', {
+            workflowId: workflow.id,
+            resourceId,
+            filters: {
+              fileTypes: nodeConfig.fileTypes,
+              namePattern: nodeConfig.namePattern,
+              excludeSubfolders: nodeConfig.excludeSubfolders,
+              minFileSize: nodeConfig.minFileSize,
+              maxFileSize: nodeConfig.maxFileSize,
+              createdByEmail: nodeConfig.createdByEmail
+            }
+          })
+          return false
+        }
+
+        return true
       })
 
       if (matchingTriggers.length === 0) {

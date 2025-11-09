@@ -3,13 +3,7 @@
 import React from 'react'
 import { Bell, Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Combobox } from '@/components/ui/combobox'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
@@ -101,19 +95,20 @@ export function NotificationBuilder({
             <Bell className="h-4 w-4 text-muted-foreground shrink-0" />
 
             {/* Method selector */}
-            <Select
-              value={notification.method}
-              onValueChange={(method) => updateNotification(index, { method: method as 'popup' | 'email' })}
-              disabled={disabled}
-            >
-              <SelectTrigger className="w-[130px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="popup">Notification</SelectItem>
-                <SelectItem value="email">Email</SelectItem>
-              </SelectContent>
-            </Select>
+            <div style={{ width: '180px', minWidth: '180px' }}>
+              <Combobox
+                value={notification.method}
+                onChange={(method) => updateNotification(index, { method: method as 'popup' | 'email' })}
+                options={[
+                  { value: 'popup', label: 'Notification' },
+                  { value: 'email', label: 'Email' }
+                ]}
+                disabled={disabled}
+                disableSearch={true}
+                hideClearButton={true}
+                style={{ width: '180px', minWidth: '180px' }}
+              />
+            </div>
 
             {/* Number input with spinner */}
             <Input
@@ -130,24 +125,20 @@ export function NotificationBuilder({
             />
 
             {/* Time unit selector */}
-            <Select
-              value={unitMinutes.toString()}
-              onValueChange={(unit) => updateTime(index, timeValue, parseInt(unit))}
-              disabled={disabled}
-            >
-              <SelectTrigger className="w-[120px]">
-                <SelectValue>
-                  {getUnitLabel(timeValue, unitMinutes)}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {timeUnits.map((unit) => (
-                  <SelectItem key={unit.value} value={unit.value.toString()}>
-                    {timeValue === 1 ? unit.singular : unit.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div style={{ width: '140px', minWidth: '140px' }}>
+              <Combobox
+                value={unitMinutes.toString()}
+                onChange={(unit) => updateTime(index, timeValue, parseInt(unit))}
+                options={timeUnits.map((unit) => ({
+                  value: unit.value.toString(),
+                  label: timeValue === 1 ? unit.singular : unit.label
+                }))}
+                disabled={disabled}
+                disableSearch={true}
+                hideClearButton={true}
+                style={{ width: '140px', minWidth: '140px' }}
+              />
+            </div>
 
             {/* Remove button */}
             <Button

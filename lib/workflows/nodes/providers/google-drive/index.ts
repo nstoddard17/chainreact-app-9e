@@ -71,6 +71,90 @@ export const googleDriveNodes: NodeComponent[] = [
         required: true,
         loadOnMount: true, // Load folders immediately when form opens to show names instead of IDs
       },
+      // API VERIFICATION: Google Drive webhooks fire for ANY file creation in the watched folder.
+      // The webhook payload includes file metadata (mimeType, name, size, owners, parents).
+      // We implement client-side filtering by checking these properties in the webhook handler.
+      // Supported filters: fileTypes, namePattern, excludeSubfolders, minFileSize, maxFileSize, createdByEmail
+      // Docs: https://developers.google.com/drive/api/v3/push
+      {
+        name: "fileTypes",
+        label: "File Types",
+        type: "multi-select",
+        required: false,
+        dependsOn: "folderId",
+        hidden: { $deps: ["folderId"], $condition: { folderId: { $exists: false } } },
+        options: [
+          { value: "application/pdf", label: "PDF" },
+          { value: "image/*", label: "Images (All)" },
+          { value: "image/png", label: "PNG Images" },
+          { value: "image/jpeg", label: "JPEG Images" },
+          { value: "application/vnd.google-apps.document", label: "Google Docs" },
+          { value: "application/vnd.google-apps.spreadsheet", label: "Google Sheets" },
+          { value: "application/vnd.google-apps.presentation", label: "Google Slides" },
+          { value: "application/msword", label: "Word Documents" },
+          { value: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", label: "Word Documents (.docx)" },
+          { value: "application/vnd.ms-excel", label: "Excel Files" },
+          { value: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", label: "Excel Files (.xlsx)" },
+          { value: "video/*", label: "Videos (All)" },
+          { value: "audio/*", label: "Audio Files (All)" },
+          { value: "text/plain", label: "Text Files" },
+        ],
+        placeholder: "All file types",
+        tooltip: "Only trigger for specific file types. Leave empty for all files."
+      },
+      {
+        name: "namePattern",
+        label: "File Name Contains",
+        type: "text",
+        required: false,
+        dependsOn: "folderId",
+        hidden: { $deps: ["folderId"], $condition: { folderId: { $exists: false } } },
+        placeholder: "e.g., invoice, report, 2025",
+        tooltip: "Only trigger when file name contains this text (case-insensitive)"
+      },
+      {
+        name: "excludeSubfolders",
+        label: "Exclude Subfolders",
+        type: "toggle",
+        required: false,
+        dependsOn: "folderId",
+        hidden: { $deps: ["folderId"], $condition: { folderId: { $exists: false } } },
+        defaultValue: false,
+        tooltip: "If enabled, only trigger for files directly in the selected folder, not in subfolders"
+      },
+      {
+        name: "minFileSize",
+        label: "Minimum File Size (MB)",
+        type: "number",
+        required: false,
+        dependsOn: "folderId",
+        hidden: { $deps: ["folderId"], $condition: { folderId: { $exists: false } } },
+        placeholder: "e.g., 1",
+        tooltip: "Only trigger for files larger than this size in megabytes"
+      },
+      {
+        name: "maxFileSize",
+        label: "Maximum File Size (MB)",
+        type: "number",
+        required: false,
+        dependsOn: "folderId",
+        hidden: { $deps: ["folderId"], $condition: { folderId: { $exists: false } } },
+        placeholder: "e.g., 100",
+        tooltip: "Only trigger for files smaller than this size in megabytes"
+      },
+      {
+        name: "createdByEmail",
+        label: "Created By (Email)",
+        type: "combobox",
+        dynamic: "gmail-enhanced-recipients",
+        required: false,
+        dependsOn: "folderId",
+        hidden: { $deps: ["folderId"], $condition: { folderId: { $exists: false } } },
+        placeholder: "Select a contact or enter email...",
+        searchable: true,
+        allowCustomValue: true,
+        tooltip: "Only trigger for files created by this specific user. Loads contacts and recent recipients from your Gmail account."
+      },
     ],
     outputSchema: [
       { name: "fileId", label: "File ID", type: "string", description: "Unique identifier for the file" },
@@ -250,14 +334,10 @@ export const googleDriveNodes: NodeComponent[] = [
       {
         name: "filePreview",
         label: "File Preview",
-        type: "textarea",
+        type: "google_drive_preview",
         required: false,
-        placeholder: "File preview will appear here after selection...",
-        description: "Preview of the selected file",
-        rows: 10,
-        disabled: true,
-        dynamic: true, // This field loads dynamic content
-        dependsOn: "fileId" // Reload when fileId changes
+        description: "Toggle to show a preview of the selected file",
+        dependsOn: "fileId"
       }
     ],
     outputSchema: [

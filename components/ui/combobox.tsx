@@ -30,6 +30,7 @@ export interface ComboboxOption {
   disabled?: boolean;
   searchValue?: string; // Additional searchable text for enhanced search
   group?: string; // Optional group name for grouped display
+  color?: string; // Optional hex color for color preview ball
 }
 
 interface ComboboxProps {
@@ -47,6 +48,7 @@ interface ComboboxProps {
   displayLabel?: string | null; // Optional display label for when options haven't loaded yet
   disableSearch?: boolean; // Hide search input for simple dropdowns
   hideClearButton?: boolean; // Hide the X button for clearing selection
+  showColorPreview?: boolean; // Show color preview balls for options with colors
   onDrop?: (e: React.DragEvent) => void; // Handler for drop events
   onDragOver?: (e: React.DragEvent) => void; // Handler for drag over events
   onDragLeave?: (e: React.DragEvent) => void; // Handler for drag leave events
@@ -111,6 +113,7 @@ export function Combobox({
   displayLabel,
   disableSearch = false,
   hideClearButton = false,
+  showColorPreview = false,
   onDrop,
   onDragOver,
   onDragLeave,
@@ -406,11 +409,19 @@ export function Combobox({
                             !isSelected && "hover:bg-accent hover:text-accent-foreground"
                           )}
                         >
-                          <div className="flex flex-col">
-                            {option.label !== undefined && option.label !== null ? option.label : String(option.value)}
-                            {option.description && (
-                              <span className="text-xs sm:text-sm text-muted-foreground">{option.description}</span>
+                          <div className="flex items-center gap-2 w-full">
+                            {showColorPreview && option.color && (
+                              <div
+                                className="w-4 h-4 rounded-full flex-shrink-0 border border-gray-300 dark:border-gray-600"
+                                style={{ backgroundColor: option.color }}
+                              />
                             )}
+                            <div className="flex flex-col flex-1">
+                              {option.label !== undefined && option.label !== null ? option.label : String(option.value)}
+                              {option.description && (
+                                <span className="text-xs sm:text-sm text-muted-foreground">{option.description}</span>
+                              )}
+                            </div>
                           </div>
                         </CommandItem>
                       );
@@ -477,11 +488,19 @@ export function Combobox({
                           !isSelected && "hover:bg-accent hover:text-accent-foreground"
                         )}
                       >
-                        <div className="flex flex-col">
-                          {option.label !== undefined && option.label !== null ? option.label : String(option.value)}
-                          {option.description && (
-                            <span className="text-xs sm:text-sm text-muted-foreground">{option.description}</span>
+                        <div className="flex items-center gap-2 w-full">
+                          {showColorPreview && option.color && (
+                            <div
+                              className="w-4 h-4 rounded-full flex-shrink-0 border border-gray-300 dark:border-gray-600"
+                              style={{ backgroundColor: option.color }}
+                            />
                           )}
+                          <div className="flex flex-col flex-1">
+                            {option.label !== undefined && option.label !== null ? option.label : String(option.value)}
+                            {option.description && (
+                              <span className="text-xs sm:text-sm text-muted-foreground">{option.description}</span>
+                            )}
+                          </div>
                         </div>
                       </CommandItem>
                     );

@@ -34,12 +34,15 @@ export const shareFileActionSchema: NodeComponent = {
     {
       name: "emailAddress",
       label: "Email Address",
-      type: "email",
+      type: "combobox",
+      dynamic: "gmail-enhanced-recipients",
       required: false,
       visibleWhen: { field: "shareType", value: "user" },
-      placeholder: "colleague@example.com",
+      placeholder: "Select a contact or enter email...",
+      searchable: true,
+      allowCustomValue: true,
       supportsAI: true,
-      description: "Email address of the person to share with"
+      description: "Email address of the person to share with. Loads contacts and recent recipients from your Gmail account."
     },
     {
       name: "role",

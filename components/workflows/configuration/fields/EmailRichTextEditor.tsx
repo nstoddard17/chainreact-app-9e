@@ -9,6 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { RichTextSignatureEditor } from './RichTextSignatureEditor'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import {
@@ -707,6 +708,10 @@ export function EmailRichTextEditor({
   const [showImageDialog, setShowImageDialog] = useState(false)
   const [imageUrl, setImageUrl] = useState('')
   const [imageAlt, setImageAlt] = useState('')
+  const [showCreateSignatureDialog, setShowCreateSignatureDialog] = useState(false)
+  const [newSignatureName, setNewSignatureName] = useState('')
+  const [newSignatureContent, setNewSignatureContent] = useState('')
+  const [isCreatingSignature, setIsCreatingSignature] = useState(false)
   // Auto-include signature removed - signatures must be manually added by user
   const [isEditorInitialized, setIsEditorInitialized] = useState(false)
   const savedSelectionRef = useRef<Range | null>(null)
@@ -1048,10 +1053,65 @@ export function EmailRichTextEditor({
       if (editorRef.current) {
         editorRef.current.innerHTML = newContent
       }
+    }
+  }
+
+  const createSignature = async () => {
+    if (!newSignatureName.trim() || !newSignatureContent.trim()) {
       toast({
-        title: "Signature added",
-        description: "Email signature has been added to your message.",
+        title: "Missing information",
+        description: "Please provide both a signature name and content.",
+        variant: "destructive"
       })
+      return
+    }
+
+    try {
+      setIsCreatingSignature(true)
+      const response = await fetch(`/api/integrations/${integrationProvider}/signatures`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userId,
+          name: newSignatureName.trim(),
+          content: newSignatureContent.trim(),
+          isDefault: signatures.length === 0 // Make first signature the default
+        })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        toast({
+          title: "Signature created",
+          description: `"${newSignatureName}" has been created successfully.`
+        })
+
+        // Reload signatures
+        await loadEmailSignatures()
+
+        // Reset form and close dialog
+        setNewSignatureName('')
+        setNewSignatureContent('')
+        setShowCreateSignatureDialog(false)
+      } else {
+        const errorData = await response.json()
+        toast({
+          title: "Failed to create signature",
+          description: errorData.error || "An error occurred while creating the signature.",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      logger.error('Error creating signature:', error)
+      toast({
+        title: "Error",
+        description: "Failed to create signature. Please try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsCreatingSignature(false)
     }
   }
 
@@ -1726,12 +1786,43 @@ export function EmailRichTextEditor({
                 <ChevronDown className="h-3 w-3" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-96 p-0 bg-background border-border max-h-80 overflow-hidden" align="start" side="bottom" sideOffset={4}>
-              <div className="p-3 border-b border-border">
-                <h4 className="text-sm font-medium text-foreground">Email Signatures</h4>
-                <p className="text-xs text-muted-foreground mt-1">Add your signature to the email</p>
-                
-                {/* Auto-include signature removed - signatures must be manually added */}
+            <PopoverContent className="w-[420px] p-0 bg-background border-border max-h-[500px] overflow-hidden" align="start" side="bottom" sideOffset={4}>
+              <div className="p-3 border-b border-border space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-medium text-foreground">Email Signatures</h4>
+                    <p className="text-xs text-muted-foreground mt-1">Add your signature to the email</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="default"
+                    onClick={() => setShowCreateSignatureDialog(true)}
+                    className="bg-primary text-primary-foreground hover:bg-primary/90"
+                  >
+                    Create New
+                  </Button>
+                </div>
+
+                {/* Link to Gmail/Outlook Settings */}
+                <a
+                  href={integrationProvider === 'gmail'
+                    ? 'https://mail.google.com/mail/u/0/#settings/general'
+                    : 'https://outlook.live.com/mail/0/options/mail/messageContent'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                >
+                  Manage signatures in {integrationProvider === 'gmail' ? 'Gmail' : 'Outlook'} →
+                </a>
+
+                {/* Help Tip */}
+                <div className="p-2 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md">
+                  <p className="text-xs text-blue-900 dark:text-blue-100">
+                    <strong>💡 Tip:</strong> To sync signatures from {integrationProvider === 'gmail' ? 'Gmail' : 'Outlook'},
+                    create them in your email settings and they'll appear here automatically.
+                    Or create custom signatures directly in ChainReact using the "Create New" button.
+                  </p>
+                </div>
               </div>
               <ScrollArea className="max-h-48 w-full" type="scroll" scrollHideDelay={600}>
                 <div className="p-2">
@@ -1812,6 +1903,7 @@ export function EmailRichTextEditor({
                   onChange={(e) => setLinkText(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
+                      e.preventDefault()
                       e.stopPropagation()
                       if (linkUrl) {
                         applyLink()
@@ -1830,6 +1922,7 @@ export function EmailRichTextEditor({
                   onChange={(e) => setLinkUrl(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
+                      e.preventDefault()
                       e.stopPropagation()
                       if (linkUrl) {
                         applyLink()
@@ -1879,6 +1972,7 @@ export function EmailRichTextEditor({
                   onChange={(e) => setImageUrl(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
+                      e.preventDefault()
                       e.stopPropagation()
                       if (imageUrl) {
                         applyImage()
@@ -1898,6 +1992,7 @@ export function EmailRichTextEditor({
                   onChange={(e) => setImageAlt(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
+                      e.preventDefault()
                       e.stopPropagation()
                       if (imageUrl) {
                         applyImage()
@@ -1925,6 +2020,69 @@ export function EmailRichTextEditor({
                   className="bg-primary text-primary-foreground hover:bg-primary/90"
                 >
                   Insert Image
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Signature Dialog */}
+      {showCreateSignatureDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowCreateSignatureDialog(false)}>
+          <div className="bg-background border border-border rounded-lg p-6 w-[700px] max-w-[90vw] max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-medium text-foreground mb-2">Create Email Signature</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Use the formatting toolbar to customize your signature. All formatting and line breaks will be preserved.
+            </p>
+            <div className="space-y-4">
+              <div>
+                <Label className="text-sm text-foreground">Signature Name *</Label>
+                <input
+                  type="text"
+                  value={newSignatureName}
+                  onChange={(e) => setNewSignatureName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      e.stopPropagation()
+                    }
+                  }}
+                  placeholder="e.g., Work Signature, Personal, Sales Team"
+                  className="w-full mt-1 px-3 py-2 border border-border rounded bg-background text-foreground"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <Label className="text-sm text-foreground mb-2 block">Signature Design *</Label>
+                <RichTextSignatureEditor
+                  value={newSignatureContent}
+                  onChange={setNewSignatureContent}
+                  placeholder="Best regards,&#10;Your Name&#10;Your Title&#10;Company Name"
+                />
+              </div>
+              <div className="flex gap-2 justify-end pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setShowCreateSignatureDialog(false)
+                    setNewSignatureName('')
+                    setNewSignatureContent('')
+                  }}
+                  disabled={isCreatingSignature}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={createSignature}
+                  disabled={!newSignatureName.trim() || !newSignatureContent.trim() || isCreatingSignature}
+                  className="bg-primary text-primary-foreground hover:bg-primary/90"
+                >
+                  {isCreatingSignature ? 'Creating...' : 'Create Signature'}
                 </Button>
               </div>
             </div>
