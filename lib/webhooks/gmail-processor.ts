@@ -26,6 +26,7 @@ type GmailTriggerFilters = {
   subject: string
   subjectExactMatch?: boolean
   hasAttachment: 'any' | 'yes' | 'no'
+  labelIds?: string[]
   aiContentFilter?: string
   aiFilterConfidence?: 'low' | 'medium' | 'high'
 }
@@ -129,11 +130,21 @@ function resolveGmailTriggerFilters(triggerNode: any): GmailTriggerFilters {
   const rawConfig = triggerNode?.data?.config || {}
   const savedOptions = triggerNode?.data?.savedDynamicOptions || triggerNode?.data?.savedOptions || {}
 
+  // Extract labelIds from config (can be array or single value)
+  let labelIds: string[] = []
+  const rawLabelIds = rawConfig?.labelIds || rawConfig?.filters?.labelIds
+  if (Array.isArray(rawLabelIds)) {
+    labelIds = rawLabelIds.filter(Boolean)
+  } else if (typeof rawLabelIds === 'string' && rawLabelIds.trim()) {
+    labelIds = [rawLabelIds]
+  }
+
   return {
     from: normalizeFromFilters(rawConfig, savedOptions),
     subject: normalizeSubjectFilter(rawConfig),
     subjectExactMatch: rawConfig?.subjectExactMatch ?? true, // Default to exact match
     hasAttachment: normalizeAttachmentFilter(rawConfig),
+    labelIds: labelIds.length > 0 ? labelIds : undefined, // Only include if specified
     aiContentFilter: rawConfig?.aiContentFilter?.trim() || undefined,
     aiFilterConfidence: rawConfig?.aiFilterConfidence || 'medium'
   }
@@ -710,8 +721,23 @@ async function checkEmailMatchesFilters(email: any, filters: GmailTriggerFilters
   // SECURITY: Don't log email content (PII)
   logger.debug('🔍 Checking email against filters:', {
     email: { hasFrom: !!email.from, subjectLength: email.subject?.length || 0, hasAttachments: email.hasAttachments },
-    hasFilters: !!(filters.from || filters.subject)
+    hasFilters: !!(filters.from || filters.subject || filters.labelIds)
   })
+
+  // Check if email is in the configured folders/labels
+  if (filters.labelIds && filters.labelIds.length > 0) {
+    const emailLabelIds = email.labelIds || []
+    const hasMatchingLabel = filters.labelIds.some(filterId =>
+      emailLabelIds.includes(filterId)
+    )
+
+    if (!hasMatchingLabel) {
+      logger.debug(`❌ Folder filter mismatch: email labels [${emailLabelIds.join(', ')}] don't match configured labels [${filters.labelIds.join(', ')}]`)
+      return false
+    }
+
+    logger.debug(`✅ Folder filter matched: email is in one of the configured folders`)
+  }
 
   if (filters.from && filters.from.length > 0) {
     const emailFromRaw = email.from || ''

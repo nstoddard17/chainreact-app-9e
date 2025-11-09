@@ -334,7 +334,7 @@ async function saveIntegration(
     return state.integrationId
   } else {
     // Insert new integration
-    // For personal, use upsert with conflict resolution
+    // For personal, use upsert with conflict resolution to overwrite old tokens
     if (workspaceType === 'personal') {
       const { data, error } = await supabase
         .from('integrations')

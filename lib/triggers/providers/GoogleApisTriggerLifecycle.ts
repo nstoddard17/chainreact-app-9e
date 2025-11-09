@@ -93,7 +93,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
     try {
       switch (api) {
         case 'gmail':
-          channelData = await this.createGmailWatch(oauth2Client, webhookUrl, channelId)
+          channelData = await this.createGmailWatch(oauth2Client, webhookUrl, channelId, config)
           break
         case 'calendar':
           channelData = await this.createCalendarWatch(oauth2Client, webhookUrl, channelId, resourceId)
@@ -136,7 +136,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
    * Create Gmail watch
    * Gmail uses Google Cloud Pub/Sub instead of direct webhooks
    */
-  private async createGmailWatch(auth: any, webhookUrl: string, channelId: string): Promise<any> {
+  private async createGmailWatch(auth: any, webhookUrl: string, channelId: string, config: any): Promise<any> {
     const gmail = google.gmail({ version: 'v1', auth })
 
     // Gmail requires a Pub/Sub topic, not a webhook URL
@@ -146,18 +146,28 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
       throw new Error('GMAIL_PUBSUB_TOPIC environment variable is not set. Gmail requires Google Cloud Pub/Sub to be configured.')
     }
 
-    logger.debug(`📧 Creating Gmail watch with Pub/Sub topic: ${pubsubTopic}`)
+    // Get labelIds from config, default to INBOX if not specified
+    const labelIds = config?.labelIds && Array.isArray(config.labelIds) && config.labelIds.length > 0
+      ? config.labelIds
+      : ['INBOX']
+
+    logger.debug(`📧 Creating Gmail watch with Pub/Sub topic: ${pubsubTopic}`, {
+      labelIds,
+      labelFilterAction: 'include'
+    })
 
     const response = await gmail.users.watch({
       userId: 'me',
       requestBody: {
         topicName: pubsubTopic, // Use Pub/Sub topic from environment
-        labelIds: ['INBOX'],
+        labelIds: labelIds,
         labelFilterAction: 'include'
       }
     })
 
-    logger.debug(`✅ Gmail watch created - historyId: ${response.data.historyId}`)
+    logger.debug(`✅ Gmail watch created - historyId: ${response.data.historyId}`, {
+      watchingFolders: labelIds.join(', ')
+    })
 
     return {
       id: channelId,

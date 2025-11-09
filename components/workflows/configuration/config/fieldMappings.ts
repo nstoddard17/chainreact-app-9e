@@ -24,6 +24,10 @@ const gmailMappings: Record<string, FieldMapping> = {
     from: "gmail_recent_senders",
     to: "gmail-enhanced-recipients",
   },
+  gmail_trigger_new_labeled_email: {
+    labelId: "gmail_labels",
+    from: "gmail_recent_senders",
+  },
   gmail_action_send_email: {
     from: "gmail_from_addresses",
     to: "gmail-enhanced-recipients",
