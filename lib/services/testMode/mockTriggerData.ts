@@ -416,26 +416,6 @@ export const MOCK_TRIGGER_DATA: Record<string, MockTriggerData> = {
     }
   },
 
-  // Stripe triggers
-  'stripe_trigger_payment_succeeded': {
-    type: 'stripe_trigger_payment_succeeded',
-    description: 'Stripe payment succeeded',
-    data: {
-      payment: {
-        id: 'pi_test_123',
-        amount: 5000,
-        currency: 'usd',
-        status: 'succeeded',
-        customer: {
-          id: 'cus_test_456',
-          email: 'customer@example.com',
-          name: 'Test Customer'
-        },
-        created: Math.floor(Date.now() / 1000)
-      }
-    }
-  },
-
   // HubSpot triggers
   'hubspot_trigger_contact_created': {
     type: 'hubspot_trigger_contact_created',

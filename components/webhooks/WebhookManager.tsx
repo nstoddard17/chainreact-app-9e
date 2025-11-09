@@ -242,7 +242,7 @@ export default function WebhookManager() {
                     <SelectItem value="gmail_trigger_new_email">Gmail - New Email</SelectItem>
                     <SelectItem value="slack_trigger_new_message">Slack - New Message</SelectItem>
                     <SelectItem value="github_trigger_new_issue">GitHub - New Issue</SelectItem>
-                    <SelectItem value="stripe_trigger_payment_succeeded">Stripe - Payment Succeeded</SelectItem>
+                    <SelectItem value="stripe_trigger_new_payment">Stripe - New Payment</SelectItem>
                     <SelectItem value="shopify_trigger_order_created">Shopify - Order Created</SelectItem>
                   </SelectContent>
                 </Select>
