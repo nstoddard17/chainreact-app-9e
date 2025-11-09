@@ -1373,11 +1373,14 @@ export const stripeNodes: NodeComponent[] = [
       },
       {
         name: "paymentIntentId",
-        label: "Payment Intent ID",
-        type: "text",
+        label: "Payment Intent",
+        type: "combobox",
+        dynamic: "stripe_payment_intents",
         required: false,
-        placeholder: "pi_1234567890",
-        description: "The ID of the payment intent to refund (use this OR Charge ID)"
+        loadOnMount: true,
+        searchable: true,
+        placeholder: "Search for a payment intent...",
+        description: "Select a payment intent to refund (use this OR Charge ID)"
       },
       {
         name: "amount",
@@ -1925,11 +1928,14 @@ export const stripeNodes: NodeComponent[] = [
     configSchema: [
       {
         name: "paymentIntentId",
-        label: "Payment Intent ID",
-        type: "text",
+        label: "Payment Intent",
+        type: "combobox",
+        dynamic: "stripe_payment_intents",
         required: true,
-        placeholder: "pi_1234567890",
-        description: "The payment intent ID to find"
+        loadOnMount: true,
+        searchable: true,
+        placeholder: "Search for a payment intent...",
+        description: "Select a payment intent to find"
       }
     ],
     outputSchema: [
