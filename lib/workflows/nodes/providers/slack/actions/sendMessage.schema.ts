@@ -16,6 +16,7 @@ export const sendMessageActionSchema: NodeComponent = {
   category: "Communication",
   isTrigger: false,
   configSchema: [
+    // Parent field - always visible
     {
       name: "channel",
       label: "Channel",
@@ -26,6 +27,8 @@ export const sendMessageActionSchema: NodeComponent = {
       placeholder: "Select a channel",
       tooltip: "Select the Slack channel where you want to send the message. Private channels require the bot to be invited first. You can also use variables to dynamically set the channel."
     },
+
+    // Cascaded fields - only show after channel selected
     {
       name: "message",
       label: "Message",
@@ -33,7 +36,12 @@ export const sendMessageActionSchema: NodeComponent = {
       required: true,
       placeholder: "Type your message...",
       defaultValue: "",
-      tooltip: "The message content with rich text formatting (bold, italic, links, etc.). You can drag variables from the right panel to include dynamic content from previous workflow steps."
+      tooltip: "The message content with rich text formatting (bold, italic, links, etc.). You can drag variables from the right panel to include dynamic content from previous workflow steps.",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      }
     },
     {
       name: "attachments",
@@ -55,6 +63,11 @@ export const sendMessageActionSchema: NodeComponent = {
           url: "https://example.com/document.pdf"
         },
         defaultMode: "upload"
+      },
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
       }
     },
     {
@@ -62,21 +75,36 @@ export const sendMessageActionSchema: NodeComponent = {
       label: "Link Names",
       type: "boolean",
       defaultValue: false,
-      tooltip: "When enabled, @mentions and #channel references in your message will become clickable links. For example, @username becomes a link to that user's profile. Useful for notifications."
+      tooltip: "When enabled, @mentions and #channel references in your message will become clickable links. For example, @username becomes a link to that user's profile. Useful for notifications.",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      }
     },
     {
       name: "unfurlLinks",
       label: "Unfurl Links",
       type: "boolean",
       defaultValue: true,
-      tooltip: "When enabled, Slack will automatically show rich previews for URLs in your message (website titles, descriptions, and images). Disable for cleaner, text-only messages."
+      tooltip: "When enabled, Slack will automatically show rich previews for URLs in your message (website titles, descriptions, and images). Disable for cleaner, text-only messages.",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      }
     },
     {
       name: "unfurlMedia",
       label: "Unfurl Media",
       type: "boolean",
       defaultValue: true,
-      tooltip: "When enabled, Slack will automatically show previews for media links (images, videos). Disable to show URLs without previews."
+      tooltip: "When enabled, Slack will automatically show previews for media links (images, videos). Disable to show URLs without previews.",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      }
     },
     {
       name: "threadTimestamp",
@@ -85,14 +113,24 @@ export const sendMessageActionSchema: NodeComponent = {
       required: false,
       placeholder: "{{trigger.ts}}",
       supportsAI: true,
-      tooltip: "Reply to a specific message by providing its timestamp. Use variables like {{trigger.ts}} or {{previous_node.ts}} to thread replies. Leave empty to send as a new message."
+      tooltip: "Reply to a specific message by providing its timestamp. Use variables like {{trigger.ts}} or {{previous_node.ts}} to thread replies. Leave empty to send as a new message.",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      }
     },
     {
       name: "asUser",
       label: "Send as User",
       type: "boolean",
       defaultValue: false,
-      tooltip: "When enabled, sends the message as YOU (the actual user) instead of the bot. This only works if you granted user permissions during Slack connection. When disabled, the message is sent as the bot and can be customized with username and icon fields below."
+      tooltip: "When enabled, sends the message as YOU (the actual user) instead of the bot. This only works if you granted user permissions during Slack connection. When disabled, the message is sent as the bot and can be customized with username and icon fields below.",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      }
     },
     {
       name: "username",
@@ -100,6 +138,11 @@ export const sendMessageActionSchema: NodeComponent = {
       type: "text",
       placeholder: "Custom bot username",
       tooltip: "Override the bot's display name for this message only. Works with bot token (when 'Send as User' is OFF). May be ignored if workspace has 'Lock bot name & icon' enabled in Slack admin settings. Leave empty to use default bot name.",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      },
       visibilityCondition: {
         field: "asUser",
         operator: "equals",
@@ -125,6 +168,11 @@ export const sendMessageActionSchema: NodeComponent = {
         },
         defaultMode: "upload"
       },
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      },
       visibilityCondition: {
         field: "asUser",
         operator: "equals",
@@ -145,7 +193,12 @@ export const sendMessageActionSchema: NodeComponent = {
         { label: "Poll", value: "poll" },
         { label: "Custom Blocks", value: "custom" }
       ],
-      tooltip: "Choose the type of message to send. Simple Text: Plain message. Buttons: Add interactive buttons. Status: Colored status message. Approval: Yes/No approval workflow. Poll: Create a poll. Custom Blocks: Use custom Block Kit JSON."
+      tooltip: "Choose the type of message to send. Simple Text: Plain message. Buttons: Add interactive buttons. Status: Colored status message. Approval: Yes/No approval workflow. Poll: Create a poll. Custom Blocks: Use custom Block Kit JSON.",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      }
     },
     {
       name: "buttonConfig",
@@ -155,6 +208,11 @@ export const sendMessageActionSchema: NodeComponent = {
       placeholder: JSON.stringify([{ text: "Click Me", value: "button_1", style: "primary" }], null, 2),
       supportsAI: true,
       tooltip: "Array of button objects. Each button needs: text (button label), value (unique ID), style (primary/danger/default). Example: [{text: 'Approve', value: 'approve', style: 'primary'}, {text: 'Deny', value: 'deny', style: 'danger'}]",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      },
       showIf: { field: "messageType", value: "buttons" }
     },
     {
@@ -165,6 +223,11 @@ export const sendMessageActionSchema: NodeComponent = {
       placeholder: "Deployment Status",
       supportsAI: true,
       tooltip: "Title for the status message",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      },
       showIf: { field: "messageType", value: "status" }
     },
     {
@@ -175,6 +238,11 @@ export const sendMessageActionSchema: NodeComponent = {
       placeholder: "Build completed successfully",
       supportsAI: true,
       tooltip: "The status message content",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      },
       showIf: { field: "messageType", value: "status" }
     },
     {
@@ -190,6 +258,11 @@ export const sendMessageActionSchema: NodeComponent = {
         { label: "Info (Blue)", value: "#36a64f" }
       ],
       tooltip: "Color for the status message border",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      },
       showIf: { field: "messageType", value: "status" }
     },
     {
@@ -200,6 +273,11 @@ export const sendMessageActionSchema: NodeComponent = {
       placeholder: JSON.stringify([{ title: "Environment", value: "Production", short: true }], null, 2),
       supportsAI: true,
       tooltip: "Additional fields to display in status. Each field needs: title, value, short (boolean). Example: [{title: 'Environment', value: 'Production', short: true}]",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      },
       showIf: { field: "messageType", value: "status" }
     },
     {
@@ -210,6 +288,11 @@ export const sendMessageActionSchema: NodeComponent = {
       placeholder: "Deployment Approval Required",
       supportsAI: true,
       tooltip: "Title for the approval request",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      },
       showIf: { field: "messageType", value: "approval" }
     },
     {
@@ -220,6 +303,11 @@ export const sendMessageActionSchema: NodeComponent = {
       placeholder: "Please approve deployment to production",
       supportsAI: true,
       tooltip: "Description of what needs approval",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      },
       showIf: { field: "messageType", value: "approval" }
     },
     {
@@ -230,6 +318,11 @@ export const sendMessageActionSchema: NodeComponent = {
       defaultValue: "Approve",
       placeholder: "Approve",
       tooltip: "Text for the approve button",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      },
       showIf: { field: "messageType", value: "approval" }
     },
     {
@@ -240,6 +333,11 @@ export const sendMessageActionSchema: NodeComponent = {
       defaultValue: "Deny",
       placeholder: "Deny",
       tooltip: "Text for the deny button",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      },
       showIf: { field: "messageType", value: "approval" }
     },
     {
@@ -250,6 +348,11 @@ export const sendMessageActionSchema: NodeComponent = {
       placeholder: "What's your favorite programming language?",
       supportsAI: true,
       tooltip: "The question for the poll",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      },
       showIf: { field: "messageType", value: "poll" }
     },
     {
@@ -260,6 +363,11 @@ export const sendMessageActionSchema: NodeComponent = {
       placeholder: JSON.stringify(["JavaScript", "Python", "TypeScript", "Go"], null, 2),
       supportsAI: true,
       tooltip: "Array of poll options. Example: ['Option 1', 'Option 2', 'Option 3']",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      },
       showIf: { field: "messageType", value: "poll" }
     },
     {
@@ -270,6 +378,11 @@ export const sendMessageActionSchema: NodeComponent = {
       placeholder: JSON.stringify([{ type: "section", text: { type: "mrkdwn", text: "Custom block" } }], null, 2),
       supportsAI: true,
       tooltip: "Custom Block Kit JSON for advanced formatting. See Slack Block Kit Builder: https://app.slack.com/block-kit-builder",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      },
       showIf: { field: "messageType", value: "custom" }
     },
     {
@@ -279,6 +392,11 @@ export const sendMessageActionSchema: NodeComponent = {
       required: false,
       placeholder: JSON.stringify([{ fallback: "Fallback text", color: "#36a64f", fields: [] }], null, 2),
       tooltip: "Legacy attachment format (deprecated by Slack, use Block Kit instead)",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      },
       showIf: { field: "messageType", value: "custom" }
     }
   ],
