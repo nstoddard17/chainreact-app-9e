@@ -1,10 +1,9 @@
 "use client"
 
-import React, { useMemo, useState, useEffect } from 'react'
+import React, { useMemo, useState } from 'react'
 import ConfigurationForm from '../ConfigurationForm'
 import { ServiceConnectionSelector } from '../ServiceConnectionSelector'
 import { useIntegrationStore } from '@/stores/integrationStore'
-import { useRouter } from 'next/navigation'
 import { getProviderBrandName } from '@/lib/integrations/brandNames'
 import { useToast } from '@/hooks/use-toast'
 
@@ -31,8 +30,7 @@ interface SetupTabProps {
  */
 export function SetupTab(props: SetupTabProps) {
   const { nodeInfo, integrationName } = props
-  const router = useRouter()
-  const { getIntegrationByProvider, integrations, fetchIntegrations } = useIntegrationStore()
+  const { integrations, fetchIntegrations } = useIntegrationStore()
   const { toast } = useToast()
   const [isConnecting, setIsConnecting] = useState(false)
 
@@ -96,108 +94,113 @@ export function SetupTab(props: SetupTabProps) {
     return connections.find(c => c.status === 'connected') || connections[0] || undefined
   }, [connections])
 
-  // OAuth popup handler
-  const handleConnect = async () => {
+  // OAuth popup handler - Executes immediately without blocking on other operations
+  const handleConnect = () => {
     if (!nodeInfo?.providerId) return
 
+    // Immediately set connecting state
     setIsConnecting(true)
 
-    try {
-      // Generate OAuth URL
-      const response = await fetch('/api/integrations/auth/generate-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider: nodeInfo.providerId })
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to generate OAuth URL')
-      }
-
-      const { authUrl } = await response.json()
-
-      // Open OAuth popup
-      const width = 600
-      const height = 700
-      const left = window.screenX + (window.outerWidth - width) / 2
-      const top = window.screenY + (window.outerHeight - height) / 2
-
-      const popup = window.open(
-        authUrl,
-        'oauth',
-        `width=${width},height=${height},left=${left},top=${top}`
-      )
-
-      // Cleanup function (defined early for use in handleMessage)
-      let broadcastChannel: BroadcastChannel | null = null
-      const cleanup = () => {
-        window.removeEventListener('message', handleMessage)
-        broadcastChannel?.close()
-        setIsConnecting(false)
-      }
-
-      // Listen for OAuth completion via both postMessage and BroadcastChannel
-      const handleMessage = async (event: MessageEvent) => {
-        // Verify message is from our OAuth callback
-        if (event.data?.type === 'oauth-complete') {
-          cleanup()
-
-          if (event.data.success) {
-            // Refresh integrations to get the new connection
-            // The UI will automatically update to show connected state
-            await fetchIntegrations(true)
-            // No success toast - the popup already showed beautiful visual feedback
-            // and the UI state updates immediately to show the connection
-          } else {
-            // Only show error toast - helps user understand what went wrong
-            toast({
-              title: "Connection Failed",
-              description: event.data.error || "Failed to connect account. Please try again.",
-              variant: "destructive",
-            })
-          }
-
-          popup?.close()
-        }
-      }
-
-      window.addEventListener('message', handleMessage)
-
-      // Also listen via BroadcastChannel (more reliable for same-origin)
+    // Execute OAuth flow asynchronously without blocking
+    // This ensures the popup opens immediately, even if other parts of the form are loading
+    Promise.resolve().then(async () => {
       try {
-        broadcastChannel = new BroadcastChannel('oauth_channel')
-        broadcastChannel.onmessage = handleMessage
-      } catch (e) {
-        // BroadcastChannel not supported
-      }
+        // Generate OAuth URL
+        const response = await fetch('/api/integrations/auth/generate-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ provider: nodeInfo.providerId })
+        })
 
-      // Check if popup was blocked
-      if (!popup || popup.closed) {
-        cleanup()
+        if (!response.ok) {
+          throw new Error('Failed to generate OAuth URL')
+        }
+
+        const { authUrl } = await response.json()
+
+        // Open OAuth popup immediately
+        const width = 600
+        const height = 700
+        const left = window.screenX + (window.outerWidth - width) / 2
+        const top = window.screenY + (window.outerHeight - height) / 2
+
+        const popup = window.open(
+          authUrl,
+          'oauth',
+          `width=${width},height=${height},left=${left},top=${top}`
+        )
+
+        // Cleanup function (defined early for use in handleMessage)
+        let broadcastChannel: BroadcastChannel | null = null
+        const cleanup = () => {
+          window.removeEventListener('message', handleMessage)
+          broadcastChannel?.close()
+          setIsConnecting(false)
+        }
+
+        // Listen for OAuth completion via both postMessage and BroadcastChannel
+        const handleMessage = async (event: MessageEvent) => {
+          // Verify message is from our OAuth callback
+          if (event.data?.type === 'oauth-complete') {
+            cleanup()
+
+            if (event.data.success) {
+              // Refresh integrations to get the new connection
+              // The UI will automatically update to show connected state
+              await fetchIntegrations(true)
+              // No success toast - the popup already showed beautiful visual feedback
+              // and the UI state updates immediately to show the connection
+            } else {
+              // Only show error toast - helps user understand what went wrong
+              toast({
+                title: "Connection Failed",
+                description: event.data.error || "Failed to connect account. Please try again.",
+                variant: "destructive",
+              })
+            }
+
+            popup?.close()
+          }
+        }
+
+        window.addEventListener('message', handleMessage)
+
+        // Also listen via BroadcastChannel (more reliable for same-origin)
+        try {
+          broadcastChannel = new BroadcastChannel('oauth_channel')
+          broadcastChannel.onmessage = handleMessage
+        } catch (e) {
+          // BroadcastChannel not supported
+        }
+
+        // Check if popup was blocked
+        if (!popup || popup.closed) {
+          cleanup()
+          toast({
+            title: "Popup Blocked",
+            description: "Please allow popups for this site and try again.",
+            variant: "destructive",
+          })
+          return
+        }
+
+        // Handle popup closed without completion
+        const checkClosed = setInterval(() => {
+          if (popup?.closed) {
+            clearInterval(checkClosed)
+            cleanup()
+          }
+        }, 500)
+
+      } catch (error: any) {
         toast({
-          title: "Popup Blocked",
-          description: "Please allow popups for this site and try again.",
+          title: "Connection Error",
+          description: error.message || "Failed to initiate OAuth flow.",
           variant: "destructive",
         })
-        return
+        setIsConnecting(false)
       }
-
-      // Handle popup closed without completion
-      const checkClosed = setInterval(() => {
-        if (popup?.closed) {
-          clearInterval(checkClosed)
-          cleanup()
-        }
-      }, 500)
-
-    } catch (error: any) {
-      toast({
-        title: "Connection Error",
-        description: error.message || "Failed to initiate OAuth flow.",
-        variant: "destructive",
-      })
-      setIsConnecting(false)
-    }
+    })
   }
 
   const handleReconnect = () => {
