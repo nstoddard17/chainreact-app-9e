@@ -363,3 +363,8 @@ Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
 [2025-11-09T16:53:43.435Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1579ms (5411 modules)
 [2025-11-09T16:54:00.189Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 358ms (1089 modules)
 [2025-11-09T16:54:08.510Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 399ms (1089 modules)
+[2025-11-09T16:54:23.636Z] [INFO   ]  [37m[1m○[22m[39m Compiling /_not-found ...
+[2025-11-09T16:54:23.864Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_not-found in 1300ms (5169 modules)
+[2025-11-09T16:54:24.075Z] [INFO   ] 2025-11-09T16:54:24.075Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-09T16:54:24.075Z"}
+[2025-11-09T16:54:24.079Z] [INFO   ] 2025-11-09T16:54:24.079Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-09T16:54:24.079Z"}
+[2025-11-09T16:54:24.079Z] [INFO   ] 2025-11-09T16:54:24.079Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-09T16:54:24.079Z"}
