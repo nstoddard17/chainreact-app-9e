@@ -464,6 +464,9 @@ export async function checkGoogleSheetsChanges(
 
         const timestamp = new Date().toISOString()
 
+        // Extract headers from the first row for filtering support
+        const headers = currentRows.length > 0 ? currentRows[0] : []
+
         for (const rowIndex of newRowIndices) {
           const rowNumber = rowIndex + 1
           changes.push({
@@ -474,6 +477,7 @@ export async function checkGoogleSheetsChanges(
             rowIndex,
             data: currentRows[rowIndex],
             values: currentRows[rowIndex],
+            headers, // Include headers for filtering
             timestamp
           })
         }
@@ -488,6 +492,7 @@ export async function checkGoogleSheetsChanges(
             rowIndex,
             data: currentRows[rowIndex] || [],
             values: currentRows[rowIndex] || [],
+            headers, // Include headers for filtering
             timestamp,
             message: 'Detected updated row based on signature diff'
           })

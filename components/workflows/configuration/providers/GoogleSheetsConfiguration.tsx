@@ -154,34 +154,48 @@ export function GoogleSheetsConfiguration({
     dependsOnValue?: any,
     forceReload?: boolean
   ) => {
-    logger.debug('🔍 [GoogleSheetsConfig] handleDynamicLoad called:', { 
-      fieldName, 
-      dependsOn, 
+    logger.debug('🔍 [GoogleSheetsConfig] handleDynamicLoad called:', {
+      fieldName,
+      dependsOn,
       dependsOnValue,
-      forceReload 
+      forceReload
     });
-    
+
     const field = nodeInfo?.configSchema?.find((f: any) => f.name === fieldName);
     if (!field) {
       logger.warn('Field not found in schema:', fieldName);
       return;
     }
-    
+
+    // Add field to loading set
+    setLoadingFields(prev => {
+      const newSet = new Set(prev);
+      newSet.add(fieldName);
+      return newSet;
+    });
+
     try {
       // If explicit dependencies are provided, use them
       if (dependsOn && dependsOnValue !== undefined) {
         await loadOptions(fieldName, dependsOn, dependsOnValue, forceReload);
-      } 
+      }
       // Otherwise check field's defined dependencies
       else if (field.dependsOn && values[field.dependsOn]) {
         await loadOptions(fieldName, field.dependsOn, values[field.dependsOn], forceReload);
-      } 
+      }
       // No dependencies, just load the field
       else {
         await loadOptions(fieldName, undefined, undefined, forceReload);
       }
     } catch (error) {
       logger.error('Error loading dynamic options:', error);
+    } finally {
+      // Remove field from loading set
+      setLoadingFields(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(fieldName);
+        return newSet;
+      });
     }
   }, [nodeInfo, values, loadOptions]);
 
@@ -410,9 +424,41 @@ export function GoogleSheetsConfiguration({
           return shouldShow;
         }
       }
-      
-      // If field is hidden and no showIf, hide it
-      if (field.hidden) return false;
+
+      // Evaluate hidden condition object (e.g., { $deps: [...], $condition: {...} })
+      if (field.hidden && typeof field.hidden === 'object' && field.hidden.$deps && field.hidden.$condition) {
+        // Evaluate the condition based on dependencies
+        const condition = field.hidden.$condition;
+
+        // Check each condition
+        for (const [depField, depCondition] of Object.entries(condition)) {
+          if (typeof depCondition === 'object' && depCondition !== null) {
+            const depValue = values[depField];
+
+            // Check $exists condition
+            if ('$exists' in depCondition) {
+              const shouldExist = (depCondition as any).$exists;
+              const doesExist = depValue !== undefined && depValue !== null && depValue !== '';
+
+              // If condition says field should NOT exist but it DOES exist, show the field
+              // If condition says field should exist but it DOESN'T exist, hide the field
+              const conditionMet = shouldExist ? doesExist : !doesExist;
+
+              if (conditionMet) {
+                logger.debug(`📋 [GoogleSheets] Field "${field.name}" hidden by condition - ${depField} existence check`);
+                return false; // Hide field when condition is met
+              }
+            }
+          }
+        }
+
+        // If we get here, condition was not met, so show the field
+        logger.debug(`📋 [GoogleSheets] Field "${field.name}" shown - hidden condition not met`);
+        return true;
+      }
+
+      // If field is hidden (boolean true) and no showIf, hide it
+      if (field.hidden === true) return false;
       
       // Otherwise show the field
       return true;
@@ -488,7 +534,7 @@ export function GoogleSheetsConfiguration({
             value={values[field.name]}
             onChange={(value) => {
               setValue(field.name, value);
-              
+
               // When deleteRowBy is set, ensure action is set to delete
               if (field.name === 'deleteRowBy' && value) {
                 setValue('action', 'delete');
@@ -498,7 +544,8 @@ export function GoogleSheetsConfiguration({
             workflowData={workflowData}
             currentNodeId={currentNodeId}
             dynamicOptions={dynamicOptions}
-            loadingDynamic={loadingFields.has(field.name) || loadingDynamic}
+            loadingDynamic={loadingDynamic}
+            loadingFields={loadingFields}
             nodeInfo={nodeInfo}
             onDynamicLoad={handleDynamicLoad}
             parentValues={values}

@@ -18,7 +18,8 @@ export class GoogleSheetsOptionsLoader implements ProviderOptionsLoader {
     'matchColumn',
     'filterColumn',
     'filterValue',
-    'dateColumn'
+    'dateColumn',
+    'requiredColumns'
   ];
 
   canHandle(fieldName: string, providerId: string): boolean {
@@ -26,7 +27,7 @@ export class GoogleSheetsOptionsLoader implements ProviderOptionsLoader {
   }
 
   async loadOptions(params: LoadOptionsParams): Promise<FormattedOption[]> {
-    const { fieldName, dependsOnValue, forceRefresh, signal, integrationId, dataType } = params;
+    const { fieldName, dependsOnValue, forceRefresh, signal, integrationId, dataType, extraOptions } = params;
 
     // Create a unique key for this request
     const requestKey = `${fieldName}:${dependsOnValue || 'none'}:${forceRefresh}`;
@@ -68,6 +69,7 @@ export class GoogleSheetsOptionsLoader implements ProviderOptionsLoader {
             case 'matchColumn':
             case 'filterColumn':
             case 'dateColumn':
+            case 'requiredColumns':
               apiDataType = 'google-sheets_columns';
               break;
             case 'filterValue':
@@ -78,7 +80,7 @@ export class GoogleSheetsOptionsLoader implements ProviderOptionsLoader {
           }
 
           // Load data through the API
-          result = await this.loadFromAPI(apiDataType, integrationId, dependsOnValue, forceRefresh);
+          result = await this.loadFromAPI(apiDataType, integrationId, dependsOnValue, forceRefresh, extraOptions);
 
           resolve(result);
         } catch (error) {
@@ -103,7 +105,8 @@ export class GoogleSheetsOptionsLoader implements ProviderOptionsLoader {
     dataType: string,
     integrationId?: string,
     dependsOnValue?: any,
-    forceRefresh?: boolean
+    forceRefresh?: boolean,
+    extraOptions?: Record<string, any>
   ): Promise<FormattedOption[]> {
     try {
       // Build the request body for POST
@@ -129,7 +132,11 @@ export class GoogleSheetsOptionsLoader implements ProviderOptionsLoader {
             if (dependsOnValue.spreadsheetId) requestBody.options.spreadsheetId = dependsOnValue.spreadsheetId;
             if (dependsOnValue.sheetName) requestBody.options.sheetName = dependsOnValue.sheetName;
           } else {
+            // dependsOnValue is just the sheet name, get spreadsheet ID from extraOptions
             requestBody.options.sheetName = dependsOnValue;
+            if (extraOptions?.spreadsheetId) {
+              requestBody.options.spreadsheetId = extraOptions.spreadsheetId;
+            }
           }
         }
       }
