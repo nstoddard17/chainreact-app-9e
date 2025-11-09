@@ -21,7 +21,7 @@ export const joinChannelActionSchema: NodeComponent = {
       label: "Channel",
       type: "combobox",
       required: true,
-      dynamic: "slack-channels-public",
+      dynamic: "slack_channels_public",
       loadOnMount: true,
       searchable: true,
       placeholder: "Select a channel to join",

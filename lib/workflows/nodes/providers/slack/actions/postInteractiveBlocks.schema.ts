@@ -21,7 +21,7 @@ export const postInteractiveBlocksActionSchema: NodeComponent = {
       label: "Channel",
       type: "select",
       required: true,
-      dynamic: "slack-channels",
+      dynamic: "slack_channels",
       loadOnMount: true,
       placeholder: "Select a channel",
       tooltip: "Select the Slack channel where you want to post the interactive message."

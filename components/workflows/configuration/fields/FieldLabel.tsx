@@ -17,7 +17,7 @@
 import React from 'react'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { HelpCircle, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -81,46 +81,44 @@ export function FieldLabel({
 
       {/* Help Icon with Detailed Tooltip */}
       {hasHelp && (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                className="flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                aria-label={`Help for ${label}`}
-              >
-                <HelpCircle className="h-4 w-4 text-muted-foreground hover:text-foreground cursor-help" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="right" className="max-w-xs">
-              <div className="space-y-2">
-                {/* Help Text */}
-                {helpText && (
-                  <p className="text-sm">{helpText}</p>
-                )}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className="flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              aria-label={`Help for ${label}`}
+            >
+              <HelpCircle className="h-4 w-4 text-muted-foreground hover:text-foreground cursor-help" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right" className="max-w-xs">
+            <div className="space-y-2">
+              {/* Help Text */}
+              {helpText && (
+                <p className="text-sm">{helpText}</p>
+              )}
 
-                {/* Examples */}
-                {examples.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold text-slate-400 mb-1">Examples:</p>
-                    <ul className="text-xs text-slate-300 space-y-0.5 list-disc list-inside">
-                      {examples.map((example, i) => (
-                        <li key={i} className="font-mono">{example}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+              {/* Examples */}
+              {examples.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-slate-400 mb-1">Examples:</p>
+                  <ul className="text-xs text-slate-300 space-y-0.5 list-disc list-inside">
+                    {examples.map((example, i) => (
+                      <li key={i} className="font-mono">{example}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
-                {/* Keyboard Hint */}
-                {keyboardHint && (
-                  <p className="text-xs text-slate-400 mt-2 pt-2 border-t border-slate-600">
-                    💡 {keyboardHint}
-                  </p>
-                )}
-              </div>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+              {/* Keyboard Hint */}
+              {keyboardHint && (
+                <p className="text-xs text-slate-400 mt-2 pt-2 border-t border-slate-600">
+                  💡 {keyboardHint}
+                </p>
+              )}
+            </div>
+          </TooltipContent>
+        </Tooltip>
       )}
     </div>
   )

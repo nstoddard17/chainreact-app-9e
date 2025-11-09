@@ -5,7 +5,7 @@ import { Combobox, MultiCombobox } from "@/components/ui/combobox";
 import { cn } from "@/lib/utils";
 import { Bot, X, RefreshCw, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { parseVariableReference } from "@/lib/workflows/variableReferences";
 
 import { logger } from '@/lib/utils/logger'
@@ -832,7 +832,6 @@ export function GenericSelectField({
     return (
       <div className="flex items-center gap-2">
         {isFromCache && (
-          <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="flex-shrink-0">
@@ -843,7 +842,6 @@ export function GenericSelectField({
                 <p>Loaded from cache</p>
               </TooltipContent>
             </Tooltip>
-          </TooltipProvider>
         )}
         <div className="flex-1">
           <MultiCombobox
@@ -865,7 +863,6 @@ export function GenericSelectField({
           />
         </div>
         {field.dynamic && onDynamicLoad && (
-          <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -883,7 +880,6 @@ export function GenericSelectField({
                 <p>Refresh options</p>
               </TooltipContent>
             </Tooltip>
-          </TooltipProvider>
         )}
       </div>
     );
@@ -901,7 +897,6 @@ export function GenericSelectField({
     return (
       <div className="flex items-center gap-2">
         {isFromCache && (
-          <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="flex-shrink-0">
@@ -912,7 +907,6 @@ export function GenericSelectField({
                 <p>Loaded from cache</p>
               </TooltipContent>
             </Tooltip>
-          </TooltipProvider>
         )}
         <div className="flex-1">
           <Combobox
@@ -947,7 +941,6 @@ export function GenericSelectField({
           />
         </div>
         {field.dynamic && onDynamicLoad && (
-          <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -965,7 +958,6 @@ export function GenericSelectField({
                 <p>Refresh options</p>
               </TooltipContent>
             </Tooltip>
-          </TooltipProvider>
         )}
       </div>
     );
@@ -975,7 +967,6 @@ export function GenericSelectField({
   return (
     <div className="flex items-center gap-2">
       {isFromCache && (
-        <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
               <div className="flex-shrink-0">
@@ -986,7 +977,6 @@ export function GenericSelectField({
               <p>Loaded from cache</p>
             </TooltipContent>
           </Tooltip>
-        </TooltipProvider>
       )}
       <div className="flex-1">
         <Combobox
@@ -1019,7 +1009,6 @@ export function GenericSelectField({
         />
       </div>
       {field.dynamic && onDynamicLoad && (
-        <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -1037,7 +1026,6 @@ export function GenericSelectField({
               <p>Refresh options</p>
             </TooltipContent>
           </Tooltip>
-        </TooltipProvider>
       )}
     </div>
   );

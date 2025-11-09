@@ -15,7 +15,7 @@ export const newMessagePrivateChannelTriggerSchema: NodeComponent = {
       label: "Private Channel",
       type: "select",
       required: false,
-      dynamic: "slack-private-channels",
+      dynamic: "slack_private_channels",
       description: "Optional: Filter to a specific private channel. Leave empty to listen to all private channels the bot has access to."
     },
   ],
