@@ -261,12 +261,12 @@ export function SlackMessageEditor({
   const insertEmoji = (emoji: string, closePopover?: () => void) => {
     if (!editorRef.current) return
 
-    const currentContent = editorRef.current.innerText
+    const currentContent = editorRef.current.innerText.trim()
     // Use actual emoji character if available, otherwise use :name: format
     const emojiChar = emojiMap[emoji] || `:${emoji}:`
 
-    // Append emoji with a space
-    const newContent = currentContent ? `${currentContent} ${emojiChar} ` : `${emojiChar} `
+    // Append emoji with proper spacing
+    const newContent = currentContent ? `${currentContent} ${emojiChar}` : emojiChar
     editorRef.current.innerText = newContent
     onChange(newContent)
 
@@ -289,11 +289,11 @@ export function SlackMessageEditor({
   const insertMention = (userId: string, displayName: string, closePopover?: () => void) => {
     if (!editorRef.current) return
 
-    const currentContent = editorRef.current.innerText
+    const currentContent = editorRef.current.innerText.trim()
     const mentionText = `<@${userId}>`
 
-    // Append mention with a space
-    const newContent = currentContent ? `${currentContent} ${mentionText} ` : `${mentionText} `
+    // Append mention with proper spacing
+    const newContent = currentContent ? `${currentContent} ${mentionText}` : mentionText
     editorRef.current.innerText = newContent
     onChange(newContent)
 
