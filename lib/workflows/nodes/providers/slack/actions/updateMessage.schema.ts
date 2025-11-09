@@ -83,7 +83,12 @@ export const updateMessageActionSchema: NodeComponent = {
       placeholder: "{{trigger.messageId}} or 1234567890.123456",
       supportsAI: true,
       description: "The timestamp of the message to update",
-      tooltip: "This is the 'ts' value from Slack (e.g., 1234567890.123456). Get this from a trigger or the 'Send Message' action output. Only the message author or workspace admin can update messages."
+      tooltip: "This is the 'ts' value from Slack (e.g., 1234567890.123456). Get this from a trigger or the 'Send Message' action output. Only the message author or workspace admin can update messages.",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      }
     },
     {
       name: "newText",
@@ -94,7 +99,12 @@ export const updateMessageActionSchema: NodeComponent = {
       placeholder: "Enter the updated message...",
       supportsAI: true,
       description: "The new text for the message",
-      tooltip: "This will completely replace the existing message text. Supports Slack markdown formatting."
+      tooltip: "This will completely replace the existing message text. Supports Slack markdown formatting.",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      }
     },
     {
       name: "asUser",
@@ -103,7 +113,12 @@ export const updateMessageActionSchema: NodeComponent = {
       required: false,
       defaultValue: true,
       description: "Update the message as the authenticated user instead of the bot",
-      tooltip: "When enabled, the message will show as edited by the user. When disabled, it shows as edited by the bot."
+      tooltip: "When enabled, the message will show as edited by the user. When disabled, it shows as edited by the bot.",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      }
     },
     {
       name: "linkNames",
@@ -112,7 +127,12 @@ export const updateMessageActionSchema: NodeComponent = {
       required: false,
       defaultValue: true,
       description: "Automatically link @mentions and #channels",
-      tooltip: "When enabled, @username and #channel will be converted to clickable mentions. Disable if you want to display the text literally."
+      tooltip: "When enabled, @username and #channel will be converted to clickable mentions. Disable if you want to display the text literally.",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      }
     }
   ]
 }

@@ -83,7 +83,12 @@ export const pinMessageActionSchema: NodeComponent = {
       placeholder: "{{trigger.messageId}} or 1234567890.123456",
       supportsAI: true,
       description: "The timestamp of the message to pin",
-      tooltip: "This is the 'ts' value from Slack (e.g., 1234567890.123456). Get this from a trigger or the 'Send Message' action output. Channels can have a maximum of 100 pinned items."
+      tooltip: "This is the 'ts' value from Slack (e.g., 1234567890.123456). Get this from a trigger or the 'Send Message' action output. Channels can have a maximum of 100 pinned items.",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      }
     }
   ]
 }
