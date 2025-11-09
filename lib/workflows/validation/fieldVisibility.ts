@@ -182,28 +182,66 @@ export const isFieldCurrentlyVisible = (
   }
 
   if (typeof field.hidden === "object" && field.hidden?.$condition) {
-    for (const [dependentField, conditionValue] of Object.entries(field.hidden.$condition)) {
-      const actualValue = getValue(values, dependentField)
+    // Handle $or operator for multiple condition groups
+    if ("$or" in field.hidden.$condition && Array.isArray(field.hidden.$condition.$or)) {
+      // For $or, return false (hide) if ANY condition is true
+      const anyConditionMet = field.hidden.$condition.$or.some((orCondition: Record<string, any>) => {
+        // Each orCondition is an object like { separateTimezones: { $eq: false } }
+        for (const [dependentField, conditionValue] of Object.entries(orCondition)) {
+          const actualValue = getValue(values, dependentField)
 
-      if (typeof conditionValue === "object" && conditionValue !== null) {
-        for (const [operator, expectedValue] of Object.entries(conditionValue)) {
-          switch (operator) {
-            case "$exists":
-              if (expectedValue === false && isEmptyValue(actualValue)) return false
-              if (expectedValue === true && !isEmptyValue(actualValue)) return false
-              break
-            case "$eq":
-              if (actualValue === expectedValue) return false
-              break
-            case "$ne":
-              if (actualValue !== expectedValue) return false
-              break
-            default:
-              if (actualValue === expectedValue) return false
+          if (typeof conditionValue === "object" && conditionValue !== null) {
+            for (const [operator, expectedValue] of Object.entries(conditionValue)) {
+              switch (operator) {
+                case "$exists":
+                  // $exists: false means field should not exist or be empty
+                  if (expectedValue === false && isEmptyValue(actualValue)) return true
+                  // $exists: true means field should exist and not be empty
+                  if (expectedValue === true && !isEmptyValue(actualValue)) return true
+                  break
+                case "$eq":
+                  if (actualValue === expectedValue) return true
+                  break
+                case "$ne":
+                  if (actualValue !== expectedValue) return true
+                  break
+                default:
+                  if (actualValue === expectedValue) return true
+              }
+            }
+          } else if (actualValue === conditionValue) {
+            return true
           }
         }
-      } else if (actualValue === conditionValue) {
         return false
+      })
+
+      if (anyConditionMet) return false // Hide if any OR condition is true
+    } else {
+      // Original logic for non-$or conditions
+      for (const [dependentField, conditionValue] of Object.entries(field.hidden.$condition)) {
+        const actualValue = getValue(values, dependentField)
+
+        if (typeof conditionValue === "object" && conditionValue !== null) {
+          for (const [operator, expectedValue] of Object.entries(conditionValue)) {
+            switch (operator) {
+              case "$exists":
+                if (expectedValue === false && isEmptyValue(actualValue)) return false
+                if (expectedValue === true && !isEmptyValue(actualValue)) return false
+                break
+              case "$eq":
+                if (actualValue === expectedValue) return false
+                break
+              case "$ne":
+                if (actualValue !== expectedValue) return false
+                break
+              default:
+                if (actualValue === expectedValue) return false
+            }
+          }
+        } else if (actualValue === conditionValue) {
+          return false
+        }
       }
     }
   } else if (field.hidden === true) {

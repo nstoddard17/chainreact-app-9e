@@ -606,6 +606,7 @@ export const googleCalendarNodes: NodeComponent[] = [
           $condition: {
             $or: [
               { separateTimezones: { $eq: false } },
+              { separateTimezones: { $exists: false } },
               { allDay: { $eq: true } }
             ]
           }

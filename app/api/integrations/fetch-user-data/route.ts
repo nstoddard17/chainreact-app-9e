@@ -407,6 +407,7 @@ export async function POST(req: NextRequest) {
     if (integration.provider.startsWith('google') && (
       dataType === 'google-drive-folders' ||
       dataType === 'google-drive-files' ||
+      dataType === 'google-docs-documents' ||
       dataType === 'google-calendars' ||
       dataType === 'google-contacts' ||
       dataType === 'google-sheets_spreadsheets' ||

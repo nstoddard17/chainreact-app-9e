@@ -110,37 +110,78 @@ export class FieldVisibilityEngine {
       if (typeof field.hidden === 'object' && field.hidden.$condition) {
         const condition = field.hidden.$condition;
 
-        // Evaluate each condition in the $condition object
-        for (const [dependentField, conditionValue] of Object.entries(condition)) {
-          const actualValue = formValues[dependentField];
+        // Handle $or operator for multiple condition groups
+        if ('$or' in condition && Array.isArray(condition.$or)) {
+          // For $or, hide if ANY condition is true
+          const anyConditionMet = condition.$or.some((orCondition: Record<string, any>) => {
+            // Each orCondition is an object like { separateTimezones: { $eq: false } }
+            for (const [dependentField, conditionValue] of Object.entries(orCondition)) {
+              const actualValue = formValues[dependentField];
+              const isEmpty = !actualValue || actualValue === '';
 
-          // Handle MongoDB-style operators
-          if (typeof conditionValue === 'object' && conditionValue !== null) {
-            for (const [operator, expectedValue] of Object.entries(conditionValue)) {
-              switch (operator) {
-                case '$exists':
-                  // $exists: false means "hide when field doesn't exist (no value)"
-                  // $exists: true means "hide when field exists (has value)"
-                  if (expectedValue === false) {
-                    if (!actualValue || actualValue === '') return false;
-                  } else if (expectedValue === true) {
-                    if (actualValue && actualValue !== '') return false;
+              // Handle MongoDB-style operators
+              if (typeof conditionValue === 'object' && conditionValue !== null) {
+                for (const [operator, expectedValue] of Object.entries(conditionValue)) {
+                  switch (operator) {
+                    case '$exists':
+                      // $exists: false means condition is met when field is empty
+                      if (expectedValue === false && isEmpty) return true;
+                      // $exists: true means condition is met when field has value
+                      if (expectedValue === true && !isEmpty) return true;
+                      break;
+                    case '$eq':
+                      if (actualValue === expectedValue) return true;
+                      break;
+                    case '$ne':
+                      if (actualValue !== expectedValue) return true;
+                      break;
+                    default:
+                      if (actualValue === expectedValue) return true;
                   }
-                  break;
-                case '$eq':
-                  if (actualValue === expectedValue) return false;
-                  break;
-                case '$ne':
-                  if (actualValue !== expectedValue) return false;
-                  break;
-                default:
-                  // For unknown operators, treat as equality
-                  if (actualValue === expectedValue) return false;
+                }
+              } else {
+                // Simple value check
+                if (actualValue === conditionValue) return true;
               }
             }
-          } else {
-            // Simple value check - hide if values match
-            if (actualValue === conditionValue) return false;
+            return false;
+          });
+
+          if (anyConditionMet) return false; // Hide if any OR condition is true
+        } else {
+          // Original logic for non-$or conditions
+          // Evaluate each condition in the $condition object
+          for (const [dependentField, conditionValue] of Object.entries(condition)) {
+            const actualValue = formValues[dependentField];
+
+            // Handle MongoDB-style operators
+            if (typeof conditionValue === 'object' && conditionValue !== null) {
+              for (const [operator, expectedValue] of Object.entries(conditionValue)) {
+                switch (operator) {
+                  case '$exists':
+                    // $exists: false means "hide when field doesn't exist (no value)"
+                    // $exists: true means "hide when field exists (has value)"
+                    if (expectedValue === false) {
+                      if (!actualValue || actualValue === '') return false;
+                    } else if (expectedValue === true) {
+                      if (actualValue && actualValue !== '') return false;
+                    }
+                    break;
+                  case '$eq':
+                    if (actualValue === expectedValue) return false;
+                    break;
+                  case '$ne':
+                    if (actualValue !== expectedValue) return false;
+                    break;
+                  default:
+                    // For unknown operators, treat as equality
+                    if (actualValue === expectedValue) return false;
+                }
+              }
+            } else {
+              // Simple value check - hide if values match
+              if (actualValue === conditionValue) return false;
+            }
           }
         }
       }

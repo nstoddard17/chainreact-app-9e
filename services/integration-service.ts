@@ -508,13 +508,13 @@ export class IntegrationService {
     if (dataType.startsWith('airtable_') || dataType.startsWith('airtable-')) {
       provider = 'airtable'
     } else if (dataType.startsWith('google_sheets_') || dataType.startsWith('google-sheets-') || dataType.startsWith('google-sheets_')) {
-      provider = 'google-sheets'
+      provider = 'google'  // Route through unified Google endpoint
     } else if (dataType.startsWith('google_drive_') || dataType.startsWith('google-drive-') || dataType.startsWith('google-drive_')) {
-      provider = 'google-drive'
+      provider = 'google'  // Route through unified Google endpoint
     } else if (dataType.startsWith('google_calendar_') || dataType.startsWith('google-calendar-') || dataType.startsWith('google-calendar_')) {
-      provider = 'google-calendar'
+      provider = 'google'  // Route through unified Google endpoint
     } else if (dataType.startsWith('google_docs_') || dataType.startsWith('google-docs-') || dataType.startsWith('google-docs_')) {
-      provider = 'google-docs'
+      provider = 'google'  // Route through unified Google endpoint
     } else if (dataType.startsWith('google_') || dataType.startsWith('google-')) {
       provider = 'google'
     } else if (dataType.startsWith('gmail_') || dataType.startsWith('gmail-')) {

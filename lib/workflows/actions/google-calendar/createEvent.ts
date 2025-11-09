@@ -173,12 +173,36 @@ export async function createGoogleCalendarEvent(
     }
 
     // Add Google Meet conference if googleMeet object exists
+    let createMeetLink = false
     if (googleMeet && googleMeet.link) {
-      eventData.conferenceData = {
-        createRequest: {
-          requestId: `meet_${Date.now()}`,
-          conferenceSolutionKey: { type: 'hangoutsMeet' }
+      createMeetLink = true
+      const conferenceRequest: any = {
+        requestId: `meet_${Date.now()}`,
+        conferenceSolutionKey: { type: 'hangoutsMeet' }
+      }
+
+      // Apply Google Meet settings if provided
+      if (googleMeet.settings) {
+        const conferenceSolution: any = {}
+
+        // Note: Google Calendar API has limited support for these settings
+        // Most settings are controlled by the user's Google Workspace admin settings
+        // These are stored for reference but may not all be enforced by the API
+        if (googleMeet.settings.accessType) {
+          // Store access type metadata (not directly supported by API)
+          conferenceSolution.accessType = googleMeet.settings.accessType
         }
+
+        if (Object.keys(conferenceSolution).length > 0) {
+          conferenceRequest.conferenceSolutionKey = {
+            type: 'hangoutsMeet',
+            ...conferenceSolution
+          }
+        }
+      }
+
+      eventData.conferenceData = {
+        createRequest: conferenceRequest
       }
     }
 
