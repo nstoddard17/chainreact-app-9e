@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import { useVariableDropTarget } from '../hooks/useVariableDropTarget'
 import { insertVariableIntoContentEditable } from '@/lib/workflows/variableInsertion'
+import { Input } from '@/components/ui/input'
 
 interface SlackMessageEditorProps {
   value: string
@@ -93,6 +94,8 @@ export function SlackMessageEditor({
   const [isFocused, setIsFocused] = useState(false)
   const isInitializedRef = useRef(false)
   const fileDialogOpenRef = useRef(false)
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false)
+  const [mentionPickerOpen, setMentionPickerOpen] = useState(false)
 
   // Initialize editor content on mount or when value changes externally
   React.useEffect(() => {
@@ -231,6 +234,81 @@ export function SlackMessageEditor({
     if (template && editorRef.current) {
       editorRef.current.innerText = template.content
       onChange(template.content)
+    }
+  }
+
+  // Emoji name to character mapping
+  const emojiMap: Record<string, string> = {
+    'smile': '😊',
+    'laughing': '😂',
+    'heart': '❤️',
+    'tada': '🎉',
+    'thumbsup': '👍',
+    'fire': '🔥',
+    'eyes': '👀',
+    'rocket': '🚀',
+    'star': '⭐',
+    'check': '✅',
+    'wave': '👋',
+    'thinking_face': '🤔',
+    'party': '🥳',
+    'clap': '👏',
+    'raised_hands': '🙌',
+    'ok_hand': '👌'
+  }
+
+  // Insert emoji
+  const insertEmoji = (emoji: string, closePopover?: () => void) => {
+    if (!editorRef.current) return
+
+    const currentContent = editorRef.current.innerText
+    // Use actual emoji character if available, otherwise use :name: format
+    const emojiChar = emojiMap[emoji] || `:${emoji}:`
+
+    // Append emoji with a space
+    const newContent = currentContent ? `${currentContent} ${emojiChar} ` : `${emojiChar} `
+    editorRef.current.innerText = newContent
+    onChange(newContent)
+
+    // Focus editor and move cursor to end
+    editorRef.current.focus()
+    const range = document.createRange()
+    const sel = window.getSelection()
+    range.selectNodeContents(editorRef.current)
+    range.collapse(false)
+    sel?.removeAllRanges()
+    sel?.addRange(range)
+
+    // Close popover if callback provided
+    if (closePopover) {
+      closePopover()
+    }
+  }
+
+  // Insert mention
+  const insertMention = (userId: string, displayName: string, closePopover?: () => void) => {
+    if (!editorRef.current) return
+
+    const currentContent = editorRef.current.innerText
+    const mentionText = `<@${userId}>`
+
+    // Append mention with a space
+    const newContent = currentContent ? `${currentContent} ${mentionText} ` : `${mentionText} `
+    editorRef.current.innerText = newContent
+    onChange(newContent)
+
+    // Focus editor and move cursor to end
+    editorRef.current.focus()
+    const range = document.createRange()
+    const sel = window.getSelection()
+    range.selectNodeContents(editorRef.current)
+    range.collapse(false)
+    sel?.removeAllRanges()
+    sel?.addRange(range)
+
+    // Close popover if callback provided
+    if (closePopover) {
+      closePopover()
     }
   }
 
@@ -481,22 +559,170 @@ export function SlackMessageEditor({
             >
               <Paperclip className="h-3.5 w-3.5" />
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0 hover:bg-muted"
-              title="Insert emoji"
-            >
-              <Smile className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0 hover:bg-muted"
-              title="Mention someone"
-            >
-              <AtSign className="h-3.5 w-3.5" />
-            </Button>
+
+            {/* Emoji Picker */}
+            <Popover open={emojiPickerOpen} onOpenChange={setEmojiPickerOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0 hover:bg-muted"
+                  title="Insert emoji"
+                >
+                  <Smile className="h-3.5 w-3.5" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[340px] p-0" align="start">
+                <div className="flex flex-col">
+                  {/* Header */}
+                  <div className="px-4 py-3 border-b">
+                    <h4 className="font-semibold text-sm">Insert Emoji</h4>
+                  </div>
+
+                  {/* Search Input */}
+                  <div className="px-4 py-3">
+                    <Input
+                      placeholder="Search emoji (e.g., smile, heart, tada)"
+                      className="h-9"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          const input = e.currentTarget
+                          const emojiName = input.value.trim()
+                          if (emojiName) {
+                            insertEmoji(emojiName, () => setEmojiPickerOpen(false))
+                            input.value = ''
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+
+                  {/* Emoji Grid */}
+                  <div className="px-4 pb-3">
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground mb-2">Commonly used</p>
+                        <div className="grid grid-cols-8 gap-1">
+                          {[
+                            { name: 'smile', emoji: '😊' },
+                            { name: 'laughing', emoji: '😂' },
+                            { name: 'heart', emoji: '❤️' },
+                            { name: 'tada', emoji: '🎉' },
+                            { name: 'thumbsup', emoji: '👍' },
+                            { name: 'fire', emoji: '🔥' },
+                            { name: 'eyes', emoji: '👀' },
+                            { name: 'rocket', emoji: '🚀' },
+                            { name: 'star', emoji: '⭐' },
+                            { name: 'check', emoji: '✅' },
+                            { name: 'wave', emoji: '👋' },
+                            { name: 'thinking_face', emoji: '🤔' },
+                            { name: 'party', emoji: '🥳' },
+                            { name: 'clap', emoji: '👏' },
+                            { name: 'raised_hands', emoji: '🙌' },
+                            { name: 'ok_hand', emoji: '👌' }
+                          ].map(({ name, emoji }) => (
+                            <Button
+                              key={name}
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-9 w-9 p-0 hover:bg-accent text-xl"
+                              onClick={() => insertEmoji(name, () => setEmojiPickerOpen(false))}
+                              title={`:${name}:`}
+                            >
+                              {emoji}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Footer */}
+                  <div className="px-4 py-2 border-t bg-muted/30">
+                    <p className="text-xs text-muted-foreground text-center">
+                      Type emoji name and press Enter
+                    </p>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            {/* Mention Picker */}
+            <Popover open={mentionPickerOpen} onOpenChange={setMentionPickerOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0 hover:bg-muted"
+                  title="Mention someone"
+                >
+                  <AtSign className="h-3.5 w-3.5" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[340px] p-0" align="start">
+                <div className="flex flex-col">
+                  {/* Header */}
+                  <div className="px-4 py-3 border-b">
+                    <h4 className="font-semibold text-sm">Mention User</h4>
+                  </div>
+
+                  {/* Search Input */}
+                  <div className="px-4 py-3 border-b">
+                    <Input
+                      placeholder="Enter user ID"
+                      className="h-9"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          const input = e.currentTarget
+                          const userId = input.value.trim()
+                          if (userId) {
+                            insertMention(userId, userId, () => setMentionPickerOpen(false))
+                            input.value = ''
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+
+                  {/* Special Mentions */}
+                  <div className="px-4 py-3">
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground mb-2">Special mentions</p>
+                      <div className="space-y-1">
+                        {[
+                          { id: 'channel', label: 'Notify everyone in channel', icon: Hash },
+                          { id: 'here', label: 'Notify active members', icon: AtSign },
+                          { id: 'everyone', label: 'Notify all workspace members', icon: AtSign }
+                        ].map((mention) => (
+                          <Button
+                            key={mention.id}
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="w-full justify-start h-9 hover:bg-accent"
+                            onClick={() => insertMention(mention.id, mention.label, () => setMentionPickerOpen(false))}
+                          >
+                            <mention.icon className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                            <span className="font-medium">@{mention.id}</span>
+                            <span className="ml-auto text-xs text-muted-foreground">{mention.label}</span>
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Footer */}
+                  <div className="px-4 py-2 border-t bg-muted/30">
+                    <p className="text-xs text-muted-foreground text-center">
+                      Use {'{{user_id}}'} variable for dynamic mentions
+                    </p>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
 
           {/* Formatting Hint */}
