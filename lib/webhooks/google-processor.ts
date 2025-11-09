@@ -1000,6 +1000,94 @@ type CalendarChangeType = 'created' | 'updated' | 'deleted'
 type DriveChangeType = 'file_created' | 'file_updated' | 'folder_created'
 type SheetsChangeType = 'new_row' | 'updated_row' | 'new_worksheet'
 
+/**
+ * Check if a calendar event passes the configured filters
+ */
+function doesEventPassFilters(event: any, filters: any): boolean {
+  if (!filters || !event) return true
+
+  // Filter by event type
+  const eventTypes = filters.eventTypes || 'all'
+  if (eventTypes && eventTypes !== 'all') {
+    const isAllDay = event.start?.date && !event.start?.dateTime
+    const isRecurring = !!event.recurringEventId || !!event.recurrence
+
+    switch (eventTypes) {
+      case 'all_day':
+        if (!isAllDay) return false
+        break
+      case 'regular':
+        if (isAllDay) return false
+        break
+      case 'recurring':
+        if (!isRecurring) return false
+        break
+      case 'non_recurring':
+        if (isRecurring) return false
+        break
+    }
+  }
+
+  // Filter by required properties
+  const includeEventsWith = filters.includeEventsWith
+  if (includeEventsWith && Array.isArray(includeEventsWith) && includeEventsWith.length > 0) {
+    for (const requirement of includeEventsWith) {
+      switch (requirement) {
+        case 'attendees':
+          if (!event.attendees || event.attendees.length === 0) return false
+          break
+        case 'location':
+          if (!event.location || event.location.trim() === '') return false
+          break
+        case 'meet_link':
+          if (!event.hangoutLink && !event.conferenceData?.entryPoints?.length) return false
+          break
+        case 'attachments':
+          if (!event.attachments || event.attachments.length === 0) return false
+          break
+        case 'description':
+          if (!event.description || event.description.trim() === '') return false
+          break
+      }
+    }
+  }
+
+  // Filter by time range
+  const timeRange = filters.timeRange || 'any'
+  if (timeRange && timeRange !== 'any') {
+    // Get start time from event
+    const startDateTime = event.start?.dateTime || event.start?.date
+    if (!startDateTime) return true // If no start time, allow event
+
+    const startDate = new Date(startDateTime)
+    if (isNaN(startDate.getTime())) return true // Invalid date, allow event
+
+    const dayOfWeek = startDate.getDay() // 0 = Sunday, 6 = Saturday
+    const hour = startDate.getHours()
+
+    switch (timeRange) {
+      case 'work_hours':
+        // 9am-5pm (9-17)
+        if (hour < 9 || hour >= 17) return false
+        break
+      case 'after_hours':
+        // Before 9am or after 5pm
+        if (hour >= 9 && hour < 17) return false
+        break
+      case 'weekdays':
+        // Mon-Fri (1-5)
+        if (dayOfWeek === 0 || dayOfWeek === 6) return false
+        break
+      case 'weekends':
+        // Sat-Sun (0, 6)
+        if (dayOfWeek !== 0 && dayOfWeek !== 6) return false
+        break
+    }
+  }
+
+  return true
+}
+
 async function triggerMatchingCalendarWorkflows(changeType: CalendarChangeType, calendarEvent: any, metadata: any, options?: { watchStartTime?: string | null }) {
   if (!calendarEvent) {
     calendarDebug('Event payload missing event details, skipping', {
@@ -1147,6 +1235,21 @@ async function triggerMatchingCalendarWorkflows(changeType: CalendarChangeType, 
           if (calendarId && nodeCalendarId !== calendarId) return false
         } else {
           // No calendar configured on node; default to allow when workflow-level config matched
+        }
+
+        // Apply filter criteria from node config
+        const nodeConfig = node?.data?.config || {}
+        if (!doesEventPassFilters(calendarEvent, nodeConfig)) {
+          calendarDebug('Event does not pass filter criteria', {
+            workflowId: workflow.id,
+            eventId,
+            filters: {
+              eventTypes: nodeConfig.eventTypes,
+              includeEventsWith: nodeConfig.includeEventsWith,
+              timeRange: nodeConfig.timeRange
+            }
+          })
+          return false
         }
 
         return true

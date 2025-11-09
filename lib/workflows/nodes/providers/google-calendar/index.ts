@@ -21,6 +21,69 @@ export const googleCalendarNodes: NodeComponent[] = [
         loadOnMount: true,
         required: true,
       },
+      {
+        name: "eventTypes",
+        label: "Event Types",
+        type: "select",
+        defaultValue: "all",
+        required: false,
+        dependsOn: "calendars",
+        hidden: {
+          $deps: ["calendars"],
+          $condition: { calendars: { $exists: false } }
+        },
+        options: [
+          { value: "all", label: "All Events" },
+          { value: "regular", label: "Regular Events Only" },
+          { value: "all_day", label: "All-Day Events Only" },
+          { value: "recurring", label: "Recurring Events Only" },
+          { value: "non_recurring", label: "Non-Recurring Events Only" }
+        ],
+        description: "Filter events by their type",
+        tooltip: "Choose which type of events should trigger this workflow"
+      },
+      {
+        name: "includeEventsWith",
+        label: "Only Include Events With",
+        type: "multiselect",
+        required: false,
+        dependsOn: "calendars",
+        hidden: {
+          $deps: ["calendars"],
+          $condition: { calendars: { $exists: false } }
+        },
+        placeholder: "All events (no requirements)",
+        options: [
+          { value: "attendees", label: "Attendees" },
+          { value: "location", label: "Location" },
+          { value: "meet_link", label: "Google Meet Link" },
+          { value: "attachments", label: "Attachments" },
+          { value: "description", label: "Description" }
+        ],
+        description: "Only trigger for events that have these properties",
+        tooltip: "Leave empty to include all events regardless of their properties"
+      },
+      {
+        name: "timeRange",
+        label: "Time Range",
+        type: "select",
+        defaultValue: "any",
+        required: false,
+        dependsOn: "calendars",
+        hidden: {
+          $deps: ["calendars"],
+          $condition: { calendars: { $exists: false } }
+        },
+        options: [
+          { value: "any", label: "Any Time" },
+          { value: "work_hours", label: "During Work Hours (9am-5pm)" },
+          { value: "after_hours", label: "After Hours (before 9am or after 5pm)" },
+          { value: "weekdays", label: "Weekdays Only (Mon-Fri)" },
+          { value: "weekends", label: "Weekends Only (Sat-Sun)" }
+        ],
+        description: "Filter events by when they occur",
+        tooltip: "Based on event start time in your local timezone"
+      }
     ],
     outputSchema: [
       {
@@ -110,6 +173,69 @@ export const googleCalendarNodes: NodeComponent[] = [
         loadOnMount: true,
         required: true,
       },
+      {
+        name: "eventTypes",
+        label: "Event Types",
+        type: "select",
+        defaultValue: "all",
+        required: false,
+        dependsOn: "calendars",
+        hidden: {
+          $deps: ["calendars"],
+          $condition: { calendars: { $exists: false } }
+        },
+        options: [
+          { value: "all", label: "All Events" },
+          { value: "regular", label: "Regular Events Only" },
+          { value: "all_day", label: "All-Day Events Only" },
+          { value: "recurring", label: "Recurring Events Only" },
+          { value: "non_recurring", label: "Non-Recurring Events Only" }
+        ],
+        description: "Filter events by their type",
+        tooltip: "Choose which type of events should trigger this workflow"
+      },
+      {
+        name: "includeEventsWith",
+        label: "Only Include Events With",
+        type: "multiselect",
+        required: false,
+        dependsOn: "calendars",
+        hidden: {
+          $deps: ["calendars"],
+          $condition: { calendars: { $exists: false } }
+        },
+        placeholder: "All events (no requirements)",
+        options: [
+          { value: "attendees", label: "Attendees" },
+          { value: "location", label: "Location" },
+          { value: "meet_link", label: "Google Meet Link" },
+          { value: "attachments", label: "Attachments" },
+          { value: "description", label: "Description" }
+        ],
+        description: "Only trigger for events that have these properties",
+        tooltip: "Leave empty to include all events regardless of their properties"
+      },
+      {
+        name: "timeRange",
+        label: "Time Range",
+        type: "select",
+        defaultValue: "any",
+        required: false,
+        dependsOn: "calendars",
+        hidden: {
+          $deps: ["calendars"],
+          $condition: { calendars: { $exists: false } }
+        },
+        options: [
+          { value: "any", label: "Any Time" },
+          { value: "work_hours", label: "During Work Hours (9am-5pm)" },
+          { value: "after_hours", label: "After Hours (before 9am or after 5pm)" },
+          { value: "weekdays", label: "Weekdays Only (Mon-Fri)" },
+          { value: "weekends", label: "Weekends Only (Sat-Sun)" }
+        ],
+        description: "Filter events by when they occur",
+        tooltip: "Based on event start time in your local timezone"
+      }
     ],
     outputSchema: [
       {
@@ -205,6 +331,69 @@ export const googleCalendarNodes: NodeComponent[] = [
         loadOnMount: true,
         required: true,
       },
+      {
+        name: "eventTypes",
+        label: "Event Types",
+        type: "select",
+        defaultValue: "all",
+        required: false,
+        dependsOn: "calendars",
+        hidden: {
+          $deps: ["calendars"],
+          $condition: { calendars: { $exists: false } }
+        },
+        options: [
+          { value: "all", label: "All Events" },
+          { value: "regular", label: "Regular Events Only" },
+          { value: "all_day", label: "All-Day Events Only" },
+          { value: "recurring", label: "Recurring Events Only" },
+          { value: "non_recurring", label: "Non-Recurring Events Only" }
+        ],
+        description: "Filter events by their type",
+        tooltip: "Choose which type of events should trigger this workflow"
+      },
+      {
+        name: "includeEventsWith",
+        label: "Only Include Events With",
+        type: "multiselect",
+        required: false,
+        dependsOn: "calendars",
+        hidden: {
+          $deps: ["calendars"],
+          $condition: { calendars: { $exists: false } }
+        },
+        placeholder: "All events (no requirements)",
+        options: [
+          { value: "attendees", label: "Attendees" },
+          { value: "location", label: "Location" },
+          { value: "meet_link", label: "Google Meet Link" },
+          { value: "attachments", label: "Attachments" },
+          { value: "description", label: "Description" }
+        ],
+        description: "Only trigger for events that have these properties",
+        tooltip: "Leave empty to include all events regardless of their properties"
+      },
+      {
+        name: "timeRange",
+        label: "Time Range",
+        type: "select",
+        defaultValue: "any",
+        required: false,
+        dependsOn: "calendars",
+        hidden: {
+          $deps: ["calendars"],
+          $condition: { calendars: { $exists: false } }
+        },
+        options: [
+          { value: "any", label: "Any Time" },
+          { value: "work_hours", label: "During Work Hours (9am-5pm)" },
+          { value: "after_hours", label: "After Hours (before 9am or after 5pm)" },
+          { value: "weekdays", label: "Weekdays Only (Mon-Fri)" },
+          { value: "weekends", label: "Weekends Only (Sat-Sun)" }
+        ],
+        description: "Filter events by when they occur",
+        tooltip: "Based on event start time in your local timezone"
+      }
     ],
     outputSchema: [
       {
@@ -285,17 +474,7 @@ export const googleCalendarNodes: NodeComponent[] = [
     requiredScopes: ["https://www.googleapis.com/auth/calendar"],
     category: "Productivity",
     configSchema: [
-      // Calendar Section
-      {
-        name: "calendarId",
-        label: "Calendar",
-        type: "select",
-        dynamic: "google-calendars",
-        loadOnMount: true,
-        required: true,
-      },
-
-      // General Section
+      // ========== EVENT TITLE ==========
       {
         name: "title",
         label: "Event Title",
@@ -303,78 +482,105 @@ export const googleCalendarNodes: NodeComponent[] = [
         placeholder: "Add title",
         required: true
       },
+
+      // ========== ALL DAY TOGGLE ==========
       {
-        name: "description",
-        label: "Add description",
-        type: "textarea",
-        placeholder: "Add description"
+        name: "allDay",
+        label: "All day",
+        type: "boolean",
+        defaultValue: false,
+        description: "Event lasts all day"
       },
 
-      // Simple Date/Time Fields
-      { name: "eventDate", label: "Date", type: "select", required: true, defaultValue: "today", options: [
-        { value: "today", label: "Today" },
-        { value: "tomorrow", label: "Tomorrow" },
-        { value: "in_3_days", label: "In 3 days" },
-        { value: "in_1_week", label: "In 1 week" },
-        { value: "in_2_weeks", label: "In 2 weeks" },
-        { value: "custom_days", label: "In X days..." },
-        { value: "next_weekday", label: "Next specific weekday..." },
-        { value: "specific", label: "Pick a specific date..." }
-      ]},
-      { name: "customDays", label: "Number of days from now", type: "number", required: false, visibilityCondition: { field: "eventDate", operator: "equals", value: "custom_days" }, placeholder: "Enter number of days (e.g., 5)", min: 1, max: 365 },
-      { name: "nextWeekday", label: "Select weekday", type: "select", required: false, visibilityCondition: { field: "eventDate", operator: "equals", value: "next_weekday" }, options: [
-        { value: "monday", label: "Next Monday" },
-        { value: "tuesday", label: "Next Tuesday" },
-        { value: "wednesday", label: "Next Wednesday" },
-        { value: "thursday", label: "Next Thursday" },
-        { value: "friday", label: "Next Friday" },
-        { value: "saturday", label: "Next Saturday" },
-        { value: "sunday", label: "Next Sunday" }
-      ]},
-      { name: "specificDate", label: "Specific Date", type: "date", required: false, visibilityCondition: { field: "eventDate", operator: "equals", value: "specific" } },
+      // ========== DATE & TIME SECTION ==========
+      {
+        name: "startDate",
+        label: "Start Date",
+        type: "date",
+        required: true,
+        defaultValue: "today"
+      },
 
-      { name: "eventTime", label: "Start Time", type: "select", required: true, defaultValue: "09:00", options: [
-        { value: "current", label: "Current Time" },
-        { value: "08:00", label: "8:00 AM" },
-        { value: "09:00", label: "9:00 AM" },
-        { value: "10:00", label: "10:00 AM" },
-        { value: "11:00", label: "11:00 AM" },
-        { value: "12:00", label: "12:00 PM" },
-        { value: "13:00", label: "1:00 PM" },
-        { value: "14:00", label: "2:00 PM" },
-        { value: "15:00", label: "3:00 PM" },
-        { value: "16:00", label: "4:00 PM" },
-        { value: "17:00", label: "5:00 PM" },
-        { value: "18:00", label: "6:00 PM" },
-        { value: "19:00", label: "7:00 PM" },
-        { value: "20:00", label: "8:00 PM" },
-        { value: "custom", label: "Custom time..." }
-      ]},
-      { name: "customTime", label: "Custom Time", type: "time", required: false, visibilityCondition: { field: "eventTime", operator: "equals", value: "custom" } },
+      {
+        name: "startTime",
+        label: "Start Time",
+        type: "time-picker-15min",
+        required: true,
+        defaultValue: "09:00",
+        hidden: {
+          $deps: ["allDay"],
+          $condition: { allDay: { $eq: true } }
+        }
+      },
 
-      { name: "duration", label: "Duration", type: "select", required: true, defaultValue: "60", options: [
-        { value: "allday", label: "All Day" },
-        { value: "30", label: "30 minutes" },
-        { value: "60", label: "1 hour" },
-        { value: "90", label: "1.5 hours" },
-        { value: "120", label: "2 hours" },
-        { value: "180", label: "3 hours" },
-        { value: "240", label: "4 hours" },
-        { value: "480", label: "All Day (8 hours)" },
-        { value: "custom", label: "Custom end time..." }
-      ]},
-      { name: "customEndDate", label: "End Date", type: "date", required: false, visibilityCondition: { field: "duration", operator: "equals", value: "custom" } },
-      { name: "customEndTime", label: "End Time", type: "time", required: false, visibilityCondition: { field: "duration", operator: "equals", value: "custom" } },
+      {
+        name: "endDate",
+        label: "End Date",
+        type: "date",
+        required: true,
+        defaultValue: "today"
+      },
 
-      // Time Zone
+      {
+        name: "endTime",
+        label: "End Time",
+        type: "time-picker-15min",
+        required: true,
+        defaultValue: "10:00",
+        hidden: {
+          $deps: ["allDay"],
+          $condition: { allDay: { $eq: true } }
+        }
+      },
+
+      {
+        name: "recurrence",
+        label: "Repeat",
+        type: "recurrence-picker",
+        defaultValue: "none",
+        placeholder: "Does not repeat",
+        options: [
+          { value: "none", label: "Does not repeat" },
+          { value: "RRULE:FREQ=DAILY", label: "Daily" },
+          { value: "RRULE:FREQ=WEEKLY", label: "Weekly on Saturday", dynamic: true },
+          { value: "RRULE:FREQ=MONTHLY", label: "Monthly on the second Saturday", dynamic: true },
+          { value: "RRULE:FREQ=YEARLY", label: "Annually on November 8", dynamic: true },
+          { value: "RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR", label: "Every weekday (Monday to Friday)" },
+          { value: "custom", label: "Custom..." }
+        ],
+        hidden: {
+          $deps: ["allDay"],
+          $condition: { allDay: { $eq: true } }
+        }
+      },
+
+      {
+        name: "separateTimezones",
+        label: "Use separate start and end time zones",
+        type: "boolean",
+        defaultValue: false,
+        hidden: {
+          $deps: ["allDay"],
+          $condition: { allDay: { $eq: true } }
+        }
+      },
+
       {
         name: "timeZone",
         label: "Time Zone",
-        type: "select",
-        defaultValue: "user-timezone",
+        type: "timezone-picker",
+        defaultValue: "auto",
         required: false,
+        hidden: {
+          $deps: ["separateTimezones", "allDay"],
+          $condition: {
+            $or: [
+              { separateTimezones: { $eq: true } },
+              { allDay: { $eq: true } }
+            ]
+          }
+        },
         options: [
-          { value: "user-timezone", label: "Your timezone (auto-detected)" },
           { value: "America/New_York", label: "Eastern Time (ET)" },
           { value: "America/Chicago", label: "Central Time (CT)" },
           { value: "America/Denver", label: "Mountain Time (MT)" },
@@ -392,34 +598,184 @@ export const googleCalendarNodes: NodeComponent[] = [
           { value: "Asia/Kolkata", label: "Mumbai (IST)" },
           { value: "Australia/Sydney", label: "Sydney (AEDT/AEST)" },
           { value: "Pacific/Auckland", label: "Auckland (NZDT/NZST)" }
-        ],
-        description: "Your timezone will be automatically detected and set as the default"
+        ]
       },
 
-      // Other Fields
       {
-        name: "attendees",
-        label: "Add guests",
-        type: "text",
-        dynamic: "gmail-recent-recipients",
-        placeholder: "Type email addresses separated by commas"
+        name: "startTimeZone",
+        label: "Event Start Time Zone",
+        type: "timezone-picker",
+        defaultValue: "auto",
+        required: false,
+        hidden: {
+          $deps: ["separateTimezones", "allDay"],
+          $condition: {
+            $or: [
+              { separateTimezones: { $ne: true } },
+              { allDay: { $eq: true } }
+            ]
+          }
+        },
+        options: [
+          { value: "America/New_York", label: "Eastern Time (ET)" },
+          { value: "America/Chicago", label: "Central Time (CT)" },
+          { value: "America/Denver", label: "Mountain Time (MT)" },
+          { value: "America/Los_Angeles", label: "Pacific Time (PT)" },
+          { value: "America/Anchorage", label: "Alaska Time (AKT)" },
+          { value: "Pacific/Honolulu", label: "Hawaii Time (HST)" },
+          { value: "UTC", label: "UTC (Coordinated Universal Time)" },
+          { value: "Europe/London", label: "London (GMT/BST)" },
+          { value: "Europe/Paris", label: "Paris (CET/CEST)" },
+          { value: "Europe/Berlin", label: "Berlin (CET/CEST)" },
+          { value: "Europe/Moscow", label: "Moscow (MSK)" },
+          { value: "Asia/Tokyo", label: "Tokyo (JST)" },
+          { value: "Asia/Shanghai", label: "Shanghai (CST)" },
+          { value: "Asia/Dubai", label: "Dubai (GST)" },
+          { value: "Asia/Kolkata", label: "Mumbai (IST)" },
+          { value: "Australia/Sydney", label: "Sydney (AEDT/AEST)" },
+          { value: "Pacific/Auckland", label: "Auckland (NZDT/NZST)" }
+        ]
       },
+
+      {
+        name: "endTimeZone",
+        label: "Event End Time Zone",
+        type: "timezone-picker",
+        defaultValue: "auto",
+        required: false,
+        hidden: {
+          $deps: ["separateTimezones", "allDay"],
+          $condition: {
+            $or: [
+              { separateTimezones: { $ne: true } },
+              { allDay: { $eq: true } }
+            ]
+          }
+        },
+        options: [
+          { value: "America/New_York", label: "Eastern Time (ET)" },
+          { value: "America/Chicago", label: "Central Time (CT)" },
+          { value: "America/Denver", label: "Mountain Time (MT)" },
+          { value: "America/Los_Angeles", label: "Pacific Time (PT)" },
+          { value: "America/Anchorage", label: "Alaska Time (AKT)" },
+          { value: "Pacific/Honolulu", label: "Hawaii Time (HST)" },
+          { value: "UTC", label: "UTC (Coordinated Universal Time)" },
+          { value: "Europe/London", label: "London (GMT/BST)" },
+          { value: "Europe/Paris", label: "Paris (CET/CEST)" },
+          { value: "Europe/Berlin", label: "Berlin (CET/CEST)" },
+          { value: "Europe/Moscow", label: "Moscow (MSK)" },
+          { value: "Asia/Tokyo", label: "Tokyo (JST)" },
+          { value: "Asia/Shanghai", label: "Shanghai (CST)" },
+          { value: "Asia/Dubai", label: "Dubai (GST)" },
+          { value: "Asia/Kolkata", label: "Mumbai (IST)" },
+          { value: "Australia/Sydney", label: "Sydney (AEDT/AEST)" },
+          { value: "Pacific/Auckland", label: "Auckland (NZDT/NZST)" }
+        ]
+      },
+
+      // ========== EVENT DETAILS SECTION ==========
+      {
+        name: "googleMeet",
+        label: "Add Google Meet video conferencing",
+        type: "google-meet-button",
+        defaultValue: null,
+        icon: "video",
+        buttonText: "Add Google Meet video conferencing",
+        description: "Create and manage Google Meet video conference for this event"
+      },
+
       {
         name: "location",
         label: "Add location",
-        type: "location-autocomplete",
+        type: "google-places-autocomplete",
         placeholder: "Enter location or address"
       },
-      { 
-        name: "createMeetLink", 
-        label: "Add Google Meet video conferencing", 
-        type: "boolean", 
-        defaultValue: false,
-        description: "Automatically generate and add a Google Meet video conference link to this event. The Meet link will be created when the event is added to the calendar."
+
+      {
+        name: "notifications",
+        label: "Notifications",
+        type: "notification-builder",
+        defaultValue: [
+          { method: "popup", minutes: 30 }
+        ],
+        description: "Add multiple notifications with different timing"
       },
-      { 
-        name: "sendNotifications", 
-        label: "Send invitations", 
+
+      {
+        name: "calendarId",
+        label: "Calendar",
+        type: "select",
+        dynamic: "google-calendars",
+        loadOnMount: true,
+        required: true,
+      },
+
+      {
+        name: "colorId",
+        label: "Color",
+        type: "color-select",
+        defaultValue: "default",
+        placeholder: "Calendar color",
+        showColorDots: true,
+        options: [
+          { value: "default", label: "Calendar color", color: null },
+          { value: "1", label: "Lavender", color: "#a4bdfc" },
+          { value: "2", label: "Sage", color: "#7ae7bf" },
+          { value: "3", label: "Grape", color: "#dbadff" },
+          { value: "4", label: "Flamingo", color: "#ff887c" },
+          { value: "5", label: "Banana", color: "#fbd75b" },
+          { value: "6", label: "Tangerine", color: "#ffb878" },
+          { value: "7", label: "Peacock", color: "#46d6db" },
+          { value: "8", label: "Graphite", color: "#e1e1e1" },
+          { value: "9", label: "Blueberry", color: "#5484ed" },
+          { value: "10", label: "Basil", color: "#51b749" },
+          { value: "11", label: "Tomato", color: "#dc2127" }
+        ]
+      },
+
+      {
+        name: "transparency",
+        label: "Show as",
+        type: "select",
+        defaultValue: "opaque",
+        options: [
+          { value: "transparent", label: "Free" },
+          { value: "opaque", label: "Busy" }
+        ]
+      },
+
+      {
+        name: "visibility",
+        label: "Visibility",
+        type: "visibility-select",
+        defaultValue: "default",
+        options: [
+          { value: "default", label: "Default visibility" },
+          { value: "public", label: "Public", description: "Anyone can see this event's details, including the description and names of attachments." },
+          { value: "private", label: "Private", description: "This event's details can't be seen by others unless they have at least \"Make changes to events\" permission for this calendar." }
+        ]
+      },
+
+      {
+        name: "description",
+        label: "Add description",
+        type: "textarea",
+        placeholder: "Add description"
+      },
+
+      // ========== GUESTS SECTION ==========
+      {
+        name: "attendees",
+        label: "Add guests",
+        type: "contact-picker",
+        dynamic: "gmail-recent-recipients",
+        loadOnMount: true,
+        placeholder: "Type email addresses or names"
+      },
+
+      {
+        name: "sendNotifications",
+        label: "Send invitations",
         type: "select",
         defaultValue: "all",
         options: [
@@ -433,10 +789,11 @@ export const googleCalendarNodes: NodeComponent[] = [
           value: true // Will show when attendees has any truthy value
         }
       },
-      { 
-        name: "guestsCanInviteOthers", 
-        label: "Guests can invite others", 
-        type: "boolean", 
+
+      {
+        name: "guestsCanInviteOthers",
+        label: "Guests can invite others",
+        type: "boolean",
         defaultValue: true,
         visibilityCondition: {
           field: "attendees",
@@ -444,10 +801,11 @@ export const googleCalendarNodes: NodeComponent[] = [
           value: true // Will show when attendees has any truthy value
         }
       },
-      { 
-        name: "guestsCanSeeOtherGuests", 
-        label: "Guests can see guest list", 
-        type: "boolean", 
+
+      {
+        name: "guestsCanSeeOtherGuests",
+        label: "Guests can see guest list",
+        type: "boolean",
         defaultValue: true,
         visibilityCondition: {
           field: "attendees",
@@ -455,99 +813,17 @@ export const googleCalendarNodes: NodeComponent[] = [
           value: true // Will show when attendees has any truthy value
         }
       },
-      { 
-        name: "guestsCanModify", 
-        label: "Guests can modify event", 
-        type: "boolean", 
+
+      {
+        name: "guestsCanModify",
+        label: "Guests can modify event",
+        type: "boolean",
         defaultValue: false,
         visibilityCondition: {
           field: "attendees",
           operator: "equals",
           value: true // Will show when attendees has any truthy value
         }
-      },
-      { 
-        name: "visibility", 
-        label: "Visibility", 
-        type: "select",
-        defaultValue: "public",
-        options: [
-          { value: "public", label: "Public" },
-          { value: "private", label: "Private" }
-        ]
-      },
-      { 
-        name: "transparency", 
-        label: "Show as", 
-        type: "select",
-        defaultValue: "transparent",
-        options: [
-          { value: "transparent", label: "Free" },
-          { value: "opaque", label: "Busy" }
-        ]
-      },
-      { 
-        name: "colorId", 
-        label: "Color", 
-        type: "select",
-        defaultValue: "default",
-        placeholder: "Calendar color",
-        options: [
-          { value: "default", label: "Calendar color" },
-          { value: "1", label: "Lavender" },
-          { value: "2", label: "Sage" },
-          { value: "3", label: "Grape" },
-          { value: "4", label: "Flamingo" },
-          { value: "5", label: "Banana" },
-          { value: "6", label: "Tangerine" },
-          { value: "7", label: "Peacock" },
-          { value: "8", label: "Graphite" },
-          { value: "9", label: "Blueberry" },
-          { value: "10", label: "Basil" },
-          { value: "11", label: "Tomato" }
-        ]
-      },
-      { 
-        name: "reminderMinutes", 
-        label: "Notification", 
-        type: "select",
-        defaultValue: "30",
-        options: [
-          { value: "30", label: "30 minutes before" },
-          { value: "0", label: "None" },
-          { value: "5", label: "5 minutes before" },
-          { value: "10", label: "10 minutes before" },
-          { value: "15", label: "15 minutes before" },
-          { value: "60", label: "1 hour before" },
-          { value: "120", label: "2 hours before" },
-          { value: "1440", label: "1 day before" },
-          { value: "2880", label: "2 days before" },
-          { value: "10080", label: "1 week before" }
-        ]
-      },
-      { 
-        name: "reminderMethod", 
-        label: "Notification method", 
-        type: "select",
-        defaultValue: "popup",
-        options: [
-          { value: "popup", label: "Notification" },
-          { value: "email", label: "Email" }
-        ]
-      },
-      { 
-        name: "recurrence", 
-        label: "Repeat", 
-        type: "select",
-        placeholder: "Does not repeat",
-        options: [
-          { value: "none", label: "Does not repeat" },
-          { value: "RRULE:FREQ=DAILY", label: "Daily" },
-          { value: "RRULE:FREQ=WEEKLY", label: "Weekly" },
-          { value: "RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR", label: "Every weekday (Monday to Friday)" },
-          { value: "RRULE:FREQ=MONTHLY", label: "Monthly" },
-          { value: "RRULE:FREQ=YEARLY", label: "Annually" }
-        ]
       }
     ],
     outputSchema: [

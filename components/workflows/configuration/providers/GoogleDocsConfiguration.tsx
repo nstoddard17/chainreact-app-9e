@@ -126,7 +126,7 @@ export function GoogleDocsConfiguration({
           workflowData={workflowData}
           currentNodeId={currentNodeId}
           dynamicOptions={dynamicOptions}
-          loadingDynamic={loadingFields?.has(field.name) || loadingDynamic}
+          loadingDynamic={field.dynamic ? (loadingFields?.has(field.name) || loadingDynamic) : false}
           nodeInfo={nodeInfo}
           onDynamicLoad={async (fieldName, dependsOn, dependsOnValue) => {
             await loadOptions(fieldName, dependsOn, dependsOnValue);

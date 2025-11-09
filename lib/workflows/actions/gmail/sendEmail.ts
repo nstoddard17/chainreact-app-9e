@@ -3,6 +3,7 @@ import { resolveValue } from '../core/resolveValue'
 import { ActionResult } from '../core/executeWait'
 import { FileStorageService } from "@/lib/storage/fileStorage"
 import { deleteWorkflowTempFiles } from '@/lib/utils/workflowFileCleanup'
+import { applyEmailMetaVariables } from './resolveEmailMetaVariables'
 import { google } from 'googleapis'
 
 import { logger } from '@/lib/utils/logger'
@@ -39,13 +40,26 @@ export async function sendGmailEmail(
 
     logger.debug('📧 [sendGmailEmail] Resolved config.to:', resolvedConfig.to)
     logger.debug('📧 [sendGmailEmail] Resolved config.body:', resolvedConfig.body)
+
+    // Apply meta-variable resolution to subject and body
+    // This resolves {{recipient_name}}, {{sender_email}}, etc. based on To/From fields
+    const { subject: resolvedSubject, body: resolvedBody } = await applyEmailMetaVariables(
+      {
+        to: resolvedConfig.to,
+        from: resolvedConfig.from,
+        cc: resolvedConfig.cc,
+        bcc: resolvedConfig.bcc,
+        subject: resolvedConfig.subject,
+        body: resolvedConfig.body
+      },
+      userId
+    )
+
     const {
       from,
       to,
       cc,
       bcc,
-      subject,
-      body,
       signature,
       attachments,
       sourceType,
@@ -61,6 +75,10 @@ export async function sendGmailEmail(
       trackClicks = false,
       isHtml = false
     } = resolvedConfig
+
+    // Use the meta-variable resolved subject and body
+    const subject = resolvedSubject
+    const body = resolvedBody
 
     // Auto-detect HTML if not explicitly set
     const bodyIsHtml = isHtml || (body && typeof body === 'string' && 
