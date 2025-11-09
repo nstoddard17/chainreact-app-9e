@@ -77,6 +77,7 @@ export const googleSheetsNodes: NodeComponent[] = [
         required: true,
         loadOnMount: true,
         placeholder: "Select a spreadsheet",
+        loadingPlaceholder: "Loading spreadsheets...",
         description: "Choose a spreadsheet from your Google Sheets account"
       },
       {
@@ -87,7 +88,34 @@ export const googleSheetsNodes: NodeComponent[] = [
         required: true,
         dependsOn: "spreadsheetId",
         placeholder: "Select a sheet",
+        loadingPlaceholder: "Loading sheets...",
         description: "The specific sheet (tab) within the spreadsheet"
+      },
+      {
+        name: "skipEmptyRows",
+        label: "Skip Empty Rows",
+        type: "boolean",
+        required: false,
+        defaultValue: true,
+        dependsOn: "spreadsheetId",
+        hidden: {
+          $deps: ["spreadsheetId"],
+          $condition: { spreadsheetId: { $exists: false } }
+        },
+        description: "Only trigger when the row has at least one non-empty cell",
+        tooltip: "Enable this to ignore completely empty rows"
+      },
+      {
+        name: "requiredColumns",
+        label: "Required Columns",
+        type: "multi-select",
+        dynamic: "google-sheets_columns",
+        required: false,
+        dependsOn: "sheetName",
+        placeholder: "All columns (no filter)",
+        loadingPlaceholder: "Loading columns...",
+        description: "Only trigger if these columns have values",
+        tooltip: "Select which columns must be filled for the workflow to run. Leave empty to trigger on any new row."
       },
     ],
     outputSchema: [
@@ -207,6 +235,7 @@ export const googleSheetsNodes: NodeComponent[] = [
         required: true,
         loadOnMount: true,
         placeholder: "Select a spreadsheet",
+        loadingPlaceholder: "Loading spreadsheets...",
         description: "Choose a spreadsheet from your Google Sheets account"
       },
       {
@@ -217,7 +246,34 @@ export const googleSheetsNodes: NodeComponent[] = [
         required: true,
         dependsOn: "spreadsheetId",
         placeholder: "Select a sheet",
+        loadingPlaceholder: "Loading sheets...",
         description: "The specific sheet (tab) within the spreadsheet"
+      },
+      {
+        name: "skipEmptyRows",
+        label: "Skip Empty Rows",
+        type: "boolean",
+        required: false,
+        defaultValue: true,
+        dependsOn: "spreadsheetId",
+        hidden: {
+          $deps: ["spreadsheetId"],
+          $condition: { spreadsheetId: { $exists: false } }
+        },
+        description: "Only trigger when the updated row has at least one non-empty cell",
+        tooltip: "Enable this to ignore updates that result in completely empty rows"
+      },
+      {
+        name: "requiredColumns",
+        label: "Required Columns",
+        type: "multi-select",
+        dynamic: "google-sheets_columns",
+        required: false,
+        dependsOn: "sheetName",
+        placeholder: "All columns (no filter)",
+        loadingPlaceholder: "Loading columns...",
+        description: "Only trigger if these columns have values after the update",
+        tooltip: "Select which columns must be filled for the workflow to run. Leave empty to trigger on any row update."
       },
     ],
     outputSchema: [

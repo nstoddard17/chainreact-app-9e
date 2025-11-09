@@ -29,7 +29,7 @@ export class GoogleDriveOptionsLoader implements ProviderOptionsLoader {
     forceRefresh?: boolean;
     extraOptions?: Record<string, any>;
   }): Promise<{ value: string; label: string; group?: string }[]> {
-    const { fieldName, providerId, integrationId, nodeType, dependsOnValue, forceRefresh } = params;
+    const { fieldName, providerId, integrationId, nodeType, dependsOnValue, forceRefresh, extraOptions } = params;
 
     logger.debug('[GoogleDriveOptionsLoader] Loading options for:', {
       fieldName,
@@ -159,8 +159,11 @@ export class GoogleDriveOptionsLoader implements ProviderOptionsLoader {
   }
 
   private getDataTypeForField(fieldName: string, nodeType?: string): string | null {
-    // For fileId field, check if it's the move_file action which needs grouped data
-    if (fieldName === 'fileId' && nodeType === 'google-drive:move_file') {
+    // For fileId field, check if it's an action that needs grouped data
+    if (fieldName === 'fileId' && (
+      nodeType === 'google-drive:move_file' ||
+      nodeType === 'google-drive:delete_file'
+    )) {
       return 'google-drive-files-and-folders'
     }
 
@@ -191,11 +194,11 @@ export class GoogleDriveOptionsLoader implements ProviderOptionsLoader {
     // This loader handles all Google Drive fields
     const supportedFields = [
       'folderId',
-      'parentFolderId', 
+      'parentFolderId',
       'fileId',
       'filePreview'
     ]
-    
+
     return providerId === 'google-drive' && supportedFields.includes(fieldName)
   }
 }

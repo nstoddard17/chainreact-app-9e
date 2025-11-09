@@ -295,6 +295,144 @@ export async function POST(req: NextRequest) {
         })
       }
 
+      if (dataType === 'search-preview') {
+        // Build search query based on search configuration
+        const searchConfig = options.searchConfig || {}
+        const searchMode = searchConfig.searchMode || 'simple'
+        let query: string[] = ['trashed=false']
+
+        if (searchMode === 'simple') {
+          const fileName = searchConfig.fileName
+          const exactMatch = searchConfig.exactMatch || false
+          if (fileName) {
+            if (exactMatch) {
+              query.push(`name = '${fileName.replace(/'/g, "\\'")}'`)
+            } else {
+              query.push(`name contains '${fileName.replace(/'/g, "\\'")}'`)
+            }
+          }
+        } else if (searchMode === 'advanced') {
+          const fileName = searchConfig.fileName
+          if (fileName) {
+            query.push(`name contains '${fileName.replace(/'/g, "\\'")}'`)
+          }
+
+          const fileType = searchConfig.fileType
+          if (fileType && fileType !== 'any') {
+            if (fileType.endsWith('/*')) {
+              // Handle wildcards like image/*, video/*
+              const baseType = fileType.replace('/*', '')
+              query.push(`mimeType contains '${baseType}'`)
+            } else {
+              query.push(`mimeType='${fileType}'`)
+            }
+          }
+
+          const modifiedTime = searchConfig.modifiedTime
+          if (modifiedTime && modifiedTime !== 'any') {
+            const now = new Date()
+            let startDate: Date
+            switch (modifiedTime) {
+              case 'today':
+                startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+                break
+              case 'week':
+                startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+                break
+              case 'month':
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1)
+                break
+              case 'year':
+                startDate = new Date(now.getFullYear(), 0, 1)
+                break
+              default:
+                startDate = new Date(0)
+            }
+            query.push(`modifiedDate >= '${startDate.toISOString()}'`)
+          }
+
+          const owner = searchConfig.owner
+          if (owner && owner !== 'any') {
+            if (owner === 'me') {
+              query.push(`'me' in owners`)
+            } else if (owner === 'shared') {
+              query.push(`sharedWithMe=true`)
+            }
+          }
+        } else if (searchMode === 'query') {
+          const customQuery = searchConfig.customQuery
+          if (customQuery) {
+            query = [customQuery, 'trashed=false']
+          }
+        }
+
+        // Execute search with limit to 10 for preview
+        const response = await drive.files.list({
+          q: query.join(' and '),
+          fields: 'files(id,name,mimeType,modifiedTime,createdTime,size,owners,webViewLink)',
+          pageSize: 10,
+          orderBy: 'modifiedTime desc'
+        })
+
+        const files = response.data.files || []
+        const fileList = files.map(file => ({
+          id: file.id,
+          name: file.name,
+          mimeType: file.mimeType,
+          modifiedTime: file.modifiedTime,
+          createdTime: file.createdTime,
+          size: file.size,
+          owner: file.owners?.[0]?.displayName || file.owners?.[0]?.emailAddress || 'Unknown',
+          webViewLink: file.webViewLink
+        }))
+
+        // Get total count (limited to 100 to avoid performance issues)
+        const countResponse = await drive.files.list({
+          q: query.join(' and '),
+          fields: 'files(id)',
+          pageSize: 100
+        })
+
+        const totalCount = countResponse.data.files?.length || 0
+        const hasMore = totalCount >= 100
+
+        logger.debug(`[Google Drive API] Search preview found ${totalCount}${hasMore ? '+' : ''} files`)
+
+        // Build detailed preview text
+        let previewText = ''
+        if (totalCount === 0) {
+          previewText = 'No files found matching your search criteria.\n\nTry adjusting your search terms or using partial matches instead of exact match.'
+        } else {
+          const searchSummary = []
+          if (searchConfig.fileName) {
+            searchSummary.push(`Name: "${searchConfig.fileName}"${searchConfig.exactMatch ? ' (exact)' : ' (contains)'}`)
+          }
+          if (searchConfig.fileType && searchConfig.fileType !== 'any') {
+            searchSummary.push(`Type: ${searchConfig.fileType}`)
+          }
+          if (searchConfig.modifiedTime && searchConfig.modifiedTime !== 'any') {
+            searchSummary.push(`Modified: ${searchConfig.modifiedTime}`)
+          }
+          if (searchConfig.owner && searchConfig.owner !== 'any') {
+            searchSummary.push(`Owner: ${searchConfig.owner}`)
+          }
+
+          const summary = searchSummary.length > 0 ? `Search criteria: ${searchSummary.join(', ')}\n\n` : ''
+
+          previewText = `${summary}Found ${totalCount}${hasMore ? '+' : ''} file${totalCount === 1 ? '' : 's'}:\n\n${fileList.map((f, i) => `${i + 1}. ${f.name}`).join('\n')}${hasMore ? '\n\n...and more' : ''}`
+        }
+
+        return jsonResponse({
+          data: {
+            files: fileList,
+            totalCount,
+            hasMore,
+            previewText
+          },
+          success: true
+        })
+      }
+
       return errorResponse('Unsupported data type' , 400)
     }
 

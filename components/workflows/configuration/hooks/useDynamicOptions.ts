@@ -410,6 +410,25 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       });
     }
 
+    // Set loading state IMMEDIATELY (synchronously) so UI updates before async work starts
+    if (!silent) {
+      loadingFields.current.add(requestKey);
+      loadingStartTimes.current.set(requestKey, Date.now()); // Track when loading started
+      setLoading(true);
+
+      // Enhanced logging for critical fields
+      if (fieldName === 'channelId' || fieldName === 'cardId' || fieldName === 'listId' || fieldName === 'spreadsheetId') {
+        logger.debug(`🔄 [useDynamicOptions] Setting loading state for ${fieldName}`);
+      }
+
+      onLoadingChangeRef.current?.(fieldName, true);
+    } else {
+      // Silent mode - just log that we're loading silently
+      if (fieldName === 'channelId' || fieldName === 'cardId' || fieldName === 'listId') {
+        logger.debug(`🔇 [useDynamicOptions] Loading ${fieldName} in silent mode`);
+      }
+    }
+
     // Create AbortController for this request
     const abortController = new AbortController();
     abortControllers.current.set(requestKey, abortController);
@@ -423,27 +442,10 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       }
     }, resourceType === 'google-sheets_sheets' ? 15000 : 10000);
     staleTimers.current.set(requestKey, staleTimer);
-    
+
     // Create and store the loading promise to prevent duplicate requests
     const loadingPromise = (async () => {
-      // Only set loading states if not in silent mode
-      if (!silent) {
-        loadingFields.current.add(requestKey);
-        loadingStartTimes.current.set(requestKey, Date.now()); // Track when loading started
-        setLoading(true);
-
-        // Enhanced logging for critical fields
-        if (fieldName === 'channelId' || fieldName === 'cardId' || fieldName === 'listId') {
-          logger.debug(`🔄 [useDynamicOptions] Setting loading state for ${fieldName}`);
-        }
-
-        onLoadingChangeRef.current?.(fieldName, true);
-      } else {
-        // Silent mode - just log that we're loading silently
-        if (fieldName === 'channelId' || fieldName === 'cardId' || fieldName === 'listId') {
-          logger.debug(`🔇 [useDynamicOptions] Loading ${fieldName} in silent mode`);
-        }
-      }
+      // Loading state already set above synchronously
 
       // Define variables at the beginning of the async function scope
       let integration: any;
@@ -1200,6 +1202,17 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
             }
             if (!enhancedExtraOptions.tableName && formValues.tableName) {
               enhancedExtraOptions.tableName = formValues.tableName;
+            }
+          }
+
+          // For Google Sheets fields that depend on sheetName, ensure spreadsheetId is in extraOptions
+          if (providerId === 'google-sheets') {
+            const formValues = getFormValues?.() || {};
+            if (!enhancedExtraOptions.spreadsheetId && formValues.spreadsheetId) {
+              enhancedExtraOptions.spreadsheetId = formValues.spreadsheetId;
+            }
+            if (!enhancedExtraOptions.sheetName && formValues.sheetName) {
+              enhancedExtraOptions.sheetName = formValues.sheetName;
             }
           }
 

@@ -5,7 +5,17 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { FileSignature, ChevronDown, RefreshCw, Plus } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { FileSignature, ChevronDown, RefreshCw, Plus, Pencil, Trash2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useVariableDropTarget } from '../hooks/useVariableDropTarget'
 import { insertVariableIntoTextInput, insertVariableIntoContentEditable, normalizeDraggedVariable } from '@/lib/workflows/variableInsertion'
@@ -18,6 +28,7 @@ interface GmailSignature {
   name: string
   content: string
   isDefault: boolean
+  email?: string
 }
 
 interface GmailEmailRichTextEditorProps {
@@ -46,6 +57,9 @@ export const GmailEmailRichTextEditor = forwardRef<GmailEmailRichTextEditorRef, 
   const [selectedSignature, setSelectedSignature] = useState<string>('')
   const [isLoadingSignatures, setIsLoadingSignatures] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [deleteSignature, setDeleteSignature] = useState<GmailSignature | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [editSignature, setEditSignature] = useState<{ id: string; name: string; content: string; email: string } | undefined>(undefined)
   const { toast } = useToast()
   const editorRef = useRef<HTMLDivElement | null>(null)
 
@@ -171,6 +185,70 @@ export const GmailEmailRichTextEditor = forwardRef<GmailEmailRichTextEditorRef, 
     }
   }
 
+  const handleDeleteSignature = async () => {
+    if (!deleteSignature || !userId) return
+
+    try {
+      setIsDeleting(true)
+
+      const response = await fetch(
+        `/api/integrations/gmail/signatures?userId=${userId}&email=${encodeURIComponent(deleteSignature.email || '')}`,
+        {
+          method: 'DELETE'
+        }
+      )
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to delete signature')
+      }
+
+      toast({
+        title: "Signature deleted",
+        description: `${deleteSignature.name} has been deleted successfully.`,
+      })
+
+      // Clear the deleted signature from selected if it was selected
+      if (selectedSignature === deleteSignature.id) {
+        setSelectedSignature('')
+      }
+
+      // Clear signatures state first to force a refresh
+      setSignatures([])
+
+      // Close dialog
+      setDeleteSignature(null)
+
+      // Refresh signatures list
+      await loadGmailSignatures()
+
+    } catch (error: any) {
+      logger.error('Failed to delete Gmail signature:', error)
+      toast({
+        title: "Failed to delete signature",
+        description: error.message || "An error occurred while deleting the signature.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const handleEditSignature = (signature: GmailSignature) => {
+    setEditSignature({
+      id: signature.id,
+      name: signature.name,
+      content: signature.content,
+      email: signature.email || ''
+    })
+    setIsCreateModalOpen(true)
+  }
+
+  const handleModalClose = () => {
+    setIsCreateModalOpen(false)
+    setEditSignature(undefined)
+  }
+
   return (
     <>
       <div className={`space-y-4 ${className}`}>
@@ -179,52 +257,85 @@ export const GmailEmailRichTextEditor = forwardRef<GmailEmailRichTextEditorRef, 
           <FileSignature className="h-4 w-4 text-gray-600" />
           <span className="text-sm text-gray-600">Gmail Signatures</span>
 
-          {signatures.length > 0 && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" disabled={isLoadingSignatures}>
-                  {selectedSignature ?
-                    signatures.find(s => s.id === selectedSignature)?.name || 'Select signature'
-                    : 'Select signature'
-                  }
-                  <ChevronDown className="ml-2 h-4 w-4" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80">
-                <div className="space-y-2">
-                  <h4 className="font-medium">Gmail Signatures</h4>
-                  <ScrollArea className="max-h-60">
-                    {signatures.map((signature) => (
-                      <div key={signature.id} className="p-2 hover:bg-gray-100 rounded cursor-pointer">
-                        <div className="flex items-center justify-between">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" disabled={isLoadingSignatures}>
+                {selectedSignature && signatures.length > 0 ?
+                  signatures.find(s => s.id === selectedSignature)?.name || 'Select signature'
+                  : 'Select signature'
+                }
+                <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-96">
+              <div className="space-y-2">
+                <h4 className="font-medium">Gmail Signatures</h4>
+                <ScrollArea className="max-h-60">
+                  {isLoadingSignatures ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <RefreshCw className="h-8 w-8 mx-auto mb-2 animate-spin" />
+                      <p className="text-sm">Loading signatures...</p>
+                    </div>
+                  ) : signatures.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <FileSignature className="h-8 w-8 mx-auto mb-2" />
+                      <p className="text-sm">No signatures found</p>
+                      <p className="text-xs mt-1">Create signatures in Gmail or use the Create button</p>
+                    </div>
+                  ) : (
+                    signatures.map((signature) => (
+                      <div key={signature.id} className="p-3 hover:bg-gray-100 rounded border-b last:border-b-0">
+                        <div className="flex items-center justify-between mb-2">
                           <span className="font-medium">{signature.name}</span>
                           {signature.isDefault && <Badge variant="secondary">Default</Badge>}
                         </div>
                         <div
-                          className="text-sm text-gray-600 mt-1 truncate"
+                          className="text-sm text-gray-600 mb-3 truncate"
                           dangerouslySetInnerHTML={{ __html: signature.content }}
                         />
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="mt-2"
-                          onClick={() => insertSignature(signature.id)}
-                        >
-                          Insert
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1"
+                            onClick={() => insertSignature(signature.id)}
+                          >
+                            Insert
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleEditSignature(signature)}
+                            title="Edit signature"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setDeleteSignature(signature)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            title="Delete signature"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-                    ))}
-                  </ScrollArea>
-                </div>
-              </PopoverContent>
-            </Popover>
-          )}
+                    ))
+                  )}
+                </ScrollArea>
+              </div>
+            </PopoverContent>
+          </Popover>
 
           {/* Create signature button */}
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setIsCreateModalOpen(true)}
+            onClick={() => {
+              setEditSignature(undefined)
+              setIsCreateModalOpen(true)
+            }}
             disabled={!userId}
             title="Create new signature"
           >
@@ -279,14 +390,37 @@ export const GmailEmailRichTextEditor = forwardRef<GmailEmailRichTextEditorRef, 
         </div>
       </div>
 
-      {/* Create Signature Modal */}
+      {/* Create/Edit Signature Modal */}
       <CreateSignatureModal
         isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
+        onClose={handleModalClose}
         onSignatureCreated={loadGmailSignatures}
         userId={userId}
         provider="gmail"
+        editSignature={editSignature}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteSignature} onOpenChange={(open) => !open && setDeleteSignature(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Signature</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{deleteSignature?.name}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteSignature}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 })
