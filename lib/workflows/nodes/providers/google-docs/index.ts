@@ -28,6 +28,19 @@ const googleDocsActionCreateDocument: NodeComponent = {
       tabGroup: "Document"
     },
     {
+      name: "contentSource",
+      label: "Content Source",
+      type: "select",
+      required: false,
+      defaultValue: "manual",
+      options: [
+        { value: "manual", label: "Enter Manually" },
+        { value: "file_upload", label: "Upload File" }
+      ],
+      description: "Choose how to provide the document content",
+      tabGroup: "Document"
+    },
+    {
       name: "content",
       label: "Content",
       type: "textarea",
@@ -35,7 +48,19 @@ const googleDocsActionCreateDocument: NodeComponent = {
       placeholder: "Enter your document content here...\n\nYou can use {{variables}} to insert dynamic values from your workflow.",
       description: "Document content. Use {{variable}} syntax to insert workflow variables.",
       rows: 10,
-      tabGroup: "Document"
+      tabGroup: "Document",
+      showIf: (values: any) => !values.contentSource || values.contentSource === "manual"
+    },
+    {
+      name: "uploadedFile",
+      label: "Upload File",
+      type: "file",
+      required: false,
+      accept: ".txt,.docx,.pdf,.html,.md",
+      description: "Upload a file to use as the document content. The file name will be used as the document title.",
+      tabGroup: "Document",
+      showIf: (values: any) => values.contentSource === "file_upload",
+      autoFillTitle: true // Custom property to indicate this field should populate the title
     },
     {
       name: "folderId",
@@ -43,6 +68,7 @@ const googleDocsActionCreateDocument: NodeComponent = {
       type: "select",
       required: false,
       dynamic: "google-drive-folders",
+      loadOnMount: true,
       placeholder: "Select a folder (optional)",
       description: "Choose where to create the document",
       tabGroup: "Document"

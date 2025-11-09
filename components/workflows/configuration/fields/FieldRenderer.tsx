@@ -1916,7 +1916,7 @@ export function FieldRenderer({
         );
 
       case "multiselect":
-        // Alias for multi-select fields
+        // Alias for multi-select fields - use GenericSelectField for consistent loading states
         {
           const multiOptions = Array.isArray(field.options)
             ? field.options.map((opt: any) => ({
@@ -1928,18 +1928,30 @@ export function FieldRenderer({
                 label: String(opt.label ?? opt.name ?? opt.value ?? opt.id ?? "")
               }));
 
+          // Check if THIS specific field is loading
+          const isMultiselectLoading = loadingFields?.has(field.name) || loadingDynamic;
+
           return (
-            <MultiCombobox
-              options={multiOptions}
-              value={Array.isArray(value) ? value : (value ? [value] : [])}
-              onChange={onChange}
-              placeholder={field.placeholder || "Select option(s)..."}
-              disabled={field.disabled}
-              onOpenChange={(open: boolean) => {
-                if (!open) return;
-                if (!field.dynamic || !onDynamicLoad) return;
-                onDynamicLoad(field.name);
+            <GenericSelectField
+              field={{
+                ...field,
+                type: 'select',
+                multiple: true,
+                loadingPlaceholder: field.loadingPlaceholder || (field.label ? `Loading ${field.label}...` : 'Loading options...')
               }}
+              value={value}
+              onChange={onChange}
+              error={error}
+              options={multiOptions}
+              isLoading={isMultiselectLoading}
+              onDynamicLoad={onDynamicLoad}
+              nodeInfo={nodeInfo}
+              selectedValues={selectedValues}
+              parentValues={parentValues}
+              workflowNodes={workflowData?.nodes}
+              aiFields={aiFields}
+              setAiFields={setAiFields}
+              isConnectedToAIAgent={isConnectedToAIAgent}
             />
           );
         }

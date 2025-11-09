@@ -779,7 +779,7 @@ export function EmailRichTextEditor({
     if (signature) {
       // Get current content
       const currentContent = editorRef.current?.innerHTML || value || ''
-      
+
       // Normalize both contents for comparison
       const normalizeContent = (content: string) => {
         return content
@@ -792,10 +792,10 @@ export function EmailRichTextEditor({
           .trim() // Remove leading/trailing whitespace
           .toLowerCase() // Case insensitive comparison
       }
-      
+
       const normalizedCurrent = normalizeContent(currentContent)
       const normalizedSignature = normalizeContent(signature.content)
-      
+
       // Only check if signature has meaningful content (more than just whitespace)
       if (normalizedSignature.length > 5 && normalizedCurrent.includes(normalizedSignature)) {
         toast({
@@ -805,7 +805,7 @@ export function EmailRichTextEditor({
         })
         return
       }
-      
+
       const newContent = `${currentContent }\n\n${ signature.content}`
       onChange(newContent)
       if (editorRef.current) {
@@ -816,6 +816,43 @@ export function EmailRichTextEditor({
         description: "Email signature has been added to your message.",
       })
     }
+  }
+
+  const insertVariable = (variableText: string) => {
+    if (!editorRef.current) return
+
+    // Get current selection or cursor position
+    const selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0) {
+      // No selection, append to end
+      const currentContent = editorRef.current.innerHTML || ''
+      const newContent = `${currentContent} ${variableText}`
+      onChange(newContent)
+      if (editorRef.current) {
+        editorRef.current.innerHTML = newContent
+      }
+    } else {
+      // Insert at cursor position
+      const range = selection.getRangeAt(0)
+      range.deleteContents()
+
+      const variableNode = document.createTextNode(variableText)
+      range.insertNode(variableNode)
+
+      // Move cursor after inserted variable
+      range.setStartAfter(variableNode)
+      range.setEndAfter(variableNode)
+      selection.removeAllRanges()
+      selection.addRange(range)
+
+      // Update content
+      onChange(editorRef.current.innerHTML)
+    }
+
+    toast({
+      title: "Variable inserted",
+      description: `${variableText} has been added to your email.`,
+    })
   }
 
 
@@ -934,7 +971,73 @@ export function EmailRichTextEditor({
           </div>
           
           <Separator orientation="vertical" className="h-6" />
-          
+
+          {/* Variables */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1 hover:bg-muted text-muted-foreground hover:text-foreground"
+                title="Insert workflow variables"
+              >
+                <Braces className="h-4 w-4" />
+                Variables
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[420px] p-0 bg-background border-border overflow-hidden" align="start" side="bottom" sideOffset={4}>
+              <div className="p-3 border-b border-border">
+                <h4 className="text-sm font-medium text-foreground">Workflow Variables</h4>
+                <p className="text-xs text-muted-foreground mt-1">Insert dynamic data into your email</p>
+
+                {/* Category Filter */}
+                <div className="mt-3">
+                  <Select value={selectedVariableCategory} onValueChange={setSelectedVariableCategory}>
+                    <SelectTrigger className="h-8 text-xs bg-background border-border text-foreground">
+                      <SelectValue placeholder="Filter by category" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background border-border">
+                      <SelectItem value="all" className="text-xs text-foreground">All Categories</SelectItem>
+                      <SelectItem value="trigger" className="text-xs text-foreground">Trigger Data</SelectItem>
+                      <SelectItem value="recipient" className="text-xs text-foreground">Recipient Info</SelectItem>
+                      <SelectItem value="sender" className="text-xs text-foreground">Sender Info</SelectItem>
+                      <SelectItem value="workflow" className="text-xs text-foreground">Workflow Info</SelectItem>
+                      <SelectItem value="datetime" className="text-xs text-foreground">Date & Time</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <ScrollArea className="h-[320px] w-full">
+                <div className="p-2">
+                  {COMMON_VARIABLES
+                    .filter(variable => selectedVariableCategory === 'all' || variable.category === selectedVariableCategory)
+                    .map(variable => (
+                      <div
+                        key={variable.variable}
+                        className="px-3 py-2.5 rounded-md hover:bg-muted cursor-pointer border border-transparent hover:border-border mb-1"
+                        onClick={() => insertVariable(variable.variable)}
+                      >
+                        <div className="flex items-center justify-between gap-3 mb-1">
+                          <h5 className="text-sm font-medium text-foreground">{variable.name}</h5>
+                          <code className="text-xs bg-muted px-2 py-1 rounded text-foreground font-mono whitespace-nowrap flex-shrink-0">
+                            {variable.variable}
+                          </code>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{variable.description}</p>
+                      </div>
+                    ))}
+                  {COMMON_VARIABLES.filter(variable => selectedVariableCategory === 'all' || variable.category === selectedVariableCategory).length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Braces className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                      <p className="text-sm">No variables in this category</p>
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            </PopoverContent>
+          </Popover>
+
           {/* Templates */}
           <Popover>
             <PopoverTrigger asChild>
@@ -958,22 +1061,22 @@ export function EmailRichTextEditor({
                 <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md">
                   <p className="text-xs text-blue-900 dark:text-blue-100">
                     <strong>💡 Tip:</strong> Templates use <code className="px-1 py-0.5 bg-blue-100 dark:bg-blue-900 rounded text-[11px]">{'{{variable_name}}'}</code> placeholders.
-                    Drag variables from the right panel to replace them with workflow data.
+                    Use the <strong>Variables</strong> dropdown to insert workflow data and replace placeholders.
                   </p>
                 </div>
 
                 {/* Category Filter */}
                 <div className="mt-3">
                   <Select value={selectedTemplateCategory} onValueChange={setSelectedTemplateCategory}>
-                    <SelectTrigger className="h-8 text-xs bg-background border-border">
+                    <SelectTrigger className="h-8 text-xs bg-background border-border text-foreground">
                       <SelectValue placeholder="Filter by category" />
                     </SelectTrigger>
                     <SelectContent className="bg-background border-border">
-                      <SelectItem value="all" className="text-xs">All Categories</SelectItem>
-                      <SelectItem value="business" className="text-xs">Business</SelectItem>
-                      <SelectItem value="personal" className="text-xs">Personal</SelectItem>
-                      <SelectItem value="marketing" className="text-xs">Marketing</SelectItem>
-                      <SelectItem value="support" className="text-xs">Support</SelectItem>
+                      <SelectItem value="all" className="text-xs text-foreground">All Categories</SelectItem>
+                      <SelectItem value="business" className="text-xs text-foreground">Business</SelectItem>
+                      <SelectItem value="personal" className="text-xs text-foreground">Personal</SelectItem>
+                      <SelectItem value="marketing" className="text-xs text-foreground">Marketing</SelectItem>
+                      <SelectItem value="support" className="text-xs text-foreground">Support</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
