@@ -15,7 +15,7 @@ export const memberJoinedChannelTriggerSchema: NodeComponent = {
       label: "Channel (Optional)",
       type: "select",
       required: false,
-      dynamic: "slack-channels",
+      dynamic: "slack_channels",
       description: "Optional: Filter to a specific channel. Leave empty to watch all channels."
     },
   ],

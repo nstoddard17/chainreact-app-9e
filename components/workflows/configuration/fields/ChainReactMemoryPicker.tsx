@@ -7,7 +7,7 @@ import { Plus, RefreshCw, Database, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -186,7 +186,6 @@ export function ChainReactMemoryPicker({
             </div>
             <div className="flex gap-2">
               {field.allowCreate && (
-                <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
@@ -203,9 +202,7 @@ export function ChainReactMemoryPicker({
                       <p>{field.createLabel || 'Create new document'}</p>
                     </TooltipContent>
                   </Tooltip>
-                </TooltipProvider>
               )}
-              <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -226,7 +223,6 @@ export function ChainReactMemoryPicker({
                     <p>Refresh documents</p>
                   </TooltipContent>
                 </Tooltip>
-              </TooltipProvider>
             </div>
           </div>
 

@@ -22,7 +22,7 @@ export const getUserInfoActionSchema: NodeComponent = {
       label: "User",
       type: "combobox",
       required: true,
-      dynamic: "slack-users",
+      dynamic: "slack_users",
       loadOnMount: true,
       searchable: true,
       placeholder: "Select a user or enter user ID",

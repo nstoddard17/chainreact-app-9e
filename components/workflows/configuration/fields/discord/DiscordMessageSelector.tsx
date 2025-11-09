@@ -7,7 +7,6 @@ import { MessageSquare, Calendar, User, Hash, ChevronsUpDown, X } from "lucide-r
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {

@@ -95,11 +95,85 @@ const slackMappings: Record<string, FieldMapping> = {
   slack_action_send_message: {
     channel: "slack_channels",
   },
+  slack_action_send_direct_message: {
+    user: "slack_users",
+  },
+  slack_action_get_user_info: {
+    userId: "slack_users",
+  },
+  slack_action_add_reminder: {
+    userId: "slack_users",
+  },
+  slack_action_invite_users_to_channel: {
+    channel: "slack_channels",
+    users: "slack_users",
+  },
+  slack_action_remove_user_from_channel: {
+    channel: "slack_channels",
+    userId: "slack_users",
+  },
   slack_action_create_channel: {
     workspace: "slack_workspaces",
     addPeople: "slack_users",
   },
   slack_action_get_messages: {
+    channel: "slack_channels",
+  },
+  slack_action_add_reaction: {
+    channel: "slack_channels",
+  },
+  slack_action_remove_reaction: {
+    channel: "slack_channels",
+  },
+  slack_action_archive_channel: {
+    channel: "slack_channels",
+  },
+  slack_action_unarchive_channel: {
+    channel: "slack_channels",
+  },
+  slack_action_cancel_scheduled_message: {
+    channel: "slack_channels",
+  },
+  slack_action_delete_message: {
+    channel: "slack_channels",
+  },
+  slack_action_get_channel_info: {
+    channel: "slack_channels",
+  },
+  slack_action_get_thread_messages: {
+    channel: "slack_channels",
+  },
+  slack_action_join_channel: {
+    channel: "slack_channels",
+  },
+  slack_action_leave_channel: {
+    channel: "slack_channels",
+  },
+  slack_action_list_scheduled_messages: {
+    channel: "slack_channels",
+  },
+  slack_action_pin_message: {
+    channel: "slack_channels",
+  },
+  slack_action_unpin_message: {
+    channel: "slack_channels",
+  },
+  slack_action_post_interactive: {
+    channel: "slack_channels",
+  },
+  slack_action_rename_channel: {
+    channel: "slack_channels",
+  },
+  slack_action_schedule_message: {
+    channel: "slack_channels",
+  },
+  slack_action_set_channel_purpose: {
+    channel: "slack_channels",
+  },
+  slack_action_set_channel_topic: {
+    channel: "slack_channels",
+  },
+  slack_action_update_message: {
     channel: "slack_channels",
   },
   slack_trigger_message_channels: {

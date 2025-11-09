@@ -21,7 +21,7 @@ export const listScheduledMessagesActionSchema: NodeComponent = {
       label: "Channel (Optional)",
       type: "select",
       required: false,
-      dynamic: "slack-channels",
+      dynamic: "slack_channels",
       loadOnMount: true,
       placeholder: "All channels",
       tooltip: "Optional: Filter scheduled messages for a specific channel. Leave empty to see all scheduled messages."

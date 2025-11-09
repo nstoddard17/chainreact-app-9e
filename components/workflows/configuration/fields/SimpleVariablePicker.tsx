@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { ChevronDown, ChevronRight, Search, Copy, Check, Variable, Play, CircleAlert } from 'lucide-react'
 import { ProfessionalSearch } from '@/components/ui/professional-search'
 import { useToast } from '@/hooks/use-toast'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { apiClient } from '@/lib/apiClient'
 import { useWorkflowTestStore } from '@/stores/workflowTestStore'
 import { resolveVariableValue, getNodeVariableValues } from '@/lib/workflows/variableResolution'
@@ -383,7 +383,6 @@ function SimpleVariablePickerComponent({
         <PopoverContent className="w-[380px] p-0" align="end">
           <div className="p-3 border-b flex justify-between items-center">
             <div className="text-sm font-medium">Insert Variable</div>
-            <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button 
@@ -404,7 +403,6 @@ function SimpleVariablePickerComponent({
                   <p>Test workflow to see actual values</p>
                 </TooltipContent>
               </Tooltip>
-            </TooltipProvider>
           </div>
           <div className="p-3 border-b">
             <ProfessionalSearch
@@ -508,7 +506,6 @@ function SimpleVariablePickerComponent({
                               <div className="flex items-center">
                                 {/* Show variable value if available */}
                                 {hasValue && (
-                                  <TooltipProvider>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
                                         <Badge className="mr-2 bg-green-100 text-green-800 hover:bg-green-200 transition-colors">
@@ -524,7 +521,6 @@ function SimpleVariablePickerComponent({
                                         </p>
                                       </TooltipContent>
                                     </Tooltip>
-                                  </TooltipProvider>
                                 )}
                                 
                                 <Button

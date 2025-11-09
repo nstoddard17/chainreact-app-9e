@@ -20,14 +20,6 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
   const formattedMessage = formatRichTextForTarget(message, 'slack')
   const slackTextContent = formattedMessage ?? message ?? ''
 
-  logger.debug('[Slack] Preparing to send message:', {
-    channel,
-    messageLength: slackTextContent.length,
-    hasAttachments: !!attachments,
-    hasBlocks: !!blocks,
-    hasThreadTimestamp: !!threadTimestamp
-  });
-
   // Validate required fields
   if (!channel) {
     throw new Error('Channel is required for sending Slack messages');
@@ -39,7 +31,6 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
 
   // Check test mode
   if (context.testMode) {
-    logger.debug('[Slack] Test mode - simulating message send');
     return {
       success: true,
       messageId: `test_slack_${Date.now()}`,
@@ -71,8 +62,6 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
     throw new Error('Failed to decrypt Slack token. Please reconnect your Slack account.');
   }
 
-  logger.debug('[Slack] Using bot token to send message');
-
   try {
     // Prepare the message payload
     const messagePayload: any = {
@@ -83,7 +72,6 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
     // Handle file attachments from the schema's attachments field
     // Upload files to Supabase storage and get public URLs for Slack
     if (attachments) {
-      logger.debug('[Slack] Processing file attachments...');
       const attachmentUrls: string[] = [];
 
       // Import Supabase client
@@ -108,8 +96,6 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
             // Check if it's a file object with content or path
             if (attachment.filePath) {
               // File already uploaded to workflow-files storage
-              logger.debug('[Slack] Processing uploaded file:', attachment.fileName || 'attachment');
-
               // Download the file from workflow storage
               const { data: storageFile, error } = await supabase.storage
                 .from('workflow-files')
@@ -148,7 +134,6 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
                     .getPublicUrl(fileName);
 
                   fileUrl = publicUrl;
-                  logger.debug('[Slack] File uploaded to public storage:', fileName);
 
                   // Schedule cleanup after 24 hours (optional)
                   // This would need a separate cleanup job
@@ -190,7 +175,6 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
                     .getPublicUrl(fileName);
 
                   fileUrl = publicUrl;
-                  logger.debug('[Slack] File uploaded from storage service:', fileName);
                 }
               }
             } else if (attachment.url) {
@@ -219,8 +203,6 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
         messagePayload.text = messagePayload.text
           ? `${messagePayload.text}\n\n${attachmentText}`
           : attachmentText;
-
-        logger.debug(`[Slack] Added ${attachmentUrls.length} attachment(s) to message`);
       }
     }
 
@@ -247,19 +229,11 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
       try {
         const parsedBlocks = typeof blocks === 'string' ? JSON.parse(blocks) : blocks;
         messagePayload.blocks = parsedBlocks;
-        logger.debug('[Slack] Using custom Block Kit blocks');
       } catch (error) {
-        logger.warn('[Slack] Failed to parse blocks JSON:', error);
+        logger.error('[Slack] Failed to parse blocks JSON:', error);
         throw new Error('Invalid Block Kit JSON format. Please check your configuration at https://app.slack.com/block-kit-builder');
       }
     }
-
-    logger.debug('[Slack] Sending message with payload:', {
-      channel: messagePayload.channel,
-      hasText: !!messagePayload.text,
-      hasBlocks: !!messagePayload.blocks,
-      hasThreadTs: !!messagePayload.thread_ts
-    });
 
     // Send the message using Slack Web API with the appropriate token
     const response = await fetch('https://slack.com/api/chat.postMessage', {
@@ -274,15 +248,9 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
     const result = await response.json();
 
     if (!result.ok) {
-      logger.error('[Slack] API error:', result);
+      logger.error('[Slack] API error:', result.error);
       throw new Error(`Slack API error: ${result.error || 'Unknown error'}`);
     }
-
-    logger.debug('[Slack] Message sent successfully:', {
-      channel: result.channel,
-      timestamp: result.ts,
-      messageId: result.message?.ts
-    });
 
     return {
       success: true,
