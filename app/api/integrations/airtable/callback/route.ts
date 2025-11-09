@@ -138,14 +138,17 @@ export async function GET(request: NextRequest) {
     const integrationData = {
       user_id: userId,
       provider: "airtable",
-      provider_user_id: userData.id,
-      email: userData.email || null, // Save email for account display
       access_token: encrypt(tokenData.access_token, encryptionKey),
       refresh_token: tokenData.refresh_token ? encrypt(tokenData.refresh_token, encryptionKey) : null,
       expires_at: expiresAt ? expiresAt.toISOString() : null,
       scopes: userData.scopes || tokenData.scope.split(" "), // Use API scopes if available, fallback to token scope
       status: "connected",
       updated_at: new Date().toISOString(),
+      // Store provider-specific data in metadata JSONB column
+      metadata: {
+        provider_user_id: userData.id,
+        email: userData.email || null, // Save email for account display
+      }
     }
 
     const { error: upsertError } = await supabase.from("integrations").upsert(integrationData, {

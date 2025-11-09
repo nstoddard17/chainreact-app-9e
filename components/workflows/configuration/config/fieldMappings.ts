@@ -893,6 +893,7 @@ const stripeMappings: Record<string, FieldMapping> = {
 };
 
 // Google Analytics field mappings
+// 100% Zapier feature parity + Make.com coverage
 const googleAnalyticsMappings: Record<string, FieldMapping> = {
   google_analytics_trigger_goal_completion: {
     accountId: "google-analytics_accounts",
@@ -904,7 +905,7 @@ const googleAnalyticsMappings: Record<string, FieldMapping> = {
     propertyId: "google-analytics_properties",
     measurementId: "google-analytics_measurement_ids",
   },
-  google_analytics_action_get_realtime_data: {
+  google_analytics_action_create_measurement_secret: {
     accountId: "google-analytics_accounts",
     propertyId: "google-analytics_properties",
   },
@@ -912,7 +913,7 @@ const googleAnalyticsMappings: Record<string, FieldMapping> = {
     accountId: "google-analytics_accounts",
     propertyId: "google-analytics_properties",
   },
-  google_analytics_action_get_user_activity: {
+  google_analytics_action_find_conversion: {
     accountId: "google-analytics_accounts",
     propertyId: "google-analytics_properties",
   },

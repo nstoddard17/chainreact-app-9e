@@ -105,14 +105,16 @@ export async function GET(request: NextRequest) {
     const integrationData = {
       user_id: userId,
       provider: provider,
-      email: userEmail,
-      account_name: userName,
       access_token: tokenData.access_token,
       refresh_token: tokenData.refresh_token,
       expires_at: expiresAt ? expiresAt.toISOString() : null,
       scopes: grantedScopes,
       status: 'connected',
       updated_at: new Date().toISOString(),
+      metadata: {
+        email: userEmail,
+        account_name: userName
+      }
     }
 
     const { error: upsertError } = await supabase.from('integrations').upsert(integrationData, {

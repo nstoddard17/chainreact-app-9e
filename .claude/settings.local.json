@@ -40,7 +40,14 @@
       "Bash(cat:*)",
       "Bash(npm run dev:*)",
       "Bash(psql \"postgresql://postgres.xzwsdwllmrnrgbltibxt:Lukelombardo10!@aws-0-us-east-1.pooler.supabase.com:6543/postgres\" -c \"\\d integrations\")",
-      "Bash(psql \"postgresql://postgres.xzwsdwllmrnrgbltibxt:Lukelombardo10!@aws-0-us-east-1.pooler.supabase.com:6543/postgres\" -c \"SELECT id, provider, status, created_at, expires_at, consecutive_failures, disconnect_reason FROM integrations WHERE provider IN (''gmail'', ''google-analytics'') ORDER BY created_at DESC LIMIT 10;\")"
+      "Bash(psql \"postgresql://postgres.xzwsdwllmrnrgbltibxt:Lukelombardo10!@aws-0-us-east-1.pooler.supabase.com:6543/postgres\" -c \"SELECT id, provider, status, created_at, expires_at, consecutive_failures, disconnect_reason FROM integrations WHERE provider IN (''gmail'', ''google-analytics'') ORDER BY created_at DESC LIMIT 10;\")",
+      "Bash(for provider in airtable blackbaud dropbox facebook gumroad instagram kit linkedin notion onenote paypal shopify teams trello twitter)",
+      "Bash(do)",
+      "Bash(file=\"/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/app/api/integrations/$provider/callback/route.ts\")",
+      "Bash(if grep -q \"email:\\|provider_user_id:\\|username:\\|account_name:\" \"$file\")",
+      "Bash(then)",
+      "Bash(echo:*)",
+      "Bash(fi)"
     ],
     "edit": [
       "*"

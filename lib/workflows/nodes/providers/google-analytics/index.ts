@@ -3,17 +3,18 @@ import { NodeComponent } from "../../types"
 
 /**
  * Google Analytics 4 Integration
+ * 100% Zapier feature parity + Make.com coverage
  *
  * Triggers:
- * - Goal Completion (Conversion Events)
+ * - Goal Completion (Conversion Events) - matches Zapier "New Conversion Event"
  *
  * Actions:
- * - Send Event
- * - Get Real-Time Data
- * - Run Report
- * - Get User Activity
- * - Create Conversion Event
- * - Run Pivot Report
+ * - Send Event - matches Zapier "Send Measurement Events" / Make.com "Create Event"
+ * - Create Measurement Secret - matches Zapier "Create Measurement"
+ * - Run Report - matches Zapier "Run Report for a Property"
+ * - Find Conversion - matches Zapier "Find Conversion"
+ * - Create Conversion Event - matches Zapier "Create Conversion Event"
+ * - Run Pivot Report - matches Zapier "Generate Pivot Report"
  */
 
 export const googleAnalyticsNodes: NodeComponent[] = [
@@ -242,17 +243,17 @@ export const googleAnalyticsNodes: NodeComponent[] = [
     ],
   },
   {
-    type: "google_analytics_action_get_realtime_data",
-    title: "Get Real-Time Data",
-    description: "Fetch real-time analytics data for your property",
-    icon: BarChart3,
+    type: "google_analytics_action_create_measurement_secret",
+    title: "Create Measurement Secret",
+    description: "Create a new measurement protocol API secret for a data stream",
+    icon: TrendingUp,
     providerId: "google-analytics",
     category: "Analytics",
     isTrigger: false,
     producesOutput: true,
     testable: true,
     requiredScopes: [
-      "https://www.googleapis.com/auth/analytics.readonly"
+      "https://www.googleapis.com/auth/analytics.edit"
     ],
     configSchema: [
       {
@@ -280,36 +281,27 @@ export const googleAnalyticsNodes: NodeComponent[] = [
         }
       },
       {
-        name: "metrics",
-        label: "Metrics",
-        type: "multi-select",
+        name: "dataStreamId",
+        label: "Data Stream ID",
+        type: "text",
         required: true,
-        options: [
-          { label: "Active Users", value: "activeUsers" },
-          { label: "Screen Page Views", value: "screenPageViews" },
-          { label: "Event Count", value: "eventCount" },
-          { label: "Conversions", value: "conversions" },
-        ],
-        defaultValue: ["activeUsers"],
-        description: "The metrics to retrieve",
+        placeholder: "1234567890",
+        description: "The ID of the data stream (web, iOS, or Android)",
+        supportsAI: true,
+        tooltip: "Find this in Admin > Data Streams > [Your Stream] - it's the numeric ID in the URL",
         hidden: {
           $deps: ["accountId"],
           $condition: { accountId: { $exists: false } }
         }
       },
       {
-        name: "dimensions",
-        label: "Dimensions (Optional)",
-        type: "multi-select",
-        required: false,
-        options: [
-          { label: "Country", value: "country" },
-          { label: "City", value: "city" },
-          { label: "Device Category", value: "deviceCategory" },
-          { label: "Page Path", value: "pagePath" },
-          { label: "Event Name", value: "eventName" },
-        ],
-        description: "Optional dimensions to group the data by",
+        name: "displayName",
+        label: "Display Name",
+        type: "text",
+        required: true,
+        placeholder: "My API Secret",
+        description: "A descriptive name for this measurement protocol secret",
+        supportsAI: true,
         hidden: {
           $deps: ["accountId"],
           $condition: { accountId: { $exists: false } }
@@ -318,39 +310,32 @@ export const googleAnalyticsNodes: NodeComponent[] = [
     ],
     outputSchema: [
       {
-        name: "active_users",
-        label: "Active Users",
-        type: "number",
-        description: "Number of users currently active on your site",
-        example: 127
+        name: "success",
+        label: "Success",
+        type: "boolean",
+        description: "Whether the secret was successfully created",
+        example: true
       },
       {
-        name: "page_views",
-        label: "Page Views",
-        type: "number",
-        description: "Total page views in the specified time period",
-        example: 1543
-      },
-      {
-        name: "event_count",
-        label: "Event Count",
-        type: "number",
-        description: "Total number of events tracked",
-        example: 892
-      },
-      {
-        name: "data",
-        label: "Full Data",
-        type: "object",
-        description: "Complete real-time data response including all metrics and dimensions",
-        example: { rows: [], totals: {}, metadata: {} }
-      },
-      {
-        name: "timestamp",
-        label: "Timestamp",
+        name: "secret_value",
+        label: "Secret Value",
         type: "string",
-        description: "ISO 8601 timestamp when the data was fetched",
-        example: "2024-01-15T10:30:00Z"
+        description: "The generated API secret value (save this - it's only shown once!)",
+        example: "abc123XYZ456def789"
+      },
+      {
+        name: "display_name",
+        label: "Display Name",
+        type: "string",
+        description: "The display name you provided for this secret",
+        example: "My API Secret"
+      },
+      {
+        name: "resource_name",
+        label: "Resource Name",
+        type: "string",
+        description: "Full resource path to the measurement protocol secret",
+        example: "properties/123456/dataStreams/987654/measurementProtocolSecrets/abc123"
       },
     ],
   },
@@ -538,10 +523,10 @@ export const googleAnalyticsNodes: NodeComponent[] = [
     ],
   },
   {
-    type: "google_analytics_action_get_user_activity",
-    title: "Get User Activity",
-    description: "Retrieve activity data for a specific user",
-    icon: Users,
+    type: "google_analytics_action_find_conversion",
+    title: "Find Conversion",
+    description: "Find a conversion event by ID",
+    icon: TrendingUp,
     providerId: "google-analytics",
     category: "Analytics",
     isTrigger: false,
@@ -576,31 +561,13 @@ export const googleAnalyticsNodes: NodeComponent[] = [
         }
       },
       {
-        name: "userId",
-        label: "User ID",
+        name: "conversionEventName",
+        label: "Conversion Event Name",
         type: "text",
         required: true,
-        placeholder: "{{trigger.user_id}}",
-        description: "Enter the User ID to look up (supports variables like {{trigger.user_id}})",
+        placeholder: "purchase",
+        description: "The name of the conversion event to find (e.g., 'purchase', 'sign_up')",
         supportsAI: true,
-        tooltip: "This should be a User ID from your GA4 User-ID tracking implementation. You can use workflow variables or paste a specific User ID.",
-        hidden: {
-          $deps: ["accountId"],
-          $condition: { accountId: { $exists: false } }
-        }
-      },
-      {
-        name: "dateRange",
-        label: "Date Range",
-        type: "select",
-        required: true,
-        options: [
-          { label: "Last 7 Days", value: "last_7_days" },
-          { label: "Last 30 Days", value: "last_30_days" },
-          { label: "Last 90 Days", value: "last_90_days" },
-        ],
-        defaultValue: "last_30_days",
-        description: "How far back to look for user activity",
         hidden: {
           $deps: ["accountId"],
           $condition: { accountId: { $exists: false } }
@@ -609,46 +576,39 @@ export const googleAnalyticsNodes: NodeComponent[] = [
     ],
     outputSchema: [
       {
-        name: "user_id",
-        label: "User ID",
+        name: "found",
+        label: "Found",
+        type: "boolean",
+        description: "Whether the conversion event was found",
+        example: true
+      },
+      {
+        name: "event_name",
+        label: "Event Name",
         type: "string",
-        description: "The user ID that was queried",
-        example: "user_12345"
+        description: "The name of the conversion event",
+        example: "purchase"
       },
       {
-        name: "activity",
-        label: "User Activity",
-        type: "array",
-        description: "Array of user activity events including pages visited, events triggered, and timestamps",
-        example: [{ eventName: "page_view", pagePath: "/home", timestamp: "2024-01-15T10:30:00Z" }]
-      },
-      {
-        name: "total_events",
-        label: "Total Events",
-        type: "number",
-        description: "Total number of events recorded for this user in the specified date range",
-        example: 47
-      },
-      {
-        name: "total_sessions",
-        label: "Total Sessions",
-        type: "number",
-        description: "Total number of sessions for this user in the specified date range",
-        example: 12
-      },
-      {
-        name: "first_seen",
-        label: "First Seen",
+        name: "counting_method",
+        label: "Counting Method",
         type: "string",
-        description: "ISO 8601 timestamp of when this user was first seen",
-        example: "2023-12-01T08:15:00Z"
+        description: "How the conversion is counted (ONCE_PER_EVENT or ONCE_PER_SESSION)",
+        example: "ONCE_PER_EVENT"
       },
       {
-        name: "last_seen",
-        label: "Last Seen",
+        name: "id",
+        label: "Conversion ID",
         type: "string",
-        description: "ISO 8601 timestamp of when this user was last seen",
-        example: "2024-01-15T14:22:00Z"
+        description: "The unique identifier for this conversion event",
+        example: "12345678"
+      },
+      {
+        name: "resource_name",
+        label: "Resource Name",
+        type: "string",
+        description: "Full resource path to the conversion event",
+        example: "properties/123456/conversionEvents/12345678"
       },
     ],
   },

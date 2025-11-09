@@ -134,14 +134,11 @@ export async function GET(request: NextRequest) {
     const { data: upsertedIntegration, error: upsertError } = await supabase.from('integrations').upsert({
       user_id: userId,
       provider,
-      email: (accountInfo as any)?.email || null,
-      account_name: (accountInfo as any)?.name?.display_name || (accountInfo as any)?.name?.given_name || null,
       access_token: encrypt(tokenData.access_token, encryptionKey),
       refresh_token: tokenData.refresh_token ? encrypt(tokenData.refresh_token, encryptionKey) : null,
       expires_at: expiresAt.toISOString(),
       refresh_token_expires_at: tokenData.refresh_token ? null : undefined, // Dropbox refresh tokens don't expire
       status: 'connected',
-      is_active: true,
       updated_at: new Date().toISOString(),
       metadata: {
         account_id: tokenData.account_id || (accountInfo as any).account_id,
@@ -149,7 +146,10 @@ export async function GET(request: NextRequest) {
         token_type: tokenData.token_type,
         scope: tokenData.scope,
         uid: tokenData.uid,
-        team_id: tokenData.team_id
+        team_id: tokenData.team_id,
+        // Account display fields
+        email: (accountInfo as any)?.email || null,
+        account_name: (accountInfo as any)?.name?.display_name || (accountInfo as any)?.name?.given_name || null
       }
     }, {
       onConflict: 'user_id, provider',
