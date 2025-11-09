@@ -309,3 +309,57 @@ Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
 [2025-11-09T16:50:35.813Z] [INFO   ] 2025-11-09T16:50:35.812Z [DEBUG] ✅ [Gmail API] Found 24 unique recipients from sent and received emails
 [2025-11-09T16:50:35.813Z] [INFO   ] 2025-11-09T16:50:35.813Z [DEBUG] ✅ [Gmail API] Returning 24 enhanced recipients (contacts: true)
 [2025-11-09T16:50:35.813Z] [INFO   ] 2025-11-09T16:50:35.813Z [DEBUG] ✅ [Gmail Data API] Handler completed in 2295ms, returned 24 items
+[2025-11-09T16:51:46.083Z] [INFO   ] 2025-11-09T16:51:46.083Z [DEBUG] 🔍 [Google Data API] Request received: {"integrationId":"72c8e3d3-ae7f-464a-b167-ad1e4b7bcc20","dataType":"google-calendars","options":{},"fullRequestBody":{"integrationId":"72c8e3d3-ae7f-464a-b167-ad1e4b7bcc20","dataType":"google-calendars"}}
+[2025-11-09T16:51:46.234Z] [INFO   ] 2025-11-09T16:51:46.234Z [DEBUG] 📊 [Google API] Integration provider check: {"integrationId":"72c8e3d3-ae7f-464a-b167-ad1e4b7bcc20","actualProvider":"google-calendar","dataType":"google-calendars","providerLowerCase":"google-calendar"}
+[2025-11-09T16:51:46.235Z] [INFO   ] 2025-11-09T16:51:46.235Z [DEBUG] 🔍 [Google API] Processing request: {"integrationId":"72c8e3d3-ae7f-464a-b167-ad1e4b7bcc20","dataType":"google-calendars","provider":"google-calendar","status":"connected","hasToken":true}
+[2025-11-09T16:51:46.235Z] [INFO   ] 2025-11-09T16:51:46.235Z [DEBUG] 📅 [Google Calendar] Fetching calendars
+[2025-11-09T16:51:46.461Z] [INFO   ] 2025-11-09T16:51:46.461Z [DEBUG] ✅ [Google Calendar] Retrieved 3 calendars
+[2025-11-09T16:51:46.461Z] [INFO   ] 2025-11-09T16:51:46.461Z [DEBUG] ✅ [Google API] Successfully processed google-calendars: {"integrationId":"72c8e3d3-ae7f-464a-b167-ad1e4b7bcc20","resultCount":3}
+[2025-11-09T16:52:16.048Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1391ms (5196 modules)
+[2025-11-09T16:52:26.293Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 667ms (5196 modules)
+[2025-11-09T16:53:26.187Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/gmail/signatures in 277ms (4089 modules)
+[2025-11-09T16:53:26.315Z] [INFO   ] 2025-11-09T16:53:26.315Z [DEBUG] 🔍 [GMAIL SIGNATURES] API endpoint called
+[2025-11-09T16:53:26.316Z] [INFO   ] 2025-11-09T16:53:26.316Z [DEBUG] 🔍 [GMAIL SIGNATURES] Request params: {"requestedUserId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-09T16:53:26.556Z] [INFO   ] 2025-11-09T16:53:26.556Z [DEBUG] 🔍 [GMAIL SIGNATURES] Getting access token for user: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-11-09T16:53:26.630Z] [INFO   ] 2025-11-09T16:53:26.630Z [DEBUG] ✅ [GMAIL SIGNATURES] Access token retrieved successfully
+[2025-11-09T16:53:26.630Z] [INFO   ] 2025-11-09T16:53:26.630Z [DEBUG] 🔍 [GMAIL SIGNATURES] Fetching Gmail sendAs settings...
+[2025-11-09T16:53:26.939Z] [INFO   ] 2025-11-09T16:53:26.939Z [DEBUG] ✅ [GMAIL SIGNATURES] SendAs API response received: {
+  "sendAs": [
+    {
+      "sendAsEmail": "stoddard.nathaniel900@gmail.com",
+      "displayName": "",
+      "replyToAddress": "",
+      "signature": "",
+      "isPrimary": true,
+      "isDefault": true
+    }
+  ]
+}
+[2025-11-09T16:53:26.941Z] [INFO   ] 2025-11-09T16:53:26.940Z [DEBUG] 🔍 [GMAIL SIGNATURES] Found 1 sendAs settings
+[2025-11-09T16:53:26.941Z] [INFO   ] 2025-11-09T16:53:26.941Z [DEBUG] 🔍 [GMAIL SIGNATURES] Processing sendAs 0: {"sendAsEmail":"stoddard.nathaniel900@gmail.com","displayName":"","hasSignature":false,"signaturePreview":"","isDefault":true}
+[2025-11-09T16:53:26.941Z] [INFO   ] 2025-11-09T16:53:26.941Z [DEBUG] ⚠️ [GMAIL SIGNATURES] No signature set for: stoddard.nathaniel900@gmail.com
+[2025-11-09T16:53:26.941Z] [INFO   ] 2025-11-09T16:53:26.941Z [DEBUG] ✅ [GMAIL SIGNATURES] Returning 1 signature(s): [{"id":"gmail-signature-0","name":"stoddard.nathaniel900@gmail.com","hasSignature":false}]
+[2025-11-09T16:53:26.996Z] [INFO   ] 2025-11-09T16:53:26.996Z [DEBUG] 🔍 [GMAIL SIGNATURES] API endpoint called
+[2025-11-09T16:53:26.996Z] [INFO   ] 2025-11-09T16:53:26.996Z [DEBUG] 🔍 [GMAIL SIGNATURES] Request params: {"requestedUserId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-09T16:53:27.069Z] [INFO   ] 2025-11-09T16:53:27.069Z [DEBUG] 🔍 [GMAIL SIGNATURES] Getting access token for user: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-11-09T16:53:27.157Z] [INFO   ] 2025-11-09T16:53:27.157Z [DEBUG] ✅ [GMAIL SIGNATURES] Access token retrieved successfully
+[2025-11-09T16:53:27.157Z] [INFO   ] 2025-11-09T16:53:27.157Z [DEBUG] 🔍 [GMAIL SIGNATURES] Fetching Gmail sendAs settings...
+[2025-11-09T16:53:27.346Z] [INFO   ] 2025-11-09T16:53:27.346Z [DEBUG] ✅ [GMAIL SIGNATURES] SendAs API response received: {
+  "sendAs": [
+    {
+      "sendAsEmail": "stoddard.nathaniel900@gmail.com",
+      "displayName": "",
+      "replyToAddress": "",
+      "signature": "",
+      "isPrimary": true,
+      "isDefault": true
+    }
+  ]
+}
+[2025-11-09T16:53:27.346Z] [INFO   ] 2025-11-09T16:53:27.346Z [DEBUG] 🔍 [GMAIL SIGNATURES] Found 1 sendAs settings
+[2025-11-09T16:53:27.346Z] [INFO   ] 2025-11-09T16:53:27.346Z [DEBUG] 🔍 [GMAIL SIGNATURES] Processing sendAs 0: {"sendAsEmail":"stoddard.nathaniel900@gmail.com","displayName":"","hasSignature":false,"signaturePreview":"","isDefault":true}
+[2025-11-09T16:53:27.346Z] [INFO   ] 2025-11-09T16:53:27.346Z [DEBUG] ⚠️ [GMAIL SIGNATURES] No signature set for: stoddard.nathaniel900@gmail.com
+[2025-11-09T16:53:27.346Z] [INFO   ] 2025-11-09T16:53:27.346Z [DEBUG] ✅ [GMAIL SIGNATURES] Returning 1 signature(s): [{"id":"gmail-signature-0","name":"stoddard.nathaniel900@gmail.com","hasSignature":false}]
+[2025-11-09T16:53:43.435Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1579ms (5411 modules)
+[2025-11-09T16:54:00.189Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 358ms (1089 modules)
+[2025-11-09T16:54:08.510Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 399ms (1089 modules)
