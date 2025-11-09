@@ -38,8 +38,13 @@ export async function createGoogleAnalyticsAdminClient(integration: GoogleAnalyt
       const { credentials } = await oauth2Client.refreshAccessToken()
       oauth2Client.setCredentials(credentials)
       logger.debug('🔄 Refreshed Google Analytics access token')
-    } catch (error) {
-      logger.error('Failed to refresh token:', error)
+    } catch (error: any) {
+      logger.error('Failed to refresh token:', {
+        message: error?.message,
+        code: error?.code,
+        status: error?.status,
+        error: error?.response?.data || error?.toString()
+      })
       throw new Error('Authentication expired. Please reconnect your Google account.')
     }
   }
@@ -70,6 +75,23 @@ export async function createGoogleAnalyticsDataClient(integration: GoogleAnalyti
     token_type: 'Bearer',
     expiry_date: integration.expires_at ? new Date(integration.expires_at).getTime() : undefined
   })
+
+  // Check if token needs refresh
+  if (integration.expires_at && new Date(integration.expires_at) < new Date()) {
+    try {
+      const { credentials } = await oauth2Client.refreshAccessToken()
+      oauth2Client.setCredentials(credentials)
+      logger.debug('🔄 Refreshed Google Analytics access token (data client)')
+    } catch (error: any) {
+      logger.error('Failed to refresh token (data client):', {
+        message: error?.message,
+        code: error?.code,
+        status: error?.status,
+        error: error?.response?.data || error?.toString()
+      })
+      throw new Error('Authentication expired. Please reconnect your Google account.')
+    }
+  }
 
   return google.analyticsdata({ version: 'v1beta', auth: oauth2Client })
 }

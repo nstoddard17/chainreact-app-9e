@@ -11,19 +11,19 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
-import { 
-  Bold, 
-  Italic, 
-  Underline, 
-  List, 
-  ListOrdered, 
-  AlignLeft, 
-  AlignCenter, 
-  AlignRight, 
-  Link, 
-  Image, 
-  Palette, 
-  Type, 
+import {
+  Bold,
+  Italic,
+  Underline,
+  List,
+  ListOrdered,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  Link,
+  Image,
+  Palette,
+  Type,
   Quote,
   Code,
   Undo,
@@ -35,7 +35,8 @@ import {
   Mail,
   User,
   Calendar,
-  Building
+  Building,
+  Braces
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useVariableDropTarget } from '../hooks/useVariableDropTarget'
@@ -73,11 +74,11 @@ const EMAIL_TEMPLATES: EmailTemplate[] = [
   {
     id: 'meeting-request',
     name: 'Meeting Request',
-    content: `<p>Hi there,</p>
+    content: `<p>Hi {{recipient_name}},</p>
 
-<p>I hope this email finds you well. I would like to schedule a meeting to discuss <strong>[TOPIC]</strong>.</p>
+<p>I hope this email finds you well. I would like to schedule a meeting to discuss <strong>{{meeting_topic}}</strong>.</p>
 
-<p>Would you be available for a <strong>[DURATION]</strong> meeting sometime next week? I'm flexible with timing and can accommodate your schedule.</p>
+<p>Would you be available for a <strong>{{meeting_duration}}</strong> meeting sometime next week? I'm flexible with timing and can accommodate your schedule.</p>
 
 <p>Please let me know what works best for you.</p>
 
@@ -87,9 +88,9 @@ const EMAIL_TEMPLATES: EmailTemplate[] = [
   {
     id: 'follow-up',
     name: 'Follow-up Email',
-    content: `<p>Hi [NAME],</p>
+    content: `<p>Hi {{recipient_name}},</p>
 
-<p>I wanted to follow up on our conversation about <strong>[TOPIC]</strong>.</p>
+<p>I wanted to follow up on our conversation about <strong>{{discussion_topic}}</strong>.</p>
 
 <p>As discussed, I'm attaching the information you requested. Please let me know if you have any questions or if there's anything else I can help you with.</p>
 
@@ -103,23 +104,23 @@ const EMAIL_TEMPLATES: EmailTemplate[] = [
     name: 'Project Update',
     content: `<p>Hi Team,</p>
 
-<p><strong>Project Status Update - [PROJECT NAME]</strong></p>
+<p><strong>Project Status Update - {{project_name}}</strong></p>
 
 <p><strong>Progress This Week:</strong></p>
 <ul>
-<li>[ACCOMPLISHMENT 1]</li>
-<li>[ACCOMPLISHMENT 2]</li>
-<li>[ACCOMPLISHMENT 3]</li>
+<li>{{accomplishment_1}}</li>
+<li>{{accomplishment_2}}</li>
+<li>{{accomplishment_3}}</li>
 </ul>
 
 <p><strong>Upcoming Milestones:</strong></p>
 <ul>
-<li>[MILESTONE 1] - [DATE]</li>
-<li>[MILESTONE 2] - [DATE]</li>
+<li>{{milestone_1}} - {{milestone_1_date}}</li>
+<li>{{milestone_2}} - {{milestone_2_date}}</li>
 </ul>
 
 <p><strong>Blockers/Issues:</strong><br>
-[DESCRIBE ANY ISSUES OR NONE]</p>
+{{blockers_description}}</p>
 
 <p>Please let me know if you have any questions or concerns.</p>
 
@@ -129,9 +130,9 @@ const EMAIL_TEMPLATES: EmailTemplate[] = [
   {
     id: 'proposal-submission',
     name: 'Proposal Submission',
-    content: `<p>Dear [CLIENT NAME],</p>
+    content: `<p>Dear {{client_name}},</p>
 
-<p>Thank you for the opportunity to submit a proposal for <strong>[PROJECT NAME]</strong>.</p>
+<p>Thank you for the opportunity to submit a proposal for <strong>{{project_name}}</strong>.</p>
 
 <p>Based on our discussion, I've prepared a comprehensive proposal that outlines:</p>
 <ul>
@@ -150,7 +151,7 @@ const EMAIL_TEMPLATES: EmailTemplate[] = [
   {
     id: 'performance-review',
     name: 'Performance Review Request',
-    content: `<p>Hi [EMPLOYEE NAME],</p>
+    content: `<p>Hi {{employee_name}},</p>
 
 <p>I hope you're doing well. It's time for your quarterly performance review, and I'd like to schedule a meeting to discuss your progress and goals.</p>
 
@@ -174,13 +175,13 @@ const EMAIL_TEMPLATES: EmailTemplate[] = [
   {
     id: 'cold-outreach',
     name: 'Cold Sales Outreach',
-    content: `<p>Hi [NAME],</p>
+    content: `<p>Hi {{prospect_name}},</p>
 
-<p>I hope this email finds you well. I came across [COMPANY] and was impressed by [SPECIFIC DETAIL ABOUT THEIR BUSINESS].</p>
+<p>I hope this email finds you well. I came across {{company_name}} and was impressed by {{company_detail}}.</p>
 
-<p>I'm reaching out because we help companies like yours [SPECIFIC BENEFIT/SOLUTION]. Many of our clients in [INDUSTRY] have seen [SPECIFIC RESULT/METRIC].</p>
+<p>I'm reaching out because we help companies like yours {{solution_benefit}}. Many of our clients in {{industry}} have seen {{result_metric}}.</p>
 
-<p>I'd love to share how we could potentially help [COMPANY] achieve similar results. Would you be open to a brief 15-minute conversation this week?</p>
+<p>I'd love to share how we could potentially help {{company_name}} achieve similar results. Would you be open to a brief 15-minute conversation this week?</p>
 
 <p>No pressure at all - if it's not a fit, I completely understand.</p>
 
@@ -190,15 +191,15 @@ const EMAIL_TEMPLATES: EmailTemplate[] = [
   {
     id: 'sales-follow-up',
     name: 'Sales Follow-up',
-    content: `<p>Hi [NAME],</p>
+    content: `<p>Hi {{prospect_name}},</p>
 
-<p>I wanted to follow up on our conversation from [DATE] about [SOLUTION/PRODUCT].</p>
+<p>I wanted to follow up on our conversation from {{conversation_date}} about {{product_name}}.</p>
 
-<p>Based on what you shared about [THEIR CHALLENGE], I believe our [SOLUTION] could help you [SPECIFIC BENEFIT].</p>
+<p>Based on what you shared about {{customer_challenge}}, I believe our {{solution_name}} could help you {{specific_benefit}}.</p>
 
 <p>I've attached some additional information that might be helpful, including:</p>
 <ul>
-<li>Case study from [SIMILAR COMPANY]</li>
+<li>Case study from {{similar_company}}</li>
 <li>ROI calculator</li>
 <li>Implementation timeline</li>
 </ul>
@@ -211,11 +212,11 @@ const EMAIL_TEMPLATES: EmailTemplate[] = [
   {
     id: 'product-demo',
     name: 'Product Demo Invitation',
-    content: `<p>Hi [NAME],</p>
+    content: `<p>Hi {{prospect_name}},</p>
 
-<p>Thank you for your interest in [PRODUCT NAME]!</p>
+<p>Thank you for your interest in {{product_name}}!</p>
 
-<p>I'd love to show you how [PRODUCT] can help [COMPANY] [SPECIFIC BENEFIT]. During our personalized demo, we'll cover:</p>
+<p>I'd love to show you how {{product_name}} can help {{company_name}} {{specific_benefit}}. During our personalized demo, we'll cover:</p>
 
 <ul>
 <li>Live walkthrough of key features</li>
@@ -228,7 +229,7 @@ const EMAIL_TEMPLATES: EmailTemplate[] = [
 
 <p>What does your schedule look like for a demo this week or next?</p>
 
-<p>Looking forward to showing you what [PRODUCT] can do!</p>
+<p>Looking forward to showing you what {{product_name}} can do!</p>
 
 <p>Best regards,</p>`,
     category: 'marketing'
@@ -238,20 +239,20 @@ const EMAIL_TEMPLATES: EmailTemplate[] = [
   {
     id: 'support-response',
     name: 'Customer Support Response',
-    content: `<p>Hi [CUSTOMER NAME],</p>
+    content: `<p>Hi {{customer_name}},</p>
 
-<p>Thank you for contacting us regarding [ISSUE DESCRIPTION].</p>
+<p>Thank you for contacting us regarding {{issue_description}}.</p>
 
 <p>I understand how frustrating this must be, and I'm here to help resolve this quickly.</p>
 
 <p><strong>Here's what I've found:</strong><br>
-[EXPLANATION OF ISSUE]</p>
+{{issue_explanation}}</p>
 
 <p><strong>To resolve this, please:</strong></p>
 <ol>
-<li>[STEP 1]</li>
-<li>[STEP 2]</li>
-<li>[STEP 3]</li>
+<li>{{resolution_step_1}}</li>
+<li>{{resolution_step_2}}</li>
+<li>{{resolution_step_3}}</li>
 </ol>
 
 <p>If you continue to experience issues after following these steps, please don't hesitate to reach out. I'm here to help!</p>
@@ -264,25 +265,25 @@ const EMAIL_TEMPLATES: EmailTemplate[] = [
   {
     id: 'escalation-response',
     name: 'Issue Escalation Response',
-    content: `<p>Dear [CUSTOMER NAME],</p>
+    content: `<p>Dear {{customer_name}},</p>
 
-<p>I want to personally address the issue you've experienced with [PRODUCT/SERVICE]. I sincerely apologize for the inconvenience this has caused.</p>
+<p>I want to personally address the issue you've experienced with {{product_name}}. I sincerely apologize for the inconvenience this has caused.</p>
 
 <p><strong>What happened:</strong><br>
-[CLEAR EXPLANATION OF THE ISSUE]</p>
+{{issue_explanation}}</p>
 
 <p><strong>What we're doing to fix it:</strong></p>
 <ul>
-<li>[ACTION 1]</li>
-<li>[ACTION 2]</li>
-<li>[ACTION 3]</li>
+<li>{{action_1}}</li>
+<li>{{action_2}}</li>
+<li>{{action_3}}</li>
 </ul>
 
-<p><strong>Timeline for resolution:</strong> [SPECIFIC DATE/TIME]</p>
+<p><strong>Timeline for resolution:</strong> {{resolution_timeline}}</p>
 
-<p>As an apology for this inconvenience, we'd like to offer [COMPENSATION/GESTURE].</p>
+<p>As an apology for this inconvenience, we'd like to offer {{compensation_offer}}.</p>
 
-<p>I'll personally monitor this issue and keep you updated every step of the way. You can reach me directly at [CONTACT INFO].</p>
+<p>I'll personally monitor this issue and keep you updated every step of the way. You can reach me directly at {{direct_contact}}.</p>
 
 <p>Thank you for your patience and for giving us the opportunity to make this right.</p>
 
@@ -294,11 +295,11 @@ const EMAIL_TEMPLATES: EmailTemplate[] = [
   {
     id: 'introduction',
     name: 'Professional Introduction',
-    content: `<p>Hello [NAME],</p>
+    content: `<p>Hello {{recipient_name}},</p>
 
 <p>I hope you're doing well. I wanted to reach out and introduce myself.</p>
 
-<p>My name is <strong>[YOUR NAME]</strong>, and I work as <strong>[YOUR ROLE]</strong> at <strong>[COMPANY]</strong>. I came across your profile and was impressed by your work in <strong>[FIELD/INDUSTRY]</strong>.</p>
+<p>My name is <strong>{{your_name}}</strong>, and I work as <strong>{{your_role}}</strong> at <strong>{{your_company}}</strong>. I came across your profile and was impressed by your work in <strong>{{their_field}}</strong>.</p>
 
 <p>I'd love to connect and learn more about what you're working on.</p>
 
@@ -308,11 +309,11 @@ const EMAIL_TEMPLATES: EmailTemplate[] = [
   {
     id: 'thank-you',
     name: 'Thank You Email',
-    content: `<p>Dear [NAME],</p>
+    content: `<p>Dear {{recipient_name}},</p>
 
-<p>Thank you so much for <strong>[REASON]</strong>. I really appreciate your time and effort.</p>
+<p>Thank you so much for <strong>{{thank_you_reason}}</strong>. I really appreciate your time and effort.</p>
 
-<p>Your insights about <strong>[TOPIC]</strong> were particularly valuable and will definitely help us move forward.</p>
+<p>Your insights about <strong>{{discussion_topic}}</strong> were particularly valuable and will definitely help us move forward.</p>
 
 <p>I look forward to continuing our collaboration.</p>
 
@@ -322,11 +323,11 @@ const EMAIL_TEMPLATES: EmailTemplate[] = [
   {
     id: 'networking-follow-up',
     name: 'Networking Follow-up',
-    content: `<p>Hi [NAME],</p>
+    content: `<p>Hi {{recipient_name}},</p>
 
-<p>It was great meeting you at <strong>[EVENT NAME]</strong> yesterday! I really enjoyed our conversation about <strong>[TOPIC DISCUSSED]</strong>.</p>
+<p>It was great meeting you at <strong>{{event_name}}</strong> yesterday! I really enjoyed our conversation about <strong>{{discussion_topic}}</strong>.</p>
 
-<p>As promised, I'm attaching <strong>[RESOURCE/DOCUMENT]</strong> that we discussed. I think you'll find it helpful for <strong>[RELEVANT USE CASE]</strong>.</p>
+<p>As promised, I'm attaching <strong>{{resource_name}}</strong> that we discussed. I think you'll find it helpful for <strong>{{use_case}}</strong>.</p>
 
 <p>I'd love to continue our conversation sometime. Would you be interested in grabbing coffee next week?</p>
 
@@ -338,20 +339,20 @@ const EMAIL_TEMPLATES: EmailTemplate[] = [
   {
     id: 'collaboration-request',
     name: 'Collaboration Request',
-    content: `<p>Hi [NAME],</p>
+    content: `<p>Hi {{recipient_name}},</p>
 
-<p>I hope this email finds you well. I've been following your work on <strong>[PROJECT/TOPIC]</strong> and I'm really impressed by what you've accomplished.</p>
+<p>I hope this email finds you well. I've been following your work on <strong>{{their_project}}</strong> and I'm really impressed by what you've accomplished.</p>
 
-<p>I'm reaching out because I think there might be an opportunity for us to collaborate on <strong>[SPECIFIC PROJECT/IDEA]</strong>.</p>
+<p>I'm reaching out because I think there might be an opportunity for us to collaborate on <strong>{{project_idea}}</strong>.</p>
 
 <p><strong>What I'm proposing:</strong></p>
 <ul>
-<li>[COLLABORATION DETAIL 1]</li>
-<li>[COLLABORATION DETAIL 2]</li>
-<li>[MUTUAL BENEFIT]</li>
+<li>{{collaboration_detail_1}}</li>
+<li>{{collaboration_detail_2}}</li>
+<li>{{mutual_benefit}}</li>
 </ul>
 
-<p>I believe this could be mutually beneficial because <strong>[REASON]</strong>.</p>
+<p>I believe this could be mutually beneficial because <strong>{{reason}}</strong>.</p>
 
 <p>Would you be open to a brief call to discuss this further?</p>
 
@@ -363,28 +364,28 @@ const EMAIL_TEMPLATES: EmailTemplate[] = [
   {
     id: 'event-invitation',
     name: 'Event Invitation',
-    content: `<p>Dear [NAME],</p>
+    content: `<p>Dear {{recipient_name}},</p>
 
-<p>You're invited to <strong>[EVENT NAME]</strong>!</p>
+<p>You're invited to <strong>{{event_name}}</strong>!</p>
 
 <p><strong>Event Details:</strong></p>
 <ul>
-<li><strong>Date:</strong> [DATE]</li>
-<li><strong>Time:</strong> [TIME]</li>
-<li><strong>Location:</strong> [VENUE/VIRTUAL LINK]</li>
-<li><strong>Dress Code:</strong> [DRESS CODE]</li>
+<li><strong>Date:</strong> {{event_date}}</li>
+<li><strong>Time:</strong> {{event_time}}</li>
+<li><strong>Location:</strong> {{event_location}}</li>
+<li><strong>Dress Code:</strong> {{dress_code}}</li>
 </ul>
 
 <p><strong>What to Expect:</strong></p>
 <ul>
-<li>[ACTIVITY 1]</li>
-<li>[ACTIVITY 2]</li>
-<li>[ACTIVITY 3]</li>
+<li>{{activity_1}}</li>
+<li>{{activity_2}}</li>
+<li>{{activity_3}}</li>
 </ul>
 
 <p>We're excited to have you join us for what promises to be an amazing event!</p>
 
-<p>Please RSVP by <strong>[RSVP DATE]</strong> so we can plan accordingly.</p>
+<p>Please RSVP by <strong>{{rsvp_date}}</strong> so we can plan accordingly.</p>
 
 <p>Looking forward to seeing you there!</p>
 
@@ -394,28 +395,28 @@ const EMAIL_TEMPLATES: EmailTemplate[] = [
   {
     id: 'newsletter',
     name: 'Newsletter Template',
-    content: `<p>Hi [NAME],</p>
+    content: `<p>Hi {{recipient_name}},</p>
 
 <p><strong>Welcome to this week's newsletter!</strong></p>
 
 <p><strong>🔥 This Week's Highlights:</strong></p>
 <ul>
-<li><strong>[HIGHLIGHT 1]</strong> - [BRIEF DESCRIPTION]</li>
-<li><strong>[HIGHLIGHT 2]</strong> - [BRIEF DESCRIPTION]</li>
-<li><strong>[HIGHLIGHT 3]</strong> - [BRIEF DESCRIPTION]</li>
+<li><strong>{{highlight_1_title}}</strong> - {{highlight_1_description}}</li>
+<li><strong>{{highlight_2_title}}</strong> - {{highlight_2_description}}</li>
+<li><strong>{{highlight_3_title}}</strong> - {{highlight_3_description}}</li>
 </ul>
 
 <p><strong>📚 Featured Article:</strong><br>
-<strong>[ARTICLE TITLE]</strong><br>
-[BRIEF SUMMARY WITH LINK]</p>
+<strong>{{article_title}}</strong><br>
+{{article_summary}}</p>
 
 <p><strong>💡 Quick Tip:</strong><br>
-[ACTIONABLE TIP]</p>
+{{quick_tip}}</p>
 
 <p><strong>📅 Upcoming Events:</strong></p>
 <ul>
-<li>[EVENT 1] - [DATE]</li>
-<li>[EVENT 2] - [DATE]</li>
+<li>{{event_1}} - {{event_1_date}}</li>
+<li>{{event_2}} - {{event_2_date}}</li>
 </ul>
 
 <p>That's all for this week! Have a great weekend.</p>
@@ -426,23 +427,23 @@ const EMAIL_TEMPLATES: EmailTemplate[] = [
   {
     id: 'product-launch',
     name: 'Product Launch Announcement',
-    content: `<p>Dear [NAME],</p>
+    content: `<p>Dear {{recipient_name}},</p>
 
-<p>We're thrilled to announce the launch of <strong>[PRODUCT NAME]</strong>!</p>
+<p>We're thrilled to announce the launch of <strong>{{product_name}}</strong>!</p>
 
-<p>After months of development and testing, we're excited to share <strong>[BRIEF PRODUCT DESCRIPTION]</strong> with you.</p>
+<p>After months of development and testing, we're excited to share <strong>{{product_description}}</strong> with you.</p>
 
 <p><strong>🎉 What's New:</strong></p>
 <ul>
-<li><strong>[FEATURE 1]</strong> - [BENEFIT]</li>
-<li><strong>[FEATURE 2]</strong> - [BENEFIT]</li>
-<li><strong>[FEATURE 3]</strong> - [BENEFIT]</li>
+<li><strong>{{feature_1}}</strong> - {{benefit_1}}</li>
+<li><strong>{{feature_2}}</strong> - {{benefit_2}}</li>
+<li><strong>{{feature_3}}</strong> - {{benefit_3}}</li>
 </ul>
 
 <p><strong>🎁 Special Launch Offer:</strong><br>
-As a valued customer, you get <strong>[SPECIAL OFFER]</strong> for the first <strong>[TIME PERIOD]</strong>.</p>
+As a valued customer, you get <strong>{{special_offer}}</strong> for the first <strong>{{offer_period}}</strong>.</p>
 
-<p>Ready to try it out? <strong>[CALL TO ACTION BUTTON/LINK]</strong></p>
+<p>Ready to try it out? <strong>{{call_to_action}}</strong></p>
 
 <p>Questions? Reply to this email - we'd love to help!</p>
 
@@ -454,24 +455,24 @@ As a valued customer, you get <strong>[SPECIAL OFFER]</strong> for the first <st
   {
     id: 'job-offer',
     name: 'Job Offer',
-    content: `<p>Dear [CANDIDATE NAME],</p>
+    content: `<p>Dear {{candidate_name}},</p>
 
-<p>We are delighted to extend an offer for the position of <strong>[JOB TITLE]</strong> at <strong>[COMPANY NAME]</strong>.</p>
+<p>We are delighted to extend an offer for the position of <strong>{{job_title}}</strong> at <strong>{{company_name}}</strong>.</p>
 
 <p>After careful consideration of your background and our interview discussions, we believe you would be an excellent addition to our team.</p>
 
 <p><strong>Position Details:</strong></p>
 <ul>
-<li><strong>Title:</strong> [JOB TITLE]</li>
-<li><strong>Department:</strong> [DEPARTMENT]</li>
-<li><strong>Start Date:</strong> [START DATE]</li>
-<li><strong>Salary:</strong> [SALARY]</li>
-<li><strong>Benefits:</strong> [BENEFITS SUMMARY]</li>
+<li><strong>Title:</strong> {{job_title}}</li>
+<li><strong>Department:</strong> {{department}}</li>
+<li><strong>Start Date:</strong> {{start_date}}</li>
+<li><strong>Salary:</strong> {{salary}}</li>
+<li><strong>Benefits:</strong> {{benefits_summary}}</li>
 </ul>
 
 <p>Please review the attached formal offer letter for complete details.</p>
 
-<p>We're excited about the possibility of you joining our team and would love to have your response by <strong>[RESPONSE DATE]</strong>.</p>
+<p>We're excited about the possibility of you joining our team and would love to have your response by <strong>{{response_date}}</strong>.</p>
 
 <p>Please don't hesitate to reach out if you have any questions.</p>
 
@@ -485,25 +486,25 @@ As a valued customer, you get <strong>[SPECIAL OFFER]</strong> for the first <st
 
 <p>I'm excited to share some important news with you all.</p>
 
-<p><strong>[ANNOUNCEMENT TITLE]</strong></p>
+<p><strong>{{announcement_title}}</strong></p>
 
-<p>[DETAILED ANNOUNCEMENT DESCRIPTION]</p>
+<p>{{announcement_description}}</p>
 
 <p><strong>What this means for you:</strong></p>
 <ul>
-<li>[IMPACT 1]</li>
-<li>[IMPACT 2]</li>
-<li>[IMPACT 3]</li>
+<li>{{impact_1}}</li>
+<li>{{impact_2}}</li>
+<li>{{impact_3}}</li>
 </ul>
 
 <p><strong>Next Steps:</strong></p>
 <ol>
-<li>[STEP 1] - [TIMELINE]</li>
-<li>[STEP 2] - [TIMELINE]</li>
-<li>[STEP 3] - [TIMELINE]</li>
+<li>{{step_1}} - {{step_1_timeline}}</li>
+<li>{{step_2}} - {{step_2_timeline}}</li>
+<li>{{step_3}} - {{step_3_timeline}}</li>
 </ol>
 
-<p>I know you may have questions, and I'm here to address them. Please feel free to reach out to me directly or we can discuss during our next team meeting on <strong>[DATE]</strong>.</p>
+<p>I know you may have questions, and I'm here to address them. Please feel free to reach out to me directly or we can discuss during our next team meeting on <strong>{{meeting_date}}</strong>.</p>
 
 <p>Thank you for your continued dedication and hard work.</p>
 
@@ -515,23 +516,23 @@ As a valued customer, you get <strong>[SPECIAL OFFER]</strong> for the first <st
   {
     id: 'service-apology',
     name: 'Service Apology',
-    content: `<p>Dear [CUSTOMER NAME],</p>
+    content: `<p>Dear {{customer_name}},</p>
 
-<p>I want to personally apologize for the service disruption you experienced on <strong>[DATE]</strong>.</p>
+<p>I want to personally apologize for the service disruption you experienced on <strong>{{incident_date}}</strong>.</p>
 
 <p>We fell short of the high standards you expect and deserve from us, and I take full responsibility for this failure.</p>
 
 <p><strong>What happened:</strong><br>
-[CLEAR, HONEST EXPLANATION]</p>
+{{incident_explanation}}</p>
 
 <p><strong>What we're doing to prevent this in the future:</strong></p>
 <ul>
-<li>[PREVENTIVE MEASURE 1]</li>
-<li>[PREVENTIVE MEASURE 2]</li>
-<li>[PREVENTIVE MEASURE 3]</li>
+<li>{{preventive_measure_1}}</li>
+<li>{{preventive_measure_2}}</li>
+<li>{{preventive_measure_3}}</li>
 </ul>
 
-<p>As an apology, we'd like to offer you <strong>[COMPENSATION]</strong>.</p>
+<p>As an apology, we'd like to offer you <strong>{{compensation_offer}}</strong>.</p>
 
 <p>Your trust means everything to us, and we're committed to earning it back through our actions.</p>
 
@@ -545,21 +546,21 @@ As a valued customer, you get <strong>[SPECIAL OFFER]</strong> for the first <st
   {
     id: 'invoice-send',
     name: 'Invoice Submission',
-    content: `<p>Dear [CLIENT NAME],</p>
+    content: `<p>Dear {{client_name}},</p>
 
 <p>I hope this email finds you well.</p>
 
-<p>Please find attached invoice <strong>#[INVOICE NUMBER]</strong> for the services provided during <strong>[TIME PERIOD]</strong>.</p>
+<p>Please find attached invoice <strong>#{{invoice_number}}</strong> for the services provided during <strong>{{service_period}}</strong>.</p>
 
 <p><strong>Invoice Details:</strong></p>
 <ul>
-<li><strong>Invoice Date:</strong> [DATE]</li>
-<li><strong>Due Date:</strong> [DUE DATE]</li>
-<li><strong>Amount:</strong> [AMOUNT]</li>
-<li><strong>Services:</strong> [SERVICE DESCRIPTION]</li>
+<li><strong>Invoice Date:</strong> {{invoice_date}}</li>
+<li><strong>Due Date:</strong> {{due_date}}</li>
+<li><strong>Amount:</strong> {{invoice_amount}}</li>
+<li><strong>Services:</strong> {{service_description}}</li>
 </ul>
 
-<p>Payment can be made via <strong>[PAYMENT METHODS]</strong>. Please let me know if you need any additional information or have questions about the invoice.</p>
+<p>Payment can be made via <strong>{{payment_methods}}</strong>. Please let me know if you need any additional information or have questions about the invoice.</p>
 
 <p>Thank you for your business!</p>
 
@@ -569,11 +570,11 @@ As a valued customer, you get <strong>[SPECIAL OFFER]</strong> for the first <st
   {
     id: 'payment-reminder',
     name: 'Payment Reminder',
-    content: `<p>Dear [CLIENT NAME],</p>
+    content: `<p>Dear {{client_name}},</p>
 
 <p>I hope you're doing well.</p>
 
-<p>This is a friendly reminder that invoice <strong>#[INVOICE NUMBER]</strong> for <strong>[AMOUNT]</strong> was due on <strong>[DUE DATE]</strong>.</p>
+<p>This is a friendly reminder that invoice <strong>#{{invoice_number}}</strong> for <strong>{{invoice_amount}}</strong> was due on <strong>{{due_date}}</strong>.</p>
 
 <p>If you've already sent the payment, please disregard this message. If not, could you please let me know when we can expect payment?</p>
 
@@ -602,6 +603,41 @@ const TEXT_COLORS = [
   '#3498db', '#9b59b6', '#34495e', '#95a5a6'
 ]
 
+interface EmailVariable {
+  name: string
+  variable: string
+  category: 'trigger' | 'recipient' | 'sender' | 'workflow' | 'datetime'
+  description: string
+}
+
+const COMMON_VARIABLES: EmailVariable[] = [
+  // Trigger Variables
+  { name: 'Trigger Email Subject', variable: '{{trigger.subject}}', category: 'trigger', description: 'Subject from triggering email' },
+  { name: 'Trigger Email Body', variable: '{{trigger.body}}', category: 'trigger', description: 'Body content from triggering email' },
+  { name: 'Trigger Sender Name', variable: '{{trigger.sender_name}}', category: 'trigger', description: 'Name of email sender' },
+  { name: 'Trigger Sender Email', variable: '{{trigger.sender_email}}', category: 'trigger', description: 'Email address of sender' },
+
+  // Recipient Variables
+  { name: 'Recipient Name', variable: '{{recipient_name}}', category: 'recipient', description: 'Name of email recipient' },
+  { name: 'Recipient Email', variable: '{{recipient_email}}', category: 'recipient', description: 'Email address of recipient' },
+  { name: 'Recipient First Name', variable: '{{recipient_first_name}}', category: 'recipient', description: 'First name of recipient' },
+
+  // Sender Variables
+  { name: 'Your Name', variable: '{{sender_name}}', category: 'sender', description: 'Your full name' },
+  { name: 'Your Email', variable: '{{sender_email}}', category: 'sender', description: 'Your email address' },
+  { name: 'Your Company', variable: '{{sender_company}}', category: 'sender', description: 'Your company name' },
+  { name: 'Your Role', variable: '{{sender_role}}', category: 'sender', description: 'Your job title' },
+
+  // Workflow Variables
+  { name: 'Workflow Name', variable: '{{workflow.name}}', category: 'workflow', description: 'Name of this workflow' },
+  { name: 'Execution ID', variable: '{{workflow.execution_id}}', category: 'workflow', description: 'Unique execution identifier' },
+
+  // Date/Time Variables
+  { name: 'Current Date', variable: '{{current_date}}', category: 'datetime', description: 'Today\'s date' },
+  { name: 'Current Time', variable: '{{current_time}}', category: 'datetime', description: 'Current time' },
+  { name: 'Current DateTime', variable: '{{current_datetime}}', category: 'datetime', description: 'Current date and time' },
+]
+
 export function EmailRichTextEditor({
   value,
   onChange,
@@ -614,6 +650,7 @@ export function EmailRichTextEditor({
   const [isPreviewMode, setIsPreviewMode] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState<string>('')
   const [selectedTemplateCategory, setSelectedTemplateCategory] = useState<string>('all')
+  const [selectedVariableCategory, setSelectedVariableCategory] = useState<string>('all')
   const [signatures, setSignatures] = useState<EmailSignature[]>([])
   const [selectedSignature, setSelectedSignature] = useState<string>('')
   const [isLoadingSignatures, setIsLoadingSignatures] = useState(false)
@@ -901,7 +938,12 @@ export function EmailRichTextEditor({
           {/* Templates */}
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 gap-1 hover:bg-muted text-muted-foreground hover:text-foreground">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1 hover:bg-muted text-muted-foreground hover:text-foreground"
+                title="Insert email templates with variable placeholders"
+              >
                 <Mail className="h-4 w-4" />
                 Templates
                 <ChevronDown className="h-3 w-3" />
@@ -911,7 +953,15 @@ export function EmailRichTextEditor({
               <div className="p-3 border-b border-border">
                 <h4 className="text-sm font-medium text-foreground">Email Templates</h4>
                 <p className="text-xs text-muted-foreground mt-1">Choose a template to get started</p>
-                
+
+                {/* Instructive Help Banner */}
+                <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md">
+                  <p className="text-xs text-blue-900 dark:text-blue-100">
+                    <strong>💡 Tip:</strong> Templates use <code className="px-1 py-0.5 bg-blue-100 dark:bg-blue-900 rounded text-[11px]">{'{{variable_name}}'}</code> placeholders.
+                    Drag variables from the right panel to replace them with workflow data.
+                  </p>
+                </div>
+
                 {/* Category Filter */}
                 <div className="mt-3">
                   <Select value={selectedTemplateCategory} onValueChange={setSelectedTemplateCategory}>

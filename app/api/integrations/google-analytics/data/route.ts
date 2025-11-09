@@ -94,26 +94,37 @@ export async function POST(req: NextRequest) {
       }
     })
   } catch (error: any) {
-    logger.error('❌ [Google Analytics Data API] Error:', error)
+    logger.error('❌ [Google Analytics Data API] Error:', {
+      message: error?.message,
+      code: error?.code,
+      status: error?.status,
+      statusCode: error?.statusCode,
+      name: error?.name,
+      response: error?.response?.data,
+      stack: process.env.NODE_ENV === 'development' ? error?.stack : undefined
+    })
 
     // Handle specific Google Analytics API errors
-    if (error.code === 401 || error.message?.includes('authentication')) {
+    const errorCode = error?.code || error?.status || error?.statusCode
+    const errorMessage = error?.message || ''
+
+    if (errorCode === 401 || errorMessage.includes('authentication') || errorMessage.includes('expired')) {
       return errorResponse('Google Analytics authentication expired. Please reconnect your account.', 401, {
         needsReconnection: true
       })
     }
 
-    if (error.code === 403 || error.message?.includes('permission')) {
+    if (errorCode === 403 || errorMessage.includes('permission') || errorMessage.includes('forbidden')) {
       return errorResponse('Google Analytics API access forbidden. Check your permissions.', 403, {
         needsReconnection: true
       })
     }
 
-    if (error.code === 429 || error.message?.includes('rate limit')) {
+    if (errorCode === 429 || errorMessage.includes('rate limit')) {
       return errorResponse('Google Analytics API rate limit exceeded. Please try again later.', 429)
     }
 
-    return errorResponse(error.message || 'Internal server error', 500, {
+    return errorResponse(errorMessage || 'Internal server error', 500, {
       details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     })
   }

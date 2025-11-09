@@ -50,12 +50,22 @@ export const getGoogleAnalyticsProperties: GoogleAnalyticsDataHandler<GoogleAnal
     return properties
 
   } catch (error: any) {
-    logger.error('❌ [Google Analytics] Error fetching properties:', error)
+    logger.error('❌ [Google Analytics] Error fetching properties:', {
+      message: error?.message,
+      code: error?.code,
+      status: error?.status,
+      statusCode: error?.statusCode,
+      name: error?.name,
+      response: error?.response?.data,
+      stack: error?.stack
+    })
 
     // Handle specific API errors
-    if (error.code === 401) {
+    const errorCode = error?.code || error?.status || error?.statusCode
+
+    if (errorCode === 401 || error?.message?.includes('authentication') || error?.message?.includes('expired')) {
       throw new Error('Google Analytics authentication expired. Please reconnect your account.')
-    } else if (error.code === 403) {
+    } else if (errorCode === 403 || error?.message?.includes('permission')) {
       throw new Error('Insufficient permissions to access Google Analytics properties.')
     }
 

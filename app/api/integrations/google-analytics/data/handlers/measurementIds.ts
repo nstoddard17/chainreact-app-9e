@@ -45,14 +45,24 @@ export const getGoogleAnalyticsMeasurementIds: GoogleAnalyticsDataHandler<Google
     return measurementIds
 
   } catch (error: any) {
-    logger.error('❌ [Google Analytics] Error fetching measurement IDs:', error)
+    logger.error('❌ [Google Analytics] Error fetching measurement IDs:', {
+      message: error?.message,
+      code: error?.code,
+      status: error?.status,
+      statusCode: error?.statusCode,
+      name: error?.name,
+      response: error?.response?.data,
+      stack: error?.stack
+    })
 
     // Handle specific API errors
-    if (error.code === 401) {
+    const errorCode = error?.code || error?.status || error?.statusCode
+
+    if (errorCode === 401 || error?.message?.includes('authentication') || error?.message?.includes('expired')) {
       throw new Error('Google Analytics authentication expired. Please reconnect your account.')
-    } else if (error.code === 403) {
+    } else if (errorCode === 403 || error?.message?.includes('permission')) {
       throw new Error('Insufficient permissions to access Google Analytics data streams.')
-    } else if (error.code === 404) {
+    } else if (errorCode === 404 || error?.message?.includes('not found')) {
       throw new Error('Property not found. Please check the property ID.')
     }
 
