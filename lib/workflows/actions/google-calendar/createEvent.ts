@@ -33,7 +33,6 @@ export async function createGoogleCalendarEvent(
       endDate,
       endTime,
       separateTimezones = false,
-      timeZone,
       startTimeZone,
       endTimeZone,
       location,
@@ -62,8 +61,9 @@ export async function createGoogleCalendarEvent(
       }
     }
 
-    let eventStartTimeZone = separateTimezones ? startTimeZone : timeZone
-    let eventEndTimeZone = separateTimezones ? endTimeZone : timeZone
+    // Use startTimeZone for both start and end unless separateTimezones is enabled
+    let eventStartTimeZone = startTimeZone || getUserTimezone()
+    let eventEndTimeZone = separateTimezones && endTimeZone ? endTimeZone : eventStartTimeZone
 
     // Auto-detect timezone if not set or set to 'auto'
     if (!eventStartTimeZone || eventStartTimeZone === 'auto') {
@@ -71,11 +71,9 @@ export async function createGoogleCalendarEvent(
       logger.debug(`🌍 [Google Calendar] Auto-detected start timezone: ${eventStartTimeZone}`)
     }
 
-    if (!eventEndTimeZone || eventEndTimeZone === 'auto') {
-      eventEndTimeZone = separateTimezones ? getUserTimezone() : eventStartTimeZone
-      if (separateTimezones) {
-        logger.debug(`🌍 [Google Calendar] Auto-detected end timezone: ${eventEndTimeZone}`)
-      }
+    if (separateTimezones && (!eventEndTimeZone || eventEndTimeZone === 'auto')) {
+      eventEndTimeZone = getUserTimezone()
+      logger.debug(`🌍 [Google Calendar] Auto-detected end timezone: ${eventEndTimeZone}`)
     }
 
     // Create OAuth2 client
