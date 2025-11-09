@@ -112,13 +112,13 @@ export async function GET(req: NextRequest) {
       refreshTokenExpiresAt
     )
 
-    // Add user info fields
-    integrationData.email = email || null
-    integrationData.username = username || null
-    integrationData.account_name = name || username || null
+    // Add user info fields to metadata
     integrationData.metadata = {
       ...(integrationData.metadata || {}),
-      user_info: userInfo
+      user_info: userInfo,
+      email: email || null,
+      username: username || null,
+      account_name: name || username || null
     }
 
     const supabase = createAdminClient()

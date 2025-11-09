@@ -219,16 +219,16 @@ export async function GET(request: NextRequest) {
         refresh_token: null,
         expires_at: expiresAt.toISOString(),
         status: 'connected',
-        is_active: true,
         updated_at: new Date().toISOString(),
-        username: existingWorkspaces[primaryWorkspaceId].workspace_name || null,
-        account_name: existingWorkspaces[primaryWorkspaceId].workspace_name || null,
-        email: null, // Notion doesn't provide user email
         metadata: {
           ...existingMetadata,
           workspaces: existingWorkspaces,
           primary_workspace_id: primaryWorkspaceId,
-          workspace_count: Object.keys(existingWorkspaces).length
+          workspace_count: Object.keys(existingWorkspaces).length,
+          // Account display fields
+          username: existingWorkspaces[primaryWorkspaceId].workspace_name || null,
+          account_name: existingWorkspaces[primaryWorkspaceId].workspace_name || null,
+          email: null // Notion doesn't provide user email
         }
       }
       
@@ -253,17 +253,17 @@ export async function GET(request: NextRequest) {
         refresh_token: null,
         expires_at: expiresAt.toISOString(),
         status: 'connected',
-        is_active: true,
         updated_at: new Date().toISOString(),
-        username: workspaceName || null,
-        account_name: workspaceName || null,
-        email: null, // Notion doesn't provide user email
         metadata: {
           workspaces: {
             [workspaceId]: workspaceData
           },
           primary_workspace_id: workspaceId,
-          workspace_count: 1
+          workspace_count: 1,
+          // Account display fields
+          username: workspaceName || null,
+          account_name: workspaceName || null,
+          email: null // Notion doesn't provide user email
         }
       }
       

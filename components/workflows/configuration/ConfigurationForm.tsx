@@ -911,6 +911,27 @@ function ConfigurationForm({
         loadOptions('from', undefined, undefined, false); // Use cache for better performance
       }
 
+      // Load immediately for Gmail "to" field
+      const gmailToField = fieldsToLoad.find((f: any) => f.name === 'to');
+      if (gmailToField && nodeInfo?.providerId === 'gmail') {
+        logger.debug(`🚀 [ConfigForm] Loading Gmail "to" field (recipients) immediately with cache`);
+        loadOptions('to', undefined, undefined, false); // Use cache for better performance
+      }
+
+      // Load immediately for Gmail "cc" field
+      const gmailCcField = fieldsToLoad.find((f: any) => f.name === 'cc');
+      if (gmailCcField && nodeInfo?.providerId === 'gmail') {
+        logger.debug(`🚀 [ConfigForm] Loading Gmail "cc" field (recipients) immediately with cache`);
+        loadOptions('cc', undefined, undefined, false); // Use cache for better performance
+      }
+
+      // Load immediately for Gmail "bcc" field
+      const gmailBccField = fieldsToLoad.find((f: any) => f.name === 'bcc');
+      if (gmailBccField && nodeInfo?.providerId === 'gmail') {
+        logger.debug(`🚀 [ConfigForm] Loading Gmail "bcc" field (recipients) immediately with cache`);
+        loadOptions('bcc', undefined, undefined, false); // Use cache for better performance
+      }
+
       // Load immediately for Gmail "labelIds" field (labels/folders)
       const gmailLabelIdsField = fieldsToLoad.find((f: any) => f.name === 'labelIds');
       if (gmailLabelIdsField && nodeInfo?.providerId === 'gmail') {
