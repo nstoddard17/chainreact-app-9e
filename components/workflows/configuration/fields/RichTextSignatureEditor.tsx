@@ -150,40 +150,32 @@ export function RichTextSignatureEditor({
   }, [onChange])
 
   return (
-    <div className="border rounded-lg bg-background">
+    <div className="border rounded-lg bg-white">
       {/* Toolbar - single row compact design */}
       <div className="flex items-center gap-0.5 p-1.5 border-b bg-muted/30 flex-wrap">
         {/* Font Family */}
-        <Select onValueChange={handleFontFamily}>
-          <SelectTrigger className="w-[110px] h-8 text-xs bg-background border-0 shadow-none">
-            <SelectValue placeholder="Arial" />
-          </SelectTrigger>
-          <SelectContent className="max-h-[300px]">
-            {FONT_FAMILIES.map((font) => (
-              <SelectItem
-                key={font.value}
-                value={font.value}
-                style={{ fontFamily: font.value }}
-              >
-                {font.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="w-[110px]">
+          <Combobox
+            value=""
+            onChange={handleFontFamily}
+            options={FONT_FAMILIES}
+            placeholder="Arial"
+            className="h-8 text-xs border-0"
+            disableSearch={false}
+          />
+        </div>
 
         {/* Font Size */}
-        <Select onValueChange={handleFontSize}>
-          <SelectTrigger className="w-[65px] h-8 text-xs bg-background border-0 shadow-none">
-            <SelectValue placeholder="12px" />
-          </SelectTrigger>
-          <SelectContent>
-            {FONT_SIZES.map((size) => (
-              <SelectItem key={size.value} value={size.value}>
-                {size.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="w-[65px]">
+          <Combobox
+            value=""
+            onChange={handleFontSize}
+            options={FONT_SIZES}
+            placeholder="12px"
+            className="h-8 text-xs border-0"
+            disableSearch={true}
+          />
+        </div>
 
         {/* Text Formatting */}
         <Button
