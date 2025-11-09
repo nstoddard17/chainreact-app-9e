@@ -108,7 +108,12 @@ export const uploadFileActionSchema: NodeComponent = {
       ],
       defaultValue: "url",
       description: "How to provide the file data",
-      tooltip: "URL: Download from a public URL. Content: Create a text file from content. Base64: Upload binary data encoded as base64."
+      tooltip: "URL: Download from a public URL. Content: Create a text file from content. Base64: Upload binary data encoded as base64.",
+      dependsOn: "channels",
+      hidden: {
+        $deps: ["channels"],
+        $condition: { channels: { $exists: false } }
+      }
     },
     {
       name: "fileUrl",
@@ -119,6 +124,11 @@ export const uploadFileActionSchema: NodeComponent = {
       supportsAI: true,
       description: "URL of the file to upload",
       tooltip: "Must be a publicly accessible URL. Slack will download the file from this URL.",
+      dependsOn: "channels",
+      hidden: {
+        $deps: ["channels"],
+        $condition: { channels: { $exists: false } }
+      },
       visibleWhen: {
         field: "fileSource",
         value: "url"
@@ -134,6 +144,11 @@ export const uploadFileActionSchema: NodeComponent = {
       supportsAI: true,
       description: "Text content for the file",
       tooltip: "This content will be saved as a text file. Use 'File Name' below to set the extension (.txt, .md, .csv, etc.).",
+      dependsOn: "channels",
+      hidden: {
+        $deps: ["channels"],
+        $condition: { channels: { $exists: false } }
+      },
       visibleWhen: {
         field: "fileSource",
         value: "content"
@@ -149,6 +164,11 @@ export const uploadFileActionSchema: NodeComponent = {
       supportsAI: true,
       description: "Base64-encoded file data",
       tooltip: "Provide the file data encoded as base64. Use this for binary files like images, PDFs, etc.",
+      dependsOn: "channels",
+      hidden: {
+        $deps: ["channels"],
+        $condition: { channels: { $exists: false } }
+      },
       visibleWhen: {
         field: "fileSource",
         value: "base64"
@@ -162,7 +182,12 @@ export const uploadFileActionSchema: NodeComponent = {
       placeholder: "report.pdf",
       supportsAI: true,
       description: "Name for the uploaded file (include extension)",
-      tooltip: "Include the file extension to ensure proper file type detection (e.g., .pdf, .png, .csv, .txt)."
+      tooltip: "Include the file extension to ensure proper file type detection (e.g., .pdf, .png, .csv, .txt).",
+      dependsOn: "channels",
+      hidden: {
+        $deps: ["channels"],
+        $condition: { channels: { $exists: false } }
+      }
     },
     {
       name: "title",
@@ -172,7 +197,12 @@ export const uploadFileActionSchema: NodeComponent = {
       placeholder: "Q1 2024 Sales Report",
       supportsAI: true,
       description: "Optional title displayed in Slack (defaults to file name)",
-      tooltip: "A human-readable title shown in Slack. If not provided, the file name will be used."
+      tooltip: "A human-readable title shown in Slack. If not provided, the file name will be used.",
+      dependsOn: "channels",
+      hidden: {
+        $deps: ["channels"],
+        $condition: { channels: { $exists: false } }
+      }
     },
     {
       name: "initialComment",
@@ -183,7 +213,12 @@ export const uploadFileActionSchema: NodeComponent = {
       placeholder: "Here's the latest report...",
       supportsAI: true,
       description: "Optional message to post with the file",
-      tooltip: "This message will appear as a comment attached to the file upload."
+      tooltip: "This message will appear as a comment attached to the file upload.",
+      dependsOn: "channels",
+      hidden: {
+        $deps: ["channels"],
+        $condition: { channels: { $exists: false } }
+      }
     },
     {
       name: "threadTs",
@@ -193,7 +228,12 @@ export const uploadFileActionSchema: NodeComponent = {
       placeholder: "{{trigger.threadTs}} or 1234567890.123456",
       supportsAI: true,
       description: "Upload the file as a reply in a thread",
-      tooltip: "If provided, the file will be uploaded as part of this thread. Leave empty to upload as a new message."
+      tooltip: "If provided, the file will be uploaded as part of this thread. Leave empty to upload as a new message.",
+      dependsOn: "channels",
+      hidden: {
+        $deps: ["channels"],
+        $condition: { channels: { $exists: false } }
+      }
     }
   ]
 }
