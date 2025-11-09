@@ -682,7 +682,7 @@ export const googleAnalyticsNodes: NodeComponent[] = [
       {
         name: "customEvent",
         label: "Custom Event",
-        type: "checkbox",
+        type: "boolean",
         required: false,
         defaultValue: false,
         description: "Mark as custom event (events created via Measurement Protocol)",
