@@ -63,11 +63,14 @@ export function VariableSelectionDropdown({
 
   // Parse the current value to extract node ID and field name
   const parseVariable = (varString: string) => {
-    if (!varString || !varString.startsWith('{{') || !varString.endsWith('}}')) {
+    // Convert to string if not already (handles number values from number fields)
+    const stringValue = typeof varString === 'string' ? varString : String(varString || '')
+
+    if (!stringValue || !stringValue.startsWith('{{') || !stringValue.endsWith('}}')) {
       return null
     }
 
-    const content = varString.slice(2, -2) // Remove {{ and }}
+    const content = stringValue.slice(2, -2) // Remove {{ and }}
     const [nodeId, fieldName] = content.split('.')
     return { nodeId, fieldName }
   }
