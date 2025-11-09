@@ -908,6 +908,12 @@ const stripeMappings: Record<string, FieldMapping> = {
   stripe_action_create_checkout_session: {
     customer: "stripe_customers",
   },
+  stripe_action_create_refund: {
+    paymentIntentId: "stripe_payment_intents",
+  },
+  stripe_action_find_payment_intent: {
+    paymentIntentId: "stripe_payment_intents",
+  },
 };
 
 // Google Analytics field mappings

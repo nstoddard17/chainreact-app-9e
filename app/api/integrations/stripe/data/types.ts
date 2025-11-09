@@ -33,6 +33,17 @@ export interface StripeSubscription {
   current_period_end?: number
 }
 
+export interface StripePaymentIntent {
+  id: string
+  value: string
+  label: string
+  amount?: number
+  currency?: string
+  status?: string
+  customer?: string
+  created?: number
+}
+
 export type StripeDataHandler<T> = (
   integration: StripeIntegration,
   options?: any
