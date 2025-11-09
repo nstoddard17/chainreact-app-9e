@@ -549,6 +549,20 @@ export function GenericTextInput({
       const stringValue = typeof value === 'string' ? value : '';
       const hasVariable = stringValue.includes('{{') && stringValue.includes('}}');
 
+      // If connect mode is enabled, render dropdown instead of number input when in connected mode
+      if (enableConnectMode && isConnectedMode && workflowData && currentNodeId) {
+        return (
+          <VariableSelectionDropdown
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
+            value={value || ''}
+            onChange={onChange}
+            placeholder="Select a variable..."
+            disabled={false}
+          />
+        );
+      }
+
       // Check if this field should be displayed as a slider
       const hasSliderConfig = (field as any).min !== undefined &&
                              (field as any).max !== undefined &&
@@ -621,6 +635,20 @@ export function GenericTextInput({
       const rawEmailValue = typeof value === "string" ? value : "";
       const emailAcceptsVariable =
         rawEmailValue.startsWith("{{") && rawEmailValue.endsWith("}}");
+
+      // If connect mode is enabled, render dropdown instead of email input when in connected mode
+      if (enableConnectMode && isConnectedMode && workflowData && currentNodeId) {
+        return (
+          <VariableSelectionDropdown
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
+            value={value || ''}
+            onChange={onChange}
+            placeholder="Select a variable..."
+            disabled={false}
+          />
+        );
+      }
 
       return (
         <div className="relative">

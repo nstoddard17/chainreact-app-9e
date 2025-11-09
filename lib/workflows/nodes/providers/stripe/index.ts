@@ -822,6 +822,7 @@ export const stripeNodes: NodeComponent[] = [
         required: false,
         placeholder: "0",
         description: "Account balance in cents (negative = owes money, positive = credit)",
+        supportsAI: true,
         dependsOn: "customerId",
         hidden: { $deps: ["customerId"], $condition: { customerId: { $exists: false } } }
       },
