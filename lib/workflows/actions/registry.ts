@@ -270,7 +270,6 @@ import { mailchimpAddTag } from './mailchimp/addTag'
 import { mailchimpRemoveTag } from './mailchimp/removeTag'
 import { mailchimpSendCampaign } from './mailchimp/sendCampaign'
 import { mailchimpCreateCampaign } from './mailchimp/createCampaign'
-import { stripeGetCustomers } from './stripe/getCustomers'
 import { stripeGetPayments } from './stripe/getPayments'
 import { stripeUpdateCustomer } from './stripe/updateCustomer'
 import { stripeCreateRefund } from './stripe/createRefund'
@@ -689,7 +688,6 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "mailchimp_action_create_campaign": createExecutionContextWrapper(mailchimpCreateCampaign),
 
   // Stripe actions
-  "stripe_action_get_customers": createExecutionContextWrapper(stripeGetCustomers),
   "stripe_action_get_payments": createExecutionContextWrapper(stripeGetPayments),
   "stripe_action_update_customer": createExecutionContextWrapper(stripeUpdateCustomer),
   "stripe_action_create_refund": createExecutionContextWrapper(stripeCreateRefund),
