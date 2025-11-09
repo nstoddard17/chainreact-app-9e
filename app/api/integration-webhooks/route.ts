@@ -100,7 +100,7 @@ export async function GET() {
           mailchimp: ['mailchimp_trigger_new_subscriber', 'mailchimp_trigger_email_opened'],
           shopify: ['shopify_trigger_new_order', 'shopify_trigger_order_updated'],
           paypal: ['paypal_trigger_new_payment', 'paypal_trigger_new_subscription'],
-          stripe: ['stripe_trigger_new_payment', 'stripe_trigger_payment_succeeded', 'stripe_trigger_payment_failed'],
+          stripe: ['stripe_trigger_new_payment', 'stripe_trigger_payment_failed'],
           box: ['box_trigger_new_file', 'box_trigger_new_comment'],
           dropbox: ['dropbox_trigger_new_file', 'dropbox_trigger_file_modified'],
           teams: ['teams_trigger_new_message', 'teams_trigger_user_joins_team'],

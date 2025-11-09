@@ -422,15 +422,6 @@ const OUTPUT_SCHEMA_REGISTRY: Record<string, OutputField[]> = {
     { name: 'created', label: 'Created Date', type: 'string' },
     { name: 'metadata', label: 'Metadata', type: 'object' }
   ],
-  'stripe_trigger_payment_succeeded': [
-    { name: 'paymentIntentId', label: 'Payment Intent ID', type: 'string' },
-    { name: 'customerId', label: 'Customer ID', type: 'string' },
-    { name: 'amount', label: 'Amount', type: 'number' },
-    { name: 'currency', label: 'Currency', type: 'string' },
-    { name: 'status', label: 'Status', type: 'string' },
-    { name: 'created', label: 'Created Date', type: 'string' },
-    { name: 'metadata', label: 'Metadata', type: 'object' }
-  ],
   'stripe_trigger_invoice_payment_failed': [
     { name: 'invoiceId', label: 'Invoice ID', type: 'string' },
     { name: 'customerId', label: 'Customer ID', type: 'string' },

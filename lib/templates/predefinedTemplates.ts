@@ -2116,11 +2116,11 @@ export const predefinedTemplates: PredefinedTemplate[] = [
       nodes: [
         {
           id: "stripe-trigger-payment",
-          type: "stripe_trigger_payment_succeeded",
+          type: "stripe_trigger_new_payment",
           position: { x: 100, y: 260 },
           data: {
-            type: "stripe_trigger_payment_succeeded",
-            title: "Payment Succeeded",
+            type: "stripe_trigger_new_payment",
+            title: "New Payment",
             config: {
               descriptionKeywords: []
             },

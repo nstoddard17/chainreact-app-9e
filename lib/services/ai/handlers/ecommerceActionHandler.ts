@@ -129,24 +129,31 @@ export class EcommerceActionHandler extends BaseActionHandler {
       return this.getErrorResponse("Customer lookups currently support Stripe accounts.")
     }
 
+    // Note: stripe_action_get_customers was removed (duplicate of find_customer)
+    // This now uses find_customer which requires a customerId
+    if (!parameters.customerId) {
+      return this.getErrorResponse("Customer ID is required to find a customer.")
+    }
+
     const result = await this.executeAction(
       userId,
-      "stripe_action_get_customers",
+      "stripe_action_find_customer",
       {
-        limit: Math.min(Number(parameters.limit || 25), 200)
+        customerId: parameters.customerId
       }
     )
 
     if (!result.success) {
-      return this.getErrorResponse(result.message || "Failed to fetch customers.")
+      return this.getErrorResponse(result.message || "Failed to find customer.")
     }
 
     return this.getSuccessResponse(
-      `Fetched ${result.output?.customers?.length || 0} customer${(result.output?.customers?.length || 0) === 1 ? "" : "s"}.`,
+      `Found customer: ${result.output?.customer?.email || result.output?.customer?.id || "Unknown"}`,
       {
         type: "ecommerce_query",
         provider: "stripe",
-        customers: result.output?.customers || []
+        customer: result.output?.customer || null,
+        found: result.output?.found || false
       }
     )
   }

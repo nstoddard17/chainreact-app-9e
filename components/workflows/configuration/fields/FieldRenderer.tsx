@@ -217,9 +217,16 @@ const shouldUseConnectMode = (field: ConfigField | NodeField) => {
   const fieldName = field.name?.toLowerCase() || ''
   const fieldLabel = field.label?.toLowerCase() || ''
 
-  // Fields with explicit supportsAI flag should use connect mode
-  if ('supportsAI' in field && field.supportsAI) {
-    return true
+  // Check for explicit supportsAI flag first
+  if ('supportsAI' in field) {
+    // If explicitly set to false, never use connect mode
+    if (field.supportsAI === false) {
+      return false
+    }
+    // If explicitly set to true, use connect mode
+    if (field.supportsAI === true) {
+      return true
+    }
   }
 
   // Structural fields - NEVER use connect mode (these are design-time configuration, not runtime data)
@@ -253,8 +260,10 @@ const shouldUseConnectMode = (field: ConfigField | NodeField) => {
     return true
   }
 
-  // Default: use connect mode for text, email, and date type fields
-  return field.type === 'text' || field.type === 'email' || field.type === 'date'
+  // Default: use connect mode for text, email, number, date, dropdown, object, and array field types
+  return field.type === 'text' || field.type === 'email' || field.type === 'number' || field.type === 'date' ||
+         field.type === 'combobox' || field.type === 'select' || field.type === 'multi_select' ||
+         field.type === 'object' || field.type === 'array'
 }
 
 /**
@@ -1262,6 +1271,19 @@ export function FieldRenderer({
         );
 
       case "select":
+        // If Connect mode is active, show text input for variable references
+        if (isConnectedMode) {
+          return (
+            <Input
+              type="text"
+              value={value || ''}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder="{{trigger.fieldName}} or {{action.output}}"
+              className={cn(error && "border-red-500")}
+            />
+          );
+        }
+
         // Route to integration-specific select field or generic one
         const selectOptions = Array.isArray(field.options)
           ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
@@ -1342,6 +1364,19 @@ export function FieldRenderer({
         );
 
       case "multi_select":
+        // If Connect mode is active, show text input for variable references
+        if (isConnectedMode) {
+          return (
+            <Input
+              type="text"
+              value={value || ''}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder="{{trigger.fieldName}} or {{action.output}}"
+              className={cn(error && "border-red-500")}
+            />
+          );
+        }
+
         // Multi-select fields (especially for Airtable)
         const multiSelectOptions = Array.isArray(field.options)
           ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
@@ -1374,7 +1409,20 @@ export function FieldRenderer({
         );
 
       case "combobox":
-        // Use GenericSelectField for all combobox fields to ensure consistent loading states
+        // If Connect mode is active, show text input for variable references
+        if (isConnectedMode) {
+          return (
+            <Input
+              type="text"
+              value={value || ''}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder="{{trigger.fieldName}} or {{action.output}}"
+              className={cn(error && "border-red-500")}
+            />
+          );
+        }
+
+        // Otherwise, use GenericSelectField for dropdown selection
         return (
           <GenericSelectField
             field={field}
