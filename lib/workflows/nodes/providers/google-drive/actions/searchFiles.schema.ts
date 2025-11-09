@@ -33,6 +33,15 @@ export const searchFilesActionSchema: NodeComponent = {
       description: "Search for files containing this text in the name"
     },
     {
+      name: "exactMatch",
+      label: "Exact Match",
+      type: "boolean",
+      required: false,
+      defaultValue: false,
+      visibleWhen: { field: "searchMode", value: "simple" },
+      description: "Match the exact file name instead of partial matches"
+    },
+    {
       name: "fileType",
       label: "File Type",
       type: "select",

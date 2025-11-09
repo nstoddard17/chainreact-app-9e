@@ -420,10 +420,16 @@ export function FieldRenderer({
     (field.dynamic && dynamicOptions?.[field.name]) ||
     [];
 
-  // Auto-load options for combobox fields with dynamic data
+  // Auto-load options for combobox/select fields with dynamic data
   useEffect(() => {
-    if (field.type === 'combobox' && field.dynamic && onDynamicLoad) {
+    // Load for:
+    // - combobox fields (always auto-load)
+    // - select fields with loadOnMount: true (e.g., spreadsheetId)
+    // - select fields with dependsOn (e.g., sheetName when spreadsheet is selected)
+    const shouldAutoLoad = (field.type === 'combobox' && field.dynamic) ||
+                          (field.type === 'select' && field.dynamic && (field.loadOnMount || field.dependsOn));
 
+    if (shouldAutoLoad && onDynamicLoad) {
       // Only load if we don't have options yet
       if (!fieldOptions.length && !loadingDynamic) {
         // Check if we need to load based on parent dependency
@@ -442,7 +448,7 @@ export function FieldRenderer({
     // IMPORTANT: Do NOT include loadingDynamic in dependencies - it causes infinite loops
     // when data loads successfully but returns empty array
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [field.type, field.dynamic, field.name, field.dependsOn, parentValues[field.dependsOn], fieldOptions.length, onDynamicLoad]);
+  }, [field.type, field.dynamic, field.name, field.dependsOn, field.loadOnMount, parentValues[field.dependsOn], fieldOptions.length, onDynamicLoad]);
 
   // Determine which integration this field belongs to
   const getIntegrationProvider = (field: any) => {
@@ -1337,8 +1343,8 @@ export function FieldRenderer({
           ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
           : fieldOptions;
 
-        // Check if THIS specific field is loading (not global loadingDynamic)
-        const isFieldLoading = loadingFields?.has(field.name) || loadingDynamic;
+        // Check if THIS specific field is loading (only show loading for the specific field being loaded)
+        const isFieldLoading = loadingFields?.has(field.name) || false;
 
         // Debug logging for board field
         if (field.name === 'boardId') {
@@ -1430,8 +1436,8 @@ export function FieldRenderer({
           ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
           : fieldOptions;
 
-        // Check if THIS specific field is loading
-        const isMultiSelectLoading = loadingFields?.has(field.name) || loadingDynamic;
+        // Check if THIS specific field is loading (only show loading for the specific field being loaded)
+        const isMultiSelectLoading = loadingFields?.has(field.name) || false;
 
         return (
           <GenericSelectField
@@ -2032,8 +2038,8 @@ export function FieldRenderer({
                 label: String(opt.label ?? opt.name ?? opt.value ?? opt.id ?? "")
               }));
 
-          // Check if THIS specific field is loading
-          const isMultiselectLoading = loadingFields?.has(field.name) || loadingDynamic;
+          // Check if THIS specific field is loading (only show loading for the specific field being loaded)
+          const isMultiselectLoading = loadingFields?.has(field.name) || false;
 
           return (
             <GenericSelectField

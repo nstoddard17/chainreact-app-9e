@@ -13,8 +13,9 @@ import { getGmailRecentSenders } from './recent-senders'
  * Registry of all Gmail data handlers
  */
 export const gmailHandlers: Record<string, GmailDataHandler> = {
-  // Labels
+  // Labels - support both underscore and hyphen variants
   'gmail_labels': getGmailLabels,
+  'gmail-labels': getGmailLabels,
 
   // Recipients and contacts - both use enhanced version now
   'gmail-recent-recipients': getGmailEnhancedRecipients,

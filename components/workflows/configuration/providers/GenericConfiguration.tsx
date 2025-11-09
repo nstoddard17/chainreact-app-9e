@@ -2,12 +2,13 @@
 
 import React, { useCallback, useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, ChevronLeft, Mail, Loader2 } from "lucide-react";
+import { AlertTriangle, ChevronLeft, Mail, Loader2, Search, ExternalLink } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { FieldRenderer } from '../fields/FieldRenderer';
 import { AIFieldWrapper } from '../fields/AIFieldWrapper';
 import { ConfigurationContainer } from '../components/ConfigurationContainer';
 import { FieldVisibilityEngine } from '@/lib/workflows/fields/visibility';
+import { supabase } from '@/utils/supabaseClient';
 
 import { logger } from '@/lib/utils/logger'
 
@@ -26,6 +27,7 @@ interface GenericConfigurationProps {
   loadingDynamic: boolean;
   loadOptions: (fieldName: string, parentField?: string, parentValue?: any, forceReload?: boolean) => Promise<void>;
   integrationName?: string;
+  integrationId?: string;
   needsConnection?: boolean;
   onConnectIntegration?: () => void;
   aiFields?: Record<string, boolean>;
@@ -49,6 +51,7 @@ export function GenericConfiguration({
   loadingDynamic,
   loadOptions,
   integrationName,
+  integrationId,
   needsConnection,
   onConnectIntegration,
   aiFields = {},
@@ -520,6 +523,89 @@ export function GenericConfiguration({
     }
   };
 
+  // Build Google Drive search URL based on search configuration
+  const buildGoogleDriveSearchUrl = useCallback(() => {
+    const searchMode = values.searchMode;
+    const parts: string[] = [];
+
+    if (searchMode === 'simple') {
+      if (values.fileName) {
+        // For simple search, just use the file name
+        parts.push(values.fileName);
+      }
+    } else if (searchMode === 'advanced') {
+      // Build advanced search query
+      if (values.fileName) {
+        parts.push(values.fileName);
+      }
+      // Google Drive search doesn't support all filters in URL, so we'll just use the name
+      // Users can refine further in Google Drive
+    } else if (searchMode === 'query') {
+      if (values.customQuery) {
+        // Use the custom query directly
+        parts.push(values.customQuery);
+      }
+    }
+
+    const searchQuery = parts.join(' ');
+    return `https://drive.google.com/drive/search?q=${encodeURIComponent(searchQuery)}`;
+  }, [values.searchMode, values.fileName, values.customQuery]);
+
+  // Handle Google Drive search preview
+  const handleDriveSearchPreview = async () => {
+    setPreviewLoading(true);
+    setPreviewResult(null);
+    setShowPreview(false);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setPreviewResult({ error: 'Please sign in to preview search results' });
+        setShowPreview(true);
+        return;
+      }
+
+      // Build search configuration
+      const searchConfig = {
+        searchMode: values.searchMode,
+        fileName: values.fileName,
+        exactMatch: values.exactMatch,
+        fileType: values.fileType,
+        modifiedTime: values.modifiedTime,
+        owner: values.owner,
+        customQuery: values.customQuery,
+      };
+
+      const response = await fetch(`/api/integrations/google-drive/data`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          integrationId,
+          dataType: 'search-preview',
+          options: { searchConfig }
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        setPreviewResult({ error: errorData.error || response.statusText });
+      } else {
+        const result = await response.json();
+        setPreviewResult(result.data);
+      }
+      setShowPreview(true);
+    } catch (error: any) {
+      logger.error('[GenericConfiguration] Error fetching Google Drive preview:', error);
+      setPreviewResult({ error: error?.message || 'Failed to load preview' });
+      setShowPreview(true);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     logger.debug('🚀 [GenericConfiguration] handleSubmit called for:', nodeInfo?.type);
@@ -802,6 +888,120 @@ export function GenericConfiguration({
                   </div>
                 )
               })()}
+            </div>
+          )}
+        </div>
+      )}
+      {/* Google Drive Search Preview Button - Only for search_files action with search criteria */}
+      {nodeInfo?.type === 'google-drive:search_files' &&
+       values?.searchMode &&
+       integrationId &&
+       (
+         (values.searchMode === 'simple' && values.fileName) ||
+         (values.searchMode === 'advanced' && (values.fileType || values.modifiedTime || values.owner)) ||
+         (values.searchMode === 'query' && values.customQuery)
+       ) && (
+        <div className="border-t border-slate-200 dark:border-slate-700 pt-4 mt-6">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleDriveSearchPreview}
+            disabled={previewLoading}
+            className="w-full"
+          >
+            {previewLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Loading Preview...
+              </>
+            ) : (
+              <>
+                <Search className="mr-2 h-4 w-4" />
+                Preview Results
+              </>
+            )}
+          </Button>
+
+          {/* Preview Results */}
+          {showPreview && previewResult && (
+            <div className="mt-4 p-4 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800">
+              {previewResult.error ? (
+                <div className="text-sm text-red-600 dark:text-red-400">
+                  <AlertTriangle className="inline-block mr-2 h-4 w-4" />
+                  {previewResult.error}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex flex-col gap-1">
+                      <h4 className="font-medium text-sm text-slate-700 dark:text-slate-300">
+                        Preview Results
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Found {previewResult.totalCount}{previewResult.hasMore ? '+' : ''} file{previewResult.totalCount === 1 ? '' : 's'}
+                        {previewResult.files && previewResult.files.length > 0 && ` (showing ${previewResult.files.length})`}
+                      </p>
+                    </div>
+                    <a
+                      href={buildGoogleDriveSearchUrl()}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 whitespace-nowrap"
+                    >
+                      View in Google Drive
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+
+                  {previewResult.files && previewResult.files.length > 0 ? (
+                    <div className="space-y-2">
+                      {previewResult.files.map((file: any, index: number) => (
+                        <div
+                          key={file.id || index}
+                          className="rounded border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                              {file.name}
+                            </div>
+                          </div>
+                          <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
+                            <div>
+                              <span className="font-medium">Owner:</span> {file.owner}
+                            </div>
+                            <div>
+                              <span className="font-medium">Size:</span>{' '}
+                              {file.size ? `${(parseInt(file.size) / 1024).toFixed(1)} KB` : 'N/A'}
+                            </div>
+                            <div>
+                              <span className="font-medium">Modified:</span>{' '}
+                              {file.modifiedTime ? new Date(file.modifiedTime).toLocaleDateString() : 'Unknown'}
+                            </div>
+                            <div>
+                              <span className="font-medium">Created:</span>{' '}
+                              {file.createdTime ? new Date(file.createdTime).toLocaleDateString() : 'Unknown'}
+                            </div>
+                          </div>
+                          {file.mimeType && (
+                            <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                              Type: {file.mimeType.split('/').pop()?.replace('vnd.google-apps.', '')}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      {previewResult.hasMore && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400 italic">
+                          ...and more results
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      No files found matching your criteria
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

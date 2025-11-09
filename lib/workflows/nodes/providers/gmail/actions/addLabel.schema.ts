@@ -34,7 +34,8 @@ export const addLabelActionSchema: NodeComponent = {
       dynamic: "gmail_labels",
       required: true,
       placeholder: "Select a label to apply",
-      description: "The label to add to the message"
+      description: "The label to add to the message",
+      loadOnMount: true
     }
   ],
   outputSchema: [

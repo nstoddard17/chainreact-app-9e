@@ -9,6 +9,17 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { Input } from '@/components/ui/input'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { RichTextSignatureEditor } from './RichTextSignatureEditor'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
@@ -49,7 +60,9 @@ import {
   RemoveFormatting,
   Paintbrush,
   Upload,
-  Link2
+  Link2,
+  Pencil,
+  Trash2
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useVariableDropTarget } from '../hooks/useVariableDropTarget'
@@ -83,6 +96,7 @@ interface EmailSignature {
   name: string
   content: string
   isDefault: boolean
+  email?: string
 }
 
 const EMAIL_TEMPLATES: EmailTemplate[] = [
@@ -712,8 +726,14 @@ export function EmailRichTextEditor({
   const [newSignatureName, setNewSignatureName] = useState('')
   const [newSignatureContent, setNewSignatureContent] = useState('')
   const [isCreatingSignature, setIsCreatingSignature] = useState(false)
+  const [deleteSignature, setDeleteSignature] = useState<EmailSignature | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [editSignature, setEditSignature] = useState<{ id: string; name: string; content: string; email: string } | undefined>(undefined)
   // Auto-include signature removed - signatures must be manually added by user
   const [isEditorInitialized, setIsEditorInitialized] = useState(false)
+  const [showTableDialog, setShowTableDialog] = useState(false)
+  const [tableRows, setTableRows] = useState('3')
+  const [tableColumns, setTableColumns] = useState('3')
   const savedSelectionRef = useRef<Range | null>(null)
 
   // Save selection before interacting with dropdowns
@@ -1084,8 +1104,8 @@ export function EmailRichTextEditor({
       if (response.ok) {
         const data = await response.json()
         toast({
-          title: "Signature created",
-          description: `"${newSignatureName}" has been created successfully.`
+          title: editSignature ? "Signature updated" : "Signature created",
+          description: `"${newSignatureName}" has been ${editSignature ? 'updated' : 'created'} successfully.`
         })
 
         // Reload signatures
@@ -1094,6 +1114,7 @@ export function EmailRichTextEditor({
         // Reset form and close dialog
         setNewSignatureName('')
         setNewSignatureContent('')
+        setEditSignature(undefined)
         setShowCreateSignatureDialog(false)
       } else {
         const errorData = await response.json()
@@ -1113,6 +1134,67 @@ export function EmailRichTextEditor({
     } finally {
       setIsCreatingSignature(false)
     }
+  }
+
+  const handleDeleteSignature = async () => {
+    if (!deleteSignature || !userId) return
+
+    try {
+      setIsDeleting(true)
+
+      const response = await fetch(
+        `/api/integrations/${integrationProvider}/signatures?userId=${userId}&email=${encodeURIComponent(deleteSignature.email || '')}`,
+        {
+          method: 'DELETE'
+        }
+      )
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to delete signature')
+      }
+
+      toast({
+        title: "Signature deleted",
+        description: `${deleteSignature.name} has been deleted successfully.`,
+      })
+
+      // Clear the deleted signature from selected if it was selected
+      if (selectedSignature === deleteSignature.id) {
+        setSelectedSignature('')
+      }
+
+      // Clear signatures state first to force a refresh
+      setSignatures([])
+
+      // Close dialog
+      setDeleteSignature(null)
+
+      // Refresh signatures list
+      await loadEmailSignatures()
+
+    } catch (error: any) {
+      logger.error('Failed to delete signature:', error)
+      toast({
+        title: "Failed to delete signature",
+        description: error.message || "An error occurred while deleting the signature.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const handleEditSignature = (signature: EmailSignature) => {
+    setEditSignature({
+      id: signature.id,
+      name: signature.name,
+      content: signature.content,
+      email: signature.email || ''
+    })
+    setNewSignatureName(signature.name)
+    setNewSignatureContent(signature.content)
+    setShowCreateSignatureDialog(true)
   }
 
   const insertVariable = (variableText: string) => {
@@ -1272,33 +1354,44 @@ export function EmailRichTextEditor({
   }
 
   const insertTable = () => {
+    const rows = parseInt(tableRows) || 3
+    const cols = parseInt(tableColumns) || 3
+
+    // Generate header row
+    let headerCells = ''
+    for (let i = 1; i <= cols; i++) {
+      headerCells += `<th style="border: 1px solid #ddd; padding: 10px; text-align: left; font-weight: 600;">Column ${i}</th>`
+    }
+
+    // Generate body rows
+    let bodyRows = ''
+    for (let i = 0; i < rows; i++) {
+      const rowStyle = i % 2 === 1 ? ' style="background-color: #fafafa;"' : ''
+      let cells = ''
+      for (let j = 1; j <= cols; j++) {
+        cells += `<td style="border: 1px solid #ddd; padding: 10px;" contenteditable="true">Cell ${i + 1},${j}</td>`
+      }
+      bodyRows += `<tr${rowStyle}>${cells}</tr>`
+    }
+
     const html = `
-      <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; margin: 10px 0;">
+      <table border="1" cellpadding="10" cellspacing="0" style="border-collapse: collapse; width: 100%; margin: 10px 0; border: 1px solid #ddd;">
         <thead>
-          <tr>
-            <th>Column 1</th>
-            <th>Column 2</th>
-            <th>Column 3</th>
+          <tr style="background-color: #f5f5f5;">
+            ${headerCells}
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td>Data 1</td>
-            <td>Data 2</td>
-            <td>Data 3</td>
-          </tr>
-          <tr>
-            <td>Data 4</td>
-            <td>Data 5</td>
-            <td>Data 6</td>
-          </tr>
+          ${bodyRows}
         </tbody>
       </table>
+      <p><br></p>
     `
     execCommand('insertHTML', html)
+    setShowTableDialog(false)
     toast({
       title: "Table inserted",
-      description: "A table has been added to your email.",
+      description: `${rows}x${cols} table has been added to your email.`,
     })
   }
 
@@ -1312,10 +1405,6 @@ export function EmailRichTextEditor({
 
   const clearFormatting = () => {
     execCommand('removeFormat')
-    toast({
-      title: "Formatting cleared",
-      description: "Text formatting has been removed from selection.",
-    })
   }
 
   const applyCustomFontSize = () => {
@@ -1590,16 +1679,71 @@ export function EmailRichTextEditor({
             >
               <Upload className="h-4 w-4" />
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={insertTable}
-              title="Insert table"
-              className="h-8 w-8 p-0 hover:bg-muted text-muted-foreground hover:text-foreground"
-            >
-              <Table className="h-4 w-4" />
-            </Button>
+            <Popover open={showTableDialog} onOpenChange={setShowTableDialog}>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  title="Insert table"
+                  className="h-8 w-8 p-0 hover:bg-muted text-muted-foreground hover:text-foreground"
+                >
+                  <Table className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80">
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-medium mb-2">Insert Table</h4>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Configure your table dimensions. You can right-click on the table after insertion to add/remove rows and columns.
+                    </p>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="table-rows" className="text-sm">Rows</Label>
+                      <Input
+                        id="table-rows"
+                        type="number"
+                        min="1"
+                        max="20"
+                        value={tableRows}
+                        onChange={(e) => setTableRows(e.target.value)}
+                        className="h-9"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="table-columns" className="text-sm">Columns</Label>
+                      <Input
+                        id="table-columns"
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={tableColumns}
+                        onChange={(e) => setTableColumns(e.target.value)}
+                        className="h-9"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowTableDialog(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={insertTable}
+                      disabled={!tableRows || !tableColumns || parseInt(tableRows) < 1 || parseInt(tableColumns) < 1}
+                    >
+                      Insert Table
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
             <Button
               type="button"
               variant="ghost"
@@ -1796,7 +1940,12 @@ export function EmailRichTextEditor({
                   <Button
                     size="sm"
                     variant="default"
-                    onClick={() => setShowCreateSignatureDialog(true)}
+                    onClick={() => {
+                      setEditSignature(undefined)
+                      setNewSignatureName('')
+                      setNewSignatureContent('')
+                      setShowCreateSignatureDialog(true)
+                    }}
                     className="bg-primary text-primary-foreground hover:bg-primary/90"
                   >
                     Create New
@@ -1840,10 +1989,9 @@ export function EmailRichTextEditor({
                     signatures.map(signature => (
                       <div
                         key={signature.id}
-                        className="p-3 rounded-md hover:bg-muted cursor-pointer border border-transparent hover:border-border"
-                        onClick={() => insertSignature(signature.id)}
+                        className="p-3 rounded-md hover:bg-muted border border-transparent hover:border-border"
                       >
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between mb-2">
                           <h5 className="text-sm font-medium text-foreground">{signature.name}</h5>
                           {signature.isDefault && (
                             <Badge variant="secondary" className="text-xs">
@@ -1851,19 +1999,52 @@ export function EmailRichTextEditor({
                             </Badge>
                           )}
                         </div>
-                        <div 
-                          className="text-xs text-muted-foreground mt-1 break-words overflow-hidden [&_*]:text-foreground [&_*]:!text-foreground"
-                          style={{ 
+                        <div
+                          className="text-xs text-muted-foreground mb-3 break-words overflow-hidden [&_*]:text-foreground [&_*]:!text-foreground"
+                          style={{
                             display: '-webkit-box',
                             WebkitLineClamp: 3,
                             WebkitBoxOrient: 'vertical',
                             maxHeight: '4.5rem',
                             color: 'var(--foreground)'
                           }}
-                          dangerouslySetInnerHTML={{ 
-                            __html: `${signature.content.substring(0, 200) }...` 
+                          dangerouslySetInnerHTML={{
+                            __html: `${signature.content.substring(0, 200) }...`
                           }}
                         />
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1"
+                            onClick={() => insertSignature(signature.id)}
+                          >
+                            Insert
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleEditSignature(signature)
+                            }}
+                            title="Edit signature"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setDeleteSignature(signature)
+                            }}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            title="Delete signature"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     ))
                   )}
@@ -2027,11 +2208,18 @@ export function EmailRichTextEditor({
         </div>
       )}
 
-      {/* Create Signature Dialog */}
+      {/* Create/Edit Signature Dialog */}
       {showCreateSignatureDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowCreateSignatureDialog(false)}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => {
+          setShowCreateSignatureDialog(false)
+          setEditSignature(undefined)
+          setNewSignatureName('')
+          setNewSignatureContent('')
+        }}>
           <div className="bg-background border border-border rounded-lg p-6 w-[700px] max-w-[90vw] max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-medium text-foreground mb-2">Create Email Signature</h3>
+            <h3 className="text-lg font-medium text-foreground mb-2">
+              {editSignature ? 'Edit Email Signature' : 'Create Email Signature'}
+            </h3>
             <p className="text-sm text-muted-foreground mb-4">
               Use the formatting toolbar to customize your signature. All formatting and line breaks will be preserved.
             </p>
@@ -2068,6 +2256,7 @@ export function EmailRichTextEditor({
                   size="sm"
                   onClick={() => {
                     setShowCreateSignatureDialog(false)
+                    setEditSignature(undefined)
                     setNewSignatureName('')
                     setNewSignatureContent('')
                   }}
@@ -2082,7 +2271,7 @@ export function EmailRichTextEditor({
                   disabled={!newSignatureName.trim() || !newSignatureContent.trim() || isCreatingSignature}
                   className="bg-primary text-primary-foreground hover:bg-primary/90"
                 >
-                  {isCreatingSignature ? 'Creating...' : 'Create Signature'}
+                  {isCreatingSignature ? (editSignature ? 'Updating...' : 'Creating...') : (editSignature ? 'Update Signature' : 'Create Signature')}
                 </Button>
               </div>
             </div>
@@ -2171,6 +2360,28 @@ export function EmailRichTextEditor({
           </span>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteSignature} onOpenChange={(open) => !open && setDeleteSignature(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Signature</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{deleteSignature?.name}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteSignature}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

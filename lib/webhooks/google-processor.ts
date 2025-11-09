@@ -1867,6 +1867,63 @@ async function triggerMatchingSheetsWorkflows(changeType: SheetsChangeType, chan
           }
         }
 
+        // Apply filtering for new_row and updated_row triggers
+        if (changeType === 'new_row' || changeType === 'updated_row') {
+          const rowValues = Array.isArray(changePayload?.values)
+            ? changePayload.values
+            : (Array.isArray(changePayload?.data) ? changePayload.data : [])
+
+          // Filter 1: Skip empty rows (default: true)
+          const skipEmptyRows = configData?.skipEmptyRows ?? nodeConfig?.skipEmptyRows ?? true
+          if (skipEmptyRows) {
+            const hasAnyValue = rowValues.some((val: any) => val !== null && val !== undefined && String(val).trim() !== '')
+            if (!hasAnyValue) {
+              logger.debug('[Google Sheets] Skipping empty row', {
+                workflowId: workflow.id,
+                rowNumber: changePayload?.rowNumber,
+                changeType,
+                skipEmptyRows
+              })
+              return false
+            }
+          }
+
+          // Filter 2: Required columns
+          const requiredColumns = configData?.requiredColumns || nodeConfig?.requiredColumns
+          if (requiredColumns && Array.isArray(requiredColumns) && requiredColumns.length > 0) {
+            // Get headers from changePayload metadata if available
+            const headers = changePayload?.headers || metadata?.headers
+
+            if (headers && Array.isArray(headers)) {
+              // Check if required columns have values
+              const missingRequiredColumns = requiredColumns.filter((columnName: string) => {
+                const columnIndex = headers.findIndex((h: string) => h === columnName)
+                if (columnIndex === -1) return true // Column not found in headers
+
+                const value = rowValues[columnIndex]
+                return value === null || value === undefined || String(value).trim() === ''
+              })
+
+              if (missingRequiredColumns.length > 0) {
+                logger.debug('[Google Sheets] Skipping row - required columns missing values', {
+                  workflowId: workflow.id,
+                  rowNumber: changePayload?.rowNumber,
+                  changeType,
+                  requiredColumns,
+                  missingRequiredColumns
+                })
+                return false
+              }
+            } else {
+              logger.warn('[Google Sheets] Required columns configured but headers not available in webhook payload', {
+                workflowId: workflow.id,
+                changeType,
+                requiredColumns
+              })
+            }
+          }
+        }
+
         return true
       })
 
@@ -2164,6 +2221,7 @@ async function processGoogleSheetsEvent(event: GoogleWebhookEvent, metadata: any
               rowIndex: change.rowIndex,
               data: change.data,
               values: change.values,
+              headers: change.headers, // Pass headers for filtering
               sheetId: change.sheetId,
               timestamp: change.timestamp,
               metadata
@@ -2178,6 +2236,7 @@ async function processGoogleSheetsEvent(event: GoogleWebhookEvent, metadata: any
               rowIndex: change.rowIndex,
               data: change.data,
               values: change.values,
+              headers: change.headers, // Pass headers for filtering
               timestamp: change.timestamp,
               metadata
             })
@@ -2377,6 +2436,7 @@ async function handleSheetsRowCreated(eventData: any): Promise<any> {
   const values = Array.isArray(eventData.values)
     ? eventData.values
     : (Array.isArray(eventData.data) ? eventData.data : [])
+  const headers = Array.isArray(eventData.headers) ? eventData.headers : []
 
   await triggerMatchingSheetsWorkflows('new_row', {
     spreadsheetId: eventData.spreadsheetId || metadata.spreadsheetId || null,
@@ -2386,6 +2446,7 @@ async function handleSheetsRowCreated(eventData: any): Promise<any> {
     rowIndex,
     values,
     data: values,
+    headers, // Pass headers for filtering
     timestamp
   }, metadata)
 
@@ -2404,6 +2465,7 @@ async function handleSheetsRowUpdated(eventData: any): Promise<any> {
   const metadata = eventData.metadata || {}
   const timestamp = eventData.timestamp || new Date().toISOString()
   const rowNumber = typeof eventData.rowNumber === 'number' ? eventData.rowNumber : null
+  const headers = Array.isArray(eventData.headers) ? eventData.headers : []
 
   await triggerMatchingSheetsWorkflows('updated_row', {
     spreadsheetId: eventData.spreadsheetId || metadata.spreadsheetId || null,
@@ -2417,6 +2479,7 @@ async function handleSheetsRowUpdated(eventData: any): Promise<any> {
     data: Array.isArray(eventData.values)
       ? eventData.values
       : (Array.isArray(eventData.data) ? eventData.data : []),
+    headers, // Pass headers for filtering
     message: eventData.message || null,
     timestamp
   }, metadata)
