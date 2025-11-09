@@ -15,6 +15,12 @@ interface CreateSignatureModalProps {
   onSignatureCreated: () => void
   userId?: string
   provider: 'gmail' | 'outlook'
+  editSignature?: {
+    id: string
+    name: string
+    content: string
+    email: string
+  }
 }
 
 export function CreateSignatureModal({
@@ -22,12 +28,24 @@ export function CreateSignatureModal({
   onClose,
   onSignatureCreated,
   userId,
-  provider
+  provider,
+  editSignature
 }: CreateSignatureModalProps) {
   const [name, setName] = useState('')
   const [content, setContent] = useState('')
   const [isCreating, setIsCreating] = useState(false)
   const { toast } = useToast()
+
+  // Initialize form with edit data when modal opens
+  React.useEffect(() => {
+    if (isOpen && editSignature) {
+      setName(editSignature.name)
+      setContent(editSignature.content)
+    } else if (isOpen && !editSignature) {
+      setName('')
+      setContent('')
+    }
+  }, [isOpen, editSignature])
 
   const handleCreate = async () => {
     if (!name || !content) {
@@ -72,8 +90,8 @@ export function CreateSignatureModal({
       const data = await response.json()
 
       toast({
-        title: "Signature created",
-        description: `${name} has been created successfully.`,
+        title: editSignature ? "Signature updated" : "Signature created",
+        description: `${name} has been ${editSignature ? 'updated' : 'created'} successfully.`,
       })
 
       // Reset form
@@ -106,11 +124,14 @@ export function CreateSignatureModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto !bg-white">
+      <DialogContent
+        className="sm:max-w-[1200px] max-h-[90vh] overflow-y-auto [&]:bg-white [&]:dark:bg-white"
+        style={{ backgroundColor: '#ffffff', ['--tw-bg-opacity' as string]: '1' }}
+      >
         <DialogHeader>
-          <DialogTitle>Create New Signature</DialogTitle>
+          <DialogTitle>{editSignature ? 'Edit Signature' : 'Create New Signature'}</DialogTitle>
           <DialogDescription>
-            Create a new email signature for {provider === 'gmail' ? 'Gmail' : 'Outlook'}. Use the formatting toolbar to customize your signature.
+            {editSignature ? 'Update your email signature' : `Create a new email signature for ${provider === 'gmail' ? 'Gmail' : 'Outlook'}`}. Use the formatting toolbar to customize your signature.
           </DialogDescription>
         </DialogHeader>
 
@@ -151,7 +172,7 @@ export function CreateSignatureModal({
             onClick={handleCreate}
             disabled={isCreating || !name || !content}
           >
-            {isCreating ? 'Creating...' : 'Create Signature'}
+            {isCreating ? (editSignature ? 'Updating...' : 'Creating...') : (editSignature ? 'Update Signature' : 'Create Signature')}
           </Button>
         </DialogFooter>
       </DialogContent>

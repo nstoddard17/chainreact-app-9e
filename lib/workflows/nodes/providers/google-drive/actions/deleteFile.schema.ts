@@ -13,11 +13,12 @@ export const deleteFileActionSchema: NodeComponent = {
     {
       name: "fileId",
       label: "File or Folder to Delete",
-      type: "select",
+      type: "combobox",
       required: true,
-      dynamic: "google-drive-files",
+      dynamic: "google-drive-files-and-folders",
       loadOnMount: true,
-      description: "Select the item to delete"
+      searchable: true,
+      description: "Select the file or folder to delete. Folders are shown with their full path hierarchy."
     },
     {
       name: "permanentDelete",

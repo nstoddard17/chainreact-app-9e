@@ -224,6 +224,7 @@ const googleSheetsMappings: Record<string, FieldMapping> = {
   google_sheets_trigger_new_row: {
     spreadsheetId: "google-sheets_spreadsheets",
     sheetName: "google-sheets_sheets",
+    requiredColumns: "google-sheets_columns",
   },
   google_sheets_trigger_new_worksheet: {
     spreadsheetId: "google-sheets_spreadsheets",
@@ -231,6 +232,7 @@ const googleSheetsMappings: Record<string, FieldMapping> = {
   google_sheets_trigger_updated_row: {
     spreadsheetId: "google-sheets_spreadsheets",
     sheetName: "google-sheets_sheets",
+    requiredColumns: "google-sheets_columns",
   },
   // Actions
   google_sheets_unified_action: {
@@ -305,6 +307,12 @@ const googleDriveMappings: Record<string, FieldMapping> = {
   "google-drive:move_file": {
     fileId: "google-drive-files-and-folders",
     destinationFolderId: "google-drive-folders",
+  },
+  "google-drive:delete_file": {
+    fileId: "google-drive-files-and-folders",
+  },
+  "google-drive:search_files": {
+    searchPreview: "google-drive-search-preview",
   },
 };
 

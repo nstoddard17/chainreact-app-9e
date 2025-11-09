@@ -1476,6 +1476,7 @@ function ConfigurationForm({
     loadingFields,
     loadOptions,
     integrationName,
+    integrationId: integration?.id,
     needsConnection,
     onConnectIntegration: handleConnectIntegration,
     aiFields,

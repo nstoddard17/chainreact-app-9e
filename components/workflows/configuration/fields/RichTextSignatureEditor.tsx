@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useRef, useCallback, useState } from 'react'
+import React, { useRef, useCallback, useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Combobox } from '@/components/ui/combobox'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -149,12 +149,23 @@ export function RichTextSignatureEditor({
     }
   }, [onChange])
 
+  // Sync editor content only when value prop changes externally (not during user typing)
+  useEffect(() => {
+    if (editorRef.current && editorRef.current.innerHTML !== value) {
+      // Only update if the content is actually different to preserve cursor position
+      const currentContent = editorRef.current.innerHTML
+      if (currentContent !== value) {
+        editorRef.current.innerHTML = value
+      }
+    }
+  }, [value])
+
   return (
     <div className="border rounded-lg bg-white">
       {/* Toolbar - single row compact design */}
-      <div className="flex items-center gap-0.5 p-1.5 border-b bg-muted/30 flex-wrap">
+      <div className="flex items-center gap-0.5 p-1.5 border-b bg-muted/30">
         {/* Font Family */}
-        <div className="w-[150px]">
+        <div className="w-[200px]">
           <Combobox
             value=""
             onChange={handleFontFamily}
@@ -166,7 +177,7 @@ export function RichTextSignatureEditor({
         </div>
 
         {/* Font Size */}
-        <div className="w-[70px]">
+        <div className="w-[90px]">
           <Combobox
             value=""
             onChange={handleFontSize}
@@ -432,7 +443,6 @@ export function RichTextSignatureEditor({
         <div
           ref={editorRef}
           contentEditable
-          dangerouslySetInnerHTML={{ __html: value }}
           onInput={handleInput}
           className="min-h-[200px] max-h-[400px] overflow-y-auto p-3 focus:outline-none"
           style={{

@@ -138,23 +138,30 @@ export function Combobox({
     if (!inputValue.trim()) {
       return localOptions
     }
-    
+
     const searchLower = inputValue.toLowerCase()
     logger.debug('🔍 Combobox filtering:', { inputValue, searchLower, totalOptions: localOptions.length })
-    
+
     const filtered = localOptions.filter(option => {
-      // Use searchValue if available, otherwise fall back to value and label
-      const searchText = (option.searchValue || 
-        `${option.value} ${typeof option.label === 'string' ? option.label : ''}`).toLowerCase()
+      // Include group name in search text to allow filtering by group
+      const labelText = typeof option.label === 'string' ? option.label : '';
+      const groupText = option.group || '';
+
+      // Add singular forms of common plural words for better matching
+      // e.g., "file" matches "Files", "folder" matches "Folders"
+      const groupSingular = groupText.replace(/folders/i, 'folder folders').replace(/files/i, 'file files');
+
+      const searchText = (option.searchValue ||
+        `${option.value} ${labelText} ${groupText} ${groupSingular}`).toLowerCase()
       const matches = searchText.includes(searchLower)
-      
+
       if (matches) {
         logger.debug('🎯 Match found:', { searchText: searchText.substring(0, 50), searchLower })
       }
-      
+
       return matches
     })
-    
+
     logger.debug('🔍 Filtered results:', filtered.length)
     return filtered
   }, [localOptions, inputValue])
