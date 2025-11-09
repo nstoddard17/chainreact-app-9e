@@ -1,23 +1,10 @@
 "use client"
 
 import React, { useState, useEffect } from 'react'
-import { Mail, User } from 'lucide-react'
-import { Input } from '@/components/ui/input'
+import { Mail, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList
-} from '@/components/ui/command'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
+import { Combobox } from '@/components/ui/combobox'
 
 interface Contact {
   email: string
@@ -34,15 +21,54 @@ interface ContactPickerProps {
   dynamic?: string
 }
 
-// TODO: Load contacts from dynamic source (Gmail contacts)
-function useContactSuggestions(dynamic?: string): Contact[] {
+// Load contacts from dynamic source (Gmail contacts)
+function useContactSuggestions(dynamic?: string, loadOnMount?: boolean): Contact[] {
   const [contacts, setContacts] = useState<Contact[]>([])
 
   useEffect(() => {
-    // TODO: Fetch from dynamic source
-    // For now, return empty array
-    setContacts([])
-  }, [dynamic])
+    if (!dynamic || !loadOnMount) return
+
+    const fetchContacts = async () => {
+      try {
+        // Get the integration ID for Gmail
+        const integrationsResponse = await fetch('/api/integrations')
+        if (!integrationsResponse.ok) return
+
+        const integrationsData = await integrationsResponse.json()
+        const integrations = Array.isArray(integrationsData) ? integrationsData : integrationsData.data || []
+        const gmailIntegration = integrations.find((i: any) => i.provider === 'gmail' && i.status === 'connected')
+
+        if (!gmailIntegration) return
+
+        // Fetch recent recipients
+        const dataResponse = await fetch('/api/integrations/gmail/data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            integrationId: gmailIntegration.id,
+            dataType: dynamic,
+            options: {}
+          })
+        })
+
+        if (!dataResponse.ok) return
+
+        const result = await dataResponse.json()
+        if (result.data && Array.isArray(result.data)) {
+          // Transform the data to Contact format
+          const transformedContacts: Contact[] = result.data.map((item: any) => ({
+            email: item.value || item.email,
+            name: item.label || item.name
+          }))
+          setContacts(transformedContacts)
+        }
+      } catch (error) {
+        console.error('Error loading contacts:', error)
+      }
+    }
+
+    fetchContacts()
+  }, [dynamic, loadOnMount])
 
   return contacts
 }
@@ -50,16 +76,13 @@ function useContactSuggestions(dynamic?: string): Contact[] {
 export function ContactPicker({
   value,
   onChange,
-  placeholder = "Type email addresses or names",
+  placeholder = "Select guests",
   disabled = false,
   className,
   loadOnMount,
   dynamic
 }: ContactPickerProps) {
-  const [inputValue, setInputValue] = useState('')
-  const [open, setOpen] = useState(false)
-  const contacts = useContactSuggestions(dynamic)
-
+  const contacts = useContactSuggestions(dynamic, loadOnMount)
   const emails = value ? value.split(',').map(e => e.trim()).filter(Boolean) : []
 
   const addEmail = (email: string) => {
@@ -67,8 +90,6 @@ export function ContactPicker({
       const updated = [...emails, email].join(', ')
       onChange(updated)
     }
-    setInputValue('')
-    setOpen(false)
   }
 
   const removeEmail = (emailToRemove: string) => {
@@ -76,89 +97,57 @@ export function ContactPicker({
     onChange(updated)
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault()
-      if (inputValue.trim()) {
-        addEmail(inputValue.trim())
-      }
-    }
-  }
+  // Convert contacts to combobox options format
+  const options = contacts.map(contact => ({
+    value: contact.email,
+    label: contact.name || contact.email
+  }))
+
+  // Get currently selected contact for display
+  const selectedEmail = emails[emails.length - 1] || ''
 
   return (
     <div className={cn("space-y-2", className)}>
-      {/* Selected emails */}
+      {/* Selected emails as badges */}
       {emails.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          {emails.map((email) => (
-            <Badge key={email} variant="secondary" className="gap-1">
-              <Mail className="h-3 w-3" />
-              {email}
-              <button
-                type="button"
-                onClick={() => removeEmail(email)}
-                disabled={disabled}
-                className="ml-1 hover:bg-secondary-foreground/20 rounded-full p-0.5"
-              >
-                ×
-              </button>
-            </Badge>
-          ))}
+          {emails.map((email) => {
+            const contact = contacts.find(c => c.email === email)
+            return (
+              <Badge key={email} variant="secondary" className="gap-1 px-2 py-1">
+                <Mail className="h-3 w-3" />
+                <span className="max-w-[200px] truncate">
+                  {contact?.name || email}
+                </span>
+                {!disabled && (
+                  <button
+                    type="button"
+                    onClick={() => removeEmail(email)}
+                    className="ml-1 hover:bg-secondary-foreground/20 rounded-full p-0.5"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </Badge>
+            )
+          })}
         </div>
       )}
 
-      {/* Input with autocomplete */}
-      <Popover open={open && contacts.length > 0} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <div className="relative">
-            <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="text"
-              value={inputValue}
-              onChange={(e) => {
-                setInputValue(e.target.value)
-                setOpen(true)
-              }}
-              onKeyDown={handleKeyDown}
-              placeholder={placeholder}
-              disabled={disabled}
-              className="pl-9"
-            />
-          </div>
-        </PopoverTrigger>
-        {contacts.length > 0 && (
-          <PopoverContent className="w-full p-0" align="start">
-            <Command>
-              <CommandList>
-                <CommandEmpty>No contacts found.</CommandEmpty>
-                <CommandGroup>
-                  {contacts.map((contact) => (
-                    <CommandItem
-                      key={contact.email}
-                      value={contact.email}
-                      onSelect={() => addEmail(contact.email)}
-                    >
-                      <Mail className="mr-2 h-4 w-4" />
-                      <div className="flex flex-col">
-                        {contact.name && (
-                          <span className="font-medium">{contact.name}</span>
-                        )}
-                        <span className="text-sm text-muted-foreground">
-                          {contact.email}
-                        </span>
-                      </div>
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        )}
-      </Popover>
-
-      <p className="text-xs text-muted-foreground">
-        Type emails separated by commas or press Enter
-      </p>
+      {/* Combobox for adding emails */}
+      <Combobox
+        value={selectedEmail}
+        onChange={(newEmail) => {
+          if (newEmail && newEmail !== selectedEmail) {
+            addEmail(newEmail)
+          }
+        }}
+        options={options}
+        placeholder={placeholder}
+        searchPlaceholder="Search contacts..."
+        emptyPlaceholder="No contacts found"
+        disabled={disabled}
+      />
     </div>
   )
 }

@@ -34,20 +34,63 @@ export async function POST(req: NextRequest) {
     // Check if data type is supported
     if (!isGmailDataTypeSupported(dataType)) {
       logger.debug('❌ [Gmail Data API] Unsupported data type:', dataType)
-      return jsonResponse({ 
-        error: `Data type '${dataType}' not supported. Available types: ${getAvailableGmailDataTypes().join(', ')}` 
+      return jsonResponse({
+        error: `Data type '${dataType}' not supported. Available types: ${getAvailableGmailDataTypes().join(', ')}`
       }, { status: 400 })
     }
 
-    // Get Gmail integration from database
-    const { data: integration, error: integrationError } = await supabase
+    // Try to get Gmail integration by the provided ID first
+    let integrationQuery = supabase
       .from('integrations')
       .select('*')
       .eq('id', integrationId)
       .eq('provider', 'gmail')
       .single()
 
+    let { data: integration, error: integrationError } = await integrationQuery
+
+    // If not found and this is a cross-provider request (e.g., gmail-contacts from Google Drive),
+    // find the user's Gmail integration by user_id
     if (integrationError || !integration) {
+      logger.debug('🔍 [Gmail Data API] Gmail integration not found by ID, trying to find by user_id...')
+
+      // First get the original integration to find the user_id
+      const { data: originalIntegration } = await supabase
+        .from('integrations')
+        .select('user_id')
+        .eq('id', integrationId)
+        .single()
+
+      if (originalIntegration?.user_id) {
+        // Find user's Gmail integration
+        const { data: gmailIntegration, error: gmailError } = await supabase
+          .from('integrations')
+          .select('*')
+          .eq('user_id', originalIntegration.user_id)
+          .eq('provider', 'gmail')
+          .eq('status', 'connected')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (gmailIntegration) {
+          logger.debug('✅ [Gmail Data API] Found Gmail integration for user:', { userId: originalIntegration.user_id })
+          integration = gmailIntegration
+          integrationError = null
+        } else {
+          logger.debug('❌ [Gmail Data API] No Gmail integration found for user')
+          return errorResponse('Gmail integration not found. Please connect your Gmail account first.', 404, {
+            needsConnection: true,
+            provider: 'gmail'
+          })
+        }
+      } else {
+        logger.error('❌ [Gmail Data API] Integration not found:', integrationError)
+        return errorResponse('Gmail integration not found' , 404)
+      }
+    }
+
+    if (!integration) {
       logger.error('❌ [Gmail Data API] Integration not found:', integrationError)
       return errorResponse('Gmail integration not found' , 404)
     }

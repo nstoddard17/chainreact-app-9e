@@ -273,6 +273,7 @@ const googleSheetsMappings: Record<string, FieldMapping> = {
 const googleDriveMappings: Record<string, FieldMapping> = {
   "google-drive:new_file_in_folder": {
     folderId: "google-drive-folders",
+    createdByEmail: "gmail-enhanced-recipients",
   },
   "google-drive:new_folder_in_folder": {
     folderId: "google-drive-folders",
@@ -297,6 +298,14 @@ const googleDriveMappings: Record<string, FieldMapping> = {
     folderId: "google-drive-folders",
     fileId: "google-drive-files",
   },
+  "google-drive:share_file": {
+    fileId: "google-drive-files",
+    emailAddress: "gmail-enhanced-recipients",
+  },
+  "google-drive:move_file": {
+    fileId: "google-drive-files-and-folders",
+    destinationFolderId: "google-drive-folders",
+  },
 };
 
 // Google Docs field mappings
@@ -313,11 +322,16 @@ const googleDocsMappings: Record<string, FieldMapping> = {
   google_docs_action_get_document: {
     documentId: "google-docs-documents",
   },
+  google_docs_trigger_new_document: {
+    folderId: "google-drive-folders",
+  },
   google_docs_trigger_document_modified: {
     documentId: "google-docs-documents",
+    folderId: "google-drive-folders",
   },
   google_docs_trigger_document_updated: {
     documentId: "google-docs-documents",
+    folderId: "google-drive-folders",
   },
 };
 
