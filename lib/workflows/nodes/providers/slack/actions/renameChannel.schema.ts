@@ -22,7 +22,7 @@ export const renameChannelActionSchema: NodeComponent = {
       label: "Channel",
       type: "combobox",
       required: true,
-      dynamic: "slack-channels",
+      dynamic: "slack_channels",
       loadOnMount: true,
       searchable: true,
       placeholder: "Select a channel",

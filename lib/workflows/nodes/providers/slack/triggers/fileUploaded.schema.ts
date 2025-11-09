@@ -16,7 +16,7 @@ export const fileUploadedTriggerSchema: NodeComponent = {
       label: "Channel (Optional)",
       type: "select",
       required: false,
-      dynamic: "slack-channels",
+      dynamic: "slack_channels",
       loadOnMount: true,
       placeholder: "All channels",
       description: "Optional: Filter to a specific channel. Leave empty to watch all file uploads in the workspace.",

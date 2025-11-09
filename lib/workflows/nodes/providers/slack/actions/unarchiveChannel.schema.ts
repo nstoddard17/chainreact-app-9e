@@ -21,7 +21,7 @@ export const unarchiveChannelActionSchema: NodeComponent = {
       label: "Channel",
       type: "combobox",
       required: true,
-      dynamic: "slack-channels-archived",
+      dynamic: "slack_channels_archived",
       loadOnMount: true,
       searchable: true,
       placeholder: "Select an archived channel",

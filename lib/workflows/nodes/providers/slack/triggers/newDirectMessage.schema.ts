@@ -15,7 +15,7 @@ export const newDirectMessageTriggerSchema: NodeComponent = {
       label: "From User (Optional)",
       type: "select",
       required: false,
-      dynamic: "slack-users",
+      dynamic: "slack_users",
       description: "Optional: Filter to messages from a specific user. Leave empty to receive all direct messages."
     },
   ],

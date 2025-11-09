@@ -21,7 +21,7 @@ export const cancelScheduledMessageActionSchema: NodeComponent = {
       label: "Channel",
       type: "select",
       required: true,
-      dynamic: "slack-channels",
+      dynamic: "slack_channels",
       loadOnMount: true,
       placeholder: "Select a channel",
       tooltip: "Select the channel where the scheduled message was created"

@@ -21,7 +21,7 @@ export const scheduleMessageActionSchema: NodeComponent = {
       label: "Channel",
       type: "select",
       required: true,
-      dynamic: "slack-channels",
+      dynamic: "slack_channels",
       loadOnMount: true,
       placeholder: "Select a channel",
       tooltip: "Select the Slack channel where the message will be sent"

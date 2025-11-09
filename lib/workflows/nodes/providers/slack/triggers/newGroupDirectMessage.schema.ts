@@ -15,7 +15,7 @@ export const newGroupDirectMessageTriggerSchema: NodeComponent = {
       label: "Group DM (Optional)",
       type: "select",
       required: false,
-      dynamic: "slack-group-dms",
+      dynamic: "slack_group_dms",
       description: "Optional: Filter to a specific group DM. Leave empty to receive messages from all group DMs."
     },
   ],

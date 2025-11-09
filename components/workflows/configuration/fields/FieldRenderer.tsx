@@ -19,6 +19,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useDragDrop } from "@/hooks/use-drag-drop";
 import { EmailAutocomplete } from "@/components/ui/email-autocomplete";
 import { EmailRichTextEditor } from "./EmailRichTextEditor";
+import { SlackMessageEditor } from "./SlackMessageEditor";
 // Use the full featured Discord rich text editor
 import { DiscordRichTextEditor } from "./DiscordRichTextEditor";
 // import { DiscordRichTextEditor } from "./DiscordRichTextEditorOptimized";
@@ -29,7 +30,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { useIntegrationStore } from "@/stores/integrationStore";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 
 // Phase 1: Enhanced Configuration Components
@@ -916,6 +917,53 @@ export function FieldRenderer({
           />
         );
 
+      case "slack-rich-text":
+        // Enhanced rich text editor specifically for Slack message composition
+        return (
+          <SlackMessageEditor
+            value={value || ""}
+            onChange={onChange}
+            placeholder={field.placeholder || "Type your Slack message..."}
+            error={error}
+            workflowNodes={workflowData?.nodes}
+            className={cn(
+              error && "border-red-500"
+            )}
+            onFileSelect={async (files) => {
+              // Handle file selection using the same logic as the attachments field
+              const processedFiles = await Promise.all(
+                files.map(async (file) => {
+                  const BASE64_SIZE_LIMIT = 10 * 1024 * 1024;
+                  if (file.size <= BASE64_SIZE_LIMIT) {
+                    return new Promise((resolve) => {
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        resolve({
+                          type: 'base64',
+                          data: reader.result,
+                          name: file.name,
+                          size: file.size,
+                          mimeType: file.type
+                        });
+                      };
+                      reader.readAsDataURL(file);
+                    });
+                  }
+                  return {
+                    type: 'file',
+                    file: file,
+                    name: file.name,
+                    size: file.size,
+                    mimeType: file.type
+                  };
+                })
+              );
+              // Set the attachments field value
+              setFieldValue('attachments', processedFiles);
+            }}
+          />
+        );
+
       case "discord-rich-text":
         // Enhanced rich text editor specifically for Discord message composition
         return (
@@ -1461,20 +1509,18 @@ export function FieldRenderer({
                 {field.label || field.name}
               </Label>
               {(field.helpText || field.tooltip || field.description) && tooltipsEnabled && (
-                <TooltipProvider delayDuration={0}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent
-                      side="right"
-                      className="max-w-xs bg-slate-900 text-white border-slate-700"
-                      sideOffset={8}
-                    >
-                      <p className="text-xs">{field.helpText || field.tooltip || field.description}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side="right"
+                    className="max-w-xs bg-slate-900 text-white border-slate-700"
+                    sideOffset={8}
+                  >
+                    <p className="text-xs">{field.helpText || field.tooltip || field.description}</p>
+                  </TooltipContent>
+                </Tooltip>
               )}
             </div>
             <Switch
@@ -2311,34 +2357,32 @@ export function FieldRenderer({
 
         {/* Help tooltip icon - always show if we have content */}
         {hasTooltipContent && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  className="text-muted-foreground hover:text-foreground transition-colors"
-                  onClick={(e) => e.preventDefault()}
-                >
-                  <HelpCircle className="h-3.5 w-3.5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right" className="max-w-xs">
-                <div className="space-y-2">
-                  {helpText && <p className="text-sm">{helpText}</p>}
-                  {examples.length > 0 && (
-                    <div>
-                      <p className="text-xs font-semibold text-muted-foreground mb-1">Examples:</p>
-                      <ul className="text-xs space-y-0.5 list-disc list-inside">
-                        {examples.map((example, i) => (
-                          <li key={i} className="font-mono">{example}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                onClick={(e) => e.preventDefault()}
+              >
+                <HelpCircle className="h-3.5 w-3.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="max-w-xs">
+              <div className="space-y-2">
+                {helpText && <p className="text-sm">{helpText}</p>}
+                {examples.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground mb-1">Examples:</p>
+                    <ul className="text-xs space-y-0.5 list-disc list-inside">
+                      {examples.map((example, i) => (
+                        <li key={i} className="font-mono">{example}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </TooltipContent>
+          </Tooltip>
         )}
 
         {/* Spacer to push buttons to the right */}

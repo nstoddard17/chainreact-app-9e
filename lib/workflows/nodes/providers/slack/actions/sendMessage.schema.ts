@@ -16,43 +16,45 @@ export const sendMessageActionSchema: NodeComponent = {
   category: "Communication",
   isTrigger: false,
   configSchema: [
-    // Parent field - always visible
     {
       name: "channel",
       label: "Channel",
       type: "select",
       required: true,
-      dynamic: "slack-channels",
+      dynamic: "slack_channels",
       loadOnMount: true,
-      placeholder: "Select a channel",
-      tooltip: "Select the Slack channel where you want to send the message. Private channels require the bot to be invited first. You can also use variables to dynamically set the channel."
+      placeholder: "Select a channel...",
+      description: "Choose which Slack channel to send the message to"
     },
-
-    // Cascaded fields - only show after channel selected
     {
       name: "message",
       label: "Message",
-      type: "rich-text",
+      type: "slack-rich-text",
       required: true,
       placeholder: "Type your message...",
       defaultValue: "",
-      tooltip: "The message content with rich text formatting (bold, italic, links, etc.). You can drag variables from the right panel to include dynamic content from previous workflow steps.",
-      dependsOn: "channel",
-      hidden: {
-        $deps: ["channel"],
-        $condition: { channel: { $exists: false } }
-      }
+      description: "Message content with rich text formatting (bold, italic, links, etc.)"
+    },
+    {
+      name: "threadTimestamp",
+      label: "Thread (Optional)",
+      type: "text",
+      required: false,
+      placeholder: "{{trigger.ts}}",
+      supportsAI: true,
+      description: "Reply to a specific thread by providing the parent message timestamp. Leave empty for a new message."
     },
     {
       name: "attachments",
-      label: "File Attachments (Optional)",
+      label: "Attachments",
       type: "file-with-toggle",
       required: false,
       placeholder: "Select files to attach",
       accept: ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.gif,.zip,.rar",
-      maxSize: 50 * 1024 * 1024, // 50MB limit
-      multiple: true, // Allow multiple file attachments
-      tooltip: "Attach files to your message (max 50MB per file). Upload: Choose files from your computer. URL: Provide direct links to files. Variables: Use merge fields to attach files from previous steps.",
+      maxSize: 50 * 1024 * 1024,
+      multiple: true,
+      description: "Attach files to your message (max 50MB per file)",
+      hidden: true,
       toggleOptions: {
         modes: ["upload", "url"],
         labels: {
@@ -63,39 +65,6 @@ export const sendMessageActionSchema: NodeComponent = {
           url: "https://example.com/document.pdf"
         },
         defaultMode: "upload"
-      },
-      dependsOn: "channel",
-      hidden: {
-        $deps: ["channel"],
-        $condition: { channel: { $exists: false } }
-      }
-    },
-    {
-      name: "threadTimestamp",
-      label: "Reply in Thread (Optional)",
-      type: "text",
-      required: false,
-      placeholder: "{{trigger.ts}}",
-      supportsAI: true,
-      tooltip: "Reply to a specific message thread by providing the parent message's timestamp. Use merge fields like {{trigger.ts}} or {{previous_node.ts}}. Leave empty to send as a new message.",
-      dependsOn: "channel",
-      hidden: {
-        $deps: ["channel"],
-        $condition: { channel: { $exists: false } }
-      }
-    },
-    {
-      name: "blocks",
-      label: "Custom Block Kit (Advanced)",
-      type: "object",
-      required: false,
-      placeholder: JSON.stringify([{ type: "section", text: { type: "mrkdwn", text: "Your message here" } }], null, 2),
-      supportsAI: true,
-      tooltip: "Use Slack Block Kit for advanced message formatting with buttons, images, and interactive elements. Design your blocks at https://app.slack.com/block-kit-builder. When blocks are provided, they override the simple message field.",
-      dependsOn: "channel",
-      hidden: {
-        $deps: ["channel"],
-        $condition: { channel: { $exists: false } }
       }
     }
   ],
