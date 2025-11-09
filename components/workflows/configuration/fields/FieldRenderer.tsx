@@ -38,6 +38,15 @@ import { generatePlaceholder, generateHelpText, generateExamples, getKeyboardHin
 import { EmptyStateCard } from "../EmptyStateCard";
 
 // Integration-specific field components
+import { TimePicker15Min } from './TimePicker15Min';
+import { TimezonePicker } from './TimezonePicker';
+import { RecurrencePicker } from './RecurrencePicker';
+import { GoogleMeetButton } from './GoogleMeetButton';
+import { GooglePlacesAutocomplete } from './GooglePlacesAutocomplete';
+import { NotificationBuilder } from './NotificationBuilder';
+import { ColorSelect } from './ColorSelect';
+import { VisibilitySelect } from './VisibilitySelect';
+import { ContactPicker } from './ContactPicker';
 import { GmailEmailField } from "./gmail/GmailEmailField";
 import { GmailAttachmentField } from "./gmail/GmailAttachmentField";
 import { OutlookEmailField } from "./outlook/OutlookEmailField";
@@ -891,6 +900,7 @@ export function FieldRenderer({
             error={error}
             integrationProvider={field.provider || 'gmail'}
             userId={user?.id}
+            workflowNodes={workflowData?.nodes}
             className={cn(
               error && "border-red-500"
             )}
@@ -2041,6 +2051,111 @@ export function FieldRenderer({
             value={value}
             onChange={onChange}
             error={error}
+          />
+        );
+
+      case "time-picker-15min":
+        return (
+          <TimePicker15Min
+            value={value}
+            onChange={onChange}
+            placeholder={field.placeholder}
+            disabled={field.disabled}
+            className={cn(error && "border-red-500")}
+          />
+        );
+
+      case "timezone-picker":
+        return (
+          <TimezonePicker
+            value={value}
+            onChange={onChange}
+            options={field.options || []}
+            placeholder={field.placeholder}
+            disabled={field.disabled}
+            className={cn(error && "border-red-500")}
+          />
+        );
+
+      case "recurrence-picker":
+        return (
+          <RecurrencePicker
+            value={value}
+            onChange={onChange}
+            options={field.options || []}
+            placeholder={field.placeholder}
+            disabled={field.disabled}
+            startDate={parentValues?.startDate}
+            className={cn(error && "border-red-500")}
+          />
+        );
+
+      case "google-meet-button":
+        return (
+          <GoogleMeetButton
+            value={value}
+            onChange={onChange}
+            disabled={field.disabled}
+            className={cn(error && "border-red-500")}
+          />
+        );
+
+      case "google-places-autocomplete":
+        return (
+          <GooglePlacesAutocomplete
+            value={value}
+            onChange={onChange}
+            placeholder={field.placeholder}
+            disabled={field.disabled}
+            className={cn(error && "border-red-500")}
+          />
+        );
+
+      case "notification-builder":
+        return (
+          <NotificationBuilder
+            value={value}
+            onChange={onChange}
+            disabled={field.disabled}
+            className={cn(error && "border-red-500")}
+          />
+        );
+
+      case "color-select":
+        return (
+          <ColorSelect
+            value={value}
+            onChange={onChange}
+            options={field.options || []}
+            placeholder={field.placeholder}
+            disabled={field.disabled}
+            showColorDots={field.showColorDots}
+            className={cn(error && "border-red-500")}
+          />
+        );
+
+      case "visibility-select":
+        return (
+          <VisibilitySelect
+            value={value}
+            onChange={onChange}
+            options={field.options || []}
+            placeholder={field.placeholder}
+            disabled={field.disabled}
+            className={cn(error && "border-red-500")}
+          />
+        );
+
+      case "contact-picker":
+        return (
+          <ContactPicker
+            value={value}
+            onChange={onChange}
+            placeholder={field.placeholder}
+            disabled={field.disabled}
+            loadOnMount={field.loadOnMount}
+            dynamic={field.dynamic}
+            className={cn(error && "border-red-500")}
           />
         );
 

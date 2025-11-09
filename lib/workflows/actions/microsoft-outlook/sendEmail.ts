@@ -3,6 +3,7 @@ import { resolveValue } from '../core/resolveValue'
 import { ActionResult } from '../core/executeWait'
 import { FileStorageService } from "@/lib/storage/fileStorage"
 import { deleteWorkflowTempFiles } from '@/lib/utils/workflowFileCleanup'
+import { applyEmailMetaVariables } from '../gmail/resolveEmailMetaVariables'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -24,12 +25,25 @@ export async function sendOutlookEmail(
       )
 
     const resolvedConfig = needsResolution ? resolveValue(config, { input }) : config
+
+    // Apply meta-variable resolution to subject and body
+    // This resolves {{recipient_name}}, {{sender_email}}, etc. based on To/From fields
+    const { subject: resolvedSubject, body: resolvedBody } = await applyEmailMetaVariables(
+      {
+        to: resolvedConfig.to,
+        from: undefined, // Outlook sends as authenticated user
+        cc: resolvedConfig.cc,
+        bcc: resolvedConfig.bcc,
+        subject: resolvedConfig.subject,
+        body: resolvedConfig.body
+      },
+      userId
+    )
+
     const {
       to,
       cc,
       bcc,
-      subject,
-      body,
       importance = 'normal',
       isHtml = false,
       attachments,
@@ -38,6 +52,10 @@ export async function sendOutlookEmail(
       fileUrl,
       fileFromNode
     } = resolvedConfig
+
+    // Use the meta-variable resolved subject and body
+    const subject = resolvedSubject
+    const body = resolvedBody
 
     // Get the decrypted access token for Microsoft Outlook
     const accessToken = await getDecryptedAccessToken(userId, "microsoft-outlook")

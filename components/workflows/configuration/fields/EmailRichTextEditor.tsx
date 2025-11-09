@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
@@ -20,6 +20,7 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
+  AlignJustify,
   Link,
   Image,
   Palette,
@@ -36,11 +37,23 @@ import {
   User,
   Calendar,
   Building,
-  Braces
+  Braces,
+  Strikethrough,
+  Subscript,
+  Superscript,
+  Table,
+  Minus,
+  IndentDecrease,
+  IndentIncrease,
+  RemoveFormatting,
+  Paintbrush,
+  Upload,
+  Link2
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useVariableDropTarget } from '../hooks/useVariableDropTarget'
 import { insertVariableIntoContentEditable, normalizeDraggedVariable } from '@/lib/workflows/variableInsertion'
+import { GenericSelectField } from './shared/GenericSelectField'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -53,6 +66,8 @@ interface EmailRichTextEditorProps {
   error?: string
   integrationProvider?: string // 'gmail', 'outlook', etc.
   userId?: string
+  availableVariables?: string[] // List of available variable keys (e.g., ['trigger.subject', 'trigger.body'])
+  workflowNodes?: any[] // Current workflow nodes to extract available variables
 }
 
 interface EmailTemplate {
@@ -589,18 +604,43 @@ As a valued customer, you get <strong>{{special_offer}}</strong> for the first <
   }
 ]
 
+const FONT_FAMILIES = [
+  { value: 'Arial', label: 'Arial' },
+  { value: 'Georgia', label: 'Georgia' },
+  { value: 'Helvetica', label: 'Helvetica' },
+  { value: 'Times New Roman', label: 'Times New Roman' },
+  { value: 'Courier New', label: 'Courier New' },
+  { value: 'Verdana', label: 'Verdana' },
+  { value: 'Comic Sans MS', label: 'Comic Sans MS' },
+  { value: 'Impact', label: 'Impact' },
+  { value: 'Trebuchet MS', label: 'Trebuchet MS' },
+  { value: 'Palatino', label: 'Palatino' }
+]
+
 const FONT_SIZES = [
-  { value: '12px', label: 'Small' },
-  { value: '14px', label: 'Normal' },
-  { value: '16px', label: 'Medium' },
-  { value: '18px', label: 'Large' },
-  { value: '24px', label: 'X-Large' }
+  { value: '10', label: '10px' },
+  { value: '12', label: '12px' },
+  { value: '14', label: '14px' },
+  { value: '16', label: '16px' },
+  { value: '18', label: '18px' },
+  { value: '20', label: '20px' },
+  { value: '24', label: '24px' },
+  { value: '28', label: '28px' },
+  { value: '32', label: '32px' },
+  { value: '36', label: '36px' }
 ]
 
 const TEXT_COLORS = [
-  '#000000', '#333333', '#666666', '#999999',
-  '#e74c3c', '#e67e22', '#f39c12', '#27ae60',
-  '#3498db', '#9b59b6', '#34495e', '#95a5a6'
+  '#000000', '#333333', '#666666', '#999999', '#ffffff',
+  '#e74c3c', '#e67e22', '#f39c12', '#f1c40f', '#27ae60',
+  '#2ecc71', '#3498db', '#9b59b6', '#34495e', '#95a5a6',
+  '#c0392b', '#d35400', '#e67e22', '#16a085', '#8e44ad'
+]
+
+const BACKGROUND_COLORS = [
+  '#ffffff', '#f8f9fa', '#e9ecef', '#dee2e6', '#ced4da',
+  '#ffebee', '#fff3e0', '#fff9c4', '#e8f5e9', '#e3f2fd',
+  '#f3e5f5', '#fce4ec', '#e0f2f1', '#f1f8e9', '#fff8e1'
 ]
 
 interface EmailVariable {
@@ -645,7 +685,9 @@ export function EmailRichTextEditor({
   className = "",
   error,
   integrationProvider = 'gmail',
-  userId
+  userId,
+  availableVariables,
+  workflowNodes
 }: EmailRichTextEditorProps) {
   const [isPreviewMode, setIsPreviewMode] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState<string>('')
@@ -654,10 +696,63 @@ export function EmailRichTextEditor({
   const [signatures, setSignatures] = useState<EmailSignature[]>([])
   const [selectedSignature, setSelectedSignature] = useState<string>('')
   const [isLoadingSignatures, setIsLoadingSignatures] = useState(false)
-  const [fontSize, setFontSize] = useState('14px')
+  const [fontSize, setFontSize] = useState('14')
+  const [customFontSize, setCustomFontSize] = useState('')
+  const [fontFamily, setFontFamily] = useState('Arial')
   const [textColor, setTextColor] = useState('#000000')
+  const [backgroundColor, setBackgroundColor] = useState('#ffffff')
+  const [showLinkDialog, setShowLinkDialog] = useState(false)
+  const [linkUrl, setLinkUrl] = useState('')
+  const [linkText, setLinkText] = useState('')
+  const [showImageDialog, setShowImageDialog] = useState(false)
+  const [imageUrl, setImageUrl] = useState('')
+  const [imageAlt, setImageAlt] = useState('')
   // Auto-include signature removed - signatures must be manually added by user
   const [isEditorInitialized, setIsEditorInitialized] = useState(false)
+
+  // Extract available variables from workflow nodes
+  const extractedVariables = useMemo(() => {
+    if (!workflowNodes || workflowNodes.length === 0) {
+      return []
+    }
+
+    const variables: string[] = []
+
+    // Check if there's a trigger node
+    const triggerNode = workflowNodes.find(node => node.data?.isTrigger)
+    if (triggerNode) {
+      // Add trigger variables
+      variables.push('trigger.subject', 'trigger.body', 'trigger.sender_name', 'trigger.sender_email')
+    }
+
+    // Always include sender, recipient, workflow, and datetime variables as they're always available
+    variables.push(
+      'recipient_name', 'recipient_email', 'recipient_first_name',
+      'sender_name', 'sender_email', 'sender_company', 'sender_role',
+      'workflow.name', 'workflow.execution_id',
+      'current_date', 'current_time', 'current_datetime'
+    )
+
+    return variables
+  }, [workflowNodes])
+
+  // Determine which variables to show
+  const displayVariables = useMemo(() => {
+    const variablesToUse = availableVariables || extractedVariables
+
+    // If no workflow context, show only non-trigger variables (sender, recipient, workflow, datetime)
+    // This prevents showing trigger variables when there's no trigger node
+    if (variablesToUse.length === 0) {
+      return COMMON_VARIABLES.filter(v => v.category !== 'trigger')
+    }
+
+    // Filter variables based on available ones
+    return COMMON_VARIABLES.filter(variable => {
+      // Extract the variable key without {{ }}
+      const variableKey = variable.variable.replace(/\{\{|\}\}/g, '')
+      return variablesToUse.includes(variableKey)
+    })
+  }, [availableVariables, extractedVariables])
   
   const editorRef = useRef<HTMLDivElement | null>(null)
   const handleVariableInsert = useCallback((rawVariable: string) => {
@@ -871,6 +966,116 @@ export function EmailRichTextEditor({
     setIsPreviewMode(!isPreviewMode)
   }
 
+  const insertLink = () => {
+    const selection = window.getSelection()
+    if (selection && selection.toString()) {
+      setLinkText(selection.toString())
+    }
+    setShowLinkDialog(true)
+  }
+
+  const applyLink = () => {
+    if (linkUrl) {
+      if (linkText) {
+        const html = `<a href="${linkUrl}" target="_blank" rel="noopener noreferrer">${linkText}</a>`
+        execCommand('insertHTML', html)
+      } else {
+        execCommand('createLink', linkUrl)
+      }
+      setLinkUrl('')
+      setLinkText('')
+      setShowLinkDialog(false)
+      toast({
+        title: "Link inserted",
+        description: "Link has been added to your email.",
+      })
+    }
+  }
+
+  const insertImage = () => {
+    setShowImageDialog(true)
+  }
+
+  const applyImage = () => {
+    if (imageUrl) {
+      const html = `<img src="${imageUrl}" alt="${imageAlt || 'Image'}" style="max-width: 100%; height: auto;" />`
+      execCommand('insertHTML', html)
+      setImageUrl('')
+      setImageAlt('')
+      setShowImageDialog(false)
+      toast({
+        title: "Image inserted",
+        description: "Image has been added to your email.",
+      })
+    }
+  }
+
+  const insertTable = () => {
+    const html = `
+      <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; margin: 10px 0;">
+        <thead>
+          <tr>
+            <th>Column 1</th>
+            <th>Column 2</th>
+            <th>Column 3</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Data 1</td>
+            <td>Data 2</td>
+            <td>Data 3</td>
+          </tr>
+          <tr>
+            <td>Data 4</td>
+            <td>Data 5</td>
+            <td>Data 6</td>
+          </tr>
+        </tbody>
+      </table>
+    `
+    execCommand('insertHTML', html)
+    toast({
+      title: "Table inserted",
+      description: "A table has been added to your email.",
+    })
+  }
+
+  const insertHorizontalRule = () => {
+    execCommand('insertHorizontalRule')
+    toast({
+      title: "Divider inserted",
+      description: "Horizontal line has been added.",
+    })
+  }
+
+  const clearFormatting = () => {
+    execCommand('removeFormat')
+    toast({
+      title: "Formatting cleared",
+      description: "Text formatting has been removed from selection.",
+    })
+  }
+
+  const applyCustomFontSize = () => {
+    if (customFontSize && !isNaN(Number(customFontSize))) {
+      const size = Number(customFontSize)
+      if (size >= 8 && size <= 72) {
+        execCommand('fontSize', customFontSize)
+        setFontSize(customFontSize)
+        toast({
+          title: "Font size applied",
+          description: `Text size set to ${customFontSize}px`,
+        })
+      } else {
+        toast({
+          title: "Invalid size",
+          description: "Font size must be between 8px and 72px",
+          variant: "destructive"
+        })
+      }
+    }
+  }
 
   const formatToolbarButton = (
     icon: React.ReactNode,
@@ -993,24 +1198,30 @@ export function EmailRichTextEditor({
 
                 {/* Category Filter */}
                 <div className="mt-3">
-                  <Select value={selectedVariableCategory} onValueChange={setSelectedVariableCategory}>
-                    <SelectTrigger className="h-8 text-xs bg-background border-border text-foreground">
-                      <SelectValue placeholder="Filter by category" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background border-border">
-                      <SelectItem value="all" className="text-xs text-foreground">All Categories</SelectItem>
-                      <SelectItem value="trigger" className="text-xs text-foreground">Trigger Data</SelectItem>
-                      <SelectItem value="recipient" className="text-xs text-foreground">Recipient Info</SelectItem>
-                      <SelectItem value="sender" className="text-xs text-foreground">Sender Info</SelectItem>
-                      <SelectItem value="workflow" className="text-xs text-foreground">Workflow Info</SelectItem>
-                      <SelectItem value="datetime" className="text-xs text-foreground">Date & Time</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <GenericSelectField
+                    field={{
+                      name: 'variableCategory',
+                      label: 'Category',
+                      type: 'select',
+                      placeholder: 'Filter by category',
+                      disableSearch: true
+                    }}
+                    value={selectedVariableCategory}
+                    onChange={setSelectedVariableCategory}
+                    options={[
+                      { value: 'all', label: 'All Categories' },
+                      { value: 'trigger', label: 'Trigger Data' },
+                      { value: 'recipient', label: 'Recipient Info' },
+                      { value: 'sender', label: 'Sender Info' },
+                      { value: 'workflow', label: 'Workflow Info' },
+                      { value: 'datetime', label: 'Date & Time' }
+                    ]}
+                  />
                 </div>
               </div>
               <ScrollArea className="h-[320px] w-full">
                 <div className="p-2">
-                  {COMMON_VARIABLES
+                  {displayVariables
                     .filter(variable => selectedVariableCategory === 'all' || variable.category === selectedVariableCategory)
                     .map(variable => (
                       <div
@@ -1027,10 +1238,11 @@ export function EmailRichTextEditor({
                         <p className="text-xs text-muted-foreground">{variable.description}</p>
                       </div>
                     ))}
-                  {COMMON_VARIABLES.filter(variable => selectedVariableCategory === 'all' || variable.category === selectedVariableCategory).length === 0 && (
+                  {displayVariables.filter(variable => selectedVariableCategory === 'all' || variable.category === selectedVariableCategory).length === 0 && (
                     <div className="text-center py-8 text-muted-foreground">
                       <Braces className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                      <p className="text-sm">No variables in this category</p>
+                      <p className="text-sm">No variables available</p>
+                      <p className="text-xs mt-1">Add nodes to your workflow to see available variables</p>
                     </div>
                   )}
                 </div>
@@ -1067,21 +1279,27 @@ export function EmailRichTextEditor({
 
                 {/* Category Filter */}
                 <div className="mt-3">
-                  <Select value={selectedTemplateCategory} onValueChange={setSelectedTemplateCategory}>
-                    <SelectTrigger className="h-8 text-xs bg-background border-border text-foreground">
-                      <SelectValue placeholder="Filter by category" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background border-border">
-                      <SelectItem value="all" className="text-xs text-foreground">All Categories</SelectItem>
-                      <SelectItem value="business" className="text-xs text-foreground">Business</SelectItem>
-                      <SelectItem value="personal" className="text-xs text-foreground">Personal</SelectItem>
-                      <SelectItem value="marketing" className="text-xs text-foreground">Marketing</SelectItem>
-                      <SelectItem value="support" className="text-xs text-foreground">Support</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <GenericSelectField
+                    field={{
+                      name: 'templateCategory',
+                      label: 'Category',
+                      type: 'select',
+                      placeholder: 'Filter by category',
+                      disableSearch: true
+                    }}
+                    value={selectedTemplateCategory}
+                    onChange={setSelectedTemplateCategory}
+                    options={[
+                      { value: 'all', label: 'All Categories' },
+                      { value: 'business', label: 'Business' },
+                      { value: 'personal', label: 'Personal' },
+                      { value: 'marketing', label: 'Marketing' },
+                      { value: 'support', label: 'Support' }
+                    ]}
+                  />
                 </div>
               </div>
-              <ScrollArea className="max-h-64 w-full" type="scroll" scrollHideDelay={600}>
+              <ScrollArea className="h-64 w-full" type="always">
                 <div className="p-2">
                   {EMAIL_TEMPLATES
                     .filter(template => selectedTemplateCategory === 'all' || template.category === selectedTemplateCategory)

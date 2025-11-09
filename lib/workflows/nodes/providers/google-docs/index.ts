@@ -38,7 +38,8 @@ const googleDocsActionCreateDocument: NodeComponent = {
         { value: "file_upload", label: "Upload File" }
       ],
       description: "Choose how to provide the document content",
-      tabGroup: "Document"
+      tabGroup: "Document",
+      loadOnMount: false // Static options - don't load
     },
     {
       name: "content",
@@ -229,6 +230,7 @@ const googleDocsActionUpdateDocument: NodeComponent = {
       label: "Document",
       type: "select",
       dynamic: "google-docs-documents",
+      loadOnMount: true,
       required: true,
       placeholder: "Select a document from your Google Docs",
       description: "Choose from your Google Docs documents"
