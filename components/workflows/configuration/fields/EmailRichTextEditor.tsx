@@ -1161,6 +1161,8 @@ export function EmailRichTextEditor({
     const selection = window.getSelection()
     if (selection && selection.toString()) {
       setLinkText(selection.toString())
+      // Save the selection so we can restore it when applying the link
+      saveSelection()
     }
     setShowLinkDialog(true)
   }
@@ -1168,6 +1170,8 @@ export function EmailRichTextEditor({
   const applyLink = () => {
     if (linkUrl) {
       if (linkText) {
+        // Restore the saved selection so we replace the highlighted text
+        restoreSelection()
         const html = `<a href="${linkUrl}" target="_blank" rel="noopener noreferrer" title="${linkUrl}" style="color: #0066cc; text-decoration: underline;">${linkText}</a>`
         execCommand('insertHTML', html)
       } else {

@@ -18,8 +18,17 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 const supabase = createClient(supabaseUrl, supabaseKey)
 
 export async function POST(req: NextRequest) {
+  logger.debug('🚀 [Google Data API] POST handler invoked')
+
   try {
-    const requestBody = await req.json()
+    let requestBody
+    try {
+      requestBody = await req.json()
+    } catch (parseError: any) {
+      logger.error('❌ [Google Data API] Failed to parse request body:', parseError)
+      return errorResponse('Invalid request body - must be valid JSON', 400)
+    }
+
     const { integrationId, dataType, options = {} } = requestBody
 
     logger.debug(`🔍 [Google Data API] Request received:`, {
@@ -35,8 +44,7 @@ export async function POST(req: NextRequest) {
         integrationId,
         dataType
       })
-      return errorResponse('Missing required parameters: integrationId and dataType'
-      , 400)
+      return errorResponse('Missing required parameters: integrationId and dataType', 400)
     }
 
     // Fetch integration from database
