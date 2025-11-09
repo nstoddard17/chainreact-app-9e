@@ -16,12 +16,12 @@ export interface NodeFieldMappings {
 // Gmail field mappings
 const gmailMappings: Record<string, FieldMapping> = {
   gmail_trigger_new_email: {
-    from: "gmail-enhanced-recipients",
+    from: "gmail_recent_senders",
     to: "gmail-enhanced-recipients",
     labelIds: "gmail_labels",
   },
   gmail_trigger_new_attachment: {
-    from: "gmail-enhanced-recipients",
+    from: "gmail_recent_senders",
     to: "gmail-enhanced-recipients",
   },
   gmail_action_send_email: {
@@ -912,6 +912,14 @@ const googleAnalyticsMappings: Record<string, FieldMapping> = {
     accountId: "google-analytics_accounts",
     propertyId: "google-analytics_properties",
   },
+  google_analytics_action_create_conversion_event: {
+    accountId: "google-analytics_accounts",
+    propertyId: "google-analytics_properties",
+  },
+  google_analytics_action_run_pivot_report: {
+    accountId: "google-analytics_accounts",
+    propertyId: "google-analytics_properties",
+  },
 };
 
 // Default field mappings for unmapped fields
@@ -964,6 +972,13 @@ export const fieldToResourceMap: NodeFieldMappings = {
  * Get resource type for a field in a specific node
  */
 export function getResourceTypeForField(fieldName: string, nodeType: string): string | null {
+  // Debug logging for Gmail "from" field
+  if (fieldName === 'from' && nodeType?.includes('gmail')) {
+    logger.debug('🔍 [FieldMapping] Checking Gmail from field:', { fieldName, nodeType });
+    logger.debug('🔍 [FieldMapping] Node mapping exists?:', !!fieldToResourceMap[nodeType]);
+    logger.debug('🔍 [FieldMapping] Field in node mapping?:', nodeType && fieldToResourceMap[nodeType] ? fieldName in fieldToResourceMap[nodeType] : false);
+  }
+
   // Debug logging for Trello template field
   if (fieldName === 'template' && nodeType?.includes('trello')) {
     logger.debug('[FieldMapping] Checking Trello template field:', { fieldName, nodeType });
@@ -976,17 +991,27 @@ export function getResourceTypeForField(fieldName: string, nodeType: string): st
     if (fieldName === 'template') {
       logger.debug('[FieldMapping] Found resource type for template:', resourceType);
     }
+    if (fieldName === 'from' && nodeType?.includes('gmail')) {
+      logger.debug('✅ [FieldMapping] Found Gmail from resource type:', resourceType);
+    }
     return resourceType;
   }
 
   // Fall back to default mapping
   if (fieldToResourceMap.default[fieldName]) {
-    return fieldToResourceMap.default[fieldName];
+    const defaultResource = fieldToResourceMap.default[fieldName];
+    if (fieldName === 'from' && nodeType?.includes('gmail')) {
+      logger.debug('⚠️ [FieldMapping] Using DEFAULT mapping for Gmail from:', defaultResource);
+    }
+    return defaultResource;
   }
 
   // No mapping found
   if (fieldName === 'template') {
     logger.debug('[FieldMapping] No resource type found for template field in:', nodeType);
+  }
+  if (fieldName === 'from' && nodeType?.includes('gmail')) {
+    logger.debug('❌ [FieldMapping] NO mapping found for Gmail from field!');
   }
   return null;
 }

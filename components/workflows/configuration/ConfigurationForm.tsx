@@ -795,6 +795,7 @@ function ConfigurationForm({
     });
 
     logger.debug(`📋 [ConfigForm] Fields to load on mount:`, fieldsToLoad.map((f: any) => ({ name: f.name, type: f.type, dynamic: f.dynamic })));
+    logger.debug(`📋 [ConfigForm] ALL configSchema fields:`, nodeInfo.configSchema.map((f: any) => ({ name: f.name, type: f.type, dynamic: f.dynamic, loadOnMount: f.loadOnMount })));
 
     if (fieldsToLoad.length > 0) {
       logger.debug('🚀 [ConfigForm] Loading fields on mount:', fieldsToLoad.map((f: any) => f.name));
@@ -897,10 +898,16 @@ function ConfigurationForm({
         loadOptions('channel', undefined, undefined, false); // Use cache for better performance
       }
 
-      // Load immediately for Gmail "from" field (recent recipients)
+      // Load immediately for Gmail "from" field
       const gmailFromField = fieldsToLoad.find((f: any) => f.name === 'from');
+      logger.debug(`🔍 [ConfigForm] Gmail "from" field check:`, {
+        found: !!gmailFromField,
+        providerId: nodeInfo?.providerId,
+        isGmail: nodeInfo?.providerId === 'gmail',
+        fieldConfig: gmailFromField ? { name: gmailFromField.name, type: gmailFromField.type, dynamic: gmailFromField.dynamic } : null
+      });
       if (gmailFromField && nodeInfo?.providerId === 'gmail') {
-        logger.debug(`🚀 [ConfigForm] Loading Gmail "from" field (recent recipients) immediately with cache`);
+        logger.debug(`🚀 [ConfigForm] Loading Gmail "from" field (${gmailFromField.dynamic}) immediately with cache`);
         loadOptions('from', undefined, undefined, false); // Use cache for better performance
       }
 
