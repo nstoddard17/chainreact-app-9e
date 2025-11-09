@@ -215,6 +215,86 @@ export async function POST(req: NextRequest) {
         })
       }
 
+      if (dataType === 'files-and-folders' || dataType === 'google-drive-files-and-folders') {
+        // Fetch both folders and files in parallel
+        const [foldersResponse, filesResponse] = await Promise.all([
+          drive.files.list({
+            q: "mimeType='application/vnd.google-apps.folder' and trashed=false",
+            fields: 'files(id,name,parents,modifiedTime)',
+            pageSize: 200,
+            orderBy: 'name'
+          }),
+          drive.files.list({
+            q: "mimeType!='application/vnd.google-apps.folder' and trashed=false",
+            fields: 'files(id,name,mimeType,parents,modifiedTime)',
+            pageSize: 200,
+            orderBy: 'name'
+          })
+        ])
+
+        // Build folder hierarchy to show parent paths
+        const folderMap = new Map()
+        const rawFolders = foldersResponse.data.files || []
+
+        // First pass: create map of all folders
+        rawFolders.forEach(folder => {
+          folderMap.set(folder.id, {
+            id: folder.id,
+            name: folder.name,
+            parents: folder.parents
+          })
+        })
+
+        // Second pass: build full paths for folders
+        const getFolderPath = (folderId: string, visited = new Set()): string => {
+          if (visited.has(folderId)) return '' // Prevent infinite loops
+          visited.add(folderId)
+
+          const folder = folderMap.get(folderId)
+          if (!folder) return ''
+
+          if (!folder.parents || folder.parents.length === 0) {
+            // Root level folder
+            return folder.name
+          }
+
+          // Get parent path
+          const parentPath = getFolderPath(folder.parents[0], visited)
+          return parentPath ? `${parentPath} / ${folder.name}` : folder.name
+        }
+
+        // Format folders with hierarchy
+        const folders = rawFolders.map(folder => ({
+          value: folder.id,
+          label: getFolderPath(folder.id!),
+          id: folder.id,
+          name: folder.name,
+          group: '📁 Folders',
+          modifiedTime: folder.modifiedTime
+        }))
+
+        // Format files
+        const files = (filesResponse.data.files || []).map(file => ({
+          value: file.id,
+          label: file.name,
+          id: file.id,
+          name: file.name,
+          mimeType: file.mimeType,
+          group: '📄 Files',
+          modifiedTime: file.modifiedTime
+        }))
+
+        // Combine folders first, then files (groups will be rendered in order they appear)
+        const combined = [...folders, ...files]
+
+        logger.debug(`[Google Drive API] Successfully fetched ${folders.length} folders and ${files.length} files`)
+
+        return jsonResponse({
+          data: combined,
+          success: true
+        })
+      }
+
       return errorResponse('Unsupported data type' , 400)
     }
 

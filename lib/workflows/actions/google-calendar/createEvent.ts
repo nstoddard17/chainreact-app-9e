@@ -172,37 +172,45 @@ export async function createGoogleCalendarEvent(
       }
     }
 
-    // Add Google Meet conference if googleMeet object exists
+    // Handle Google Meet conference
     let createMeetLink = false
+    let existingEventId: string | null = null
+
     if (googleMeet && googleMeet.link) {
       createMeetLink = true
-      const conferenceRequest: any = {
-        requestId: `meet_${Date.now()}`,
-        conferenceSolutionKey: { type: 'hangoutsMeet' }
-      }
 
-      // Apply Google Meet settings if provided
-      if (googleMeet.settings) {
-        const conferenceSolution: any = {}
-
-        // Note: Google Calendar API has limited support for these settings
-        // Most settings are controlled by the user's Google Workspace admin settings
-        // These are stored for reference but may not all be enforced by the API
-        if (googleMeet.settings.accessType) {
-          // Store access type metadata (not directly supported by API)
-          conferenceSolution.accessType = googleMeet.settings.accessType
+      // If we already created a placeholder event, we'll update it instead of creating new
+      if (googleMeet.eventId) {
+        existingEventId = googleMeet.eventId
+        logger.debug(`🔄 [Google Calendar] Updating existing event ${existingEventId} with real details`)
+      } else {
+        // No existing event, create conference data for new event
+        const conferenceRequest: any = {
+          requestId: `meet_${Date.now()}`,
+          conferenceSolutionKey: { type: 'hangoutsMeet' }
         }
 
-        if (Object.keys(conferenceSolution).length > 0) {
-          conferenceRequest.conferenceSolutionKey = {
-            type: 'hangoutsMeet',
-            ...conferenceSolution
+        // Apply Google Meet settings if provided
+        if (googleMeet.settings) {
+          const conferenceSolution: any = {}
+
+          // Note: Google Calendar API has limited support for these settings
+          // Most settings are controlled by the user's Google Workspace admin settings
+          if (googleMeet.settings.accessType) {
+            conferenceSolution.accessType = googleMeet.settings.accessType
+          }
+
+          if (Object.keys(conferenceSolution).length > 0) {
+            conferenceRequest.conferenceSolutionKey = {
+              type: 'hangoutsMeet',
+              ...conferenceSolution
+            }
           }
         }
-      }
 
-      eventData.conferenceData = {
-        createRequest: conferenceRequest
+        eventData.conferenceData = {
+          createRequest: conferenceRequest
+        }
       }
     }
 
@@ -239,15 +247,35 @@ export async function createGoogleCalendarEvent(
       sendUpdates = 'externalOnly'
     }
 
-    // Create the event using Google Calendar API
-    const response = await calendar.events.insert({
-      calendarId: calendarId,
-      requestBody: eventData,
-      sendUpdates: sendUpdates,
-      conferenceDataVersion: createMeetLink ? 1 : 0
-    })
+    let createdEvent: any
 
-    const createdEvent = response.data
+    // If we have an existing event ID (from Google Meet button), update it instead of creating new
+    if (existingEventId) {
+      const response = await calendar.events.update({
+        calendarId: calendarId,
+        eventId: existingEventId,
+        requestBody: eventData,
+        sendUpdates: sendUpdates,
+        conferenceDataVersion: 1 // Keep the existing conference data
+      })
+      createdEvent = response.data
+      logger.info('✅ [Google Calendar] Updated existing event with Google Meet', {
+        eventId: existingEventId
+      })
+    } else {
+      // Create a new event
+      const response = await calendar.events.insert({
+        calendarId: calendarId,
+        requestBody: eventData,
+        sendUpdates: sendUpdates,
+        conferenceDataVersion: createMeetLink ? 1 : 0
+      })
+      createdEvent = response.data
+      logger.info('✅ [Google Calendar] Created new event', {
+        eventId: createdEvent.id,
+        hasMeet: createMeetLink
+      })
+    }
 
     return {
       success: true,

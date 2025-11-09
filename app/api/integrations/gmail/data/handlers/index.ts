@@ -28,6 +28,9 @@ export const gmailHandlers: Record<string, GmailDataHandler> = {
 
   // Recent senders (for New Email trigger filtering)
   'gmail_recent_senders': getGmailRecentSenders,
+
+  // Contacts (for Google Drive "created by" filter - reuses recent senders handler)
+  'gmail-contacts': getGmailRecentSenders,
 }
 
 /**

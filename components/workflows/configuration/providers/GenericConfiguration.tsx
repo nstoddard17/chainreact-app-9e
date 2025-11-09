@@ -397,6 +397,20 @@ export function GenericConfiguration({
   // Render fields helper
   const renderFields = (fields: any[]) => {
     return fields.map((field, index) => {
+      // Special handling for Google Drive preview field
+      if (field.type === 'google_drive_preview') {
+        // Lazy import to avoid circular dependencies
+        const { GoogleDriveFilePreview } = require('@/components/workflows/configuration/components/google-drive/GoogleDriveFilePreview');
+        return (
+          <GoogleDriveFilePreview
+            key={`field-${field.name}-${index}`}
+            fileId={values.fileId}
+            showPreview={showPreview}
+            onTogglePreview={() => setShowPreview(!showPreview)}
+          />
+        );
+      }
+
       // Use AIFieldWrapper when connected to AI Agent, otherwise use FieldRenderer
       const shouldUseAIWrapper = isConnectedToAIAgent === true;
 
