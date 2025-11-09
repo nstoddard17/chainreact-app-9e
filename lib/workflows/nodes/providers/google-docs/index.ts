@@ -32,7 +32,7 @@ const googleDocsActionCreateDocument: NodeComponent = {
       label: "Content Source",
       type: "select",
       required: false,
-      defaultValue: "manual",
+      defaultValue: "file_upload",
       options: [
         { value: "manual", label: "Enter Manually" },
         { value: "file_upload", label: "Upload File" }
@@ -345,6 +345,7 @@ const googleDocsTriggerNewDocument: NodeComponent = {
       type: "select",
       required: false,
       dynamic: "google-drive-folders",
+      loadOnMount: true,
       placeholder: "Any folder",
       description: "Filter to only trigger when the new document is created inside this folder"
     },
@@ -421,6 +422,7 @@ const googleDocsTriggerDocumentUpdated: NodeComponent = {
       type: "select",
       required: false,
       dynamic: "google-drive-folders",
+      loadOnMount: true,
       placeholder: "Any folder",
       description: "Filter to only trigger when the document is inside this folder"
     },
@@ -443,6 +445,7 @@ const googleDocsTriggerDocumentUpdated: NodeComponent = {
       label: "Document (Optional)",
       type: "select",
       dynamic: "google-docs-documents",
+      loadOnMount: true,
       required: false,
       placeholder: "Select a specific document to monitor",
       description: "Leave empty to monitor all documents, or select a specific document"

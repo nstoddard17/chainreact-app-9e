@@ -31,16 +31,17 @@ export async function GET(req: NextRequest) {
     const type = searchParams.get('type')
     const folderId = searchParams.get('folderId')
 
-    // Get Google Drive integration
+    // Get Google Drive integration (or Google Docs which includes Drive scopes)
     const { data: integration, error: integrationError } = await supabase
       .from('integrations')
       .select('*')
       .eq('user_id', user.id)
-      .eq('provider', 'google-drive')
-      .single()
+      .in('provider', ['google-drive', 'google-docs'])
+      .limit(1)
+      .maybeSingle()
 
     if (integrationError || !integration) {
-      return errorResponse('Google Drive not connected' , 400)
+      return errorResponse('Google Drive or Google Docs not connected' , 400)
     }
 
     // Decrypt access token
@@ -126,11 +127,11 @@ export async function POST(req: NextRequest) {
         .from('integrations')
         .select('*')
         .eq('id', integrationId)
-        .eq('provider', 'google-drive')
-        .single()
+        .in('provider', ['google-drive', 'google-docs'])
+        .maybeSingle()
 
       if (integrationError || !integration) {
-        return errorResponse('Google Drive not connected' , 400)
+        return errorResponse('Google Drive or Google Docs not connected' , 400)
       }
 
       // Decrypt access token
@@ -236,16 +237,17 @@ export async function POST(req: NextRequest) {
       return errorResponse('Unauthorized' , 401)
     }
 
-    // Get Google Drive integration
+    // Get Google Drive integration (or Google Docs which includes Drive scopes)
     const { data: integration, error: integrationError } = await supabase
       .from('integrations')
       .select('*')
       .eq('user_id', user.id)
-      .eq('provider', 'google-drive')
-      .single()
+      .in('provider', ['google-drive', 'google-docs'])
+      .limit(1)
+      .maybeSingle()
 
     if (integrationError || !integration) {
-      return errorResponse('Google Drive not connected' , 400)
+      return errorResponse('Google Drive or Google Docs not connected' , 400)
     }
 
     // Decrypt access token
