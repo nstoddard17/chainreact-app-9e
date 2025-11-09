@@ -696,7 +696,7 @@ export function EmailRichTextEditor({
   const [signatures, setSignatures] = useState<EmailSignature[]>([])
   const [selectedSignature, setSelectedSignature] = useState<string>('')
   const [isLoadingSignatures, setIsLoadingSignatures] = useState(false)
-  const [fontSize, setFontSize] = useState('14')
+  const [fontSize, setFontSize] = useState('12')
   const [customFontSize, setCustomFontSize] = useState('')
   const [fontFamily, setFontFamily] = useState('Arial')
   const [textColor, setTextColor] = useState('#000000')
@@ -729,6 +729,35 @@ export function EmailRichTextEditor({
     }
   }, [])
 
+  // Helper function to collect existing styles from selected content
+  const collectExistingStyles = useCallback((fragment: DocumentFragment): CSSStyleDeclaration | null => {
+    // Check if the fragment contains a single styled element
+    if (fragment.childNodes.length === 1) {
+      const node = fragment.firstChild
+      if (node && node.nodeType === Node.ELEMENT_NODE) {
+        const element = node as HTMLElement
+        if (element.style && element.style.length > 0) {
+          return element.style
+        }
+      }
+    }
+
+    // Check if we have multiple nodes, find the first with styles
+    const styledNodes = Array.from(fragment.childNodes).filter(node => {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const element = node as HTMLElement
+        return element.style && element.style.length > 0
+      }
+      return false
+    })
+
+    if (styledNodes.length > 0) {
+      return (styledNodes[0] as HTMLElement).style
+    }
+
+    return null
+  }, [])
+
   // Apply font size using inline styles (works with any px value)
   const applyFontSize = useCallback((sizeInPx: string) => {
     if (!editorRef.current) return
@@ -744,12 +773,27 @@ export function EmailRichTextEditor({
       return
     }
 
+    // Extract the selected content
+    const selectedContent = range.extractContents()
+
+    // Collect existing styles before wrapping
+    const existingStyles = collectExistingStyles(selectedContent)
+
     // Create a span with the font size
     const span = document.createElement('span')
+
+    // Preserve existing styles if any
+    if (existingStyles) {
+      // Copy all existing styles
+      Array.from(existingStyles).forEach(styleName => {
+        span.style.setProperty(styleName, existingStyles.getPropertyValue(styleName))
+      })
+    }
+
+    // Apply the new font size (override if it existed)
     span.style.fontSize = `${sizeInPx}px`
 
-    // Extract the selected content and wrap it
-    const selectedContent = range.extractContents()
+    // Append the selected content to the span
     span.appendChild(selectedContent)
 
     // Insert the wrapped content
@@ -757,7 +801,7 @@ export function EmailRichTextEditor({
 
     // Update the editor content
     onChange(editorRef.current.innerHTML)
-  }, [onChange])
+  }, [onChange, collectExistingStyles])
 
   // Apply font family using inline styles
   const applyFontFamily = useCallback((fontName: string) => {
@@ -774,12 +818,27 @@ export function EmailRichTextEditor({
       return
     }
 
+    // Extract the selected content
+    const selectedContent = range.extractContents()
+
+    // Collect existing styles before wrapping
+    const existingStyles = collectExistingStyles(selectedContent)
+
     // Create a span with the font family
     const span = document.createElement('span')
+
+    // Preserve existing styles if any
+    if (existingStyles) {
+      // Copy all existing styles
+      Array.from(existingStyles).forEach(styleName => {
+        span.style.setProperty(styleName, existingStyles.getPropertyValue(styleName))
+      })
+    }
+
+    // Apply the new font family (override if it existed)
     span.style.fontFamily = fontName
 
-    // Extract the selected content and wrap it
-    const selectedContent = range.extractContents()
+    // Append the selected content to the span
     span.appendChild(selectedContent)
 
     // Insert the wrapped content
@@ -787,7 +846,7 @@ export function EmailRichTextEditor({
 
     // Update the editor content
     onChange(editorRef.current.innerHTML)
-  }, [onChange])
+  }, [onChange, collectExistingStyles])
 
   // Extract available variables from workflow nodes
   const extractedVariables = useMemo(() => {
@@ -1038,40 +1097,44 @@ export function EmailRichTextEditor({
     if (!editorRef.current) return
 
     try {
-      // Get current font family
-      const currentFont = document.queryCommandValue('fontName')
-      if (currentFont && currentFont !== fontFamily) {
-        // Remove quotes if present
-        const cleanFont = currentFont.replace(/['"]/g, '')
-        // Check if it matches one of our fonts
-        const matchingFont = FONT_FAMILIES.find(f =>
-          f.value.toLowerCase() === cleanFont.toLowerCase()
-        )
-        if (matchingFont) {
-          setFontFamily(matchingFont.value)
-        }
+      // Get the current selection to check if cursor is in styled content
+      const selection = window.getSelection()
+      if (!selection || selection.rangeCount === 0) return
+
+      const range = selection.getRangeAt(0)
+      let currentElement = range.startContainer
+
+      // If it's a text node, get its parent element
+      if (currentElement.nodeType === Node.TEXT_NODE) {
+        currentElement = currentElement.parentElement
       }
 
-      // Get current font size (returns 1-7, need to map to px)
-      const currentSize = document.queryCommandValue('fontSize')
-      if (currentSize) {
-        // Map HTML font sizes (1-7) to our px values
-        const sizeMap: Record<string, string> = {
-          '1': '10',
-          '2': '12',
-          '3': '14',
-          '4': '16',
-          '5': '18',
-          '6': '20',
-          '7': '24'
+      // Only update format state if cursor is inside an element with inline styles
+      if (currentElement && currentElement instanceof HTMLElement) {
+        const computedStyle = window.getComputedStyle(currentElement)
+
+        // Check for explicit font-family on the element
+        if (currentElement.style.fontFamily) {
+          const cleanFont = currentElement.style.fontFamily.replace(/['"]/g, '')
+          const matchingFont = FONT_FAMILIES.find(f =>
+            f.value.toLowerCase() === cleanFont.toLowerCase()
+          )
+          if (matchingFont && matchingFont.value !== fontFamily) {
+            setFontFamily(matchingFont.value)
+          }
         }
-        const mappedSize = sizeMap[currentSize]
-        if (mappedSize && mappedSize !== fontSize) {
-          setFontSize(mappedSize)
+
+        // Check for explicit font-size on the element
+        if (currentElement.style.fontSize) {
+          const fontSizePx = currentElement.style.fontSize.replace('px', '')
+          const matchingSize = FONT_SIZES.find(s => s.value === fontSizePx)
+          if (matchingSize && matchingSize.value !== fontSize) {
+            setFontSize(matchingSize.value)
+          }
         }
       }
     } catch (error) {
-      // Ignore errors from queryCommandValue
+      // Ignore errors from selection API
     }
   }, [fontFamily, fontSize])
 
@@ -1105,18 +1168,24 @@ export function EmailRichTextEditor({
   const applyLink = () => {
     if (linkUrl) {
       if (linkText) {
-        const html = `<a href="${linkUrl}" target="_blank" rel="noopener noreferrer">${linkText}</a>`
+        const html = `<a href="${linkUrl}" target="_blank" rel="noopener noreferrer" title="${linkUrl}" style="color: #0066cc; text-decoration: underline;">${linkText}</a>`
         execCommand('insertHTML', html)
       } else {
-        execCommand('createLink', linkUrl)
+        // For selected text, wrap it in a styled link
+        const selection = window.getSelection()
+        if (selection && selection.rangeCount > 0 && selection.toString()) {
+          const selectedText = selection.toString()
+          const html = `<a href="${linkUrl}" target="_blank" rel="noopener noreferrer" title="${linkUrl}" style="color: #0066cc; text-decoration: underline;">${selectedText}</a>`
+          execCommand('insertHTML', html)
+        } else {
+          // No text selected, insert the URL as both text and link
+          const html = `<a href="${linkUrl}" target="_blank" rel="noopener noreferrer" title="${linkUrl}" style="color: #0066cc; text-decoration: underline;">${linkUrl}</a>`
+          execCommand('insertHTML', html)
+        }
       }
       setLinkUrl('')
       setLinkText('')
       setShowLinkDialog(false)
-      toast({
-        title: "Link inserted",
-        description: "Link has been added to your email.",
-      })
     }
   }
 
@@ -1737,6 +1806,14 @@ export function EmailRichTextEditor({
                   type="text"
                   value={linkText}
                   onChange={(e) => setLinkText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.stopPropagation()
+                      if (linkUrl) {
+                        applyLink()
+                      }
+                    }
+                  }}
                   placeholder="Enter link text"
                   className="w-full mt-1 px-3 py-2 border border-border rounded bg-background text-foreground"
                 />
@@ -1747,6 +1824,14 @@ export function EmailRichTextEditor({
                   type="url"
                   value={linkUrl}
                   onChange={(e) => setLinkUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.stopPropagation()
+                      if (linkUrl) {
+                        applyLink()
+                      }
+                    }
+                  }}
                   placeholder="https://example.com"
                   className="w-full mt-1 px-3 py-2 border border-border rounded bg-background text-foreground"
                   autoFocus
@@ -1788,6 +1873,14 @@ export function EmailRichTextEditor({
                   type="url"
                   value={imageUrl}
                   onChange={(e) => setImageUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.stopPropagation()
+                      if (imageUrl) {
+                        applyImage()
+                      }
+                    }
+                  }}
                   placeholder="https://example.com/image.jpg"
                   className="w-full mt-1 px-3 py-2 border border-border rounded bg-background text-foreground"
                   autoFocus
@@ -1799,6 +1892,14 @@ export function EmailRichTextEditor({
                   type="text"
                   value={imageAlt}
                   onChange={(e) => setImageAlt(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.stopPropagation()
+                      if (imageUrl) {
+                        applyImage()
+                      }
+                    }
+                  }}
                   placeholder="Describe the image"
                   className="w-full mt-1 px-3 py-2 border border-border rounded bg-background text-foreground"
                 />
@@ -1843,10 +1944,11 @@ export function EmailRichTextEditor({
             onInput={handleContentChange}
             onKeyDown={(e) => {
               // Prevent Enter key from submitting form/closing modal
-              if (e.key === 'Enter' && !e.shiftKey) {
-                // Allow Enter to work normally in the editor (creates new line)
-                // but prevent it from bubbling up to any form
+              if (e.key === 'Enter') {
+                // Stop the event from bubbling up to the form/modal
                 e.stopPropagation()
+                // Allow Enter to work normally in the editor (creates new line)
+                // The contentEditable div handles the newline insertion natively
               }
             }}
             onKeyUp={handleSelectionChange}
@@ -1880,7 +1982,10 @@ export function EmailRichTextEditor({
         )}
         
         {!isPreviewMode && !value && (
-          <div className="absolute top-4 left-4 text-muted-foreground pointer-events-none z-10">
+          <div
+            className="absolute top-4 left-4 text-muted-foreground pointer-events-none z-10"
+            style={{ fontSize: '12px', fontFamily: fontFamily }}
+          >
             {placeholder}
           </div>
         )}
