@@ -939,6 +939,7 @@ export function GenericSelectField({
             selectedValues={effectiveSelectedValues} // Pass selected values for checkmarks
             displayLabel={displayLabel} // Pass the saved display label
             disableSearch={(field as any).disableSearch} // Support disabling search for simple dropdowns
+            hideClearButton={(field as any).hideClearButton} // Support hiding clear button
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}

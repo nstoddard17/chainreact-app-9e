@@ -74,16 +74,40 @@ function parseTimeInput(input: string): string | null {
     return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
   }
 
-  // Try 24-hour format "14:30" or "1430"
-  const match24Hour = clean.match(/^(\d{1,2}):?(\d{2})$/)
-  if (match24Hour) {
-    const hour = parseInt(match24Hour[1])
-    const minute = parseInt(match24Hour[2])
+  // Try shorthand format without am/pm: "1000", "945", "10:00", "9:45"
+  // Auto-detect am/pm based on proximity to current time
+  const matchShorthand = clean.match(/^(\d{1,2}):?(\d{2})$/)
+  if (matchShorthand) {
+    let hour = parseInt(matchShorthand[1])
+    const minute = parseInt(matchShorthand[2])
 
-    if (hour < 0 || hour > 23) return null
-    if (minute < 0 || minute > 59) return null
+    // If hour is 1-12, determine am/pm based on current time
+    if (hour >= 1 && hour <= 12 && minute >= 0 && minute <= 59) {
+      const now = new Date()
+      const currentHour = now.getHours()
+      const currentMinute = now.getMinutes()
+      const currentTotalMinutes = currentHour * 60 + currentMinute
 
-    return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
+      // Calculate total minutes for both am and pm interpretations
+      const amHour = hour === 12 ? 0 : hour
+      const pmHour = hour === 12 ? 12 : hour + 12
+      const amTotalMinutes = amHour * 60 + minute
+      const pmTotalMinutes = pmHour * 60 + minute
+
+      // Calculate distance from current time for both options
+      const amDistance = Math.abs(currentTotalMinutes - amTotalMinutes)
+      const pmDistance = Math.abs(currentTotalMinutes - pmTotalMinutes)
+
+      // Choose the interpretation closer to current time
+      const finalHour = amDistance <= pmDistance ? amHour : pmHour
+
+      return `${finalHour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
+    }
+
+    // If hour is 0-23, treat as 24-hour format
+    if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
+      return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
+    }
   }
 
   return null
@@ -111,62 +135,38 @@ export function TimePicker15Min({
   className
 }: TimePicker15MinProps) {
   const [open, setOpen] = useState(false)
-  const [editing, setEditing] = useState(false)
-  const [editValue, setEditValue] = useState('')
+  const [searchValue, setSearchValue] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
   const displayValue = value ? formatTimeDisplay(value) : ''
 
-  useEffect(() => {
-    if (editing && inputRef.current) {
-      inputRef.current.focus()
-      inputRef.current.select()
-    }
-  }, [editing])
+  // Filter options based on search
+  const filteredOptions = searchValue
+    ? timeOptions.filter(option =>
+        option.label.toLowerCase().includes(searchValue.toLowerCase())
+      )
+    : timeOptions
 
   const handleSelect = (selectedValue: string) => {
     onChange(selectedValue)
     setOpen(false)
+    setSearchValue('')
   }
 
-  const handleEditClick = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    setEditValue(displayValue)
-    setEditing(true)
+  const handleSearchChange = (value: string) => {
+    setSearchValue(value)
   }
 
-  const handleEditBlur = () => {
-    const parsed = parseTimeInput(editValue)
-    if (parsed) {
-      onChange(parsed)
-    }
-    setEditing(false)
-  }
-
-  const handleEditKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      const parsed = parseTimeInput(editValue)
+  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && searchValue) {
+      e.preventDefault()
+      const parsed = parseTimeInput(searchValue)
       if (parsed) {
         onChange(parsed)
+        setOpen(false)
+        setSearchValue('')
       }
-      setEditing(false)
-    } else if (e.key === 'Escape') {
-      setEditing(false)
     }
-  }
-
-  if (editing) {
-    return (
-      <Input
-        ref={inputRef}
-        value={editValue}
-        onChange={(e) => setEditValue(e.target.value)}
-        onBlur={handleEditBlur}
-        onKeyDown={handleEditKeyDown}
-        placeholder="e.g. 10:44pm"
-        className={cn("font-mono", className)}
-      />
-    )
   }
 
   return (
@@ -183,19 +183,26 @@ export function TimePicker15Min({
             className
           )}
         >
-          <span onClick={handleEditClick} className="flex-1 text-left cursor-text">
+          <span className="flex-1 text-left">
             {displayValue || placeholder}
           </span>
           <Clock className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[200px] p-0" align="start">
-        <Command>
-          <CommandInput placeholder="Search time..." />
-          <CommandList>
-            <CommandEmpty>No time found.</CommandEmpty>
+      <PopoverContent className="p-0" align="start" style={{ width: 'var(--radix-popover-trigger-width)' }}>
+        <Command shouldFilter={false}>
+          <CommandInput
+            placeholder="Type time (e.g., 1000, 10pm)..."
+            value={searchValue}
+            onValueChange={handleSearchChange}
+            onKeyDown={handleSearchKeyDown}
+          />
+          <CommandList className="max-h-[300px] overflow-y-auto">
+            <CommandEmpty>
+              {searchValue ? 'Type Enter to use this time' : 'No time found.'}
+            </CommandEmpty>
             <CommandGroup>
-              {timeOptions.map((option) => (
+              {filteredOptions.map((option) => (
                 <CommandItem
                   key={option.value}
                   value={option.value}

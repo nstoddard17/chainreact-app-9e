@@ -634,7 +634,7 @@ const TEXT_COLORS = [
   '#000000', '#333333', '#666666', '#999999', '#ffffff',
   '#e74c3c', '#e67e22', '#f39c12', '#f1c40f', '#27ae60',
   '#2ecc71', '#3498db', '#9b59b6', '#34495e', '#95a5a6',
-  '#c0392b', '#d35400', '#e67e22', '#16a085', '#8e44ad'
+  '#c0392b', '#d35400', '#16a085', '#8e44ad', '#1abc9c'
 ]
 
 const BACKGROUND_COLORS = [
@@ -709,6 +709,85 @@ export function EmailRichTextEditor({
   const [imageAlt, setImageAlt] = useState('')
   // Auto-include signature removed - signatures must be manually added by user
   const [isEditorInitialized, setIsEditorInitialized] = useState(false)
+  const savedSelectionRef = useRef<Range | null>(null)
+
+  // Save selection before interacting with dropdowns
+  const saveSelection = useCallback(() => {
+    const selection = window.getSelection()
+    if (selection && selection.rangeCount > 0) {
+      savedSelectionRef.current = selection.getRangeAt(0).cloneRange()
+    }
+  }, [])
+
+  // Restore selection before applying formatting
+  const restoreSelection = useCallback(() => {
+    if (savedSelectionRef.current && editorRef.current) {
+      const selection = window.getSelection()
+      selection?.removeAllRanges()
+      selection?.addRange(savedSelectionRef.current)
+      editorRef.current.focus()
+    }
+  }, [])
+
+  // Apply font size using inline styles (works with any px value)
+  const applyFontSize = useCallback((sizeInPx: string) => {
+    if (!editorRef.current) return
+
+    const selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0) return
+
+    const range = selection.getRangeAt(0)
+
+    // If nothing is selected, just update state for default font size
+    if (range.collapsed) {
+      setFontSize(sizeInPx)
+      return
+    }
+
+    // Create a span with the font size
+    const span = document.createElement('span')
+    span.style.fontSize = `${sizeInPx}px`
+
+    // Extract the selected content and wrap it
+    const selectedContent = range.extractContents()
+    span.appendChild(selectedContent)
+
+    // Insert the wrapped content
+    range.insertNode(span)
+
+    // Update the editor content
+    onChange(editorRef.current.innerHTML)
+  }, [onChange])
+
+  // Apply font family using inline styles
+  const applyFontFamily = useCallback((fontName: string) => {
+    if (!editorRef.current) return
+
+    const selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0) return
+
+    const range = selection.getRangeAt(0)
+
+    // If nothing is selected, just update state for default font family
+    if (range.collapsed) {
+      setFontFamily(fontName)
+      return
+    }
+
+    // Create a span with the font family
+    const span = document.createElement('span')
+    span.style.fontFamily = fontName
+
+    // Extract the selected content and wrap it
+    const selectedContent = range.extractContents()
+    span.appendChild(selectedContent)
+
+    // Insert the wrapped content
+    range.insertNode(span)
+
+    // Update the editor content
+    onChange(editorRef.current.innerHTML)
+  }, [onChange])
 
   // Extract available variables from workflow nodes
   const extractedVariables = useMemo(() => {
@@ -838,8 +917,12 @@ export function EmailRichTextEditor({
 
   const execCommand = useCallback((command: string, value?: string) => {
     if (editorRef.current) {
-      document.execCommand(command, false, value)
+      // Ensure editor has focus before executing command
       editorRef.current.focus()
+
+      // Execute the command
+      document.execCommand(command, false, value)
+
       // Trigger onChange with updated content
       setTimeout(() => {
         if (editorRef.current) {
@@ -951,6 +1034,47 @@ export function EmailRichTextEditor({
   }
 
 
+  const updateFormatState = useCallback(() => {
+    if (!editorRef.current) return
+
+    try {
+      // Get current font family
+      const currentFont = document.queryCommandValue('fontName')
+      if (currentFont && currentFont !== fontFamily) {
+        // Remove quotes if present
+        const cleanFont = currentFont.replace(/['"]/g, '')
+        // Check if it matches one of our fonts
+        const matchingFont = FONT_FAMILIES.find(f =>
+          f.value.toLowerCase() === cleanFont.toLowerCase()
+        )
+        if (matchingFont) {
+          setFontFamily(matchingFont.value)
+        }
+      }
+
+      // Get current font size (returns 1-7, need to map to px)
+      const currentSize = document.queryCommandValue('fontSize')
+      if (currentSize) {
+        // Map HTML font sizes (1-7) to our px values
+        const sizeMap: Record<string, string> = {
+          '1': '10',
+          '2': '12',
+          '3': '14',
+          '4': '16',
+          '5': '18',
+          '6': '20',
+          '7': '24'
+        }
+        const mappedSize = sizeMap[currentSize]
+        if (mappedSize && mappedSize !== fontSize) {
+          setFontSize(mappedSize)
+        }
+      }
+    } catch (error) {
+      // Ignore errors from queryCommandValue
+    }
+  }, [fontFamily, fontSize])
+
   const handleContentChange = () => {
     if (editorRef.current) {
       const content = editorRef.current.innerHTML
@@ -961,6 +1085,10 @@ export function EmailRichTextEditor({
       onChange(content)
     }
   }
+
+  const handleSelectionChange = useCallback(() => {
+    updateFormatState()
+  }, [updateFormatState])
 
   const togglePreview = () => {
     setIsPreviewMode(!isPreviewMode)
@@ -1061,8 +1189,7 @@ export function EmailRichTextEditor({
     if (customFontSize && !isNaN(Number(customFontSize))) {
       const size = Number(customFontSize)
       if (size >= 8 && size <= 72) {
-        execCommand('fontSize', customFontSize)
-        setFontSize(customFontSize)
+        applyFontSize(customFontSize)
         toast({
           title: "Font size applied",
           description: `Text size set to ${customFontSize}px`,
@@ -1097,86 +1224,272 @@ export function EmailRichTextEditor({
 
   return (
     <div className={cn("border border-border rounded-lg overflow-hidden bg-background", className)}>
-      {/* Toolbar */}
-      <div className="border-b border-border p-2 bg-muted/50">
+      {/* Comprehensive Toolbar - Multi-row */}
+      <div className="border-b border-border p-2 bg-muted/50 space-y-2">
+        {/* Row 1: Basic Text Formatting */}
         <div className="flex items-center gap-1 flex-wrap">
+          {/* Font Family */}
+          <div className="w-48">
+            <GenericSelectField
+              field={{
+                name: 'fontFamily',
+                type: 'select',
+                placeholder: 'Font',
+                disableSearch: true,
+                hideClearButton: true
+              }}
+              value={fontFamily}
+              onChange={(value) => {
+                restoreSelection()
+                applyFontFamily(value)
+              }}
+              options={FONT_FAMILIES}
+            />
+          </div>
+
+          <Separator orientation="vertical" className="h-6" />
+
+          {/* Font Size with Custom Input */}
+          <div className="flex items-center gap-1">
+            <div className="w-24">
+              <GenericSelectField
+                field={{
+                  name: 'fontSize',
+                  type: 'select',
+                  placeholder: 'Size',
+                  disableSearch: true,
+                  hideClearButton: true
+                }}
+                value={fontSize}
+                onChange={(value) => {
+                  restoreSelection()
+                  applyFontSize(value)
+                }}
+                options={FONT_SIZES}
+              />
+            </div>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 hover:bg-muted text-muted-foreground hover:text-foreground"
+                  title="Custom font size"
+                >
+                  <Type className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-60 p-3 bg-background border-border">
+                <div className="space-y-2">
+                  <Label className="text-sm text-foreground">Custom Font Size (8-72px)</Label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      min="8"
+                      max="72"
+                      value={customFontSize}
+                      onChange={(e) => setCustomFontSize(e.target.value)}
+                      placeholder="Enter size"
+                      className="flex-1 px-2 py-1 text-sm border border-border rounded bg-background text-foreground"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={applyCustomFontSize}
+                      className="bg-primary text-primary-foreground hover:bg-primary/90"
+                    >
+                      Apply
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          <Separator orientation="vertical" className="h-6" />
+
           {/* Text Formatting */}
           <div className="flex items-center gap-1">
-            {formatToolbarButton(<Bold className="h-4 w-4" />, 'bold', 'Bold')}
-            {formatToolbarButton(<Italic className="h-4 w-4" />, 'italic', 'Italic')}
-            {formatToolbarButton(<Underline className="h-4 w-4" />, 'underline', 'Underline')}
+            {formatToolbarButton(<Bold className="h-4 w-4" />, 'bold', 'Bold (Ctrl+B)')}
+            {formatToolbarButton(<Italic className="h-4 w-4" />, 'italic', 'Italic (Ctrl+I)')}
+            {formatToolbarButton(<Underline className="h-4 w-4" />, 'underline', 'Underline (Ctrl+U)')}
+            {formatToolbarButton(<Strikethrough className="h-4 w-4" />, 'strikeThrough', 'Strikethrough')}
+            {formatToolbarButton(<Subscript className="h-4 w-4" />, 'subscript', 'Subscript')}
+            {formatToolbarButton(<Superscript className="h-4 w-4" />, 'superscript', 'Superscript')}
           </div>
-          
+
           <Separator orientation="vertical" className="h-6" />
-          
+
+          {/* Colors */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 hover:bg-muted text-muted-foreground hover:text-foreground"
+                title="Text color"
+              >
+                <Palette className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-60 p-3 bg-background border-border">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-foreground">Text Color</Label>
+                <div className="grid grid-cols-5 gap-1">
+                  {TEXT_COLORS.map(color => (
+                    <button
+                      key={color}
+                      className="w-8 h-8 rounded border border-border hover:scale-110 transition-transform"
+                      style={{ backgroundColor: color }}
+                      onClick={() => {
+                        setTextColor(color)
+                        execCommand('foreColor', color)
+                      }}
+                      title={color}
+                    />
+                  ))}
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 hover:bg-muted text-muted-foreground hover:text-foreground"
+                title="Background color"
+              >
+                <Paintbrush className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-60 p-3 bg-background border-border">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-foreground">Background Color</Label>
+                <div className="grid grid-cols-5 gap-1">
+                  {BACKGROUND_COLORS.map(color => (
+                    <button
+                      key={color}
+                      className="w-8 h-8 rounded border border-border hover:scale-110 transition-transform"
+                      style={{ backgroundColor: color }}
+                      onClick={() => {
+                        setBackgroundColor(color)
+                        execCommand('backColor', color)
+                      }}
+                      title={color}
+                    />
+                  ))}
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          <Separator orientation="vertical" className="h-6" />
+
+          {/* Clear Formatting */}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={clearFormatting}
+            title="Clear formatting"
+            className="h-8 w-8 p-0 hover:bg-muted text-muted-foreground hover:text-foreground"
+          >
+            <RemoveFormatting className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Row 2: Lists, Alignment, Indent */}
+        <div className="flex items-center gap-1 flex-wrap">
           {/* Lists */}
           <div className="flex items-center gap-1">
             {formatToolbarButton(<List className="h-4 w-4" />, 'insertUnorderedList', 'Bullet List')}
             {formatToolbarButton(<ListOrdered className="h-4 w-4" />, 'insertOrderedList', 'Numbered List')}
           </div>
-          
+
           <Separator orientation="vertical" className="h-6" />
-          
+
           {/* Alignment */}
           <div className="flex items-center gap-1">
             {formatToolbarButton(<AlignLeft className="h-4 w-4" />, 'justifyLeft', 'Align Left')}
             {formatToolbarButton(<AlignCenter className="h-4 w-4" />, 'justifyCenter', 'Align Center')}
             {formatToolbarButton(<AlignRight className="h-4 w-4" />, 'justifyRight', 'Align Right')}
+            {formatToolbarButton(<AlignJustify className="h-4 w-4" />, 'justifyFull', 'Justify')}
           </div>
-          
-          <Separator orientation="vertical" className="h-6" />
-          
-          {/* Font Size */}
-          <Select value={fontSize} onValueChange={(value) => {
-            setFontSize(value)
-            execCommand('fontSize', value)
-          }}>
-            <SelectTrigger className="w-20 h-8 bg-background border-border text-foreground">
-              <Type className="h-4 w-4" />
-            </SelectTrigger>
-            <SelectContent>
-              {FONT_SIZES.map(size => (
-                <SelectItem key={size.value} value={size.value}>
-                  {size.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          
-          {/* Text Color */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-muted text-muted-foreground hover:text-foreground">
-                <Palette className="h-4 w-4" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-48 p-2 bg-background border-border">
-              <div className="grid grid-cols-4 gap-1">
-                {TEXT_COLORS.map(color => (
-                  <button
-                    key={color}
-                    className="w-8 h-8 rounded border border-border hover:scale-110 transition-transform"
-                    style={{ backgroundColor: color }}
-                    onClick={() => {
-                      setTextColor(color)
-                      execCommand('foreColor', color)
-                    }}
-                  />
-                ))}
-              </div>
-            </PopoverContent>
-          </Popover>
-          
-          <Separator orientation="vertical" className="h-6" />
-          
-          {/* Undo/Redo */}
-          <div className="flex items-center gap-1">
-            {formatToolbarButton(<Undo className="h-4 w-4" />, 'undo', 'Undo')}
-            {formatToolbarButton(<Redo className="h-4 w-4" />, 'redo', 'Redo')}
-          </div>
-          
+
           <Separator orientation="vertical" className="h-6" />
 
+          {/* Indent */}
+          <div className="flex items-center gap-1">
+            {formatToolbarButton(<IndentDecrease className="h-4 w-4" />, 'outdent', 'Decrease Indent')}
+            {formatToolbarButton(<IndentIncrease className="h-4 w-4" />, 'indent', 'Increase Indent')}
+          </div>
+
+          <Separator orientation="vertical" className="h-6" />
+
+          {/* Block Formatting */}
+          <div className="flex items-center gap-1">
+            {formatToolbarButton(<Quote className="h-4 w-4" />, 'formatBlock', 'Block Quote', '<blockquote>')}
+            {formatToolbarButton(<Code className="h-4 w-4" />, 'formatBlock', 'Code Block', '<pre>')}
+          </div>
+
+          <Separator orientation="vertical" className="h-6" />
+
+          {/* Insert Elements */}
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={insertLink}
+              title="Insert link"
+              className="h-8 w-8 p-0 hover:bg-muted text-muted-foreground hover:text-foreground"
+            >
+              <Link2 className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={insertImage}
+              title="Insert image"
+              className="h-8 w-8 p-0 hover:bg-muted text-muted-foreground hover:text-foreground"
+            >
+              <Upload className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={insertTable}
+              title="Insert table"
+              className="h-8 w-8 p-0 hover:bg-muted text-muted-foreground hover:text-foreground"
+            >
+              <Table className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={insertHorizontalRule}
+              title="Insert horizontal line"
+              className="h-8 w-8 p-0 hover:bg-muted text-muted-foreground hover:text-foreground"
+            >
+              <Minus className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <Separator orientation="vertical" className="h-6" />
+
+          {/* Undo/Redo */}
+          <div className="flex items-center gap-1">
+            {formatToolbarButton(<Undo className="h-4 w-4" />, 'undo', 'Undo (Ctrl+Z)')}
+            {formatToolbarButton(<Redo className="h-4 w-4" />, 'redo', 'Redo (Ctrl+Y)')}
+          </div>
+        </div>
+
+        {/* Row 3: Content Insertion (Variables, Templates, Signatures, Preview) */}
+        <div className="flex items-center gap-1 flex-wrap">
           {/* Variables */}
           <Popover>
             <PopoverTrigger asChild>
@@ -1411,7 +1724,109 @@ export function EmailRichTextEditor({
           </Button>
         </div>
       </div>
-      
+
+      {/* Link Insert Dialog */}
+      {showLinkDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowLinkDialog(false)}>
+          <div className="bg-background border border-border rounded-lg p-4 w-96 max-w-[90vw]" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-medium text-foreground mb-4">Insert Link</h3>
+            <div className="space-y-3">
+              <div>
+                <Label className="text-sm text-foreground">Link Text (optional)</Label>
+                <input
+                  type="text"
+                  value={linkText}
+                  onChange={(e) => setLinkText(e.target.value)}
+                  placeholder="Enter link text"
+                  className="w-full mt-1 px-3 py-2 border border-border rounded bg-background text-foreground"
+                />
+              </div>
+              <div>
+                <Label className="text-sm text-foreground">URL *</Label>
+                <input
+                  type="url"
+                  value={linkUrl}
+                  onChange={(e) => setLinkUrl(e.target.value)}
+                  placeholder="https://example.com"
+                  className="w-full mt-1 px-3 py-2 border border-border rounded bg-background text-foreground"
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-2 justify-end pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowLinkDialog(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={applyLink}
+                  disabled={!linkUrl}
+                  className="bg-primary text-primary-foreground hover:bg-primary/90"
+                >
+                  Insert Link
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Image Insert Dialog */}
+      {showImageDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowImageDialog(false)}>
+          <div className="bg-background border border-border rounded-lg p-4 w-96 max-w-[90vw]" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-medium text-foreground mb-4">Insert Image</h3>
+            <div className="space-y-3">
+              <div>
+                <Label className="text-sm text-foreground">Image URL *</Label>
+                <input
+                  type="url"
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  placeholder="https://example.com/image.jpg"
+                  className="w-full mt-1 px-3 py-2 border border-border rounded bg-background text-foreground"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <Label className="text-sm text-foreground">Alt Text (optional)</Label>
+                <input
+                  type="text"
+                  value={imageAlt}
+                  onChange={(e) => setImageAlt(e.target.value)}
+                  placeholder="Describe the image"
+                  className="w-full mt-1 px-3 py-2 border border-border rounded bg-background text-foreground"
+                />
+              </div>
+              <div className="flex gap-2 justify-end pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowImageDialog(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={applyImage}
+                  disabled={!imageUrl}
+                  className="bg-primary text-primary-foreground hover:bg-primary/90"
+                >
+                  Insert Image
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Editor Content */}
       <div className="relative h-[300px] overflow-hidden">
         {isPreviewMode ? (
@@ -1426,7 +1841,21 @@ export function EmailRichTextEditor({
             ref={editorRef}
             contentEditable
             onInput={handleContentChange}
-            onFocus={dropHandlers.onFocus}
+            onKeyDown={(e) => {
+              // Prevent Enter key from submitting form/closing modal
+              if (e.key === 'Enter' && !e.shiftKey) {
+                // Allow Enter to work normally in the editor (creates new line)
+                // but prevent it from bubbling up to any form
+                e.stopPropagation()
+              }
+            }}
+            onKeyUp={handleSelectionChange}
+            onClick={handleSelectionChange}
+            onMouseUp={saveSelection}
+            onFocus={(e) => {
+              dropHandlers.onFocus(e)
+              updateFormatState()
+            }}
             onBlur={(event) => {
               dropHandlers.onBlur()
               handleContentChange()
@@ -1438,8 +1867,9 @@ export function EmailRichTextEditor({
               "h-full overflow-y-auto p-4 focus:outline-none resize-none",
               isDragOver && "ring-2 ring-blue-500 ring-offset-1"
             )}
-            style={{ 
-              fontSize,
+            style={{
+              fontSize: `${fontSize}px`,
+              fontFamily: fontFamily,
               color: '#000000',
               backgroundColor: '#ffffff',
               caretColor: '#000000'

@@ -46,6 +46,7 @@ interface ComboboxProps {
   selectedValues?: string[]; // Values that already have bubbles/are selected
   displayLabel?: string | null; // Optional display label for when options haven't loaded yet
   disableSearch?: boolean; // Hide search input for simple dropdowns
+  hideClearButton?: boolean; // Hide the X button for clearing selection
   onDrop?: (e: React.DragEvent) => void; // Handler for drop events
   onDragOver?: (e: React.DragEvent) => void; // Handler for drag over events
   onDragLeave?: (e: React.DragEvent) => void; // Handler for drag leave events
@@ -109,6 +110,7 @@ export function Combobox({
   selectedValues = [],
   displayLabel,
   disableSearch = false,
+  hideClearButton = false,
   onDrop,
   onDragOver,
   onDragLeave,
@@ -331,7 +333,7 @@ export function Combobox({
             {selectedOption ? selectedOption.label : (displayLabel || value || placeholder || "Select option...")}
           </span>
           <div className="flex items-center gap-0.5">
-            {value && !disabled && (
+            {value && !disabled && !hideClearButton && (
               <div
                 className="group p-0.5 hover:bg-slate-100 rounded transition-colors cursor-pointer"
                 onClick={handleClear}

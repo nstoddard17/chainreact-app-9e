@@ -536,17 +536,16 @@ export const googleCalendarNodes: NodeComponent[] = [
       {
         name: "recurrence",
         label: "Repeat",
-        type: "recurrence-picker",
+        type: "select",
         defaultValue: "none",
         placeholder: "Does not repeat",
         options: [
           { value: "none", label: "Does not repeat" },
           { value: "RRULE:FREQ=DAILY", label: "Daily" },
-          { value: "RRULE:FREQ=WEEKLY", label: "Weekly on Saturday", dynamic: true },
-          { value: "RRULE:FREQ=MONTHLY", label: "Monthly on the second Saturday", dynamic: true },
-          { value: "RRULE:FREQ=YEARLY", label: "Annually on November 8", dynamic: true },
-          { value: "RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR", label: "Every weekday (Monday to Friday)" },
-          { value: "custom", label: "Custom..." }
+          { value: "RRULE:FREQ=WEEKLY", label: "Weekly" },
+          { value: "RRULE:FREQ=MONTHLY", label: "Monthly" },
+          { value: "RRULE:FREQ=YEARLY", label: "Annually" },
+          { value: "RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR", label: "Every weekday (Monday to Friday)" }
         ],
         hidden: {
           $deps: ["allDay"],
@@ -568,8 +567,8 @@ export const googleCalendarNodes: NodeComponent[] = [
       {
         name: "timeZone",
         label: "Time Zone",
-        type: "timezone-picker",
-        defaultValue: "auto",
+        type: "select",
+        defaultValue: "America/New_York",
         required: false,
         hidden: {
           $deps: ["separateTimezones", "allDay"],
@@ -604,14 +603,14 @@ export const googleCalendarNodes: NodeComponent[] = [
       {
         name: "startTimeZone",
         label: "Event Start Time Zone",
-        type: "timezone-picker",
-        defaultValue: "auto",
+        type: "select",
+        defaultValue: "America/New_York",
         required: false,
         hidden: {
           $deps: ["separateTimezones", "allDay"],
           $condition: {
             $or: [
-              { separateTimezones: { $ne: true } },
+              { separateTimezones: { $eq: false } },
               { allDay: { $eq: true } }
             ]
           }
@@ -640,14 +639,14 @@ export const googleCalendarNodes: NodeComponent[] = [
       {
         name: "endTimeZone",
         label: "Event End Time Zone",
-        type: "timezone-picker",
-        defaultValue: "auto",
+        type: "select",
+        defaultValue: "America/New_York",
         required: false,
         hidden: {
           $deps: ["separateTimezones", "allDay"],
           $condition: {
             $or: [
-              { separateTimezones: { $ne: true } },
+              { separateTimezones: { $eq: false } },
               { allDay: { $eq: true } }
             ]
           }
@@ -713,23 +712,22 @@ export const googleCalendarNodes: NodeComponent[] = [
       {
         name: "colorId",
         label: "Color",
-        type: "color-select",
+        type: "select",
         defaultValue: "default",
         placeholder: "Calendar color",
-        showColorDots: true,
         options: [
-          { value: "default", label: "Calendar color", color: null },
-          { value: "1", label: "Lavender", color: "#a4bdfc" },
-          { value: "2", label: "Sage", color: "#7ae7bf" },
-          { value: "3", label: "Grape", color: "#dbadff" },
-          { value: "4", label: "Flamingo", color: "#ff887c" },
-          { value: "5", label: "Banana", color: "#fbd75b" },
-          { value: "6", label: "Tangerine", color: "#ffb878" },
-          { value: "7", label: "Peacock", color: "#46d6db" },
-          { value: "8", label: "Graphite", color: "#e1e1e1" },
-          { value: "9", label: "Blueberry", color: "#5484ed" },
-          { value: "10", label: "Basil", color: "#51b749" },
-          { value: "11", label: "Tomato", color: "#dc2127" }
+          { value: "default", label: "Calendar color" },
+          { value: "1", label: "Lavender" },
+          { value: "2", label: "Sage" },
+          { value: "3", label: "Grape" },
+          { value: "4", label: "Flamingo" },
+          { value: "5", label: "Banana" },
+          { value: "6", label: "Tangerine" },
+          { value: "7", label: "Peacock" },
+          { value: "8", label: "Graphite" },
+          { value: "9", label: "Blueberry" },
+          { value: "10", label: "Basil" },
+          { value: "11", label: "Tomato" }
         ]
       },
 
@@ -747,12 +745,12 @@ export const googleCalendarNodes: NodeComponent[] = [
       {
         name: "visibility",
         label: "Visibility",
-        type: "visibility-select",
+        type: "select",
         defaultValue: "default",
         options: [
           { value: "default", label: "Default visibility" },
-          { value: "public", label: "Public", description: "Anyone can see this event's details, including the description and names of attachments." },
-          { value: "private", label: "Private", description: "This event's details can't be seen by others unless they have at least \"Make changes to events\" permission for this calendar." }
+          { value: "public", label: "Public" },
+          { value: "private", label: "Private" }
         ]
       },
 

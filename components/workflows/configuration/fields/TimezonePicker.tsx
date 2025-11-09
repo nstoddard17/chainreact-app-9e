@@ -121,12 +121,6 @@ export function TimezonePicker({
             ))}
         </SelectContent>
       </Select>
-
-      {userTz && (
-        <p className="text-xs text-muted-foreground">
-          Your timezone: {getTimezoneDisplayName(userTz)}
-        </p>
-      )}
     </div>
   )
 }
