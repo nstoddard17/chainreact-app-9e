@@ -260,8 +260,8 @@ const shouldUseConnectMode = (field: ConfigField | NodeField) => {
     return true
   }
 
-  // Default: use connect mode for text, email, and date type fields
-  return field.type === 'text' || field.type === 'email' || field.type === 'date'
+  // Default: use connect mode for text, email, number, and date type fields
+  return field.type === 'text' || field.type === 'email' || field.type === 'number' || field.type === 'date'
 }
 
 /**
