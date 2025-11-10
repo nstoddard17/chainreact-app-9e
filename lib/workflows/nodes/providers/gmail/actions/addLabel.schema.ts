@@ -3,8 +3,8 @@ import { NodeComponent } from "../../../types"
 // Note: These imports may need adjustment based on project structure
 const GMAIL_ADD_LABEL_METADATA = {
   key: "gmail_action_add_label",
-  name: "Apply Gmail Labels",
-  description: "Add one or more labels to incoming Gmail messages from a specific email address"
+  name: "Add Labels to Email",
+  description: "Add one or more labels to a Gmail message"
 }
 
 export const addLabelActionSchema: NodeComponent = {
@@ -20,22 +20,21 @@ export const addLabelActionSchema: NodeComponent = {
     {
       name: "messageId",
       label: "Message ID",
-      type: "select",
-      dynamic: "gmail_messages",
+      type: "text",
       required: true,
-      placeholder: "Select a message or use a variable",
-      hasVariablePicker: true,
+      placeholder: "{{trigger.messageId}}",
+      supportsAI: true,
       description: "The ID of the email message to label"
     },
     {
-      name: "labelId",
-      label: "Label",
-      type: "select",
-      dynamic: "gmail_labels",
+      name: "labelIds",
+      label: "Labels to Add",
+      type: "multiselect",
       required: true,
-      placeholder: "Select a label to apply",
-      description: "The label to add to the message",
-      loadOnMount: true
+      dynamic: "gmail-labels",
+      loadOnMount: true,
+      placeholder: "Select labels to add...",
+      description: "Choose which labels to add to the email"
     }
   ],
   outputSchema: [
@@ -43,7 +42,7 @@ export const addLabelActionSchema: NodeComponent = {
       name: "success",
       label: "Success",
       type: "boolean",
-      description: "Whether the label was successfully added"
+      description: "Whether the labels were successfully added"
     },
     {
       name: "messageId",
@@ -52,10 +51,11 @@ export const addLabelActionSchema: NodeComponent = {
       description: "The ID of the labeled message"
     },
     {
-      name: "labelId",
-      label: "Label ID",
-      type: "string",
-      description: "The ID of the label that was added"
+      name: "labelsAdded",
+      label: "Labels Added",
+      type: "array",
+      description: "List of label IDs that were added",
+      example: ["Label_1", "Label_2"]
     }
   ]
 }

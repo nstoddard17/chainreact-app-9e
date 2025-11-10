@@ -117,9 +117,12 @@ export async function GET(request: NextRequest) {
     const tokenData = await tokenResponse.json()
 
     // Fetch user profile
-    const meResponse = await fetch('https://api.gumroad.com/v2/user', {
+    // Note: Gumroad expects access_token as query parameter, not Bearer header
+    const meUrl = new URL('https://api.gumroad.com/v2/user')
+    meUrl.searchParams.set('access_token', tokenData.access_token)
+    const meResponse = await fetch(meUrl.toString(), {
       headers: {
-        'Authorization': `Bearer ${tokenData.access_token}`
+        'Content-Type': 'application/json'
       }
     })
 
@@ -195,19 +198,38 @@ export async function GET(request: NextRequest) {
 
       integrationId = stateObject.integrationId
     } else {
-      // Create new integration
-      const { data: newIntegration, error: insertError } = await supabase
-        .from('integrations')
-        .insert(integrationData)
-        .select()
-        .single()
+      // For personal integrations, use upsert to handle existing integrations
+      // This will update the existing integration or create a new one
+      if (workspaceType === 'personal') {
+        const { data: upsertedIntegration, error: upsertError } = await supabase
+          .from('integrations')
+          .upsert(integrationData, {
+            onConflict: 'user_id, provider',
+          })
+          .select('id')
+          .single()
 
-      if (insertError || !newIntegration) {
-        logger.error('Failed to save Gumroad integration:', insertError)
-        return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
+        if (upsertError || !upsertedIntegration) {
+          logger.error('Failed to save Gumroad integration:', upsertError)
+          return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
+        }
+
+        integrationId = upsertedIntegration.id
+      } else {
+        // For team/org integrations, just insert (multiple allowed)
+        const { data: newIntegration, error: insertError } = await supabase
+          .from('integrations')
+          .insert(integrationData)
+          .select('id')
+          .single()
+
+        if (insertError || !newIntegration) {
+          logger.error('Failed to save Gumroad integration:', insertError)
+          return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
+        }
+
+        integrationId = newIntegration.id
       }
-
-      integrationId = newIntegration.id
     }
 
     // Auto-grant permissions based on workspace context

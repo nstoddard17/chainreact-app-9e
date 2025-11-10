@@ -23,6 +23,17 @@ export const searchFilesActionSchema: NodeComponent = {
       ]
     },
     {
+      name: "folderId",
+      label: "Search in Folder (Optional)",
+      type: "select",
+      required: false,
+      dynamic: "google-drive-folders",
+      loadOnMount: true,
+      placeholder: "All folders",
+      loadingPlaceholder: "Loading folders...",
+      description: "Optionally limit search to a specific folder. Leave empty to search entire Drive."
+    },
+    {
       name: "fileName",
       label: "File Name",
       type: "text",

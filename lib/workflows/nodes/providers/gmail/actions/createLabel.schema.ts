@@ -37,13 +37,6 @@ export const createLabelActionSchema: NodeComponent = {
       type: "object",
       description: "Color assigned to the label",
       example: { backgroundColor: "#42d692", textColor: "#ffffff" }
-    },
-    {
-      name: "createdAt",
-      label: "Created Time",
-      type: "string",
-      description: "When the label was created",
-      example: "2024-01-15T10:30:00Z"
     }
   ],
   configSchema: [
@@ -86,22 +79,63 @@ export const createLabelActionSchema: NodeComponent = {
       label: "Background Color (Optional)",
       type: "select",
       required: false,
+      showColorPreview: true,
       options: [
-        { value: "#000000", label: "Black" },
-        { value: "#434343", label: "Gray" },
-        { value: "#666666", label: "Light Gray" },
-        { value: "#999999", label: "Pale Gray" },
-        { value: "#cccccc", label: "Very Light Gray" },
-        { value: "#efefef", label: "White Gray" },
-        { value: "#f3f3f3", label: "White" },
-        { value: "#fb4c2f", label: "Red" },
-        { value: "#ffad47", label: "Orange" },
-        { value: "#fad165", label: "Yellow" },
-        { value: "#16a766", label: "Green" },
-        { value: "#43d692", label: "Teal" },
-        { value: "#4a86e8", label: "Blue" },
-        { value: "#a479e2", label: "Purple" },
-        { value: "#f691b3", label: "Pink" }
+        // Grayscale
+        { value: "#000000", label: "Black", color: "#000000" },
+        { value: "#434343", label: "Dark Gray", color: "#434343" },
+        { value: "#666666", label: "Medium Gray", color: "#666666" },
+        { value: "#999999", label: "Light Gray", color: "#999999" },
+        { value: "#cccccc", label: "Very Light Gray", color: "#cccccc" },
+        { value: "#efefef", label: "Off White", color: "#efefef" },
+        { value: "#f3f3f3", label: "White", color: "#f3f3f3" },
+
+        // Reds
+        { value: "#fb4c2f", label: "Red", color: "#fb4c2f" },
+        { value: "#e66550", label: "Light Red", color: "#e66550" },
+        { value: "#cc3a21", label: "Dark Red", color: "#cc3a21" },
+        { value: "#ac2b16", label: "Deep Red", color: "#ac2b16" },
+
+        // Oranges
+        { value: "#ffad46", label: "Orange", color: "#ffad46" },
+        { value: "#ff7537", label: "Bright Orange", color: "#ff7537" },
+        { value: "#eaa041", label: "Dark Orange", color: "#eaa041" },
+        { value: "#cf8933", label: "Deep Orange", color: "#cf8933" },
+
+        // Yellows
+        { value: "#fad165", label: "Yellow", color: "#fad165" },
+        { value: "#f2c960", label: "Golden Yellow", color: "#f2c960" },
+        { value: "#fcda83", label: "Light Yellow", color: "#fcda83" },
+        { value: "#fce8b3", label: "Pale Yellow", color: "#fce8b3" },
+
+        // Greens
+        { value: "#16a765", label: "Green", color: "#16a765" },
+        { value: "#42d692", label: "Teal", color: "#42d692" },
+        { value: "#149e60", label: "Dark Green", color: "#149e60" },
+        { value: "#0b804b", label: "Deep Green", color: "#0b804b" },
+        { value: "#44b984", label: "Sea Green", color: "#44b984" },
+        { value: "#89d3b2", label: "Mint Green", color: "#89d3b2" },
+
+        // Blues
+        { value: "#4986e7", label: "Blue", color: "#4986e7" },
+        { value: "#6d9eeb", label: "Sky Blue", color: "#6d9eeb" },
+        { value: "#3c78d8", label: "Dark Blue", color: "#3c78d8" },
+        { value: "#285bac", label: "Deep Blue", color: "#285bac" },
+        { value: "#a4c2f4", label: "Light Blue", color: "#a4c2f4" },
+        { value: "#c9daf8", label: "Pale Blue", color: "#c9daf8" },
+
+        // Purples
+        { value: "#b99aff", label: "Purple", color: "#b99aff" },
+        { value: "#8e63ce", label: "Dark Purple", color: "#8e63ce" },
+        { value: "#653e9b", label: "Deep Purple", color: "#653e9b" },
+        { value: "#b694e8", label: "Lavender", color: "#b694e8" },
+        { value: "#d0bcf1", label: "Light Purple", color: "#d0bcf1" },
+
+        // Pinks
+        { value: "#f691b2", label: "Pink", color: "#f691b2" },
+        { value: "#f7a7c0", label: "Light Pink", color: "#f7a7c0" },
+        { value: "#e07798", label: "Rose Pink", color: "#e07798" },
+        { value: "#fbc8d9", label: "Pale Pink", color: "#fbc8d9" }
       ],
       description: "Background color for the label"
     },
@@ -110,9 +144,72 @@ export const createLabelActionSchema: NodeComponent = {
       label: "Text Color (Optional)",
       type: "select",
       required: false,
+      showColorPreview: true,
       options: [
-        { value: "#000000", label: "Black" },
-        { value: "#ffffff", label: "White" }
+        // Grayscale
+        { value: "#000000", label: "Black", color: "#000000" },
+        { value: "#434343", label: "Dark Gray", color: "#434343" },
+        { value: "#666666", label: "Medium Gray", color: "#666666" },
+        { value: "#999999", label: "Light Gray", color: "#999999" },
+        { value: "#cccccc", label: "Very Light Gray", color: "#cccccc" },
+        { value: "#efefef", label: "Off White", color: "#efefef" },
+        { value: "#f3f3f3", label: "White", color: "#f3f3f3" },
+        { value: "#ffffff", label: "Pure White", color: "#ffffff" },
+
+        // Reds
+        { value: "#fb4c2f", label: "Red", color: "#fb4c2f" },
+        { value: "#e66550", label: "Light Red", color: "#e66550" },
+        { value: "#cc3a21", label: "Dark Red", color: "#cc3a21" },
+        { value: "#ac2b16", label: "Deep Red", color: "#ac2b16" },
+        { value: "#822111", label: "Maroon", color: "#822111" },
+
+        // Oranges
+        { value: "#ffad46", label: "Orange", color: "#ffad46" },
+        { value: "#ff7537", label: "Bright Orange", color: "#ff7537" },
+        { value: "#eaa041", label: "Dark Orange", color: "#eaa041" },
+        { value: "#cf8933", label: "Deep Orange", color: "#cf8933" },
+        { value: "#a46a21", label: "Brown Orange", color: "#a46a21" },
+
+        // Yellows
+        { value: "#fad165", label: "Yellow", color: "#fad165" },
+        { value: "#f2c960", label: "Golden Yellow", color: "#f2c960" },
+        { value: "#fcda83", label: "Light Yellow", color: "#fcda83" },
+        { value: "#fce8b3", label: "Pale Yellow", color: "#fce8b3" },
+        { value: "#d5ae49", label: "Dark Yellow", color: "#d5ae49" },
+
+        // Greens
+        { value: "#16a765", label: "Green", color: "#16a765" },
+        { value: "#42d692", label: "Teal", color: "#42d692" },
+        { value: "#149e60", label: "Dark Green", color: "#149e60" },
+        { value: "#0b804b", label: "Deep Green", color: "#0b804b" },
+        { value: "#44b984", label: "Sea Green", color: "#44b984" },
+        { value: "#89d3b2", label: "Mint Green", color: "#89d3b2" },
+        { value: "#2a9c68", label: "Forest Green", color: "#2a9c68" },
+        { value: "#076239", label: "Dark Forest Green", color: "#076239" },
+
+        // Blues
+        { value: "#4986e7", label: "Blue", color: "#4986e7" },
+        { value: "#6d9eeb", label: "Sky Blue", color: "#6d9eeb" },
+        { value: "#3c78d8", label: "Dark Blue", color: "#3c78d8" },
+        { value: "#285bac", label: "Deep Blue", color: "#285bac" },
+        { value: "#a4c2f4", label: "Light Blue", color: "#a4c2f4" },
+        { value: "#c9daf8", label: "Pale Blue", color: "#c9daf8" },
+        { value: "#1c4587", label: "Navy Blue", color: "#1c4587" },
+
+        // Purples
+        { value: "#b99aff", label: "Purple", color: "#b99aff" },
+        { value: "#8e63ce", label: "Dark Purple", color: "#8e63ce" },
+        { value: "#653e9b", label: "Deep Purple", color: "#653e9b" },
+        { value: "#b694e8", label: "Lavender", color: "#b694e8" },
+        { value: "#d0bcf1", label: "Light Purple", color: "#d0bcf1" },
+        { value: "#41236d", label: "Royal Purple", color: "#41236d" },
+
+        // Pinks
+        { value: "#f691b2", label: "Pink", color: "#f691b2" },
+        { value: "#f7a7c0", label: "Light Pink", color: "#f7a7c0" },
+        { value: "#e07798", label: "Rose Pink", color: "#e07798" },
+        { value: "#fbc8d9", label: "Pale Pink", color: "#fbc8d9" },
+        { value: "#b65775", label: "Mauve Pink", color: "#b65775" }
       ],
       description: "Text color for the label"
     },

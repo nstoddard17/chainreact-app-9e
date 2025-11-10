@@ -21,12 +21,18 @@
       "Bash(psql \"postgresql://postgres.xzwsdwllmrnrgbltibxt:***REDACTED_PASSWORD***@aws-0-us-east-1.pooler.supabase.com:6543/postgres\" -c \"SELECT id, provider, status, access_token IS NOT NULL as has_token, refresh_token IS NOT NULL as has_refresh, created_at, expires_at FROM integrations WHERE provider ILIKE ''%google%calendar%'' OR provider = ''google'' ORDER BY created_at DESC LIMIT 5;\")",
       "Bash(lsof:*)",
       "Bash(xargs kill:*)",
+      "Bash(chmod:*)",
+      "Bash(./scripts/audit-output-schemas.sh:*)",
       "Bash(do if grep -q \"name: \"\"channel\"\"\" \"$f\")",
       "Bash(then echo \"$f\")",
       "Bash(cat:*)",
       "Bash(dir:*)",
       "Bash(nul)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(psql \"postgresql://postgres.xzwsdwllmrnrgbltibxt:***REDACTED_PASSWORD***@aws-0-us-east-1.pooler.supabase.com:6543/postgres\" -c \"SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = ''integrations'' ORDER BY ordinal_position;\")",
+      "Bash(supabase db push:*)"
     ],
     "edit": [
       "*"
