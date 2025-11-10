@@ -61,10 +61,11 @@ export const updateRowActionSchema: NodeComponent = {
       description: "Choose how to configure the update"
     },
     {
-      name: "rowNumber",
-      label: "Row Number",
-      type: "number",
+      name: "rowSelection",
+      label: "Row Selection",
+      type: "select",
       required: true,
+      defaultValue: "specific",
       dependsOn: "sheetName",
       hidden: {
         $deps: ["sheetName", "updateMode"],
@@ -72,6 +73,29 @@ export const updateRowActionSchema: NodeComponent = {
           $or: [
             { sheetName: { $exists: false } },
             { updateMode: { $eq: "visual" } }
+          ]
+        }
+      },
+      options: [
+        { value: "specific", label: "Specific Row Number" },
+        { value: "last", label: "Last Row" },
+        { value: "first_data", label: "First Data Row (Row 2)" }
+      ],
+      description: "Choose how to select the row to update"
+    },
+    {
+      name: "rowNumber",
+      label: "Row Number",
+      type: "number",
+      required: true,
+      dependsOn: "sheetName",
+      hidden: {
+        $deps: ["sheetName", "updateMode", "rowSelection"],
+        $condition: {
+          $or: [
+            { sheetName: { $exists: false } },
+            { updateMode: { $eq: "visual" } },
+            { rowSelection: { $ne: "specific" } }
           ]
         }
       },
@@ -95,7 +119,7 @@ export const updateRowActionSchema: NodeComponent = {
           ]
         }
       },
-      rows: 4,
+      rows: 6,
       placeholder: JSON.stringify(["Value 1", "Value 2", "Value 3"], null, 2),
       supportsAI: true,
       description: "Array of new values for the row (e.g., {{trigger.values}})"

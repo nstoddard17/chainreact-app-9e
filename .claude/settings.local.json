@@ -60,7 +60,8 @@
       "Bash(node check-specific-integration.js:*)",
       "Bash(node check-all-google-sheets.js:*)",
       "Bash(node check-avatar-data.js:*)",
-      "Bash(psql \"postgresql://postgres.xzwsdwllmrnrgbltibxt:Lukelombardo10!@aws-0-us-east-1.pooler.supabase.com:6543/postgres\" -c \"SELECT indexname, indexdef FROM pg_indexes WHERE tablename = ''integrations'' AND indexdef LIKE ''%UNIQUE%'';\")"
+      "Bash(psql \"postgresql://postgres.xzwsdwllmrnrgbltibxt:Lukelombardo10!@aws-0-us-east-1.pooler.supabase.com:6543/postgres\" -c \"SELECT indexname, indexdef FROM pg_indexes WHERE tablename = ''integrations'' AND indexdef LIKE ''%UNIQUE%'';\")",
+      "Bash(psql \"postgresql://postgres.xzwsdwllmrnrgbltibxt:Lukelombardo10!@aws-0-us-east-1.pooler.supabase.com:6543/postgres\" -c \"SELECT id, provider, email, account_name, avatar_url, created_at FROM integrations WHERE provider = ''hubspot'' ORDER BY created_at DESC LIMIT 5;\")"
     ],
     "edit": [
       "*"

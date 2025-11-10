@@ -541,3 +541,206 @@ Import trace for requested module:
 [2025-11-10T21:11:59.764Z] [INFO   ] 2025-11-10T21:11:59.764Z [DEBUG] ✅ [Google Sheets] Retrieved 4 sheets
 [2025-11-10T21:11:59.765Z] [INFO   ] 2025-11-10T21:11:59.765Z [DEBUG] ✅ [Google API] Successfully processed google-sheets_sheets: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","resultCount":4}
 [2025-11-10T21:11:59.776Z] [INFO   ] 2025-11-10T21:11:59.776Z [DEBUG] ✅ [SERVER] Google API completed for google-sheets_sheets, result length: 4
+[2025-11-10T21:12:33.840Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-11-10T21:12:35.475Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 3.6s (5451 modules)
+[2025-11-10T21:12:35.867Z] [INFO   ] 2025-11-10T21:12:35.867Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-10T21:12:35.867Z"}
+[2025-11-10T21:12:35.879Z] [INFO   ] 2025-11-10T21:12:35.879Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-10T21:12:35.879Z"}
+[2025-11-10T21:12:35.879Z] [INFO   ] 2025-11-10T21:12:35.879Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-10T21:12:35.879Z"}
+[2025-11-10T21:12:37.744Z] [INFO   ]  [37m[1m○[22m[39m Compiling /icon.png ...
+[2025-11-10T21:12:38.133Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 1269ms (4283 modules)
+[2025-11-10T21:12:38.892Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4309 modules)
+[2025-11-10T21:12:39.317Z] [INFO   ] 2025-11-10T21:12:39.316Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-10T21:12:39.316Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-10T21:12:39.695Z] [INFO   ] 2025-11-10T21:12:39.695Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-10T21:12:39.696Z] [INFO   ] 2025-11-10T21:12:39.696Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-10T21:12:39.906Z] [INFO   ] 2025-11-10T21:12:39.906Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":2,"permissionsCount":2,"integrationsError":null,"permissionsError":null}
+[2025-11-10T21:12:39.906Z] [INFO   ] 2025-11-10T21:12:39.906Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-10T21:12:39.906Z] [INFO   ] 2025-11-10T21:12:39.906Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-10T21:12:39.906Z] [INFO   ] 2025-11-10T21:12:39.906Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":2,"workspaceType":"personal"}
+[2025-11-10T21:12:57.647Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/gumroad/data ...
+[2025-11-10T21:12:58.720Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/gumroad/data in 1593ms (4314 modules)
+[2025-11-10T21:12:58.966Z] [INFO   ] 2025-11-10T21:12:58.966Z [DEBUG] 🔍 [Gumroad API] Processing request: {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","dataType":"gumroad_products","status":"connected","hasToken":true}
+[2025-11-10T21:12:58.966Z] [INFO   ] 2025-11-10T21:12:58.966Z [DEBUG] 🔍 Gumroad products fetcher called with integration: {"id":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","hasToken":true,"tokenLength":129}
+[2025-11-10T21:12:58.966Z] [INFO   ] 2025-11-10T21:12:58.966Z [DEBUG] 🔍 Validating Gumroad token...
+[2025-11-10T21:12:58.967Z] [INFO   ] 2025-11-10T21:12:58.967Z [DEBUG] 🔍 Fetching Gumroad products...
+[2025-11-10T21:12:59.170Z] [INFO   ] 2025-11-10T21:12:59.170Z [DEBUG] ✅ Gumroad products fetched successfully: 1 products
+[2025-11-10T21:12:59.171Z] [INFO   ] 2025-11-10T21:12:59.171Z [DEBUG] ✅ [Gumroad API] Successfully processed gumroad_products: {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","resultCount":1}
+[2025-11-10T21:13:49.133Z] [INFO   ] 2025-11-10T21:13:49.133Z [DEBUG] 🚀 [SERVER] fetch-user-data API route called
+[2025-11-10T21:13:49.134Z] [INFO   ] 2025-11-10T21:13:49.134Z [DEBUG] 🔍 [SERVER] fetch-user-data request parsed: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_spreadsheets","options":{}}
+[2025-11-10T21:13:49.469Z] [INFO   ] 2025-11-10T21:13:49.469Z [DEBUG] 🔄 [SERVER] Routing Google request to dedicated API: google-sheets_spreadsheets (provider: google-sheets)
+[2025-11-10T21:13:49.599Z] [INFO   ] 2025-11-10T21:13:49.599Z [DEBUG] 🚀 [Google Data API] POST handler invoked
+[2025-11-10T21:13:49.600Z] [INFO   ] 2025-11-10T21:13:49.600Z [DEBUG] 🔍 [Google Data API] Request received: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_spreadsheets","options":{},"fullRequestBody":{"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_spreadsheets","options":{}}}
+[2025-11-10T21:13:49.769Z] [INFO   ] 2025-11-10T21:13:49.769Z [DEBUG] 📊 [Google API] Integration provider check: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","actualProvider":"google-sheets","dataType":"google-sheets_spreadsheets","providerLowerCase":"google-sheets"}
+[2025-11-10T21:13:49.770Z] [INFO   ] 2025-11-10T21:13:49.770Z [DEBUG] 🔍 [Google API] Processing request: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_spreadsheets","provider":"google-sheets","status":"connected","hasToken":true}
+[2025-11-10T21:13:49.771Z] [INFO   ] 2025-11-10T21:13:49.771Z [DEBUG] 📊 [Google Sheets] Fetching spreadsheets
+[2025-11-10T21:13:50.374Z] [INFO   ] 2025-11-10T21:13:50.373Z [DEBUG] ✅ [Google Sheets] Retrieved 21 spreadsheets
+[2025-11-10T21:13:50.374Z] [INFO   ] 2025-11-10T21:13:50.374Z [DEBUG] ✅ [Google API] Successfully processed google-sheets_spreadsheets: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","resultCount":21}
+[2025-11-10T21:13:50.379Z] [INFO   ] 2025-11-10T21:13:50.378Z [DEBUG] ✅ [SERVER] Google API completed for google-sheets_spreadsheets, result length: 21
+[2025-11-10T21:13:51.680Z] [INFO   ] 2025-11-10T21:13:51.680Z [DEBUG] 🚀 [SERVER] fetch-user-data API route called
+[2025-11-10T21:13:51.680Z] [INFO   ] 2025-11-10T21:13:51.680Z [DEBUG] 🔍 [SERVER] fetch-user-data request parsed: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_sheets","options":{"spreadsheetId":"13dykQ7u8Ef2c1gC2Tbr7_TbMGsJ4R-WlBlLshiN5XBI"}}
+[2025-11-10T21:13:51.807Z] [INFO   ] 2025-11-10T21:13:51.807Z [DEBUG] 🔄 [SERVER] Routing Google request to dedicated API: google-sheets_sheets (provider: google-sheets)
+[2025-11-10T21:13:51.872Z] [INFO   ] 2025-11-10T21:13:51.872Z [DEBUG] 🚀 [Google Data API] POST handler invoked
+[2025-11-10T21:13:51.872Z] [INFO   ] 2025-11-10T21:13:51.872Z [DEBUG] 🔍 [Google Data API] Request received: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_sheets","options":{"spreadsheetId":"13dykQ7u8Ef2c1gC2Tbr7_TbMGsJ4R-WlBlLshiN5XBI"},"fullRequestBody":{"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_sheets","options":{"spreadsheetId":"13dykQ7u8Ef2c1gC2Tbr7_TbMGsJ4R-WlBlLshiN5XBI"}}}
+[2025-11-10T21:13:51.961Z] [INFO   ] 2025-11-10T21:13:51.961Z [DEBUG] 📊 [Google API] Integration provider check: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","actualProvider":"google-sheets","dataType":"google-sheets_sheets","providerLowerCase":"google-sheets"}
+[2025-11-10T21:13:51.961Z] [INFO   ] 2025-11-10T21:13:51.961Z [DEBUG] 🔍 [Google API] Processing request: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_sheets","provider":"google-sheets","status":"connected","hasToken":true}
+[2025-11-10T21:13:51.962Z] [INFO   ] 2025-11-10T21:13:51.961Z [DEBUG] 📊 [Google Sheets] Fetching sheets for spreadsheet: 13dykQ7u8Ef2c1gC2Tbr7_TbMGsJ4R-WlBlLshiN5XBI
+[2025-11-10T21:13:52.296Z] [INFO   ] 2025-11-10T21:13:52.296Z [DEBUG] ✅ [Google Sheets] Retrieved 4 sheets
+[2025-11-10T21:13:52.297Z] [INFO   ] 2025-11-10T21:13:52.297Z [DEBUG] ✅ [Google API] Successfully processed google-sheets_sheets: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","resultCount":4}
+[2025-11-10T21:13:52.304Z] [INFO   ] 2025-11-10T21:13:52.303Z [DEBUG] ✅ [SERVER] Google API completed for google-sheets_sheets, result length: 4
+[2025-11-10T21:15:35.535Z] [INFO   ] 2025-11-10T21:15:35.535Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-10T21:15:35.535Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-10T21:15:35.741Z] [INFO   ] 2025-11-10T21:15:35.740Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-10T21:15:35.741Z] [INFO   ] 2025-11-10T21:15:35.741Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-10T21:15:35.938Z] [INFO   ] 2025-11-10T21:15:35.938Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":2,"permissionsCount":2,"integrationsError":null,"permissionsError":null}
+[2025-11-10T21:15:35.939Z] [INFO   ] 2025-11-10T21:15:35.939Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-10T21:15:35.939Z] [INFO   ] 2025-11-10T21:15:35.939Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-10T21:15:35.939Z] [INFO   ] 2025-11-10T21:15:35.939Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":2,"workspaceType":"personal"}
+[2025-11-10T21:15:38.620Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/auth/generate-url ...
+[2025-11-10T21:15:40.707Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/auth/generate-url in 4.1s (4268 modules)
+[2025-11-10T21:15:55.197Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 5.6s (5438 modules)
+[2025-11-10T21:15:55.578Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-11-10T21:15:56.804Z] [INFO   ] 2025-11-10T21:15:56.804Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-10T21:15:56.803Z"}
+[2025-11-10T21:15:56.826Z] [INFO   ] 2025-11-10T21:15:56.826Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-10T21:15:56.826Z"}
+[2025-11-10T21:15:56.826Z] [INFO   ] 2025-11-10T21:15:56.826Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-10T21:15:56.826Z"}
+[2025-11-10T21:16:11.148Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 4.5s (5440 modules)
+[2025-11-10T21:16:12.210Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4274 modules)
+[2025-11-10T21:16:12.539Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4274 modules)
+[2025-11-10T21:16:12.974Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4274 modules)
+[2025-11-10T21:16:13.014Z] [INFO   ] 2025-11-10T21:16:13.014Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-10T21:16:13.014Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-10T21:16:13.209Z] [INFO   ] 2025-11-10T21:16:13.209Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-10T21:16:13.210Z] [INFO   ] 2025-11-10T21:16:13.210Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-10T21:16:13.699Z] [INFO   ] 2025-11-10T21:16:13.699Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":2,"permissionsCount":2,"integrationsError":null,"permissionsError":null}
+[2025-11-10T21:16:13.699Z] [INFO   ] 2025-11-10T21:16:13.699Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-10T21:16:13.700Z] [INFO   ] 2025-11-10T21:16:13.699Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-10T21:16:13.700Z] [INFO   ] 2025-11-10T21:16:13.700Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":2,"workspaceType":"personal"}
+[2025-11-10T21:16:13.777Z] [INFO   ] 2025-11-10T21:16:13.777Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-10T21:16:13.777Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-10T21:16:13.881Z] [INFO   ] 2025-11-10T21:16:13.881Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-10T21:16:13.881Z] [INFO   ] 2025-11-10T21:16:13.881Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-10T21:16:14.080Z] [INFO   ] 2025-11-10T21:16:14.080Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":2,"permissionsCount":2,"integrationsError":null,"permissionsError":null}
+[2025-11-10T21:16:14.080Z] [INFO   ] 2025-11-10T21:16:14.080Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-10T21:16:14.080Z] [INFO   ] 2025-11-10T21:16:14.080Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-10T21:16:14.080Z] [INFO   ] 2025-11-10T21:16:14.080Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":2,"workspaceType":"personal"}
+[2025-11-10T21:16:26.584Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 3.1s (5444 modules)
+[2025-11-10T21:16:35.632Z] [INFO   ] 2025-11-10T21:16:35.631Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-10T21:16:35.631Z"}
+[2025-11-10T21:16:35.649Z] [INFO   ] 2025-11-10T21:16:35.649Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-10T21:16:35.649Z"}
+[2025-11-10T21:16:35.649Z] [INFO   ] 2025-11-10T21:16:35.649Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-10T21:16:35.649Z"}
+[2025-11-10T21:16:40.397Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 6.1s (5444 modules)
+[2025-11-10T21:16:40.720Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1ms (4274 modules)
+[2025-11-10T21:16:41.021Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1ms (4274 modules)
+[2025-11-10T21:16:41.319Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4274 modules)
+[2025-11-10T21:16:41.395Z] [INFO   ] 2025-11-10T21:16:41.395Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-10T21:16:41.395Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-10T21:16:41.708Z] [INFO   ] 2025-11-10T21:16:41.708Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-10T21:16:41.708Z] [INFO   ] 2025-11-10T21:16:41.708Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-10T21:16:41.811Z] [INFO   ] 2025-11-10T21:16:41.811Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":3,"permissionsCount":3,"integrationsError":null,"permissionsError":null}
+[2025-11-10T21:16:41.811Z] [INFO   ] 2025-11-10T21:16:41.811Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-10T21:16:41.811Z] [INFO   ] 2025-11-10T21:16:41.811Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-10T21:16:41.811Z] [INFO   ] 2025-11-10T21:16:41.811Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"05a3e250-b869-4fef-87b1-1f258a6c7e41","provider":"hubspot","permission":"admin"}
+[2025-11-10T21:16:41.811Z] [INFO   ] 2025-11-10T21:16:41.811Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":3,"workspaceType":"personal"}
+[2025-11-10T21:16:41.897Z] [INFO   ] 2025-11-10T21:16:41.897Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-10T21:16:41.897Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-10T21:16:42.065Z] [INFO   ] 2025-11-10T21:16:42.065Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-10T21:16:42.066Z] [INFO   ] 2025-11-10T21:16:42.066Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-10T21:16:42.173Z] [INFO   ] 2025-11-10T21:16:42.173Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":3,"permissionsCount":3,"integrationsError":null,"permissionsError":null}
+[2025-11-10T21:16:42.173Z] [INFO   ] 2025-11-10T21:16:42.173Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-10T21:16:42.173Z] [INFO   ] 2025-11-10T21:16:42.173Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-10T21:16:42.173Z] [INFO   ] 2025-11-10T21:16:42.173Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"05a3e250-b869-4fef-87b1-1f258a6c7e41","provider":"hubspot","permission":"admin"}
+[2025-11-10T21:16:42.173Z] [INFO   ] 2025-11-10T21:16:42.173Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":3,"workspaceType":"personal"}
+[2025-11-10T21:16:46.919Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 3.5s (5440 modules)
+[2025-11-10T21:16:59.473Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 962ms (5440 modules)
+[2025-11-10T21:17:06.727Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1099ms (5440 modules)
+[2025-11-10T21:17:16.400Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1178ms (5440 modules)
+[2025-11-10T21:17:43.757Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 4.9s (5440 modules)
+[2025-11-10T21:21:00.195Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 4.5s (5308 modules)
+[2025-11-10T21:21:00.670Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-11-10T21:21:01.330Z] [INFO   ] 2025-11-10T21:21:01.330Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-10T21:21:01.330Z"}
+[2025-11-10T21:21:01.344Z] [INFO   ] 2025-11-10T21:21:01.344Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-10T21:21:01.344Z"}
+[2025-11-10T21:21:01.344Z] [INFO   ] 2025-11-10T21:21:01.344Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-10T21:21:01.344Z"}
+[2025-11-10T21:21:02.764Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 451ms (4154 modules)
+[2025-11-10T21:21:03.129Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4270 modules)
+[2025-11-10T21:21:03.878Z] [INFO   ] 2025-11-10T21:21:03.878Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-10T21:21:03.878Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-10T21:21:04.163Z] [INFO   ] 2025-11-10T21:21:04.163Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-10T21:21:04.163Z] [INFO   ] 2025-11-10T21:21:04.163Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-10T21:21:04.306Z] [INFO   ] 2025-11-10T21:21:04.306Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":3,"permissionsCount":3,"integrationsError":null,"permissionsError":null}
+[2025-11-10T21:21:04.307Z] [INFO   ] 2025-11-10T21:21:04.307Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-10T21:21:04.307Z] [INFO   ] 2025-11-10T21:21:04.307Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-10T21:21:04.307Z] [INFO   ] 2025-11-10T21:21:04.307Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"05a3e250-b869-4fef-87b1-1f258a6c7e41","provider":"hubspot","permission":"admin"}
+[2025-11-10T21:21:04.307Z] [INFO   ] 2025-11-10T21:21:04.307Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":3,"workspaceType":"personal"}
+[2025-11-10T21:21:07.789Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.4s (5440 modules)
+[2025-11-10T21:21:07.990Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-11-10T21:21:08.229Z] [INFO   ] 2025-11-10T21:21:08.228Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-10T21:21:08.228Z"}
+[2025-11-10T21:21:08.241Z] [INFO   ] 2025-11-10T21:21:08.241Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-10T21:21:08.241Z"}
+[2025-11-10T21:21:08.243Z] [INFO   ] 2025-11-10T21:21:08.243Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-10T21:21:08.243Z"}
+[2025-11-10T21:21:09.967Z] [INFO   ] 2025-11-10T21:21:09.967Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-10T21:21:09.967Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-10T21:21:10.113Z] [INFO   ] 2025-11-10T21:21:10.113Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-10T21:21:10.113Z] [INFO   ] 2025-11-10T21:21:10.113Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-10T21:21:10.256Z] [INFO   ] 2025-11-10T21:21:10.255Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":3,"permissionsCount":3,"integrationsError":null,"permissionsError":null}
+[2025-11-10T21:21:10.256Z] [INFO   ] 2025-11-10T21:21:10.256Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-10T21:21:10.256Z] [INFO   ] 2025-11-10T21:21:10.256Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-10T21:21:10.256Z] [INFO   ] 2025-11-10T21:21:10.256Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"05a3e250-b869-4fef-87b1-1f258a6c7e41","provider":"hubspot","permission":"admin"}
+[2025-11-10T21:21:10.256Z] [INFO   ] 2025-11-10T21:21:10.256Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":3,"workspaceType":"personal"}
+[2025-11-10T21:21:14.352Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 936ms (5440 modules)
+[2025-11-10T21:21:14.576Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-11-10T21:21:14.807Z] [INFO   ] 2025-11-10T21:21:14.807Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-10T21:21:14.807Z"}
+[2025-11-10T21:21:14.819Z] [INFO   ] 2025-11-10T21:21:14.819Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-10T21:21:14.819Z"}
+[2025-11-10T21:21:14.819Z] [INFO   ] 2025-11-10T21:21:14.819Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-10T21:21:14.819Z"}
+[2025-11-10T21:21:17.176Z] [INFO   ] 2025-11-10T21:21:17.176Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-10T21:21:17.176Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-10T21:21:17.307Z] [INFO   ] 2025-11-10T21:21:17.307Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-10T21:21:17.308Z] [INFO   ] 2025-11-10T21:21:17.308Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-10T21:21:17.447Z] [INFO   ] 2025-11-10T21:21:17.447Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":3,"permissionsCount":3,"integrationsError":null,"permissionsError":null}
+[2025-11-10T21:21:17.447Z] [INFO   ] 2025-11-10T21:21:17.447Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-10T21:21:17.448Z] [INFO   ] 2025-11-10T21:21:17.448Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-10T21:21:17.448Z] [INFO   ] 2025-11-10T21:21:17.448Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"05a3e250-b869-4fef-87b1-1f258a6c7e41","provider":"hubspot","permission":"admin"}
+[2025-11-10T21:21:17.448Z] [INFO   ] 2025-11-10T21:21:17.448Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":3,"workspaceType":"personal"}
+[2025-11-10T21:21:30.900Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 965ms (5440 modules)
+[2025-11-10T21:21:31.109Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-11-10T21:21:31.337Z] [INFO   ] 2025-11-10T21:21:31.337Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-10T21:21:31.337Z"}
+[2025-11-10T21:21:31.349Z] [INFO   ] 2025-11-10T21:21:31.349Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-10T21:21:31.349Z"}
+[2025-11-10T21:21:31.349Z] [INFO   ] 2025-11-10T21:21:31.349Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-10T21:21:31.349Z"}
+[2025-11-10T21:21:33.665Z] [INFO   ] 2025-11-10T21:21:33.665Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-10T21:21:33.665Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-10T21:21:33.868Z] [INFO   ] 2025-11-10T21:21:33.868Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-10T21:21:33.869Z] [INFO   ] 2025-11-10T21:21:33.869Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-10T21:21:34.021Z] [INFO   ] 2025-11-10T21:21:34.021Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":3,"permissionsCount":3,"integrationsError":null,"permissionsError":null}
+[2025-11-10T21:21:34.021Z] [INFO   ] 2025-11-10T21:21:34.021Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-10T21:21:34.021Z] [INFO   ] 2025-11-10T21:21:34.021Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-10T21:21:34.022Z] [INFO   ] 2025-11-10T21:21:34.021Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"05a3e250-b869-4fef-87b1-1f258a6c7e41","provider":"hubspot","permission":"admin"}
+[2025-11-10T21:21:34.022Z] [INFO   ] 2025-11-10T21:21:34.022Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":3,"workspaceType":"personal"}
+[2025-11-10T21:22:09.650Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 799ms (1170 modules)
+[2025-11-10T21:22:17.183Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 657ms (1170 modules)
+[2025-11-10T21:22:49.469Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 6.8s (5335 modules)
+[2025-11-10T21:22:50.114Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-11-10T21:22:50.979Z] [INFO   ] 2025-11-10T21:22:50.979Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-10T21:22:50.979Z"}
+[2025-11-10T21:22:50.992Z] [INFO   ] 2025-11-10T21:22:50.992Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-10T21:22:50.992Z"}
+[2025-11-10T21:22:50.992Z] [INFO   ] 2025-11-10T21:22:50.992Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-10T21:22:50.992Z"}
+[2025-11-10T21:22:53.064Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 497ms (4273 modules)
+[2025-11-10T21:22:53.453Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4278 modules)
+[2025-11-10T21:22:53.683Z] [INFO   ] 2025-11-10T21:22:53.683Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-10T21:22:53.683Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-10T21:22:53.882Z] [INFO   ] 2025-11-10T21:22:53.882Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-10T21:22:53.882Z] [INFO   ] 2025-11-10T21:22:53.882Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-10T21:22:54.017Z] [INFO   ] 2025-11-10T21:22:54.017Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":3,"permissionsCount":3,"integrationsError":null,"permissionsError":null}
+[2025-11-10T21:22:54.018Z] [INFO   ] 2025-11-10T21:22:54.018Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-10T21:22:54.018Z] [INFO   ] 2025-11-10T21:22:54.018Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-10T21:22:54.018Z] [INFO   ] 2025-11-10T21:22:54.018Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"05a3e250-b869-4fef-87b1-1f258a6c7e41","provider":"hubspot","permission":"admin"}
+[2025-11-10T21:22:54.018Z] [INFO   ] 2025-11-10T21:22:54.018Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":3,"workspaceType":"personal"}
+[2025-11-10T21:23:37.834Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-11-10T21:23:38.517Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1605ms (5457 modules)
+[2025-11-10T21:23:39.947Z] [INFO   ] 2025-11-10T21:23:39.947Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-10T21:23:39.947Z"}
+[2025-11-10T21:23:39.960Z] [INFO   ] 2025-11-10T21:23:39.959Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-10T21:23:39.959Z"}
+[2025-11-10T21:23:39.960Z] [INFO   ] 2025-11-10T21:23:39.960Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-10T21:23:39.960Z"}
+[2025-11-10T21:23:41.603Z] [INFO   ] 2025-11-10T21:23:41.603Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-10T21:23:41.603Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-10T21:23:41.752Z] [INFO   ] 2025-11-10T21:23:41.752Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-10T21:23:41.752Z] [INFO   ] 2025-11-10T21:23:41.752Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-10T21:23:41.906Z] [INFO   ] 2025-11-10T21:23:41.905Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":3,"permissionsCount":3,"integrationsError":null,"permissionsError":null}
+[2025-11-10T21:23:41.907Z] [INFO   ] 2025-11-10T21:23:41.907Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-10T21:23:41.907Z] [INFO   ] 2025-11-10T21:23:41.907Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-10T21:23:41.908Z] [INFO   ] 2025-11-10T21:23:41.907Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"05a3e250-b869-4fef-87b1-1f258a6c7e41","provider":"hubspot","permission":"admin"}
+[2025-11-10T21:23:41.908Z] [INFO   ] 2025-11-10T21:23:41.908Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":3,"workspaceType":"personal"}
+[2025-11-10T21:24:01.454Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1241ms (5457 modules)
+[2025-11-10T21:24:01.703Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-11-10T21:24:01.955Z] [INFO   ] 2025-11-10T21:24:01.955Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-10T21:24:01.955Z"}
+[2025-11-10T21:24:01.968Z] [INFO   ] 2025-11-10T21:24:01.968Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-10T21:24:01.968Z"}
+[2025-11-10T21:24:01.968Z] [INFO   ] 2025-11-10T21:24:01.968Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-10T21:24:01.968Z"}
+[2025-11-10T21:24:04.633Z] [INFO   ] 2025-11-10T21:24:04.633Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-10T21:24:04.633Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-10T21:24:04.781Z] [INFO   ] 2025-11-10T21:24:04.781Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-10T21:24:04.782Z] [INFO   ] 2025-11-10T21:24:04.782Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-10T21:24:04.923Z] [INFO   ] 2025-11-10T21:24:04.923Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":3,"permissionsCount":3,"integrationsError":null,"permissionsError":null}
+[2025-11-10T21:24:04.923Z] [INFO   ] 2025-11-10T21:24:04.923Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-10T21:24:04.923Z] [INFO   ] 2025-11-10T21:24:04.923Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-10T21:24:04.923Z] [INFO   ] 2025-11-10T21:24:04.923Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"05a3e250-b869-4fef-87b1-1f258a6c7e41","provider":"hubspot","permission":"admin"}
+[2025-11-10T21:24:04.924Z] [INFO   ] 2025-11-10T21:24:04.924Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":3,"workspaceType":"personal"}

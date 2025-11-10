@@ -2334,8 +2334,8 @@ export function FieldRenderer({
   }
 
   // New inline label design - no cards, grid layout
-  // Only exclude label for button-toggle and boolean (which have inline labels), and fields with hideLabel flag
-  const shouldShowLabel = field.type !== "button-toggle" && field.type !== "boolean" && !field.hideLabel;
+  // Only exclude label for button-toggle, toggle, and boolean (which have inline labels), and fields with hideLabel flag
+  const shouldShowLabel = field.type !== "button-toggle" && field.type !== "toggle" && field.type !== "boolean" && !field.hideLabel;
 
   // For fields without separate labels (boolean, button-toggle), use full width
   if (!shouldShowLabel) {

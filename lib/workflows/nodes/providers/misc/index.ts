@@ -11,7 +11,22 @@ import {
   BarChart,
   RotateCcw,
   Truck,
-  Receipt
+  Receipt,
+  Package,
+  List,
+  Power,
+  Trash2,
+  Layers,
+  Tag,
+  Mail,
+  Key,
+  Lock,
+  Unlock,
+  PackagePlus,
+  AlertTriangle,
+  Award,
+  RefreshCw,
+  Settings
 } from "lucide-react"
 
 // ManyChat Nodes
@@ -1253,6 +1268,31 @@ const gumroadActionGetSalesAnalytics: NodeComponent = {
       required: false,
       defaultValue: false,
       tooltip: "Include detailed breakdowns by date, currency, and sale type in the output. This provides granular analytics data."
+    },
+    {
+      name: "email",
+      label: "Buyer Email",
+      type: "text",
+      required: false,
+      placeholder: "buyer@example.com",
+      tooltip: "Filter analytics by specific buyer email address"
+    },
+    {
+      name: "orderId",
+      label: "Order ID",
+      type: "text",
+      required: false,
+      placeholder: "Enter order ID",
+      tooltip: "Filter analytics by specific order ID"
+    },
+    {
+      name: "pageSize",
+      label: "Maximum Results",
+      type: "number",
+      required: false,
+      defaultValue: 100,
+      placeholder: "100",
+      tooltip: "Maximum number of sales to include in analytics (1-500). Gumroad API is paginated."
     }
   ],
   outputSchema: [
@@ -1714,6 +1754,30 @@ const gumroadActionListSales: NodeComponent = {
       tooltip: "Filter by marketing email consent"
     },
     {
+      name: "orderId",
+      label: "Order ID",
+      type: "text",
+      required: false,
+      placeholder: "Enter order ID",
+      tooltip: "Filter by specific order ID"
+    },
+    {
+      name: "statusFilters",
+      label: "Status Filters",
+      type: "multi-select",
+      required: false,
+      options: [
+        { value: "disputed", label: "Disputed" },
+        { value: "dispute_won", label: "Dispute Won" },
+        { value: "chargedback", label: "Chargedback" },
+        { value: "shipped", label: "Shipped" },
+        { value: "refunded", label: "Refunded" },
+        { value: "partially_refunded", label: "Partially Refunded" }
+      ],
+      placeholder: "All Statuses",
+      tooltip: "Filter sales by status flags (disputed, shipped, refunded, etc.)"
+    },
+    {
       name: "refundStatus",
       label: "Refund Status",
       type: "select",
@@ -1759,6 +1823,14 @@ const gumroadActionListSales: NodeComponent = {
       defaultValue: 50,
       placeholder: "50",
       tooltip: "Maximum number of sales to retrieve (default: 50, max: 100)"
+    },
+    {
+      name: "pageKey",
+      label: "Page Key",
+      type: "text",
+      required: false,
+      placeholder: "Leave empty for first page",
+      tooltip: "Pagination key from previous response. Use for fetching subsequent pages of results."
     }
   ],
   outputSchema: [
@@ -1783,20 +1855,1407 @@ const gumroadActionListSales: NodeComponent = {
   ]
 }
 
+// Gumroad: Get Product
+const gumroadActionGetProduct: NodeComponent = {
+  type: "gumroad_action_get_product",
+  title: "Get Product",
+  description: "Retrieve detailed information about a specific product",
+  icon: Package,
+  providerId: "gumroad",
+  requiredScopes: ["view_profile"],
+  category: "E-commerce",
+  isTrigger: false,
+  configSchema: [
+    {
+      name: "productId",
+      label: "Product ID",
+      type: "text",
+      required: true,
+      placeholder: "Enter product ID or permalink",
+      tooltip: "The unique ID or permalink of the product to retrieve"
+    }
+  ],
+  outputSchema: [
+    {
+      name: "id",
+      label: "Product ID",
+      type: "string",
+      description: "Unique product identifier"
+    },
+    {
+      name: "name",
+      label: "Product Name",
+      type: "string",
+      description: "Name of the product"
+    },
+    {
+      name: "description",
+      label: "Description",
+      type: "string",
+      description: "Product description"
+    },
+    {
+      name: "price",
+      label: "Price",
+      type: "number",
+      description: "Product price in cents"
+    },
+    {
+      name: "currency",
+      label: "Currency",
+      type: "string",
+      description: "Currency code (USD, EUR, etc.)"
+    },
+    {
+      name: "url",
+      label: "Product URL",
+      type: "string",
+      description: "Public URL for the product"
+    },
+    {
+      name: "published",
+      label: "Published",
+      type: "boolean",
+      description: "Whether the product is currently published"
+    },
+    {
+      name: "customizable_price",
+      label: "Customizable Price",
+      type: "boolean",
+      description: "Whether customers can pay what they want"
+    },
+    {
+      name: "sales_count",
+      label: "Sales Count",
+      type: "number",
+      description: "Total number of sales for this product"
+    },
+    {
+      name: "variants",
+      label: "Variants",
+      type: "array",
+      description: "Product variants (if any)"
+    },
+    {
+      name: "custom_fields",
+      label: "Custom Fields",
+      type: "array",
+      description: "Custom fields configured for this product"
+    }
+  ]
+}
+
+// Gumroad: List Products
+const gumroadActionListProducts: NodeComponent = {
+  type: "gumroad_action_list_products",
+  title: "List Products",
+  description: "Retrieve all products in your Gumroad account",
+  icon: List,
+  providerId: "gumroad",
+  requiredScopes: ["view_profile"],
+  category: "E-commerce",
+  isTrigger: false,
+  configSchema: [
+    {
+      name: "publishedOnly",
+      label: "Published Only",
+      type: "toggle",
+      required: false,
+      defaultValue: false,
+      tooltip: "Only return published products (exclude drafts)"
+    }
+  ],
+  outputSchema: [
+    {
+      name: "products",
+      label: "Products",
+      type: "array",
+      description: "Array of product objects"
+    },
+    {
+      name: "totalCount",
+      label: "Total Count",
+      type: "number",
+      description: "Total number of products returned"
+    }
+  ]
+}
+
+// Gumroad: Enable Product
+const gumroadActionEnableProduct: NodeComponent = {
+  type: "gumroad_action_enable_product",
+  title: "Enable Product",
+  description: "Enable (publish) a product to make it available for purchase",
+  icon: Power,
+  providerId: "gumroad",
+  requiredScopes: ["edit_products"],
+  category: "E-commerce",
+  isTrigger: false,
+  configSchema: [
+    {
+      name: "productId",
+      label: "Product ID",
+      type: "text",
+      required: true,
+      placeholder: "Enter product ID or use variable",
+      tooltip: "The ID of the product to enable"
+    }
+  ],
+  outputSchema: [
+    {
+      name: "success",
+      label: "Success",
+      type: "boolean",
+      description: "Whether the product was successfully enabled"
+    },
+    {
+      name: "productId",
+      label: "Product ID",
+      type: "string",
+      description: "ID of the enabled product"
+    },
+    {
+      name: "published",
+      label: "Published",
+      type: "boolean",
+      description: "Current published status (should be true)"
+    }
+  ]
+}
+
+// Gumroad: Disable Product
+const gumroadActionDisableProduct: NodeComponent = {
+  type: "gumroad_action_disable_product",
+  title: "Disable Product",
+  description: "Disable (unpublish) a product to make it unavailable for purchase",
+  icon: Power,
+  providerId: "gumroad",
+  requiredScopes: ["edit_products"],
+  category: "E-commerce",
+  isTrigger: false,
+  configSchema: [
+    {
+      name: "productId",
+      label: "Product ID",
+      type: "text",
+      required: true,
+      placeholder: "Enter product ID or use variable",
+      tooltip: "The ID of the product to disable"
+    }
+  ],
+  outputSchema: [
+    {
+      name: "success",
+      label: "Success",
+      type: "boolean",
+      description: "Whether the product was successfully disabled"
+    },
+    {
+      name: "productId",
+      label: "Product ID",
+      type: "string",
+      description: "ID of the disabled product"
+    },
+    {
+      name: "published",
+      label: "Published",
+      type: "boolean",
+      description: "Current published status (should be false)"
+    }
+  ]
+}
+
+// Gumroad: Delete Product
+const gumroadActionDeleteProduct: NodeComponent = {
+  type: "gumroad_action_delete_product",
+  title: "Delete Product",
+  description: "Permanently delete a product from your Gumroad account",
+  icon: Trash2,
+  providerId: "gumroad",
+  requiredScopes: ["edit_products"],
+  category: "E-commerce",
+  isTrigger: false,
+  configSchema: [
+    {
+      name: "productId",
+      label: "Product ID",
+      type: "text",
+      required: true,
+      placeholder: "Enter product ID or use variable",
+      tooltip: "The ID of the product to permanently delete. This action cannot be undone."
+    },
+    {
+      name: "confirmDeletion",
+      label: "Confirm Deletion",
+      type: "toggle",
+      required: true,
+      defaultValue: false,
+      tooltip: "You must confirm that you want to permanently delete this product. This action cannot be undone."
+    }
+  ],
+  outputSchema: [
+    {
+      name: "success",
+      label: "Success",
+      type: "boolean",
+      description: "Whether the product was successfully deleted"
+    },
+    {
+      name: "productId",
+      label: "Product ID",
+      type: "string",
+      description: "ID of the deleted product"
+    },
+    {
+      name: "deletedAt",
+      label: "Deleted At",
+      type: "string",
+      description: "Timestamp when the product was deleted (ISO 8601 format)"
+    }
+  ]
+}
+
+// Gumroad: Create Variant Category
+const gumroadActionCreateVariantCategory: NodeComponent = {
+  type: "gumroad_action_create_variant_category",
+  title: "Create Variant Category",
+  description: "Create a new variant category for a product (e.g., Size, Color)",
+  icon: Layers,
+  providerId: "gumroad",
+  requiredScopes: ["edit_products"],
+  category: "E-commerce",
+  isTrigger: false,
+  configSchema: [
+    {
+      name: "productId",
+      label: "Product ID",
+      type: "text",
+      required: true,
+      placeholder: "Enter product ID",
+      tooltip: "The product to add this variant category to"
+    },
+    {
+      name: "title",
+      label: "Category Title",
+      type: "text",
+      required: true,
+      placeholder: "e.g., Size, Color, Format",
+      tooltip: "Name of the variant category (e.g., 'Size', 'Color')"
+    }
+  ],
+  outputSchema: [
+    {
+      name: "success",
+      label: "Success",
+      type: "boolean",
+      description: "Whether the variant category was created successfully"
+    },
+    {
+      name: "id",
+      label: "Category ID",
+      type: "string",
+      description: "Unique identifier for the created variant category"
+    },
+    {
+      name: "title",
+      label: "Category Title",
+      type: "string",
+      description: "Name of the variant category"
+    },
+    {
+      name: "productId",
+      label: "Product ID",
+      type: "string",
+      description: "ID of the product this category belongs to"
+    }
+  ]
+}
+
+// Gumroad: Create Offer Code
+const gumroadActionCreateOfferCode: NodeComponent = {
+  type: "gumroad_action_create_offer_code",
+  title: "Create Offer Code",
+  description: "Create a discount code for a product",
+  icon: Tag,
+  providerId: "gumroad",
+  requiredScopes: ["edit_products"],
+  category: "E-commerce",
+  isTrigger: false,
+  configSchema: [
+    {
+      name: "productId",
+      label: "Product ID",
+      type: "text",
+      required: true,
+      placeholder: "Enter product ID",
+      tooltip: "The product this offer code applies to"
+    },
+    {
+      name: "name",
+      label: "Offer Code",
+      type: "text",
+      required: true,
+      placeholder: "e.g., SUMMER25",
+      tooltip: "The discount code customers will use (e.g., 'SUMMER25')"
+    },
+    {
+      name: "discountType",
+      label: "Discount Type",
+      type: "select",
+      required: true,
+      options: [
+        { value: "percent", label: "Percentage Off" },
+        { value: "amount", label: "Fixed Amount Off" }
+      ],
+      placeholder: "Select discount type",
+      tooltip: "Whether the discount is a percentage or fixed amount"
+    },
+    {
+      name: "amountCents",
+      label: "Discount Amount (cents)",
+      type: "number",
+      required: false,
+      placeholder: "e.g., 500 for $5.00 off",
+      tooltip: "Fixed amount off in cents (only for 'Fixed Amount Off' type)",
+      dependsOn: "discountType",
+      hidden: {
+        $deps: ["discountType"],
+        $condition: { discountType: { $ne: "amount" } }
+      }
+    },
+    {
+      name: "percentOff",
+      label: "Percent Off",
+      type: "number",
+      required: false,
+      placeholder: "e.g., 25 for 25% off",
+      tooltip: "Percentage discount (1-100, only for 'Percentage Off' type)",
+      dependsOn: "discountType",
+      hidden: {
+        $deps: ["discountType"],
+        $condition: { discountType: { $ne: "percent" } }
+      }
+    },
+    {
+      name: "maxPurchaseCount",
+      label: "Max Uses",
+      type: "number",
+      required: false,
+      placeholder: "Leave empty for unlimited",
+      tooltip: "Maximum number of times this code can be used (optional)"
+    }
+  ],
+  outputSchema: [
+    {
+      name: "success",
+      label: "Success",
+      type: "boolean",
+      description: "Whether the offer code was created successfully"
+    },
+    {
+      name: "id",
+      label: "Offer Code ID",
+      type: "string",
+      description: "Unique identifier for the offer code"
+    },
+    {
+      name: "name",
+      label: "Code",
+      type: "string",
+      description: "The offer code customers will use"
+    },
+    {
+      name: "amountCents",
+      label: "Amount Off (cents)",
+      type: "number",
+      description: "Fixed amount discount in cents (if applicable)"
+    },
+    {
+      name: "percentOff",
+      label: "Percent Off",
+      type: "number",
+      description: "Percentage discount (if applicable)"
+    },
+    {
+      name: "maxPurchaseCount",
+      label: "Max Uses",
+      type: "number",
+      description: "Maximum number of uses allowed"
+    },
+    {
+      name: "productId",
+      label: "Product ID",
+      type: "string",
+      description: "ID of the product this code applies to"
+    }
+  ]
+}
+
+// Gumroad: Get Subscriber
+const gumroadActionGetSubscriber: NodeComponent = {
+  type: "gumroad_action_get_subscriber",
+  title: "Get Subscriber",
+  description: "Retrieve detailed information about a specific subscriber",
+  icon: UserPlus,
+  providerId: "gumroad",
+  requiredScopes: ["view_sales"],
+  category: "E-commerce",
+  isTrigger: false,
+  configSchema: [
+    {
+      name: "subscriberId",
+      label: "Subscriber ID",
+      type: "text",
+      required: true,
+      placeholder: "Enter subscriber ID or use variable",
+      tooltip: "The unique ID of the subscriber to retrieve"
+    }
+  ],
+  outputSchema: [
+    {
+      name: "id",
+      label: "Subscriber ID",
+      type: "string",
+      description: "Unique subscriber identifier"
+    },
+    {
+      name: "productId",
+      label: "Product ID",
+      type: "string",
+      description: "ID of the subscribed product"
+    },
+    {
+      name: "productName",
+      label: "Product Name",
+      type: "string",
+      description: "Name of the subscribed product"
+    },
+    {
+      name: "userEmail",
+      label: "User Email",
+      type: "string",
+      description: "Subscriber's email address"
+    },
+    {
+      name: "status",
+      label: "Status",
+      type: "string",
+      description: "Subscription status (alive, pending_cancellation, failed_payment, etc.)"
+    },
+    {
+      name: "createdAt",
+      label: "Created At",
+      type: "string",
+      description: "When the subscription was created (ISO 8601)"
+    },
+    {
+      name: "recurrence",
+      label: "Billing Interval",
+      type: "string",
+      description: "Subscription billing period (monthly, quarterly, yearly, etc.)"
+    },
+    {
+      name: "chargeOccurrenceCount",
+      label: "Charge Count",
+      type: "number",
+      description: "Number of successful charges for this subscription"
+    },
+    {
+      name: "cancelledAt",
+      label: "Cancelled At",
+      type: "string",
+      description: "When the subscription was/will be cancelled (if applicable)"
+    },
+    {
+      name: "endedAt",
+      label: "Ended At",
+      type: "string",
+      description: "When the subscription ended (if applicable)"
+    },
+    {
+      name: "freeTrialEndsAt",
+      label: "Free Trial Ends At",
+      type: "string",
+      description: "When the free trial ends (if applicable)"
+    },
+    {
+      name: "licenseKey",
+      label: "License Key",
+      type: "string",
+      description: "License key for this subscription (if applicable)"
+    }
+  ]
+}
+
+// Gumroad: List Subscribers
+const gumroadActionListSubscribers: NodeComponent = {
+  type: "gumroad_action_list_subscribers",
+  title: "List Subscribers",
+  description: "Retrieve all active subscribers for a product",
+  icon: Users,
+  providerId: "gumroad",
+  requiredScopes: ["view_sales"],
+  category: "E-commerce",
+  isTrigger: false,
+  configSchema: [
+    {
+      name: "productId",
+      label: "Product ID",
+      type: "text",
+      required: true,
+      placeholder: "Enter product ID",
+      tooltip: "The product to retrieve subscribers for"
+    },
+    {
+      name: "email",
+      label: "Filter by Email",
+      type: "text",
+      required: false,
+      placeholder: "subscriber@example.com",
+      tooltip: "Filter subscribers by email address (optional)"
+    },
+    {
+      name: "pageKey",
+      label: "Page Key",
+      type: "text",
+      required: false,
+      placeholder: "Leave empty for first page",
+      tooltip: "Pagination key from previous response for fetching subsequent pages"
+    }
+  ],
+  outputSchema: [
+    {
+      name: "subscribers",
+      label: "Subscribers",
+      type: "array",
+      description: "Array of subscriber objects"
+    },
+    {
+      name: "totalCount",
+      label: "Total Count",
+      type: "number",
+      description: "Total number of subscribers returned"
+    },
+    {
+      name: "nextPageKey",
+      label: "Next Page Key",
+      type: "string",
+      description: "Pagination key for fetching the next page (if more results exist)"
+    }
+  ]
+}
+
+// Gumroad: Resend Receipt
+const gumroadActionResendReceipt: NodeComponent = {
+  type: "gumroad_action_resend_receipt",
+  title: "Resend Receipt",
+  description: "Resend the purchase receipt email to a customer",
+  icon: Mail,
+  providerId: "gumroad",
+  requiredScopes: ["edit_sales"],
+  category: "E-commerce",
+  isTrigger: false,
+  configSchema: [
+    {
+      name: "saleId",
+      label: "Sale ID",
+      type: "text",
+      required: true,
+      placeholder: "Enter sale ID or use variable",
+      tooltip: "The ID of the sale to resend the receipt for"
+    }
+  ],
+  outputSchema: [
+    {
+      name: "success",
+      label: "Success",
+      type: "boolean",
+      description: "Whether the receipt was successfully resent"
+    },
+    {
+      name: "saleId",
+      label: "Sale ID",
+      type: "string",
+      description: "ID of the sale"
+    },
+    {
+      name: "email",
+      label: "Email",
+      type: "string",
+      description: "Email address the receipt was sent to"
+    },
+    {
+      name: "resentAt",
+      label: "Resent At",
+      type: "string",
+      description: "Timestamp when the receipt was resent (ISO 8601 format)"
+    }
+  ]
+}
+
+// Gumroad: Verify License
+const gumroadActionVerifyLicense: NodeComponent = {
+  type: "gumroad_action_verify_license",
+  title: "Verify License",
+  description: "Verify a license key and retrieve associated sale information",
+  icon: Key,
+  providerId: "gumroad",
+  requiredScopes: [],  // No OAuth required for license verification
+  category: "E-commerce",
+  isTrigger: false,
+  configSchema: [
+    {
+      name: "productPermalink",
+      label: "Product Permalink",
+      type: "text",
+      required: true,
+      placeholder: "your-product-permalink",
+      tooltip: "The product's unique permalink"
+    },
+    {
+      name: "licenseKey",
+      label: "License Key",
+      type: "text",
+      required: true,
+      placeholder: "Enter license key to verify",
+      tooltip: "The license key to verify"
+    },
+    {
+      name: "incrementUsesCount",
+      label: "Increment Uses",
+      type: "toggle",
+      required: false,
+      defaultValue: false,
+      tooltip: "Increment the license uses count (for tracking activation count)"
+    }
+  ],
+  outputSchema: [
+    {
+      name: "success",
+      label: "Success",
+      type: "boolean",
+      description: "Whether the license is valid"
+    },
+    {
+      name: "licenseKey",
+      label: "License Key",
+      type: "string",
+      description: "The verified license key"
+    },
+    {
+      name: "purchaseEmail",
+      label: "Purchase Email",
+      type: "string",
+      description: "Email address of the purchaser"
+    },
+    {
+      name: "productName",
+      label: "Product Name",
+      type: "string",
+      description: "Name of the product"
+    },
+    {
+      name: "productId",
+      label: "Product ID",
+      type: "string",
+      description: "ID of the product"
+    },
+    {
+      name: "saleId",
+      label: "Sale ID",
+      type: "string",
+      description: "ID of the original sale"
+    },
+    {
+      name: "purchaseDate",
+      label: "Purchase Date",
+      type: "string",
+      description: "When the license was purchased (ISO 8601 format)"
+    },
+    {
+      name: "usesCount",
+      label: "Uses Count",
+      type: "number",
+      description: "Number of times this license has been activated"
+    },
+    {
+      name: "disabled",
+      label: "Disabled",
+      type: "boolean",
+      description: "Whether the license is currently disabled"
+    },
+    {
+      name: "refunded",
+      label: "Refunded",
+      type: "boolean",
+      description: "Whether the purchase was refunded"
+    },
+    {
+      name: "chargedback",
+      label: "Chargedback",
+      type: "boolean",
+      description: "Whether the purchase was charged back"
+    },
+    {
+      name: "subscriptionEnded",
+      label: "Subscription Ended",
+      type: "boolean",
+      description: "Whether the subscription has ended (for subscription products)"
+    }
+  ]
+}
+
+// Gumroad: Enable License
+const gumroadActionEnableLicense: NodeComponent = {
+  type: "gumroad_action_enable_license",
+  title: "Enable License",
+  description: "Enable a previously disabled license key",
+  icon: Unlock,
+  providerId: "gumroad",
+  requiredScopes: ["edit_sales"],
+  category: "E-commerce",
+  isTrigger: false,
+  configSchema: [
+    {
+      name: "licenseKey",
+      label: "License Key",
+      type: "text",
+      required: true,
+      placeholder: "Enter license key to enable",
+      tooltip: "The license key to enable"
+    }
+  ],
+  outputSchema: [
+    {
+      name: "success",
+      label: "Success",
+      type: "boolean",
+      description: "Whether the license was successfully enabled"
+    },
+    {
+      name: "licenseKey",
+      label: "License Key",
+      type: "string",
+      description: "The enabled license key"
+    },
+    {
+      name: "disabled",
+      label: "Disabled",
+      type: "boolean",
+      description: "Current disabled status (should be false)"
+    },
+    {
+      name: "enabledAt",
+      label: "Enabled At",
+      type: "string",
+      description: "Timestamp when the license was enabled (ISO 8601 format)"
+    }
+  ]
+}
+
+// Gumroad: Disable License
+const gumroadActionDisableLicense: NodeComponent = {
+  type: "gumroad_action_disable_license",
+  title: "Disable License",
+  description: "Disable a license key to prevent further use",
+  icon: Lock,
+  providerId: "gumroad",
+  requiredScopes: ["edit_sales"],
+  category: "E-commerce",
+  isTrigger: false,
+  configSchema: [
+    {
+      name: "licenseKey",
+      label: "License Key",
+      type: "text",
+      required: true,
+      placeholder: "Enter license key to disable",
+      tooltip: "The license key to disable"
+    }
+  ],
+  outputSchema: [
+    {
+      name: "success",
+      label: "Success",
+      type: "boolean",
+      description: "Whether the license was successfully disabled"
+    },
+    {
+      name: "licenseKey",
+      label: "License Key",
+      type: "string",
+      description: "The disabled license key"
+    },
+    {
+      name: "disabled",
+      label: "Disabled",
+      type: "boolean",
+      description: "Current disabled status (should be true)"
+    },
+    {
+      name: "disabledAt",
+      label: "Disabled At",
+      type: "string",
+      description: "Timestamp when the license was disabled (ISO 8601 format)"
+    }
+  ]
+}
+
+// Gumroad: New Product Trigger
+const gumroadTriggerNewProduct: NodeComponent = {
+  type: "gumroad_trigger_new_product",
+  title: "New Product",
+  description: "Triggers when a new product is created in your Gumroad account",
+  icon: PackagePlus,
+  providerId: "gumroad",
+  category: "E-commerce",
+  isTrigger: true,
+  requiredScopes: ["view_profile"],
+  configSchema: [],
+  outputSchema: [
+    {
+      name: "id",
+      label: "Product ID",
+      type: "string",
+      description: "Unique product identifier"
+    },
+    {
+      name: "name",
+      label: "Product Name",
+      type: "string",
+      description: "Name of the new product"
+    },
+    {
+      name: "price",
+      label: "Price",
+      type: "number",
+      description: "Product price in cents"
+    },
+    {
+      name: "currency",
+      label: "Currency",
+      type: "string",
+      description: "Currency code (USD, EUR, etc.)"
+    },
+    {
+      name: "url",
+      label: "Product URL",
+      type: "string",
+      description: "Public URL for the product"
+    },
+    {
+      name: "published",
+      label: "Published",
+      type: "boolean",
+      description: "Whether the product is published"
+    },
+    {
+      name: "createdAt",
+      label: "Created At",
+      type: "string",
+      description: "When the product was created (ISO 8601 format)"
+    }
+  ]
+}
+
+// Gumroad: Dispute Trigger
+const gumroadTriggerDispute: NodeComponent = {
+  type: "gumroad_trigger_dispute",
+  title: "Dispute Filed",
+  description: "Triggers when a customer files a dispute/chargeback for a sale",
+  icon: AlertTriangle,
+  providerId: "gumroad",
+  category: "E-commerce",
+  isTrigger: true,
+  requiredScopes: ["view_sales"],
+  configSchema: [
+    {
+      name: "product",
+      label: "Product",
+      type: "combobox",
+      dynamic: "gumroad_products",
+      required: false,
+      loadOnMount: true,
+      searchable: true,
+      placeholder: "All Products",
+      emptyPlaceholder: "No products found",
+      emptyMessage: "No products found. Create a product in your Gumroad account first.",
+      tooltip: "Monitor disputes for a specific product, or leave empty to monitor all products"
+    },
+    {
+      name: "minimumAmount",
+      label: "Minimum Dispute Amount",
+      type: "number",
+      required: false,
+      placeholder: "0",
+      tooltip: "Only trigger for disputes with amount >= this value (in cents)",
+      dependsOn: "product",
+      hidden: {
+        $deps: ["product"],
+        $condition: { product: { $exists: false } }
+      }
+    }
+  ],
+  outputSchema: [
+    {
+      name: "saleId",
+      label: "Sale ID",
+      type: "string",
+      description: "ID of the disputed sale"
+    },
+    {
+      name: "productId",
+      label: "Product ID",
+      type: "string",
+      description: "ID of the product"
+    },
+    {
+      name: "productName",
+      label: "Product Name",
+      type: "string",
+      description: "Name of the product"
+    },
+    {
+      name: "amount",
+      label: "Dispute Amount",
+      type: "number",
+      description: "Amount being disputed (in cents)"
+    },
+    {
+      name: "currency",
+      label: "Currency",
+      type: "string",
+      description: "Currency code"
+    },
+    {
+      name: "customerEmail",
+      label: "Customer Email",
+      type: "string",
+      description: "Email of the customer who filed the dispute"
+    },
+    {
+      name: "disputedAt",
+      label: "Disputed At",
+      type: "string",
+      description: "When the dispute was filed (ISO 8601 format)"
+    },
+    {
+      name: "purchaseDate",
+      label: "Original Purchase Date",
+      type: "string",
+      description: "When the original sale occurred (ISO 8601 format)"
+    }
+  ]
+}
+
+// Gumroad: Dispute Won Trigger
+const gumroadTriggerDisputeWon: NodeComponent = {
+  type: "gumroad_trigger_dispute_won",
+  title: "Dispute Won",
+  description: "Triggers when you win a dispute/chargeback case",
+  icon: Award,
+  providerId: "gumroad",
+  category: "E-commerce",
+  isTrigger: true,
+  requiredScopes: ["view_sales"],
+  configSchema: [
+    {
+      name: "product",
+      label: "Product",
+      type: "combobox",
+      dynamic: "gumroad_products",
+      required: false,
+      loadOnMount: true,
+      searchable: true,
+      placeholder: "All Products",
+      emptyPlaceholder: "No products found",
+      emptyMessage: "No products found. Create a product in your Gumroad account first.",
+      tooltip: "Monitor dispute wins for a specific product, or leave empty to monitor all products"
+    }
+  ],
+  outputSchema: [
+    {
+      name: "saleId",
+      label: "Sale ID",
+      type: "string",
+      description: "ID of the sale"
+    },
+    {
+      name: "productId",
+      label: "Product ID",
+      type: "string",
+      description: "ID of the product"
+    },
+    {
+      name: "productName",
+      label: "Product Name",
+      type: "string",
+      description: "Name of the product"
+    },
+    {
+      name: "amount",
+      label: "Amount",
+      type: "number",
+      description: "Sale amount (in cents)"
+    },
+    {
+      name: "currency",
+      label: "Currency",
+      type: "string",
+      description: "Currency code"
+    },
+    {
+      name: "customerEmail",
+      label: "Customer Email",
+      type: "string",
+      description: "Email of the customer"
+    },
+    {
+      name: "disputeWonAt",
+      label: "Dispute Won At",
+      type: "string",
+      description: "When the dispute was won (ISO 8601 format)"
+    }
+  ]
+}
+
+// Gumroad: Subscription Updated Trigger
+const gumroadTriggerSubscriptionUpdated: NodeComponent = {
+  type: "gumroad_trigger_subscription_updated",
+  title: "Subscription Updated",
+  description: "Triggers when a subscription is upgraded or downgraded to a different plan",
+  icon: RefreshCw,
+  providerId: "gumroad",
+  category: "E-commerce",
+  isTrigger: true,
+  requiredScopes: ["view_sales"],
+  configSchema: [
+    {
+      name: "product",
+      label: "Product",
+      type: "combobox",
+      dynamic: "gumroad_products",
+      required: false,
+      loadOnMount: true,
+      searchable: true,
+      placeholder: "All Products",
+      emptyPlaceholder: "No products found",
+      emptyMessage: "No products found. Create a product in your Gumroad account first.",
+      tooltip: "Monitor subscription updates for a specific product, or leave empty to monitor all products"
+    },
+    {
+      name: "updateType",
+      label: "Update Type",
+      type: "select",
+      required: false,
+      defaultValue: "all",
+      options: [
+        { value: "all", label: "All Updates" },
+        { value: "upgrade", label: "Upgrades Only" },
+        { value: "downgrade", label: "Downgrades Only" }
+      ],
+      placeholder: "All Updates",
+      tooltip: "Filter by whether the subscription was upgraded or downgraded",
+      dependsOn: "product",
+      hidden: {
+        $deps: ["product"],
+        $condition: { product: { $exists: false } }
+      }
+    }
+  ],
+  outputSchema: [
+    {
+      name: "subscriptionId",
+      label: "Subscription ID",
+      type: "string",
+      description: "Unique subscription identifier"
+    },
+    {
+      name: "productId",
+      label: "Product ID",
+      type: "string",
+      description: "ID of the product"
+    },
+    {
+      name: "productName",
+      label: "Product Name",
+      type: "string",
+      description: "Name of the product"
+    },
+    {
+      name: "userEmail",
+      label: "User Email",
+      type: "string",
+      description: "Subscriber's email address"
+    },
+    {
+      name: "updateType",
+      label: "Update Type",
+      type: "string",
+      description: "Type of update (upgrade or downgrade)"
+    },
+    {
+      name: "oldPlan",
+      label: "Old Plan",
+      type: "object",
+      description: "Previous subscription plan details (tier, recurrence, price)"
+    },
+    {
+      name: "newPlan",
+      label: "New Plan",
+      type: "object",
+      description: "New subscription plan details (tier, recurrence, price)"
+    },
+    {
+      name: "effectiveDate",
+      label: "Effective Date",
+      type: "string",
+      description: "When the change takes effect (ISO 8601 format)"
+    },
+    {
+      name: "updatedAt",
+      label: "Updated At",
+      type: "string",
+      description: "When the update occurred (ISO 8601 format)"
+    }
+  ]
+}
+
+// Gumroad: Subscription Ended Trigger
+const gumroadTriggerSubscriptionEnded: NodeComponent = {
+  type: "gumroad_trigger_subscription_ended",
+  title: "Subscription Ended",
+  description: "Triggers when a subscription ends (cancelled, failed payment, or fixed period ended)",
+  icon: UserX,
+  providerId: "gumroad",
+  category: "E-commerce",
+  isTrigger: true,
+  requiredScopes: ["view_sales"],
+  configSchema: [
+    {
+      name: "product",
+      label: "Product",
+      type: "combobox",
+      dynamic: "gumroad_products",
+      required: false,
+      loadOnMount: true,
+      searchable: true,
+      placeholder: "All Products",
+      emptyPlaceholder: "No products found",
+      emptyMessage: "No products found. Create a product in your Gumroad account first.",
+      tooltip: "Monitor subscription endings for a specific product, or leave empty to monitor all products"
+    },
+    {
+      name: "endReason",
+      label: "End Reason",
+      type: "select",
+      required: false,
+      defaultValue: "all",
+      options: [
+        { value: "all", label: "All Reasons" },
+        { value: "cancelled", label: "Cancelled by User" },
+        { value: "failed_payment", label: "Failed Payment" },
+        { value: "fixed_subscription_period_ended", label: "Fixed Period Ended" }
+      ],
+      placeholder: "All Reasons",
+      tooltip: "Filter by the reason the subscription ended",
+      dependsOn: "product",
+      hidden: {
+        $deps: ["product"],
+        $condition: { product: { $exists: false } }
+      }
+    },
+    {
+      name: "minimumCharges",
+      label: "Minimum Charges",
+      type: "number",
+      required: false,
+      placeholder: "1",
+      tooltip: "Only trigger for subscriptions that had at least N successful charges",
+      dependsOn: "product",
+      hidden: {
+        $deps: ["product"],
+        $condition: { product: { $exists: false } }
+      }
+    }
+  ],
+  outputSchema: [
+    {
+      name: "subscriptionId",
+      label: "Subscription ID",
+      type: "string",
+      description: "Unique subscription identifier"
+    },
+    {
+      name: "productId",
+      label: "Product ID",
+      type: "string",
+      description: "ID of the product"
+    },
+    {
+      name: "productName",
+      label: "Product Name",
+      type: "string",
+      description: "Name of the product"
+    },
+    {
+      name: "userEmail",
+      label: "User Email",
+      type: "string",
+      description: "Subscriber's email address"
+    },
+    {
+      name: "endReason",
+      label: "End Reason",
+      type: "string",
+      description: "Why the subscription ended (cancelled, failed_payment, fixed_subscription_period_ended)"
+    },
+    {
+      name: "chargeOccurrenceCount",
+      label: "Total Charges",
+      type: "number",
+      description: "Number of successful charges before ending"
+    },
+    {
+      name: "createdAt",
+      label: "Subscription Started",
+      type: "string",
+      description: "When the subscription started (ISO 8601 format)"
+    },
+    {
+      name: "endedAt",
+      label: "Ended At",
+      type: "string",
+      description: "When the subscription ended (ISO 8601 format)"
+    },
+    {
+      name: "recurrence",
+      label: "Billing Interval",
+      type: "string",
+      description: "Subscription billing period (monthly, quarterly, yearly, etc.)"
+    }
+  ]
+}
+
+// Gumroad: Subscription Restarted Trigger
+const gumroadTriggerSubscriptionRestarted: NodeComponent = {
+  type: "gumroad_trigger_subscription_restarted",
+  title: "Subscription Restarted",
+  description: "Triggers when a previously cancelled subscription is reactivated by the customer",
+  icon: RefreshCw,
+  providerId: "gumroad",
+  category: "E-commerce",
+  isTrigger: true,
+  requiredScopes: ["view_sales"],
+  configSchema: [
+    {
+      name: "product",
+      label: "Product",
+      type: "combobox",
+      dynamic: "gumroad_products",
+      required: false,
+      loadOnMount: true,
+      searchable: true,
+      placeholder: "All Products",
+      emptyPlaceholder: "No products found",
+      emptyMessage: "No products found. Create a product in your Gumroad account first.",
+      tooltip: "Monitor subscription restarts for a specific product, or leave empty to monitor all products"
+    }
+  ],
+  outputSchema: [
+    {
+      name: "subscriptionId",
+      label: "Subscription ID",
+      type: "string",
+      description: "Unique subscription identifier"
+    },
+    {
+      name: "productId",
+      label: "Product ID",
+      type: "string",
+      description: "ID of the product"
+    },
+    {
+      name: "productName",
+      label: "Product Name",
+      type: "string",
+      description: "Name of the product"
+    },
+    {
+      name: "userEmail",
+      label: "User Email",
+      type: "string",
+      description: "Subscriber's email address"
+    },
+    {
+      name: "originalStartDate",
+      label: "Original Start Date",
+      type: "string",
+      description: "When the subscription was originally created (ISO 8601 format)"
+    },
+    {
+      name: "cancelledAt",
+      label: "Previously Cancelled At",
+      type: "string",
+      description: "When the subscription was previously cancelled (ISO 8601 format)"
+    },
+    {
+      name: "restartedAt",
+      label: "Restarted At",
+      type: "string",
+      description: "When the subscription was reactivated (ISO 8601 format)"
+    },
+    {
+      name: "recurrence",
+      label: "Billing Interval",
+      type: "string",
+      description: "Subscription billing period (monthly, quarterly, yearly, etc.)"
+    },
+    {
+      name: "chargeOccurrenceCount",
+      label: "Previous Charge Count",
+      type: "number",
+      description: "Number of successful charges before cancellation"
+    }
+  ]
+}
+
 // Export all miscellaneous nodes
 export const miscNodes: NodeComponent[] = [
   // ManyChat (3)
   manychatTriggerNewSubscriber,
   manychatActionSendMessage,
   manychatActionTagSubscriber,
-  
-  // Gumroad (8) - 4 triggers, 4 actions
+
+  // Gumroad (30 nodes) - 10 triggers, 20 actions
+  // Triggers (10)
   gumroadTriggerNewSale,
   gumroadTriggerNewSubscriber,
   gumroadTriggerSubscriptionCancelled,
   gumroadTriggerSaleRefunded,
+  gumroadTriggerNewProduct,
+  gumroadTriggerDispute,
+  gumroadTriggerDisputeWon,
+  gumroadTriggerSubscriptionUpdated,
+  gumroadTriggerSubscriptionEnded,
+  gumroadTriggerSubscriptionRestarted,
+
+  // Actions (20)
   gumroadActionGetSalesAnalytics,
   gumroadActionMarkAsShipped,
   gumroadActionRefundSale,
   gumroadActionListSales,
+  gumroadActionGetProduct,
+  gumroadActionListProducts,
+  gumroadActionEnableProduct,
+  gumroadActionDisableProduct,
+  gumroadActionDeleteProduct,
+  gumroadActionCreateVariantCategory,
+  gumroadActionCreateOfferCode,
+  gumroadActionGetSubscriber,
+  gumroadActionListSubscribers,
+  gumroadActionResendReceipt,
+  gumroadActionVerifyLicense,
+  gumroadActionEnableLicense,
+  gumroadActionDisableLicense,
 ]
