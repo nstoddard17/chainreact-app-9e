@@ -294,3 +294,2681 @@ Import trace for requested module:
 [2025-11-10T09:23:21.374Z] [INFO   ] 2025-11-10T09:23:21.374Z [DEBUG] 📡 Discord event received: GUILD_CREATE
 [2025-11-10T09:23:21.556Z] [INFO   ] 2025-11-10T09:23:21.555Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
 [2025-11-10T10:49:02.597Z] [INFO   ] 2025-11-10T10:49:02.596Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-11-10T14:41:06.991Z] [WARN   ]  ⚠ ./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetContacts' is not exported from './hubspot' (imported as 'hubspotGetContacts').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetCompanies' is not exported from './hubspot' (imported as 'hubspotGetCompanies').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetDeals' is not exported from './hubspot' (imported as 'hubspotGetDeals').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetTickets' is not exported from './hubspot' (imported as 'hubspotGetTickets').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateContact' is not exported from './hubspot' (imported as 'hubspotUpdateContact').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateCompany' is not exported from './hubspot' (imported as 'hubspotUpdateCompany').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateTicket' is not exported from './hubspot' (imported as 'hubspotUpdateTicket').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateTicket' is not exported from './hubspot' (imported as 'hubspotCreateTicket').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateNote' is not exported from './hubspot' (imported as 'hubspotCreateNote').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateTask' is not exported from './hubspot' (imported as 'hubspotCreateTask').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateCall' is not exported from './hubspot' (imported as 'hubspotCreateCall').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateMeeting' is not exported from './hubspot' (imported as 'hubspotCreateMeeting').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T14:44:16.616Z] [WARN   ]  ⚠ ./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetContacts' is not exported from './hubspot' (imported as 'hubspotGetContacts').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetCompanies' is not exported from './hubspot' (imported as 'hubspotGetCompanies').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetDeals' is not exported from './hubspot' (imported as 'hubspotGetDeals').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetTickets' is not exported from './hubspot' (imported as 'hubspotGetTickets').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateContact' is not exported from './hubspot' (imported as 'hubspotUpdateContact').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateCompany' is not exported from './hubspot' (imported as 'hubspotUpdateCompany').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateTicket' is not exported from './hubspot' (imported as 'hubspotUpdateTicket').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateTicket' is not exported from './hubspot' (imported as 'hubspotCreateTicket').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateNote' is not exported from './hubspot' (imported as 'hubspotCreateNote').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateTask' is not exported from './hubspot' (imported as 'hubspotCreateTask').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateCall' is not exported from './hubspot' (imported as 'hubspotCreateCall').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateMeeting' is not exported from './hubspot' (imported as 'hubspotCreateMeeting').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T14:45:30.344Z] [WARN   ]  ⚠ ./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetContacts' is not exported from './hubspot' (imported as 'hubspotGetContacts').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetCompanies' is not exported from './hubspot' (imported as 'hubspotGetCompanies').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetDeals' is not exported from './hubspot' (imported as 'hubspotGetDeals').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetTickets' is not exported from './hubspot' (imported as 'hubspotGetTickets').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateContact' is not exported from './hubspot' (imported as 'hubspotUpdateContact').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateCompany' is not exported from './hubspot' (imported as 'hubspotUpdateCompany').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateTicket' is not exported from './hubspot' (imported as 'hubspotUpdateTicket').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateTicket' is not exported from './hubspot' (imported as 'hubspotCreateTicket').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateNote' is not exported from './hubspot' (imported as 'hubspotCreateNote').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateTask' is not exported from './hubspot' (imported as 'hubspotCreateTask').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateCall' is not exported from './hubspot' (imported as 'hubspotCreateCall').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateMeeting' is not exported from './hubspot' (imported as 'hubspotCreateMeeting').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T14:53:54.931Z] [WARN   ]  ⚠ ./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetContacts' is not exported from './hubspot' (imported as 'hubspotGetContacts').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetCompanies' is not exported from './hubspot' (imported as 'hubspotGetCompanies').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetDeals' is not exported from './hubspot' (imported as 'hubspotGetDeals').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetTickets' is not exported from './hubspot' (imported as 'hubspotGetTickets').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateContact' is not exported from './hubspot' (imported as 'hubspotUpdateContact').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateCompany' is not exported from './hubspot' (imported as 'hubspotUpdateCompany').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateTicket' is not exported from './hubspot' (imported as 'hubspotUpdateTicket').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateTicket' is not exported from './hubspot' (imported as 'hubspotCreateTicket').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateNote' is not exported from './hubspot' (imported as 'hubspotCreateNote').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateTask' is not exported from './hubspot' (imported as 'hubspotCreateTask').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateCall' is not exported from './hubspot' (imported as 'hubspotCreateCall').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateMeeting' is not exported from './hubspot' (imported as 'hubspotCreateMeeting').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T14:54:14.575Z] [WARN   ]  ⚠ ./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetContacts' is not exported from './hubspot' (imported as 'hubspotGetContacts').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetCompanies' is not exported from './hubspot' (imported as 'hubspotGetCompanies').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetDeals' is not exported from './hubspot' (imported as 'hubspotGetDeals').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetTickets' is not exported from './hubspot' (imported as 'hubspotGetTickets').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateContact' is not exported from './hubspot' (imported as 'hubspotUpdateContact').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateCompany' is not exported from './hubspot' (imported as 'hubspotUpdateCompany').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateTicket' is not exported from './hubspot' (imported as 'hubspotUpdateTicket').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateTicket' is not exported from './hubspot' (imported as 'hubspotCreateTicket').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateNote' is not exported from './hubspot' (imported as 'hubspotCreateNote').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateTask' is not exported from './hubspot' (imported as 'hubspotCreateTask').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateCall' is not exported from './hubspot' (imported as 'hubspotCreateCall').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateMeeting' is not exported from './hubspot' (imported as 'hubspotCreateMeeting').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotAddToWorkflow' is not exported from './hubspot' (imported as 'hubspotAddToWorkflow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotRemoveFromWorkflow' is not exported from './hubspot' (imported as 'hubspotRemoveFromWorkflow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateProduct' is not exported from './hubspot' (imported as 'hubspotCreateProduct').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateProduct' is not exported from './hubspot' (imported as 'hubspotUpdateProduct').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetProducts' is not exported from './hubspot' (imported as 'hubspotGetProducts').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotRemoveFromList' is not exported from './hubspot' (imported as 'hubspotRemoveFromList').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetOwners' is not exported from './hubspot' (imported as 'hubspotGetOwners').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetForms' is not exported from './hubspot' (imported as 'hubspotGetForms').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetDealPipelines' is not exported from './hubspot' (imported as 'hubspotGetDealPipelines').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T14:55:57.497Z] [WARN   ]  ⚠ ./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetContacts' is not exported from './hubspot' (imported as 'hubspotGetContacts').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetCompanies' is not exported from './hubspot' (imported as 'hubspotGetCompanies').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetDeals' is not exported from './hubspot' (imported as 'hubspotGetDeals').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetTickets' is not exported from './hubspot' (imported as 'hubspotGetTickets').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateContact' is not exported from './hubspot' (imported as 'hubspotUpdateContact').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateCompany' is not exported from './hubspot' (imported as 'hubspotUpdateCompany').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateTicket' is not exported from './hubspot' (imported as 'hubspotUpdateTicket').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateTicket' is not exported from './hubspot' (imported as 'hubspotCreateTicket').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateNote' is not exported from './hubspot' (imported as 'hubspotCreateNote').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateTask' is not exported from './hubspot' (imported as 'hubspotCreateTask').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateCall' is not exported from './hubspot' (imported as 'hubspotCreateCall').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateMeeting' is not exported from './hubspot' (imported as 'hubspotCreateMeeting').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotAddToWorkflow' is not exported from './hubspot' (imported as 'hubspotAddToWorkflow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotRemoveFromWorkflow' is not exported from './hubspot' (imported as 'hubspotRemoveFromWorkflow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateProduct' is not exported from './hubspot' (imported as 'hubspotCreateProduct').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateProduct' is not exported from './hubspot' (imported as 'hubspotUpdateProduct').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetProducts' is not exported from './hubspot' (imported as 'hubspotGetProducts').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotRemoveFromList' is not exported from './hubspot' (imported as 'hubspotRemoveFromList').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetOwners' is not exported from './hubspot' (imported as 'hubspotGetOwners').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetForms' is not exported from './hubspot' (imported as 'hubspotGetForms').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetDealPipelines' is not exported from './hubspot' (imported as 'hubspotGetDealPipelines').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T15:05:21.931Z] [WARN   ]  ⚠ ./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetContacts' is not exported from './hubspot' (imported as 'hubspotGetContacts').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetCompanies' is not exported from './hubspot' (imported as 'hubspotGetCompanies').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetDeals' is not exported from './hubspot' (imported as 'hubspotGetDeals').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetTickets' is not exported from './hubspot' (imported as 'hubspotGetTickets').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateContact' is not exported from './hubspot' (imported as 'hubspotUpdateContact').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateCompany' is not exported from './hubspot' (imported as 'hubspotUpdateCompany').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateTicket' is not exported from './hubspot' (imported as 'hubspotUpdateTicket').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateTicket' is not exported from './hubspot' (imported as 'hubspotCreateTicket').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateNote' is not exported from './hubspot' (imported as 'hubspotCreateNote').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateTask' is not exported from './hubspot' (imported as 'hubspotCreateTask').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateCall' is not exported from './hubspot' (imported as 'hubspotCreateCall').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateMeeting' is not exported from './hubspot' (imported as 'hubspotCreateMeeting').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotAddToWorkflow' is not exported from './hubspot' (imported as 'hubspotAddToWorkflow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotRemoveFromWorkflow' is not exported from './hubspot' (imported as 'hubspotRemoveFromWorkflow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateProduct' is not exported from './hubspot' (imported as 'hubspotCreateProduct').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateProduct' is not exported from './hubspot' (imported as 'hubspotUpdateProduct').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetProducts' is not exported from './hubspot' (imported as 'hubspotGetProducts').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotRemoveFromList' is not exported from './hubspot' (imported as 'hubspotRemoveFromList').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetOwners' is not exported from './hubspot' (imported as 'hubspotGetOwners').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetForms' is not exported from './hubspot' (imported as 'hubspotGetForms').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetDealPipelines' is not exported from './hubspot' (imported as 'hubspotGetDealPipelines').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T15:05:29.269Z] [WARN   ]  ⚠ ./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetContacts' is not exported from './hubspot' (imported as 'hubspotGetContacts').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetCompanies' is not exported from './hubspot' (imported as 'hubspotGetCompanies').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetDeals' is not exported from './hubspot' (imported as 'hubspotGetDeals').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetTickets' is not exported from './hubspot' (imported as 'hubspotGetTickets').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateContact' is not exported from './hubspot' (imported as 'hubspotUpdateContact').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateCompany' is not exported from './hubspot' (imported as 'hubspotUpdateCompany').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateTicket' is not exported from './hubspot' (imported as 'hubspotUpdateTicket').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateTicket' is not exported from './hubspot' (imported as 'hubspotCreateTicket').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateNote' is not exported from './hubspot' (imported as 'hubspotCreateNote').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateTask' is not exported from './hubspot' (imported as 'hubspotCreateTask').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateCall' is not exported from './hubspot' (imported as 'hubspotCreateCall').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateMeeting' is not exported from './hubspot' (imported as 'hubspotCreateMeeting').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotAddToWorkflow' is not exported from './hubspot' (imported as 'hubspotAddToWorkflow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotRemoveFromWorkflow' is not exported from './hubspot' (imported as 'hubspotRemoveFromWorkflow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateProduct' is not exported from './hubspot' (imported as 'hubspotCreateProduct').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateProduct' is not exported from './hubspot' (imported as 'hubspotUpdateProduct').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetProducts' is not exported from './hubspot' (imported as 'hubspotGetProducts').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotRemoveFromList' is not exported from './hubspot' (imported as 'hubspotRemoveFromList').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetOwners' is not exported from './hubspot' (imported as 'hubspotGetOwners').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetForms' is not exported from './hubspot' (imported as 'hubspotGetForms').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetDealPipelines' is not exported from './hubspot' (imported as 'hubspotGetDealPipelines').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T15:05:38.975Z] [WARN   ]  ⚠ ./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetContacts' is not exported from './hubspot' (imported as 'hubspotGetContacts').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetCompanies' is not exported from './hubspot' (imported as 'hubspotGetCompanies').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetDeals' is not exported from './hubspot' (imported as 'hubspotGetDeals').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetTickets' is not exported from './hubspot' (imported as 'hubspotGetTickets').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateContact' is not exported from './hubspot' (imported as 'hubspotUpdateContact').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateCompany' is not exported from './hubspot' (imported as 'hubspotUpdateCompany').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateTicket' is not exported from './hubspot' (imported as 'hubspotUpdateTicket').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateTicket' is not exported from './hubspot' (imported as 'hubspotCreateTicket').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateNote' is not exported from './hubspot' (imported as 'hubspotCreateNote').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateTask' is not exported from './hubspot' (imported as 'hubspotCreateTask').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateCall' is not exported from './hubspot' (imported as 'hubspotCreateCall').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateMeeting' is not exported from './hubspot' (imported as 'hubspotCreateMeeting').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotAddToWorkflow' is not exported from './hubspot' (imported as 'hubspotAddToWorkflow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotRemoveFromWorkflow' is not exported from './hubspot' (imported as 'hubspotRemoveFromWorkflow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateProduct' is not exported from './hubspot' (imported as 'hubspotCreateProduct').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateProduct' is not exported from './hubspot' (imported as 'hubspotUpdateProduct').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetProducts' is not exported from './hubspot' (imported as 'hubspotGetProducts').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotRemoveFromList' is not exported from './hubspot' (imported as 'hubspotRemoveFromList').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetOwners' is not exported from './hubspot' (imported as 'hubspotGetOwners').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetForms' is not exported from './hubspot' (imported as 'hubspotGetForms').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetDealPipelines' is not exported from './hubspot' (imported as 'hubspotGetDealPipelines').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T15:26:25.905Z] [WARN   ]  ⚠ ./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetContacts' is not exported from './hubspot' (imported as 'hubspotGetContacts').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetCompanies' is not exported from './hubspot' (imported as 'hubspotGetCompanies').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetDeals' is not exported from './hubspot' (imported as 'hubspotGetDeals').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetTickets' is not exported from './hubspot' (imported as 'hubspotGetTickets').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateContact' is not exported from './hubspot' (imported as 'hubspotUpdateContact').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateCompany' is not exported from './hubspot' (imported as 'hubspotUpdateCompany').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateTicket' is not exported from './hubspot' (imported as 'hubspotUpdateTicket').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateTicket' is not exported from './hubspot' (imported as 'hubspotCreateTicket').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateNote' is not exported from './hubspot' (imported as 'hubspotCreateNote').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateTask' is not exported from './hubspot' (imported as 'hubspotCreateTask').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateCall' is not exported from './hubspot' (imported as 'hubspotCreateCall').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateMeeting' is not exported from './hubspot' (imported as 'hubspotCreateMeeting').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotAddToWorkflow' is not exported from './hubspot' (imported as 'hubspotAddToWorkflow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotRemoveFromWorkflow' is not exported from './hubspot' (imported as 'hubspotRemoveFromWorkflow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateProduct' is not exported from './hubspot' (imported as 'hubspotCreateProduct').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateProduct' is not exported from './hubspot' (imported as 'hubspotUpdateProduct').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetProducts' is not exported from './hubspot' (imported as 'hubspotGetProducts').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotRemoveFromList' is not exported from './hubspot' (imported as 'hubspotRemoveFromList').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetOwners' is not exported from './hubspot' (imported as 'hubspotGetOwners').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetForms' is not exported from './hubspot' (imported as 'hubspotGetForms').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetDealPipelines' is not exported from './hubspot' (imported as 'hubspotGetDealPipelines').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T15:26:43.900Z] [WARN   ]  ⚠ ./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetContacts' is not exported from './hubspot' (imported as 'hubspotGetContacts').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetCompanies' is not exported from './hubspot' (imported as 'hubspotGetCompanies').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetDeals' is not exported from './hubspot' (imported as 'hubspotGetDeals').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetTickets' is not exported from './hubspot' (imported as 'hubspotGetTickets').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateContact' is not exported from './hubspot' (imported as 'hubspotUpdateContact').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateCompany' is not exported from './hubspot' (imported as 'hubspotUpdateCompany').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateTicket' is not exported from './hubspot' (imported as 'hubspotUpdateTicket').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateTicket' is not exported from './hubspot' (imported as 'hubspotCreateTicket').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateNote' is not exported from './hubspot' (imported as 'hubspotCreateNote').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateTask' is not exported from './hubspot' (imported as 'hubspotCreateTask').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateCall' is not exported from './hubspot' (imported as 'hubspotCreateCall').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateMeeting' is not exported from './hubspot' (imported as 'hubspotCreateMeeting').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotAddToWorkflow' is not exported from './hubspot' (imported as 'hubspotAddToWorkflow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotRemoveFromWorkflow' is not exported from './hubspot' (imported as 'hubspotRemoveFromWorkflow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateProduct' is not exported from './hubspot' (imported as 'hubspotCreateProduct').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateProduct' is not exported from './hubspot' (imported as 'hubspotUpdateProduct').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetProducts' is not exported from './hubspot' (imported as 'hubspotGetProducts').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotRemoveFromList' is not exported from './hubspot' (imported as 'hubspotRemoveFromList').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetOwners' is not exported from './hubspot' (imported as 'hubspotGetOwners').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetForms' is not exported from './hubspot' (imported as 'hubspotGetForms').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetDealPipelines' is not exported from './hubspot' (imported as 'hubspotGetDealPipelines').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateLineItem' is not exported from './hubspot' (imported as 'hubspotCreateLineItem').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateLineItem' is not exported from './hubspot' (imported as 'hubspotUpdateLineItem').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotRemoveLineItem' is not exported from './hubspot' (imported as 'hubspotRemoveLineItem').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetLineItems' is not exported from './hubspot' (imported as 'hubspotGetLineItems').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T15:26:59.229Z] [WARN   ]  ⚠ ./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetContacts' is not exported from './hubspot' (imported as 'hubspotGetContacts').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetCompanies' is not exported from './hubspot' (imported as 'hubspotGetCompanies').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetDeals' is not exported from './hubspot' (imported as 'hubspotGetDeals').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetTickets' is not exported from './hubspot' (imported as 'hubspotGetTickets').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateContact' is not exported from './hubspot' (imported as 'hubspotUpdateContact').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateCompany' is not exported from './hubspot' (imported as 'hubspotUpdateCompany').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateTicket' is not exported from './hubspot' (imported as 'hubspotUpdateTicket').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateTicket' is not exported from './hubspot' (imported as 'hubspotCreateTicket').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateNote' is not exported from './hubspot' (imported as 'hubspotCreateNote').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateTask' is not exported from './hubspot' (imported as 'hubspotCreateTask').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateCall' is not exported from './hubspot' (imported as 'hubspotCreateCall').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateMeeting' is not exported from './hubspot' (imported as 'hubspotCreateMeeting').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotAddToWorkflow' is not exported from './hubspot' (imported as 'hubspotAddToWorkflow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotRemoveFromWorkflow' is not exported from './hubspot' (imported as 'hubspotRemoveFromWorkflow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateProduct' is not exported from './hubspot' (imported as 'hubspotCreateProduct').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateProduct' is not exported from './hubspot' (imported as 'hubspotUpdateProduct').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetProducts' is not exported from './hubspot' (imported as 'hubspotGetProducts').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotRemoveFromList' is not exported from './hubspot' (imported as 'hubspotRemoveFromList').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetOwners' is not exported from './hubspot' (imported as 'hubspotGetOwners').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetForms' is not exported from './hubspot' (imported as 'hubspotGetForms').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetDealPipelines' is not exported from './hubspot' (imported as 'hubspotGetDealPipelines').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateLineItem' is not exported from './hubspot' (imported as 'hubspotCreateLineItem').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateLineItem' is not exported from './hubspot' (imported as 'hubspotUpdateLineItem').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotRemoveLineItem' is not exported from './hubspot' (imported as 'hubspotRemoveLineItem').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetLineItems' is not exported from './hubspot' (imported as 'hubspotGetLineItems').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T15:27:07.153Z] [WARN   ]  ⚠ ./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetContacts' is not exported from './hubspot' (imported as 'hubspotGetContacts').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetCompanies' is not exported from './hubspot' (imported as 'hubspotGetCompanies').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetDeals' is not exported from './hubspot' (imported as 'hubspotGetDeals').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetTickets' is not exported from './hubspot' (imported as 'hubspotGetTickets').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateContact' is not exported from './hubspot' (imported as 'hubspotUpdateContact').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateCompany' is not exported from './hubspot' (imported as 'hubspotUpdateCompany').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateTicket' is not exported from './hubspot' (imported as 'hubspotUpdateTicket').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateTicket' is not exported from './hubspot' (imported as 'hubspotCreateTicket').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateNote' is not exported from './hubspot' (imported as 'hubspotCreateNote').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateTask' is not exported from './hubspot' (imported as 'hubspotCreateTask').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateCall' is not exported from './hubspot' (imported as 'hubspotCreateCall').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateMeeting' is not exported from './hubspot' (imported as 'hubspotCreateMeeting').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotAddToWorkflow' is not exported from './hubspot' (imported as 'hubspotAddToWorkflow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotRemoveFromWorkflow' is not exported from './hubspot' (imported as 'hubspotRemoveFromWorkflow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateProduct' is not exported from './hubspot' (imported as 'hubspotCreateProduct').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateProduct' is not exported from './hubspot' (imported as 'hubspotUpdateProduct').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetProducts' is not exported from './hubspot' (imported as 'hubspotGetProducts').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotRemoveFromList' is not exported from './hubspot' (imported as 'hubspotRemoveFromList').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetOwners' is not exported from './hubspot' (imported as 'hubspotGetOwners').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetForms' is not exported from './hubspot' (imported as 'hubspotGetForms').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetDealPipelines' is not exported from './hubspot' (imported as 'hubspotGetDealPipelines').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateLineItem' is not exported from './hubspot' (imported as 'hubspotCreateLineItem').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateLineItem' is not exported from './hubspot' (imported as 'hubspotUpdateLineItem').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotRemoveLineItem' is not exported from './hubspot' (imported as 'hubspotRemoveLineItem').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetLineItems' is not exported from './hubspot' (imported as 'hubspotGetLineItems').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T15:27:19.372Z] [WARN   ]  ⚠ ./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetContacts' is not exported from './hubspot' (imported as 'hubspotGetContacts').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetCompanies' is not exported from './hubspot' (imported as 'hubspotGetCompanies').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetDeals' is not exported from './hubspot' (imported as 'hubspotGetDeals').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetTickets' is not exported from './hubspot' (imported as 'hubspotGetTickets').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateContact' is not exported from './hubspot' (imported as 'hubspotUpdateContact').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateCompany' is not exported from './hubspot' (imported as 'hubspotUpdateCompany').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateTicket' is not exported from './hubspot' (imported as 'hubspotUpdateTicket').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateTicket' is not exported from './hubspot' (imported as 'hubspotCreateTicket').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateNote' is not exported from './hubspot' (imported as 'hubspotCreateNote').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateTask' is not exported from './hubspot' (imported as 'hubspotCreateTask').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateCall' is not exported from './hubspot' (imported as 'hubspotCreateCall').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateMeeting' is not exported from './hubspot' (imported as 'hubspotCreateMeeting').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotAddToWorkflow' is not exported from './hubspot' (imported as 'hubspotAddToWorkflow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotRemoveFromWorkflow' is not exported from './hubspot' (imported as 'hubspotRemoveFromWorkflow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateProduct' is not exported from './hubspot' (imported as 'hubspotCreateProduct').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateProduct' is not exported from './hubspot' (imported as 'hubspotUpdateProduct').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetProducts' is not exported from './hubspot' (imported as 'hubspotGetProducts').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotRemoveFromList' is not exported from './hubspot' (imported as 'hubspotRemoveFromList').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetOwners' is not exported from './hubspot' (imported as 'hubspotGetOwners').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetForms' is not exported from './hubspot' (imported as 'hubspotGetForms').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetDealPipelines' is not exported from './hubspot' (imported as 'hubspotGetDealPipelines').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateLineItem' is not exported from './hubspot' (imported as 'hubspotCreateLineItem').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateLineItem' is not exported from './hubspot' (imported as 'hubspotUpdateLineItem').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotRemoveLineItem' is not exported from './hubspot' (imported as 'hubspotRemoveLineItem').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetLineItems' is not exported from './hubspot' (imported as 'hubspotGetLineItems').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T15:27:30.768Z] [WARN   ]  ⚠ ./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetContacts' is not exported from './hubspot' (imported as 'hubspotGetContacts').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetCompanies' is not exported from './hubspot' (imported as 'hubspotGetCompanies').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetDeals' is not exported from './hubspot' (imported as 'hubspotGetDeals').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetTickets' is not exported from './hubspot' (imported as 'hubspotGetTickets').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateContact' is not exported from './hubspot' (imported as 'hubspotUpdateContact').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateCompany' is not exported from './hubspot' (imported as 'hubspotUpdateCompany').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateTicket' is not exported from './hubspot' (imported as 'hubspotUpdateTicket').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateTicket' is not exported from './hubspot' (imported as 'hubspotCreateTicket').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateNote' is not exported from './hubspot' (imported as 'hubspotCreateNote').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateTask' is not exported from './hubspot' (imported as 'hubspotCreateTask').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateCall' is not exported from './hubspot' (imported as 'hubspotCreateCall').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateMeeting' is not exported from './hubspot' (imported as 'hubspotCreateMeeting').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotAddToWorkflow' is not exported from './hubspot' (imported as 'hubspotAddToWorkflow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotRemoveFromWorkflow' is not exported from './hubspot' (imported as 'hubspotRemoveFromWorkflow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateProduct' is not exported from './hubspot' (imported as 'hubspotCreateProduct').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateProduct' is not exported from './hubspot' (imported as 'hubspotUpdateProduct').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetProducts' is not exported from './hubspot' (imported as 'hubspotGetProducts').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotRemoveFromList' is not exported from './hubspot' (imported as 'hubspotRemoveFromList').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetOwners' is not exported from './hubspot' (imported as 'hubspotGetOwners').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetForms' is not exported from './hubspot' (imported as 'hubspotGetForms').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetDealPipelines' is not exported from './hubspot' (imported as 'hubspotGetDealPipelines').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateLineItem' is not exported from './hubspot' (imported as 'hubspotCreateLineItem').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateLineItem' is not exported from './hubspot' (imported as 'hubspotUpdateLineItem').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotRemoveLineItem' is not exported from './hubspot' (imported as 'hubspotRemoveLineItem').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetLineItems' is not exported from './hubspot' (imported as 'hubspotGetLineItems').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+=== Log Session Ended: 2025-11-10T16:41:53.076Z ===

@@ -206,35 +206,42 @@ export function GoogleSheetsRangePreview({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {previewData.slice(0, 50).map((row) => (
-                        <TableRow
-                          key={row.id}
-                          className="transition-colors"
-                        >
-                          <TableCell className="text-xs font-mono text-slate-600 font-medium">
-                            {row.rowNumber || row.id}
-                          </TableCell>
-                          {columns.map((column) => {
-                            const isSelected = isCellSelected(row.rowNumber || row.id, column);
-                            return (
-                              <TableCell
-                                key={column}
-                                className={`text-xs max-w-[200px] truncate cursor-pointer transition-colors ${
-                                  isSelected
-                                    ? 'bg-blue-600 text-white hover:bg-blue-700 border border-blue-800'
-                                    : 'hover:bg-slate-50'
-                                }`}
-                                onClick={() => handleCellClick(row.rowNumber || row.id, column)}
-                                onMouseEnter={() => handleCellHover(row.rowNumber || row.id, column)}
-                              >
-                                {row.fields[column] !== null && row.fields[column] !== undefined
-                                  ? String(row.fields[column])
-                                  : ''}
-                              </TableCell>
-                            );
-                          })}
-                        </TableRow>
-                      ))}
+                      {previewData.slice(0, 50).map((row) => {
+                        // Check if any cell in this row is selected
+                        const hasSelectedCell = columns.some((column) =>
+                          isCellSelected(row.rowNumber || row.id, column)
+                        );
+
+                        return (
+                          <TableRow
+                            key={row.id}
+                            className={`transition-colors ${hasSelectedCell ? 'hover:!bg-transparent' : ''}`}
+                          >
+                            <TableCell className="text-xs font-mono text-slate-600 font-medium">
+                              {row.rowNumber || row.id}
+                            </TableCell>
+                            {columns.map((column) => {
+                              const isSelected = isCellSelected(row.rowNumber || row.id, column);
+                              return (
+                                <TableCell
+                                  key={column}
+                                  className={`text-xs max-w-[200px] truncate cursor-pointer transition-colors ${
+                                    isSelected
+                                      ? 'bg-blue-600 text-white border border-blue-800'
+                                      : 'hover:bg-slate-50'
+                                  }`}
+                                  onClick={() => handleCellClick(row.rowNumber || row.id, column)}
+                                  onMouseEnter={() => handleCellHover(row.rowNumber || row.id, column)}
+                                >
+                                  {row.fields[column] !== null && row.fields[column] !== undefined
+                                    ? String(row.fields[column])
+                                    : ''}
+                                </TableCell>
+                              );
+                            })}
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>

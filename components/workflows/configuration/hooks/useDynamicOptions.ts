@@ -104,6 +104,10 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
     }
     return initialOptions || {};
   });
+
+  // Store dynamicOptions in ref to avoid dependency issues in loadOptions useCallback
+  const dynamicOptionsRef = useRef(dynamicOptions);
+  dynamicOptionsRef.current = dynamicOptions;
   const [loading, setLoading] = useState<boolean>(false);
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(false);
 
@@ -239,13 +243,13 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
     // If we already have dependency-specific options cached, skip reload
     if (!forceRefresh && dependsOn && dependsOnValue) {
       const depKey = `${fieldName}_${dependsOnValue}`;
-      const depOptions = dynamicOptions[depKey];
+      const depOptions = dynamicOptionsRef.current[depKey];
       if (depOptions && Array.isArray(depOptions) && depOptions.length > 0) {
         console.log(`🔄 [useDynamicOptions] EARLY RETURN: Has cached dependency options for ${fieldName}`);
 
         // If the base field options were cleared (e.g., after dependency reset),
         // repopulate them from the dependency-specific cache so the UI has data.
-        if (!dynamicOptions[fieldName] || dynamicOptions[fieldName].length === 0) {
+        if (!dynamicOptionsRef.current[fieldName] || dynamicOptionsRef.current[fieldName].length === 0) {
           setDynamicOptions(prev => ({
             ...prev,
             [fieldName]: depOptions
@@ -342,7 +346,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
     // For authorFilter (Discord), only skip if we have data for the specific channel
     if (!forceRefresh && fieldName === 'authorFilter' && dependsOn === 'channelId' && dependsOnValue) {
-      const channelSpecificData = dynamicOptions[`${fieldName}_${dependsOnValue}`];
+      const channelSpecificData = dynamicOptionsRef.current[`${fieldName}_${dependsOnValue}`];
       if (channelSpecificData && channelSpecificData.length > 0) {
         console.log(`🔄 [useDynamicOptions] EARLY RETURN: Has channel-specific data for ${fieldName}`);
         // Ensure loading state is cleared on early return
@@ -352,8 +356,8 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
     }
 
     // For other fields, use simple data check (exclude authorFilter since it's channel-specific)
-    if (!forceRefresh && fieldName !== 'authorFilter' && dynamicOptions[fieldName] && dynamicOptions[fieldName].length > 0) {
-      console.log(`🔄 [useDynamicOptions] EARLY RETURN: Field already has options (${dynamicOptions[fieldName].length}) for ${fieldName}`);
+    if (!forceRefresh && fieldName !== 'authorFilter' && dynamicOptionsRef.current[fieldName] && dynamicOptionsRef.current[fieldName].length > 0) {
+      console.log(`🔄 [useDynamicOptions] EARLY RETURN: Field already has options (${dynamicOptionsRef.current[fieldName].length}) for ${fieldName}`);
       // CRITICAL: Clear loading state on early return so UI doesn't stay stuck loading
       setLoading(false);
       return;
@@ -1191,7 +1195,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
         if (loader) {
           // Check if we already have options and not forcing refresh
-          const existingOptions = dynamicOptions[fieldName];
+          const existingOptions = dynamicOptionsRef.current[fieldName];
           if (!forceRefresh && existingOptions && existingOptions.length > 0) {
             logger.debug(`✅ [useDynamicOptions] Already have options for ${fieldName}, skipping loader`);
             // Clear loading state
@@ -1258,7 +1262,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
           // Check if this is still the current request
           // Exception: If we have no options yet and this request has data, use it anyway
-          const currentOptions = dynamicOptions[fieldName];
+          const currentOptions = dynamicOptionsRef.current[fieldName];
           const hasNoOptions = !currentOptions || currentOptions.length === 0;
           const hasNewData = formattedOptions && formattedOptions.length > 0;
 
@@ -2070,7 +2074,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       }
       activeRequests.current.delete(activeRequestKey);
     }
-  }, [nodeType, providerId, getIntegrationByProvider, loadIntegrationData, dynamicOptions, onLoadingChange, getFormValues]);
+  }, [nodeType, providerId, getIntegrationByProvider, loadIntegrationData, getFormValues]); // Removed dynamicOptions and onLoadingChange from dependencies to prevent infinite loops - using refs instead
   
   // Track previous values to avoid unnecessary clears
   const prevNodeTypeRef = useRef(nodeType);

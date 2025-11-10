@@ -35,7 +35,16 @@
       "Bash(supabase db push:*)",
       "Bash(psql \"postgresql://postgres.xzwsdwllmrnrgbltibxt:Lukelombardo10!@aws-0-us-east-1.pooler.supabase.com:6543/postgres\" -c \"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = ''integrations'' ORDER BY ordinal_position;\")",
       "Bash(mkdir:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(xargs:*)",
+      "Bash(npx tsc:*)",
+      "Bash(node -e:*)",
+      "Bash(psql \"postgresql://postgres.xzwsdwllmrnrgbltibxt:Lukelombardo10!@aws-0-us-east-1.pooler.supabase.com:6543/postgres\" -c \"SELECT id, provider, email, account_name, created_at FROM integrations WHERE provider = ''google-sheets'' AND user_id = ''a3e3a51a-175c-4b59-ad03-227ba12a18b0'';\")",
+      "Bash(do provider=\"$dir%/\" file=\"$dir/callback/route.ts\" if [ -f \"$file\" ])",
+      "Bash(then if grep -q \"additionalIntegrationData:\" \"$file\")",
+      "Bash(then if grep -q \"email:\" \"$file\")",
+      "Bash(then echo \"✅ $provider\" else echo \"❌ $provider\" fi else echo \"⚠️  $provider\" fi fi done)",
+      "Bash(find:*)"
     ],
     "edit": [
       "*"

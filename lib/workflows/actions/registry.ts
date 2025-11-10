@@ -173,6 +173,21 @@ import {
   hubspotGetContacts,
   hubspotGetCompanies,
   hubspotGetDeals,
+  // Phase 2 actions
+  hubspotAddToWorkflow,
+  hubspotRemoveFromWorkflow,
+  hubspotCreateProduct,
+  hubspotUpdateProduct,
+  hubspotGetProducts,
+  hubspotRemoveFromList,
+  hubspotGetOwners,
+  hubspotGetForms,
+  hubspotGetDealPipelines,
+  // Phase 3 actions
+  hubspotCreateLineItem,
+  hubspotUpdateLineItem,
+  hubspotRemoveLineItem,
+  hubspotGetLineItems,
 } from './hubspot'
 
 // HubSpot dynamic actions
@@ -661,6 +676,29 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "hubspot_action_create_task": createExecutionContextWrapper(hubspotCreateTask),
   "hubspot_action_create_call": createExecutionContextWrapper(hubspotCreateCall),
   "hubspot_action_create_meeting": createExecutionContextWrapper(hubspotCreateMeeting),
+
+  // HubSpot Phase 2: Workflow Management
+  "hubspot_action_add_to_workflow": createExecutionContextWrapper(hubspotAddToWorkflow),
+  "hubspot_action_remove_from_workflow": createExecutionContextWrapper(hubspotRemoveFromWorkflow),
+
+  // HubSpot Phase 2: Product Management
+  "hubspot_action_create_product": createExecutionContextWrapper(hubspotCreateProduct),
+  "hubspot_action_update_product": createExecutionContextWrapper(hubspotUpdateProduct),
+  "hubspot_action_get_products": createExecutionContextWrapper(hubspotGetProducts),
+
+  // HubSpot Phase 2: List Management
+  "hubspot_action_remove_from_list": createExecutionContextWrapper(hubspotRemoveFromList),
+
+  // HubSpot Phase 2: Utility Actions
+  "hubspot_action_get_owners": createExecutionContextWrapper(hubspotGetOwners),
+  "hubspot_action_get_forms": createExecutionContextWrapper(hubspotGetForms),
+  "hubspot_action_get_deal_pipelines": createExecutionContextWrapper(hubspotGetDealPipelines),
+
+  // HubSpot Phase 3: Line Items
+  "hubspot_action_create_line_item": createExecutionContextWrapper(hubspotCreateLineItem),
+  "hubspot_action_update_line_item": createExecutionContextWrapper(hubspotUpdateLineItem),
+  "hubspot_action_remove_line_item": createExecutionContextWrapper(hubspotRemoveLineItem),
+  "hubspot_action_get_line_items": createExecutionContextWrapper(hubspotGetLineItems),
 
   // Microsoft OneNote actions - wrapped to handle new calling convention
   "microsoft-onenote_action_create_page": (params: { config: any; userId: string; input: Record<string, any> }) =>

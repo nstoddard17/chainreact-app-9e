@@ -316,6 +316,12 @@ export function FieldRenderer({
   // Get integration store (must be at top level due to Rules of Hooks)
   const { getIntegrationByProvider } = useIntegrationStore();
 
+  // Store onDynamicLoad in ref to avoid re-creating useEffect on every render
+  const onDynamicLoadRef = useRef(onDynamicLoad);
+  useEffect(() => {
+    onDynamicLoadRef.current = onDynamicLoad;
+  }, [onDynamicLoad]);
+
   // State for Connect mode - check if value is already a connected variable
   const isConnectedValue = (val: any) => {
     if (typeof val !== 'string') return false
@@ -348,15 +354,15 @@ export function FieldRenderer({
 
   // Refresh handler for dynamic fields - must be at top level of component
   const handleRefreshField = async () => {
-    if (!field.dynamic || !onDynamicLoad || isRefreshingField) return;
+    if (!field.dynamic || !onDynamicLoadRef.current || isRefreshingField) return;
 
     setIsRefreshingField(true);
     try {
       const dependencyValue = field.dependsOn ? parentValues?.[field.dependsOn] : undefined;
       if (field.dependsOn && dependencyValue) {
-        await onDynamicLoad(field.name, field.dependsOn, dependencyValue, true);
+        await onDynamicLoadRef.current(field.name, field.dependsOn, dependencyValue, true);
       } else if (!field.dependsOn) {
-        await onDynamicLoad(field.name, undefined, undefined, true);
+        await onDynamicLoadRef.current(field.name, undefined, undefined, true);
       }
     } finally {
       setIsRefreshingField(false);
@@ -429,26 +435,26 @@ export function FieldRenderer({
     const shouldAutoLoad = (field.type === 'combobox' && field.dynamic) ||
                           (field.type === 'select' && field.dynamic && (field.loadOnMount || field.dependsOn));
 
-    if (shouldAutoLoad && onDynamicLoad) {
+    if (shouldAutoLoad && onDynamicLoadRef.current) {
       // Only load if we don't have options yet
       if (!fieldOptions.length && !loadingDynamic) {
         // Check if we need to load based on parent dependency
         if (field.dependsOn) {
           const parentValue = parentValues[field.dependsOn];
           if (parentValue) {
-            onDynamicLoad(field.name, field.dependsOn, parentValue);
+            onDynamicLoadRef.current(field.name, field.dependsOn, parentValue);
           } else {
           }
         } else {
           // No dependency, load directly
-          onDynamicLoad(field.name);
+          onDynamicLoadRef.current(field.name);
         }
       }
     }
-    // IMPORTANT: Do NOT include loadingDynamic in dependencies - it causes infinite loops
-    // when data loads successfully but returns empty array
+    // IMPORTANT: Do NOT include loadingDynamic or onDynamicLoad in dependencies - causes infinite loops
+    // Using onDynamicLoadRef instead to keep reference stable
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [field.type, field.dynamic, field.name, field.dependsOn, field.loadOnMount, parentValues[field.dependsOn], fieldOptions.length, onDynamicLoad]);
+  }, [field.type, field.dynamic, field.name, field.dependsOn, field.loadOnMount, parentValues[field.dependsOn], fieldOptions.length]);
 
   // Determine which integration this field belongs to
   const getIntegrationProvider = (field: any) => {
@@ -1051,8 +1057,8 @@ export function FieldRenderer({
             }}
             options={fieldOptions}
             onRefresh={() => {
-              if (onDynamicLoad) {
-                onDynamicLoad(field.name, field.dynamic || field.name, true)
+              if (onDynamicLoadRef.current) {
+                onDynamicLoadRef.current(field.name, field.dynamic || field.name, true)
               }
             }}
             fieldName={field.name}
@@ -1391,8 +1397,8 @@ export function FieldRenderer({
                 <GmailLabelManager
                   existingLabels={selectOptions}
                   onLabelsChange={() => {
-                    if (onDynamicLoad) {
-                      onDynamicLoad(field.name, undefined, undefined, true);
+                    if (onDynamicLoadRef.current) {
+                      onDynamicLoadRef.current(field.name, undefined, undefined, true);
                     }
                   }}
                 />
@@ -2083,7 +2089,7 @@ export function FieldRenderer({
             onChange={onChange}
             options={fieldOptions as any[]}
             loading={loadingDynamic}
-            onRefresh={field.dynamic ? () => onDynamicLoad?.(field.name, field.dependsOn, field.dependsOn ? parentValues[field.dependsOn] : undefined, true) : undefined}
+            onRefresh={field.dynamic ? () => onDynamicLoadRef.current?.(field.name, field.dependsOn, field.dependsOn ? parentValues[field.dependsOn] : undefined, true) : undefined}
             error={error}
           />
         );

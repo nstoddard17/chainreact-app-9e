@@ -131,6 +131,9 @@ export async function GET(request: NextRequest) {
 
     // Store the integration data
     const supabase = createAdminClient()
+    const dropboxEmail = (accountInfo as any)?.email || null
+    const dropboxName = (accountInfo as any)?.name?.display_name || (accountInfo as any)?.name?.given_name || null
+
     const { data: upsertedIntegration, error: upsertError } = await supabase.from('integrations').upsert({
       user_id: userId,
       provider,
@@ -140,6 +143,10 @@ export async function GET(request: NextRequest) {
       refresh_token_expires_at: tokenData.refresh_token ? null : undefined, // Dropbox refresh tokens don't expire
       status: 'connected',
       updated_at: new Date().toISOString(),
+      // Top-level account identity fields
+      email: dropboxEmail,
+      username: dropboxEmail?.split('@')[0] || null,
+      account_name: dropboxName || dropboxEmail,
       metadata: {
         account_id: tokenData.account_id || (accountInfo as any).account_id,
         account_info: accountInfo,
@@ -147,9 +154,9 @@ export async function GET(request: NextRequest) {
         scope: tokenData.scope,
         uid: tokenData.uid,
         team_id: tokenData.team_id,
-        // Account display fields
-        email: (accountInfo as any)?.email || null,
-        account_name: (accountInfo as any)?.name?.display_name || (accountInfo as any)?.name?.given_name || null
+        // Keep in metadata for backward compatibility
+        email: dropboxEmail,
+        account_name: dropboxName
       }
     }, {
       onConflict: 'user_id, provider',

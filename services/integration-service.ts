@@ -19,6 +19,10 @@ export interface Integration {
   metadata?: any
   disconnected_at?: string | null
   disconnect_reason?: string | null
+  // Account identification fields
+  email?: string
+  username?: string
+  account_name?: string
   // Workspace context fields
   workspace_type?: 'personal' | 'team' | 'organization'
   workspace_id?: string | null
@@ -427,7 +431,8 @@ export class IntegrationService {
       },
       body: JSON.stringify({
         provider: provider,
-        reconnectId: integration.id,
+        reconnect: true,
+        integrationId: integration.id,
       }),
     })
 

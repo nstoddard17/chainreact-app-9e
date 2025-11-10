@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
           : null,
       }
     },
-    additionalIntegrationData: (tokenData, state) => {
+    additionalIntegrationData: async (tokenData, state) => {
       const botToken = tokenData.access_token
       const userToken = tokenData.authed_user?.access_token
       const userRefreshToken = tokenData.authed_user?.refresh_token
@@ -87,7 +87,43 @@ export async function GET(request: NextRequest) {
           : null
       }
 
+      // Fetch user identity to get email and avatar
+      // API VERIFICATION: Slack API endpoint for user identity
+      // Docs: https://api.slack.com/methods/users.identity
+      // Returns: user object with name, email, image_* fields (image_24, image_32, image_48, image_72, image_192, image_512)
+      let userEmail = null
+      let userName = null
+      let avatarUrl = null
+
+      try {
+        const identityResponse = await fetch('https://slack.com/api/users.identity', {
+          headers: {
+            Authorization: `Bearer ${userToken || botToken}`,
+          },
+        })
+
+        if (identityResponse.ok) {
+          const identity = await identityResponse.json()
+          if (identity.ok) {
+            userEmail = identity.user?.email
+            userName = identity.user?.name
+            // Slack provides multiple image sizes, use the largest available
+            avatarUrl = identity.user?.image_512 || identity.user?.image_192 || identity.user?.image_72 || null
+          } else {
+            logger.warn('Slack users.identity API returned error:', identity.error)
+          }
+        } else {
+          logger.warn('Failed to fetch Slack user identity:', identityResponse.status)
+        }
+      } catch (error) {
+        logger.error('Error fetching Slack user identity:', error)
+      }
+
       return {
+        email: userEmail,
+        username: userName,
+        account_name: userName || userEmail || tokenData.team?.name,
+        avatar_url: avatarUrl,
         token_type: botToken ? 'bot' : 'user',
         team_id: tokenData.team?.id,
         team_name: tokenData.team?.name,
