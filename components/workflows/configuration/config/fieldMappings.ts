@@ -190,10 +190,10 @@ const slackMappings: Record<string, FieldMapping> = {
     fileId: "slack_files",
   },
   slack_trigger_message_channels: {
-    channel: "slack_channels",
+    channel: "slack_public_channels",
   },
   slack_trigger_message_groups: {
-    channel: "slack_channels",
+    channel: "slack_private_channels",
   },
   slack_trigger_reaction_added: {
     channel: "slack_channels",

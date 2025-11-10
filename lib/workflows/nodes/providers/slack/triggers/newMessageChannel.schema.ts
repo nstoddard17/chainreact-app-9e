@@ -2,8 +2,8 @@ import { NodeComponent } from "../../../types"
 
 export const newMessageChannelTriggerSchema: NodeComponent = {
   type: "slack_trigger_message_channels",
-  title: "New Message in Public Channel",
-  description: "Triggers when a message is posted to a public channel",
+  title: "New Message in Channel",
+  description: "Triggers when a message is posted to a channel",
   icon: "MessageSquare" as any, // Will be resolved in index file
   providerId: "slack",
   category: "Communication",
@@ -25,11 +25,11 @@ export const newMessageChannelTriggerSchema: NodeComponent = {
       label: "Channel",
       type: "combobox",
       required: false,
-      dynamic: "slack_public_channels",
+      dynamic: "slack_channels",
       loadOnMount: true,
       searchable: true,
       placeholder: "Select a channel (optional)",
-      description: "Optional: Filter to a specific channel. Leave empty to listen to all public channels.",
+      description: "Optional: Filter to a specific channel. Leave empty to listen to all channels.",
       dependsOn: "workspace",
       hidden: {
         $deps: ["workspace"],
