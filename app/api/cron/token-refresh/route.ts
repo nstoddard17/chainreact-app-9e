@@ -39,11 +39,11 @@ export async function GET(request: NextRequest) {
       return errorResponse("Unauthorized" , 401)
     }
 
-    logger.debug(`New token refresh job started`)
-    
+    logger.info(`🔄 Token refresh job started (Job ID: ${jobId})`)
+
     // Log development environment warning
     if (process.env.NODE_ENV === 'development') {
-      logger.debug(`Running in DEVELOPMENT environment`)
+      logger.info(`⚠️  Running in DEVELOPMENT environment`)
     }
 
     // Get query parameters
@@ -108,12 +108,12 @@ export async function GET(request: NextRequest) {
       }
 
       integrations = data || []
-      logger.debug(`✅ Found ${integrations.length} integrations that need token refresh`)
+      logger.info(`✅ Found ${integrations.length} integrations that need token refresh`)
 
-      if (verbose && integrations.length > 0) {
-        logger.debug(`📋 Integration details:`)
+      if (integrations.length > 0) {
+        logger.info(`📋 Integration details:`)
         integrations.forEach((int, idx) => {
-          logger.debug(`  ${idx + 1}. ${int.provider} (ID: ${int.id.substring(0, 8)}...)`, {
+          logger.info(`  ${idx + 1}. ${int.provider} (ID: ${int.id.substring(0, 8)}...)`, {
             expires_at: int.expires_at,
             has_refresh_token: !!int.refresh_token,
             status: int.status,
@@ -140,7 +140,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Process integrations
-    logger.debug(`Processing ${integrations.length} integrations...`)
+    logger.info(`🔧 Processing ${integrations.length} integrations...`)
 
     let successful = 0
     let failed = 0
@@ -153,11 +153,11 @@ export async function GET(request: NextRequest) {
       batches.push(integrations.slice(i, i + batchSize))
     }
 
-    logger.debug(`Processing in ${batches.length} batches of up to ${batchSize} integrations each`)
+    logger.info(`📦 Processing in ${batches.length} batches of up to ${batchSize} integrations each`)
 
     for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
       const batch = batches[batchIndex]
-      logger.debug(`Processing batch ${batchIndex + 1} of ${batches.length} (${batch.length} integrations)`)
+      logger.info(`📦 Processing batch ${batchIndex + 1} of ${batches.length} (${batch.length} integrations)`)
       
       // Process each integration in the batch
       for (const integration of batch) {
@@ -344,30 +344,30 @@ export async function GET(request: NextRequest) {
     })
 
     // Log comprehensive summary
-    logger.debug(`📊 Token refresh job completed in ${duration.toFixed(2)}s`)
-    logger.debug(`   ✅ Successful: ${successful}`)
-    logger.debug(`   ❌ Failed: ${failed}`)
-    logger.debug(`   📝 Total processed: ${integrations.length}`)
+    logger.info(`📊 Token refresh job completed in ${duration.toFixed(2)}s`)
+    logger.info(`   ✅ Successful: ${successful}`)
+    logger.info(`   ❌ Failed: ${failed}`)
+    logger.info(`   📝 Total processed: ${integrations.length}`)
 
     // Log provider breakdown
     if (Object.keys(providerStats).length > 0) {
-      logger.debug(`   📈 Provider breakdown:`)
+      logger.info(`   📈 Provider breakdown:`)
       Object.entries(providerStats)
         .sort(([, a], [, b]) => (b.success + b.failed) - (a.success + a.failed))
         .forEach(([provider, stats]) => {
           const total = stats.success + stats.failed
           const successRate = total > 0 ? ((stats.success / total) * 100).toFixed(0) : '0'
-          logger.debug(`      ${provider}: ${stats.success}/${total} (${successRate}% success)`)
+          logger.info(`      ${provider}: ${stats.success}/${total} (${successRate}% success)`)
         })
     }
 
     // Log failure reasons if any
     if (failed > 0) {
-      logger.debug(`   🔍 Failure reasons:`)
+      logger.info(`   🔍 Failure reasons:`)
       Object.entries(failureReasons)
         .sort(([, a], [, b]) => b - a)
         .forEach(([reason, count]) => {
-          logger.debug(`      ${count}x ${reason}`)
+          logger.info(`      ${count}x ${reason}`)
         })
     }
     

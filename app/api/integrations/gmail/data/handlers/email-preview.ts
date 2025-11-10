@@ -34,6 +34,30 @@ interface PreviewOptions {
     includeSpam?: boolean
     previewLimit?: number
   }
+  markAsReadConfig?: {
+    from?: string
+    to?: string
+    subjectKeywords?: string[]
+    bodyKeywords?: string[]
+    keywordMatchType?: 'any' | 'all'
+    hasAttachment?: string
+    hasLabel?: string
+    isUnread?: string
+    maxMessages?: number
+    previewLimit?: number
+  }
+  markAsUnreadConfig?: {
+    from?: string
+    to?: string
+    subjectKeywords?: string[]
+    bodyKeywords?: string[]
+    keywordMatchType?: 'any' | 'all'
+    hasAttachment?: string
+    hasLabel?: string
+    isUnread?: string
+    maxMessages?: number
+    previewLimit?: number
+  }
 }
 
 /**
@@ -429,6 +453,262 @@ export const getAdvancedSearchPreview: GmailDataHandler = async (integration: Gm
     }
   } catch (error: any) {
     logger.error('[Gmail Preview] Error fetching advanced search preview:', error)
+    throw new Error(`Failed to preview emails: ${error.message}`)
+  }
+}
+
+/**
+ * Build Gmail query from Mark as Read/Unread config
+ */
+function buildMarkAsReadQuery(config: any): string {
+  const parts: string[] = []
+
+  if (config.from) {
+    parts.push(`from:${config.from}`)
+  }
+  if (config.to) {
+    parts.push(`to:${config.to}`)
+  }
+
+  // Handle subject keywords (array of strings)
+  if (config.subjectKeywords && Array.isArray(config.subjectKeywords) && config.subjectKeywords.length > 0) {
+    if (config.keywordMatchType === 'all') {
+      // All keywords must match (AND)
+      config.subjectKeywords.forEach((keyword: string) => {
+        parts.push(`subject:${keyword}`)
+      })
+    } else {
+      // Any keyword can match (OR) - use parentheses for grouping
+      const keywords = config.subjectKeywords.map((kw: string) => `subject:${kw}`).join(' OR ')
+      parts.push(`(${keywords})`)
+    }
+  }
+
+  // Handle body keywords (array of strings)
+  if (config.bodyKeywords && Array.isArray(config.bodyKeywords) && config.bodyKeywords.length > 0) {
+    if (config.keywordMatchType === 'all') {
+      // All keywords must match (AND)
+      config.bodyKeywords.forEach((keyword: string) => {
+        parts.push(keyword)
+      })
+    } else {
+      // Any keyword can match (OR) - use parentheses for grouping
+      const keywords = config.bodyKeywords.join(' OR ')
+      parts.push(`(${keywords})`)
+    }
+  }
+
+  if (config.hasAttachment === 'yes') {
+    parts.push('has:attachment')
+  }
+  if (config.hasAttachment === 'no') {
+    parts.push('-has:attachment')
+  }
+
+  if (config.isUnread === 'read') {
+    parts.push('is:read')
+  }
+  if (config.isUnread === 'unread') {
+    parts.push('is:unread')
+  }
+
+  if (config.hasLabel) {
+    parts.push(`label:${config.hasLabel}`)
+  }
+
+  return parts.join(' ')
+}
+
+/**
+ * Preview emails that would be marked as read
+ */
+export const getMarkAsReadPreview: GmailDataHandler = async (integration: GmailIntegration, options: PreviewOptions) => {
+  const { markAsReadConfig = {} } = options
+  const previewLimit = markAsReadConfig.previewLimit || 10
+
+  logger.debug('[Gmail Preview] Mark as Read preview request:', { markAsReadConfig, previewLimit })
+
+  validateGmailIntegration(integration)
+  const accessToken = getGmailAccessToken(integration)
+
+  try {
+    // Build query from Mark as Read config
+    const query = buildMarkAsReadQuery(markAsReadConfig)
+    logger.debug('[Gmail Preview] Built mark as read query:', query)
+
+    if (!query || query.trim() === '') {
+      return {
+        emails: [],
+        totalCount: 0,
+        query: '',
+        error: 'No search criteria specified',
+      }
+    }
+
+    // Build URL with query params
+    const params = new URLSearchParams({
+      q: query,
+      maxResults: Math.min(previewLimit, 50).toString(),
+      includeSpamTrash: 'false',
+    })
+
+    // Search for messages
+    const listResponse = await fetch(
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages?${params}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        }
+      }
+    )
+
+    if (!listResponse.ok) {
+      const errorText = await listResponse.text()
+      throw new Error(`Gmail API error: ${listResponse.status} - ${errorText}`)
+    }
+
+    const listData = await listResponse.json()
+    const messages = listData.messages || []
+    logger.debug(`[Gmail Preview] Found ${messages.length} messages that would be marked as read`)
+
+    if (messages.length === 0) {
+      return {
+        emails: [],
+        totalCount: 0,
+        query,
+      }
+    }
+
+    // Fetch full message details for preview
+    const emailPromises = messages.map(async (msg: any) => {
+      const msgResponse = await fetch(
+        `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=full`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          }
+        }
+      )
+
+      if (!msgResponse.ok) {
+        logger.warn(`Failed to fetch message ${msg.id}`)
+        return null
+      }
+
+      const msgData = await msgResponse.json()
+      return formatEmailForPreview(msgData)
+    })
+
+    const emailResults = await Promise.all(emailPromises)
+    const emails = emailResults.filter(email => email !== null)
+
+    return {
+      emails,
+      totalCount: messages.length,
+      hasMore: messages.length >= previewLimit,
+      query,
+    }
+  } catch (error: any) {
+    logger.error('[Gmail Preview] Error fetching mark as read preview:', error)
+    throw new Error(`Failed to preview emails: ${error.message}`)
+  }
+}
+
+/**
+ * Preview emails that would be marked as unread
+ */
+export const getMarkAsUnreadPreview: GmailDataHandler = async (integration: GmailIntegration, options: PreviewOptions) => {
+  const { markAsUnreadConfig = {} } = options
+  const previewLimit = markAsUnreadConfig.previewLimit || 10
+
+  logger.debug('[Gmail Preview] Mark as Unread preview request:', { markAsUnreadConfig, previewLimit })
+
+  validateGmailIntegration(integration)
+  const accessToken = getGmailAccessToken(integration)
+
+  try {
+    // Build query from Mark as Unread config (uses same query builder)
+    const query = buildMarkAsReadQuery(markAsUnreadConfig)
+    logger.debug('[Gmail Preview] Built mark as unread query:', query)
+
+    if (!query || query.trim() === '') {
+      return {
+        emails: [],
+        totalCount: 0,
+        query: '',
+        error: 'No search criteria specified',
+      }
+    }
+
+    // Build URL with query params
+    const params = new URLSearchParams({
+      q: query,
+      maxResults: Math.min(previewLimit, 50).toString(),
+      includeSpamTrash: 'false',
+    })
+
+    // Search for messages
+    const listResponse = await fetch(
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages?${params}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        }
+      }
+    )
+
+    if (!listResponse.ok) {
+      const errorText = await listResponse.text()
+      throw new Error(`Gmail API error: ${listResponse.status} - ${errorText}`)
+    }
+
+    const listData = await listResponse.json()
+    const messages = listData.messages || []
+    logger.debug(`[Gmail Preview] Found ${messages.length} messages that would be marked as unread`)
+
+    if (messages.length === 0) {
+      return {
+        emails: [],
+        totalCount: 0,
+        query,
+      }
+    }
+
+    // Fetch full message details for preview
+    const emailPromises = messages.map(async (msg: any) => {
+      const msgResponse = await fetch(
+        `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=full`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          }
+        }
+      )
+
+      if (!msgResponse.ok) {
+        logger.warn(`Failed to fetch message ${msg.id}`)
+        return null
+      }
+
+      const msgData = await msgResponse.json()
+      return formatEmailForPreview(msgData)
+    })
+
+    const emailResults = await Promise.all(emailPromises)
+    const emails = emailResults.filter(email => email !== null)
+
+    return {
+      emails,
+      totalCount: messages.length,
+      hasMore: messages.length >= previewLimit,
+      query,
+    }
+  } catch (error: any) {
+    logger.error('[Gmail Preview] Error fetching mark as unread preview:', error)
     throw new Error(`Failed to preview emails: ${error.message}`)
   }
 }
