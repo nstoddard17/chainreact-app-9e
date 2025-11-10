@@ -17,14 +17,29 @@ export const scheduleMessageActionSchema: NodeComponent = {
   isTrigger: false,
   configSchema: [
     {
+      name: "workspace",
+      label: "Workspace",
+      type: "select",
+      dynamic: "slack_workspaces",
+      required: true,
+      loadOnMount: true,
+      placeholder: "Select Slack workspace",
+      description: "Your Slack workspace (used for authentication)"
+    },
+    {
       name: "channel",
       label: "Channel",
       type: "select",
       required: true,
       dynamic: "slack_channels",
-      loadOnMount: true,
       placeholder: "Select a channel",
-      tooltip: "Select the Slack channel where the message will be sent"
+      description: "The channel where the message will be sent",
+      tooltip: "Select the Slack channel where the message will be sent",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
     {
       name: "scheduleType",

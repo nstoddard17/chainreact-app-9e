@@ -72,7 +72,7 @@ import {
 } from './monday'
 
 // Slack actions
-import { createSlackChannel, slackActionSendMessage } from './slack'
+import { createSlackChannel, slackActionSendMessage, slackActionDeleteMessage } from './slack'
 
 // Trello actions
 import {
@@ -479,6 +479,7 @@ export const actionHandlerRegistry: Record<string, Function> = {
     createSlackChannel(params.config, params.userId, params.input),
   "slack_action_send_message": (params: { config: any; userId: string; input: Record<string, any> }) =>
     slackActionSendMessage(params.config, params.userId, params.input),
+  "slack_action_delete_message": slackActionDeleteMessage,
   
   // Trello actions - wrapped to handle new calling convention
   "trello_action_create_list": (params: { config: any; userId: string; input: Record<string, any> }) =>

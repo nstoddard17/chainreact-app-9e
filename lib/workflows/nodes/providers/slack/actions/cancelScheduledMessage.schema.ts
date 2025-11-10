@@ -17,14 +17,29 @@ export const cancelScheduledMessageActionSchema: NodeComponent = {
   isTrigger: false,
   configSchema: [
     {
+      name: "workspace",
+      label: "Workspace",
+      type: "select",
+      dynamic: "slack_workspaces",
+      required: true,
+      loadOnMount: true,
+      placeholder: "Select Slack workspace",
+      description: "Your Slack workspace (used for authentication)"
+    },
+    {
       name: "channel",
       label: "Channel",
       type: "select",
       required: true,
       dynamic: "slack_channels",
-      loadOnMount: true,
       placeholder: "Select a channel",
-      tooltip: "Select the channel where the scheduled message was created"
+      description: "The channel where the scheduled message was created",
+      tooltip: "Select the channel where the scheduled message was created",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
     {
       name: "scheduledMessageId",

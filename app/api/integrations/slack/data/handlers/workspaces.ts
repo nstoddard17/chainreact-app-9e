@@ -1,5 +1,6 @@
 /**
  * Slack Workspaces Handler
+ * Returns the current integration's workspace info with integration ID as value
  */
 
 import { SlackIntegration, SlackWorkspace, SlackDataHandler } from '../types'
@@ -9,6 +10,7 @@ import { logger } from '@/lib/utils/logger'
 
 /**
  * Fetch Slack workspace information (team info)
+ * IMPORTANT: Returns integration ID as value so it can be used for data fetching
  */
 export const getSlackWorkspaces: SlackDataHandler<SlackWorkspace> = async (integration: SlackIntegration) => {
   try {
@@ -22,7 +24,7 @@ export const getSlackWorkspaces: SlackDataHandler<SlackWorkspace> = async (integ
     )
 
     const data = await response.json()
-    
+
     // Slack API returns ok: false for API errors even with 200 status
     if (!data.ok) {
       if (data.error === "invalid_auth" || data.error === "token_revoked") {
@@ -31,17 +33,19 @@ export const getSlackWorkspaces: SlackDataHandler<SlackWorkspace> = async (integ
       throw new Error(`Slack API error: ${data.error}`)
     }
 
-    // Return the team/workspace info
+    // CRITICAL: Return integration ID as value, not Slack team ID
+    // This allows the channel field to use this value to fetch channels from the correct integration
     const workspaces: SlackWorkspace[] = [{
-      id: data.team.id,
+      id: integration.id, // Use integration ID, not team ID
       name: data.team.name,
-      value: data.team.id,
+      value: integration.id, // CRITICAL: Use integration ID for cascading
       domain: data.team.domain,
       url: data.team.url,
-      icon: data.team.icon
+      icon: data.team.icon,
+      teamId: data.team.id // Keep team ID for reference
     }]
-    
-    logger.debug(`✅ [Slack Workspaces] Retrieved workspace: ${data.team.name}`)
+
+    logger.debug(`✅ [Slack Workspaces] Retrieved workspace: ${data.team.name} (integration: ${integration.id})`)
     return workspaces
 
   } catch (error: any) {
