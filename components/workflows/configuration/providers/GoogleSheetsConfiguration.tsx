@@ -314,6 +314,36 @@ export function GoogleSheetsConfiguration({
     hasInitializedRef.current = true;
   }, [values.action, values.columnMapping, setValue, showPreviewData, previewData]);
 
+  // Handle mode switching for Update Row action - clear fields from the other mode
+  const previousUpdateModeRef = React.useRef<string | undefined>(undefined);
+  React.useEffect(() => {
+    if (nodeInfo?.type !== 'google_sheets_action_update_row') return;
+    if (!values.updateMode) return;
+
+    // Check if mode actually changed (not just initial render)
+    if (previousUpdateModeRef.current && previousUpdateModeRef.current !== values.updateMode) {
+      if (values.updateMode === 'simple') {
+        // Switched to simple mode - clear visual mode fields
+        logger.debug('🔄 Switched to Simple mode - clearing visual fields');
+        // Clear column_ fields
+        Object.keys(values).forEach(key => {
+          if (key.startsWith('column_')) {
+            setValue(key, '');
+          }
+        });
+        // Clear selected row state
+        setGoogleSheetsSelectedRows(new Set());
+      } else if (values.updateMode === 'visual') {
+        // Switched to visual mode - clear simple mode fields
+        logger.debug('🔄 Switched to Visual mode - clearing simple fields');
+        setValue('rowNumber', '');
+        setValue('values', '');
+      }
+    }
+
+    previousUpdateModeRef.current = values.updateMode;
+  }, [values.updateMode, nodeInfo?.type, setValue, values]);
+
   // Auto-load preview data when sheet is selected
   React.useEffect(() => {
     // For Add Row action (google_sheets_action_append_row), load preview data when:
@@ -726,7 +756,16 @@ export function GoogleSheetsConfiguration({
       setValidationErrors(errors);
       return;
     }
-    
+
+    // Additional validation for Update Row visual mode
+    if (nodeInfo?.type === 'google_sheets_action_update_row' && values.updateMode === 'visual') {
+      // Check if a row has been selected (rowNumber should be set by table selection)
+      if (!values.rowNumber) {
+        setValidationErrors({ updateRowPreview: 'Please select a row from the table to update' });
+        return;
+      }
+    }
+
     // Show confirmation dialog for delete action
     if (values.action === 'delete') {
       setShowDeleteConfirmation(true);
@@ -795,6 +834,10 @@ export function GoogleSheetsConfiguration({
           delete submissionValues[key];
         }
       });
+
+      // Clean up UI-only fields (not needed by backend)
+      delete submissionValues.updateMode;
+      delete submissionValues.updateRowPreview;
 
       logger.debug('🔄 Final update submission values:', {
         updateMapping: submissionValues.updateMapping,

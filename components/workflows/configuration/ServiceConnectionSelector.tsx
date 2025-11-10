@@ -151,8 +151,9 @@ export function ServiceConnectionSelector({
   const hasConnectedAccounts = connectedConnections.length > 0
 
   const isConnected = connection?.status === 'connected'
-  const hasError = connection?.status === 'error'
-  const isDisconnected = !connection || connection.status === 'disconnected'
+  const hasError = connection?.status === 'error' || connection?.status === 'disconnected'
+  const needsReconnection = connection && (connection.status === 'error' || connection.status === 'disconnected')
+  const isDisconnected = !connection || connections.length === 0
 
   const handleRefresh = async () => {
     if (!onReconnect) return
@@ -352,8 +353,8 @@ export function ServiceConnectionSelector({
 
   return (
     <div className={cn("space-y-2", className)}>
-      {/* Connected State */}
-      {isConnected && (
+      {/* Unified State - Show account selector for all states except no connections */}
+      {!isDisconnected && (
         <div className="space-y-2">
           {/* Integration Label */}
           <div className="flex items-center gap-2">
@@ -380,18 +381,39 @@ export function ServiceConnectionSelector({
                 disableSearch={connections.length <= 5}
               />
             </div>
+
+            {/* Smart button: Reconnect if selected account needs it, otherwise Refresh */}
             {onReconnect && (
               <Button
-                variant="outline"
-                size="icon"
+                variant={needsReconnection ? "default" : "outline"}
+                size="sm"
                 onClick={handleRefresh}
                 disabled={isRefreshing}
-                className="flex-shrink-0 h-9 w-9"
-                title="Refresh connection"
+                className={cn(
+                  "flex-shrink-0 h-9 px-3 gap-1.5",
+                  needsReconnection && "bg-amber-600 hover:bg-amber-700 dark:bg-amber-600 dark:hover:bg-amber-700"
+                )}
+                title={needsReconnection ? "Reconnect this account" : "Refresh connection"}
               >
-                <RefreshCw className={cn("w-4 h-4", isRefreshing && "animate-spin")} />
+                {isRefreshing ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span className="text-xs font-medium">
+                      {needsReconnection ? "Reconnecting" : "Refreshing"}
+                    </span>
+                  </>
+                ) : needsReconnection ? (
+                  <>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span className="text-xs font-medium">Reconnect</span>
+                  </>
+                ) : (
+                  <RefreshCw className="w-4 h-4" />
+                )}
               </Button>
             )}
+
+            {/* Always show Add Account button */}
             {onConnect && (
               <Button
                 variant="outline"
@@ -409,60 +431,20 @@ export function ServiceConnectionSelector({
               </Button>
             )}
           </div>
+
+          {/* Subtle status indicator for accounts that need attention */}
+          {needsReconnection && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50">
+              <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+              <span className="text-xs text-amber-900 dark:text-amber-100">
+                {connection?.error || 'This account needs to be reconnected to continue working.'}
+              </span>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Error State */}
-      {hasError && (
-        <Alert variant="destructive" className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30">
-          <div className="flex items-start gap-3 justify-between">
-            {/* Left side: Logo + Error content */}
-            <div className="flex items-start gap-3 flex-1 min-w-0">
-              <StaticIntegrationLogo
-                providerId={providerId}
-                providerName={providerName}
-                className="w-8 h-8 flex-shrink-0 mt-0.5"
-              />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
-                  <span className="text-sm font-semibold text-red-900 dark:text-red-100">
-                    Connection Error
-                  </span>
-                </div>
-                <AlertDescription className="text-sm text-red-800 dark:text-red-200">
-                  {connection?.error || 'Your account needs to be reconnected to continue.'}
-                </AlertDescription>
-              </div>
-            </div>
-
-            {/* Right side: Reconnect button */}
-            {onReconnect && (
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={onReconnect}
-                disabled={isLoading}
-                className="h-8 px-4 text-xs font-medium flex-shrink-0"
-              >
-                {isLoading ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                    Connecting...
-                  </>
-                ) : (
-                  <>
-                    <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
-                    Reconnect Account
-                  </>
-                )}
-              </Button>
-            )}
-          </div>
-        </Alert>
-      )}
-
-      {/* Disconnected/Not Connected State */}
+      {/* No Connections State - Only show when truly no accounts exist */}
       {isDisconnected && (
         <div className="flex items-center gap-2">
           <StaticIntegrationLogo
@@ -560,15 +542,18 @@ function formatDate(dateString: string): string {
  *   onSelectConnection={(connectionId) => console.log('Selected:', connectionId)}
  *   onConnect={() => initiateOAuth()}
  *   onReconnect={() => refreshConnection()}
+ *   onDeleteConnection={(connectionId) => handleDelete(connectionId)}
  * />
  *
  * Features:
- * - Ultra-compact single-row design with minimal vertical space
- * - Inline logo, combobox, and action buttons (refresh + add account)
- * - Rich dropdown options: Email, Workspace Type (Personal/Team/Org), Status badges
+ * - Unified design across all connection states (connected/disconnected/error)
+ * - Always shows account selector when accounts exist (allows switching even when disconnected)
+ * - Smart button behavior: "Reconnect" for expired/error accounts, "Refresh" for active accounts
+ * - Always shows "Add Account" button for connecting additional accounts
+ * - Status badges in dropdown show connection health (Connected/Error/Disconnected/Pending)
+ * - Subtle amber warning below selector when selected account needs attention
+ * - Rich dropdown: Email, avatar, workspace type (Personal/Team/Org), delete option
  * - Auto-fetches all available connections for the provider
- * - Color-coded status indicators in dropdown
- * - Multi-connection support with easy switching
- * - Connection health monitoring
- * - Clean, sleek design optimized for space efficiency
+ * - Multi-connection support with easy switching between accounts
+ * - Ultra-compact design optimized for space efficiency
  */

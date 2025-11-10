@@ -1512,6 +1512,7 @@ export function FieldRenderer({
         );
 
 
+      case "toggle":
       case "boolean":
         const isBooleanDisabled = isFieldDisabled();
         return (

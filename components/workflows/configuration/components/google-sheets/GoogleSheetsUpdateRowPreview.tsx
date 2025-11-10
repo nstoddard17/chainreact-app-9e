@@ -102,12 +102,14 @@ export function GoogleSheetsUpdateRowPreview({
   return (
     <>
       <div key={fieldKey} className="mt-4 space-y-4">
-        {/* Instructions */}
-        <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
-          <p className="text-sm text-slate-600">
-            Click a row to select it, then update the column values below.
-          </p>
-        </div>
+        {/* Instructions - only show when table is loaded */}
+        {showPreviewData && previewData.length > 0 && (
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+            <p className="text-sm text-slate-600">
+              Click a row to select it, then update the column values below.
+            </p>
+          </div>
+        )}
 
         {/* Loading State */}
         {loadingPreview && (

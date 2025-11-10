@@ -44,46 +44,73 @@ export const updateRowActionSchema: NodeComponent = {
       description: "The specific sheet (tab) within the spreadsheet"
     },
     {
-      name: "updateRowPreview",
-      label: "Update Row",
-      type: "google_sheets_update_row_preview",
-      required: false,
+      name: "updateMode",
+      label: "Update Mode",
+      type: "select",
+      required: true,
+      defaultValue: "simple",
       dependsOn: "sheetName",
       hidden: {
         $deps: ["sheetName"],
         $condition: { sheetName: { $exists: false } }
       },
-      description: "Select a row and update its column values"
+      options: [
+        { value: "simple", label: "Simple - Use Variables (for automation)" },
+        { value: "visual", label: "Visual - Select & Edit Row" }
+      ],
+      description: "Choose how to configure the update"
     },
     {
       name: "rowNumber",
-      label: "Row Number (Optional - for automation)",
+      label: "Row Number",
       type: "number",
-      required: false,
+      required: true,
       dependsOn: "sheetName",
       hidden: {
-        $deps: ["sheetName"],
-        $condition: { sheetName: { $exists: false } }
+        $deps: ["sheetName", "updateMode"],
+        $condition: {
+          $or: [
+            { sheetName: { $exists: false } },
+            { updateMode: { $eq: "visual" } }
+          ]
+        }
       },
       placeholder: "2",
       min: 1,
       supportsAI: true,
-      description: "Specify row number using a variable (e.g., {{trigger.rowNumber}}). Leave empty to use table selection above."
+      description: "Row number to update (e.g., {{trigger.rowNumber}})"
     },
     {
       name: "values",
-      label: "New Values (Optional - for automation)",
+      label: "New Values",
       type: "textarea",
-      required: false,
+      required: true,
       dependsOn: "sheetName",
       hidden: {
-        $deps: ["sheetName"],
-        $condition: { sheetName: { $exists: false } }
+        $deps: ["sheetName", "updateMode"],
+        $condition: {
+          $or: [
+            { sheetName: { $exists: false } },
+            { updateMode: { $eq: "visual" } }
+          ]
+        }
       },
-      rows: 8,
+      rows: 4,
       placeholder: JSON.stringify(["Value 1", "Value 2", "Value 3"], null, 2),
       supportsAI: true,
-      description: "Array of new values for the row. Use this with variables for automation. If provided, this overrides the table column selections."
+      description: "Array of new values for the row (e.g., {{trigger.values}})"
+    },
+    {
+      name: "updateRowPreview",
+      label: "Update Row",
+      type: "google_sheets_update_row_preview",
+      required: false,
+      dependsOn: "updateMode",
+      hidden: {
+        $deps: ["updateMode"],
+        $condition: { updateMode: { $ne: "visual" } }
+      },
+      description: "Select a row and update its column values"
     }
   ]
 }
