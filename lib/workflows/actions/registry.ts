@@ -19,7 +19,7 @@ import { fetchGmailMessage } from './gmail/fetchMessage'
 import { fetchGmailTriggerEmail } from './gmail/fetchTriggerEmail'
 
 // Google Sheets actions
-import { readGoogleSheetsData, exportGoogleSheetsData, createGoogleSheetsRow, updateGoogleSheetsRow, deleteGoogleSheetsRow, clearGoogleSheetsRange } from './googleSheets'
+import { readGoogleSheetsData, exportGoogleSheetsData, createGoogleSheetsRow, updateGoogleSheetsRow, deleteGoogleSheetsRow, findGoogleSheetsRow, clearGoogleSheetsRange } from './googleSheets'
 
 // Microsoft Excel actions
 import {
@@ -448,6 +448,8 @@ export const actionHandlerRegistry: Record<string, Function> = {
     deleteGoogleSheetsRow(params.config, params.userId, params.input),
   "google_sheets_action_clear_range": (params: { config: any; userId: string; input: Record<string, any> }) =>
     clearGoogleSheetsRange(params.config, params.userId, params.input),
+  "google_sheets_action_find_row": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    findGoogleSheetsRow(params.config, params.userId, params.input),
   "google-sheets_action_export_sheet": (params: { config: any; userId: string; input: Record<string, any> }) =>
     exportGoogleSheetsData(params.config, params.userId, params.input),
 

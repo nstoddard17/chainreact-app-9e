@@ -24,6 +24,7 @@ import { GoogleSheetsAddRowPreview } from '../components/google-sheets/GoogleShe
 import { GoogleSheetsRangePreview } from '../components/google-sheets/GoogleSheetsRangePreview';
 import { GoogleSheetsRowPreview } from '../components/google-sheets/GoogleSheetsRowPreview';
 import { GoogleSheetsFindRowPreview } from '../components/google-sheets/GoogleSheetsFindRowPreview';
+import { getProviderDisplayName } from '@/lib/utils/provider-names';
 
 import { logger } from '@/lib/utils/logger'
 
@@ -868,16 +869,16 @@ export function GoogleSheetsConfiguration({
 
   // Show connection required state
   if (needsConnection) {
+    // Get properly capitalized provider name
+    const displayName = getProviderDisplayName(nodeInfo?.providerId || 'google-sheets');
+
     return (
       <div className="flex flex-col items-center justify-center h-64 text-center">
         <AlertTriangle className="h-12 w-12 text-yellow-500 mb-4" />
-        <h3 className="text-lg font-semibold mb-2">Google Sheets Connection Required</h3>
-        <p className="text-sm text-slate-600 mb-4">
-          Please connect your Google account to use this action.
+        <h3 className="text-lg font-semibold mb-2">{displayName} Connection Required</h3>
+        <p className="text-sm text-slate-600">
+          Please connect your {displayName} account to use this action.
         </p>
-        <Button onClick={onConnectIntegration} variant="default">
-          Connect Google
-        </Button>
       </div>
     );
   }

@@ -79,9 +79,11 @@ export function SetupTab(props: SetupTabProps) {
 
       return {
         id: integration.id,
+        provider: integration.provider,
         email: integration.email,
         username: integration.username,
         accountName: integration.account_name,
+        avatar_url: integration.avatar_url,
         status: uiStatus,
         lastChecked: integration.last_checked ? new Date(integration.last_checked) : undefined,
         // Use disconnect_reason for error message, fallback to generic error

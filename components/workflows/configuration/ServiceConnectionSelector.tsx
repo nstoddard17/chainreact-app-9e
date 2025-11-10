@@ -41,6 +41,7 @@ interface Connection {
   username?: string
   accountName?: string
   account_name?: string
+  avatar_url?: string
   status: 'connected' | 'disconnected' | 'error' | 'refreshing' | 'pending'
   lastChecked?: Date
   error?: string
@@ -274,9 +275,25 @@ export function ServiceConnectionSelector({
     label: (
       <div className="flex items-center gap-2 py-1 w-full group">
         {/* Profile Picture / Initials */}
+        {conn.avatar_url ? (
+          <img
+            src={conn.avatar_url}
+            alt={getAccountDisplay(conn) || 'Account avatar'}
+            className="w-5 h-5 rounded flex-shrink-0 object-cover"
+            onError={(e) => {
+              // Fallback to initials if image fails to load
+              const target = e.target as HTMLImageElement
+              target.style.display = 'none'
+              if (target.nextSibling) {
+                (target.nextSibling as HTMLElement).style.display = 'flex'
+              }
+            }}
+          />
+        ) : null}
         <div className={cn(
           "w-5 h-5 rounded flex items-center justify-center text-[9px] font-semibold flex-shrink-0",
-          getAvatarColor(conn)
+          getAvatarColor(conn),
+          conn.avatar_url && "hidden"
         )}>
           {getInitials(conn)}
         </div>

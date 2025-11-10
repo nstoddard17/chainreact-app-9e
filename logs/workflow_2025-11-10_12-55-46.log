@@ -89,3 +89,39 @@ Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
 [2025-11-10T18:56:58.019Z] [INFO   ] 2025-11-10T18:56:58.019Z [DEBUG] ✅ [Google Sheets] Retrieved 26 columns
 [2025-11-10T18:56:58.020Z] [INFO   ] 2025-11-10T18:56:58.020Z [DEBUG] ✅ [Google API] Successfully processed google-sheets_columns: {"integrationId":"27429c82-6b9e-4314-8147-4f8d56ded6c4","resultCount":26}
 [2025-11-10T18:56:58.022Z] [INFO   ] 2025-11-10T18:56:58.022Z [DEBUG] ✅ [SERVER] Google API completed for google-sheets_columns, result length: 26
+[2025-11-10T18:57:45.103Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1994ms (5444 modules)
+[2025-11-10T18:58:11.304Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 350ms (1167 modules)
+[2025-11-10T18:58:56.202Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 973ms (5301 modules)
+[2025-11-10T18:59:03.608Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 753ms (5301 modules)
+[2025-11-10T19:01:13.500Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 441ms (4257 modules)
+[2025-11-10T19:03:18.278Z] [INFO   ] 2025-11-10T19:03:18.278Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-10T19:03:18.278Z"}
+[2025-11-10T19:03:18.291Z] [INFO   ] 2025-11-10T19:03:18.291Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-10T19:03:18.291Z"}
+[2025-11-10T19:03:18.291Z] [INFO   ] 2025-11-10T19:03:18.291Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-10T19:03:18.291Z"}
+[2025-11-10T19:03:19.494Z] [INFO   ]  [37m[1m○[22m[39m Compiling /icon.png ...
+[2025-11-10T19:03:20.092Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 1111ms (4150 modules)
+[2025-11-10T19:03:20.581Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4266 modules)
+[2025-11-10T19:03:20.796Z] [INFO   ] 2025-11-10T19:03:20.796Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-10T19:03:20.796Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-10T19:03:21.016Z] [INFO   ] 2025-11-10T19:03:21.016Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-10T19:03:21.016Z] [INFO   ] 2025-11-10T19:03:21.016Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-10T19:03:21.173Z] [INFO   ] 2025-11-10T19:03:21.173Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":1,"permissionsCount":1,"integrationsError":null,"permissionsError":null}
+[2025-11-10T19:03:21.284Z] [INFO   ] 2025-11-10T19:03:21.283Z [DEBUG] ⏰ [API /api/integrations] Updated 1 expired integrations
+[2025-11-10T19:03:21.284Z] [INFO   ] 2025-11-10T19:03:21.284Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"27429c82-6b9e-4314-8147-4f8d56ded6c4","provider":"google-sheets","permission":"admin"}
+[2025-11-10T19:03:21.284Z] [INFO   ] 2025-11-10T19:03:21.284Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":1,"workspaceType":"personal"}
+[2025-11-10T19:03:21.358Z] [INFO   ] 2025-11-10T19:03:21.357Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-10T19:03:21.357Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-10T19:03:21.456Z] [INFO   ] 2025-11-10T19:03:21.456Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-10T19:03:21.457Z] [INFO   ] 2025-11-10T19:03:21.457Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-10T19:03:21.620Z] [INFO   ] 2025-11-10T19:03:21.620Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":1,"permissionsCount":1,"integrationsError":null,"permissionsError":null}
+[2025-11-10T19:03:21.621Z] [INFO   ] 2025-11-10T19:03:21.621Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"27429c82-6b9e-4314-8147-4f8d56ded6c4","provider":"google-sheets","permission":"admin"}
+[2025-11-10T19:03:21.621Z] [INFO   ] 2025-11-10T19:03:21.621Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":1,"workspaceType":"personal"}
+[2025-11-10T19:03:24.325Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/auth/generate-url ...
+[2025-11-10T19:03:24.367Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/auth/generate-url in 624ms (5423 modules)
+[2025-11-10T19:03:27.696Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/google-sheets/callback ...
+[2025-11-10T19:03:28.158Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/google-sheets/callback in 1272ms (5431 modules)
+[2025-11-10T19:03:28.237Z] [INFO   ] 2025-11-10T19:03:28.237Z [DEBUG] 🔍 google-sheets callback called: {"url":"http://localhost:3000/api/integrations/google-sheets/callback?state=eyJ1c2VySWQiOiJhM2UzYTUxYS0xNzVjLTRiNTktYWQwMy0yMjdiYTEyYTE4YjAiLCJwcm92aWRlciI6Imdvb2dsZS1zaGVldHMiLCJyZWNvbm5lY3QiOmZhbHNlLCJ0aW1lc3RhbXAiOjE3NjI4MDE0MDQ1OTgsIndvcmtzcGFjZVR5cGUiOiJwZXJzb25hbCJ9&code=4%2F0Ab32j92Xy4vcgAJmtsXloroHoFMqH3CaNBYf-g51ahqv4KEHELEhKFac05qkoGQpR92jmw&scope=email+profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fdrive+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fgmail.settings.sharing+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fanalytics.edit+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fdocuments+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fanalytics.readonly+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcalendar+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fspreadsheets+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcontacts.readonly+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fgmail.settings.basic+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fgmail.modify+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+openid+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fdrive.readonly&authuser=0&prompt=none","hasCode":true,"hasState":true,"error":null,"userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"}
+[2025-11-10T19:03:28.237Z] [INFO   ] 2025-11-10T19:03:28.237Z [DEBUG] google-sheets OAuth callback state: {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"google-sheets","reconnect":false,"workspaceType":"personal"}
+[2025-11-10T19:03:28.529Z] [ERROR  ] 2025-11-10T19:03:28.528Z [ERROR] Error inserting integration: {"code":"23505","details":"Key (user_id, provider)=(a3e3a51a-175c-4b59-ad03-227ba12a18b0, google-sheets) already exists.","hint":null,"message":"duplicate key value violates unique constraint \"integrations_user_id_provider_key\""}
+[2025-11-10T19:03:28.529Z] [ERROR  ] 2025-11-10T19:03:28.529Z [ERROR] Error during google-sheets OAuth callback: {}
+[2025-11-10T19:03:28.531Z] [INFO   ] 2025-11-10T19:03:28.531Z [DEBUG] 🔄 Creating popup response: type=error, provider=google-sheets, displayName=Google Sheets, message=Database Error: duplicate key value violates unique constraint "integrations_user_id_provider_key"
+[2025-11-10T19:03:28.594Z] [INFO   ] 2025-11-10T19:03:28.594Z [DEBUG] ✅ Google Sheets user info fetched: {"email":"stoddard.nathaniel900@gmail.com","name":"nathaniel stoddard"}
+
+=== Log Session Ended: 2025-11-10T19:04:30.812Z ===

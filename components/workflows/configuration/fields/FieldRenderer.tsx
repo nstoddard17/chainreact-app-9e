@@ -58,6 +58,7 @@ import { AirtableImageField } from "./airtable/AirtableImageField";
 import { MultipleRecordsField } from "./airtable/MultipleRecordsField";
 import { FieldMapperField } from "./airtable/FieldMapperField";
 import { GoogleDriveFileField } from "./googledrive/GoogleDriveFileField";
+import { GoogleSheetsFindRowPreview } from "../components/google-sheets/GoogleSheetsFindRowPreview";
 
 // Shared field components
 import { GenericSelectField } from "./shared/GenericSelectField";
@@ -435,19 +436,19 @@ export function FieldRenderer({
     const shouldAutoLoad = (field.type === 'combobox' && field.dynamic) ||
                           (field.type === 'select' && field.dynamic && (field.loadOnMount || field.dependsOn));
 
-    if (shouldAutoLoad && onDynamicLoadRef.current) {
+    if (shouldAutoLoad) {
       // Only load if we don't have options yet
       if (!fieldOptions.length && !loadingDynamic) {
         // Check if we need to load based on parent dependency
         if (field.dependsOn) {
           const parentValue = parentValues[field.dependsOn];
           if (parentValue) {
-            onDynamicLoadRef.current(field.name, field.dependsOn, parentValue);
+            onDynamicLoadRef.current?.(field.name, field.dependsOn, parentValue);
           } else {
           }
         } else {
           // No dependency, load directly
-          onDynamicLoadRef.current(field.name);
+          onDynamicLoadRef.current?.(field.name);
         }
       }
     }
@@ -1988,6 +1989,14 @@ export function FieldRenderer({
         // This is a special field that should be rendered by ConfigurationForm
         // Return null as the preview UI is handled at the form level
         return null;
+
+      case "google_sheets_find_row_preview":
+        return (
+          <GoogleSheetsFindRowPreview
+            values={parentValues || {}}
+            fieldKey={field.name}
+          />
+        );
 
       case "tag-input":
         const { TagInput } = require("@/components/ui/tag-input");

@@ -18,9 +18,11 @@ import { logger } from '@/lib/utils/logger'
  * - status: Connection status
  * - workspace_type: 'personal' | 'team' | 'organization'
  * - workspace_id: Workspace ID (null for personal)
- * - email: User email from metadata
- * - username: Username from metadata (if available)
- * - account_name: Account name from metadata (if available)
+ * - email: User email (top-level column, fallback to metadata)
+ * - username: Username (top-level column, fallback to metadata)
+ * - account_name: Account name (top-level column, fallback to metadata)
+ * - avatar_url: Profile picture URL (top-level column, fallback to metadata)
+ * - provider_user_id: OAuth provider's user ID (top-level column, fallback to metadata)
  * - created_at: Connection creation date
  * - expires_at: Token expiration date
  * - user_permission: User's permission level for this connection
@@ -67,6 +69,11 @@ export async function GET(request: NextRequest) {
         status,
         workspace_type,
         workspace_id,
+        email,
+        username,
+        account_name,
+        avatar_url,
+        provider_user_id,
         metadata,
         created_at,
         expires_at,
@@ -163,10 +170,13 @@ export async function GET(request: NextRequest) {
       status: integration.status,
       workspace_type: integration.workspace_type,
       workspace_id: integration.workspace_id,
-      // Extract email/username/account_name from metadata
-      email: integration.metadata?.email || integration.metadata?.userEmail || null,
-      username: integration.metadata?.username || integration.metadata?.name || null,
-      account_name: integration.metadata?.account_name || integration.metadata?.accountName || null,
+      // Use top-level columns (added in migration 20251110000000)
+      // Fall back to metadata for backward compatibility
+      email: integration.email || integration.metadata?.email || integration.metadata?.userEmail || null,
+      username: integration.username || integration.metadata?.username || integration.metadata?.name || null,
+      account_name: integration.account_name || integration.metadata?.account_name || integration.metadata?.accountName || null,
+      avatar_url: integration.avatar_url || integration.metadata?.avatar_url || integration.metadata?.picture || null,
+      provider_user_id: integration.provider_user_id || integration.metadata?.provider_user_id || null,
       created_at: integration.created_at,
       expires_at: integration.expires_at,
       user_permission: integration.user_permission,

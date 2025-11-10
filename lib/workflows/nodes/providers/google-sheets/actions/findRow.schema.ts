@@ -54,7 +54,7 @@ export const findRowActionSchema: NodeComponent = {
         $condition: { sheetName: { $exists: false } }
       },
       placeholder: "Select column to search in",
-      description: "Column to search for matching values"
+      description: "Choose a specific column or search across all columns"
     },
     {
       name: "searchValue",
@@ -96,7 +96,9 @@ export const findRowActionSchema: NodeComponent = {
       dependsOn: "searchValue",
       hidden: {
         $deps: ["searchValue"],
-        $condition: { searchValue: { $exists: false } }
+        $condition: {
+          searchValue: { $exists: false }
+        }
       },
       description: "Test your search to preview which row will be found"
     }
