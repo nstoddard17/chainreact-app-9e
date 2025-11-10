@@ -16,6 +16,18 @@ export const unarchiveChannelActionSchema: NodeComponent = {
   category: "Communication",
   isTrigger: false,
   configSchema: [
+    // Parent field - always visible
+    {
+      name: "workspace",
+      label: "Workspace",
+      type: "select",
+      dynamic: "slack_workspaces",
+      required: true,
+      loadOnMount: true,
+      placeholder: "Select Slack workspace",
+      description: "Your Slack workspace (used for authentication)"
+    },
+    // First cascade level - show after workspace selected
     {
       name: "channel",
       label: "Channel",
@@ -25,7 +37,12 @@ export const unarchiveChannelActionSchema: NodeComponent = {
       loadOnMount: true,
       searchable: true,
       placeholder: "Select an archived channel",
-      tooltip: "Select the archived channel to restore. The channel will become active again and members can post messages. Note: You may need to manually provide the channel ID if it doesn't appear in the list."
+      tooltip: "Select the archived channel to restore. The channel will become active again and members can post messages. Note: You may need to manually provide the channel ID if it doesn't appear in the list.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
     {
       name: "channelId",
@@ -33,7 +50,12 @@ export const unarchiveChannelActionSchema: NodeComponent = {
       type: "text",
       required: false,
       placeholder: "C1234567890",
-      tooltip: "Alternative: Directly enter the channel ID if you have it. This is useful if the channel doesn't appear in the dropdown."
+      tooltip: "Alternative: Directly enter the channel ID if you have it. This is useful if the channel doesn't appear in the dropdown.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     }
   ],
   outputSchema: [

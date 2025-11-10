@@ -48,12 +48,14 @@ export const createChannelActionSchema: NodeComponent = {
     {
       name: "addPeople",
       label: "Add People (Optional)",
-      type: "multi-combobox",
+      type: "multi-select",
       required: false,
       dynamic: "slack_users",
+      loadOnMount: true,
       searchable: true,
       placeholder: "Search by name or email",
-      tooltip: "Add people to the channel when it's created. You can add more later."
+      tooltip: "Add people to the channel when it's created. You can add more later.",
+      supportsAI: true
     }
   ],
   outputSchema: [

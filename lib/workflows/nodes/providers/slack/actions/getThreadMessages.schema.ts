@@ -78,6 +78,7 @@ export const getThreadMessagesActionSchema: NodeComponent = {
     }
   ],
   configSchema: [
+    // Parent field - always visible
     {
       name: "workspace",
       label: "Workspace",
@@ -88,6 +89,7 @@ export const getThreadMessagesActionSchema: NodeComponent = {
       placeholder: "Select Slack workspace",
       description: "Your Slack workspace (used for authentication)"
     },
+    // First cascade level - show after workspace selected
     {
       name: "channel",
       label: "Channel",
@@ -97,8 +99,10 @@ export const getThreadMessagesActionSchema: NodeComponent = {
       dependsOn: "workspace",
       placeholder: "Select a channel...",
       description: "The channel containing the thread",
-      tooltip: "The bot must be a member of this channel to read thread messages."
+      tooltip: "The bot must be a member of this channel to read thread messages.",
+      hidden: { $deps: ["workspace"], $condition: { workspace: { $exists: false } } }
     },
+    // Second cascade level - show after channel selected
     {
       name: "threadTs",
       label: "Thread Timestamp",
@@ -107,7 +111,9 @@ export const getThreadMessagesActionSchema: NodeComponent = {
       placeholder: "{{trigger.threadTs}} or 1234567890.123456",
       supportsAI: true,
       description: "The timestamp of the parent message that started the thread",
-      tooltip: "This is the 'thread_ts' or 'ts' value from the parent message. Get this from triggers or message actions. Format: 1234567890.123456"
+      tooltip: "This is the 'thread_ts' or 'ts' value from the parent message. Get this from triggers or message actions. Format: 1234567890.123456",
+      dependsOn: "channel",
+      hidden: { $deps: ["channel"], $condition: { channel: { $exists: false } } }
     },
     {
       name: "maxResults",
@@ -119,7 +125,9 @@ export const getThreadMessagesActionSchema: NodeComponent = {
       max: 1000,
       placeholder: "100",
       description: "Maximum number of messages to retrieve (Slack limit is 1000)",
-      tooltip: "Set a lower number for better performance if you only need recent replies."
+      tooltip: "Set a lower number for better performance if you only need recent replies.",
+      dependsOn: "channel",
+      hidden: { $deps: ["channel"], $condition: { channel: { $exists: false } } }
     },
     {
       name: "includeParent",
@@ -128,7 +136,9 @@ export const getThreadMessagesActionSchema: NodeComponent = {
       required: false,
       defaultValue: true,
       description: "Include the parent message in the results",
-      tooltip: "When enabled, the first message in the results will be the parent message that started the thread."
+      tooltip: "When enabled, the first message in the results will be the parent message that started the thread.",
+      dependsOn: "channel",
+      hidden: { $deps: ["channel"], $condition: { channel: { $exists: false } } }
     },
     {
       name: "oldestFirst",
@@ -137,7 +147,9 @@ export const getThreadMessagesActionSchema: NodeComponent = {
       required: false,
       defaultValue: true,
       description: "Return messages in chronological order (oldest first)",
-      tooltip: "When enabled, messages are ordered from oldest to newest. Disable to get newest messages first."
+      tooltip: "When enabled, messages are ordered from oldest to newest. Disable to get newest messages first.",
+      dependsOn: "channel",
+      hidden: { $deps: ["channel"], $condition: { channel: { $exists: false } } }
     }
   ]
 }

@@ -100,84 +100,22 @@ export const findUserActionSchema: NodeComponent = {
       description: "Your Slack workspace (used for authentication)"
     },
     {
-      name: "searchBy",
-      label: "Search By",
-      type: "select",
+      name: "user",
+      label: "User",
+      type: "combobox",
+      dynamic: "slack_users",
       required: true,
-      options: [
-        { value: "id", label: "User ID" },
-        { value: "email", label: "Email Address" },
-        { value: "username", label: "Username" },
-        { value: "displayName", label: "Display Name" }
-      ],
-      defaultValue: "email",
-      description: "The type of identifier to search by",
-      tooltip: "Choose which field to use when searching for the user. Email is most reliable for finding specific users."
-    },
-    {
-      name: "userId",
-      label: "User ID",
-      type: "text",
-      required: true,
-      placeholder: "{{trigger.userId}} or U1234567890",
+      loadOnMount: true,
+      searchable: true,
+      placeholder: "Select or search for a user",
+      description: "The Slack user to find information about",
+      tooltip: "Select a user from the dropdown or search by name or email",
       supportsAI: true,
-      description: "The Slack user ID (starts with U)",
-      tooltip: "User IDs are returned by triggers and other actions. Format: U followed by numbers.",
-      visibleWhen: {
-        field: "searchBy",
-        value: "id"
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
       }
-    },
-    {
-      name: "email",
-      label: "Email Address",
-      type: "text",
-      required: true,
-      placeholder: "user@company.com",
-      supportsAI: true,
-      description: "The email address of the user to find",
-      tooltip: "This must match the email address associated with their Slack account.",
-      visibleWhen: {
-        field: "searchBy",
-        value: "email"
-      }
-    },
-    {
-      name: "username",
-      label: "Username",
-      type: "text",
-      required: true,
-      placeholder: "john.doe",
-      supportsAI: true,
-      description: "The username to search for (without @)",
-      tooltip: "Enter the username without the @ symbol. For example, 'john.doe' not '@john.doe'.",
-      visibleWhen: {
-        field: "searchBy",
-        value: "username"
-      }
-    },
-    {
-      name: "displayName",
-      label: "Display Name",
-      type: "text",
-      required: true,
-      placeholder: "John Doe",
-      supportsAI: true,
-      description: "The display name to search for",
-      tooltip: "This searches the user's display name (what shows in Slack). Partial matches may be returned.",
-      visibleWhen: {
-        field: "searchBy",
-        value: "displayName"
-      }
-    },
-    {
-      name: "includeDeleted",
-      label: "Include Deleted Users",
-      type: "boolean",
-      required: false,
-      defaultValue: false,
-      description: "Include deactivated/deleted users in search results",
-      tooltip: "When enabled, the search will also return users who have been deactivated or deleted from the workspace."
     }
   ]
 }

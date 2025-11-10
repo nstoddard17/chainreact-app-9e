@@ -18,6 +18,17 @@ export const renameChannelActionSchema: NodeComponent = {
   configSchema: [
     // Parent field - always visible
     {
+      name: "workspace",
+      label: "Workspace",
+      type: "select",
+      dynamic: "slack_workspaces",
+      required: true,
+      loadOnMount: true,
+      placeholder: "Select Slack workspace",
+      description: "Your Slack workspace (used for authentication)"
+    },
+    // First cascade level - show after workspace selected
+    {
       name: "channel",
       label: "Channel",
       type: "combobox",
@@ -26,10 +37,14 @@ export const renameChannelActionSchema: NodeComponent = {
       loadOnMount: true,
       searchable: true,
       placeholder: "Select a channel",
-      tooltip: "Select the channel to rename. Works with both public and private channels (if bot has permissions)."
+      tooltip: "Select the channel to rename. Works with both public and private channels (if bot has permissions).",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
-
-    // Cascaded field - show after channel selected
+    // Second cascade level - show after channel selected
     {
       name: "newName",
       label: "New Channel Name",

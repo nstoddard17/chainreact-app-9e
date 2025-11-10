@@ -61,11 +61,10 @@ export const inviteUsersToChannelActionSchema: NodeComponent = {
     {
       name: "customWelcomeMessage",
       label: "Welcome Message (Optional)",
-      type: "textarea",
+      type: "slack-rich-text",
       required: false,
-      rows: 4,
       placeholder: "Welcome to the channel! Here's what this space is for...",
-      tooltip: "Optional: Send a custom welcome message to the channel after users are invited. Leave empty for no message.",
+      tooltip: "Optional: Send a custom welcome message to the channel after users are invited. Use the toolbar for rich formatting (bold, italic, links, emojis, etc.). Leave empty for no message.",
       dependsOn: "channel",
       hidden: {
         $deps: ["channel"],
