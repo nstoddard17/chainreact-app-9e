@@ -1249,7 +1249,7 @@ const gumroadActionGetSalesAnalytics: NodeComponent = {
     {
       name: "includeBreakdown",
       label: "Include Breakdown",
-      type: "checkbox",
+      type: "toggle",
       required: false,
       defaultValue: false,
       tooltip: "Include detailed breakdowns by date, currency, and sale type in the output. This provides granular analytics data."
