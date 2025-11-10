@@ -28,18 +28,33 @@ export const getGumroadProducts: GumroadDataHandler<GumroadProduct> = async (int
     }
     
     logger.debug('🔍 Fetching Gumroad products...')
-    
+
+    // Gumroad API uses access_token as query parameter (handled by makeGumroadApiRequest)
     const apiUrl = buildGumroadApiUrl('/products')
     const response = await makeGumroadApiRequest(apiUrl, tokenResult.token!)
     
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      logger.error(`❌ Gumroad API error: ${response.status}`, errorData)
-      
+      let errorData: any = {}
+      let errorText = ''
+
+      try {
+        errorText = await response.text()
+        errorData = JSON.parse(errorText)
+      } catch (e) {
+        errorData = { rawError: errorText }
+      }
+
+      logger.error(`❌ Gumroad API error: ${response.status}`, {
+        status: response.status,
+        statusText: response.statusText,
+        errorData,
+        url: response.url
+      })
+
       if (response.status === 401) {
         throw new Error('Gumroad authentication expired. Please reconnect your account.')
       } else {
-        throw new Error(`Gumroad API error: ${response.status} - ${errorData.message || "Unknown error"}`)
+        throw new Error(`Gumroad API error: ${response.status} - ${errorData.message || errorText || "Unknown error"}`)
       }
     }
     

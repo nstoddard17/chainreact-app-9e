@@ -52,6 +52,7 @@ interface ComboboxProps {
   onDrop?: (e: React.DragEvent) => void; // Handler for drop events
   onDragOver?: (e: React.DragEvent) => void; // Handler for drag over events
   onDragLeave?: (e: React.DragEvent) => void; // Handler for drag leave events
+  onSearchChange?: (searchQuery: string) => void; // Callback for debounced search
 }
 
 interface MultiComboboxProps {
@@ -117,6 +118,7 @@ export function Combobox({
   onDrop,
   onDragOver,
   onDragLeave,
+  onSearchChange,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
   const uniqueId = React.useId()
@@ -128,6 +130,9 @@ export function Combobox({
   const [inputValue, setInputValue] = React.useState("")
   const [localOptions, setLocalOptions] = React.useState<ComboboxOption[]>(options)
   const [collapsedGroups, setCollapsedGroups] = React.useState<Set<string>>(new Set())
+
+  // Debounced search timer
+  const searchTimerRef = React.useRef<NodeJS.Timeout | null>(null)
 
   React.useEffect(() => {
     setLocalOptions(options)
@@ -207,7 +212,29 @@ export function Combobox({
     setInputValue(search);
     // Don't call onChange during typing - only when an item is actually selected
     // This prevents dependent fields from appearing while user is still typing
+
+    // If onSearchChange callback is provided, debounce the search
+    if (onSearchChange) {
+      // Clear previous timer
+      if (searchTimerRef.current) {
+        clearTimeout(searchTimerRef.current);
+      }
+
+      // Set new timer for debounced search (1.5 seconds after last keystroke)
+      searchTimerRef.current = setTimeout(() => {
+        onSearchChange(search);
+      }, 1500);
+    }
   }
+
+  // Cleanup timer on unmount
+  React.useEffect(() => {
+    return () => {
+      if (searchTimerRef.current) {
+        clearTimeout(searchTimerRef.current);
+      }
+    };
+  }, [])
 
   // Handle Enter key for creatable
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {

@@ -117,9 +117,12 @@ export async function GET(request: NextRequest) {
     const tokenData = await tokenResponse.json()
 
     // Fetch user profile
-    const meResponse = await fetch('https://api.gumroad.com/v2/user', {
+    // Note: Gumroad expects access_token as query parameter, not Bearer header
+    const meUrl = new URL('https://api.gumroad.com/v2/user')
+    meUrl.searchParams.set('access_token', tokenData.access_token)
+    const meResponse = await fetch(meUrl.toString(), {
       headers: {
-        'Authorization': `Bearer ${tokenData.access_token}`
+        'Content-Type': 'application/json'
       }
     })
 

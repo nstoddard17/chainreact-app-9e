@@ -1,0 +1,55 @@
+=== Log Session Started: 2025-11-10T02:08:02.596Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-11-10T02:08:02.596Z] [INFO   ] File logging initialized
+[2025-11-10T02:08:02.596Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-09_20-08-02.log
+[2025-11-10T02:08:02.597Z] [INFO   ] 📁 File logging enabled
+[2025-11-10T02:08:02.598Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-09_20-08-02.log
+[2025-11-10T02:08:02.598Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-09_20-08-02.log
+[2025-11-10T02:08:02.598Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-09_20-08-02.log
+[2025-11-10T02:08:02.598Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-09_20-08-02.log
+[2025-11-10T02:08:02.598Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-11-10T02:08:02.598Z] [DEBUG  ] 📁 File logging system initialized
+[2025-11-10T02:08:02.627Z] [INFO   ]  ✓ Ready in 9.4s
+[2025-11-10T02:08:03.665Z] [INFO   ] 2025-11-10T02:08:03.665Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-11-10T02:08:09.159Z] [INFO   ] 2025-11-10T02:08:09.158Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-11-10T02:08:09.160Z] [INFO   ] 2025-11-10T02:08:09.160Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-10T02:08:11.237Z] [INFO   ] 2025-11-10T02:08:11.236Z [DEBUG] Discord Gateway initialization complete
+[2025-11-10T02:08:11.241Z] [INFO   ] 2025-11-10T02:08:11.241Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-11-10T02:08:11.609Z] [INFO   ] 2025-11-10T02:08:11.609Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-10T02:08:11.610Z] [INFO   ] 2025-11-10T02:08:11.610Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-10T02:08:11.899Z] [INFO   ] 2025-11-10T02:08:11.899Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"c1278fec02568dbc8bfc26cc600ebc0b","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-11-10T02:08:11.900Z] [INFO   ] 2025-11-10T02:08:11.899Z [DEBUG] 📋 Initializing invite cache...
+[2025-11-10T02:08:11.901Z] [INFO   ] 2025-11-10T02:08:11.901Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-10T02:08:11.914Z] [INFO   ] 2025-11-10T02:08:11.914Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-10T02:08:12.120Z] [INFO   ] 2025-11-10T02:08:12.120Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-11-10T02:12:24.627Z] [INFO   ]  ✓ Compiled in 1659ms (2754 modules)
+[2025-11-10T02:16:51.201Z] [INFO   ]  ✓ Compiled in 1550ms (2754 modules)
+[2025-11-10T02:25:33.100Z] [INFO   ]  ✓ Compiled in 3.3s (2754 modules)
+[2025-11-10T02:47:03.533Z] [INFO   ]  ✓ Compiled in 2.5s (2754 modules)
+[2025-11-10T02:47:44.987Z] [INFO   ]  ✓ Compiled in 742ms (2754 modules)
+[2025-11-10T02:50:27.100Z] [INFO   ]  ✓ Compiled in 955ms (2754 modules)
+[2025-11-10T03:08:27.917Z] [INFO   ]  ✓ Compiled in 1095ms (2754 modules)
+[2025-11-10T03:14:05.538Z] [INFO   ]  ✓ Compiled in 1456ms (2754 modules)
+[2025-11-10T03:14:22.731Z] [INFO   ]  ✓ Compiled in 284ms (2754 modules)
+[2025-11-10T03:14:33.040Z] [INFO   ]  ✓ Compiled in 362ms (2754 modules)
+[2025-11-10T03:14:55.978Z] [INFO   ]  ✓ Compiled in 577ms (2754 modules)
+[2025-11-10T03:17:44.420Z] [INFO   ]  ✓ Compiled in 3.5s (2754 modules)
+[2025-11-10T03:18:35.951Z] [INFO   ]  ✓ Compiled in 2.8s (2754 modules)
+[2025-11-10T03:18:46.774Z] [INFO   ]  ✓ Compiled in 1201ms (2754 modules)
+[2025-11-10T03:18:58.460Z] [INFO   ]  ✓ Compiled in 621ms (2754 modules)
+[2025-11-10T03:20:49.063Z] [INFO   ]  ✓ Compiled in 725ms (2754 modules)
+[2025-11-10T03:23:29.863Z] [INFO   ]  ✓ Compiled in 1853ms (2754 modules)
+[2025-11-10T03:26:20.477Z] [INFO   ]  ✓ Compiled in 846ms (2754 modules)
+[2025-11-10T03:26:51.431Z] [INFO   ]  ✓ Compiled in 535ms (2754 modules)
+[2025-11-10T03:27:06.721Z] [INFO   ]  ✓ Compiled in 328ms (2754 modules)
+[2025-11-10T03:28:21.875Z] [INFO   ]  ✓ Compiled in 454ms (2754 modules)
+[2025-11-10T03:28:29.739Z] [INFO   ]  ✓ Compiled in 226ms (2754 modules)
+[2025-11-10T03:39:17.367Z] [INFO   ]  ✓ Compiled in 1203ms (2754 modules)
+[2025-11-10T03:40:05.389Z] [INFO   ]  ✓ Compiled in 671ms (2754 modules)
+[2025-11-10T03:40:16.811Z] [INFO   ]  ✓ Compiled in 1428ms (2754 modules)
+[2025-11-10T03:40:22.202Z] [INFO   ]  ✓ Compiled in 542ms (2754 modules)
+[2025-11-10T03:40:49.299Z] [INFO   ]  ✓ Compiled in 424ms (2754 modules)

@@ -17,6 +17,8 @@ export const listFilesActionSchema: NodeComponent = {
       required: true,
       dynamic: "google-drive-folders",
       loadOnMount: true,
+      placeholder: "Select a folder",
+      loadingPlaceholder: "Loading folders...",
       description: "Select the folder to list files from"
     },
     {
@@ -25,6 +27,8 @@ export const listFilesActionSchema: NodeComponent = {
       type: "boolean",
       required: false,
       defaultValue: false,
+      dependsOn: "folderId",
+      hidden: { $deps: ["folderId"], $condition: { folderId: { $exists: false } } },
       description: "Recursively list files from all nested subfolders"
     },
     {
@@ -32,6 +36,8 @@ export const listFilesActionSchema: NodeComponent = {
       label: "Filter by Type (Optional)",
       type: "select",
       required: false,
+      dependsOn: "folderId",
+      hidden: { $deps: ["folderId"], $condition: { folderId: { $exists: false } } },
       options: [
         { value: "all", label: "All Files and Folders" },
         { value: "files_only", label: "Files Only (no folders)" },
@@ -47,6 +53,8 @@ export const listFilesActionSchema: NodeComponent = {
       type: "select",
       required: false,
       defaultValue: "name",
+      dependsOn: "folderId",
+      hidden: { $deps: ["folderId"], $condition: { folderId: { $exists: false } } },
       options: [
         { value: "name", label: "Name (A-Z)" },
         { value: "name_desc", label: "Name (Z-A)" },
@@ -63,6 +71,8 @@ export const listFilesActionSchema: NodeComponent = {
       required: false,
       defaultValue: 100,
       placeholder: "100",
+      dependsOn: "folderId",
+      hidden: { $deps: ["folderId"], $condition: { folderId: { $exists: false } } },
       description: "Limit number of results (max 1000)"
     }
   ],

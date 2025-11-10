@@ -43,7 +43,20 @@ const gmailMappings: Record<string, FieldMapping> = {
   gmail_action_search_email: {
     labels: "gmail_labels",
     labelFilters: "gmail_labels",
+    from: "gmail_recent_senders",
+    to: "gmail-enhanced-recipients",
     emailAddress: "gmail-enhanced-recipients",
+  },
+  gmail_action_advanced_search: {
+    from: "gmail_recent_senders",
+    to: "gmail_from_addresses",
+    hasLabel: "gmail-labels",
+  },
+  gmail_action_get_attachment: {
+    messageId: "gmail-recent-emails",
+  },
+  gmail_action_download_attachment: {
+    messageId: "gmail-recent-emails",
   },
 };
 
@@ -1047,6 +1060,19 @@ const googleAnalyticsMappings: Record<string, FieldMapping> = {
   },
 };
 
+// Gumroad field mappings
+const gumroadMappings: Record<string, FieldMapping> = {
+  gumroad_trigger_new_sale: {
+    product: "gumroad_products",
+  },
+  gumroad_trigger_new_subscriber: {
+    product: "gumroad_products",
+  },
+  gumroad_action_get_sales_analytics: {
+    product: "gumroad_products",
+  },
+};
+
 // Default field mappings for unmapped fields
 const defaultMappings: FieldMapping = {
   channelId: "channels",
@@ -1090,6 +1116,7 @@ export const fieldToResourceMap: NodeFieldMappings = {
   ...githubMappings,
   ...twitterMappings,
   ...stripeMappings,
+  ...gumroadMappings,
   default: defaultMappings,
 };
 

@@ -299,6 +299,56 @@ export const googleDriveNodes: NodeComponent[] = [
         loadOnMount: true, // Load folders immediately when form opens to show names instead of IDs
       },
     ],
+    outputSchema: [
+      {
+        name: "fileId",
+        label: "File ID",
+        type: "string",
+        description: "Unique identifier for the uploaded file"
+      },
+      {
+        name: "fileName",
+        label: "File Name",
+        type: "string",
+        description: "Name of the uploaded file"
+      },
+      {
+        name: "fileUrl",
+        label: "File URL",
+        type: "string",
+        description: "Direct link to view the file in Google Drive"
+      },
+      {
+        name: "downloadUrl",
+        label: "Download URL",
+        type: "string",
+        description: "Direct download link for the file"
+      },
+      {
+        name: "mimeType",
+        label: "File Type",
+        type: "string",
+        description: "MIME type of the uploaded file"
+      },
+      {
+        name: "size",
+        label: "File Size",
+        type: "number",
+        description: "Size of the file in bytes"
+      },
+      {
+        name: "createdTime",
+        label: "Created At",
+        type: "string",
+        description: "ISO timestamp when file was uploaded"
+      },
+      {
+        name: "file",
+        label: "File Object",
+        type: "object",
+        description: "Complete file object for use in subsequent nodes (can be used as attachment)"
+      }
+    ]
   },
   {
     type: "google-drive:get_file",

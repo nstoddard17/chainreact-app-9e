@@ -1,0 +1,499 @@
+=== Log Session Started: 2025-11-10T01:45:24.400Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-11-10T01:45:24.400Z] [INFO   ] File logging initialized
+[2025-11-10T01:45:24.400Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-09_19-45-24.log
+[2025-11-10T01:45:24.401Z] [INFO   ] 📁 File logging enabled
+[2025-11-10T01:45:24.401Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-09_19-45-24.log
+[2025-11-10T01:45:24.401Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-09_19-45-24.log
+[2025-11-10T01:45:24.401Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-09_19-45-24.log
+[2025-11-10T01:45:24.401Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-09_19-45-24.log
+[2025-11-10T01:45:24.401Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-11-10T01:45:24.401Z] [DEBUG  ] 📁 File logging system initialized
+[2025-11-10T01:45:24.420Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 4s
+[2025-11-10T01:45:24.940Z] [INFO   ]  [37m[1m○[22m[39m Compiling /test/nodes ...
+[2025-11-10T01:45:25.504Z] [INFO   ] 2025-11-10T01:45:25.504Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-11-10T01:45:27.493Z] [INFO   ] 2025-11-10T01:45:27.493Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-11-10T01:45:27.493Z] [INFO   ] 2025-11-10T01:45:27.493Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-10T01:45:27.776Z] [INFO   ] 2025-11-10T01:45:27.776Z [DEBUG] Discord Gateway initialization complete
+[2025-11-10T01:45:27.778Z] [INFO   ] 2025-11-10T01:45:27.778Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-11-10T01:45:28.097Z] [INFO   ] 2025-11-10T01:45:28.096Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-10T01:45:28.097Z] [INFO   ] 2025-11-10T01:45:28.097Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-10T01:45:28.278Z] [INFO   ] 2025-11-10T01:45:28.278Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"c41b1631dd44870e730fe5693c52f11e","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-11-10T01:45:28.279Z] [INFO   ] 2025-11-10T01:45:28.279Z [DEBUG] 📋 Initializing invite cache...
+[2025-11-10T01:45:28.283Z] [INFO   ] 2025-11-10T01:45:28.283Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-10T01:45:28.283Z] [INFO   ] 2025-11-10T01:45:28.283Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-10T01:45:30.031Z] [INFO   ] 2025-11-10T01:45:30.031Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-11-10T01:45:31.777Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /test/nodes in 7.3s (5185 modules)
+[2025-11-10T01:45:32.378Z] [INFO   ] 2025-11-10T01:45:32.378Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-10T01:45:32.378Z"}
+[2025-11-10T01:45:32.390Z] [INFO   ] 2025-11-10T01:45:32.390Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-10T01:45:32.389Z"}
+[2025-11-10T01:45:32.390Z] [INFO   ] 2025-11-10T01:45:32.390Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-10T01:45:32.390Z"}
+[2025-11-10T01:45:33.055Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1254ms (1136 modules)
+[2025-11-10T01:45:33.943Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-11-10T01:45:35.987Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 2.5s (4065 modules)
+[2025-11-10T01:45:36.861Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 604ms (1123 modules)
+[2025-11-10T01:45:38.327Z] [INFO   ] 2025-11-10T01:45:38.327Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-10T01:45:38.327Z"}
+[2025-11-10T01:45:38.339Z] [INFO   ] 2025-11-10T01:45:38.339Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-10T01:45:38.339Z"}
+[2025-11-10T01:45:38.339Z] [INFO   ] 2025-11-10T01:45:38.339Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-10T01:45:38.339Z"}
+[2025-11-10T01:45:39.522Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-11-10T01:45:39.867Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 844ms (5537 modules)
+[2025-11-10T01:45:40.081Z] [INFO   ] 2025-11-10T01:45:40.081Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-10T01:45:40.081Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-10T01:45:40.194Z] [INFO   ] 2025-11-10T01:45:40.194Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-10T01:45:40.194Z] [INFO   ] 2025-11-10T01:45:40.194Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-10T01:45:40.339Z] [INFO   ] 2025-11-10T01:45:40.339Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":10,"permissionsCount":9,"integrationsError":null,"permissionsError":null}
+[2025-11-10T01:45:40.340Z] [INFO   ] 2025-11-10T01:45:40.340Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"aed260e3-7d87-4ea0-ba04-1ab6c35bbda5","provider":"discord","permission":"admin"}
+[2025-11-10T01:45:40.340Z] [INFO   ] 2025-11-10T01:45:40.340Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"f7f6cf20-d078-40ef-a73c-bc7afd16ec14","provider":"hubspot","permission":"admin"}
+[2025-11-10T01:45:40.340Z] [INFO   ] 2025-11-10T01:45:40.340Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"7015bddc-01e2-46ad-89bb-fd2385c7dbfc","provider":"gumroad","permission":"admin","reason":"connected_by"}
+[2025-11-10T01:45:40.340Z] [INFO   ] 2025-11-10T01:45:40.340Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"cdcb4dfa-0de9-4b0c-b493-28dc16aa47cf","provider":"github","permission":"admin"}
+[2025-11-10T01:45:40.340Z] [INFO   ] 2025-11-10T01:45:40.340Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"1cf3129a-cbcb-4df8-b59b-876edd75d137","provider":"google-analytics","permission":"admin"}
+[2025-11-10T01:45:40.340Z] [INFO   ] 2025-11-10T01:45:40.340Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fa4bc43d-e909-4b30-83ab-901e5d284a72","provider":"google-docs","permission":"admin"}
+[2025-11-10T01:45:40.340Z] [INFO   ] 2025-11-10T01:45:40.340Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"f240f5c0-cb91-462a-bab9-51dcbb116331","provider":"gmail","permission":"admin"}
+[2025-11-10T01:45:40.340Z] [INFO   ] 2025-11-10T01:45:40.340Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"72c8e3d3-ae7f-464a-b167-ad1e4b7bcc20","provider":"google-calendar","permission":"admin"}
+[2025-11-10T01:45:40.340Z] [INFO   ] 2025-11-10T01:45:40.340Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"61424f3b-166f-4d60-bf1c-b63cb9155549","provider":"google-drive","permission":"admin"}
+[2025-11-10T01:45:40.340Z] [INFO   ] 2025-11-10T01:45:40.340Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8640a243-994f-47b4-b456-26844f408359","provider":"google-sheets","permission":"admin"}
+[2025-11-10T01:45:40.340Z] [INFO   ] 2025-11-10T01:45:40.340Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":10,"workspaceType":"personal"}
+[2025-11-10T01:45:41.431Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/gmail/data ...
+[2025-11-10T01:45:41.521Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/gmail/data in 601ms (5315 modules)
+[2025-11-10T01:45:41.678Z] [INFO   ] 2025-11-10T01:45:41.678Z [DEBUG] 🔍 [Gmail Data API] Request: {"integrationId":"f240f5c0-cb91-462a-bab9-51dcbb116331","dataType":"gmail_labels","options":{}}
+[2025-11-10T01:45:41.780Z] [INFO   ] 2025-11-10T01:45:41.780Z [DEBUG] 🚀 [Gmail Data API] Executing handler for: gmail_labels
+[2025-11-10T01:45:42.075Z] [INFO   ] 2025-11-10T01:45:42.074Z [DEBUG] ✅ [Gmail Data API] Handler completed in 294ms, returned 14 items
+[2025-11-10T01:45:48.356Z] [INFO   ] 2025-11-10T01:45:48.356Z [DEBUG] 🔍 [Gmail Data API] Request: {"integrationId":"f240f5c0-cb91-462a-bab9-51dcbb116331","dataType":"search-emails-preview","options":{"searchConfig":{"labels":"INBOX","previewLimit":10}}}
+[2025-11-10T01:45:48.517Z] [INFO   ] 2025-11-10T01:45:48.517Z [DEBUG] 🚀 [Gmail Data API] Executing handler for: search-emails-preview
+[2025-11-10T01:45:48.518Z] [INFO   ] 2025-11-10T01:45:48.518Z [DEBUG] [Gmail Preview] Search emails preview request: {"searchConfig":{"labels":"INBOX","previewLimit":10},"previewLimit":10}
+[2025-11-10T01:45:48.518Z] [INFO   ] 2025-11-10T01:45:48.518Z [DEBUG] [Gmail Preview] Built query: 
+[2025-11-10T01:45:48.773Z] [INFO   ] 2025-11-10T01:45:48.772Z [DEBUG] [Gmail Preview] Found 10 messages
+[2025-11-10T01:45:49.055Z] [INFO   ] 2025-11-10T01:45:49.055Z [DEBUG] ✅ [Gmail Data API] Handler completed in 537ms, returned non-array items
+[2025-11-10T01:46:01.488Z] [INFO   ] 2025-11-10T01:46:01.488Z [DEBUG] 🔍 [Gmail Data API] Request: {"integrationId":"f240f5c0-cb91-462a-bab9-51dcbb116331","dataType":"search-emails-preview","options":{"searchConfig":{"labels":"INBOX","previewLimit":10}}}
+[2025-11-10T01:46:01.649Z] [INFO   ] 2025-11-10T01:46:01.649Z [DEBUG] 🚀 [Gmail Data API] Executing handler for: search-emails-preview
+[2025-11-10T01:46:01.650Z] [INFO   ] 2025-11-10T01:46:01.650Z [DEBUG] [Gmail Preview] Search emails preview request: {"searchConfig":{"labels":"INBOX","previewLimit":10},"previewLimit":10}
+[2025-11-10T01:46:01.650Z] [INFO   ] 2025-11-10T01:46:01.650Z [DEBUG] [Gmail Preview] Built query: 
+[2025-11-10T01:46:01.904Z] [INFO   ] 2025-11-10T01:46:01.904Z [DEBUG] [Gmail Preview] Found 10 messages
+[2025-11-10T01:46:02.185Z] [INFO   ] 2025-11-10T01:46:02.185Z [DEBUG] ✅ [Gmail Data API] Handler completed in 535ms, returned non-array items
+[2025-11-10T01:46:58.849Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/google-drive/data ...
+[2025-11-10T01:47:01.762Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/google-drive/data in 3.5s (6312 modules)
+[2025-11-10T01:47:04.001Z] [INFO   ] 2025-11-10T01:47:04.001Z [DEBUG] [Google Drive API] POST request received: {"integrationId":"61424f3b-166f-4d60-bf1c-b63cb9155549","dataType":"folders","hasOptions":true,"optionsKeys":[]}
+[2025-11-10T01:47:04.894Z] [INFO   ] 2025-11-10T01:47:04.894Z [DEBUG] [Google Drive API] Successfully fetched 12 folders
+[2025-11-10T01:47:28.793Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1556ms (6316 modules)
+[2025-11-10T01:47:50.714Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/fetch-user-data ...
+[2025-11-10T01:47:51.035Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/fetch-user-data in 924ms (6304 modules)
+[2025-11-10T01:47:51.186Z] [INFO   ] 2025-11-10T01:47:51.186Z [DEBUG] 🚀 [SERVER] fetch-user-data API route called
+[2025-11-10T01:47:51.187Z] [INFO   ] 2025-11-10T01:47:51.187Z [DEBUG] 🔍 [SERVER] fetch-user-data request parsed: {"integrationId":"8640a243-994f-47b4-b456-26844f408359","dataType":"google-sheets_spreadsheets","options":{}}
+[2025-11-10T01:47:51.408Z] [INFO   ] 2025-11-10T01:47:51.408Z [DEBUG] 🔄 [SERVER] Routing Google request to dedicated API: google-sheets_spreadsheets (provider: google-sheets)
+[2025-11-10T01:47:51.947Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/google/data ...
+[2025-11-10T01:47:52.085Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/google/data in 641ms (6319 modules)
+[2025-11-10T01:47:52.246Z] [INFO   ] 2025-11-10T01:47:52.245Z [DEBUG] 🚀 [Google Data API] POST handler invoked
+[2025-11-10T01:47:52.246Z] [INFO   ] 2025-11-10T01:47:52.246Z [DEBUG] 🔍 [Google Data API] Request received: {"integrationId":"8640a243-994f-47b4-b456-26844f408359","dataType":"google-sheets_spreadsheets","options":{},"fullRequestBody":{"integrationId":"8640a243-994f-47b4-b456-26844f408359","dataType":"google-sheets_spreadsheets","options":{}}}
+[2025-11-10T01:47:52.355Z] [INFO   ] 2025-11-10T01:47:52.355Z [DEBUG] 📊 [Google API] Integration provider check: {"integrationId":"8640a243-994f-47b4-b456-26844f408359","actualProvider":"google-sheets","dataType":"google-sheets_spreadsheets","providerLowerCase":"google-sheets"}
+[2025-11-10T01:47:52.355Z] [INFO   ] 2025-11-10T01:47:52.355Z [DEBUG] 🔍 [Google API] Processing request: {"integrationId":"8640a243-994f-47b4-b456-26844f408359","dataType":"google-sheets_spreadsheets","provider":"google-sheets","status":"connected","hasToken":true}
+[2025-11-10T01:47:52.355Z] [INFO   ] 2025-11-10T01:47:52.355Z [DEBUG] 📊 [Google Sheets] Fetching spreadsheets
+[2025-11-10T01:47:52.954Z] [INFO   ] 2025-11-10T01:47:52.954Z [DEBUG] ✅ [Google Sheets] Retrieved 21 spreadsheets
+[2025-11-10T01:47:52.955Z] [INFO   ] 2025-11-10T01:47:52.955Z [DEBUG] ✅ [Google API] Successfully processed google-sheets_spreadsheets: {"integrationId":"8640a243-994f-47b4-b456-26844f408359","resultCount":21}
+[2025-11-10T01:47:52.957Z] [INFO   ] 2025-11-10T01:47:52.957Z [DEBUG] ✅ [SERVER] Google API completed for google-sheets_spreadsheets, result length: 21
+[2025-11-10T01:47:54.361Z] [INFO   ] 2025-11-10T01:47:54.360Z [DEBUG] 🚀 [SERVER] fetch-user-data API route called
+[2025-11-10T01:47:54.361Z] [INFO   ] 2025-11-10T01:47:54.361Z [DEBUG] 🔍 [SERVER] fetch-user-data request parsed: {"integrationId":"8640a243-994f-47b4-b456-26844f408359","dataType":"google-sheets_sheets","options":{"spreadsheetId":"13dykQ7u8Ef2c1gC2Tbr7_TbMGsJ4R-WlBlLshiN5XBI"}}
+[2025-11-10T01:47:54.459Z] [INFO   ] 2025-11-10T01:47:54.459Z [DEBUG] 🔄 [SERVER] Routing Google request to dedicated API: google-sheets_sheets (provider: google-sheets)
+[2025-11-10T01:47:54.529Z] [INFO   ] 2025-11-10T01:47:54.529Z [DEBUG] 🚀 [Google Data API] POST handler invoked
+[2025-11-10T01:47:54.530Z] [INFO   ] 2025-11-10T01:47:54.530Z [DEBUG] 🔍 [Google Data API] Request received: {"integrationId":"8640a243-994f-47b4-b456-26844f408359","dataType":"google-sheets_sheets","options":{"spreadsheetId":"13dykQ7u8Ef2c1gC2Tbr7_TbMGsJ4R-WlBlLshiN5XBI"},"fullRequestBody":{"integrationId":"8640a243-994f-47b4-b456-26844f408359","dataType":"google-sheets_sheets","options":{"spreadsheetId":"13dykQ7u8Ef2c1gC2Tbr7_TbMGsJ4R-WlBlLshiN5XBI"}}}
+[2025-11-10T01:47:54.615Z] [INFO   ] 2025-11-10T01:47:54.615Z [DEBUG] 📊 [Google API] Integration provider check: {"integrationId":"8640a243-994f-47b4-b456-26844f408359","actualProvider":"google-sheets","dataType":"google-sheets_sheets","providerLowerCase":"google-sheets"}
+[2025-11-10T01:47:54.616Z] [INFO   ] 2025-11-10T01:47:54.616Z [DEBUG] 🔍 [Google API] Processing request: {"integrationId":"8640a243-994f-47b4-b456-26844f408359","dataType":"google-sheets_sheets","provider":"google-sheets","status":"connected","hasToken":true}
+[2025-11-10T01:47:54.616Z] [INFO   ] 2025-11-10T01:47:54.616Z [DEBUG] 📊 [Google Sheets] Fetching sheets for spreadsheet: 13dykQ7u8Ef2c1gC2Tbr7_TbMGsJ4R-WlBlLshiN5XBI
+[2025-11-10T01:47:55.180Z] [INFO   ] 2025-11-10T01:47:55.180Z [DEBUG] ✅ [Google Sheets] Retrieved 4 sheets
+[2025-11-10T01:47:55.180Z] [INFO   ] 2025-11-10T01:47:55.180Z [DEBUG] ✅ [Google API] Successfully processed google-sheets_sheets: {"integrationId":"8640a243-994f-47b4-b456-26844f408359","resultCount":4}
+[2025-11-10T01:47:55.182Z] [INFO   ] 2025-11-10T01:47:55.182Z [DEBUG] ✅ [SERVER] Google API completed for google-sheets_sheets, result length: 4
+[2025-11-10T01:47:58.311Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/google-sheets/data ...
+[2025-11-10T01:47:58.351Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/google-sheets/data in 546ms (6327 modules)
+[2025-11-10T01:48:00.787Z] [INFO   ] 2025-11-10T01:48:00.787Z [DEBUG] 🔍 [Google Sheets API] Processing request: {"integrationId":"8640a243-994f-47b4-b456-26844f408359","dataType":"google-sheets_records","status":"connected","hasToken":true}
+[2025-11-10T01:48:00.787Z] [INFO   ] 2025-11-10T01:48:00.787Z [DEBUG] 🔍 Google Sheets records fetcher called with: {"integrationId":"8640a243-994f-47b4-b456-26844f408359","spreadsheetId":"13dykQ7u8Ef2c1gC2Tbr7_TbMGsJ4R-WlBlLshiN5XBI","sheetName":"Monthly Budget","maxRows":100,"includeHeaders":true,"hasToken":true}
+[2025-11-10T01:48:00.788Z] [INFO   ] 2025-11-10T01:48:00.788Z [DEBUG] 🔍 Fetching Google Sheets data...
+[2025-11-10T01:48:01.295Z] [INFO   ] 2025-11-10T01:48:01.295Z [DEBUG] 📊 Fetched 22 rows. First row: ["","1st Paycheck","Categories"]
+[2025-11-10T01:48:01.296Z] [INFO   ] 2025-11-10T01:48:01.296Z [DEBUG] ✅ Converted to 21 records. Headers: ["Column A","1st Paycheck","Categories","15th Paycheck","Categories","Credit Cards","Payment","Due Date","Interest Rate"]
+[2025-11-10T01:48:01.296Z] [INFO   ] 2025-11-10T01:48:01.296Z [DEBUG] 📋 First record: {"id":"row_2","rowNumber":2,"fields":{"Column A":"FEDVIP","1st Paycheck":"$15.43","Categories":"Military Star Card","15th Paycheck":"$28.08","Credit Cards":"$0.00","Payment":"$93.65","Due Date":"12Sep","Interest Rate":"15.49%"},"label":"FEDVIP","value":"row_2"}
+[2025-11-10T01:48:01.297Z] [INFO   ] 2025-11-10T01:48:01.297Z [DEBUG] ✅ Google Sheets records fetched successfully: 21 records
+[2025-11-10T01:48:01.297Z] [INFO   ] 2025-11-10T01:48:01.297Z [DEBUG] ✅ [Google Sheets API] Successfully processed google-sheets_records: {"integrationId":"8640a243-994f-47b4-b456-26844f408359","resultCount":21}
+[2025-11-10T01:48:01.733Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1073ms (6341 modules)
+[2025-11-10T01:49:54.005Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.1s (5186 modules)
+[2025-11-10T01:49:54.107Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-11-10T01:49:54.664Z] [INFO   ]  [37m[1m○[22m[39m Compiling /_not-found ...
+[2025-11-10T01:49:55.664Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_not-found in 1500ms (5177 modules)
+[2025-11-10T01:49:56.060Z] [INFO   ] 2025-11-10T01:49:56.060Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-10T01:49:56.060Z"}
+[2025-11-10T01:49:56.065Z] [INFO   ] 2025-11-10T01:49:56.065Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-10T01:49:56.065Z"}
+[2025-11-10T01:49:56.065Z] [INFO   ] 2025-11-10T01:49:56.065Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-10T01:49:56.065Z"}
+[2025-11-10T01:49:58.303Z] [INFO   ]  [37m[1m○[22m[39m Compiling /icon.png ...
+[2025-11-10T01:49:58.655Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1023ms (4066 modules)
+[2025-11-10T01:49:59.838Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1104ms (5323 modules)
+[2025-11-10T01:50:00.630Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1ms (4182 modules)
+[2025-11-10T01:50:00.993Z] [INFO   ] 2025-11-10T01:50:00.993Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-10T01:50:00.993Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-10T01:50:01.308Z] [INFO   ] 2025-11-10T01:50:01.308Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-10T01:50:01.308Z] [INFO   ] 2025-11-10T01:50:01.308Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-10T01:50:01.516Z] [INFO   ] 2025-11-10T01:50:01.516Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":10,"permissionsCount":9,"integrationsError":null,"permissionsError":null}
+[2025-11-10T01:50:01.517Z] [INFO   ] 2025-11-10T01:50:01.517Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"aed260e3-7d87-4ea0-ba04-1ab6c35bbda5","provider":"discord","permission":"admin"}
+[2025-11-10T01:50:01.517Z] [INFO   ] 2025-11-10T01:50:01.517Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"f7f6cf20-d078-40ef-a73c-bc7afd16ec14","provider":"hubspot","permission":"admin"}
+[2025-11-10T01:50:01.517Z] [INFO   ] 2025-11-10T01:50:01.517Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"7015bddc-01e2-46ad-89bb-fd2385c7dbfc","provider":"gumroad","permission":"admin","reason":"connected_by"}
+[2025-11-10T01:50:01.517Z] [INFO   ] 2025-11-10T01:50:01.517Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"cdcb4dfa-0de9-4b0c-b493-28dc16aa47cf","provider":"github","permission":"admin"}
+[2025-11-10T01:50:01.517Z] [INFO   ] 2025-11-10T01:50:01.517Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"1cf3129a-cbcb-4df8-b59b-876edd75d137","provider":"google-analytics","permission":"admin"}
+[2025-11-10T01:50:01.517Z] [INFO   ] 2025-11-10T01:50:01.517Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fa4bc43d-e909-4b30-83ab-901e5d284a72","provider":"google-docs","permission":"admin"}
+[2025-11-10T01:50:01.517Z] [INFO   ] 2025-11-10T01:50:01.517Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"f240f5c0-cb91-462a-bab9-51dcbb116331","provider":"gmail","permission":"admin"}
+[2025-11-10T01:50:01.517Z] [INFO   ] 2025-11-10T01:50:01.517Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"72c8e3d3-ae7f-464a-b167-ad1e4b7bcc20","provider":"google-calendar","permission":"admin"}
+[2025-11-10T01:50:01.517Z] [INFO   ] 2025-11-10T01:50:01.517Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"61424f3b-166f-4d60-bf1c-b63cb9155549","provider":"google-drive","permission":"admin"}
+[2025-11-10T01:50:01.517Z] [INFO   ] 2025-11-10T01:50:01.517Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8640a243-994f-47b4-b456-26844f408359","provider":"google-sheets","permission":"admin"}
+[2025-11-10T01:50:01.517Z] [INFO   ] 2025-11-10T01:50:01.517Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":10,"workspaceType":"personal"}
+[2025-11-10T01:50:06.746Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.5s (5323 modules)
+[2025-11-10T01:50:09.898Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1469ms (5323 modules)
+[2025-11-10T01:50:18.738Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1504ms (5323 modules)
+[2025-11-10T01:50:22.402Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1087ms (5323 modules)
+[2025-11-10T01:50:31.671Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 924ms (5323 modules)
+[2025-11-10T01:50:38.708Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 751ms (5323 modules)
+[2025-11-10T01:51:19.861Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1789ms (5186 modules)
+[2025-11-10T01:51:53.094Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2s (5186 modules)
+[2025-11-10T01:52:50.853Z] [INFO   ] 2025-11-10T01:52:50.853Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-10T01:52:50.853Z"}
+[2025-11-10T01:52:50.870Z] [INFO   ] 2025-11-10T01:52:50.870Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-10T01:52:50.870Z"}
+[2025-11-10T01:52:50.870Z] [INFO   ] 2025-11-10T01:52:50.870Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-10T01:52:50.870Z"}
+[2025-11-10T01:52:52.033Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-11-10T01:52:52.072Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 548ms (4065 modules)
+[2025-11-10T01:52:52.424Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4181 modules)
+[2025-11-10T01:52:52.632Z] [INFO   ] 2025-11-10T01:52:52.632Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-10T01:52:52.632Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-10T01:52:53.434Z] [INFO   ] 2025-11-10T01:52:53.434Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-10T01:52:53.434Z] [INFO   ] 2025-11-10T01:52:53.434Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-10T01:52:53.564Z] [INFO   ] 2025-11-10T01:52:53.564Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":10,"permissionsCount":9,"integrationsError":null,"permissionsError":null}
+[2025-11-10T01:52:53.565Z] [INFO   ] 2025-11-10T01:52:53.565Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"aed260e3-7d87-4ea0-ba04-1ab6c35bbda5","provider":"discord","permission":"admin"}
+[2025-11-10T01:52:53.565Z] [INFO   ] 2025-11-10T01:52:53.565Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"f7f6cf20-d078-40ef-a73c-bc7afd16ec14","provider":"hubspot","permission":"admin"}
+[2025-11-10T01:52:53.565Z] [INFO   ] 2025-11-10T01:52:53.565Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"7015bddc-01e2-46ad-89bb-fd2385c7dbfc","provider":"gumroad","permission":"admin","reason":"connected_by"}
+[2025-11-10T01:52:53.565Z] [INFO   ] 2025-11-10T01:52:53.565Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"cdcb4dfa-0de9-4b0c-b493-28dc16aa47cf","provider":"github","permission":"admin"}
+[2025-11-10T01:52:53.565Z] [INFO   ] 2025-11-10T01:52:53.565Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"1cf3129a-cbcb-4df8-b59b-876edd75d137","provider":"google-analytics","permission":"admin"}
+[2025-11-10T01:52:53.565Z] [INFO   ] 2025-11-10T01:52:53.565Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fa4bc43d-e909-4b30-83ab-901e5d284a72","provider":"google-docs","permission":"admin"}
+[2025-11-10T01:52:53.565Z] [INFO   ] 2025-11-10T01:52:53.565Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"f240f5c0-cb91-462a-bab9-51dcbb116331","provider":"gmail","permission":"admin"}
+[2025-11-10T01:52:53.565Z] [INFO   ] 2025-11-10T01:52:53.565Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"72c8e3d3-ae7f-464a-b167-ad1e4b7bcc20","provider":"google-calendar","permission":"admin"}
+[2025-11-10T01:52:53.565Z] [INFO   ] 2025-11-10T01:52:53.565Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"61424f3b-166f-4d60-bf1c-b63cb9155549","provider":"google-drive","permission":"admin"}
+[2025-11-10T01:52:53.565Z] [INFO   ] 2025-11-10T01:52:53.565Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8640a243-994f-47b4-b456-26844f408359","provider":"google-sheets","permission":"admin"}
+[2025-11-10T01:52:53.565Z] [INFO   ] 2025-11-10T01:52:53.565Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":10,"workspaceType":"personal"}
+[2025-11-10T01:52:53.695Z] [INFO   ] 2025-11-10T01:52:53.695Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-10T01:52:53.695Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-10T01:52:53.911Z] [INFO   ] 2025-11-10T01:52:53.911Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-10T01:52:53.911Z] [INFO   ] 2025-11-10T01:52:53.911Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-10T01:52:54.075Z] [INFO   ] 2025-11-10T01:52:54.075Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":10,"permissionsCount":9,"integrationsError":null,"permissionsError":null}
+[2025-11-10T01:52:54.076Z] [INFO   ] 2025-11-10T01:52:54.076Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"aed260e3-7d87-4ea0-ba04-1ab6c35bbda5","provider":"discord","permission":"admin"}
+[2025-11-10T01:52:54.076Z] [INFO   ] 2025-11-10T01:52:54.076Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"f7f6cf20-d078-40ef-a73c-bc7afd16ec14","provider":"hubspot","permission":"admin"}
+[2025-11-10T01:52:54.076Z] [INFO   ] 2025-11-10T01:52:54.076Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"7015bddc-01e2-46ad-89bb-fd2385c7dbfc","provider":"gumroad","permission":"admin","reason":"connected_by"}
+[2025-11-10T01:52:54.076Z] [INFO   ] 2025-11-10T01:52:54.076Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"cdcb4dfa-0de9-4b0c-b493-28dc16aa47cf","provider":"github","permission":"admin"}
+[2025-11-10T01:52:54.076Z] [INFO   ] 2025-11-10T01:52:54.076Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"1cf3129a-cbcb-4df8-b59b-876edd75d137","provider":"google-analytics","permission":"admin"}
+[2025-11-10T01:52:54.076Z] [INFO   ] 2025-11-10T01:52:54.076Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fa4bc43d-e909-4b30-83ab-901e5d284a72","provider":"google-docs","permission":"admin"}
+[2025-11-10T01:52:54.076Z] [INFO   ] 2025-11-10T01:52:54.076Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"f240f5c0-cb91-462a-bab9-51dcbb116331","provider":"gmail","permission":"admin"}
+[2025-11-10T01:52:54.076Z] [INFO   ] 2025-11-10T01:52:54.076Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"72c8e3d3-ae7f-464a-b167-ad1e4b7bcc20","provider":"google-calendar","permission":"admin"}
+[2025-11-10T01:52:54.076Z] [INFO   ] 2025-11-10T01:52:54.076Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"61424f3b-166f-4d60-bf1c-b63cb9155549","provider":"google-drive","permission":"admin"}
+[2025-11-10T01:52:54.076Z] [INFO   ] 2025-11-10T01:52:54.076Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8640a243-994f-47b4-b456-26844f408359","provider":"google-sheets","permission":"admin"}
+[2025-11-10T01:52:54.076Z] [INFO   ] 2025-11-10T01:52:54.076Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":10,"workspaceType":"personal"}
+[2025-11-10T01:52:55.714Z] [INFO   ] 2025-11-10T01:52:55.714Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-10T01:52:55.714Z"}
+[2025-11-10T01:52:55.726Z] [INFO   ] 2025-11-10T01:52:55.725Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-10T01:52:55.725Z"}
+[2025-11-10T01:52:55.726Z] [INFO   ] 2025-11-10T01:52:55.726Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-10T01:52:55.726Z"}
+[2025-11-10T01:52:56.429Z] [INFO   ] 2025-11-10T01:52:56.428Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-10T01:52:56.428Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-10T01:52:56.532Z] [INFO   ] 2025-11-10T01:52:56.532Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-10T01:52:56.532Z] [INFO   ] 2025-11-10T01:52:56.532Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-10T01:52:56.657Z] [INFO   ] 2025-11-10T01:52:56.657Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":10,"permissionsCount":9,"integrationsError":null,"permissionsError":null}
+[2025-11-10T01:52:56.657Z] [INFO   ] 2025-11-10T01:52:56.657Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"aed260e3-7d87-4ea0-ba04-1ab6c35bbda5","provider":"discord","permission":"admin"}
+[2025-11-10T01:52:56.657Z] [INFO   ] 2025-11-10T01:52:56.657Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"f7f6cf20-d078-40ef-a73c-bc7afd16ec14","provider":"hubspot","permission":"admin"}
+[2025-11-10T01:52:56.657Z] [INFO   ] 2025-11-10T01:52:56.657Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"7015bddc-01e2-46ad-89bb-fd2385c7dbfc","provider":"gumroad","permission":"admin","reason":"connected_by"}
+[2025-11-10T01:52:56.657Z] [INFO   ] 2025-11-10T01:52:56.657Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"cdcb4dfa-0de9-4b0c-b493-28dc16aa47cf","provider":"github","permission":"admin"}
+[2025-11-10T01:52:56.657Z] [INFO   ] 2025-11-10T01:52:56.657Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"1cf3129a-cbcb-4df8-b59b-876edd75d137","provider":"google-analytics","permission":"admin"}
+[2025-11-10T01:52:56.657Z] [INFO   ] 2025-11-10T01:52:56.657Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fa4bc43d-e909-4b30-83ab-901e5d284a72","provider":"google-docs","permission":"admin"}
+[2025-11-10T01:52:56.657Z] [INFO   ] 2025-11-10T01:52:56.657Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"f240f5c0-cb91-462a-bab9-51dcbb116331","provider":"gmail","permission":"admin"}
+[2025-11-10T01:52:56.657Z] [INFO   ] 2025-11-10T01:52:56.657Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"72c8e3d3-ae7f-464a-b167-ad1e4b7bcc20","provider":"google-calendar","permission":"admin"}
+[2025-11-10T01:52:56.657Z] [INFO   ] 2025-11-10T01:52:56.657Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"61424f3b-166f-4d60-bf1c-b63cb9155549","provider":"google-drive","permission":"admin"}
+[2025-11-10T01:52:56.657Z] [INFO   ] 2025-11-10T01:52:56.657Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8640a243-994f-47b4-b456-26844f408359","provider":"google-sheets","permission":"admin"}
+[2025-11-10T01:52:56.657Z] [INFO   ] 2025-11-10T01:52:56.657Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":10,"workspaceType":"personal"}
+[2025-11-10T01:53:00.613Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/gmail/data ...
+[2025-11-10T01:53:00.647Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/gmail/data in 583ms (4192 modules)
+[2025-11-10T01:53:00.715Z] [INFO   ] 2025-11-10T01:53:00.715Z [DEBUG] 🔍 [Gmail Data API] Request: {"integrationId":"f240f5c0-cb91-462a-bab9-51dcbb116331","dataType":"gmail_labels","options":{}}
+[2025-11-10T01:53:01.008Z] [INFO   ] 2025-11-10T01:53:01.008Z [DEBUG] 🚀 [Gmail Data API] Executing handler for: gmail_labels
+[2025-11-10T01:53:01.284Z] [INFO   ] 2025-11-10T01:53:01.284Z [DEBUG] ✅ [Gmail Data API] Handler completed in 276ms, returned 14 items
+[2025-11-10T01:53:06.728Z] [INFO   ] 2025-11-10T01:53:06.728Z [DEBUG] 🔍 [Gmail Data API] Request: {"integrationId":"f240f5c0-cb91-462a-bab9-51dcbb116331","dataType":"search-emails-preview","options":{"searchConfig":{"labels":"INBOX","previewLimit":10}}}
+[2025-11-10T01:53:06.885Z] [INFO   ] 2025-11-10T01:53:06.885Z [DEBUG] 🚀 [Gmail Data API] Executing handler for: search-emails-preview
+[2025-11-10T01:53:06.886Z] [INFO   ] 2025-11-10T01:53:06.886Z [DEBUG] [Gmail Preview] Search emails preview request: {"searchConfig":{"labels":"INBOX","previewLimit":10},"previewLimit":10}
+[2025-11-10T01:53:06.886Z] [INFO   ] 2025-11-10T01:53:06.886Z [DEBUG] [Gmail Preview] Built query: 
+[2025-11-10T01:53:07.150Z] [INFO   ] 2025-11-10T01:53:07.150Z [DEBUG] [Gmail Preview] Found 10 messages
+[2025-11-10T01:53:07.448Z] [INFO   ] 2025-11-10T01:53:07.448Z [DEBUG] ✅ [Gmail Data API] Handler completed in 562ms, returned non-array items
+[2025-11-10T01:55:30.284Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/google-drive/data ...
+[2025-11-10T01:55:32.946Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/google-drive/data in 3.2s (5179 modules)
+[2025-11-10T01:55:35.749Z] [INFO   ] 2025-11-10T01:55:35.749Z [DEBUG] [Google Drive API] POST request received: {"integrationId":"61424f3b-166f-4d60-bf1c-b63cb9155549","dataType":"folders","hasOptions":true,"optionsKeys":[]}
+[2025-11-10T01:55:35.801Z] [INFO   ] 2025-11-10T01:55:35.801Z [DEBUG] [Google Drive API] POST request received: {"integrationId":"61424f3b-166f-4d60-bf1c-b63cb9155549","dataType":"folders","hasOptions":true,"optionsKeys":[]}
+[2025-11-10T01:55:36.529Z] [INFO   ] 2025-11-10T01:55:36.529Z [DEBUG] [Google Drive API] Successfully fetched 12 folders
+[2025-11-10T01:55:36.810Z] [INFO   ] 2025-11-10T01:55:36.810Z [DEBUG] [Google Drive API] Successfully fetched 12 folders
+[2025-11-10T01:55:40.261Z] [INFO   ] 2025-11-10T01:55:40.261Z [DEBUG] [Google Drive API] POST request received: {"integrationId":"61424f3b-166f-4d60-bf1c-b63cb9155549","dataType":"search-preview","hasOptions":true,"optionsKeys":["searchConfig"]}
+[2025-11-10T01:55:41.908Z] [INFO   ] 2025-11-10T01:55:41.908Z [DEBUG] [Google Drive API] Search preview found 100+ files
+[2025-11-10T01:57:56.982Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-11-10T01:57:57.059Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 721ms (4172 modules)
+[2025-11-10T01:59:14.086Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1871ms (1137 modules)
+[2025-11-10T01:59:21.048Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 460ms (1137 modules)
+[2025-11-10T01:59:25.588Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/fetch-user-data ...
+[2025-11-10T01:59:26.251Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/fetch-user-data in 1201ms (4156 modules)
+[2025-11-10T01:59:26.690Z] [INFO   ] 2025-11-10T01:59:26.690Z [DEBUG] 🚀 [SERVER] fetch-user-data API route called
+[2025-11-10T01:59:26.691Z] [INFO   ] 2025-11-10T01:59:26.691Z [DEBUG] 🔍 [SERVER] fetch-user-data request parsed: {"integrationId":"8640a243-994f-47b4-b456-26844f408359","dataType":"google-sheets_spreadsheets","options":{}}
+[2025-11-10T01:59:27.107Z] [INFO   ] 2025-11-10T01:59:27.107Z [DEBUG] 🔄 [SERVER] Routing Google request to dedicated API: google-sheets_spreadsheets (provider: google-sheets)
+[2025-11-10T01:59:27.678Z] [INFO   ]  [37m[1m○[22m[39m Compiling /_not-found ...
+[2025-11-10T01:59:29.614Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_not-found in 2.9s (5284 modules)
+[2025-11-10T01:59:29.910Z] [INFO   ] 2025-11-10T01:59:29.910Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-10T01:59:29.910Z"}
+[2025-11-10T01:59:29.915Z] [INFO   ] 2025-11-10T01:59:29.915Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-10T01:59:29.915Z"}
+[2025-11-10T01:59:29.915Z] [INFO   ] 2025-11-10T01:59:29.915Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-10T01:59:29.915Z"}
+[2025-11-10T01:59:30.424Z] [ERROR  ] 2025-11-10T01:59:30.424Z [ERROR] ❌ [SERVER] Google API routing error: {}
+[2025-11-10T01:59:36.751Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-11-10T01:59:37.079Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 985ms (4159 modules)
+[2025-11-10T01:59:37.973Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4185 modules)
+[2025-11-10T01:59:38.267Z] [INFO   ] 2025-11-10T01:59:38.267Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-10T01:59:38.267Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-10T01:59:38.441Z] [INFO   ] 2025-11-10T01:59:38.441Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-10T01:59:38.442Z] [INFO   ] 2025-11-10T01:59:38.442Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-10T01:59:38.597Z] [INFO   ] 2025-11-10T01:59:38.597Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":10,"permissionsCount":9,"integrationsError":null,"permissionsError":null}
+[2025-11-10T01:59:38.712Z] [INFO   ] 2025-11-10T01:59:38.712Z [DEBUG] ⏰ [API /api/integrations] Updated 1 expired integrations
+[2025-11-10T01:59:38.712Z] [INFO   ] 2025-11-10T01:59:38.712Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"aed260e3-7d87-4ea0-ba04-1ab6c35bbda5","provider":"discord","permission":"admin"}
+[2025-11-10T01:59:38.712Z] [INFO   ] 2025-11-10T01:59:38.712Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"f7f6cf20-d078-40ef-a73c-bc7afd16ec14","provider":"hubspot","permission":"admin"}
+[2025-11-10T01:59:38.712Z] [INFO   ] 2025-11-10T01:59:38.712Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"7015bddc-01e2-46ad-89bb-fd2385c7dbfc","provider":"gumroad","permission":"admin","reason":"connected_by"}
+[2025-11-10T01:59:38.712Z] [INFO   ] 2025-11-10T01:59:38.712Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"cdcb4dfa-0de9-4b0c-b493-28dc16aa47cf","provider":"github","permission":"admin"}
+[2025-11-10T01:59:38.712Z] [INFO   ] 2025-11-10T01:59:38.712Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"1cf3129a-cbcb-4df8-b59b-876edd75d137","provider":"google-analytics","permission":"admin"}
+[2025-11-10T01:59:38.712Z] [INFO   ] 2025-11-10T01:59:38.712Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fa4bc43d-e909-4b30-83ab-901e5d284a72","provider":"google-docs","permission":"admin"}
+[2025-11-10T01:59:38.712Z] [INFO   ] 2025-11-10T01:59:38.712Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"f240f5c0-cb91-462a-bab9-51dcbb116331","provider":"gmail","permission":"admin"}
+[2025-11-10T01:59:38.712Z] [INFO   ] 2025-11-10T01:59:38.712Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"72c8e3d3-ae7f-464a-b167-ad1e4b7bcc20","provider":"google-calendar","permission":"admin"}
+[2025-11-10T01:59:38.712Z] [INFO   ] 2025-11-10T01:59:38.712Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"61424f3b-166f-4d60-bf1c-b63cb9155549","provider":"google-drive","permission":"admin"}
+[2025-11-10T01:59:38.713Z] [INFO   ] 2025-11-10T01:59:38.713Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8640a243-994f-47b4-b456-26844f408359","provider":"google-sheets","permission":"admin"}
+[2025-11-10T01:59:38.713Z] [INFO   ] 2025-11-10T01:59:38.713Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":10,"workspaceType":"personal"}
+[2025-11-10T01:59:53.392Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1254ms (5326 modules)
+[2025-11-10T01:59:53.434Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-11-10T01:59:54.141Z] [INFO   ]  [37m[1m○[22m[39m Compiling /_error ...
+[2025-11-10T01:59:55.802Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_error in 2.3s (5652 modules)
+[2025-11-10T01:59:56.033Z] [INFO   ] 2025-11-10T01:59:56.033Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-10T01:59:56.033Z"}
+[2025-11-10T01:59:56.038Z] [INFO   ] 2025-11-10T01:59:56.038Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-10T01:59:56.038Z"}
+[2025-11-10T01:59:56.038Z] [INFO   ] 2025-11-10T01:59:56.038Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-10T01:59:56.038Z"}
+[2025-11-10T02:00:01.957Z] [INFO   ] 2025-11-10T02:00:01.957Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-10T02:00:01.957Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-10T02:00:02.063Z] [INFO   ] 2025-11-10T02:00:02.063Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-10T02:00:02.063Z] [INFO   ] 2025-11-10T02:00:02.063Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-10T02:00:02.417Z] [INFO   ] 2025-11-10T02:00:02.417Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":10,"permissionsCount":9,"integrationsError":null,"permissionsError":null}
+[2025-11-10T02:00:02.535Z] [INFO   ] 2025-11-10T02:00:02.535Z [DEBUG] ⏰ [API /api/integrations] Updated 1 expired integrations
+[2025-11-10T02:00:02.536Z] [INFO   ] 2025-11-10T02:00:02.536Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"aed260e3-7d87-4ea0-ba04-1ab6c35bbda5","provider":"discord","permission":"admin"}
+[2025-11-10T02:00:02.536Z] [INFO   ] 2025-11-10T02:00:02.536Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"f7f6cf20-d078-40ef-a73c-bc7afd16ec14","provider":"hubspot","permission":"admin"}
+[2025-11-10T02:00:02.536Z] [INFO   ] 2025-11-10T02:00:02.536Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"7015bddc-01e2-46ad-89bb-fd2385c7dbfc","provider":"gumroad","permission":"admin","reason":"connected_by"}
+[2025-11-10T02:00:02.536Z] [INFO   ] 2025-11-10T02:00:02.536Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"cdcb4dfa-0de9-4b0c-b493-28dc16aa47cf","provider":"github","permission":"admin"}
+[2025-11-10T02:00:02.536Z] [INFO   ] 2025-11-10T02:00:02.536Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"1cf3129a-cbcb-4df8-b59b-876edd75d137","provider":"google-analytics","permission":"admin"}
+[2025-11-10T02:00:02.536Z] [INFO   ] 2025-11-10T02:00:02.536Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fa4bc43d-e909-4b30-83ab-901e5d284a72","provider":"google-docs","permission":"admin"}
+[2025-11-10T02:00:02.536Z] [INFO   ] 2025-11-10T02:00:02.536Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"f240f5c0-cb91-462a-bab9-51dcbb116331","provider":"gmail","permission":"admin"}
+[2025-11-10T02:00:02.536Z] [INFO   ] 2025-11-10T02:00:02.536Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"72c8e3d3-ae7f-464a-b167-ad1e4b7bcc20","provider":"google-calendar","permission":"admin"}
+[2025-11-10T02:00:02.536Z] [INFO   ] 2025-11-10T02:00:02.536Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"61424f3b-166f-4d60-bf1c-b63cb9155549","provider":"google-drive","permission":"admin"}
+[2025-11-10T02:00:02.536Z] [INFO   ] 2025-11-10T02:00:02.536Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8640a243-994f-47b4-b456-26844f408359","provider":"google-sheets","permission":"admin"}
+[2025-11-10T02:00:02.536Z] [INFO   ] 2025-11-10T02:00:02.536Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":10,"workspaceType":"personal"}
+[2025-11-10T02:00:30.969Z] [INFO   ] 2025-11-10T02:00:30.969Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-10T02:00:30.969Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-10T02:00:31.126Z] [INFO   ] 2025-11-10T02:00:31.126Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-10T02:00:31.126Z] [INFO   ] 2025-11-10T02:00:31.126Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-10T02:00:31.271Z] [INFO   ] 2025-11-10T02:00:31.271Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":10,"permissionsCount":9,"integrationsError":null,"permissionsError":null}
+[2025-11-10T02:00:31.272Z] [INFO   ] 2025-11-10T02:00:31.272Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"aed260e3-7d87-4ea0-ba04-1ab6c35bbda5","provider":"discord","permission":"admin"}
+[2025-11-10T02:00:31.272Z] [INFO   ] 2025-11-10T02:00:31.272Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"7015bddc-01e2-46ad-89bb-fd2385c7dbfc","provider":"gumroad","permission":"admin","reason":"connected_by"}
+[2025-11-10T02:00:31.273Z] [INFO   ] 2025-11-10T02:00:31.272Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"f7f6cf20-d078-40ef-a73c-bc7afd16ec14","provider":"hubspot","permission":"admin"}
+[2025-11-10T02:00:31.273Z] [INFO   ] 2025-11-10T02:00:31.273Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"cdcb4dfa-0de9-4b0c-b493-28dc16aa47cf","provider":"github","permission":"admin"}
+[2025-11-10T02:00:31.273Z] [INFO   ] 2025-11-10T02:00:31.273Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"1cf3129a-cbcb-4df8-b59b-876edd75d137","provider":"google-analytics","permission":"admin"}
+[2025-11-10T02:00:31.273Z] [INFO   ] 2025-11-10T02:00:31.273Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fa4bc43d-e909-4b30-83ab-901e5d284a72","provider":"google-docs","permission":"admin"}
+[2025-11-10T02:00:31.273Z] [INFO   ] 2025-11-10T02:00:31.273Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"f240f5c0-cb91-462a-bab9-51dcbb116331","provider":"gmail","permission":"admin"}
+[2025-11-10T02:00:31.273Z] [INFO   ] 2025-11-10T02:00:31.273Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"72c8e3d3-ae7f-464a-b167-ad1e4b7bcc20","provider":"google-calendar","permission":"admin"}
+[2025-11-10T02:00:31.273Z] [INFO   ] 2025-11-10T02:00:31.273Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"61424f3b-166f-4d60-bf1c-b63cb9155549","provider":"google-drive","permission":"admin"}
+[2025-11-10T02:00:31.273Z] [INFO   ] 2025-11-10T02:00:31.273Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8640a243-994f-47b4-b456-26844f408359","provider":"google-sheets","permission":"admin"}
+[2025-11-10T02:00:31.273Z] [INFO   ] 2025-11-10T02:00:31.273Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":10,"workspaceType":"personal"}
+[2025-11-10T02:00:35.461Z] [INFO   ] 2025-11-10T02:00:35.461Z [DEBUG] 🚀 [SERVER] fetch-user-data API route called
+[2025-11-10T02:00:35.462Z] [INFO   ] 2025-11-10T02:00:35.462Z [DEBUG] 🔍 [SERVER] fetch-user-data request parsed: {"integrationId":"8640a243-994f-47b4-b456-26844f408359","dataType":"google-sheets_spreadsheets","options":{}}
+[2025-11-10T02:00:35.613Z] [INFO   ] 2025-11-10T02:00:35.613Z [DEBUG] 🔄 [SERVER] Routing Google request to dedicated API: google-sheets_spreadsheets (provider: google-sheets)
+[2025-11-10T02:00:36.280Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/google/data ...
+[2025-11-10T02:00:37.297Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/google/data in 1652ms (4410 modules)
+[2025-11-10T02:00:37.394Z] [INFO   ] 2025-11-10T02:00:37.394Z [DEBUG] 🚀 [Google Data API] POST handler invoked
+[2025-11-10T02:00:37.394Z] [INFO   ] 2025-11-10T02:00:37.394Z [DEBUG] 🔍 [Google Data API] Request received: {"integrationId":"8640a243-994f-47b4-b456-26844f408359","dataType":"google-sheets_spreadsheets","options":{},"fullRequestBody":{"integrationId":"8640a243-994f-47b4-b456-26844f408359","dataType":"google-sheets_spreadsheets","options":{}}}
+[2025-11-10T02:00:37.498Z] [INFO   ] 2025-11-10T02:00:37.498Z [DEBUG] 📊 [Google API] Integration provider check: {"integrationId":"8640a243-994f-47b4-b456-26844f408359","actualProvider":"google-sheets","dataType":"google-sheets_spreadsheets","providerLowerCase":"google-sheets"}
+[2025-11-10T02:00:37.499Z] [INFO   ] 2025-11-10T02:00:37.498Z [DEBUG] 🔍 [Google API] Processing request: {"integrationId":"8640a243-994f-47b4-b456-26844f408359","dataType":"google-sheets_spreadsheets","provider":"google-sheets","status":"connected","hasToken":true}
+[2025-11-10T02:00:37.499Z] [INFO   ] 2025-11-10T02:00:37.499Z [DEBUG] 📊 [Google Sheets] Fetching spreadsheets
+[2025-11-10T02:00:38.098Z] [INFO   ] 2025-11-10T02:00:38.098Z [DEBUG] ✅ [Google Sheets] Retrieved 21 spreadsheets
+[2025-11-10T02:00:38.098Z] [INFO   ] 2025-11-10T02:00:38.098Z [DEBUG] ✅ [Google API] Successfully processed google-sheets_spreadsheets: {"integrationId":"8640a243-994f-47b4-b456-26844f408359","resultCount":21}
+[2025-11-10T02:00:38.100Z] [INFO   ] 2025-11-10T02:00:38.100Z [DEBUG] ✅ [SERVER] Google API completed for google-sheets_spreadsheets, result length: 21
+[2025-11-10T02:00:40.302Z] [INFO   ] 2025-11-10T02:00:40.301Z [DEBUG] 🚀 [SERVER] fetch-user-data API route called
+[2025-11-10T02:00:40.302Z] [INFO   ] 2025-11-10T02:00:40.302Z [DEBUG] 🔍 [SERVER] fetch-user-data request parsed: {"integrationId":"8640a243-994f-47b4-b456-26844f408359","dataType":"google-sheets_sheets","options":{"spreadsheetId":"13dykQ7u8Ef2c1gC2Tbr7_TbMGsJ4R-WlBlLshiN5XBI"}}
+[2025-11-10T02:00:40.438Z] [INFO   ] 2025-11-10T02:00:40.438Z [DEBUG] 🔄 [SERVER] Routing Google request to dedicated API: google-sheets_sheets (provider: google-sheets)
+[2025-11-10T02:00:40.508Z] [INFO   ] 2025-11-10T02:00:40.508Z [DEBUG] 🚀 [Google Data API] POST handler invoked
+[2025-11-10T02:00:40.508Z] [INFO   ] 2025-11-10T02:00:40.508Z [DEBUG] 🔍 [Google Data API] Request received: {"integrationId":"8640a243-994f-47b4-b456-26844f408359","dataType":"google-sheets_sheets","options":{"spreadsheetId":"13dykQ7u8Ef2c1gC2Tbr7_TbMGsJ4R-WlBlLshiN5XBI"},"fullRequestBody":{"integrationId":"8640a243-994f-47b4-b456-26844f408359","dataType":"google-sheets_sheets","options":{"spreadsheetId":"13dykQ7u8Ef2c1gC2Tbr7_TbMGsJ4R-WlBlLshiN5XBI"}}}
+[2025-11-10T02:00:40.607Z] [INFO   ] 2025-11-10T02:00:40.607Z [DEBUG] 📊 [Google API] Integration provider check: {"integrationId":"8640a243-994f-47b4-b456-26844f408359","actualProvider":"google-sheets","dataType":"google-sheets_sheets","providerLowerCase":"google-sheets"}
+[2025-11-10T02:00:40.607Z] [INFO   ] 2025-11-10T02:00:40.607Z [DEBUG] 🔍 [Google API] Processing request: {"integrationId":"8640a243-994f-47b4-b456-26844f408359","dataType":"google-sheets_sheets","provider":"google-sheets","status":"connected","hasToken":true}
+[2025-11-10T02:00:40.607Z] [INFO   ] 2025-11-10T02:00:40.607Z [DEBUG] 📊 [Google Sheets] Fetching sheets for spreadsheet: 13dykQ7u8Ef2c1gC2Tbr7_TbMGsJ4R-WlBlLshiN5XBI
+[2025-11-10T02:00:41.207Z] [INFO   ] 2025-11-10T02:00:41.207Z [DEBUG] ✅ [Google Sheets] Retrieved 4 sheets
+[2025-11-10T02:00:41.207Z] [INFO   ] 2025-11-10T02:00:41.207Z [DEBUG] ✅ [Google API] Successfully processed google-sheets_sheets: {"integrationId":"8640a243-994f-47b4-b456-26844f408359","resultCount":4}
+[2025-11-10T02:00:41.209Z] [INFO   ] 2025-11-10T02:00:41.209Z [DEBUG] ✅ [SERVER] Google API completed for google-sheets_sheets, result length: 4
+[2025-11-10T02:00:53.345Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 5.2s (5702 modules)
+[2025-11-10T02:01:02.013Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 3.3s (5609 modules)
+[2025-11-10T02:01:09.815Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.1s (5604 modules)
+[2025-11-10T02:01:40.067Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.6s (5576 modules)
+[2025-11-10T02:02:01.960Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1233ms (5433 modules)
+[2025-11-10T02:02:17.505Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.7s (5433 modules)
+[2025-11-10T02:02:28.186Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1979ms (5433 modules)
+[2025-11-10T02:04:08.873Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 14.1s (5433 modules)
+[2025-11-10T02:04:09.624Z] [INFO   ] 2025-11-10T02:04:09.624Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-10T02:04:09.624Z"}
+[2025-11-10T02:04:09.639Z] [INFO   ] 2025-11-10T02:04:09.638Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-10T02:04:09.638Z"}
+[2025-11-10T02:04:09.639Z] [INFO   ] 2025-11-10T02:04:09.639Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-10T02:04:09.639Z"}
+[2025-11-10T02:04:15.395Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-11-10T02:04:19.610Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 4.9s (4162 modules)
+[2025-11-10T02:04:22.014Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4278 modules)
+[2025-11-10T02:04:22.455Z] [INFO   ] 2025-11-10T02:04:22.455Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-10T02:04:22.455Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-10T02:04:22.628Z] [INFO   ] 2025-11-10T02:04:22.628Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-10T02:04:22.628Z] [INFO   ] 2025-11-10T02:04:22.628Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-10T02:04:22.777Z] [INFO   ] 2025-11-10T02:04:22.777Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":10,"permissionsCount":9,"integrationsError":null,"permissionsError":null}
+[2025-11-10T02:04:22.874Z] [INFO   ] 2025-11-10T02:04:22.874Z [DEBUG] ⏰ [API /api/integrations] Updated 1 expired integrations
+[2025-11-10T02:04:22.874Z] [INFO   ] 2025-11-10T02:04:22.874Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"aed260e3-7d87-4ea0-ba04-1ab6c35bbda5","provider":"discord","permission":"admin"}
+[2025-11-10T02:04:22.874Z] [INFO   ] 2025-11-10T02:04:22.874Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"7015bddc-01e2-46ad-89bb-fd2385c7dbfc","provider":"gumroad","permission":"admin","reason":"connected_by"}
+[2025-11-10T02:04:22.874Z] [INFO   ] 2025-11-10T02:04:22.874Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"f7f6cf20-d078-40ef-a73c-bc7afd16ec14","provider":"hubspot","permission":"admin"}
+[2025-11-10T02:04:22.874Z] [INFO   ] 2025-11-10T02:04:22.874Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"cdcb4dfa-0de9-4b0c-b493-28dc16aa47cf","provider":"github","permission":"admin"}
+[2025-11-10T02:04:22.874Z] [INFO   ] 2025-11-10T02:04:22.874Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"1cf3129a-cbcb-4df8-b59b-876edd75d137","provider":"google-analytics","permission":"admin"}
+[2025-11-10T02:04:22.874Z] [INFO   ] 2025-11-10T02:04:22.874Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fa4bc43d-e909-4b30-83ab-901e5d284a72","provider":"google-docs","permission":"admin"}
+[2025-11-10T02:04:22.874Z] [INFO   ] 2025-11-10T02:04:22.874Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"f240f5c0-cb91-462a-bab9-51dcbb116331","provider":"gmail","permission":"admin"}
+[2025-11-10T02:04:22.874Z] [INFO   ] 2025-11-10T02:04:22.874Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"72c8e3d3-ae7f-464a-b167-ad1e4b7bcc20","provider":"google-calendar","permission":"admin"}
+[2025-11-10T02:04:22.874Z] [INFO   ] 2025-11-10T02:04:22.874Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"61424f3b-166f-4d60-bf1c-b63cb9155549","provider":"google-drive","permission":"admin"}
+[2025-11-10T02:04:22.874Z] [INFO   ] 2025-11-10T02:04:22.874Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8640a243-994f-47b4-b456-26844f408359","provider":"google-sheets","permission":"admin"}
+[2025-11-10T02:04:22.874Z] [INFO   ] 2025-11-10T02:04:22.874Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":10,"workspaceType":"personal"}
+[2025-11-10T02:07:15.072Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/auth/generate-url ...
+[2025-11-10T02:07:16.671Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/auth/generate-url in 2.9s (5546 modules)
+[2025-11-10T02:07:20.409Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/google-drive/callback ...
+[2025-11-10T02:07:20.856Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/google-drive/callback in 1313ms (5555 modules)
+[2025-11-10T02:07:20.931Z] [INFO   ] 2025-11-10T02:07:20.930Z [DEBUG] 🔍 google-drive callback called: {"url":"http://localhost:3000/api/integrations/google-drive/callback?state=eyJ1c2VySWQiOiJhM2UzYTUxYS0xNzVjLTRiNTktYWQwMy0yMjdiYTEyYTE4YjAiLCJwcm92aWRlciI6Imdvb2dsZS1kcml2ZSIsInJlY29ubmVjdCI6ZmFsc2UsInRpbWVzdGFtcCI6MTc2Mjc0MDQzNzIwNCwid29ya3NwYWNlVHlwZSI6InBlcnNvbmFsIn0%3D&code=4%2F0Ab32j93YIkZPWJ3ov-sGdxH67fNMtq-9ivdRnlPor_6adIe8F6gnVw78v6z_suwae8S8KA&scope=email+profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fgmail.settings.basic+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fanalytics.readonly+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile+openid+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fgmail.settings.sharing+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fgmail.modify+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fdocuments+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fdrive.readonly+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fspreadsheets+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fanalytics.edit+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcalendar+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcontacts.readonly+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fdrive+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email&authuser=0&prompt=none","hasCode":true,"hasState":true,"error":null,"userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"}
+[2025-11-10T02:07:20.931Z] [INFO   ] 2025-11-10T02:07:20.931Z [DEBUG] google-drive OAuth callback state: {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"google-drive","reconnect":false,"workspaceType":"personal"}
+[2025-11-10T02:07:21.305Z] [INFO   ] 2025-11-10T02:07:21.305Z [DEBUG] Granting permissions for workspace context: {"type":"personal"}
+[2025-11-10T02:07:21.466Z] [ERROR  ] 2025-11-10T02:07:21.464Z [ERROR] Error granting permission: {"code":"23505","details":null,"hint":null,"message":"duplicate key value violates unique constraint \"integration_permissions_integration_id_user_id_key\""}
+[2025-11-10T02:07:21.466Z] [INFO   ] 2025-11-10T02:07:21.466Z [INFO] Personal integration 61424f3b-166f-4d60-bf1c-b63cb9155549 - granted admin to a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-11-10T02:07:21.466Z] [INFO   ] 2025-11-10T02:07:21.466Z [DEBUG] ✅ Permissions granted successfully
+[2025-11-10T02:07:21.466Z] [INFO   ] 2025-11-10T02:07:21.466Z [DEBUG] ✅ google-drive integration successfully saved
+[2025-11-10T02:07:21.467Z] [INFO   ] 2025-11-10T02:07:21.467Z [DEBUG] 🔄 Creating popup response: type=success, provider=google-drive, displayName=Google Drive, message=google-drive connected successfully!
+[2025-11-10T02:07:28.230Z] [INFO   ] 2025-11-10T02:07:28.230Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-10T02:07:28.230Z"}
+[2025-11-10T02:07:28.243Z] [INFO   ] 2025-11-10T02:07:28.243Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-10T02:07:28.243Z"}
+[2025-11-10T02:07:28.243Z] [INFO   ] 2025-11-10T02:07:28.243Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-10T02:07:28.243Z"}
+[2025-11-10T02:07:29.747Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-11-10T02:07:29.807Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 595ms (4284 modules)
+[2025-11-10T02:07:30.144Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4290 modules)
+[2025-11-10T02:07:30.338Z] [INFO   ] 2025-11-10T02:07:30.337Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-10T02:07:30.337Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-10T02:07:30.803Z] [INFO   ] 2025-11-10T02:07:30.803Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-10T02:07:30.804Z] [INFO   ] 2025-11-10T02:07:30.804Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-10T02:07:31.251Z] [INFO   ] 2025-11-10T02:07:31.250Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":10,"permissionsCount":9,"integrationsError":null,"permissionsError":null}
+[2025-11-10T02:07:31.255Z] [INFO   ] 2025-11-10T02:07:31.255Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"aed260e3-7d87-4ea0-ba04-1ab6c35bbda5","provider":"discord","permission":"admin"}
+[2025-11-10T02:07:31.255Z] [INFO   ] 2025-11-10T02:07:31.255Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"7015bddc-01e2-46ad-89bb-fd2385c7dbfc","provider":"gumroad","permission":"admin","reason":"connected_by"}
+[2025-11-10T02:07:31.256Z] [INFO   ] 2025-11-10T02:07:31.256Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"f7f6cf20-d078-40ef-a73c-bc7afd16ec14","provider":"hubspot","permission":"admin"}
+[2025-11-10T02:07:31.256Z] [INFO   ] 2025-11-10T02:07:31.256Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"cdcb4dfa-0de9-4b0c-b493-28dc16aa47cf","provider":"github","permission":"admin"}
+[2025-11-10T02:07:31.256Z] [INFO   ] 2025-11-10T02:07:31.256Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"1cf3129a-cbcb-4df8-b59b-876edd75d137","provider":"google-analytics","permission":"admin"}
+[2025-11-10T02:07:31.257Z] [INFO   ] 2025-11-10T02:07:31.256Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fa4bc43d-e909-4b30-83ab-901e5d284a72","provider":"google-docs","permission":"admin"}
+[2025-11-10T02:07:31.257Z] [INFO   ] 2025-11-10T02:07:31.257Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"f240f5c0-cb91-462a-bab9-51dcbb116331","provider":"gmail","permission":"admin"}
+[2025-11-10T02:07:31.258Z] [INFO   ] 2025-11-10T02:07:31.258Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"72c8e3d3-ae7f-464a-b167-ad1e4b7bcc20","provider":"google-calendar","permission":"admin"}
+[2025-11-10T02:07:31.258Z] [INFO   ] 2025-11-10T02:07:31.258Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"61424f3b-166f-4d60-bf1c-b63cb9155549","provider":"google-drive","permission":"admin"}
+[2025-11-10T02:07:31.260Z] [INFO   ] 2025-11-10T02:07:31.259Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8640a243-994f-47b4-b456-26844f408359","provider":"google-sheets","permission":"admin"}
+[2025-11-10T02:07:31.261Z] [INFO   ] 2025-11-10T02:07:31.260Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":10,"workspaceType":"personal"}
+[2025-11-10T02:07:31.339Z] [INFO   ] 2025-11-10T02:07:31.339Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-10T02:07:31.339Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-10T02:07:31.498Z] [INFO   ] 2025-11-10T02:07:31.498Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-10T02:07:31.498Z] [INFO   ] 2025-11-10T02:07:31.498Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-10T02:07:31.636Z] [INFO   ] 2025-11-10T02:07:31.636Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":10,"permissionsCount":9,"integrationsError":null,"permissionsError":null}
+[2025-11-10T02:07:31.636Z] [INFO   ] 2025-11-10T02:07:31.636Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"aed260e3-7d87-4ea0-ba04-1ab6c35bbda5","provider":"discord","permission":"admin"}
+[2025-11-10T02:07:31.636Z] [INFO   ] 2025-11-10T02:07:31.636Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"7015bddc-01e2-46ad-89bb-fd2385c7dbfc","provider":"gumroad","permission":"admin","reason":"connected_by"}
+[2025-11-10T02:07:31.636Z] [INFO   ] 2025-11-10T02:07:31.636Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"f7f6cf20-d078-40ef-a73c-bc7afd16ec14","provider":"hubspot","permission":"admin"}
+[2025-11-10T02:07:31.636Z] [INFO   ] 2025-11-10T02:07:31.636Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"cdcb4dfa-0de9-4b0c-b493-28dc16aa47cf","provider":"github","permission":"admin"}
+[2025-11-10T02:07:31.636Z] [INFO   ] 2025-11-10T02:07:31.636Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"1cf3129a-cbcb-4df8-b59b-876edd75d137","provider":"google-analytics","permission":"admin"}
+[2025-11-10T02:07:31.636Z] [INFO   ] 2025-11-10T02:07:31.636Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fa4bc43d-e909-4b30-83ab-901e5d284a72","provider":"google-docs","permission":"admin"}
+[2025-11-10T02:07:31.636Z] [INFO   ] 2025-11-10T02:07:31.636Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"f240f5c0-cb91-462a-bab9-51dcbb116331","provider":"gmail","permission":"admin"}
+[2025-11-10T02:07:31.636Z] [INFO   ] 2025-11-10T02:07:31.636Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"72c8e3d3-ae7f-464a-b167-ad1e4b7bcc20","provider":"google-calendar","permission":"admin"}
+[2025-11-10T02:07:31.636Z] [INFO   ] 2025-11-10T02:07:31.636Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"61424f3b-166f-4d60-bf1c-b63cb9155549","provider":"google-drive","permission":"admin"}
+[2025-11-10T02:07:31.636Z] [INFO   ] 2025-11-10T02:07:31.636Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8640a243-994f-47b4-b456-26844f408359","provider":"google-sheets","permission":"admin"}
+[2025-11-10T02:07:31.637Z] [INFO   ] 2025-11-10T02:07:31.636Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":10,"workspaceType":"personal"}
+[2025-11-10T02:07:32.807Z] [INFO   ] 2025-11-10T02:07:32.807Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-10T02:07:32.807Z"}
+[2025-11-10T02:07:32.820Z] [INFO   ] 2025-11-10T02:07:32.820Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-10T02:07:32.820Z"}
+[2025-11-10T02:07:32.820Z] [INFO   ] 2025-11-10T02:07:32.820Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-10T02:07:32.820Z"}
+[2025-11-10T02:07:35.469Z] [INFO   ] 2025-11-10T02:07:35.468Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-10T02:07:35.468Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-10T02:07:35.622Z] [INFO   ] 2025-11-10T02:07:35.622Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-10T02:07:35.622Z] [INFO   ] 2025-11-10T02:07:35.622Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-10T02:07:35.741Z] [INFO   ] 2025-11-10T02:07:35.741Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":10,"permissionsCount":9,"integrationsError":null,"permissionsError":null}
+[2025-11-10T02:07:35.742Z] [INFO   ] 2025-11-10T02:07:35.742Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"aed260e3-7d87-4ea0-ba04-1ab6c35bbda5","provider":"discord","permission":"admin"}
+[2025-11-10T02:07:35.742Z] [INFO   ] 2025-11-10T02:07:35.742Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"7015bddc-01e2-46ad-89bb-fd2385c7dbfc","provider":"gumroad","permission":"admin","reason":"connected_by"}
+[2025-11-10T02:07:35.742Z] [INFO   ] 2025-11-10T02:07:35.742Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"f7f6cf20-d078-40ef-a73c-bc7afd16ec14","provider":"hubspot","permission":"admin"}
+[2025-11-10T02:07:35.742Z] [INFO   ] 2025-11-10T02:07:35.742Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"cdcb4dfa-0de9-4b0c-b493-28dc16aa47cf","provider":"github","permission":"admin"}
+[2025-11-10T02:07:35.742Z] [INFO   ] 2025-11-10T02:07:35.742Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"1cf3129a-cbcb-4df8-b59b-876edd75d137","provider":"google-analytics","permission":"admin"}
+[2025-11-10T02:07:35.742Z] [INFO   ] 2025-11-10T02:07:35.742Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"fa4bc43d-e909-4b30-83ab-901e5d284a72","provider":"google-docs","permission":"admin"}
+[2025-11-10T02:07:35.742Z] [INFO   ] 2025-11-10T02:07:35.742Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"f240f5c0-cb91-462a-bab9-51dcbb116331","provider":"gmail","permission":"admin"}
+[2025-11-10T02:07:35.742Z] [INFO   ] 2025-11-10T02:07:35.742Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"72c8e3d3-ae7f-464a-b167-ad1e4b7bcc20","provider":"google-calendar","permission":"admin"}
+[2025-11-10T02:07:35.742Z] [INFO   ] 2025-11-10T02:07:35.742Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"61424f3b-166f-4d60-bf1c-b63cb9155549","provider":"google-drive","permission":"admin"}
+[2025-11-10T02:07:35.742Z] [INFO   ] 2025-11-10T02:07:35.742Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8640a243-994f-47b4-b456-26844f408359","provider":"google-sheets","permission":"admin"}
+[2025-11-10T02:07:35.742Z] [INFO   ] 2025-11-10T02:07:35.742Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":10,"workspaceType":"personal"}
+[2025-11-10T02:07:38.295Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/google-drive/data ...
+[2025-11-10T02:07:43.038Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/google-drive/data in 5.8s (5315 modules)
+[2025-11-10T02:07:48.193Z] [INFO   ] 2025-11-10T02:07:48.192Z [DEBUG] [Google Drive API] POST request received: {"integrationId":"61424f3b-166f-4d60-bf1c-b63cb9155549","dataType":"folders","hasOptions":true,"optionsKeys":[]}
+[2025-11-10T02:07:49.144Z] [INFO   ] 2025-11-10T02:07:49.144Z [DEBUG] [Google Drive API] Successfully fetched 12 folders
+[2025-11-10T02:07:50.573Z] [INFO   ] 2025-11-10T02:07:50.573Z [DEBUG] [Google Drive API] POST request received: {"integrationId":"61424f3b-166f-4d60-bf1c-b63cb9155549","dataType":"files","hasOptions":true,"optionsKeys":["folderId"]}
+[2025-11-10T02:07:50.978Z] [INFO   ] 2025-11-10T02:07:50.978Z [DEBUG] [Google Drive API] Successfully fetched 14 files
+[2025-11-10T02:08:03.423Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 766ms (1287 modules)
+[2025-11-10T02:08:04.151Z] [INFO   ]  [37m[1m○[22m[39m Compiling /_not-found ...
+[2025-11-10T02:08:10.451Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_not-found in 6.9s (6593 modules)
+[2025-11-10T02:08:12.222Z] [INFO   ] 2025-11-10T02:08:12.222Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-10T02:08:12.221Z"}
+[2025-11-10T02:08:12.241Z] [INFO   ] 2025-11-10T02:08:12.241Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-10T02:08:12.241Z"}
+[2025-11-10T02:08:12.241Z] [INFO   ] 2025-11-10T02:08:12.241Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-10T02:08:12.241Z"}
+[2025-11-10T02:08:16.462Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/icon.png/route.js'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/icon.png/route.js'
+    at Object.readFileSync (node:fs:443:20)
+    at defaultLoadImpl (node:internal/modules/cjs/loader:1117:17)
+    at loadSource (node:internal/modules/cjs/loader:1750:20)
+    at Object..js (node:internal/modules/cjs/loader:1882:44)
+    at Module.load (node:internal/modules/cjs/loader:1458:32)
+    at Function._load (node:internal/modules/cjs/loader:1275:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:234:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1480:12)
+    at mod.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:68:28)
+    at require (node:internal/modules/helpers:135:16)
+    at requirePage (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js:99:80)
+    at loadComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js:132:57)
+    at async DevServer.findPageComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:899:36)
+    at async DevServer.findPageComponents (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:705:16)
+    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1460:24)
+    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-11-10T02:08:16.994Z] [INFO   ]  [37m[1m○[22m[39m Compiling /_error ...
+[2025-11-10T02:08:18.614Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_error in 2.2s (6700 modules)
+[2025-11-10T02:08:18.638Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/pages/_document.js'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/pages/_document.js'
+    at Object.readFileSync (node:fs:443:20)
+    at defaultLoadImpl (node:internal/modules/cjs/loader:1117:17)
+    at loadSource (node:internal/modules/cjs/loader:1750:20)
+    at Object..js (node:internal/modules/cjs/loader:1882:44)
+    at Module.load (node:internal/modules/cjs/loader:1458:32)
+    at Function._load (node:internal/modules/cjs/loader:1275:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:234:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1480:12)
+    at mod.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:68:28)
+    at require (node:internal/modules/helpers:135:16)
+    at requirePage (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js:99:80)
+    at loadComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js:86:38)
+    at DevServer.findPageComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:899:77)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:877:21
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/trace/tracer.js:170:36
+    at NoopContextManager.with (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/context/NoopContextManager.js:25:19)
+    at ContextAPI.with (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/api/context.js:60:46)
+    at NoopTracer.startActiveSpan (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/trace/NoopTracer.js:65:31)
+    at ProxyTracer.startActiveSpan (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/trace/ProxyTracer.js:36:24)
+    at tracer.startActiveSpan (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-utils/instrumentation-node-extensions.js:65:48)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/trace/tracer.js:152:103
+    at NoopContextManager.with (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/context/NoopContextManager.js:25:19)
+    at ContextAPI.with (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/api/context.js:60:46)
+    at NextTracerImpl.trace (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/trace/tracer.js:152:28)
+    at DevServer.findPageComponents (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:872:41)
+    at DevServer.findPageComponents (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:705:28)
+    at async DevServer.renderErrorToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1687:26)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:408:21)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)

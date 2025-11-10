@@ -23,7 +23,9 @@ export const deleteRowActionSchema: NodeComponent = {
       dynamic: "google-sheets_spreadsheets",
       required: true,
       loadOnMount: true,
-      placeholder: "Select a spreadsheet"
+      placeholder: "Select a spreadsheet",
+      loadingPlaceholder: "Loading spreadsheets...",
+      description: "Choose a spreadsheet from your Google Sheets account"
     },
     {
       name: "sheetName",
@@ -32,7 +34,9 @@ export const deleteRowActionSchema: NodeComponent = {
       dynamic: "google-sheets_sheets",
       required: true,
       dependsOn: "spreadsheetId",
-      placeholder: "Select a sheet"
+      placeholder: "Select a sheet",
+      loadingPlaceholder: "Loading sheets...",
+      description: "The specific sheet (tab) within the spreadsheet"
     },
     {
       name: "rowNumber",

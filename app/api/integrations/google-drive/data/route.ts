@@ -301,6 +301,11 @@ export async function POST(req: NextRequest) {
         const searchMode = searchConfig.searchMode || 'simple'
         let query: string[] = ['trashed=false']
 
+        // Add folder filter if specified
+        if (searchConfig.folderId) {
+          query.push(`'${searchConfig.folderId}' in parents`)
+        }
+
         if (searchMode === 'simple') {
           const fileName = searchConfig.fileName
           const exactMatch = searchConfig.exactMatch || false
@@ -366,11 +371,14 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // Execute search with limit to 10 for preview
+        // Get preview limit from config (default 10, max 100)
+        const previewLimit = Math.min(searchConfig.previewLimit || 10, 100)
+
+        // Execute search with configurable limit for preview
         const response = await drive.files.list({
           q: query.join(' and '),
           fields: 'files(id,name,mimeType,modifiedTime,createdTime,size,owners,webViewLink)',
-          pageSize: 10,
+          pageSize: previewLimit,
           orderBy: 'modifiedTime desc'
         })
 
@@ -420,6 +428,130 @@ export async function POST(req: NextRequest) {
           const summary = searchSummary.length > 0 ? `Search criteria: ${searchSummary.join(', ')}\n\n` : ''
 
           previewText = `${summary}Found ${totalCount}${hasMore ? '+' : ''} file${totalCount === 1 ? '' : 's'}:\n\n${fileList.map((f, i) => `${i + 1}. ${f.name}`).join('\n')}${hasMore ? '\n\n...and more' : ''}`
+        }
+
+        return jsonResponse({
+          data: {
+            files: fileList,
+            totalCount,
+            hasMore,
+            previewText
+          },
+          success: true
+        })
+      }
+
+      // List files preview handler
+      if (dataType === 'list-files-preview') {
+        const listConfig = options as any
+
+        // Build query
+        const query: string[] = ['trashed=false']
+
+        // Folder filter
+        if (listConfig.folderId) {
+          query.push(`'${listConfig.folderId}' in parents`)
+        }
+
+        // File type filter
+        if (listConfig.fileTypeFilter) {
+          switch (listConfig.fileTypeFilter) {
+            case 'files_only':
+              query.push("mimeType != 'application/vnd.google-apps.folder'")
+              break
+            case 'folders_only':
+              query.push("mimeType = 'application/vnd.google-apps.folder'")
+              break
+            case 'documents':
+              query.push("(mimeType contains 'document' or mimeType contains 'pdf')")
+              break
+            case 'images':
+              query.push("mimeType contains 'image/'")
+              break
+            case 'videos':
+              query.push("mimeType contains 'video/'")
+              break
+            // 'all' - no filter
+          }
+        }
+
+        // Determine orderBy
+        let orderBy = 'name'
+        if (listConfig.orderBy) {
+          switch (listConfig.orderBy) {
+            case 'name':
+              orderBy = 'name'
+              break
+            case 'name_desc':
+              orderBy = 'name desc'
+              break
+            case 'modifiedTime':
+              orderBy = 'modifiedTime desc'
+              break
+            case 'modifiedTime_desc':
+              orderBy = 'modifiedTime'
+              break
+            case 'createdTime':
+              orderBy = 'createdTime desc'
+              break
+            case 'folder':
+              orderBy = 'folder,name'
+              break
+            default:
+              orderBy = 'name'
+          }
+        }
+
+        logger.debug(`[Google Drive API] List files preview query: ${query.join(' and ')}`)
+
+        // Get preview limit from config (default 10, max 100)
+        const previewLimit = Math.min(listConfig.previewLimit || 10, 100)
+
+        // Execute list with configurable limit for preview
+        const response = await drive.files.list({
+          q: query.join(' and '),
+          fields: 'files(id,name,mimeType,modifiedTime,createdTime,size,owners,webViewLink)',
+          pageSize: previewLimit,
+          orderBy
+        })
+
+        const files = response.data.files || []
+        const fileList = files.map(file => ({
+          id: file.id,
+          name: file.name,
+          mimeType: file.mimeType,
+          modifiedTime: file.modifiedTime,
+          createdTime: file.createdTime,
+          size: file.size,
+          owner: file.owners?.[0]?.displayName || file.owners?.[0]?.emailAddress || 'Unknown',
+          webViewLink: file.webViewLink
+        }))
+
+        // Get total count (limited to 100 to avoid performance issues)
+        const countResponse = await drive.files.list({
+          q: query.join(' and '),
+          fields: 'files(id)',
+          pageSize: 100
+        })
+
+        const totalCount = countResponse.data.files?.length || 0
+        const hasMore = totalCount >= 100
+
+        logger.debug(`[Google Drive API] List preview found ${totalCount}${hasMore ? '+' : ''} files`)
+
+        // Build preview text
+        let previewText = ''
+        if (totalCount === 0) {
+          previewText = 'No files found in this folder.\n\nThe folder may be empty or your filters may be too restrictive.'
+        } else {
+          const filterSummary = []
+          if (listConfig.fileTypeFilter && listConfig.fileTypeFilter !== 'all') {
+            filterSummary.push(`Filter: ${listConfig.fileTypeFilter}`)
+          }
+
+          const summary = filterSummary.length > 0 ? `${filterSummary.join(', ')}\n\n` : ''
+
+          previewText = `${summary}Found ${totalCount}${hasMore ? '+' : ''} item${totalCount === 1 ? '' : 's'}:\n\n${fileList.map((f, i) => `${i + 1}. ${f.name}`).join('\n')}${hasMore ? '\n\n...and more' : ''}`
         }
 
         return jsonResponse({

@@ -24,6 +24,7 @@ import { MondayOptionsLoader } from './monday/MondayOptionsLoader';
 import { MailchimpOptionsLoader } from './mailchimp/MailchimpOptionsLoader';
 import { TwitterOptionsLoader } from './twitter/TwitterOptionsLoader';
 import { GoogleAnalyticsOptionsLoader } from './google-analytics/GoogleAnalyticsOptionsLoader';
+import { GmailOptionsLoader } from './gmail/GmailOptionsLoader';
 
 import { logger } from '@/lib/utils/logger'
 
@@ -99,8 +100,10 @@ class ProviderRegistryImpl implements IProviderRegistry {
     // Register Google Analytics loader
     this.register('google-analytics', new GoogleAnalyticsOptionsLoader());
 
+    // Register Gmail loader
+    this.register('gmail', new GmailOptionsLoader());
+
     // Additional providers can be registered here as they're implemented
-    // this.register('gmail', new GmailOptionsLoader());
     // this.register('slack', new SlackOptionsLoader());
     // this.register('trello', new TrelloOptionsLoader());
   }
@@ -130,19 +133,28 @@ class ProviderRegistryImpl implements IProviderRegistry {
    * Get a loader that can handle the specific field for a provider
    */
   getLoader(providerId: string, fieldName: string): ProviderOptionsLoader | null {
+    logger.debug(`🔍 [Registry] Looking for loader:`, { providerId, fieldName });
+
     const providerLoaders = this.loaders.get(providerId);
-    
+
     if (!providerLoaders) {
+      logger.warn(`❌ [Registry] No loaders registered for provider: ${providerId}`);
+      logger.debug(`[Registry] Available providers:`, Array.from(this.loaders.keys()));
       return null;
     }
-    
+
+    logger.debug(`[Registry] Found ${providerLoaders.length} loader(s) for ${providerId}`);
+
     // Find the first loader that can handle this field
     for (const loader of providerLoaders) {
+      logger.debug(`[Registry] Checking ${loader.constructor.name} for field: ${fieldName}`);
       if (loader.canHandle(fieldName, providerId)) {
+        logger.info(`✅ [Registry] Found loader: ${loader.constructor.name} for ${providerId}.${fieldName}`);
         return loader;
       }
     }
-    
+
+    logger.warn(`❌ [Registry] No loader can handle field ${fieldName} for provider ${providerId}`);
     return null;
   }
 

@@ -28,3 +28,103 @@ Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
 [2025-11-09T23:25:21.818Z] [INFO   ] 2025-11-09T23:25:21.818Z [DEBUG] 📡 Discord event received: GUILD_CREATE
 [2025-11-09T23:25:22.003Z] [INFO   ] 2025-11-09T23:25:22.003Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
 [2025-11-09T23:36:24.476Z] [INFO   ]  ✓ Compiled in 1945ms (2755 modules)
+[2025-11-09T23:37:11.418Z] [INFO   ]  ✓ Compiled in 619ms (2755 modules)
+[2025-11-09T23:38:06.935Z] [INFO   ]  ✓ Compiled in 560ms (2755 modules)
+[2025-11-09T23:41:53.201Z] [INFO   ]  ✓ Compiled in 891ms (2755 modules)
+[2025-11-09T23:42:03.833Z] [INFO   ]  ✓ Compiled in 382ms (2755 modules)
+[2025-11-09T23:42:05.224Z] [INFO   ]  ✓ Compiled in 721ms (2755 modules)
+[2025-11-09T23:43:23.065Z] [ERROR  ]  ⨯ ./lib/workflows/actions/gmail/applyLabels.ts
+Module parse failed: Identifier 'labelIds' has already been declared (30:14)
+|         const labelsToRemove = removeLabels.filter(Boolean);
+|         // Get or create labels
+>         const labelIds = {
+|             add: [],
+|             remove: []
+
+Import trace for requested module:
+./lib/workflows/actions/gmail/applyLabels.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-09T23:43:24.034Z] [INFO   ]  ✓ Compiled in 757ms (2755 modules)
+[2025-11-09T23:43:24.562Z] [INFO   ]  ✓ Compiled in 265ms (2755 modules)
+[2025-11-09T23:43:26.041Z] [INFO   ]  ✓ Compiled in 710ms (2755 modules)
+[2025-11-09T23:51:07.005Z] [INFO   ]  ✓ Compiled in 967ms (2755 modules)
+[2025-11-09T23:51:27.884Z] [INFO   ]  ✓ Compiled in 327ms (2755 modules)
+[2025-11-09T23:51:40.562Z] [INFO   ]  ✓ Compiled in 454ms (2755 modules)
+[2025-11-09T23:53:36.377Z] [INFO   ]  ✓ Compiled in 737ms (2755 modules)
+[2025-11-09T23:53:36.552Z] [INFO   ]  ✓ Compiled in 170ms (2755 modules)
+[2025-11-09T23:53:36.886Z] [INFO   ]  ✓ Compiled in 193ms (2755 modules)
+[2025-11-09T23:53:38.077Z] [INFO   ]  ✓ Compiled in 349ms (2755 modules)
+[2025-11-09T23:56:33.540Z] [INFO   ]  ✓ Compiled in 1476ms (2755 modules)
+[2025-11-09T23:58:07.303Z] [INFO   ]  ✓ Compiled in 1680ms (2755 modules)
+[2025-11-09T23:58:16.614Z] [INFO   ]  ✓ Compiled in 184ms (2755 modules)
+[2025-11-09T23:58:25.140Z] [INFO   ]  ✓ Compiled in 147ms (2754 modules)
+[2025-11-09T23:58:31.294Z] [INFO   ]  ✓ Compiled in 189ms (2754 modules)
+[2025-11-10T00:41:29.699Z] [INFO   ] 2025-11-10T00:41:29.699Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-10T00:41:29.785Z] [INFO   ] 2025-11-10T00:41:29.785Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-11-10T00:41:30.173Z] [INFO   ] 2025-11-10T00:41:30.172Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-10T00:41:30.175Z] [INFO   ] 2025-11-10T00:41:30.175Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-10T00:41:30.423Z] [INFO   ] 2025-11-10T00:41:30.422Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"22134f64a9da7ba946000517f9d62661","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-11-10T00:41:30.423Z] [INFO   ] 2025-11-10T00:41:30.423Z [DEBUG] 📋 Initializing invite cache...
+[2025-11-10T00:41:30.426Z] [INFO   ] 2025-11-10T00:41:30.426Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-10T00:41:30.433Z] [INFO   ] 2025-11-10T00:41:30.433Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-10T00:41:30.608Z] [INFO   ] 2025-11-10T00:41:30.608Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-11-10T00:56:53.957Z] [INFO   ]  ✓ Compiled in 772ms (2754 modules)
+[2025-11-10T00:57:21.560Z] [INFO   ]  ✓ Compiled in 405ms (2754 modules)
+[2025-11-10T00:57:45.863Z] [INFO   ]  ✓ Compiled in 200ms (2754 modules)
+[2025-11-10T00:57:55.401Z] [INFO   ]  ✓ Compiled in 171ms (2754 modules)
+[2025-11-10T00:58:10.442Z] [INFO   ]  ✓ Compiled in 586ms (2754 modules)
+[2025-11-10T00:58:57.233Z] [INFO   ]  ✓ Compiled in 420ms (2754 modules)
+[2025-11-10T01:01:31.880Z] [INFO   ]  ✓ Compiled in 893ms (2754 modules)
+[2025-11-10T01:02:21.457Z] [INFO   ]  ✓ Compiled in 469ms (2754 modules)
+[2025-11-10T01:02:22.288Z] [INFO   ]  ✓ Compiled in 272ms (2754 modules)
+[2025-11-10T01:02:23.505Z] [INFO   ]  ✓ Compiled in 439ms (2754 modules)
+[2025-11-10T01:04:03.609Z] [INFO   ]  ✓ Compiled in 748ms (2754 modules)
+[2025-11-10T01:05:13.188Z] [INFO   ]  ✓ Compiled in 590ms (2754 modules)
+[2025-11-10T01:27:14.083Z] [INFO   ]  ✓ Compiled in 1472ms (2754 modules)
+[2025-11-10T01:27:14.293Z] [INFO   ]  ✓ Compiled in 202ms (2754 modules)
+[2025-11-10T01:34:56.610Z] [INFO   ] 2025-11-10T01:34:56.607Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-10T01:34:56.671Z] [INFO   ] 2025-11-10T01:34:56.671Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-11-10T01:34:57.122Z] [INFO   ] 2025-11-10T01:34:57.121Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-10T01:34:57.123Z] [INFO   ] 2025-11-10T01:34:57.123Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-10T01:34:57.310Z] [INFO   ] 2025-11-10T01:34:57.310Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"1bab2b139868e61d8cad5ef97913417a","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-11-10T01:34:57.311Z] [INFO   ] 2025-11-10T01:34:57.310Z [DEBUG] 📋 Initializing invite cache...
+[2025-11-10T01:34:57.316Z] [INFO   ] 2025-11-10T01:34:57.316Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-10T01:34:57.329Z] [INFO   ] 2025-11-10T01:34:57.329Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-10T01:34:57.621Z] [INFO   ] 2025-11-10T01:34:57.621Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-11-10T01:39:06.096Z] [INFO   ]  ✓ Compiled in 1549ms (2754 modules)
+[2025-11-10T01:41:22.063Z] [INFO   ]  ✓ Compiled in 947ms (2754 modules)
+[2025-11-10T01:49:53.472Z] [INFO   ]  ✓ Compiled in 1547ms (2754 modules)
+[2025-11-10T01:50:19.122Z] [INFO   ]  ✓ Compiled in 1886ms (2754 modules)
+[2025-11-10T01:50:31.013Z] [INFO   ]  ✓ Compiled in 269ms (2754 modules)
+[2025-11-10T01:50:38.215Z] [INFO   ]  ✓ Compiled in 258ms (2754 modules)
+[2025-11-10T01:59:53.243Z] [INFO   ]  ✓ Compiled in 1106ms (2754 modules)
+[2025-11-10T02:12:27.452Z] [INFO   ]  ✓ Compiled in 4.5s (2754 modules)
+[2025-11-10T02:16:56.438Z] [INFO   ]  ✓ Compiled in 6.8s (2754 modules)
+[2025-11-10T02:25:34.247Z] [INFO   ]  ✓ Compiled in 4.5s (2754 modules)
+[2025-11-10T02:47:07.347Z] [INFO   ]  ✓ Compiled in 6.4s (2754 modules)
+[2025-11-10T02:47:45.021Z] [INFO   ]  ✓ Compiled in 777ms (2754 modules)
+[2025-11-10T02:50:27.422Z] [INFO   ]  ✓ Compiled in 1279ms (2754 modules)
+[2025-11-10T03:08:29.081Z] [INFO   ]  ✓ Compiled in 2.3s (2754 modules)
+[2025-11-10T03:14:06.034Z] [INFO   ]  ✓ Compiled in 1957ms (2754 modules)
+[2025-11-10T03:14:22.793Z] [INFO   ]  ✓ Compiled in 345ms (2754 modules)
+[2025-11-10T03:14:33.064Z] [INFO   ]  ✓ Compiled in 386ms (2754 modules)
+[2025-11-10T03:14:55.881Z] [INFO   ]  ✓ Compiled in 481ms (2754 modules)
+[2025-11-10T03:17:44.480Z] [INFO   ]  ✓ Compiled in 3.5s (2754 modules)
+[2025-11-10T03:18:37.266Z] [INFO   ]  ✓ Compiled in 4.1s (2754 modules)
+[2025-11-10T03:18:46.809Z] [INFO   ]  ✓ Compiled in 1248ms (2754 modules)
+[2025-11-10T03:18:58.514Z] [INFO   ]  ✓ Compiled in 683ms (2754 modules)
+[2025-11-10T03:20:48.844Z] [INFO   ]  ✓ Compiled in 544ms (2754 modules)
+[2025-11-10T03:23:30.332Z] [INFO   ]  ✓ Compiled in 2.3s (2754 modules)
+[2025-11-10T03:26:20.672Z] [INFO   ]  ✓ Compiled in 1044ms (2754 modules)
+[2025-11-10T03:26:51.482Z] [INFO   ]  ✓ Compiled in 585ms (2754 modules)
+[2025-11-10T03:27:06.733Z] [INFO   ]  ✓ Compiled in 339ms (2754 modules)
+[2025-11-10T03:28:21.919Z] [INFO   ]  ✓ Compiled in 500ms (2754 modules)
+[2025-11-10T03:28:29.744Z] [INFO   ]  ✓ Compiled in 231ms (2754 modules)
+[2025-11-10T03:39:17.462Z] [INFO   ]  ✓ Compiled in 1299ms (2754 modules)
+[2025-11-10T03:40:05.325Z] [INFO   ]  ✓ Compiled in 609ms (2754 modules)
+[2025-11-10T03:40:16.779Z] [INFO   ]  ✓ Compiled in 1395ms (2754 modules)
+[2025-11-10T03:40:22.174Z] [INFO   ]  ✓ Compiled in 512ms (2754 modules)
+[2025-11-10T03:40:49.345Z] [INFO   ]  ✓ Compiled in 472ms (2754 modules)

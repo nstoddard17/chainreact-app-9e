@@ -8,6 +8,8 @@ import { getGmailEnhancedRecipients } from './enhanced-recipients'
 import { getGmailSignatures } from './signatures'
 import { getGmailFromAddresses } from './from-addresses'
 import { getGmailRecentSenders } from './recent-senders'
+import { getSearchEmailsPreview, getAdvancedSearchPreview } from './email-preview'
+import { getRecentEmails } from './recent-emails'
 
 /**
  * Registry of all Gmail data handlers
@@ -32,6 +34,13 @@ export const gmailHandlers: Record<string, GmailDataHandler> = {
 
   // Contacts (for Google Drive "created by" filter - reuses recent senders handler)
   'gmail-contacts': getGmailRecentSenders,
+
+  // Preview handlers
+  'search-emails-preview': getSearchEmailsPreview,
+  'advanced-search-preview': getAdvancedSearchPreview,
+
+  // Recent emails (for message ID dropdown in Get Attachment)
+  'gmail-recent-emails': getRecentEmails,
 }
 
 /**

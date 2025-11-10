@@ -7,7 +7,6 @@ import {
   UserPlus,
   DollarSign,
   ShoppingCart,
-  Package,
   BarChart
 } from "lucide-react"
 
@@ -170,8 +169,45 @@ const gumroadTriggerNewSale: NodeComponent = {
   isTrigger: true,
   comingSoon: true,
   configSchema: [
-    { name: "productId", label: "Product ID", type: "text", required: false, placeholder: "Specific product ID to monitor" },
-    { name: "minimumAmount", label: "Minimum Amount", type: "number", required: false, placeholder: "Minimum sale amount" }
+    {
+      name: "product",
+      label: "Product",
+      type: "combobox",
+      dynamic: "gumroad_products",
+      required: false,
+      loadOnMount: true,
+      searchable: true,
+      placeholder: "All Products",
+      emptyPlaceholder: "No products found",
+      emptyMessage: "No products found. Create a product in your Gumroad account first.",
+      tooltip: "Select a specific product to monitor, or leave empty to trigger on all sales. You can also use variables."
+    },
+    {
+      name: "minimumAmount",
+      label: "Minimum Sale Amount",
+      type: "number",
+      required: false,
+      placeholder: "0",
+      tooltip: "Only trigger when sale amount is greater than or equal to this value (in your account's default currency)",
+      dependsOn: "product",
+      hidden: {
+        $deps: ["product"],
+        $condition: { product: { $exists: false } }
+      }
+    },
+    {
+      name: "maximumAmount",
+      label: "Maximum Sale Amount",
+      type: "number",
+      required: false,
+      placeholder: "No limit",
+      tooltip: "Only trigger when sale amount is less than or equal to this value (optional)",
+      dependsOn: "product",
+      hidden: {
+        $deps: ["product"],
+        $condition: { product: { $exists: false } }
+      }
+    }
   ],
   outputSchema: [
     {
@@ -221,6 +257,66 @@ const gumroadTriggerNewSale: NodeComponent = {
       label: "Sale Timestamp",
       type: "string",
       description: "When the sale occurred (ISO 8601 format)"
+    },
+    {
+      name: "licenseKey",
+      label: "License Key",
+      type: "string",
+      description: "License key for the product (if applicable)"
+    },
+    {
+      name: "customFields",
+      label: "Custom Fields",
+      type: "object",
+      description: "Custom fields submitted with the purchase"
+    },
+    {
+      name: "variants",
+      label: "Product Variants",
+      type: "object",
+      description: "Product variant options selected by the buyer"
+    },
+    {
+      name: "offerCode",
+      label: "Offer Code",
+      type: "string",
+      description: "Discount or offer code used for the purchase"
+    },
+    {
+      name: "subscriptionId",
+      label: "Subscription ID",
+      type: "string",
+      description: "Subscription ID if this is a subscription purchase"
+    },
+    {
+      name: "refunded",
+      label: "Refunded",
+      type: "boolean",
+      description: "Whether the sale has been refunded"
+    },
+    {
+      name: "orderNumber",
+      label: "Order Number",
+      type: "number",
+      description: "Sequential order number"
+    },
+    {
+      name: "ipCountry",
+      label: "IP Country",
+      type: "string",
+      description: "Buyer's country based on IP address (ISO country code)"
+    },
+    {
+      name: "referrer",
+      label: "Referrer",
+      type: "string",
+      description: "Page URL that referred the buyer to the purchase"
+    },
+    {
+      name: "canContact",
+      label: "Can Contact",
+      type: "boolean",
+      description: "Whether buyer opted in to receive marketing emails"
     }
   ]
 }
@@ -235,7 +331,19 @@ const gumroadTriggerNewSubscriber: NodeComponent = {
   isTrigger: true,
   comingSoon: true,
   configSchema: [
-    { name: "productId", label: "Product ID", type: "text", required: false, placeholder: "Specific product ID to monitor" }
+    {
+      name: "product",
+      label: "Product",
+      type: "combobox",
+      dynamic: "gumroad_products",
+      required: false,
+      loadOnMount: true,
+      searchable: true,
+      placeholder: "All Products",
+      emptyPlaceholder: "No products found",
+      emptyMessage: "No products found. Create a product in your Gumroad account first.",
+      tooltip: "Select a specific product to monitor subscriptions for, or leave empty to trigger on all new subscribers. You can also use variables."
+    }
   ],
   outputSchema: [
     {
@@ -289,70 +397,6 @@ const gumroadTriggerNewSubscriber: NodeComponent = {
   ]
 }
 
-const gumroadActionCreateProduct: NodeComponent = {
-  type: "gumroad_action_create_product",
-  title: "Create Product",
-  description: "Create a new product on Gumroad",
-  icon: Package,
-  providerId: "gumroad",
-  requiredScopes: ["edit_products"],
-  category: "E-commerce",
-  isTrigger: false,
-  comingSoon: true,
-  configSchema: [
-    { name: "name", label: "Product Name", type: "text", required: true, placeholder: "Enter product name" },
-    { name: "description", label: "Description", type: "textarea", required: false, placeholder: "Product description" },
-    { name: "price", label: "Price (cents)", type: "number", required: true, placeholder: "Price in cents (e.g., 1000 for $10)" },
-    { name: "currency", label: "Currency", type: "select", required: true, defaultValue: "USD", options: [
-      { value: "USD", label: "USD" },
-      { value: "EUR", label: "EUR" },
-      { value: "GBP", label: "GBP" }
-    ]},
-    { name: "productType", label: "Product Type", type: "select", required: true, defaultValue: "standard", options: [
-      { value: "standard", label: "Standard" },
-      { value: "subscription", label: "Subscription" }
-    ]}
-  ],
-  outputSchema: [
-    {
-      name: "productId",
-      label: "Product ID",
-      type: "string",
-      description: "Unique identifier for the created product"
-    },
-    {
-      name: "productUrl",
-      label: "Product URL",
-      type: "string",
-      description: "Direct URL to the product page"
-    },
-    {
-      name: "name",
-      label: "Product Name",
-      type: "string",
-      description: "Name of the created product"
-    },
-    {
-      name: "price",
-      label: "Price",
-      type: "number",
-      description: "Product price in cents"
-    },
-    {
-      name: "currency",
-      label: "Currency",
-      type: "string",
-      description: "Currency code (USD, EUR, GBP)"
-    },
-    {
-      name: "createdAt",
-      label: "Created At",
-      type: "string",
-      description: "When the product was created (ISO 8601 format)"
-    }
-  ]
-}
-
 const gumroadActionGetSalesAnalytics: NodeComponent = {
   type: "gumroad_action_get_sales_analytics",
   title: "Get Sales Analytics",
@@ -366,7 +410,19 @@ const gumroadActionGetSalesAnalytics: NodeComponent = {
   configSchema: [
     { name: "startDate", label: "Start Date", type: "date", required: true },
     { name: "endDate", label: "End Date", type: "date", required: true },
-    { name: "productId", label: "Product ID", type: "text", required: false, placeholder: "Specific product ID (optional)" }
+    {
+      name: "product",
+      label: "Product",
+      type: "combobox",
+      dynamic: "gumroad_products",
+      required: false,
+      loadOnMount: true,
+      searchable: true,
+      placeholder: "All Products",
+      emptyPlaceholder: "No products found",
+      emptyMessage: "No products found. Create a product in your Gumroad account first.",
+      tooltip: "Select a specific product to get analytics for, or leave empty for all products. You can also use variables."
+    }
   ],
   outputSchema: [
     {
@@ -421,9 +477,8 @@ export const miscNodes: NodeComponent[] = [
   manychatActionSendMessage,
   manychatActionTagSubscriber,
   
-  // Gumroad (4)
+  // Gumroad (3)
   gumroadTriggerNewSale,
   gumroadTriggerNewSubscriber,
-  gumroadActionCreateProduct,
   gumroadActionGetSalesAnalytics,
 ]

@@ -25,6 +25,8 @@ export const getFileMetadataActionSchema: NodeComponent = {
       type: "boolean",
       required: false,
       defaultValue: true,
+      dependsOn: "fileId",
+      hidden: { $deps: ["fileId"], $condition: { fileId: { $exists: false } } },
       description: "Include information about who has access to this file"
     },
     {
@@ -33,6 +35,8 @@ export const getFileMetadataActionSchema: NodeComponent = {
       type: "boolean",
       required: false,
       defaultValue: true,
+      dependsOn: "fileId",
+      hidden: { $deps: ["fileId"], $condition: { fileId: { $exists: false } } },
       description: "Include details about the file owner"
     }
   ],

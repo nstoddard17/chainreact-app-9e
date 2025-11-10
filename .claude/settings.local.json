@@ -20,7 +20,9 @@
       "Bash(fi)",
       "Bash(psql \"postgresql://postgres.xzwsdwllmrnrgbltibxt:Lukelombardo10!@aws-0-us-east-1.pooler.supabase.com:6543/postgres\" -c \"SELECT id, provider, status, access_token IS NOT NULL as has_token, refresh_token IS NOT NULL as has_refresh, created_at, expires_at FROM integrations WHERE provider ILIKE ''%google%calendar%'' OR provider = ''google'' ORDER BY created_at DESC LIMIT 5;\")",
       "Bash(lsof:*)",
-      "Bash(xargs kill:*)"
+      "Bash(xargs kill:*)",
+      "Bash(chmod:*)",
+      "Bash(./scripts/audit-output-schemas.sh:*)"
     ],
     "edit": [
       "*"
