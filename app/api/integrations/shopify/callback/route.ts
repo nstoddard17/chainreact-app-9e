@@ -94,12 +94,14 @@ export async function GET(request: NextRequest) {
       status: 'connected',
       expires_at: expiresAt ? expiresAt.toISOString() : null,
       updated_at: new Date().toISOString(),
-      email: shopEmail || null,
-      username: shop || null,
-      account_name: shopInfo?.name || shop || null,
+      // Store identity fields in metadata (following Gmail pattern)
       metadata: {
         shop: shop,
-        shop_info: shopInfo
+        shop_info: shopInfo,
+        email: shopEmail || null,
+        username: shop || null,
+        account_name: shopInfo?.name || shop || null,
+        provider_user_id: shopInfo?.id?.toString() || null,
       },
     }
 
