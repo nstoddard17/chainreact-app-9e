@@ -1386,33 +1386,69 @@ import { hubspotDynamicNodes } from './dynamicNodes'
 // Import enhanced contact nodes
 import { hubspotActionCreateContactEnhanced, hubspotActionCreateContactFullyDynamic } from './createContactEnhanced'
 
+// Import new Phase 1 actions
+import { hubspotActionUpdateContact } from './actions/updateContact'
+import { hubspotActionUpdateCompany } from './actions/updateCompany'
+import { ticketActions } from './actions/tickets'
+import { engagementActions } from './actions/engagements'
+
+// Import new Phase 1 triggers
+import { ticketTriggers } from './triggers/tickets'
+import { engagementTriggers } from './triggers/engagements'
+
 // Export all HubSpot nodes
 export const hubspotNodes: NodeComponent[] = [
-  // Triggers (10)
+  // ===== TRIGGERS =====
+  // Contact Triggers (3)
   hubspotTriggerContactCreated,
   hubspotTriggerContactUpdated,
   hubspotTriggerContactDeleted,
+
+  // Company Triggers (3)
   hubspotTriggerCompanyCreated,
   hubspotTriggerCompanyUpdated,
   hubspotTriggerCompanyDeleted,
+
+  // Deal Triggers (3)
   hubspotTriggerDealCreated,
   hubspotTriggerDealUpdated,
   hubspotTriggerDealDeleted,
 
-  // Actions (8)
+  // Ticket Triggers (3) - NEW
+  ...ticketTriggers,
+
+  // Engagement Triggers (4) - NEW
+  ...engagementTriggers,
+
+  // ===== ACTIONS =====
+  // Contact Actions (3 + 2 enhanced)
   hubspotActionCreateContact,
+  hubspotActionUpdateContact, // NEW
+  hubspotActionCreateContactEnhanced,
+  hubspotActionCreateContactFullyDynamic,
+
+  // Company Actions (2)
   hubspotActionCreateCompany,
+  hubspotActionUpdateCompany, // NEW
+
+  // Deal Actions (2)
   hubspotActionCreateDeal,
-  hubspotActionAddContactToList,
   hubspotActionUpdateDeal,
+
+  // List Actions (1)
+  hubspotActionAddContactToList,
+
+  // Ticket Actions (3) - NEW
+  ...ticketActions,
+
+  // Engagement Actions (4) - NEW
+  ...engagementActions,
+
+  // Search/Get Actions (3)
   hubspotActionGetContacts,
   hubspotActionGetCompanies,
   hubspotActionGetDeals,
 
   // Dynamic actions (4)
   ...hubspotDynamicNodes,
-
-  // Enhanced contact actions (2)
-  hubspotActionCreateContactEnhanced,
-  hubspotActionCreateContactFullyDynamic,
 ]

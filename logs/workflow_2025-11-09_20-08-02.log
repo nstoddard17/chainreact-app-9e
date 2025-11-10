@@ -131,3 +131,166 @@ Import trace for requested module:
 [2025-11-10T04:26:18.653Z] [INFO   ]  ✓ Compiled in 1502ms (2752 modules)
 [2025-11-10T04:26:29.801Z] [INFO   ]  ✓ Compiled in 784ms (2752 modules)
 [2025-11-10T04:37:17.445Z] [INFO   ]  ✓ Compiled in 5.2s (2752 modules)
+[2025-11-10T04:52:02.275Z] [INFO   ]  ✓ Compiled in 2.5s (2765 modules)
+[2025-11-10T05:09:07.051Z] [INFO   ]  ✓ Compiled in 2.8s (2765 modules)
+[2025-11-10T05:16:10.354Z] [ERROR  ]  ⨯ ./lib/workflows/actions/registry.ts
+Module parse failed: Identifier 'hubspotGetContacts' has already been declared (78:9)
+| import { getOnedriveFile } from './onedrive/getFile';
+| import { getDropboxFile } from './dropbox/getFile';
+> import { hubspotGetContacts } from './hubspot/getContacts';
+| import { hubspotGetCompanies } from './hubspot/getCompanies';
+| import { hubspotGetDeals } from './hubspot/getDeals';
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T05:16:23.252Z] [ERROR  ]  ⨯ ./lib/workflows/actions/registry.ts
+Module parse failed: Identifier 'hubspotGetContacts' has already been declared (78:9)
+| import { getOnedriveFile } from './onedrive/getFile';
+| import { getDropboxFile } from './dropbox/getFile';
+> import { hubspotGetContacts } from './hubspot/getContacts';
+| import { hubspotGetCompanies } from './hubspot/getCompanies';
+| import { hubspotGetDeals } from './hubspot/getDeals';
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T05:17:27.946Z] [WARN   ]  ⚠ ./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetContacts' is not exported from './hubspot' (imported as 'hubspotGetContacts').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetCompanies' is not exported from './hubspot' (imported as 'hubspotGetCompanies').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetDeals' is not exported from './hubspot' (imported as 'hubspotGetDeals').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotGetTickets' is not exported from './hubspot' (imported as 'hubspotGetTickets').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateContact' is not exported from './hubspot' (imported as 'hubspotUpdateContact').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateCompany' is not exported from './hubspot' (imported as 'hubspotUpdateCompany').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotUpdateTicket' is not exported from './hubspot' (imported as 'hubspotUpdateTicket').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateTicket' is not exported from './hubspot' (imported as 'hubspotCreateTicket').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateNote' is not exported from './hubspot' (imported as 'hubspotCreateNote').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateTask' is not exported from './hubspot' (imported as 'hubspotCreateTask').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateCall' is not exported from './hubspot' (imported as 'hubspotCreateCall').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+
+./lib/workflows/actions/registry.ts
+Attempted import error: 'hubspotCreateMeeting' is not exported from './hubspot' (imported as 'hubspotCreateMeeting').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T05:56:33.100Z] [INFO   ] 2025-11-10T05:56:33.099Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-10T05:56:33.155Z] [INFO   ] 2025-11-10T05:56:33.155Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-11-10T05:56:33.578Z] [INFO   ] 2025-11-10T05:56:33.578Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-10T05:56:33.582Z] [INFO   ] 2025-11-10T05:56:33.580Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-10T05:56:33.835Z] [INFO   ] 2025-11-10T05:56:33.835Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"59f60e96af4ecd4470c09fb4ecac7f8a","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-11-10T05:56:33.835Z] [INFO   ] 2025-11-10T05:56:33.835Z [DEBUG] 📋 Initializing invite cache...
+[2025-11-10T05:56:33.840Z] [INFO   ] 2025-11-10T05:56:33.840Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-10T05:56:33.846Z] [INFO   ] 2025-11-10T05:56:33.846Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-10T05:56:33.991Z] [INFO   ] 2025-11-10T05:56:33.991Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-11-10T08:29:56.742Z] [INFO   ] 2025-11-10T08:29:56.741Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-10T08:29:56.805Z] [INFO   ] 2025-11-10T08:29:56.805Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-11-10T08:29:57.145Z] [INFO   ] 2025-11-10T08:29:57.145Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-10T08:29:57.146Z] [INFO   ] 2025-11-10T08:29:57.146Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-10T08:29:57.302Z] [INFO   ] 2025-11-10T08:29:57.302Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"badd8a57f6783a3ae439ab2bdcf33f4b","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-11-10T08:29:57.303Z] [INFO   ] 2025-11-10T08:29:57.303Z [DEBUG] 📋 Initializing invite cache...
+[2025-11-10T08:29:57.305Z] [INFO   ] 2025-11-10T08:29:57.305Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-10T08:29:57.315Z] [INFO   ] 2025-11-10T08:29:57.315Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-10T08:29:57.708Z] [INFO   ] 2025-11-10T08:29:57.708Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-11-10T09:23:20.707Z] [INFO   ] 2025-11-10T09:23:20.706Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-10T09:23:20.763Z] [INFO   ] 2025-11-10T09:23:20.763Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-11-10T09:23:21.126Z] [INFO   ] 2025-11-10T09:23:21.125Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-10T09:23:21.126Z] [INFO   ] 2025-11-10T09:23:21.126Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-10T09:23:21.356Z] [INFO   ] 2025-11-10T09:23:21.355Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"393daddc73b2ed804c00c8bf1b7dac0c","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-11-10T09:23:21.356Z] [INFO   ] 2025-11-10T09:23:21.356Z [DEBUG] 📋 Initializing invite cache...
+[2025-11-10T09:23:21.361Z] [INFO   ] 2025-11-10T09:23:21.361Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-10T09:23:21.374Z] [INFO   ] 2025-11-10T09:23:21.374Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-10T09:23:21.556Z] [INFO   ] 2025-11-10T09:23:21.555Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-11-10T10:49:02.597Z] [INFO   ] 2025-11-10T10:49:02.596Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
