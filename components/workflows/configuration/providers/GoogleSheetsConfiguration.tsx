@@ -735,9 +735,12 @@ export function GoogleSheetsConfiguration({
     
     // Prepare values for submission
     const submissionValues = { ...values };
-    
+
     // For update action, convert column_ fields to updateMapping
-    if (values.action === 'update') {
+    // Check both the old action-based flow and the new dedicated Update Row action type
+    const isUpdateAction = values.action === 'update' || nodeInfo?.type === 'google_sheets_action_update_row';
+
+    if (isUpdateAction) {
       logger.debug('🔄 Processing update action with values:', values);
       logger.debug('🔄 All value keys:', Object.keys(values));
       logger.debug('🔄 Column fields from values:', Object.keys(values).filter(k => k.startsWith('column_')));
@@ -774,9 +777,31 @@ export function GoogleSheetsConfiguration({
       });
       
       logger.debug('🔄 Final updateMapping:', updateMapping);
-      
-      // Add updateMapping to submission values
-      submissionValues.updateMapping = updateMapping;
+
+      // Only add updateMapping if we have column updates from the UI
+      // If user is using the automation mode (values field), don't add empty updateMapping
+      if (Object.keys(updateMapping).length > 0) {
+        submissionValues.updateMapping = updateMapping;
+      }
+
+      // For the dedicated Update Row action, set findRowBy based on whether we have a rowNumber
+      if (nodeInfo?.type === 'google_sheets_action_update_row' && submissionValues.rowNumber) {
+        submissionValues.findRowBy = 'row_number';
+      }
+
+      // Clean up column_ fields from submission
+      Object.keys(submissionValues).forEach(key => {
+        if (key.startsWith('column_')) {
+          delete submissionValues[key];
+        }
+      });
+
+      logger.debug('🔄 Final update submission values:', {
+        updateMapping: submissionValues.updateMapping,
+        rowNumber: submissionValues.rowNumber,
+        values: submissionValues.values,
+        findRowBy: submissionValues.findRowBy
+      });
     }
     
     // For add action, convert newRow_ fields to columnMapping

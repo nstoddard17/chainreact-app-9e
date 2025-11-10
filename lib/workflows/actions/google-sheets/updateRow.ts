@@ -23,6 +23,23 @@ export async function updateGoogleSheetsRow(
     const updateMapping = config.updateMapping || {}
     const updateMultiple = resolveValue(config.updateMultiple, input) || false
 
+    // Support both array-based values (automation) and column-based updateMapping (UI)
+    let valuesArray = null
+    if (config.values) {
+      const resolvedValues = resolveValue(config.values, input)
+      // Handle both JSON string and actual array
+      if (typeof resolvedValues === 'string') {
+        try {
+          valuesArray = JSON.parse(resolvedValues)
+        } catch (e) {
+          logger.warn('Failed to parse values as JSON, treating as single value:', resolvedValues)
+          valuesArray = [resolvedValues]
+        }
+      } else if (Array.isArray(resolvedValues)) {
+        valuesArray = resolvedValues
+      }
+    }
+
     logger.debug("Resolved update row values:", {
       spreadsheetId,
       sheetName,
@@ -34,7 +51,9 @@ export async function updateGoogleSheetsRow(
       updateMapping,
       updateMappingKeys: Object.keys(updateMapping),
       updateMappingValues: Object.values(updateMapping),
-      updateMultiple
+      updateMultiple,
+      valuesArray,
+      hasValuesArray: !!valuesArray
     })
 
     if (!spreadsheetId || !sheetName) {
@@ -71,9 +90,12 @@ export async function updateGoogleSheetsRow(
     // Find the row(s) to update
     const rowsToUpdate: number[] = []
 
-    if (findRowBy === 'row_number' && rowNumber) {
+    // Auto-detect findRowBy if not explicitly set but rowNumber is provided
+    const effectiveFindRowBy = findRowBy || (rowNumber ? 'row_number' : null)
+
+    if (effectiveFindRowBy === 'row_number' && rowNumber) {
       rowsToUpdate.push(parseInt(rowNumber.toString()))
-    } else if (findRowBy === 'column_value' && matchColumn && matchValue) {
+    } else if (effectiveFindRowBy === 'column_value' && matchColumn && matchValue) {
       // Find column index
       let columnIndex = -1
       if (/^[A-Z]+$/i.test(matchColumn)) {
@@ -90,7 +112,7 @@ export async function updateGoogleSheetsRow(
           }
         }
       }
-    } else if (findRowBy === 'multiple_conditions' && conditions.length > 0) {
+    } else if (effectiveFindRowBy === 'multiple_conditions' && conditions.length > 0) {
       for (let i = 1; i < rows.length; i++) {
         let allConditionsMet = true
         
@@ -168,41 +190,50 @@ export async function updateGoogleSheetsRow(
     for (const rowNum of rowsToUpdate) {
       const rowIndex = rowNum - 1
       const currentRow = rows[rowIndex] || []
-      const updatedRow = [...currentRow]
-      
+      let updatedRow = [...currentRow]
+
       logger.debug(`Processing row ${rowNum} (index ${rowIndex}):`, {
         currentRow,
-        headers
+        headers,
+        hasValuesArray: !!valuesArray
       })
-      
+
       // Store previous values
       previousValues.push({...currentRow})
 
-      // Apply updates
-      for (const [columnIdentifier, value] of Object.entries(updateMapping)) {
-        if (value !== undefined && value !== null) {
-          const resolvedValue = resolveValue(value, input)
-          
-          let columnIndex = -1
-          // Check if columnIdentifier is a SINGLE column letter (A-Z only, not AA, AB, etc.)
-          // and NOT a word like "Address" or "RSVP"
-          if (/^[A-Z]$/i.test(columnIdentifier)) {
-            columnIndex = columnIdentifier.toUpperCase().charCodeAt(0) - 65
-            logger.debug(`Column ${columnIdentifier} is letter notation, index: ${columnIndex}`)
-          } else {
-            columnIndex = headers.findIndex((h: string) => h === columnIdentifier)
-            logger.debug(`Column ${columnIdentifier} is header name, found at index: ${columnIndex}`)
-          }
+      // Mode 1: Array-based values (automation mode) - replaces entire row
+      if (valuesArray && Array.isArray(valuesArray)) {
+        logger.debug('Using values array for update:', valuesArray)
+        updatedRow = [...valuesArray]
+      }
+      // Mode 2: Column-based updateMapping (UI mode) - updates specific columns
+      else {
+        // Apply updates
+        for (const [columnIdentifier, value] of Object.entries(updateMapping)) {
+          if (value !== undefined && value !== null) {
+            const resolvedValue = resolveValue(value, input)
 
-          if (columnIndex >= 0) {
-            // Ensure the row has enough columns
-            while (updatedRow.length <= columnIndex) {
-              updatedRow.push('')
+            let columnIndex = -1
+            // Check if columnIdentifier is a SINGLE column letter (A-Z only, not AA, AB, etc.)
+            // and NOT a word like "Address" or "RSVP"
+            if (/^[A-Z]$/i.test(columnIdentifier)) {
+              columnIndex = columnIdentifier.toUpperCase().charCodeAt(0) - 65
+              logger.debug(`Column ${columnIdentifier} is letter notation, index: ${columnIndex}`)
+            } else {
+              columnIndex = headers.findIndex((h: string) => h === columnIdentifier)
+              logger.debug(`Column ${columnIdentifier} is header name, found at index: ${columnIndex}`)
             }
-            logger.debug(`Setting column ${columnIdentifier} (index ${columnIndex}) to value: ${resolvedValue}`)
-            updatedRow[columnIndex] = resolvedValue
-          } else {
-            logger.warn(`Could not find column index for: ${columnIdentifier}`)
+
+            if (columnIndex >= 0) {
+              // Ensure the row has enough columns
+              while (updatedRow.length <= columnIndex) {
+                updatedRow.push('')
+              }
+              logger.debug(`Setting column ${columnIdentifier} (index ${columnIndex}) to value: ${resolvedValue}`)
+              updatedRow[columnIndex] = resolvedValue
+            } else {
+              logger.warn(`Could not find column index for: ${columnIdentifier}`)
+            }
           }
         }
       }
@@ -211,7 +242,7 @@ export async function updateGoogleSheetsRow(
 
       const range = `${sheetName}!A${rowNum}:${String.fromCharCode(65 + updatedRow.length - 1)}${rowNum}`
       logger.debug(`Update range: ${range}, Updated row:`, updatedRow)
-      
+
       updateRequests.push({
         range,
         values: [updatedRow]

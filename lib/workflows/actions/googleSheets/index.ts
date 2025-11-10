@@ -3,5 +3,6 @@ export { listGoogleSheetsRows as exportGoogleSheetsData } from '../google-sheets
 export { createGoogleSheetsRow } from '../google-sheets/createRow'
 export { updateGoogleSheetsRow } from '../google-sheets/updateRow'
 export { deleteGoogleSheetsRow } from '../google-sheets/deleteRow'
+export { findGoogleSheetsRow } from '../google-sheets/findRow'
 export { clearGoogleSheetsRange } from '../google-sheets/clearRange'
 export { createGoogleSpreadsheet } from './createSpreadsheet' 

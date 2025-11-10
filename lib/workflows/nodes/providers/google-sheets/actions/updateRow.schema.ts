@@ -80,7 +80,7 @@ export const updateRowActionSchema: NodeComponent = {
         $deps: ["sheetName"],
         $condition: { sheetName: { $exists: false } }
       },
-      rows: 4,
+      rows: 8,
       placeholder: JSON.stringify(["Value 1", "Value 2", "Value 3"], null, 2),
       supportsAI: true,
       description: "Array of new values for the row. Use this with variables for automation. If provided, this overrides the table column selections."
