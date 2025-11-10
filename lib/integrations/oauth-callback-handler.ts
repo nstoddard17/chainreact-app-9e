@@ -148,12 +148,17 @@ export async function handleOAuthCallback(
     // Transform token data to standard format
     const standardTokenData = config.transformTokenData(tokenData)
 
+    // Fetch additional integration data (e.g., email, avatar) if provided
+    const additionalData = config.additionalIntegrationData
+      ? await config.additionalIntegrationData(tokenData, stateObject)
+      : undefined
+
     // Save integration to database
     const integrationId = await saveIntegration(
       stateObject,
       config.provider,
       standardTokenData,
-      config.additionalIntegrationData?.(tokenData, stateObject)
+      additionalData
     )
 
     // Auto-grant permissions based on workspace context
@@ -312,6 +317,14 @@ async function saveIntegration(
                       additionalData.photo || null
     if (avatarUrl) {
       integrationData.avatar_url = avatarUrl
+    }
+
+    // Extract provider_user_id (try multiple common field names)
+    const providerUserId = additionalData.provider_user_id || additionalData.providerUserId ||
+                           additionalData.user_id || additionalData.userId ||
+                           additionalData.id || null
+    if (providerUserId) {
+      integrationData.provider_user_id = providerUserId
     }
 
     // Store all provider-specific data in metadata JSONB column for additional info

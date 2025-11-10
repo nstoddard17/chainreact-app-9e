@@ -44,7 +44,21 @@
       "Bash(then if grep -q \"additionalIntegrationData:\" \"$file\")",
       "Bash(then if grep -q \"email:\" \"$file\")",
       "Bash(then echo \"✅ $provider\" else echo \"❌ $provider\" fi else echo \"⚠️  $provider\" fi fi done)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(supabase migration list:*)",
+      "Bash(if grep -q \"if (needsConnection)\" \"$file\")",
+      "Bash(basename:*)",
+      "Bash(if grep -q \"needsConnection?:\" \"$file\")",
+      "Bash(! grep -q \"if (needsConnection)\" \"$file\")",
+      "Bash(if ! grep -qE \"(if \\(needsConnection\\)|needsConnection \\?)\" \"$file\")",
+      "Bash(supabase db inspect:*)",
+      "Bash(node check-schema.js:*)",
+      "Bash(node check-constraints.js:*)",
+      "Bash(node verify-migrations.js:*)",
+      "Bash(do echo \"=== $file ===\" grep -A 8 \"if (needsConnection)\" \"/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/configuration/providers/$file\")",
+      "Bash(files=\"AirtableConfiguration.tsx GoogleCalendarConfiguration.tsx GoogleSheetsConfiguration.tsx TwitterConfiguration.tsx DiscordConfiguration.tsx\" for file in $files)",
+      "Bash(node check-specific-integration.js:*)",
+      "Bash(node check-all-google-sheets.js:*)"
     ],
     "edit": [
       "*"

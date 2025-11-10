@@ -86,6 +86,14 @@ export class GoogleSheetsOptionsLoader implements ProviderOptionsLoader {
           // Load data through the API
           result = await this.loadFromAPI(apiDataType, integrationId, dependsOnValue, forceRefresh, extraOptions);
 
+          // For searchColumn, prepend the "All Columns" option
+          if (fieldName === 'searchColumn' && result.length > 0) {
+            result.unshift({
+              value: '*',
+              label: 'All Columns (search any column)'
+            });
+          }
+
           resolve(result);
         } catch (error) {
           logger.error(`❌ [GoogleSheets] Error loading ${fieldName}:`, error);

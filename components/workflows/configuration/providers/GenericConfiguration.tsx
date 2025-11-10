@@ -10,6 +10,7 @@ import { GenericSelectField } from '../fields/shared/GenericSelectField';
 import { ConfigurationContainer } from '../components/ConfigurationContainer';
 import { FieldVisibilityEngine } from '@/lib/workflows/fields/visibility';
 import { supabase } from '@/utils/supabaseClient';
+import { getProviderDisplayName } from '@/lib/utils/provider-names';
 
 import { logger } from '@/lib/utils/logger'
 
@@ -1005,6 +1006,25 @@ export function GenericConfiguration({
 
   // ServiceConnectionSelector in SetupTab now handles connection UI
   // No need for duplicate connection warning here
+
+  // Show connection required message if no account is connected
+  if (needsConnection) {
+    // Get properly capitalized provider name
+    const providerId = nodeInfo?.providerId || integrationId;
+    const displayName = providerId ? getProviderDisplayName(providerId) : (integrationName || 'Account');
+
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-center">
+        <AlertTriangle className="h-12 w-12 text-yellow-500 mb-4" />
+        <h3 className="text-lg font-semibold mb-2">
+          {displayName} Connection Required
+        </h3>
+        <p className="text-sm text-slate-600 dark:text-slate-400">
+          Please connect your account to use this {nodeInfo?.isTrigger ? 'trigger' : 'action'}.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <ConfigurationContainer
