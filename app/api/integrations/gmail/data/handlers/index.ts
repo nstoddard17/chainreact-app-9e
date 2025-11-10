@@ -8,7 +8,7 @@ import { getGmailEnhancedRecipients } from './enhanced-recipients'
 import { getGmailSignatures } from './signatures'
 import { getGmailFromAddresses } from './from-addresses'
 import { getGmailRecentSenders } from './recent-senders'
-import { getSearchEmailsPreview, getAdvancedSearchPreview } from './email-preview'
+import { getSearchEmailsPreview, getAdvancedSearchPreview, getMarkAsReadPreview, getMarkAsUnreadPreview } from './email-preview'
 import { getRecentEmails } from './recent-emails'
 
 /**
@@ -38,6 +38,8 @@ export const gmailHandlers: Record<string, GmailDataHandler> = {
   // Preview handlers
   'search-emails-preview': getSearchEmailsPreview,
   'advanced-search-preview': getAdvancedSearchPreview,
+  'mark-as-read-preview': getMarkAsReadPreview,
+  'mark-as-unread-preview': getMarkAsUnreadPreview,
 
   // Recent emails (for message ID dropdown in Get Attachment)
   'gmail-recent-emails': getRecentEmails,

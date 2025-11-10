@@ -23,6 +23,7 @@ import { GoogleSheetsAddRowFields } from '../components/google-sheets/GoogleShee
 import { GoogleSheetsAddRowPreview } from '../components/google-sheets/GoogleSheetsAddRowPreview';
 import { GoogleSheetsRangePreview } from '../components/google-sheets/GoogleSheetsRangePreview';
 import { GoogleSheetsRowPreview } from '../components/google-sheets/GoogleSheetsRowPreview';
+import { GoogleSheetsFindRowPreview } from '../components/google-sheets/GoogleSheetsFindRowPreview';
 
 import { logger } from '@/lib/utils/logger'
 
@@ -454,6 +455,28 @@ export function GoogleSheetsConfiguration({
                 return false; // Hide field when condition is met
               }
             }
+
+            // Check $ne (not equals) condition
+            if ('$ne' in depCondition) {
+              const expectedValue = (depCondition as any).$ne;
+              const conditionMet = depValue !== expectedValue; // Hide when value is NOT equal
+
+              if (conditionMet) {
+                logger.debug(`📋 [GoogleSheets] Field "${field.name}" hidden by condition - ${depField} !== ${expectedValue} (value: ${depValue})`);
+                return false; // Hide field when condition is met
+              }
+            }
+
+            // Check $eq (equals) condition
+            if ('$eq' in depCondition) {
+              const expectedValue = (depCondition as any).$eq;
+              const conditionMet = depValue !== expectedValue;
+
+              if (conditionMet) {
+                logger.debug(`📋 [GoogleSheets] Field "${field.name}" hidden by condition - ${depField} === ${expectedValue} (value: ${depValue})`);
+                return false; // Hide field when condition is met (value doesn't equal the $eq value)
+              }
+            }
           }
         }
 
@@ -577,6 +600,17 @@ export function GoogleSheetsConfiguration({
             }}
             onLoadPreviewData={loadGoogleSheetsPreviewData}
             setValue={setValue}
+          />
+        );
+      }
+
+      // Special handling for Find Row Preview field
+      if (field.type === 'google_sheets_find_row_preview') {
+        return (
+          <GoogleSheetsFindRowPreview
+            key={`field-${field.name}-${index}`}
+            values={values}
+            fieldKey={`field-${field.name}-${index}`}
           />
         );
       }

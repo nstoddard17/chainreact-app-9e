@@ -789,6 +789,120 @@ export function GenericConfiguration({
     }
   };
 
+  const handleGmailMarkAsReadPreview = async () => {
+    setPreviewLoading(true);
+    setPreviewResult(null);
+    setShowPreview(false);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setPreviewResult({ error: 'Please sign in to preview search results' });
+        setShowPreview(true);
+        return;
+      }
+
+      // Build mark as read configuration
+      const markAsReadConfig = {
+        from: values.from,
+        to: values.to,
+        subjectKeywords: values.subjectKeywords,
+        bodyKeywords: values.bodyKeywords,
+        keywordMatchType: values.keywordMatchType,
+        hasAttachment: values.hasAttachment,
+        hasLabel: values.hasLabel,
+        isUnread: values.isUnread,
+        maxMessages: values.maxMessages,
+        previewLimit,
+      };
+
+      const response = await fetch(`/api/integrations/gmail/data`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          integrationId,
+          dataType: 'mark-as-read-preview',
+          options: { markAsReadConfig }
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        setPreviewResult({ error: errorData.error || response.statusText });
+      } else {
+        const result = await response.json();
+        setPreviewResult(result.data);
+      }
+      setShowPreview(true);
+    } catch (error: any) {
+      logger.error('[GenericConfiguration] Error fetching Gmail mark as read preview:', error);
+      setPreviewResult({ error: error?.message || 'Failed to load preview' });
+      setShowPreview(true);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleGmailMarkAsUnreadPreview = async () => {
+    setPreviewLoading(true);
+    setPreviewResult(null);
+    setShowPreview(false);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setPreviewResult({ error: 'Please sign in to preview search results' });
+        setShowPreview(true);
+        return;
+      }
+
+      // Build mark as unread configuration
+      const markAsUnreadConfig = {
+        from: values.from,
+        to: values.to,
+        subjectKeywords: values.subjectKeywords,
+        bodyKeywords: values.bodyKeywords,
+        keywordMatchType: values.keywordMatchType,
+        hasAttachment: values.hasAttachment,
+        hasLabel: values.hasLabel,
+        isUnread: values.isUnread,
+        maxMessages: values.maxMessages,
+        previewLimit,
+      };
+
+      const response = await fetch(`/api/integrations/gmail/data`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          integrationId,
+          dataType: 'mark-as-unread-preview',
+          options: { markAsUnreadConfig }
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        setPreviewResult({ error: errorData.error || response.statusText });
+      } else {
+        const result = await response.json();
+        setPreviewResult(result.data);
+      }
+      setShowPreview(true);
+    } catch (error: any) {
+      logger.error('[GenericConfiguration] Error fetching Gmail mark as unread preview:', error);
+      setPreviewResult({ error: error?.message || 'Failed to load preview' });
+      setShowPreview(true);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     logger.debug('🚀 [GenericConfiguration] handleSubmit called for:', nodeInfo?.type);
@@ -1719,6 +1833,354 @@ export function GenericConfiguration({
                                         </div>
                                       ))}
                                     </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                      {previewResult.hasMore && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400 italic">
+                          ...and more results
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      No emails found matching your criteria
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Gmail Mark as Read Preview Button - Only when search mode is active with criteria */}
+      {nodeInfo?.type === 'gmail_action_mark_as_read' &&
+       values?.messageSelection === 'search' &&
+       integrationId &&
+       (values.from || values.to || values.subjectKeywords?.length > 0 || values.bodyKeywords?.length > 0 || values.hasLabel || values.isUnread !== 'any') && (
+        <div className="border-t border-slate-200 dark:border-slate-700 pt-4 mt-6 space-y-3">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleGmailMarkAsReadPreview}
+            disabled={previewLoading}
+            className="w-full"
+          >
+            {previewLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Loading Preview...
+              </>
+            ) : (
+              <>
+                <Search className="mr-2 h-4 w-4" />
+                Preview Emails to Mark as Read
+              </>
+            )}
+          </Button>
+
+          {/* Preview Results */}
+          {showPreview && previewResult && (
+            <div className="mt-4 p-4 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800">
+              {previewResult.error ? (
+                <div className="text-sm text-red-600 dark:text-red-400">
+                  <AlertTriangle className="inline-block mr-2 h-4 w-4" />
+                  {previewResult.error}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex flex-col gap-1">
+                      <h4 className="font-medium text-sm text-slate-700 dark:text-slate-300">
+                        Preview Results
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Found {previewResult.totalCount}{previewResult.hasMore ? '+' : ''} email{previewResult.totalCount === 1 ? '' : 's'} that will be marked as read
+                        {previewResult.emails && previewResult.emails.length > 0 && ` (showing ${previewResult.emails.length})`}
+                      </p>
+                      {previewResult.query && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400 font-mono bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded">
+                          {previewResult.query}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">Show:</span>
+                      <div className="min-w-[100px]">
+                        <GenericSelectField
+                          field={{
+                            name: 'previewLimit',
+                            label: '',
+                            type: 'select',
+                            required: false,
+                            hideClearButton: true,
+                            disableSearch: true
+                          }}
+                          value={previewLimit.toString()}
+                          onChange={(value) => {
+                            setPreviewLimit(parseInt(value))
+                            setTimeout(() => handleGmailMarkAsReadPreview(), 100)
+                          }}
+                          options={[
+                            { value: '5', label: '5' },
+                            { value: '10', label: '10' },
+                            { value: '25', label: '25' },
+                            { value: '50', label: '50' }
+                          ]}
+                          isLoading={false}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {previewResult.emails && previewResult.emails.length > 0 ? (
+                    <div className="space-y-2">
+                      {previewResult.emails.map((email: any, index: number) => {
+                        const isExpanded = expandedEmails.has(email.id || index.toString());
+                        return (
+                          <div
+                            key={email.id || index}
+                            className="rounded border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                            onClick={() => {
+                              const emailKey = email.id || index.toString();
+                              setExpandedEmails(prev => {
+                                const newSet = new Set(prev);
+                                if (newSet.has(emailKey)) {
+                                  newSet.delete(emailKey);
+                                } else {
+                                  newSet.add(emailKey);
+                                }
+                                return newSet;
+                              });
+                            }}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-center gap-2 flex-1">
+                                {isExpanded ? (
+                                  <ChevronUp className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                                )}
+                                <div className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                                  {email.subject}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                {email.hasAttachment && (
+                                  <span className="text-xs text-slate-500 dark:text-slate-400">📎</span>
+                                )}
+                                {email.isStarred && (
+                                  <span className="text-xs text-yellow-500">⭐</span>
+                                )}
+                                {email.isUnread && (
+                                  <span className="inline-block w-2 h-2 rounded-full bg-blue-500"></span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
+                              <div>
+                                <span className="font-medium">From:</span> {email.from}
+                              </div>
+                              <div>
+                                <span className="font-medium">Date:</span>{' '}
+                                {email.date ? new Date(email.date).toLocaleDateString() : 'Unknown'}
+                              </div>
+                            </div>
+                            {!isExpanded && email.snippet && (
+                              <div className="mt-2 text-xs text-slate-500 dark:text-slate-400 line-clamp-2">
+                                {email.snippet}
+                              </div>
+                            )}
+
+                            {isExpanded && (
+                              <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+                                {email.to && (
+                                  <div className="mb-2 text-xs text-slate-600 dark:text-slate-400">
+                                    <span className="font-medium">To:</span> {email.to}
+                                  </div>
+                                )}
+                                {email.snippet && (
+                                  <div className="mb-2 text-xs text-slate-600 dark:text-slate-400">
+                                    <span className="font-medium">Preview:</span> {email.snippet}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                      {previewResult.hasMore && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400 italic">
+                          ...and more results
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      No emails found matching your criteria
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Gmail Mark as Unread Preview Button - Only when search mode is active with criteria */}
+      {nodeInfo?.type === 'gmail_action_mark_as_unread' &&
+       values?.messageSelection === 'search' &&
+       integrationId &&
+       (values.from || values.to || values.subjectKeywords?.length > 0 || values.bodyKeywords?.length > 0 || values.hasLabel || values.isUnread !== 'any') && (
+        <div className="border-t border-slate-200 dark:border-slate-700 pt-4 mt-6 space-y-3">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleGmailMarkAsUnreadPreview}
+            disabled={previewLoading}
+            className="w-full"
+          >
+            {previewLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Loading Preview...
+              </>
+            ) : (
+              <>
+                <Search className="mr-2 h-4 w-4" />
+                Preview Emails to Mark as Unread
+              </>
+            )}
+          </Button>
+
+          {/* Preview Results */}
+          {showPreview && previewResult && (
+            <div className="mt-4 p-4 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800">
+              {previewResult.error ? (
+                <div className="text-sm text-red-600 dark:text-red-400">
+                  <AlertTriangle className="inline-block mr-2 h-4 w-4" />
+                  {previewResult.error}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex flex-col gap-1">
+                      <h4 className="font-medium text-sm text-slate-700 dark:text-slate-300">
+                        Preview Results
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Found {previewResult.totalCount}{previewResult.hasMore ? '+' : ''} email{previewResult.totalCount === 1 ? '' : 's'} that will be marked as unread
+                        {previewResult.emails && previewResult.emails.length > 0 && ` (showing ${previewResult.emails.length})`}
+                      </p>
+                      {previewResult.query && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400 font-mono bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded">
+                          {previewResult.query}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">Show:</span>
+                      <div className="min-w-[100px]">
+                        <GenericSelectField
+                          field={{
+                            name: 'previewLimit',
+                            label: '',
+                            type: 'select',
+                            required: false,
+                            hideClearButton: true,
+                            disableSearch: true
+                          }}
+                          value={previewLimit.toString()}
+                          onChange={(value) => {
+                            setPreviewLimit(parseInt(value))
+                            setTimeout(() => handleGmailMarkAsUnreadPreview(), 100)
+                          }}
+                          options={[
+                            { value: '5', label: '5' },
+                            { value: '10', label: '10' },
+                            { value: '25', label: '25' },
+                            { value: '50', label: '50' }
+                          ]}
+                          isLoading={false}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {previewResult.emails && previewResult.emails.length > 0 ? (
+                    <div className="space-y-2">
+                      {previewResult.emails.map((email: any, index: number) => {
+                        const isExpanded = expandedEmails.has(email.id || index.toString());
+                        return (
+                          <div
+                            key={email.id || index}
+                            className="rounded border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                            onClick={() => {
+                              const emailKey = email.id || index.toString();
+                              setExpandedEmails(prev => {
+                                const newSet = new Set(prev);
+                                if (newSet.has(emailKey)) {
+                                  newSet.delete(emailKey);
+                                } else {
+                                  newSet.add(emailKey);
+                                }
+                                return newSet;
+                              });
+                            }}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-center gap-2 flex-1">
+                                {isExpanded ? (
+                                  <ChevronUp className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                                )}
+                                <div className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                                  {email.subject}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                {email.hasAttachment && (
+                                  <span className="text-xs text-slate-500 dark:text-slate-400">📎</span>
+                                )}
+                                {email.isStarred && (
+                                  <span className="text-xs text-yellow-500">⭐</span>
+                                )}
+                                {email.isUnread && (
+                                  <span className="inline-block w-2 h-2 rounded-full bg-blue-500"></span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
+                              <div>
+                                <span className="font-medium">From:</span> {email.from}
+                              </div>
+                              <div>
+                                <span className="font-medium">Date:</span>{' '}
+                                {email.date ? new Date(email.date).toLocaleDateString() : 'Unknown'}
+                              </div>
+                            </div>
+                            {!isExpanded && email.snippet && (
+                              <div className="mt-2 text-xs text-slate-500 dark:text-slate-400 line-clamp-2">
+                                {email.snippet}
+                              </div>
+                            )}
+
+                            {isExpanded && (
+                              <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+                                {email.to && (
+                                  <div className="mb-2 text-xs text-slate-600 dark:text-slate-400">
+                                    <span className="font-medium">To:</span> {email.to}
+                                  </div>
+                                )}
+                                {email.snippet && (
+                                  <div className="mb-2 text-xs text-slate-600 dark:text-slate-400">
+                                    <span className="font-medium">Preview:</span> {email.snippet}
                                   </div>
                                 )}
                               </div>
