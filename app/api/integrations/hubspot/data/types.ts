@@ -112,6 +112,36 @@ export interface HubSpotDealStage {
   archived: boolean
 }
 
+export interface HubSpotTicket {
+  id: string
+  properties: {
+    subject?: string
+    content?: string
+    hs_pipeline?: string
+    hs_pipeline_stage?: string
+    hs_ticket_priority?: string
+    hs_ticket_category?: string
+    hubspot_owner_id?: string
+    source_type?: string
+    hs_resolution?: string
+    createdate?: string
+    hs_lastmodifieddate?: string
+    [key: string]: any
+  }
+  createdAt: string
+  updatedAt: string
+  archived: boolean
+}
+
+export interface HubSpotTicketStage {
+  id: string
+  label: string
+  displayOrder: number
+  createdAt: string
+  updatedAt: string
+  archived: boolean
+}
+
 export interface HubSpotProperty {
   name: string
   label: string

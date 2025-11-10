@@ -161,6 +161,18 @@ import {
   createHubSpotDeal,
   addContactToHubSpotList,
   updateHubSpotDeal,
+  hubspotUpdateContact,
+  hubspotUpdateCompany,
+  hubspotCreateTicket,
+  hubspotUpdateTicket,
+  hubspotGetTickets,
+  hubspotCreateNote,
+  hubspotCreateTask,
+  hubspotCreateCall,
+  hubspotCreateMeeting,
+  hubspotGetContacts,
+  hubspotGetCompanies,
+  hubspotGetDeals,
 } from './hubspot'
 
 // HubSpot dynamic actions
@@ -259,9 +271,7 @@ import { getTrelloCards } from './trello/getCards'
 import { getSlackMessages } from './slack/getMessages'
 import { getOnedriveFile } from './onedrive/getFile'
 import { getDropboxFile } from './dropbox/getFile'
-import { hubspotGetContacts } from './hubspot/getContacts'
-import { hubspotGetCompanies } from './hubspot/getCompanies'
-import { hubspotGetDeals } from './hubspot/getDeals'
+// HubSpot Get actions now imported from index.ts above
 import { mailchimpGetSubscribers } from './mailchimp/getSubscribers'
 import { mailchimpAddSubscriber } from './mailchimp/addSubscriber'
 import { mailchimpUpdateSubscriber } from './mailchimp/updateSubscriber'
@@ -628,6 +638,21 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "hubspot_action_get_contacts": createExecutionContextWrapper(hubspotGetContacts),
   "hubspot_action_get_companies": createExecutionContextWrapper(hubspotGetCompanies),
   "hubspot_action_get_deals": createExecutionContextWrapper(hubspotGetDeals),
+  "hubspot_action_get_tickets": createExecutionContextWrapper(hubspotGetTickets),
+
+  // HubSpot Update actions
+  "hubspot_action_update_contact": createExecutionContextWrapper(hubspotUpdateContact),
+  "hubspot_action_update_company": createExecutionContextWrapper(hubspotUpdateCompany),
+  "hubspot_action_update_ticket": createExecutionContextWrapper(hubspotUpdateTicket),
+
+  // HubSpot Ticket actions
+  "hubspot_action_create_ticket": createExecutionContextWrapper(hubspotCreateTicket),
+
+  // HubSpot Engagement actions
+  "hubspot_action_create_note": createExecutionContextWrapper(hubspotCreateNote),
+  "hubspot_action_create_task": createExecutionContextWrapper(hubspotCreateTask),
+  "hubspot_action_create_call": createExecutionContextWrapper(hubspotCreateCall),
+  "hubspot_action_create_meeting": createExecutionContextWrapper(hubspotCreateMeeting),
 
   // Microsoft OneNote actions - wrapped to handle new calling convention
   "microsoft-onenote_action_create_page": (params: { config: any; userId: string; input: Record<string, any> }) =>

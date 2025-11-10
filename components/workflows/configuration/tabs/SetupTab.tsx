@@ -85,6 +85,9 @@ export function SetupTab(props: SetupTabProps) {
         lastChecked: integration.last_checked ? new Date(integration.last_checked) : undefined,
         // Use disconnect_reason for error message, fallback to generic error
         error: integration.disconnect_reason || integration.error,
+        workspace_type: integration.workspace_type,
+        workspace_id: integration.workspace_id,
+        created_at: integration.created_at,
       }
     })
   }, [requiresConnection, nodeInfo?.providerId, integrations])
