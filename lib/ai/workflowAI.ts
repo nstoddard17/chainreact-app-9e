@@ -99,6 +99,8 @@ AVAILABLE TRIGGERS:
 - trello_trigger_new_card: Triggers when a new card is created in Trello
 - gumroad_trigger_new_sale: Triggers when a new sale is made on Gumroad
 - gumroad_trigger_new_subscriber: Triggers when a new subscriber is gained on Gumroad
+- gumroad_trigger_subscription_cancelled: Triggers when a subscription is cancelled on Gumroad
+- gumroad_trigger_sale_refunded: Triggers when a sale is refunded on Gumroad
 - shopify_trigger_new_order: Triggers when a new order is placed on Shopify
 - stripe_trigger_new_payment: Triggers when a new payment is made on Stripe
 - paypal_trigger_new_payment: Triggers when a new payment is made on PayPal
@@ -231,8 +233,10 @@ AVAILABLE ACTIONS:
 - trello_action_create_list: Create a list in Trello
 - trello_action_create_card: Create a card in Trello
 - trello_action_move_card: Move a card in Trello
-- gumroad_action_create_product: Create a product on Gumroad
 - gumroad_action_get_sales_analytics: Get sales analytics from Gumroad
+- gumroad_action_mark_as_shipped: Mark a Gumroad sale as shipped
+- gumroad_action_refund_sale: Refund a Gumroad sale
+- gumroad_action_list_sales: List sales from Gumroad with filters
 - shopify_action_create_customer: Create a customer on Shopify
 - shopify_action_create_order: Create an order on Shopify
 - shopify_action_create_product: Create a product on Shopify

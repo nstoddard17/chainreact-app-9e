@@ -128,3 +128,64 @@ Import trace for requested module:
 [2025-11-10T03:40:16.779Z] [INFO   ]  ✓ Compiled in 1395ms (2754 modules)
 [2025-11-10T03:40:22.174Z] [INFO   ]  ✓ Compiled in 512ms (2754 modules)
 [2025-11-10T03:40:49.345Z] [INFO   ]  ✓ Compiled in 472ms (2754 modules)
+[2025-11-10T03:41:03.204Z] [INFO   ]  ✓ Compiled in 973ms (2751 modules)
+[2025-11-10T03:41:06.840Z] [INFO   ]  ✓ Compiled in 699ms (2751 modules)
+[2025-11-10T03:41:37.132Z] [INFO   ]  ✓ Compiled in 788ms (2751 modules)
+[2025-11-10T03:41:46.846Z] [INFO   ]  ✓ Compiled in 552ms (2751 modules)
+[2025-11-10T03:42:09.516Z] [INFO   ]  ✓ Compiled in 481ms (2751 modules)
+[2025-11-10T03:42:28.405Z] [INFO   ]  ✓ Compiled in 1366ms (2751 modules)
+[2025-11-10T03:42:59.778Z] [INFO   ]  ✓ Compiled in 310ms (2751 modules)
+[2025-11-10T03:43:24.292Z] [INFO   ]  ✓ Compiled in 383ms (2751 modules)
+[2025-11-10T03:43:58.056Z] [INFO   ]  ✓ Compiled in 417ms (2753 modules)
+[2025-11-10T03:44:25.133Z] [INFO   ]  ✓ Compiled in 454ms (2753 modules)
+[2025-11-10T03:46:01.972Z] [INFO   ]  ✓ Compiled in 538ms (2753 modules)
+[2025-11-10T03:55:16.373Z] [INFO   ]  ✓ Compiled in 2.2s (2753 modules)
+[2025-11-10T03:55:43.590Z] [INFO   ]  ✓ Compiled in 668ms (2753 modules)
+[2025-11-10T03:55:49.534Z] [INFO   ]  ✓ Compiled in 591ms (2753 modules)
+[2025-11-10T03:55:56.445Z] [INFO   ]  ✓ Compiled in 651ms (2753 modules)
+[2025-11-10T03:56:05.606Z] [INFO   ]  ✓ Compiled in 902ms (2753 modules)
+[2025-11-10T03:57:06.017Z] [INFO   ]  ✓ Compiled in 1290ms (2752 modules)
+[2025-11-10T03:57:11.785Z] [INFO   ]  ✓ Compiled in 541ms (2751 modules)
+[2025-11-10T03:57:19.828Z] [ERROR  ]  ⨯ ./lib/workflows/nodes/providers/gmail/index.ts
+Module parse failed: Export 'updateSignature' is not defined (129:184)
+| export { // Triggers
+| newEmailTrigger, newAttachmentTrigger, newStarredEmailTrigger, newLabeledEmailTrigger, // Actions
+> sendEmail, replyToEmail, createDraft, createDraftReply, archiveEmail, deleteEmail, addLabel, removeLabel, createLabel, searchEmails, getAttachment, downloadAttachment, advancedSearch, updateSignature, markAsRead, markAsUnread,  };
+| 
+
+Import trace for requested module:
+./lib/workflows/nodes/providers/gmail/index.ts
+./lib/workflows/nodes/index.ts
+./lib/workflows/execution/executionLogger.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T03:57:26.009Z] [ERROR  ]  ⨯ ./lib/workflows/nodes/providers/gmail/index.ts
+Module parse failed: Export 'updateSignature' is not defined (128:184)
+| export { // Triggers
+| newEmailTrigger, newAttachmentTrigger, newStarredEmailTrigger, newLabeledEmailTrigger, // Actions
+> sendEmail, replyToEmail, createDraft, createDraftReply, archiveEmail, deleteEmail, addLabel, removeLabel, createLabel, searchEmails, getAttachment, downloadAttachment, advancedSearch, updateSignature, markAsRead, markAsUnread,  };
+| 
+
+Import trace for requested module:
+./lib/workflows/nodes/providers/gmail/index.ts
+./lib/workflows/nodes/index.ts
+./lib/workflows/execution/executionLogger.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T03:57:32.197Z] [INFO   ]  ✓ Compiled in 525ms (2751 modules)
+[2025-11-10T04:02:08.262Z] [INFO   ]  ✓ Compiled in 1441ms (2751 modules)
+[2025-11-10T04:02:49.241Z] [INFO   ]  ✓ Compiled in 686ms (2751 modules)
+[2025-11-10T04:07:28.309Z] [INFO   ]  ✓ Compiled in 4.6s (2751 modules)
+[2025-11-10T04:08:32.306Z] [INFO   ]  ✓ Compiled in 2.5s (2751 modules)
+[2025-11-10T04:08:38.332Z] [WARN   ]  ⚠ ./lib/workflows/actions/registry.ts
+Attempted import error: 'clearGoogleSheetsRange' is not exported from './googleSheets' (imported as 'clearGoogleSheetsRange').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T04:08:49.590Z] [INFO   ]  ✓ Compiled in 490ms (2752 modules)
+[2025-11-10T04:09:35.265Z] [INFO   ]  ✓ Compiled in 643ms (2752 modules)

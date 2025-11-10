@@ -31,12 +31,11 @@ export function GoogleSheetsRangePreview({
   const [selectionStart, setSelectionStart] = useState<{ row: number; col: string } | null>(null);
   const [hoveredCell, setHoveredCell] = useState<{ row: number; col: string } | null>(null);
 
-  // Get column headers - show first 10 for display
+  // Get column headers - show all columns with horizontal scrolling
   const allColumns = previewData.length > 0 && previewData[0].fields
     ? Object.keys(previewData[0].fields).filter(key => !key.startsWith('_'))
     : [];
-  const columns = allColumns.slice(0, 10);
-  const hasMoreColumns = allColumns.length > 10;
+  const columns = allColumns; // Show all columns
 
   // Convert column index to letter (0 = A, 1 = B, etc.)
   const getColumnLetter = (index: number): string => {
@@ -204,11 +203,6 @@ export function GoogleSheetsRangePreview({
                             {column}
                           </TableHead>
                         ))}
-                        {hasMoreColumns && (
-                          <TableHead className="text-xs font-medium text-slate-600 uppercase">
-                            +{allColumns.length - 10} more
-                          </TableHead>
-                        )}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -239,11 +233,6 @@ export function GoogleSheetsRangePreview({
                               </TableCell>
                             );
                           })}
-                          {hasMoreColumns && (
-                            <TableCell className="text-xs italic text-slate-500">
-                              ...
-                            </TableCell>
-                          )}
                         </TableRow>
                       ))}
                     </TableBody>
