@@ -283,13 +283,43 @@ async function saveIntegration(
     integrationData.user_id = null
   }
 
-  // Store provider-specific data in metadata JSONB column
-  // All additional data goes into metadata since we don't have dedicated columns
-  if (additionalData && Object.keys(additionalData).length > 0) {
-    // Merge with existing metadata if present
-    integrationData.metadata = {
-      ...(integrationData.metadata || {}),
-      ...additionalData
+  // Extract account identity fields from additionalData and store as top-level fields
+  // This makes them easier to query and display in the UI
+  if (additionalData) {
+    // Extract email (try multiple common field names)
+    const email = additionalData.email || additionalData.userEmail || null
+    if (email) {
+      integrationData.email = email
+    }
+
+    // Extract username (try multiple common field names)
+    const username = additionalData.username || additionalData.name || additionalData.user_name || null
+    if (username) {
+      integrationData.username = username
+    }
+
+    // Extract account_name (try multiple common field names)
+    const accountName = additionalData.account_name || additionalData.accountName ||
+                        additionalData.name || additionalData.real_name || email || null
+    if (accountName) {
+      integrationData.account_name = accountName
+    }
+
+    // Extract avatar_url (try multiple common field names)
+    const avatarUrl = additionalData.avatar_url || additionalData.avatarUrl ||
+                      additionalData.avatar || additionalData.picture ||
+                      additionalData.profile_image || additionalData.profile_picture ||
+                      additionalData.photo || null
+    if (avatarUrl) {
+      integrationData.avatar_url = avatarUrl
+    }
+
+    // Store all provider-specific data in metadata JSONB column for additional info
+    if (Object.keys(additionalData).length > 0) {
+      integrationData.metadata = {
+        ...(integrationData.metadata || {}),
+        ...additionalData
+      }
     }
   }
 
@@ -309,25 +339,41 @@ async function saveIntegration(
     logger.debug(`✅ Updated existing integration: ${state.integrationId}`)
     return state.integrationId
   } else {
-    // Insert new integration
-    // For personal, use upsert with conflict resolution to overwrite old tokens
-    if (workspaceType === 'personal') {
-      const { data, error } = await supabase
+    // EMAIL-BASED DEDUPLICATION: Check if this account already exists
+    // This allows multiple accounts per provider (different emails = different integrations)
+    const email = integrationData.email
+
+    if (email && workspaceType === 'personal') {
+      // Check if user already has this provider connected with this email
+      const { data: existingIntegration } = await supabase
         .from('integrations')
-        .upsert(integrationData, {
-          onConflict: 'user_id, provider',
-        })
         .select('id')
+        .eq('user_id', state.userId)
+        .eq('provider', provider)
+        .eq('email', email)
+        .eq('workspace_type', 'personal')
         .single()
 
-      if (error) {
-        logger.error('Error upserting integration:', error)
-        throw new Error(`Database Error: ${error.message}`)
-      }
+      if (existingIntegration) {
+        // Update existing integration (refresh tokens for same account)
+        const { error } = await supabase
+          .from('integrations')
+          .update(integrationData)
+          .eq('id', existingIntegration.id)
 
-      return data.id
-    } else {
-      // For team/org, just insert (multiple allowed)
+        if (error) {
+          logger.error('Error updating integration by email:', error)
+          throw new Error(`Database Error: ${error.message}`)
+        }
+
+        logger.debug(`✅ Updated existing integration by email: ${existingIntegration.id}`)
+        return existingIntegration.id
+      }
+    }
+
+    // If email is different or doesn't exist, insert as new integration
+    // This allows multiple accounts per provider
+    if (workspaceType === 'personal') {
       const { data, error } = await supabase
         .from('integrations')
         .insert(integrationData)
@@ -339,6 +385,50 @@ async function saveIntegration(
         throw new Error(`Database Error: ${error.message}`)
       }
 
+      logger.debug(`✅ Created new integration: ${data.id}`)
+      return data.id
+    } else {
+      // For team/org, check by email if available
+      if (email) {
+        const { data: existingIntegration } = await supabase
+          .from('integrations')
+          .select('id')
+          .eq('provider', provider)
+          .eq('email', email)
+          .eq('workspace_type', workspaceType)
+          .eq('workspace_id', workspaceId)
+          .single()
+
+        if (existingIntegration) {
+          // Update existing team/org integration
+          const { error } = await supabase
+            .from('integrations')
+            .update(integrationData)
+            .eq('id', existingIntegration.id)
+
+          if (error) {
+            logger.error('Error updating team/org integration:', error)
+            throw new Error(`Database Error: ${error.message}`)
+          }
+
+          logger.debug(`✅ Updated existing team/org integration: ${existingIntegration.id}`)
+          return existingIntegration.id
+        }
+      }
+
+      // Insert new team/org integration
+      const { data, error } = await supabase
+        .from('integrations')
+        .insert(integrationData)
+        .select('id')
+        .single()
+
+      if (error) {
+        logger.error('Error inserting integration:', error)
+        throw new Error(`Database Error: ${error.message}`)
+      }
+
+      logger.debug(`✅ Created new team/org integration: ${data.id}`)
       return data.id
     }
   }

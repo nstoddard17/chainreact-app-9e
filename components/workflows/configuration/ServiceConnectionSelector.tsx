@@ -19,7 +19,17 @@ import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { StaticIntegrationLogo } from '@/components/ui/static-integration-logo'
 import { Combobox, ComboboxOption } from '@/components/ui/combobox'
-import { CheckCircle, AlertCircle, RefreshCw, ExternalLink, Plus, Users, Building2, User } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { CheckCircle, AlertCircle, RefreshCw, ExternalLink, Plus, Users, Building2, User, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { fetchWithTimeout } from '@/lib/utils/fetch-with-timeout'
 import { logger } from '@/lib/utils/logger'
@@ -56,6 +66,8 @@ interface ServiceConnectionSelectorProps {
   onConnect?: () => void
   /** Callback when user wants to reconnect */
   onReconnect?: () => void
+  /** Callback when user wants to delete a connection */
+  onDeleteConnection?: (connectionId: string) => void
   /** Whether the component is in a loading state */
   isLoading?: boolean
   /** Custom className */
@@ -72,6 +84,7 @@ export function ServiceConnectionSelector({
   onSelectConnection,
   onConnect,
   onReconnect,
+  onDeleteConnection,
   isLoading = false,
   className,
   autoFetch = true,
@@ -80,6 +93,8 @@ export function ServiceConnectionSelector({
   const [fetchedConnections, setFetchedConnections] = useState<Connection[]>([])
   const [isFetching, setIsFetching] = useState(false)
   const [fetchError, setFetchError] = useState<string | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [connectionToDelete, setConnectionToDelete] = useState<Connection | null>(null)
 
   // Use prop connections if provided, otherwise use fetched connections
   const connections = propConnections || fetchedConnections
@@ -138,20 +153,6 @@ export function ServiceConnectionSelector({
   const hasError = connection?.status === 'error'
   const isDisconnected = !connection || connection.status === 'disconnected'
 
-  // Debug logging
-  React.useEffect(() => {
-    if (connection) {
-      logger.debug('[ServiceConnectionSelector] Current connection data:', {
-        id: connection.id,
-        email: connection.email,
-        username: connection.username,
-        accountName: connection.accountName,
-        account_name: connection.account_name,
-        display: getAccountDisplay(connection)
-      })
-    }
-  }, [connection])
-
   const handleRefresh = async () => {
     if (!onReconnect) return
     setIsRefreshing(true)
@@ -172,13 +173,13 @@ export function ServiceConnectionSelector({
   const getWorkspaceIcon = (workspaceType?: string) => {
     switch (workspaceType) {
       case 'personal':
-        return <User className="w-3 h-3" />
+        return <User className="w-3.5 h-3.5" />
       case 'team':
-        return <Users className="w-3 h-3" />
+        return <Users className="w-3.5 h-3.5" />
       case 'organization':
-        return <Building2 className="w-3 h-3" />
+        return <Building2 className="w-3.5 h-3.5" />
       default:
-        return null
+        return <User className="w-3.5 h-3.5" />
     }
   }
 
@@ -196,20 +197,6 @@ export function ServiceConnectionSelector({
     }
   }
 
-  // Get workspace badge color
-  const getWorkspaceBadgeClass = (workspaceType?: string) => {
-    switch (workspaceType) {
-      case 'personal':
-        return 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-400 dark:border-blue-800/50'
-      case 'team':
-        return 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/50 dark:text-purple-400 dark:border-purple-800/50'
-      case 'organization':
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-800/50'
-      default:
-        return 'bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950/50 dark:text-gray-400 dark:border-gray-800/50'
-    }
-  }
-
   // Get status badge color
   const getStatusBadgeClass = (status?: string) => {
     switch (status) {
@@ -224,190 +211,294 @@ export function ServiceConnectionSelector({
     }
   }
 
+  // Get initials from account name or email
+  const getInitials = (conn: Connection): string => {
+    const display = getAccountDisplay(conn)
+    if (!display) return '?'
+
+    // If it's an email, get first letter of username
+    if (display.includes('@')) {
+      return display.charAt(0).toUpperCase()
+    }
+
+    // If it's a name, get first letters of first and last name
+    const parts = display.split(' ')
+    if (parts.length >= 2) {
+      return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase()
+    }
+
+    return display.charAt(0).toUpperCase()
+  }
+
+  // Generate consistent color for each account based on email
+  const getAvatarColor = (conn: Connection): string => {
+    const display = getAccountDisplay(conn) || ''
+    const colors = [
+      'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300',
+      'bg-purple-100 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300',
+      'bg-pink-100 text-pink-700 dark:bg-pink-950/50 dark:text-pink-300',
+      'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300',
+      'bg-orange-100 text-orange-700 dark:bg-orange-950/50 dark:text-orange-300',
+      'bg-cyan-100 text-cyan-700 dark:bg-cyan-950/50 dark:text-cyan-300',
+      'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300',
+      'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300',
+    ]
+
+    // Simple hash function to consistently assign colors
+    let hash = 0
+    for (let i = 0; i < display.length; i++) {
+      hash = display.charCodeAt(i) + ((hash << 5) - hash)
+    }
+
+    return colors[Math.abs(hash) % colors.length]
+  }
+
+  // Handle delete confirmation
+  const handleDeleteClick = (conn: Connection, e: React.MouseEvent) => {
+    e.stopPropagation() // Prevent option selection
+    setConnectionToDelete(conn)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleConfirmDelete = () => {
+    if (connectionToDelete && onDeleteConnection) {
+      onDeleteConnection(connectionToDelete.id)
+      setDeleteDialogOpen(false)
+      setConnectionToDelete(null)
+    }
+  }
+
   // Format options for Combobox
   const comboboxOptions: ComboboxOption[] = connections.map((conn) => ({
     value: conn.id,
     label: (
-      <div className="flex items-center gap-2 py-1 w-full">
-        <span className="font-medium text-sm truncate">
+      <div className="flex items-center gap-2 py-1 w-full group">
+        {/* Profile Picture / Initials */}
+        <div className={cn(
+          "w-5 h-5 rounded flex items-center justify-center text-[9px] font-semibold flex-shrink-0",
+          getAvatarColor(conn)
+        )}>
+          {getInitials(conn)}
+        </div>
+
+        <span className="font-medium text-sm truncate flex-1">
           {getAccountDisplay(conn)}
         </span>
-        <Badge
-          variant="outline"
-          className={cn(
-            "text-[9px] h-4 px-1.5 font-medium border flex-shrink-0",
-            getWorkspaceBadgeClass(conn.workspace_type)
-          )}
-        >
+
+        {/* Workspace Type - Icon + Text (Minimal) */}
+        <div className="flex items-center gap-1 text-muted-foreground/70 flex-shrink-0">
           {getWorkspaceIcon(conn.workspace_type)}
-          <span className="ml-1">{getWorkspaceLabel(conn.workspace_type)}</span>
-        </Badge>
-        <Badge
-          variant="outline"
-          className={cn(
-            "text-[9px] h-4 px-1.5 font-medium border flex-shrink-0",
-            getStatusBadgeClass(conn.status)
-          )}
-        >
-          {conn.status === 'connected' ? 'Active' :
-           conn.status === 'error' ? 'Error' :
-           conn.status === 'pending' ? 'Pending' : 'Disconnected'}
-        </Badge>
+          <span className="text-[10px] font-medium">
+            {getWorkspaceLabel(conn.workspace_type)}
+          </span>
+        </div>
+
+        {conn.status !== 'connected' && (
+          <Badge
+            variant="outline"
+            className={cn(
+              "text-[9px] h-4 px-1.5 font-medium border flex-shrink-0",
+              getStatusBadgeClass(conn.status)
+            )}
+          >
+            {conn.status === 'error' ? 'Error' :
+             conn.status === 'pending' ? 'Pending' : 'Disconnected'}
+          </Badge>
+        )}
+
+        {/* Delete button - only show if multiple connections and callback provided */}
+        {connections.length > 1 && onDeleteConnection && (
+          <button
+            onClick={(e) => handleDeleteClick(conn, e)}
+            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-destructive/10 rounded flex-shrink-0"
+            title="Remove account"
+          >
+            <X className="w-3.5 h-3.5 text-destructive" />
+          </button>
+        )}
       </div>
     ),
     searchValue: `${getAccountDisplay(conn)} ${getWorkspaceLabel(conn.workspace_type)} ${conn.status}`
   }))
 
   return (
-    <div className={cn("space-y-3", className)}>
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <StaticIntegrationLogo
-          providerId={providerId}
-          providerName={providerName}
-          className="w-8 h-8"
-        />
-        <div>
-          <h3 className="text-sm font-semibold text-foreground">{providerName}</h3>
-          <p className="text-xs text-muted-foreground">Service Connection</p>
-        </div>
-      </div>
-
+    <div className={cn("space-y-2", className)}>
       {/* Connected State */}
       {isConnected && (
-        <div className="space-y-3">
-          {/* Connection Selector */}
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground">
-              Select Account
-            </label>
-            <div className="flex items-center gap-2">
-              <div className="flex-1">
-                <Combobox
-                  value={connection?.id || ''}
-                  onChange={(value) => onSelectConnection?.(value)}
-                  options={comboboxOptions}
-                  placeholder="Select an account..."
-                  disabled={isFetching || connections.length === 0}
-                  loading={isFetching}
-                  disableSearch={connections.length <= 5}
-                />
-              </div>
-              {onReconnect && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleRefresh}
-                  disabled={isRefreshing}
-                  className="flex-shrink-0"
-                  title="Refresh connection"
-                >
-                  <RefreshCw className={cn("w-4 h-4", isRefreshing && "animate-spin")} />
-                </Button>
-              )}
-            </div>
+        <div className="space-y-2">
+          {/* Integration Label */}
+          <div className="flex items-center gap-2">
+            <StaticIntegrationLogo
+              providerId={providerId}
+              providerName={providerName}
+              className="w-5 h-5 flex-shrink-0"
+            />
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              {providerName} Account
+            </span>
           </div>
 
-          {/* Add Another Account Button */}
-          {onConnect && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onConnect}
-              disabled={isLoading}
-              className="w-full"
-            >
-              {isLoading ? (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                  Connecting...
-                </>
-              ) : (
-                <>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Another Account
-                </>
-              )}
-            </Button>
-          )}
-
-          {/* Help Text */}
-          <p className="text-xs text-muted-foreground">
-            This action will use the selected {providerName} account.
-            {hasMultipleConnections && ` ${connections.length} connections available.`}
-          </p>
+          {/* Account Selector + Actions */}
+          <div className="flex items-center gap-2">
+            <div className="flex-1 min-w-0">
+              <Combobox
+                value={connection?.id || ''}
+                onChange={(value) => onSelectConnection?.(value)}
+                options={comboboxOptions}
+                placeholder="Select account..."
+                disabled={isFetching || connections.length === 0}
+                loading={isFetching}
+                disableSearch={connections.length <= 5}
+              />
+            </div>
+            {onReconnect && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="flex-shrink-0 h-9 w-9"
+                title="Refresh connection"
+              >
+                <RefreshCw className={cn("w-4 h-4", isRefreshing && "animate-spin")} />
+              </Button>
+            )}
+            {onConnect && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={onConnect}
+                disabled={isLoading}
+                className="flex-shrink-0 h-9 w-9"
+                title="Add another account"
+              >
+                {isLoading ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Plus className="w-4 h-4" />
+                )}
+              </Button>
+            )}
+          </div>
         </div>
       )}
 
       {/* Error State */}
       {hasError && (
-        <div className="space-y-3">
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription className="text-xs">
-              {connection?.error || 'There was a problem with your connection. Please reconnect.'}
-            </AlertDescription>
-          </Alert>
+        <Alert variant="destructive" className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30">
+          <div className="flex items-start gap-3 justify-between">
+            {/* Left side: Logo + Error content */}
+            <div className="flex items-start gap-3 flex-1 min-w-0">
+              <StaticIntegrationLogo
+                providerId={providerId}
+                providerName={providerName}
+                className="w-8 h-8 flex-shrink-0 mt-0.5"
+              />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                  <span className="text-sm font-semibold text-red-900 dark:text-red-100">
+                    Connection Error
+                  </span>
+                </div>
+                <AlertDescription className="text-sm text-red-800 dark:text-red-200">
+                  {connection?.error || 'Your account needs to be reconnected to continue.'}
+                </AlertDescription>
+              </div>
+            </div>
 
-          {onReconnect && (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={onReconnect}
-              className="w-full"
-            >
-              Reconnect
-            </Button>
-          )}
-        </div>
-      )}
-
-      {/* Disconnected/Not Connected State */}
-      {isDisconnected && (
-        <div className="space-y-3">
-          <div className="rounded-lg border border-dashed border-border/50 p-4 text-center">
-            <p className="text-sm text-muted-foreground mb-3">
-              Connect your {providerName} account to continue
-            </p>
-            {onConnect && (
+            {/* Right side: Reconnect button */}
+            {onReconnect && (
               <Button
-                variant="default"
+                variant="destructive"
                 size="sm"
-                onClick={onConnect}
+                onClick={onReconnect}
                 disabled={isLoading}
-                className="w-full"
+                className="h-8 px-4 text-xs font-medium flex-shrink-0"
               >
                 {isLoading ? (
                   <>
-                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" />
                     Connecting...
                   </>
                 ) : (
                   <>
-                    <ExternalLink className="w-4 h-4 mr-2" />
-                    Connect {providerName}
+                    <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+                    Reconnect Account
                   </>
                 )}
               </Button>
             )}
           </div>
+        </Alert>
+      )}
 
-          <p className="text-xs text-muted-foreground text-center">
-            You'll need to authorize ChainReact to access your {providerName} account.
-            This is secure and can be revoked anytime.
-          </p>
+      {/* Disconnected/Not Connected State */}
+      {isDisconnected && (
+        <div className="flex items-center gap-2">
+          <StaticIntegrationLogo
+            providerId={providerId}
+            providerName={providerName}
+            className="w-6 h-6 flex-shrink-0 opacity-40"
+          />
+          <div className="flex-1 text-xs text-muted-foreground">
+            Not connected
+          </div>
+          {onConnect && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={onConnect}
+              disabled={isLoading}
+              className="flex-shrink-0 h-9"
+            >
+              {isLoading ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                  Connecting
+                </>
+              ) : (
+                <>
+                  <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+                  Connect
+                </>
+              )}
+            </Button>
+          )}
         </div>
       )}
 
       {/* Fetch Error */}
       {fetchError && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
+        <Alert variant="destructive" className="py-2">
+          <AlertCircle className="h-3.5 w-3.5" />
           <AlertDescription className="text-xs">
-            Failed to load connections: {fetchError}
+            {fetchError}
           </AlertDescription>
         </Alert>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Account?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove <span className="font-semibold">{getAccountDisplay(connectionToDelete || undefined)}</span>?
+              This action cannot be undone and will disconnect this account from all workflows.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Remove Account
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
@@ -443,12 +534,12 @@ function formatDate(dateString: string): string {
  * />
  *
  * Features:
- * - Professional Combobox dropdown with rich connection details
- * - Displays: Email/Username, Connection Type (Personal/Team/Organization), Status
+ * - Ultra-compact single-row design with minimal vertical space
+ * - Inline logo, combobox, and action buttons (refresh + add account)
+ * - Rich dropdown options: Email, Workspace Type (Personal/Team/Org), Status badges
  * - Auto-fetches all available connections for the provider
- * - Shows workspace type badges with icons
- * - Color-coded status indicators
+ * - Color-coded status indicators in dropdown
  * - Multi-connection support with easy switching
  * - Connection health monitoring
- * - Clean, modern design with proper visual hierarchy
+ * - Clean, sleek design optimized for space efficiency
  */

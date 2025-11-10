@@ -8,7 +8,13 @@ import {
   Plus,
   Users,
   Edit,
-  Search
+  Search,
+  RefreshCw,
+  ShoppingCart,
+  ListX,
+  FileText,
+  GitBranch,
+  Trash2
 } from "lucide-react"
 
 // HubSpot Triggers
@@ -1396,6 +1402,16 @@ import { engagementActions } from './actions/engagements'
 import { ticketTriggers } from './triggers/tickets'
 import { engagementTriggers } from './triggers/engagements'
 
+// Import Phase 2 actions
+import { workflowManagementActions } from './actions/workflowManagement'
+import { productManagementActions } from './actions/productManagement'
+import { listManagementActions } from './actions/listManagement'
+import { utilityActions } from './actions/utilities'
+
+// Import Phase 3 triggers and actions
+import { formTriggers } from './triggers/forms'
+import { lineItemActions } from './actions/lineItems'
+
 // Export all HubSpot nodes
 export const hubspotNodes: NodeComponent[] = [
   // ===== TRIGGERS =====
@@ -1419,6 +1435,9 @@ export const hubspotNodes: NodeComponent[] = [
 
   // Engagement Triggers (4) - NEW
   ...engagementTriggers,
+
+  // Phase 3: Form Triggers (1)
+  ...formTriggers,
 
   // ===== ACTIONS =====
   // Contact Actions (3 + 2 enhanced)
@@ -1448,6 +1467,21 @@ export const hubspotNodes: NodeComponent[] = [
   hubspotActionGetContacts,
   hubspotActionGetCompanies,
   hubspotActionGetDeals,
+
+  // Phase 2: Workflow Management Actions (2)
+  ...workflowManagementActions,
+
+  // Phase 2: Product Management Actions (3)
+  ...productManagementActions,
+
+  // Phase 2: List Management Actions (1)
+  ...listManagementActions,
+
+  // Phase 2: Utility Actions (3)
+  ...utilityActions,
+
+  // Phase 3: Line Item Actions (4)
+  ...lineItemActions,
 
   // Dynamic actions (4)
   ...hubspotDynamicNodes,

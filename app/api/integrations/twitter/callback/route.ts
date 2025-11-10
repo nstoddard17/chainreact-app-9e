@@ -80,13 +80,17 @@ export async function GET(req: NextRequest) {
     const refreshTokenExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) // 90 days for refresh token
 
     // Fetch user information from Twitter
+    // API VERIFICATION: Twitter API v2 /users/me endpoint
+    // Docs: https://developer.twitter.com/en/docs/twitter-api/users/lookup/api-reference/get-users-me
+    // Returns: id, username, name, profile_image_url, etc.
     let userInfo = null
     let email = null
     let username = null
     let name = null
+    let profileImageUrl = null
 
     try {
-      const userResponse = await fetch('https://api.twitter.com/2/users/me?user.fields=username,name', {
+      const userResponse = await fetch('https://api.twitter.com/2/users/me?user.fields=username,name,profile_image_url', {
         headers: {
           'Authorization': `Bearer ${tokenData.access_token}`
         }
@@ -97,6 +101,7 @@ export async function GET(req: NextRequest) {
         userInfo = userData.data
         username = userInfo?.username || null
         name = userInfo?.name || null
+        profileImageUrl = userInfo?.profile_image_url || null
       }
     } catch (userError) {
       logger.warn('Failed to fetch Twitter user info:', userError)
@@ -112,13 +117,21 @@ export async function GET(req: NextRequest) {
       refreshTokenExpiresAt
     )
 
-    // Add user info fields to metadata
+    // Add top-level account identity fields
+    integrationData.email = email || null
+    integrationData.username = username || null
+    integrationData.account_name = name || username || null
+    integrationData.avatar_url = profileImageUrl || null
+
+    // Add user info to metadata for additional context
     integrationData.metadata = {
       ...(integrationData.metadata || {}),
       user_info: userInfo,
+      // Keep in metadata for backward compatibility
       email: email || null,
       username: username || null,
-      account_name: name || username || null
+      account_name: name || username || null,
+      profile_image_url: profileImageUrl || null
     }
 
     const supabase = createAdminClient()

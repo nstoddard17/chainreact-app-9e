@@ -157,17 +157,19 @@ export function useGoogleSheetsFieldHandler({
    */
   const handleSheetNameChange = useCallback((value: any) => {
     logger.debug('🔍 Google Sheets sheetName changed:', value);
-    
+
     // Clear preview data for update action
     if (values.action === 'update') {
       clearPreviewData();
       clearUpdateFields();
     }
-    
+
     // Clear range if it exists
     if (nodeInfo?.configSchema?.some((f: any) => f.name === 'range')) {
       setValue('range', '');
     }
+
+    // Don't manually touch searchColumn - let FieldRenderer's dependency system handle it
   }, [nodeInfo, values, clearPreviewData, clearUpdateFields, setValue]);
 
   /**
@@ -197,15 +199,15 @@ export function useGoogleSheetsFieldHandler({
       case 'spreadsheetId':
         await handleSpreadsheetIdChange(value);
         return true;
-      
+
       case 'sheetName':
         handleSheetNameChange(value);
         return true;
-      
+
       case 'action':
         handleActionChange(value);
         return true;
-      
+
       default:
         return false;
     }

@@ -92,6 +92,9 @@ export async function GET(request: NextRequest) {
     },
     additionalIntegrationData: async (tokenData, state) => {
       // Get Discord user info
+      // API VERIFICATION: Discord API endpoint for current user
+      // Docs: https://discord.com/developers/docs/resources/user#get-current-user
+      // Returns: id, username, email, avatar, discriminator, etc.
       const userResponse = await fetch("https://discord.com/api/users/@me", {
         headers: {
           Authorization: `Bearer ${tokenData.access_token}`,
@@ -105,8 +108,21 @@ export async function GET(request: NextRequest) {
 
       const userData = await userResponse.json()
 
+      // Extract user identity fields
+      // Discord username format: username#discriminator (if discriminator exists)
+      // New format (after discriminator removal): just username
+      const username = userData.discriminator && userData.discriminator !== '0'
+        ? `${userData.username}#${userData.discriminator}`
+        : userData.username
+
       return {
+        email: userData.email,
+        username: username,
+        account_name: userData.global_name || username || userData.email,
         provider_user_id: userData.id,
+        discord_username: userData.username,
+        discord_discriminator: userData.discriminator,
+        avatar: userData.avatar,
       }
     },
   })

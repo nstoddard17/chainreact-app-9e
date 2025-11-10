@@ -207,10 +207,20 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      // Prefer top-level fields, fallback to metadata for backwards compatibility
+      const metadata = integration.metadata || {}
+      const email = integration.email || metadata.email || metadata.userEmail || null
+      const username = integration.username || metadata.username || metadata.name || null
+      const accountName = integration.account_name || metadata.account_name || metadata.accountName || metadata.name || null
+
       return {
         ...integration,
         status: expiredIntegrationIds.includes(integration.id) ? "expired" : integration.status,
-        user_permission: userPermission // Add permission level to response
+        user_permission: userPermission, // Add permission level to response
+        // Ensure top-level fields are always present (for backwards compatibility)
+        email,
+        username,
+        account_name: accountName
       }
     })
 

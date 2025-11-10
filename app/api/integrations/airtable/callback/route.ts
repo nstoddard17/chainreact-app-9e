@@ -144,10 +144,14 @@ export async function GET(request: NextRequest) {
       scopes: userData.scopes || tokenData.scope.split(" "), // Use API scopes if available, fallback to token scope
       status: "connected",
       updated_at: new Date().toISOString(),
+      // Top-level account identity fields for easy access
+      email: userData.email || null,
+      username: userData.email?.split('@')[0] || null,
+      account_name: userData.email || null,
       // Store provider-specific data in metadata JSONB column
       metadata: {
         provider_user_id: userData.id,
-        email: userData.email || null, // Save email for account display
+        email: userData.email || null, // Keep in metadata for backward compatibility
       }
     }
 

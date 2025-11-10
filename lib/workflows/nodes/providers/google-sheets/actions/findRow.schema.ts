@@ -48,6 +48,7 @@ export const findRowActionSchema: NodeComponent = {
       dynamic: "google-sheets_columns",
       required: true,
       dependsOn: "sheetName",
+      loadOnMount: true,
       hidden: {
         $deps: ["sheetName"],
         $condition: { sheetName: { $exists: false } }

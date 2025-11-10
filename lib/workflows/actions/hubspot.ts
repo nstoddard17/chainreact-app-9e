@@ -913,4 +913,7 @@ export async function createHubSpotDeal(
       message: error.message || "Failed to create HubSpot deal"
     }
   }
-} 
+}
+
+// Re-export all handlers from the hubspot/ directory
+export * from './hubspot/index'

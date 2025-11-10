@@ -6,6 +6,7 @@ import { ServiceConnectionSelector } from '../ServiceConnectionSelector'
 import { useIntegrationStore } from '@/stores/integrationStore'
 import { getProviderBrandName } from '@/lib/integrations/brandNames'
 import { useToast } from '@/hooks/use-toast'
+import { AlertCircle } from 'lucide-react'
 
 interface SetupTabProps {
   nodeInfo: any
@@ -222,6 +223,9 @@ export function SetupTab(props: SetupTabProps) {
     ? getProviderBrandName(nodeInfo.providerId)
     : (integrationName || nodeInfo?.category || 'Service')
 
+  // Check if connection has an error
+  const hasConnectionError = requiresConnection && connection?.status === 'error'
+
   return (
     <div className="flex flex-col h-full">
       {/* Connection Status Section */}
@@ -240,9 +244,22 @@ export function SetupTab(props: SetupTabProps) {
         </div>
       )}
 
-      {/* Configuration Form */}
+      {/* Configuration Form or Error Blocker */}
       <div className="flex-1 overflow-hidden">
-        <ConfigurationForm {...props} />
+        {hasConnectionError ? (
+          <div className="flex items-center justify-center h-full p-6">
+            <div className="text-center max-w-md space-y-3">
+              <AlertCircle className="w-12 h-12 mx-auto text-red-500" />
+              <h3 className="text-lg font-semibold text-foreground">Connection Required</h3>
+              <p className="text-sm text-muted-foreground">
+                Please reconnect your {providerName} account above to configure this action.
+                Your account connection has expired or encountered an error.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <ConfigurationForm {...props} hasConnectionError={hasConnectionError} />
+        )}
       </div>
     </div>
   )

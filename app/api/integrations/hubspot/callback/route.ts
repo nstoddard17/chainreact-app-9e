@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server"
 import { handleOAuthCallback } from '@/lib/integrations/oauth-callback-handler'
+import { logger } from '@/lib/utils/logger'
 
 /**
  * HubSpot OAuth Callback Handler
@@ -10,7 +11,7 @@ import { handleOAuthCallback } from '@/lib/integrations/oauth-callback-handler'
  * Note: HubSpot may show additional verification screens during OAuth flow.
  * The centralized handler properly waits for complete authorization before processing.
  *
- * Updated: 2025-11-08 - Migrated to use oauth-callback-handler utility
+ * Updated: 2025-11-10 - Migrated to use additionalIntegrationData with email support
  */
 export async function GET(request: NextRequest) {
   return handleOAuthCallback(request, {
@@ -27,27 +28,36 @@ export async function GET(request: NextRequest) {
         ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
         : new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(), // Default 6 hours
     }),
-    fetchUserProfile: async (accessToken) => {
-      const accountResponse = await fetch('https://api.hubapi.com/integrations/v1/me', {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      })
+    additionalIntegrationData: async (tokenData, state) => {
+      // Fetch HubSpot account information
+      // API VERIFICATION: HubSpot API endpoint for account details
+      // Docs: https://developers.hubspot.com/docs/api/oauth/tokens
+      // Returns: email, user, hub_id, hub_domain, etc.
+      try {
+        const accountResponse = await fetch('https://api.hubapi.com/integrations/v1/me', {
+          headers: {
+            Authorization: `Bearer ${tokenData.access_token}`,
+          },
+        })
 
-      if (!accountResponse.ok) {
-        throw new Error('Failed to fetch HubSpot account information')
-      }
+        if (!accountResponse.ok) {
+          logger.warn('Failed to fetch HubSpot account info:', accountResponse.status)
+          return {}
+        }
 
-      const accountInfo = await accountResponse.json()
-      return {
-        email: accountInfo.email || accountInfo.user || null,
-        name: accountInfo.hub_domain || accountInfo.user || null,
-        userId: accountInfo.user || null,
-        metadata: {
+        const accountInfo = await accountResponse.json()
+
+        return {
+          email: accountInfo.email || accountInfo.user || null,
+          username: accountInfo.user || accountInfo.email || null,
+          account_name: accountInfo.hub_domain || accountInfo.user || accountInfo.email || null,
+          provider_user_id: accountInfo.user || null,
           hub_id: accountInfo.hub_id,
           hub_domain: accountInfo.hub_domain,
-          account_info: accountInfo
         }
+      } catch (error) {
+        logger.error('Error fetching HubSpot account info:', error)
+        return {}
       }
     }
   })

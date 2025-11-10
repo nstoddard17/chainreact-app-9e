@@ -115,6 +115,10 @@ export async function GET(request: NextRequest) {
     const expiresAt = new Date(Date.now() + expiresIn * 1000)
 
     // Fetch account information
+    // API VERIFICATION: Kit API endpoint for authenticated account
+    // Docs: https://developers.kit.com/v4
+    // Endpoint: GET /account
+    // Returns: Account object with primary_email_address, email, name, etc.
     let accountInfo = {};
     try {
       const accountResponse = await fetch('https://api.kit.com/account', {
@@ -124,7 +128,7 @@ export async function GET(request: NextRequest) {
           'Content-Type': 'application/json'
         }
       })
-      
+
       if (accountResponse.ok) {
         accountInfo = await accountResponse.json()
         logger.debug('Kit account info:', JSON.stringify(accountInfo))
@@ -143,6 +147,10 @@ export async function GET(request: NextRequest) {
 
     // Store the integration data
     const supabase = createAdminClient()
+    const kitEmail = (accountInfo as any).primary_email_address || (accountInfo as any).email || null
+    const kitName = (accountInfo as any).name || null
+    const kitAccountName = kitName || kitEmail || null
+
     const { error: upsertError } = await supabase.from('integrations').upsert({
       user_id: userId,
       provider,
@@ -152,12 +160,17 @@ export async function GET(request: NextRequest) {
       status: 'connected',
       is_active: true,
       updated_at: new Date().toISOString(),
-      email: (accountInfo as any).primary_email_address || (accountInfo as any).email || null,
-      username: (accountInfo as any).name || null,
-      account_name: (accountInfo as any).name || null,
+      // Top-level account identity fields
+      email: kitEmail,
+      username: kitName || kitEmail?.split('@')[0],
+      account_name: kitAccountName,
       metadata: {
         account_info: accountInfo,
-        scope: tokenData.scope
+        scope: tokenData.scope,
+        // Keep in metadata for backward compatibility
+        email: kitEmail,
+        username: kitName,
+        account_name: kitAccountName
       }
     }, {
       onConflict: 'user_id, provider',
