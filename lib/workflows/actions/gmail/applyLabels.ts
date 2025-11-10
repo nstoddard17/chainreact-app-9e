@@ -19,6 +19,7 @@ export async function applyGmailLabels(
       messageId,
       threadId,
       labels = [],
+      labelIds = [],
       addLabels = [],
       removeLabels = [],
       createIfNotExists = false,
@@ -38,7 +39,12 @@ export async function applyGmailLabels(
     const labelsToRemove = removeLabels.filter(Boolean)
 
     // Get or create labels
-    const labelIds: { add: string[], remove: string[] } = { add: [], remove: [] }
+    const labelIdsToProcess: { add: string[], remove: string[] } = { add: [], remove: [] }
+
+    // If labelIds are provided directly (from multiselect), use them
+    if (labelIds.length > 0) {
+      labelIdsToProcess.add.push(...labelIds)
+    }
     
     // Fetch existing labels
     const existingLabelsResponse = await gmail.users.labels.list({
@@ -47,31 +53,33 @@ export async function applyGmailLabels(
     const existingLabels = existingLabelsResponse.data.labels || []
     const labelMap = new Map(existingLabels.map(l => [l.name?.toLowerCase(), l.id]))
 
-    // Process labels to add
-    for (const labelName of labelsToAdd) {
-      let labelId = labelMap.get(labelName.toLowerCase())
-      
-      if (!labelId && createIfNotExists) {
-        // Create the label
-        try {
-          const newLabel = await gmail.users.labels.create({
-            userId: 'me',
-            requestBody: {
-              name: labelName,
-              labelListVisibility: 'labelShow',
-              messageListVisibility: 'show'
-            }
-          })
-          labelId = newLabel.data.id
-          logger.debug(`Created new label: ${labelName} (${labelId})`)
-        } catch (error) {
-          logger.warn(`Failed to create label ${labelName}:`, error)
-          continue
+    // Process labels to add (only if labelIds not directly provided)
+    if (labelIds.length === 0 && labelsToAdd.length > 0) {
+      for (const labelName of labelsToAdd) {
+        let labelId = labelMap.get(labelName.toLowerCase())
+
+        if (!labelId && createIfNotExists) {
+          // Create the label
+          try {
+            const newLabel = await gmail.users.labels.create({
+              userId: 'me',
+              requestBody: {
+                name: labelName,
+                labelListVisibility: 'labelShow',
+                messageListVisibility: 'show'
+              }
+            })
+            labelId = newLabel.data.id
+            logger.debug(`Created new label: ${labelName} (${labelId})`)
+          } catch (error) {
+            logger.warn(`Failed to create label ${labelName}:`, error)
+            continue
+          }
         }
-      }
-      
-      if (labelId) {
-        labelIds.add.push(labelId)
+
+        if (labelId) {
+          labelIdsToProcess.add.push(labelId)
+        }
       }
     }
 
@@ -79,7 +87,7 @@ export async function applyGmailLabels(
     for (const labelName of labelsToRemove) {
       const labelId = labelMap.get(labelName.toLowerCase())
       if (labelId) {
-        labelIds.remove.push(labelId)
+        labelIdsToProcess.remove.push(labelId)
       }
     }
 
@@ -123,14 +131,14 @@ export async function applyGmailLabels(
           requestBody: {}
         }
         
-        if (labelIds.add.length > 0) {
-          modifyRequest.requestBody.addLabelIds = labelIds.add
+        if (labelIdsToProcess.add.length > 0) {
+          modifyRequest.requestBody.addLabelIds = labelIdsToProcess.add
         }
-        if (labelIds.remove.length > 0) {
-          modifyRequest.requestBody.removeLabelIds = labelIds.remove
+        if (labelIdsToProcess.remove.length > 0) {
+          modifyRequest.requestBody.removeLabelIds = labelIdsToProcess.remove
         }
-        
-        if (labelIds.add.length > 0 || labelIds.remove.length > 0) {
+
+        if (labelIdsToProcess.add.length > 0 || labelIdsToProcess.remove.length > 0) {
           const result = await gmail.users.messages.modify(modifyRequest)
           results.push({
             messageId: msgId,

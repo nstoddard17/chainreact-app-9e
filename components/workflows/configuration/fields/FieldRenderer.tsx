@@ -1227,6 +1227,8 @@ export function FieldRenderer({
                 aiFields={aiFields}
                 setAiFields={setAiFields}
                 isConnectedToAIAgent={isConnectedToAIAgent}
+                workflowData={workflowData}
+                currentNodeId={currentNodeId}
               />
             );
           }
@@ -1382,6 +1384,8 @@ export function FieldRenderer({
                 aiFields={aiFields}
                 setAiFields={setAiFields}
                 isConnectedToAIAgent={isConnectedToAIAgent}
+                workflowData={workflowData}
+                currentNodeId={currentNodeId}
               />
               {(field as any).showManageButton && (
                 <GmailLabelManager
@@ -1414,6 +1418,8 @@ export function FieldRenderer({
             aiFields={aiFields}
             setAiFields={setAiFields}
             isConnectedToAIAgent={isConnectedToAIAgent}
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
           />
         );
 
@@ -1459,6 +1465,8 @@ export function FieldRenderer({
             aiFields={aiFields}
             setAiFields={setAiFields}
             isConnectedToAIAgent={isConnectedToAIAgent}
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
           />
         );
 
@@ -2062,6 +2070,8 @@ export function FieldRenderer({
               aiFields={aiFields}
               setAiFields={setAiFields}
               isConnectedToAIAgent={isConnectedToAIAgent}
+              workflowData={workflowData}
+              currentNodeId={currentNodeId}
             />
           );
         }

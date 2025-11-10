@@ -1,7 +1,10 @@
 "use client"
 
-import React from "react";
+import React, { useState } from "react";
 import { LightningLoader } from '@/components/ui/lightning-loader';
+import { Plug } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { VariableSelectionDropdown } from '../../fields/shared/VariableSelectionDropdown';
 
 interface GoogleSheetsAddRowFieldsProps {
   values: Record<string, any>;
@@ -11,6 +14,10 @@ interface GoogleSheetsAddRowFieldsProps {
   action: string;
   showPreviewData: boolean;
   loadingPreview?: boolean;
+  insertPosition?: string;
+  rowNumber?: number;
+  workflowData?: { nodes: any[]; edges: any[] };
+  currentNodeId?: string;
 }
 
 export function GoogleSheetsAddRowFields({
@@ -20,8 +27,57 @@ export function GoogleSheetsAddRowFields({
   hasHeaders,
   action,
   showPreviewData,
-  loadingPreview = false
+  loadingPreview = false,
+  insertPosition,
+  rowNumber,
+  workflowData,
+  currentNodeId
 }: GoogleSheetsAddRowFieldsProps) {
+  // Track which fields are in connect mode (showing variable dropdown instead of input)
+  const [connectedFields, setConnectedFields] = useState<Set<string>>(new Set());
+
+  // Toggle connect mode for a specific field
+  const toggleConnectMode = (fieldKey: string) => {
+    const isCurrentlyConnected = connectedFields.has(fieldKey);
+
+    setConnectedFields(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(fieldKey)) {
+        newSet.delete(fieldKey);
+      } else {
+        newSet.add(fieldKey);
+      }
+      return newSet;
+    });
+
+    // Clear the value when disconnecting (after state update)
+    if (isCurrentlyConnected) {
+      setValue(fieldKey, '');
+    }
+  };
+
+  // Check if a field value is a variable
+  const isVariableValue = (val: any) => {
+    if (typeof val !== 'string') return false;
+    const trimmed = val.trim();
+    return trimmed.startsWith('{{') && trimmed.endsWith('}}');
+  };
+
+  // Generate dynamic heading text based on insert position
+  const getHeadingText = () => {
+    if (insertPosition === 'append') {
+      return 'Add New Row at End of Sheet';
+    } else if (insertPosition === 'prepend') {
+      return 'Add New Row Below Headers';
+    } else if (insertPosition === 'specific_row' && rowNumber) {
+      if (rowNumber === 1) {
+        return 'Add New Row in First Row';
+      }
+      return `Add New Row at Row ${rowNumber}`;
+    }
+    return 'Add New Row';
+  };
+
   // Only show for add action
   if (action !== 'add') {
     return null;
@@ -31,12 +87,12 @@ export function GoogleSheetsAddRowFields({
   if (loadingPreview || (!showPreviewData && values.spreadsheetId && values.sheetName)) {
     return (
       <div className="mt-4">
-        <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+        <div className="bg-white border border-slate-200 rounded-lg p-6">
           <div className="flex flex-col items-center justify-center space-y-4">
-            <LightningLoader size="md" color="green" />
+            <LightningLoader size="md" color="blue" />
             <div className="text-center">
-              <p className="text-sm font-medium text-green-900">Preparing column fields...</p>
-              <p className="text-xs text-green-700 mt-1">
+              <p className="text-sm font-medium text-slate-900">Preparing column fields...</p>
+              <p className="text-xs text-slate-600 mt-1">
                 Analyzing your sheet "{values.sheetName}" to create input fields for each column
               </p>
             </div>
@@ -56,13 +112,13 @@ export function GoogleSheetsAddRowFields({
 
   return (
     <div className="mt-4 space-y-4">
-      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+      <div className="bg-white border border-slate-200 rounded-lg p-4">
         <div className="space-y-4">
           <div>
-            <h3 className="text-sm font-medium text-green-900 mb-3">
-              Add New Row {values.rowPosition === 'specific' && values.rowNumber ? `at Row ${values.rowNumber}` : 'at End of Sheet'}
+            <h3 className="text-sm font-medium text-slate-900 mb-3">
+              {getHeadingText()}
             </h3>
-            <p className="text-xs text-green-700 mb-4">
+            <p className="text-xs text-slate-600 mb-4">
               Enter values for each column. Leave blank to skip a column.
             </p>
           </div>
@@ -103,25 +159,43 @@ export function GoogleSheetsAddRowFields({
               
               return (
                 <div key={columnName}>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    {hasHeaders ? columnName : `Column ${columnName}`}
-                  </label>
-                  
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-sm font-medium text-slate-700">
+                      {hasHeaders ? columnName : `Column ${columnName}`}
+                    </label>
+                    <Button
+                      type="button"
+                      variant={connectedFields.has(`newRow_${columnName}`) || isVariableValue(values[`newRow_${columnName}`]) ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => toggleConnectMode(`newRow_${columnName}`)}
+                      className="h-7 text-xs gap-1.5"
+                      title={connectedFields.has(`newRow_${columnName}`) ? "Switch to text input" : "Connect variable"}
+                    >
+                      <Plug className="h-3.5 w-3.5" />
+                      Connect
+                    </Button>
+                  </div>
+
                   {/* Image field */}
                   {isImageUrl ? (
-                    <div className="relative">
-                      <input
-                        type="url"
-                        value={values[`newRow_${columnName}`] || ''}
-                        onChange={(e) => setValue(`newRow_${columnName}`, e.target.value)}
-                        placeholder="Enter image URL or drag a variable"
-                        className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-white text-sm"
-                      />
-                      <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
-                        <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                        </svg>
-                      </div>
+                    <div>
+                      {connectedFields.has(`newRow_${columnName}`) && workflowData && currentNodeId ? (
+                        <VariableSelectionDropdown
+                          workflowData={workflowData}
+                          currentNodeId={currentNodeId}
+                          value={values[`newRow_${columnName}`] || ''}
+                          onChange={(val) => setValue(`newRow_${columnName}`, val)}
+                          placeholder="Select a variable..."
+                        />
+                      ) : (
+                        <input
+                          type="url"
+                          value={values[`newRow_${columnName}`] || ''}
+                          onChange={(e) => setValue(`newRow_${columnName}`, e.target.value)}
+                          placeholder="https://example.com/image.png"
+                          className="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm"
+                        />
+                      )}
                     </div>
                   ) : isBoolean ? (
                     // Boolean field - show as toggle
@@ -145,7 +219,7 @@ export function GoogleSheetsAddRowFields({
                       <select
                         value={values[`newRow_${columnName}`] || ''}
                         onChange={(e) => setValue(`newRow_${columnName}`, e.target.value)}
-                        className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                        className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                       >
                         <option value="">Select a value...</option>
                         {possibleDropdownValues.map(option => (
@@ -160,82 +234,107 @@ export function GoogleSheetsAddRowFields({
                     </div>
                   ) : isDate ? (
                     // Date field
-                    <div className="relative">
-                      <input
-                        type="date"
-                        value={values[`newRow_${columnName}`] || ''}
-                        onChange={(e) => setValue(`newRow_${columnName}`, e.target.value)}
-                        className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
-                      />
-                      <div className="absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                        <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                        </svg>
-                      </div>
+                    <div>
+                      {connectedFields.has(`newRow_${columnName}`) && workflowData && currentNodeId ? (
+                        <VariableSelectionDropdown
+                          workflowData={workflowData}
+                          currentNodeId={currentNodeId}
+                          value={values[`newRow_${columnName}`] || ''}
+                          onChange={(val) => setValue(`newRow_${columnName}`, val)}
+                          placeholder="Select a variable..."
+                        />
+                      ) : (
+                        <input
+                          type="date"
+                          value={values[`newRow_${columnName}`] || ''}
+                          onChange={(e) => setValue(`newRow_${columnName}`, e.target.value)}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                        />
+                      )}
                     </div>
                   ) : isEmail ? (
                     // Email field
-                    <div className="relative">
-                      <input
-                        type="email"
-                        value={values[`newRow_${columnName}`] || ''}
-                        onChange={(e) => setValue(`newRow_${columnName}`, e.target.value)}
-                        placeholder="Enter email or drag a variable"
-                        className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
-                      />
-                      <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
-                        <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                        </svg>
-                      </div>
+                    <div>
+                      {connectedFields.has(`newRow_${columnName}`) && workflowData && currentNodeId ? (
+                        <VariableSelectionDropdown
+                          workflowData={workflowData}
+                          currentNodeId={currentNodeId}
+                          value={values[`newRow_${columnName}`] || ''}
+                          onChange={(val) => setValue(`newRow_${columnName}`, val)}
+                          placeholder="Select a variable..."
+                        />
+                      ) : (
+                        <input
+                          type="email"
+                          value={values[`newRow_${columnName}`] || ''}
+                          onChange={(e) => setValue(`newRow_${columnName}`, e.target.value)}
+                          placeholder="email@example.com"
+                          className="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                        />
+                      )}
                     </div>
                   ) : isNumber ? (
                     // Number field
-                    <div className="relative">
-                      <input
-                        type="number"
-                        value={values[`newRow_${columnName}`] || ''}
-                        onChange={(e) => setValue(`newRow_${columnName}`, e.target.value)}
-                        placeholder="Enter number or drag a variable"
-                        className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
-                      />
-                      <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
-                        <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                        </svg>
-                      </div>
+                    <div>
+                      {connectedFields.has(`newRow_${columnName}`) && workflowData && currentNodeId ? (
+                        <VariableSelectionDropdown
+                          workflowData={workflowData}
+                          currentNodeId={currentNodeId}
+                          value={values[`newRow_${columnName}`] || ''}
+                          onChange={(val) => setValue(`newRow_${columnName}`, val)}
+                          placeholder="Select a variable..."
+                        />
+                      ) : (
+                        <input
+                          type="number"
+                          value={values[`newRow_${columnName}`] || ''}
+                          onChange={(e) => setValue(`newRow_${columnName}`, e.target.value)}
+                          placeholder="0"
+                          className="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                        />
+                      )}
                     </div>
                   ) : isUrl ? (
                     // URL field
-                    <div className="relative">
-                      <input
-                        type="url"
-                        value={values[`newRow_${columnName}`] || ''}
-                        onChange={(e) => setValue(`newRow_${columnName}`, e.target.value)}
-                        placeholder="Enter URL or drag a variable"
-                        className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
-                      />
-                      <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
-                        <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                        </svg>
-                      </div>
+                    <div>
+                      {connectedFields.has(`newRow_${columnName}`) && workflowData && currentNodeId ? (
+                        <VariableSelectionDropdown
+                          workflowData={workflowData}
+                          currentNodeId={currentNodeId}
+                          value={values[`newRow_${columnName}`] || ''}
+                          onChange={(val) => setValue(`newRow_${columnName}`, val)}
+                          placeholder="Select a variable..."
+                        />
+                      ) : (
+                        <input
+                          type="url"
+                          value={values[`newRow_${columnName}`] || ''}
+                          onChange={(e) => setValue(`newRow_${columnName}`, e.target.value)}
+                          placeholder="https://example.com"
+                          className="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                        />
+                      )}
                     </div>
                   ) : (
                     // Default text field
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={values[`newRow_${columnName}`] || ''}
-                        onChange={(e) => setValue(`newRow_${columnName}`, e.target.value)}
-                        placeholder="Enter value or drag a variable"
-                        className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
-                      />
-                      <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
-                        <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                        </svg>
-                      </div>
+                    <div>
+                      {connectedFields.has(`newRow_${columnName}`) && workflowData && currentNodeId ? (
+                        <VariableSelectionDropdown
+                          workflowData={workflowData}
+                          currentNodeId={currentNodeId}
+                          value={values[`newRow_${columnName}`] || ''}
+                          onChange={(val) => setValue(`newRow_${columnName}`, val)}
+                          placeholder="Select a variable..."
+                        />
+                      ) : (
+                        <input
+                          type="text"
+                          value={values[`newRow_${columnName}`] || ''}
+                          onChange={(e) => setValue(`newRow_${columnName}`, e.target.value)}
+                          placeholder="Enter text..."
+                          className="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                        />
+                      )}
                     </div>
                   )}
                   

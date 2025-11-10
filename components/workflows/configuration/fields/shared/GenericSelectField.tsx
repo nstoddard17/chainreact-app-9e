@@ -7,6 +7,7 @@ import { Bot, X, RefreshCw, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { parseVariableReference } from "@/lib/workflows/variableReferences";
+import { SimpleVariablePicker } from "@/components/workflows/configuration/fields/SimpleVariablePicker";
 
 import { logger } from '@/lib/utils/logger'
 import { useConfigCacheStore } from "@/stores/configCacheStore"
@@ -28,12 +29,19 @@ interface GenericSelectFieldProps {
   aiFields?: Record<string, boolean>;
   setAiFields?: (fields: Record<string, boolean>) => void;
   isConnectedToAIAgent?: boolean;
+  workflowData?: { nodes: any[], edges: any[] }; // Full workflow data for variable picker
+  currentNodeId?: string; // Current node ID for variable picker context
 }
 
 /**
- * Get appropriate empty message based on field name
+ * Get appropriate empty message based on field configuration or field name
  */
-function getEmptyMessage(fieldName: string, fieldLabel?: string): string {
+function getEmptyMessage(fieldName: string, fieldLabel?: string, customEmptyMessage?: string): string {
+  // If field has a custom empty message, use that first
+  if (customEmptyMessage) {
+    return customEmptyMessage;
+  }
+
   const label = fieldLabel?.toLowerCase() || fieldName.toLowerCase();
 
   // Specific messages for common field types
@@ -79,6 +87,8 @@ export function GenericSelectField({
   aiFields,
   setAiFields,
   isConnectedToAIAgent,
+  workflowData,
+  currentNodeId,
 }: GenericSelectFieldProps) {
   // Cache store - must be at top level
   const { get: getCache, set: setCache, invalidate: invalidateCache } = useConfigCacheStore()
@@ -102,6 +112,10 @@ export function GenericSelectField({
 
   // Track the last dependency value to detect actual changes (not just object reference changes)
   const lastDependencyValueRef = React.useRef<any>(null);
+
+  // State for search functionality (for fields like gmail-recent-emails)
+  const [isSearching, setIsSearching] = React.useState(false);
+  const [searchQuery, setSearchQuery] = React.useState("");
 
   // Cached dynamic load wrapper - checks cache before calling onDynamicLoad
   const cachedDynamicLoad = React.useCallback(async (
@@ -165,32 +179,30 @@ export function GenericSelectField({
     }
   }, [field.dynamic, field.name, field.dependsOn, parentValues, cachedDynamicLoad, isRefreshing]);
 
-  // Check if this field is in AI mode
-  const isAIEnabled = aiFields?.[field.name] || (typeof value === 'string' && value.startsWith('{{AI_FIELD:'));
-  // Debug logging for board field
-  if (field.name === 'boardId') {
-    logger.debug('[GenericSelectField] Board field props:', {
-      fieldName: field.name,
-      options: options,
-      optionsLength: options?.length || 0,
-      isLoading,
-      firstOption: options?.[0]
-    });
-  }
-  
-  // For Airtable create record fields, we need to get the bubble values from the form
-  // Since we can't pass them through easily, we'll get them from window object
-  const isAirtableCreateRecord = nodeInfo?.type === 'airtable_action_create_record' && 
-                                 field.name?.startsWith('airtable_field_');
-  
-  // Get bubble values from window object for Airtable create fields
-  let effectiveSelectedValues = selectedValues;
-  if (isAirtableCreateRecord && typeof window !== 'undefined') {
-    const bubbleValues = (window as any).__airtableBubbleValues?.[field.name];
-    if (bubbleValues) {
-      effectiveSelectedValues = bubbleValues.map((b: any) => b.value);
+  // Handle search query changes (debounced search for fields like gmail-recent-emails)
+  const handleSearchChange = React.useCallback(async (query: string) => {
+    // Only enable search for specific dynamic fields that support it
+    if (!field.dynamic || !onDynamicLoad) return;
+
+    // Only enable for searchable fields (like gmail-recent-emails)
+    const searchableFields = ['gmail-recent-emails'];
+    if (!searchableFields.includes(field.dynamic)) return;
+
+    setSearchQuery(query);
+    setIsSearching(true);
+
+    try {
+      logger.debug('[GenericSelectField] Search query:', { fieldName: field.name, query });
+
+      // Call onDynamicLoad with search parameter
+      // The API handler will receive this as part of options
+      await onDynamicLoad(field.name, 'searchQuery', query, true);
+    } catch (error) {
+      logger.error('[GenericSelectField] Search error:', error);
+    } finally {
+      setIsSearching(false);
     }
-  }
+  }, [field.dynamic, field.name, onDynamicLoad]);
 
   // Function to extract friendly label from variable syntax
   const getFriendlyVariableLabel = React.useCallback((variableStr: string, workflowNodes?: any[]): string | null => {
@@ -369,10 +381,6 @@ export function GenericSelectField({
     return label
   }, [])
 
-  const loadingPlaceholder = field.loadingPlaceholder || (field.label ? `Loading ${field.label}...` : 'Loading options...');
-  const basePlaceholder = field.placeholder || (field.label ? `Select ${field.label}...` : 'Select an option...');
-  const placeholderText = field.dynamic && isLoading ? loadingPlaceholder : basePlaceholder;
-
   // Cache key for persisting display labels across modal reopen
   const labelCacheKey = React.useMemo(() => {
     const provider = nodeInfo?.providerId || 'generic';
@@ -410,6 +418,60 @@ export function GenericSelectField({
     },
     [labelCacheKey]
   );
+
+  // Handle variable selection from SimpleVariablePicker
+  const handleVariableSelect = React.useCallback((variable: string) => {
+    logger.debug('[GenericSelectField] Variable selected:', { fieldName: field.name, variable });
+    onChange(variable);
+
+    // Set display label for the variable
+    const friendlyLabel = getFriendlyVariableLabel(variable, workflowNodes);
+    setDisplayLabel(friendlyLabel);
+
+    // Cache the label
+    if (friendlyLabel) {
+      saveLabelToCache(variable, friendlyLabel);
+    }
+  }, [field.name, onChange, getFriendlyVariableLabel, workflowNodes, saveLabelToCache]);
+
+  // Check if this field is in AI mode
+  const isAIEnabled = aiFields?.[field.name] || (typeof value === 'string' && value.startsWith('{{AI_FIELD:'));
+
+  // Debug logging for board field
+  if (field.name === 'boardId') {
+    logger.debug('[GenericSelectField] Board field props:', {
+      fieldName: field.name,
+      options: options,
+      optionsLength: options?.length || 0,
+      isLoading,
+      firstOption: options?.[0]
+    });
+  }
+
+  // For Airtable create record fields, we need to get the bubble values from the form
+  // Since we can't pass them through easily, we'll get them from window object
+  const isAirtableCreateRecord = nodeInfo?.type === 'airtable_action_create_record' &&
+                                 field.name?.startsWith('airtable_field_');
+
+  // Get bubble values from window object for Airtable create fields
+  let effectiveSelectedValues = selectedValues;
+  if (isAirtableCreateRecord && typeof window !== 'undefined') {
+    const bubbleValues = (window as any).__airtableBubbleValues?.[field.name];
+    if (bubbleValues) {
+      effectiveSelectedValues = bubbleValues.map((b: any) => b.value);
+    }
+  }
+
+  const loadingPlaceholder = field.loadingPlaceholder || (field.label ? `Loading ${field.label}...` : 'Loading options...');
+  const basePlaceholder = field.placeholder || (field.label ? `Select ${field.label}...` : 'Select an option...');
+  const emptyPlaceholderText = (field as any).emptyPlaceholder || basePlaceholder;
+
+  // Use dynamic placeholder: loading text, empty text when no options, or base placeholder
+  const placeholderText = field.dynamic && isLoading
+    ? loadingPlaceholder
+    : (!isLoading && options.length === 0 && (field as any).emptyPlaceholder)
+      ? emptyPlaceholderText
+      : basePlaceholder;
 
   // When value changes, update the display label if we find the option or it's a variable
   React.useEffect(() => {
@@ -849,11 +911,11 @@ export function GenericSelectField({
             onChange={onChange}
             options={processedOptions}
             placeholder={placeholderText}
-            emptyPlaceholder={isLoading ? loadingPlaceholder : "No options available"}
+            emptyPlaceholder={isLoading ? loadingPlaceholder : getEmptyMessage(field.name, field.label, (field as any).emptyMessage)}
             searchPlaceholder="Search options..."
             disabled={isLoading}
             loading={isLoading}
-            creatable={field.dynamic ? false : true} // Never allow creating new options for dynamic fields (they load from existing data), but allow variables for static fields
+            creatable={false} // Disable custom option creation - users can only select from available options
             onOpenChange={handleFieldOpen}
             selectedValues={effectiveSelectedValues} // Pass selected values for checkmarks
             hideSelectedBadges={isAirtableLinkedField} // Hide badges for Airtable fields with bubbles
@@ -881,13 +943,22 @@ export function GenericSelectField({
               </TooltipContent>
             </Tooltip>
         )}
+        {field.supportsVariables && workflowData && currentNodeId && (
+          <SimpleVariablePicker
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
+            onVariableSelect={handleVariableSelect}
+            fieldType={field.type}
+            currentNodeType={nodeInfo?.type}
+          />
+        )}
       </div>
     );
   }
 
   // Check if this is an Airtable create/update record field that should support custom input
-  const isAirtableRecordField = nodeInfo?.providerId === 'airtable' && 
-    (nodeInfo?.type === 'airtable_action_create_record' || 
+  const isAirtableRecordField = nodeInfo?.providerId === 'airtable' &&
+    (nodeInfo?.type === 'airtable_action_create_record' ||
      nodeInfo?.type === 'airtable_action_update_record') &&
     field.name?.startsWith('airtable_field_');
 
@@ -925,11 +996,12 @@ export function GenericSelectField({
             options={processedOptions}
             placeholder={placeholderText}
             searchPlaceholder="Search options..."
-            emptyPlaceholder={isLoading ? loadingPlaceholder : "No options found"}
+            emptyPlaceholder={isLoading || isSearching ? loadingPlaceholder : ((field as any).emptyMessage || "No options found")}
             disabled={isLoading}
-            loading={isLoading}
-            creatable={field.dynamic ? false : true} // Never allow creating new options for dynamic fields (they load from existing data), but allow variables for static fields
+            loading={isLoading || isSearching}
+            creatable={false} // Disable custom option creation - users can only select from available options
             onOpenChange={handleFieldOpen} // Add missing onOpenChange handler
+            onSearchChange={handleSearchChange} // Handle debounced search
             selectedValues={effectiveSelectedValues} // Pass selected values for checkmarks
             displayLabel={displayLabel} // Pass the saved display label
             disableSearch={(field as any).disableSearch} // Support disabling search for simple dropdowns
@@ -958,6 +1030,15 @@ export function GenericSelectField({
                 <p>Refresh options</p>
               </TooltipContent>
             </Tooltip>
+        )}
+        {field.supportsVariables && workflowData && currentNodeId && (
+          <SimpleVariablePicker
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
+            onVariableSelect={handleVariableSelect}
+            fieldType={field.type}
+            currentNodeType={nodeInfo?.type}
+          />
         )}
       </div>
     );
@@ -995,11 +1076,12 @@ export function GenericSelectField({
           options={processedOptions}
           placeholder={placeholderText}
           searchPlaceholder="Search options..."
-          emptyPlaceholder={isLoading ? loadingPlaceholder : getEmptyMessage(field.name, field.label)}
+          emptyPlaceholder={isLoading || isSearching ? loadingPlaceholder : getEmptyMessage(field.name, field.label, (field as any).emptyMessage)}
           disabled={isLoading}
-          loading={isLoading}
-          creatable={field.dynamic ? false : true} // Never allow creating new options for dynamic fields (they load from existing data), but allow variables for static fields
+          loading={isLoading || isSearching}
+          creatable={false} // Disable custom option creation - users can only select from available options
           onOpenChange={handleFieldOpen}
+          onSearchChange={handleSearchChange} // Handle debounced search
           selectedValues={effectiveSelectedValues}
           displayLabel={displayLabel}
           showColorPreview={(field as any).showColorPreview} // Show color preview balls if enabled

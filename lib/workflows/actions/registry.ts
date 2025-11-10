@@ -19,7 +19,7 @@ import { fetchGmailMessage } from './gmail/fetchMessage'
 import { fetchGmailTriggerEmail } from './gmail/fetchTriggerEmail'
 
 // Google Sheets actions
-import { readGoogleSheetsData, executeGoogleSheetsUnifiedAction, exportGoogleSheetsData } from './googleSheets'
+import { readGoogleSheetsData, exportGoogleSheetsData, createGoogleSheetsRow, updateGoogleSheetsRow, deleteGoogleSheetsRow } from './googleSheets'
 
 // Microsoft Excel actions
 import {
@@ -407,8 +407,12 @@ export const actionHandlerRegistry: Record<string, Function> = {
   // Google Sheets actions - wrapped to handle new calling convention
   "google_sheets_action_read_data": (params: { config: any; userId: string; input: Record<string, any> }) =>
     readGoogleSheetsData(params.config, params.userId, params.input),
-  "google_sheets_unified_action": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    executeGoogleSheetsUnifiedAction(params.config, params.userId, params.input),
+  "google_sheets_action_append_row": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createGoogleSheetsRow(params.config, params.userId, params.input),
+  "google_sheets_action_update_row": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    updateGoogleSheetsRow(params.config, params.userId, params.input),
+  "google_sheets_action_delete_row": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    deleteGoogleSheetsRow(params.config, params.userId, params.input),
   "google-sheets_action_export_sheet": (params: { config: any; userId: string; input: Record<string, any> }) =>
     exportGoogleSheetsData(params.config, params.userId, params.input),
 

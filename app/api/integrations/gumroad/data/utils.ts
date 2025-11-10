@@ -3,6 +3,7 @@
  */
 
 import { GumroadApiError } from './types'
+import { decrypt } from '@/lib/security/encryption'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -50,16 +51,20 @@ export function validateGumroadIntegration(integration: any): void {
 
 /**
  * Make authenticated request to Gumroad API
+ * Note: Gumroad uses access_token as a query parameter, not Bearer header
  */
 export async function makeGumroadApiRequest(
-  url: string, 
-  accessToken: string, 
+  url: string,
+  accessToken: string,
   options: RequestInit = {}
 ): Promise<Response> {
-  return fetch(url, {
+  // Gumroad expects access_token as a query parameter
+  const urlWithToken = new URL(url)
+  urlWithToken.searchParams.set('access_token', accessToken)
+
+  return fetch(urlWithToken.toString(), {
     ...options,
     headers: {
-      'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
       ...options.headers,
     },
@@ -68,10 +73,10 @@ export async function makeGumroadApiRequest(
 
 /**
  * Get standard Gumroad API headers
+ * Note: Gumroad uses access_token as query parameter, so headers don't need auth
  */
-export function getGumroadApiHeaders(accessToken: string): Record<string, string> {
+export function getGumroadApiHeaders(): Record<string, string> {
   return {
-    'Authorization': `Bearer ${accessToken}`,
     'Content-Type': 'application/json',
   }
 }
@@ -108,7 +113,7 @@ export async function parseGumroadApiResponse<T>(response: Response): Promise<T[
 }
 
 /**
- * Simplified Gumroad token validation
+ * Validate and decrypt Gumroad token
  */
 export async function validateGumroadToken(integration: any): Promise<{ success: boolean, token?: string, error?: string }> {
   try {
@@ -119,13 +124,31 @@ export async function validateGumroadToken(integration: any): Promise<{ success:
       }
     }
 
-    // For now, just return the token as-is
-    // TODO: Add proper token validation against Gumroad API if needed
+    // Get encryption key
+    const encryptionKey = process.env.ENCRYPTION_KEY
+    if (!encryptionKey) {
+      return {
+        success: false,
+        error: "Encryption key not configured"
+      }
+    }
+
+    // Decrypt the token (tokens are stored encrypted in database)
+    const decryptedToken = decrypt(integration.access_token, encryptionKey)
+
+    if (!decryptedToken) {
+      return {
+        success: false,
+        error: "Failed to decrypt access token"
+      }
+    }
+
     return {
       success: true,
-      token: integration.access_token
+      token: decryptedToken
     }
   } catch (error: any) {
+    logger.error('Error validating/decrypting Gumroad token:', error)
     return {
       success: false,
       error: error.message || "Token validation failed"

@@ -63,13 +63,17 @@ export const getAttachmentActionSchema: NodeComponent = {
   configSchema: [
     {
       name: "messageId",
-      label: "Message ID",
-      type: "text",
+      label: "Email",
+      type: "combobox",
       required: true,
-      placeholder: "{{trigger.messageId}}",
+      placeholder: "Select an email or use {{trigger.messageId}}",
+      dynamic: "gmail-recent-emails",
+      loadOnMount: true,
+      searchable: true,
+      supportsVariables: true,
       supportsAI: true,
-      description: "The ID of the email containing the attachment",
-      tooltip: "Get this from a Gmail trigger or search action. Format: 16-character alphanumeric string."
+      description: "Select an email from your recent messages or enter an email ID",
+      tooltip: "Search by subject or sender, or use a variable like {{trigger.messageId}}. Recent emails are shown by default."
     },
     {
       name: "attachmentSelection",
@@ -83,7 +87,9 @@ export const getAttachmentActionSchema: NodeComponent = {
         { value: "first", label: "First Attachment" }
       ],
       defaultValue: "first",
-      description: "How to identify which attachment to retrieve"
+      description: "How to identify which attachment to retrieve",
+      dependsOn: "messageId",
+      hidden: { $deps: ["messageId"], $condition: { messageId: { $exists: false } } }
     },
     {
       name: "attachmentId",
@@ -94,6 +100,8 @@ export const getAttachmentActionSchema: NodeComponent = {
       supportsAI: true,
       description: "The unique ID of the attachment",
       tooltip: "Get this from the 'New Attachment' trigger or 'Search Emails' action.",
+      dependsOn: "messageId",
+      hidden: { $deps: ["messageId"], $condition: { messageId: { $exists: false } } },
       visibleWhen: {
         field: "attachmentSelection",
         value: "id"
@@ -108,6 +116,8 @@ export const getAttachmentActionSchema: NodeComponent = {
       supportsAI: true,
       description: "Exact filename of the attachment (case-sensitive)",
       tooltip: "Must match exactly, including file extension. Example: 'Report.pdf' will not match 'report.pdf'.",
+      dependsOn: "messageId",
+      hidden: { $deps: ["messageId"], $condition: { messageId: { $exists: false } } },
       visibleWhen: {
         field: "attachmentSelection",
         value: "filename"
@@ -122,6 +132,8 @@ export const getAttachmentActionSchema: NodeComponent = {
       supportsAI: true,
       description: "Text that the filename must contain (case-insensitive)",
       tooltip: "Retrieves the first attachment whose filename contains this text. Example: 'invoice' matches 'Invoice-2024.pdf'.",
+      dependsOn: "messageId",
+      hidden: { $deps: ["messageId"], $condition: { messageId: { $exists: false } } },
       visibleWhen: {
         field: "attachmentSelection",
         value: "pattern"
@@ -134,7 +146,9 @@ export const getAttachmentActionSchema: NodeComponent = {
       required: false,
       defaultValue: true,
       description: "Include base64-encoded attachment data in output",
-      tooltip: "When enabled, the full attachment data is included. Disable for large files to reduce memory usage if you only need metadata."
+      tooltip: "When enabled, the full attachment data is included. Disable for large files to reduce memory usage if you only need metadata.",
+      dependsOn: "messageId",
+      hidden: { $deps: ["messageId"], $condition: { messageId: { $exists: false } } }
     }
   ]
 }
