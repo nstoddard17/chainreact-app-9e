@@ -1169,3 +1169,412 @@ Import trace for requested module:
 [2025-11-10T19:44:25.127Z] [INFO   ] 2025-11-10T19:44:25.127Z [DEBUG] ✅ [Google Sheets] Retrieved 21 spreadsheets
 [2025-11-10T19:44:25.128Z] [INFO   ] 2025-11-10T19:44:25.128Z [DEBUG] ✅ [Google API] Successfully processed google-sheets_spreadsheets: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","resultCount":21}
 [2025-11-10T19:44:25.134Z] [INFO   ] 2025-11-10T19:44:25.134Z [DEBUG] ✅ [SERVER] Google API completed for google-sheets_spreadsheets, result length: 21
+[2025-11-10T19:45:19.997Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/registry.ts
+Attempted import error: 'findGoogleSheetsRow' is not exported from './googleSheets' (imported as 'findGoogleSheetsRow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T19:45:27.419Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/registry.ts
+Attempted import error: 'findGoogleSheetsRow' is not exported from './googleSheets' (imported as 'findGoogleSheetsRow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T19:45:39.347Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/configuration/ServiceConnectionSelector.tsx
+Error:   [31m×[0m Expected ';', got ')'
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/configuration/ServiceConnectionSelector.tsx[0m:350:1]
+ [2m347[0m │       </div>
+ [2m348[0m │     ),
+ [2m349[0m │     searchValue: `${getAccountDisplay(conn)} ${getWorkspaceLabel(conn.workspace_type)} ${conn.status}`
+ [2m350[0m │   }))
+     · [35;1m   ─[0m
+ [2m351[0m │ 
+ [2m352[0m │   return (
+ [2m353[0m │     <div className={cn("space-y-2", className)}>
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/configuration/ServiceConnectionSelector.tsx
+./components/workflows/configuration/tabs/SetupTab.tsx
+./components/workflows/configuration/tabs/index.ts
+./components/workflows/configuration/ConfigurationModal.tsx
+./app/test/nodes/page.tsx
+[2025-11-10T19:45:47.820Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/registry.ts
+Attempted import error: 'findGoogleSheetsRow' is not exported from './googleSheets' (imported as 'findGoogleSheetsRow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T19:46:10.502Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/registry.ts
+Attempted import error: 'findGoogleSheetsRow' is not exported from './googleSheets' (imported as 'findGoogleSheetsRow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T19:46:17.849Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/registry.ts
+Attempted import error: 'findGoogleSheetsRow' is not exported from './googleSheets' (imported as 'findGoogleSheetsRow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T19:46:20.305Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/registry.ts
+Attempted import error: 'findGoogleSheetsRow' is not exported from './googleSheets' (imported as 'findGoogleSheetsRow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T19:49:23.062Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/registry.ts
+Attempted import error: 'findGoogleSheetsRow' is not exported from './googleSheets' (imported as 'findGoogleSheetsRow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T19:49:28.486Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/registry.ts
+Attempted import error: 'findGoogleSheetsRow' is not exported from './googleSheets' (imported as 'findGoogleSheetsRow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T19:58:58.475Z] [INFO   ] 2025-11-10T19:58:58.474Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-10T19:58:58.474Z"}
+[2025-11-10T19:58:58.487Z] [INFO   ] 2025-11-10T19:58:58.486Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-10T19:58:58.486Z"}
+[2025-11-10T19:58:58.487Z] [INFO   ] 2025-11-10T19:58:58.487Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-10T19:58:58.487Z"}
+[2025-11-10T19:58:59.677Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/registry.ts
+Attempted import error: 'findGoogleSheetsRow' is not exported from './googleSheets' (imported as 'findGoogleSheetsRow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T19:59:01.881Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/registry.ts
+Attempted import error: 'findGoogleSheetsRow' is not exported from './googleSheets' (imported as 'findGoogleSheetsRow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T19:59:03.857Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/registry.ts
+Attempted import error: 'findGoogleSheetsRow' is not exported from './googleSheets' (imported as 'findGoogleSheetsRow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T19:59:03.858Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/registry.ts
+Attempted import error: 'findGoogleSheetsRow' is not exported from './googleSheets' (imported as 'findGoogleSheetsRow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T19:59:04.040Z] [INFO   ] 2025-11-10T19:59:04.040Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-10T19:59:04.040Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-10T19:59:04.339Z] [INFO   ] 2025-11-10T19:59:04.339Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-10T19:59:04.340Z] [INFO   ] 2025-11-10T19:59:04.340Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-10T19:59:04.500Z] [INFO   ] 2025-11-10T19:59:04.500Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":1,"permissionsCount":1,"integrationsError":null,"permissionsError":null}
+[2025-11-10T19:59:04.500Z] [INFO   ] 2025-11-10T19:59:04.500Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-10T19:59:04.500Z] [INFO   ] 2025-11-10T19:59:04.500Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":1,"workspaceType":"personal"}
+[2025-11-10T19:59:05.599Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/registry.ts
+Attempted import error: 'findGoogleSheetsRow' is not exported from './googleSheets' (imported as 'findGoogleSheetsRow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T19:59:06.461Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/registry.ts
+Attempted import error: 'findGoogleSheetsRow' is not exported from './googleSheets' (imported as 'findGoogleSheetsRow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T19:59:06.929Z] [INFO   ] 2025-11-10T19:59:06.929Z [DEBUG] 🚀 [SERVER] fetch-user-data API route called
+[2025-11-10T19:59:06.930Z] [INFO   ] 2025-11-10T19:59:06.930Z [DEBUG] 🔍 [SERVER] fetch-user-data request parsed: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_spreadsheets","options":{}}
+[2025-11-10T19:59:07.027Z] [INFO   ] 2025-11-10T19:59:07.027Z [DEBUG] 🔄 [SERVER] Routing Google request to dedicated API: google-sheets_spreadsheets (provider: google-sheets)
+[2025-11-10T19:59:07.061Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/registry.ts
+Attempted import error: 'findGoogleSheetsRow' is not exported from './googleSheets' (imported as 'findGoogleSheetsRow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T19:59:07.876Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/registry.ts
+Attempted import error: 'findGoogleSheetsRow' is not exported from './googleSheets' (imported as 'findGoogleSheetsRow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T19:59:07.980Z] [INFO   ] 2025-11-10T19:59:07.980Z [DEBUG] 🚀 [Google Data API] POST handler invoked
+[2025-11-10T19:59:07.981Z] [INFO   ] 2025-11-10T19:59:07.981Z [DEBUG] 🔍 [Google Data API] Request received: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_spreadsheets","options":{},"fullRequestBody":{"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_spreadsheets","options":{}}}
+[2025-11-10T19:59:08.064Z] [INFO   ] 2025-11-10T19:59:08.064Z [DEBUG] 📊 [Google API] Integration provider check: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","actualProvider":"google-sheets","dataType":"google-sheets_spreadsheets","providerLowerCase":"google-sheets"}
+[2025-11-10T19:59:08.064Z] [INFO   ] 2025-11-10T19:59:08.064Z [DEBUG] 🔍 [Google API] Processing request: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_spreadsheets","provider":"google-sheets","status":"connected","hasToken":true}
+[2025-11-10T19:59:08.064Z] [INFO   ] 2025-11-10T19:59:08.064Z [DEBUG] 📊 [Google Sheets] Fetching spreadsheets
+[2025-11-10T19:59:08.584Z] [INFO   ] 2025-11-10T19:59:08.584Z [DEBUG] ✅ [Google Sheets] Retrieved 21 spreadsheets
+[2025-11-10T19:59:08.584Z] [INFO   ] 2025-11-10T19:59:08.584Z [DEBUG] ✅ [Google API] Successfully processed google-sheets_spreadsheets: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","resultCount":21}
+[2025-11-10T19:59:08.586Z] [INFO   ] 2025-11-10T19:59:08.586Z [DEBUG] ✅ [SERVER] Google API completed for google-sheets_spreadsheets, result length: 21
+[2025-11-10T20:09:46.074Z] [INFO   ] 2025-11-10T20:09:46.074Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-10T20:09:46.074Z"}
+[2025-11-10T20:09:46.087Z] [INFO   ] 2025-11-10T20:09:46.087Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-10T20:09:46.087Z"}
+[2025-11-10T20:09:46.087Z] [INFO   ] 2025-11-10T20:09:46.087Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-10T20:09:46.087Z"}
+[2025-11-10T20:09:47.102Z] [INFO   ] 2025-11-10T20:09:47.101Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-10T20:09:47.101Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-10T20:09:47.281Z] [INFO   ] 2025-11-10T20:09:47.281Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-10T20:09:47.281Z] [INFO   ] 2025-11-10T20:09:47.281Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-10T20:09:47.476Z] [INFO   ] 2025-11-10T20:09:47.476Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":1,"permissionsCount":1,"integrationsError":null,"permissionsError":null}
+[2025-11-10T20:09:47.478Z] [INFO   ] 2025-11-10T20:09:47.477Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-10T20:09:47.478Z] [INFO   ] 2025-11-10T20:09:47.478Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":1,"workspaceType":"personal"}
+[2025-11-10T20:09:47.542Z] [INFO   ] 2025-11-10T20:09:47.542Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-10T20:09:47.542Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-10T20:09:47.634Z] [INFO   ] 2025-11-10T20:09:47.634Z [DEBUG] 🚀 [SERVER] fetch-user-data API route called
+[2025-11-10T20:09:47.634Z] [INFO   ] 2025-11-10T20:09:47.634Z [DEBUG] 🔍 [SERVER] fetch-user-data request parsed: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_spreadsheets","options":{}}
+[2025-11-10T20:09:47.641Z] [INFO   ] 2025-11-10T20:09:47.641Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-10T20:09:47.641Z] [INFO   ] 2025-11-10T20:09:47.641Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-10T20:09:47.726Z] [INFO   ] 2025-11-10T20:09:47.725Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":1,"permissionsCount":1,"integrationsError":null,"permissionsError":null}
+[2025-11-10T20:09:47.726Z] [INFO   ] 2025-11-10T20:09:47.726Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-10T20:09:47.726Z] [INFO   ] 2025-11-10T20:09:47.726Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":1,"workspaceType":"personal"}
+[2025-11-10T20:09:47.779Z] [INFO   ] 2025-11-10T20:09:47.779Z [DEBUG] 🔄 [SERVER] Routing Google request to dedicated API: google-sheets_spreadsheets (provider: google-sheets)
+[2025-11-10T20:09:47.854Z] [INFO   ] 2025-11-10T20:09:47.854Z [DEBUG] 🚀 [Google Data API] POST handler invoked
+[2025-11-10T20:09:47.854Z] [INFO   ] 2025-11-10T20:09:47.854Z [DEBUG] 🔍 [Google Data API] Request received: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_spreadsheets","options":{},"fullRequestBody":{"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_spreadsheets","options":{}}}
+[2025-11-10T20:09:47.962Z] [INFO   ] 2025-11-10T20:09:47.961Z [DEBUG] 📊 [Google API] Integration provider check: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","actualProvider":"google-sheets","dataType":"google-sheets_spreadsheets","providerLowerCase":"google-sheets"}
+[2025-11-10T20:09:47.962Z] [INFO   ] 2025-11-10T20:09:47.962Z [DEBUG] 🔍 [Google API] Processing request: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_spreadsheets","provider":"google-sheets","status":"connected","hasToken":true}
+[2025-11-10T20:09:47.962Z] [INFO   ] 2025-11-10T20:09:47.962Z [DEBUG] 📊 [Google Sheets] Fetching spreadsheets
+[2025-11-10T20:09:48.656Z] [INFO   ] 2025-11-10T20:09:48.655Z [DEBUG] ✅ [Google Sheets] Retrieved 21 spreadsheets
+[2025-11-10T20:09:48.656Z] [INFO   ] 2025-11-10T20:09:48.656Z [DEBUG] ✅ [Google API] Successfully processed google-sheets_spreadsheets: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","resultCount":21}
+[2025-11-10T20:09:48.661Z] [INFO   ] 2025-11-10T20:09:48.660Z [DEBUG] ✅ [SERVER] Google API completed for google-sheets_spreadsheets, result length: 21
+[2025-11-10T20:10:03.507Z] [INFO   ] 2025-11-10T20:10:03.506Z [DEBUG] 🚀 [SERVER] fetch-user-data API route called
+[2025-11-10T20:10:03.514Z] [INFO   ] 2025-11-10T20:10:03.512Z [DEBUG] 🔍 [SERVER] fetch-user-data request parsed: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_sheets","options":{"spreadsheetId":"13dykQ7u8Ef2c1gC2Tbr7_TbMGsJ4R-WlBlLshiN5XBI"}}
+[2025-11-10T20:10:03.674Z] [INFO   ] 2025-11-10T20:10:03.674Z [DEBUG] 🔄 [SERVER] Routing Google request to dedicated API: google-sheets_sheets (provider: google-sheets)
+[2025-11-10T20:10:03.735Z] [INFO   ] 2025-11-10T20:10:03.735Z [DEBUG] 🚀 [Google Data API] POST handler invoked
+[2025-11-10T20:10:03.736Z] [INFO   ] 2025-11-10T20:10:03.736Z [DEBUG] 🔍 [Google Data API] Request received: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_sheets","options":{"spreadsheetId":"13dykQ7u8Ef2c1gC2Tbr7_TbMGsJ4R-WlBlLshiN5XBI"},"fullRequestBody":{"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_sheets","options":{"spreadsheetId":"13dykQ7u8Ef2c1gC2Tbr7_TbMGsJ4R-WlBlLshiN5XBI"}}}
+[2025-11-10T20:10:03.839Z] [INFO   ] 2025-11-10T20:10:03.839Z [DEBUG] 📊 [Google API] Integration provider check: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","actualProvider":"google-sheets","dataType":"google-sheets_sheets","providerLowerCase":"google-sheets"}
+[2025-11-10T20:10:03.839Z] [INFO   ] 2025-11-10T20:10:03.839Z [DEBUG] 🔍 [Google API] Processing request: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_sheets","provider":"google-sheets","status":"connected","hasToken":true}
+[2025-11-10T20:10:03.840Z] [INFO   ] 2025-11-10T20:10:03.840Z [DEBUG] 📊 [Google Sheets] Fetching sheets for spreadsheet: 13dykQ7u8Ef2c1gC2Tbr7_TbMGsJ4R-WlBlLshiN5XBI
+[2025-11-10T20:10:04.856Z] [INFO   ] 2025-11-10T20:10:04.855Z [DEBUG] ✅ [Google Sheets] Retrieved 4 sheets
+[2025-11-10T20:10:04.856Z] [INFO   ] 2025-11-10T20:10:04.856Z [DEBUG] ✅ [Google API] Successfully processed google-sheets_sheets: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","resultCount":4}
+[2025-11-10T20:10:04.858Z] [INFO   ] 2025-11-10T20:10:04.858Z [DEBUG] ✅ [SERVER] Google API completed for google-sheets_sheets, result length: 4
+[2025-11-10T20:10:07.057Z] [INFO   ] 2025-11-10T20:10:07.055Z [DEBUG] 🚀 [SERVER] fetch-user-data API route called
+[2025-11-10T20:10:07.059Z] [INFO   ] 2025-11-10T20:10:07.059Z [DEBUG] 🔍 [SERVER] fetch-user-data request parsed: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_columns","options":{"sheetName":"Monthly Budget","spreadsheetId":"13dykQ7u8Ef2c1gC2Tbr7_TbMGsJ4R-WlBlLshiN5XBI"}}
+[2025-11-10T20:10:07.174Z] [INFO   ] 2025-11-10T20:10:07.174Z [DEBUG] 🔄 [SERVER] Routing Google request to dedicated API: google-sheets_columns (provider: google-sheets)
+[2025-11-10T20:10:07.238Z] [INFO   ] 2025-11-10T20:10:07.238Z [DEBUG] 🚀 [Google Data API] POST handler invoked
+[2025-11-10T20:10:07.238Z] [INFO   ] 2025-11-10T20:10:07.238Z [DEBUG] 🔍 [Google Data API] Request received: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_columns","options":{"sheetName":"Monthly Budget","spreadsheetId":"13dykQ7u8Ef2c1gC2Tbr7_TbMGsJ4R-WlBlLshiN5XBI"},"fullRequestBody":{"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_columns","options":{"sheetName":"Monthly Budget","spreadsheetId":"13dykQ7u8Ef2c1gC2Tbr7_TbMGsJ4R-WlBlLshiN5XBI"}}}
+[2025-11-10T20:10:07.341Z] [INFO   ] 2025-11-10T20:10:07.341Z [DEBUG] 📊 [Google API] Integration provider check: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","actualProvider":"google-sheets","dataType":"google-sheets_columns","providerLowerCase":"google-sheets"}
+[2025-11-10T20:10:07.342Z] [INFO   ] 2025-11-10T20:10:07.342Z [DEBUG] 🔍 [Google API] Processing request: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_columns","provider":"google-sheets","status":"connected","hasToken":true}
+[2025-11-10T20:10:07.343Z] [INFO   ] 2025-11-10T20:10:07.343Z [DEBUG] 📊 [Google Sheets] Fetching columns for: 13dykQ7u8Ef2c1gC2Tbr7_TbMGsJ4R-WlBlLshiN5XBI/Monthly Budget
+[2025-11-10T20:10:07.849Z] [INFO   ] 2025-11-10T20:10:07.849Z [DEBUG] ✅ [Google Sheets] Retrieved 26 columns
+[2025-11-10T20:10:07.849Z] [INFO   ] 2025-11-10T20:10:07.849Z [DEBUG] ✅ [Google API] Successfully processed google-sheets_columns: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","resultCount":26}
+[2025-11-10T20:10:07.854Z] [INFO   ] 2025-11-10T20:10:07.853Z [DEBUG] ✅ [SERVER] Google API completed for google-sheets_columns, result length: 26
+[2025-11-10T20:10:12.111Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/registry.ts
+Attempted import error: 'findGoogleSheetsRow' is not exported from './googleSheets' (imported as 'findGoogleSheetsRow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T20:10:20.860Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/registry.ts
+Attempted import error: 'findGoogleSheetsRow' is not exported from './googleSheets' (imported as 'findGoogleSheetsRow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T20:10:24.351Z] [INFO   ] 2025-11-10T20:10:24.351Z [DEBUG] 🔍 [Google Sheets API] Processing request: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_records","status":"connected","hasToken":true}
+[2025-11-10T20:10:24.353Z] [INFO   ] 2025-11-10T20:10:24.353Z [DEBUG] 🔍 Google Sheets records fetcher called with: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","spreadsheetId":"13dykQ7u8Ef2c1gC2Tbr7_TbMGsJ4R-WlBlLshiN5XBI","sheetName":"Monthly Budget","maxRows":1000,"includeHeaders":true,"hasToken":true}
+[2025-11-10T20:10:24.354Z] [INFO   ] 2025-11-10T20:10:24.354Z [DEBUG] 🔍 Fetching Google Sheets data...
+[2025-11-10T20:10:24.654Z] [INFO   ] 2025-11-10T20:10:24.654Z [DEBUG] 📊 Fetched 22 rows. First row: ["","1st Paycheck","Categories"]
+[2025-11-10T20:10:24.655Z] [INFO   ] 2025-11-10T20:10:24.655Z [DEBUG] ✅ Converted to 21 records. Headers: ["Column A","1st Paycheck","Categories","15th Paycheck","Categories","Credit Cards","Payment","Due Date","Interest Rate"]
+[2025-11-10T20:10:24.655Z] [INFO   ] 2025-11-10T20:10:24.655Z [DEBUG] 📋 First record: {"id":"row_2","rowNumber":2,"fields":{"Column A":"FEDVIP","1st Paycheck":"$15.43","Categories":"Military Star Card","15th Paycheck":"$28.08","Credit Cards":"$0.00","Payment":"$93.65","Due Date":"12Sep","Interest Rate":"15.49%"},"label":"FEDVIP","value":"row_2"}
+[2025-11-10T20:10:24.656Z] [INFO   ] 2025-11-10T20:10:24.656Z [DEBUG] ✅ Google Sheets records fetched successfully: 21 records
+[2025-11-10T20:10:24.656Z] [INFO   ] 2025-11-10T20:10:24.656Z [DEBUG] ✅ [Google Sheets API] Successfully processed google-sheets_records: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","resultCount":21}
+[2025-11-10T20:19:06.775Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/registry.ts
+Attempted import error: 'findGoogleSheetsRow' is not exported from './googleSheets' (imported as 'findGoogleSheetsRow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T20:19:32.255Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/registry.ts
+Attempted import error: 'findGoogleSheetsRow' is not exported from './googleSheets' (imported as 'findGoogleSheetsRow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T20:19:32.906Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-11-10T20:19:33.187Z] [INFO   ] 2025-11-10T20:19:33.187Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-10T20:19:33.187Z"}
+[2025-11-10T20:19:33.199Z] [INFO   ] 2025-11-10T20:19:33.199Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-10T20:19:33.199Z"}
+[2025-11-10T20:19:33.199Z] [INFO   ] 2025-11-10T20:19:33.199Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-10T20:19:33.199Z"}
+[2025-11-10T20:19:35.711Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/registry.ts
+Attempted import error: 'findGoogleSheetsRow' is not exported from './googleSheets' (imported as 'findGoogleSheetsRow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T20:19:36.257Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/registry.ts
+Attempted import error: 'findGoogleSheetsRow' is not exported from './googleSheets' (imported as 'findGoogleSheetsRow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T20:19:37.393Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/registry.ts
+Attempted import error: 'findGoogleSheetsRow' is not exported from './googleSheets' (imported as 'findGoogleSheetsRow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T20:19:37.422Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/registry.ts
+Attempted import error: 'findGoogleSheetsRow' is not exported from './googleSheets' (imported as 'findGoogleSheetsRow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T20:19:38.838Z] [INFO   ] 2025-11-10T20:19:38.838Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-10T20:19:38.838Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-10T20:19:39.130Z] [INFO   ] 2025-11-10T20:19:39.130Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-10T20:19:39.131Z] [INFO   ] 2025-11-10T20:19:39.131Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-10T20:19:39.297Z] [INFO   ] 2025-11-10T20:19:39.297Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":1,"permissionsCount":1,"integrationsError":null,"permissionsError":null}
+[2025-11-10T20:19:39.298Z] [INFO   ] 2025-11-10T20:19:39.298Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-10T20:19:39.298Z] [INFO   ] 2025-11-10T20:19:39.298Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":1,"workspaceType":"personal"}
+[2025-11-10T20:20:16.431Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/registry.ts
+Attempted import error: 'findGoogleSheetsRow' is not exported from './googleSheets' (imported as 'findGoogleSheetsRow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T20:20:37.218Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/registry.ts
+Attempted import error: 'findGoogleSheetsRow' is not exported from './googleSheets' (imported as 'findGoogleSheetsRow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T20:20:43.252Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/registry.ts
+Attempted import error: 'findGoogleSheetsRow' is not exported from './googleSheets' (imported as 'findGoogleSheetsRow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T20:23:49.201Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/registry.ts
+Attempted import error: 'findGoogleSheetsRow' is not exported from './googleSheets' (imported as 'findGoogleSheetsRow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T20:24:23.086Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/registry.ts
+Attempted import error: 'findGoogleSheetsRow' is not exported from './googleSheets' (imported as 'findGoogleSheetsRow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T20:24:26.417Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/registry.ts
+Attempted import error: 'findGoogleSheetsRow' is not exported from './googleSheets' (imported as 'findGoogleSheetsRow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T20:24:26.793Z] [INFO   ] 2025-11-10T20:24:26.793Z [DEBUG] 🚀 [SERVER] fetch-user-data API route called
+[2025-11-10T20:24:26.793Z] [INFO   ] 2025-11-10T20:24:26.793Z [DEBUG] 🔍 [SERVER] fetch-user-data request parsed: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_spreadsheets","options":{}}
+[2025-11-10T20:24:27.019Z] [INFO   ] 2025-11-10T20:24:27.019Z [DEBUG] 🔄 [SERVER] Routing Google request to dedicated API: google-sheets_spreadsheets (provider: google-sheets)
+[2025-11-10T20:24:27.068Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/registry.ts
+Attempted import error: 'findGoogleSheetsRow' is not exported from './googleSheets' (imported as 'findGoogleSheetsRow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T20:24:28.091Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/registry.ts
+Attempted import error: 'findGoogleSheetsRow' is not exported from './googleSheets' (imported as 'findGoogleSheetsRow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T20:24:28.250Z] [INFO   ] 2025-11-10T20:24:28.250Z [DEBUG] 🚀 [Google Data API] POST handler invoked
+[2025-11-10T20:24:28.250Z] [INFO   ] 2025-11-10T20:24:28.250Z [DEBUG] 🔍 [Google Data API] Request received: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_spreadsheets","options":{},"fullRequestBody":{"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_spreadsheets","options":{}}}
+[2025-11-10T20:24:28.362Z] [INFO   ] 2025-11-10T20:24:28.362Z [DEBUG] 📊 [Google API] Integration provider check: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","actualProvider":"google-sheets","dataType":"google-sheets_spreadsheets","providerLowerCase":"google-sheets"}
+[2025-11-10T20:24:28.362Z] [INFO   ] 2025-11-10T20:24:28.362Z [DEBUG] 🔍 [Google API] Processing request: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_spreadsheets","provider":"google-sheets","status":"connected","hasToken":true}
+[2025-11-10T20:24:28.362Z] [INFO   ] 2025-11-10T20:24:28.362Z [DEBUG] 📊 [Google Sheets] Fetching spreadsheets
+[2025-11-10T20:24:28.866Z] [INFO   ] 2025-11-10T20:24:28.866Z [DEBUG] ✅ [Google Sheets] Retrieved 21 spreadsheets
+[2025-11-10T20:24:28.867Z] [INFO   ] 2025-11-10T20:24:28.867Z [DEBUG] ✅ [Google API] Successfully processed google-sheets_spreadsheets: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","resultCount":21}
+[2025-11-10T20:24:28.876Z] [INFO   ] 2025-11-10T20:24:28.876Z [DEBUG] ✅ [SERVER] Google API completed for google-sheets_spreadsheets, result length: 21
+[2025-11-10T20:24:30.622Z] [INFO   ] 2025-11-10T20:24:30.621Z [DEBUG] 🚀 [SERVER] fetch-user-data API route called
+[2025-11-10T20:24:30.623Z] [INFO   ] 2025-11-10T20:24:30.622Z [DEBUG] 🔍 [SERVER] fetch-user-data request parsed: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_sheets","options":{"spreadsheetId":"13dykQ7u8Ef2c1gC2Tbr7_TbMGsJ4R-WlBlLshiN5XBI"}}
+[2025-11-10T20:24:30.789Z] [INFO   ] 2025-11-10T20:24:30.789Z [DEBUG] 🔄 [SERVER] Routing Google request to dedicated API: google-sheets_sheets (provider: google-sheets)
+[2025-11-10T20:24:30.850Z] [INFO   ] 2025-11-10T20:24:30.850Z [DEBUG] 🚀 [Google Data API] POST handler invoked
+[2025-11-10T20:24:30.851Z] [INFO   ] 2025-11-10T20:24:30.851Z [DEBUG] 🔍 [Google Data API] Request received: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_sheets","options":{"spreadsheetId":"13dykQ7u8Ef2c1gC2Tbr7_TbMGsJ4R-WlBlLshiN5XBI"},"fullRequestBody":{"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_sheets","options":{"spreadsheetId":"13dykQ7u8Ef2c1gC2Tbr7_TbMGsJ4R-WlBlLshiN5XBI"}}}
+[2025-11-10T20:24:30.942Z] [INFO   ] 2025-11-10T20:24:30.941Z [DEBUG] 📊 [Google API] Integration provider check: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","actualProvider":"google-sheets","dataType":"google-sheets_sheets","providerLowerCase":"google-sheets"}
+[2025-11-10T20:24:30.942Z] [INFO   ] 2025-11-10T20:24:30.942Z [DEBUG] 🔍 [Google API] Processing request: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_sheets","provider":"google-sheets","status":"connected","hasToken":true}
+[2025-11-10T20:24:30.942Z] [INFO   ] 2025-11-10T20:24:30.942Z [DEBUG] 📊 [Google Sheets] Fetching sheets for spreadsheet: 13dykQ7u8Ef2c1gC2Tbr7_TbMGsJ4R-WlBlLshiN5XBI
+[2025-11-10T20:24:31.752Z] [INFO   ] 2025-11-10T20:24:31.752Z [DEBUG] ✅ [Google Sheets] Retrieved 4 sheets
+[2025-11-10T20:24:31.752Z] [INFO   ] 2025-11-10T20:24:31.752Z [DEBUG] ✅ [Google API] Successfully processed google-sheets_sheets: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","resultCount":4}
+[2025-11-10T20:24:31.755Z] [INFO   ] 2025-11-10T20:24:31.755Z [DEBUG] ✅ [SERVER] Google API completed for google-sheets_sheets, result length: 4
+[2025-11-10T20:24:33.547Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/registry.ts
+Attempted import error: 'findGoogleSheetsRow' is not exported from './googleSheets' (imported as 'findGoogleSheetsRow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T20:24:41.026Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/registry.ts
+Attempted import error: 'findGoogleSheetsRow' is not exported from './googleSheets' (imported as 'findGoogleSheetsRow').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T20:24:45.618Z] [INFO   ] 2025-11-10T20:24:45.618Z [DEBUG] 🔍 [Google Sheets API] Processing request: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_records","status":"connected","hasToken":true}
+[2025-11-10T20:24:45.619Z] [INFO   ] 2025-11-10T20:24:45.618Z [DEBUG] 🔍 Google Sheets records fetcher called with: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","spreadsheetId":"13dykQ7u8Ef2c1gC2Tbr7_TbMGsJ4R-WlBlLshiN5XBI","sheetName":"Monthly Budget","maxRows":100,"includeHeaders":true,"hasToken":true}
+[2025-11-10T20:24:45.620Z] [INFO   ] 2025-11-10T20:24:45.620Z [DEBUG] 🔍 Fetching Google Sheets data...
+[2025-11-10T20:24:45.702Z] [INFO   ] 2025-11-10T20:24:45.702Z [DEBUG] 🔍 [Google Sheets API] Processing request: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","dataType":"google-sheets_records","status":"connected","hasToken":true}
+[2025-11-10T20:24:45.702Z] [INFO   ] 2025-11-10T20:24:45.702Z [DEBUG] 🔍 Google Sheets records fetcher called with: {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","spreadsheetId":"13dykQ7u8Ef2c1gC2Tbr7_TbMGsJ4R-WlBlLshiN5XBI","sheetName":"Monthly Budget","maxRows":100,"includeHeaders":true,"hasToken":true}
+[2025-11-10T20:24:45.702Z] [INFO   ] 2025-11-10T20:24:45.702Z [DEBUG] 🔍 Fetching Google Sheets data...
+[2025-11-10T20:24:45.963Z] [WARN   ]  [33m[1m⚠[22m[39m Server is approaching the used memory threshold, restarting...

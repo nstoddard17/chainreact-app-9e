@@ -35,29 +35,55 @@ export const updateRowActionSchema: NodeComponent = {
       dynamic: "google-sheets_sheets",
       required: true,
       dependsOn: "spreadsheetId",
+      hidden: {
+        $deps: ["spreadsheetId"],
+        $condition: { spreadsheetId: { $exists: false } }
+      },
       placeholder: "Select a sheet",
       loadingPlaceholder: "Loading sheets...",
       description: "The specific sheet (tab) within the spreadsheet"
     },
     {
+      name: "updateRowPreview",
+      label: "Update Row",
+      type: "google_sheets_update_row_preview",
+      required: false,
+      dependsOn: "sheetName",
+      hidden: {
+        $deps: ["sheetName"],
+        $condition: { sheetName: { $exists: false } }
+      },
+      description: "Select a row and update its column values"
+    },
+    {
       name: "rowNumber",
-      label: "Row Number",
+      label: "Row Number (Optional - for automation)",
       type: "number",
-      required: true,
+      required: false,
+      dependsOn: "sheetName",
+      hidden: {
+        $deps: ["sheetName"],
+        $condition: { sheetName: { $exists: false } }
+      },
       placeholder: "2",
       min: 1,
       supportsAI: true,
-      description: "Row number to update"
+      description: "Specify row number using a variable (e.g., {{trigger.rowNumber}}). Leave empty to use table selection above."
     },
     {
       name: "values",
-      label: "New Values",
+      label: "New Values (Optional - for automation)",
       type: "textarea",
-      required: true,
+      required: false,
+      dependsOn: "sheetName",
+      hidden: {
+        $deps: ["sheetName"],
+        $condition: { sheetName: { $exists: false } }
+      },
       rows: 4,
       placeholder: JSON.stringify(["Value 1", "Value 2", "Value 3"], null, 2),
       supportsAI: true,
-      description: "Array of new values for the row"
+      description: "Array of new values for the row. Use this with variables for automation. If provided, this overrides the table column selections."
     }
   ]
 }

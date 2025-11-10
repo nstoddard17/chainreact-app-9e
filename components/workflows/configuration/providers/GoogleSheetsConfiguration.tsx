@@ -24,6 +24,7 @@ import { GoogleSheetsAddRowPreview } from '../components/google-sheets/GoogleShe
 import { GoogleSheetsRangePreview } from '../components/google-sheets/GoogleSheetsRangePreview';
 import { GoogleSheetsRowPreview } from '../components/google-sheets/GoogleSheetsRowPreview';
 import { GoogleSheetsFindRowPreview } from '../components/google-sheets/GoogleSheetsFindRowPreview';
+import { GoogleSheetsUpdateRowPreview } from '../components/google-sheets/GoogleSheetsUpdateRowPreview';
 import { getProviderDisplayName } from '@/lib/utils/provider-names';
 
 import { logger } from '@/lib/utils/logger'
@@ -612,6 +613,28 @@ export function GoogleSheetsConfiguration({
             key={`field-${field.name}-${index}`}
             values={values}
             fieldKey={`field-${field.name}-${index}`}
+          />
+        );
+      }
+
+      // Special handling for Update Row Preview field
+      if (field.type === 'google_sheets_update_row_preview') {
+        return (
+          <GoogleSheetsUpdateRowPreview
+            key={`field-${field.name}-${index}`}
+            values={values}
+            previewData={previewData}
+            showPreviewData={showPreviewData}
+            loadingPreview={loadingPreview}
+            fieldKey={`field-${field.name}-${index}`}
+            onTogglePreview={() => {
+              setShowPreviewData(false);
+              setPreviewData([]);
+            }}
+            onLoadPreviewData={loadGoogleSheetsPreviewData}
+            setValue={setValueWithColumnTracking}
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
           />
         );
       }

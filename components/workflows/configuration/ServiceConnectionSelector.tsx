@@ -270,7 +270,18 @@ export function ServiceConnectionSelector({
   }
 
   // Format options for Combobox
-  const comboboxOptions: ComboboxOption[] = connections.map((conn) => ({
+  const comboboxOptions: ComboboxOption[] = connections.map((conn) => {
+    // DEBUG: Log avatar data
+    if (conn.email) {
+      console.log('[ServiceConnectionSelector] Connection data:', {
+        id: conn.id,
+        email: conn.email,
+        avatar_url: conn.avatar_url,
+        has_avatar: !!conn.avatar_url
+      })
+    }
+
+    return {
     value: conn.id,
     label: (
       <div className="flex items-center gap-2 py-1 w-full group">
@@ -336,7 +347,8 @@ export function ServiceConnectionSelector({
       </div>
     ),
     searchValue: `${getAccountDisplay(conn)} ${getWorkspaceLabel(conn.workspace_type)} ${conn.status}`
-  }))
+    }
+  })
 
   return (
     <div className={cn("space-y-2", className)}>
