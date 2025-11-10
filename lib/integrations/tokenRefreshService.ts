@@ -313,7 +313,10 @@ export function shouldRefreshToken(
 async function updateIntegrationWithRefreshResult(integrationId: string, refreshResult: RefreshResult, verbose: boolean = false): Promise<void> {
   const { accessToken, refreshToken, accessTokenExpiresIn, refreshTokenExpiresIn, scope } = refreshResult
 
+  logger.debug(`💾 Updating integration ${integrationId.substring(0, 8)}... with refresh result`)
+
   if (!accessToken) {
+    logger.error(`❌ Cannot update integration: No access token in refresh result`)
     throw new Error("Cannot update integration: No access token in refresh result")
   }
 
@@ -321,14 +324,17 @@ async function updateIntegrationWithRefreshResult(integrationId: string, refresh
     // First, get the current integration data to access the metadata
     const { data: integration, error: fetchError } = await db
       .from("integrations")
-      .select("metadata")
+      .select("metadata, provider")
       .eq("id", integrationId)
       .single()
 
     if (fetchError) {
-      logger.error(`Error fetching integration data:`, fetchError.message)
+      logger.error(`❌ Error fetching integration data for update:`, fetchError.message)
       throw fetchError
     }
+
+    const provider = integration?.provider || 'unknown'
+    logger.debug(`📋 ${provider}: Fetched current integration data`)
 
     // Calculate the new expiration dates
     const now = new Date()
@@ -407,15 +413,23 @@ async function updateIntegrationWithRefreshResult(integrationId: string, refresh
     }
 
     // Update the integration in the database
+    logger.debug(`💾 ${provider}: Writing updated tokens to database`, {
+      updateKeys: Object.keys(updateData),
+      hasNewAccessToken: !!updateData.access_token,
+      hasNewRefreshToken: !!updateData.refresh_token,
+      expiresAt: updateData.expires_at
+    })
+
     const { error } = await db.from("integrations").update(updateData).eq("id", integrationId)
 
     if (error) {
+      logger.error(`❌ ${provider}: Database update failed:`, error)
       throw error
     }
 
-    if (verbose) logger.debug(`Updated tokens for integration ID: ${integrationId}`)
+    logger.debug(`✅ ${provider}: Successfully updated integration in database (ID: ${integrationId.substring(0, 8)}...)`)
   } catch (error: any) {
-    logger.error(`Failed to update tokens:`, error)
+    logger.error(`❌ Failed to update tokens:`, error)
     throw error
   }
 }
@@ -429,21 +443,26 @@ async function updateIntegrationWithError(
   additionalData: Record<string, any> = {},
   verbose: boolean = false
 ): Promise<void> {
+  logger.debug(`⚠️  Updating integration ${integrationId.substring(0, 8)}... with error`)
+
   try {
     // Get the current integration data
     const { data: integration, error: fetchError } = await db
       .from("integrations")
-      .select("consecutive_failures, metadata")
+      .select("consecutive_failures, metadata, provider")
       .eq("id", integrationId)
       .single()
 
     if (fetchError) {
-      logger.error(`Error fetching integration data:`, fetchError.message)
+      logger.error(`❌ Error fetching integration data for error update:`, fetchError.message)
       throw fetchError
     }
 
+    const provider = integration?.provider || 'unknown'
+
     // Increment the failure counter
     const consecutiveFailures = (integration?.consecutive_failures || 0) + 1
+    logger.debug(`📊 ${provider}: Incrementing failure count to ${consecutiveFailures}`)
 
     // Update metadata with error information
     let updatedMetadata = integration?.metadata || {}
@@ -478,13 +497,21 @@ async function updateIntegrationWithError(
     }
 
     // Update the database
+    logger.debug(`💾 ${provider}: Writing error state to database`, {
+      consecutiveFailures,
+      willMarkAsNeedsReauth: consecutiveFailures >= 3,
+      status: updateData.status || 'unchanged'
+    })
+
     const { error: updateError } = await db.from("integrations").update(updateData).eq("id", integrationId)
 
     if (updateError) {
-      logger.error(`Error updating integration with error:`, updateError.message)
+      logger.error(`❌ ${provider}: Failed to update integration with error:`, updateError.message)
+    } else {
+      logger.debug(`✅ ${provider}: Error state saved to database (ID: ${integrationId.substring(0, 8)}...)`)
     }
   } catch (error) {
-    logger.error(`Unexpected error updating integration with error:`, error)
+    logger.error(`❌ Unexpected error updating integration with error:`, error)
   }
 }
 
@@ -498,9 +525,14 @@ export async function refreshTokenForProvider(
   options: { verbose?: boolean } = {}
 ): Promise<RefreshResult> {
   const verbose = options.verbose ?? false;
-  
-  if (verbose) logger.debug(`Starting token refresh for ${provider} (ID: ${integration.id})`)
-  else logger.debug(`Refreshing token for ${provider}`) // No user ID in regular logs
+
+  logger.debug(`🔄 Starting token refresh for ${provider} (ID: ${integration.id?.substring(0, 8)}...)`, {
+    has_refresh_token: !!refreshToken,
+    refresh_token_length: refreshToken?.length,
+    integration_status: integration.status,
+    expires_at: integration.expires_at,
+    consecutive_failures: integration.consecutive_failures || 0
+  })
 
   try {
     // Decrypt the refresh token if it appears to be encrypted
@@ -509,11 +541,13 @@ export async function refreshTokenForProvider(
       try {
         const secret = await getSecret("encryption_key")
         if (!secret) {
+          logger.error(`❌ ${provider}: Encryption secret is not configured`)
           throw new Error("Encryption secret is not configured")
         }
 
-        if (verbose) logger.debug(`Decrypting refresh token for ${provider} (ID: ${integration.id})`)
+        logger.debug(`🔐 ${provider}: Decrypting refresh token (length: ${refreshToken.length})`)
         decryptedRefreshToken = decrypt(refreshToken, secret)
+        logger.debug(`✅ ${provider}: Token decrypted successfully (new length: ${decryptedRefreshToken.length})`)
       } catch (error: any) {
         logger.error(`Decryption error:`, error)
         
@@ -539,17 +573,24 @@ export async function refreshTokenForProvider(
         
       }
     } else {
-      if (verbose) logger.debug(`Refresh token for ${provider} (ID: ${integration.id}) does not appear to be encrypted`)
+      logger.debug(`ℹ️  ${provider}: Refresh token does not appear to be encrypted`)
     }
 
     const config = getOAuthConfig(provider)
 
     if (!config) {
-      logger.error(`No OAuth config found for provider: ${provider}`)
+      logger.error(`❌ ${provider}: No OAuth config found for this provider`)
       return { success: false, error: `No OAuth config found for provider: ${provider}` }
     }
 
-    if (verbose) logger.debug(`Found OAuth config for ${provider}`)
+    logger.debug(`✅ ${provider}: Found OAuth config`, {
+      tokenEndpoint: config.tokenEndpoint,
+      authMethod: config.authMethod,
+      hasScope: !!config.scope,
+      refreshRequiresClientAuth: config.refreshRequiresClientAuth,
+      sendScopeWithRefresh: config.sendScopeWithRefresh,
+      sendRedirectUriWithRefresh: config.sendRedirectUriWithRefresh
+    })
 
     // Special handling for Microsoft services to ensure they use the correct client credentials
     let clientId: string | undefined
@@ -581,11 +622,18 @@ export async function refreshTokenForProvider(
     }
 
     if (!clientId || !clientSecret) {
-      logger.error(`Missing client credentials for provider: ${provider}`)
+      logger.error(`❌ ${provider}: Missing client credentials`, {
+        hasClientId: !!clientId,
+        hasClientSecret: !!clientSecret,
+        provider
+      })
       return { success: false, error: `Missing client credentials for provider: ${provider}` }
     }
 
-    if (verbose) logger.debug(`Got client credentials for ${provider}`)
+    logger.debug(`✅ ${provider}: Got client credentials`, {
+      clientIdLength: clientId.length,
+      clientSecretLength: clientSecret.length
+    })
 
     // Create a fresh URLSearchParams object to avoid "body used already" errors
     const bodyParams: Record<string, string> = {
@@ -665,21 +713,28 @@ export async function refreshTokenForProvider(
     const bodyString = new URLSearchParams(bodyParams).toString()
 
     // Log the request details
-    if (verbose) {
-      logger.debug(`Sending refresh request to ${config.tokenEndpoint} for ${provider}`)
-      logger.debug(`Request body params:`, Object.keys(bodyParams).join(', '))
-    } else {
-      logger.debug(`Refreshing token for ${provider}`)
-    }
+    logger.debug(`📤 ${provider}: Sending refresh request to ${config.tokenEndpoint}`, {
+      method: 'POST',
+      bodyParams: Object.keys(bodyParams),
+      headerKeys: Array.from(headers.keys()),
+      bodyLength: bodyString.length
+    })
 
     // Make the request
+    const startTime = Date.now()
     const response = await fetch(config.tokenEndpoint, {
       method: "POST",
       headers,
       body: bodyString,
     })
+    const duration = Date.now() - startTime
 
-    if (verbose) logger.debug(`Received response from ${provider}: ${response.status} ${response.statusText}`)
+    logger.debug(`📥 ${provider}: Received response (${duration}ms)`, {
+      status: response.status,
+      statusText: response.statusText,
+      contentType: response.headers.get('content-type'),
+      ok: response.ok
+    })
 
     // Try to parse the response as JSON, but handle non-JSON responses gracefully
     let responseData: any
@@ -710,11 +765,17 @@ export async function refreshTokenForProvider(
     if (!response.ok) {
       const errorMessage = responseData.error_description || responseData.error || `HTTP ${response.status} - ${response.statusText}`
       logger.error(
-        `Failed to refresh token for ${provider} (ID: ${integration.id}). ` +
-          `Status: ${response.status}. ` +
-          `Error: ${errorMessage}. ` +
-          `Response: ${JSON.stringify(responseData)}`,
+        `❌ ${provider}: Token refresh failed (ID: ${integration.id?.substring(0, 8)}...)`, {
+          status: response.status,
+          error: errorMessage,
+          errorType: responseData.error,
+          errorDescription: responseData.error_description,
+          responseKeys: Object.keys(responseData)
+        }
       )
+      if (verbose) {
+        logger.debug(`Full error response:`, responseData)
+      }
 
       // Check for specific error codes that indicate an invalid refresh token
       const isInvalidGrant = responseData.error === "invalid_grant"
@@ -823,6 +884,15 @@ export async function refreshTokenForProvider(
     const expiresIn = responseData.expires_in
     const refreshExpiresIn = responseData.refresh_expires_in
     const newScope = responseData.scope
+
+    logger.debug(`✅ ${provider}: Token refresh successful`, {
+      hasNewAccessToken: !!newAccessToken,
+      hasNewRefreshToken: !!newRefreshToken,
+      accessTokenLength: newAccessToken?.length,
+      expiresIn: expiresIn ? `${expiresIn}s` : 'not provided',
+      refreshExpiresIn: refreshExpiresIn ? `${refreshExpiresIn}s` : 'not provided',
+      scope: newScope ? newScope.substring(0, 50) + (newScope.length > 50 ? '...' : '') : 'not provided'
+    })
 
     return {
       success: true,

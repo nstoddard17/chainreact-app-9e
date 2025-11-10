@@ -14,6 +14,7 @@ export const markAsReadActionSchema: NodeComponent = {
   isTrigger: false,
   providerId: "gmail",
   testable: true,
+  producesOutput: true,
   requiredScopes: ["https://www.googleapis.com/auth/gmail.modify"],
   category: "Communication",
   outputSchema: [
@@ -182,6 +183,21 @@ export const markAsReadActionSchema: NodeComponent = {
       ],
       defaultValue: "any",
       description: "Filter by attachment presence",
+      visibleWhen: {
+        field: "messageSelection",
+        value: "search"
+      }
+    },
+    {
+      name: "hasLabel",
+      label: "Label",
+      type: "select",
+      dynamic: "gmail-labels",
+      required: false,
+      loadOnMount: true,
+      placeholder: "Select a label...",
+      description: "Filter by Gmail label",
+      tooltip: "Only include emails with this label applied.",
       visibleWhen: {
         field: "messageSelection",
         value: "search"

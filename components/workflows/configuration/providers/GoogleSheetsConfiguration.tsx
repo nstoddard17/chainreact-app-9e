@@ -22,6 +22,7 @@ import { GoogleSheetsDeleteConfirmation } from '../components/google-sheets/Goog
 import { GoogleSheetsAddRowFields } from '../components/google-sheets/GoogleSheetsAddRowFields';
 import { GoogleSheetsAddRowPreview } from '../components/google-sheets/GoogleSheetsAddRowPreview';
 import { GoogleSheetsRangePreview } from '../components/google-sheets/GoogleSheetsRangePreview';
+import { GoogleSheetsRowPreview } from '../components/google-sheets/GoogleSheetsRowPreview';
 
 import { logger } from '@/lib/utils/logger'
 
@@ -544,6 +545,26 @@ export function GoogleSheetsConfiguration({
       if (field.type === 'google_sheets_range_preview') {
         return (
           <GoogleSheetsRangePreview
+            key={`field-${field.name}-${index}`}
+            values={values}
+            previewData={previewData}
+            showPreviewData={showPreviewData}
+            loadingPreview={loadingPreview}
+            fieldKey={`field-${field.name}-${index}`}
+            onTogglePreview={() => {
+              setShowPreviewData(false);
+              setPreviewData([]);
+            }}
+            onLoadPreviewData={loadGoogleSheetsPreviewData}
+            setValue={setValue}
+          />
+        );
+      }
+
+      // Special handling for Row Preview field (Clear specific row)
+      if (field.type === 'google_sheets_row_preview') {
+        return (
+          <GoogleSheetsRowPreview
             key={`field-${field.name}-${index}`}
             values={values}
             previewData={previewData}

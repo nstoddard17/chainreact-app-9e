@@ -65,6 +65,16 @@ export async function GET(request: NextRequest) {
 
     // Build the query to get integrations with refresh tokens that need refreshing
     // Exclude integrations that already need reauthorization to avoid repeated error logs
+    logger.debug(`📊 Query parameters:`, {
+      provider: provider || 'all',
+      limit,
+      batchSize,
+      offset,
+      verbose,
+      now: now.toISOString(),
+      expiryThreshold: expiryThreshold.toISOString()
+    })
+
     let query = supabase
       .from("integrations")
       .select("*")
@@ -75,10 +85,12 @@ export async function GET(request: NextRequest) {
     // Filter by provider if specified
     if (provider) {
       query = query.eq("provider", provider)
+      logger.debug(`🔍 Filtering by provider: ${provider}`)
     }
 
     // Add pagination
     query = query.range(offset, offset + limit - 1)
+    logger.debug(`📄 Pagination: offset=${offset}, limit=${limit}`)
 
     // Order by expiration time to prioritize tokens that expire soonest
     query = query.order("expires_at", { ascending: true, nullsFirst: false })
@@ -87,18 +99,30 @@ export async function GET(request: NextRequest) {
     let integrations: any[] = []
     try {
       if (verbose) logger.debug(`Executing database query to find integrations needing refresh...`)
-      
+
       const { data, error: fetchError } = await query
-      
+
       if (fetchError) {
-        logger.error(`Error fetching integrations:`, fetchError)
+        logger.error(`❌ Error fetching integrations:`, fetchError)
         throw new Error(`Error fetching integrations: ${fetchError.message}`)
       }
-      
+
       integrations = data || []
-      logger.debug(`Found ${integrations.length} integrations that need token refresh`)
+      logger.debug(`✅ Found ${integrations.length} integrations that need token refresh`)
+
+      if (verbose && integrations.length > 0) {
+        logger.debug(`📋 Integration details:`)
+        integrations.forEach((int, idx) => {
+          logger.debug(`  ${idx + 1}. ${int.provider} (ID: ${int.id.substring(0, 8)}...)`, {
+            expires_at: int.expires_at,
+            has_refresh_token: !!int.refresh_token,
+            status: int.status,
+            consecutive_failures: int.consecutive_failures || 0
+          })
+        })
+      }
     } catch (queryError: any) {
-      logger.error(`Database query error:`, queryError)
+      logger.error(`❌ Database query error:`, queryError)
       throw new Error(`Database query error: ${queryError.message}`)
     }
 
@@ -306,17 +330,45 @@ export async function GET(request: NextRequest) {
     const durationMs = endTime - startTime
     const duration = durationMs / 1000
 
-    // Log summary of results
-    logger.debug(`Token refresh job completed in ${duration.toFixed(2)}s`)
-    logger.debug(`   - Successful refreshes: ${successful}`)
-    logger.debug(`   - Failed: ${failed}`)
-    
+    // Create provider statistics
+    const providerStats: Record<string, { success: number; failed: number }> = {}
+    results.forEach(result => {
+      if (!providerStats[result.provider]) {
+        providerStats[result.provider] = { success: 0, failed: 0 }
+      }
+      if (result.success) {
+        providerStats[result.provider].success++
+      } else {
+        providerStats[result.provider].failed++
+      }
+    })
+
+    // Log comprehensive summary
+    logger.debug(`📊 Token refresh job completed in ${duration.toFixed(2)}s`)
+    logger.debug(`   ✅ Successful: ${successful}`)
+    logger.debug(`   ❌ Failed: ${failed}`)
+    logger.debug(`   📝 Total processed: ${integrations.length}`)
+
+    // Log provider breakdown
+    if (Object.keys(providerStats).length > 0) {
+      logger.debug(`   📈 Provider breakdown:`)
+      Object.entries(providerStats)
+        .sort(([, a], [, b]) => (b.success + b.failed) - (a.success + a.failed))
+        .forEach(([provider, stats]) => {
+          const total = stats.success + stats.failed
+          const successRate = total > 0 ? ((stats.success / total) * 100).toFixed(0) : '0'
+          logger.debug(`      ${provider}: ${stats.success}/${total} (${successRate}% success)`)
+        })
+    }
+
     // Log failure reasons if any
     if (failed > 0) {
-      logger.debug(`   - Failure reasons:`)
-      Object.entries(failureReasons).forEach(([reason, count]) => {
-        logger.debug(`     - ${reason}: ${count}`)
-      })
+      logger.debug(`   🔍 Failure reasons:`)
+      Object.entries(failureReasons)
+        .sort(([, a], [, b]) => b - a)
+        .forEach(([reason, count]) => {
+          logger.debug(`      ${count}x ${reason}`)
+        })
     }
     
     // Fix any integrations that have successful refreshes but incorrect statuses
