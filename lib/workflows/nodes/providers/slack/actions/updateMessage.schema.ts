@@ -70,10 +70,15 @@ export const updateMessageActionSchema: NodeComponent = {
       type: "select",
       dynamic: "slack_channels",
       required: true,
-      dependsOn: "workspace",
+      loadOnMount: true,
       placeholder: "Select a channel...",
       description: "The channel containing the message to update",
-      tooltip: "You can only update messages in channels where the bot has access."
+      tooltip: "You can only update messages in channels where the bot has access.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
     {
       name: "messageId",
@@ -93,13 +98,12 @@ export const updateMessageActionSchema: NodeComponent = {
     {
       name: "newText",
       label: "New Message Text",
-      type: "textarea",
+      type: "slack-rich-text",
       required: true,
-      rows: 8,
       placeholder: "Enter the updated message...",
       supportsAI: true,
       description: "The new text for the message",
-      tooltip: "This will completely replace the existing message text. Supports Slack markdown formatting.",
+      tooltip: "This will completely replace the existing message text. Use the toolbar for rich formatting (bold, italic, links, emojis, etc.).",
       dependsOn: "channel",
       hidden: {
         $deps: ["channel"],
