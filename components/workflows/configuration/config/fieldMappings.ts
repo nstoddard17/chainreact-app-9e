@@ -1105,6 +1105,19 @@ const gumroadMappings: Record<string, FieldMapping> = {
   },
 };
 
+// Shopify field mappings
+const shopifyMappings: Record<string, FieldMapping> = {
+  shopify_trigger_product_updated: {
+    collection_id: "shopify_collections",
+  },
+  shopify_trigger_inventory_low: {
+    location_id: "shopify_locations",
+  },
+  shopify_action_update_inventory: {
+    location_id: "shopify_locations",
+  },
+};
+
 // Default field mappings for unmapped fields
 const defaultMappings: FieldMapping = {
   channelId: "channels",
@@ -1149,6 +1162,7 @@ export const fieldToResourceMap: NodeFieldMappings = {
   ...twitterMappings,
   ...stripeMappings,
   ...gumroadMappings,
+  ...shopifyMappings,
   default: defaultMappings,
 };
 

@@ -30,6 +30,9 @@ export async function POST(req: NextRequest) {
       return errorResponse('Missing required parameters: integrationId and dataType', 400)
     }
 
+    // Extract selected store from options (for multi-store support)
+    const selectedStore = options.shopify_store || options.selectedStore
+
     // Check if data type is supported
     if (!isShopifyDataTypeSupported(dataType)) {
       logger.debug('❌ [Shopify Data API] Unsupported data type:', dataType)
