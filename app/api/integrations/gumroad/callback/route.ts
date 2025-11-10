@@ -210,23 +210,61 @@ export async function GET(request: NextRequest) {
 
       integrationId = stateObject.integrationId
     } else {
-      // For personal integrations, use upsert to handle existing integrations
-      // This will update the existing integration or create a new one
-      if (workspaceType === 'personal') {
-        const { data: upsertedIntegration, error: upsertError } = await supabase
+      // For personal integrations, check if integration with same email already exists
+      // This allows multiple accounts per provider with different emails
+      if (workspaceType === 'personal' && userProfile?.email) {
+        // Check for existing integration with same email
+        const { data: existingIntegration } = await supabase
           .from('integrations')
-          .upsert(integrationData, {
-            onConflict: 'user_id, provider',
-          })
+          .select('id')
+          .eq('user_id', userId)
+          .eq('provider', provider)
+          .eq('email', userProfile.email)
+          .eq('workspace_type', 'personal')
+          .maybeSingle()
+
+        if (existingIntegration) {
+          // Update existing integration
+          const { error: updateError } = await supabase
+            .from('integrations')
+            .update(integrationData)
+            .eq('id', existingIntegration.id)
+
+          if (updateError) {
+            logger.error('Failed to update Gumroad integration:', updateError)
+            return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
+          }
+
+          integrationId = existingIntegration.id
+        } else {
+          // Create new integration
+          const { data: newIntegration, error: insertError } = await supabase
+            .from('integrations')
+            .insert(integrationData)
+            .select('id')
+            .single()
+
+          if (insertError || !newIntegration) {
+            logger.error('Failed to save Gumroad integration:', insertError)
+            return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
+          }
+
+          integrationId = newIntegration.id
+        }
+      } else if (workspaceType === 'personal') {
+        // For personal integrations without email (shouldn't happen for Gumroad, but handle it)
+        const { data: newIntegration, error: insertError } = await supabase
+          .from('integrations')
+          .insert(integrationData)
           .select('id')
           .single()
 
-        if (upsertError || !upsertedIntegration) {
-          logger.error('Failed to save Gumroad integration:', upsertError)
+        if (insertError || !newIntegration) {
+          logger.error('Failed to save Gumroad integration:', insertError)
           return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
         }
 
-        integrationId = upsertedIntegration.id
+        integrationId = newIntegration.id
       } else {
         // For team/org integrations, just insert (multiple allowed)
         const { data: newIntegration, error: insertError } = await supabase
