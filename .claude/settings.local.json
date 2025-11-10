@@ -58,7 +58,9 @@
       "Bash(do echo \"=== $file ===\" grep -A 8 \"if (needsConnection)\" \"/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/configuration/providers/$file\")",
       "Bash(files=\"AirtableConfiguration.tsx GoogleCalendarConfiguration.tsx GoogleSheetsConfiguration.tsx TwitterConfiguration.tsx DiscordConfiguration.tsx\" for file in $files)",
       "Bash(node check-specific-integration.js:*)",
-      "Bash(node check-all-google-sheets.js:*)"
+      "Bash(node check-all-google-sheets.js:*)",
+      "Bash(node check-avatar-data.js:*)",
+      "Bash(psql \"postgresql://postgres.xzwsdwllmrnrgbltibxt:***REDACTED_PASSWORD***@aws-0-us-east-1.pooler.supabase.com:6543/postgres\" -c \"SELECT indexname, indexdef FROM pg_indexes WHERE tablename = ''integrations'' AND indexdef LIKE ''%UNIQUE%'';\")"
     ],
     "edit": [
       "*"

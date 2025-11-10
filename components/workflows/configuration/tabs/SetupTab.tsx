@@ -65,6 +65,17 @@ export function SetupTab(props: SetupTabProps) {
       int => int.provider === nodeInfo.providerId
     )
 
+    // DEBUG: Log what we got from the store
+    if (providerIntegrations.length > 0 && providerIntegrations[0].email) {
+      console.log('[SetupTab] Provider integrations from store:', providerIntegrations.map(int => ({
+        id: int.id,
+        provider: int.provider,
+        email: int.email,
+        avatar_url: int.avatar_url,
+        has_avatar: !!int.avatar_url
+      })))
+    }
+
     // Map to Connection format
     return providerIntegrations.map(integration => {
       // Determine UI status based on integration status
@@ -92,6 +103,17 @@ export function SetupTab(props: SetupTabProps) {
         workspace_id: integration.workspace_id,
         created_at: integration.created_at,
       }
+    }).map((conn, index) => {
+      // DEBUG: Log mapped connection data
+      if (index === 0 && conn.email) {
+        console.log('[SetupTab] Mapped connection data:', {
+          id: conn.id,
+          email: conn.email,
+          avatar_url: conn.avatar_url,
+          has_avatar: !!conn.avatar_url
+        })
+      }
+      return conn
     })
   }, [requiresConnection, nodeInfo?.providerId, integrations])
 
