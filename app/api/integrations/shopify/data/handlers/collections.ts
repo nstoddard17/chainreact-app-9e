@@ -7,10 +7,13 @@ import { makeShopifyRequest } from '../utils'
 import { logger } from '@/lib/utils/logger'
 
 export const getShopifyCollections: ShopifyDataHandler<ShopifyCollection[]> = async (
-  integration: ShopifyIntegration
+  integration: ShopifyIntegration,
+  options?: any
 ): Promise<ShopifyCollection[]> => {
   try {
-    const response = await makeShopifyRequest(integration, 'custom_collections.json?limit=250')
+    const selectedStore = options?.shopify_store || options?.selectedStore
+
+    const response = await makeShopifyRequest(integration, 'custom_collections.json?limit=250', {}, selectedStore)
 
     const collections: ShopifyCollection[] = (response.custom_collections || []).map((collection: any) => ({
       id: String(collection.id),
@@ -20,7 +23,7 @@ export const getShopifyCollections: ShopifyDataHandler<ShopifyCollection[]> = as
     }))
 
     // Also get smart collections
-    const smartResponse = await makeShopifyRequest(integration, 'smart_collections.json?limit=250')
+    const smartResponse = await makeShopifyRequest(integration, 'smart_collections.json?limit=250', {}, selectedStore)
 
     const smartCollections: ShopifyCollection[] = (smartResponse.smart_collections || []).map((collection: any) => ({
       id: String(collection.id),

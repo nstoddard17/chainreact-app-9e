@@ -2,13 +2,24 @@
  * Shopify Data API Types
  */
 
+export interface ShopifyStore {
+  shop: string // Shop domain (e.g., "store.myshopify.com")
+  name: string // Display name
+  id: string // Shopify shop ID
+}
+
 export interface ShopifyIntegration {
   id: string
   user_id: string
   provider: string
   status: 'connected' | 'disconnected' | 'error'
   access_token: string
-  shop_domain?: string
+  shop_domain?: string // Legacy field
+  metadata?: {
+    stores?: ShopifyStore[] // All connected stores
+    active_store?: string // Currently active/selected store domain
+    shop?: string // Legacy: single shop domain (for backwards compatibility)
+  }
   created_at: string
   updated_at: string
 }

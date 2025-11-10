@@ -231,6 +231,14 @@ import {
 // Dropbox actions
 import { uploadDropboxFile, findDropboxFiles } from './dropbox'
 
+// Shopify actions
+import { createShopifyOrder } from './shopify/createOrder'
+import { updateShopifyProduct } from './shopify/updateProduct'
+import { updateShopifyCustomer } from './shopify/updateCustomer'
+import { createShopifyFulfillment } from './shopify/createFulfillment'
+import { createShopifyProductVariant } from './shopify/createProductVariant'
+import { updateShopifyProductVariant } from './shopify/updateProductVariant'
+
 // Utility actions
 import {
   executeTransformer,
@@ -742,6 +750,20 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "stripe_action_capture_payment_intent": createExecutionContextWrapper(stripeCapturePaymentIntent),
   "stripe_action_find_charge": createExecutionContextWrapper(stripeFindCharge),
   "stripe_action_find_invoice": createExecutionContextWrapper(stripeFindInvoice),
+
+  // Shopify actions - wrapped to handle new calling convention
+  "shopify_action_create_order": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createShopifyOrder(params.config, params.userId, params.input),
+  "shopify_action_update_product": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    updateShopifyProduct(params.config, params.userId, params.input),
+  "shopify_action_update_customer": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    updateShopifyCustomer(params.config, params.userId, params.input),
+  "shopify_action_create_fulfillment": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createShopifyFulfillment(params.config, params.userId, params.input),
+  "shopify_action_create_product_variant": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createShopifyProductVariant(params.config, params.userId, params.input),
+  "shopify_action_update_product_variant": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    updateShopifyProductVariant(params.config, params.userId, params.input),
 
   // Twitter actions - wrapped to handle new calling convention
   "twitter_action_post_tweet": (params: { config: any; userId: string; input: Record<string, any> }) =>
