@@ -27,7 +27,6 @@ import { joinChannelActionSchema } from "./actions/joinChannel.schema"
 import { renameChannelActionSchema } from "./actions/renameChannel.schema"
 import { getChannelInfoActionSchema } from "./actions/getChannelInfo.schema"
 import { findMessageActionSchema } from "./actions/findMessage.schema"
-import { findChannelActionSchema } from "./actions/findChannel.schema"
 import { getUserInfoActionSchema } from "./actions/getUserInfo.schema"
 import { updateUserStatusActionSchema } from "./actions/updateUserStatus.schema"
 import { setUserPresenceActionSchema } from "./actions/setUserPresence.schema"
@@ -179,11 +178,6 @@ const findMessage: NodeComponent = {
   icon: Search
 }
 
-const findChannel: NodeComponent = {
-  ...findChannelActionSchema,
-  icon: SearchCode
-}
-
 const getUserInfo: NodeComponent = {
   ...getUserInfoActionSchema,
   icon: UserSearch
@@ -324,7 +318,6 @@ export const slackNodes: NodeComponent[] = [
   renameChannel,
   getChannelInfo,
   findMessage,
-  findChannel,
   updateUserStatus,
   setUserPresence,
   listChannels,
@@ -379,7 +372,6 @@ export {
   renameChannel,
   getChannelInfo,
   findMessage,
-  findChannel,
   updateUserStatus,
   setUserPresence,
   listChannels,

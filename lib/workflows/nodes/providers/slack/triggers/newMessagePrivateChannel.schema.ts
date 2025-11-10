@@ -11,12 +11,30 @@ export const newMessagePrivateChannelTriggerSchema: NodeComponent = {
   producesOutput: true,
   configSchema: [
     {
+      name: "workspace",
+      label: "Workspace",
+      type: "select",
+      dynamic: "slack_workspaces",
+      required: true,
+      loadOnMount: true,
+      placeholder: "Select Slack workspace",
+      description: "Your Slack workspace (used for authentication)"
+    },
+    {
       name: "channel",
       label: "Private Channel",
-      type: "select",
+      type: "combobox",
       required: false,
       dynamic: "slack_private_channels",
-      description: "Optional: Filter to a specific private channel. Leave empty to listen to all private channels the bot has access to."
+      loadOnMount: true,
+      searchable: true,
+      placeholder: "Select a private channel (optional)",
+      description: "Optional: Filter to a specific private channel. Leave empty to listen to all private channels the bot has access to.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
   ],
   outputSchema: [

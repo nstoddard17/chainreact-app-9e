@@ -54,6 +54,7 @@ export const setChannelPurposeActionSchema: NodeComponent = {
     }
   ],
   configSchema: [
+    // Parent field - always visible
     {
       name: "workspace",
       label: "Workspace",
@@ -64,6 +65,7 @@ export const setChannelPurposeActionSchema: NodeComponent = {
       placeholder: "Select Slack workspace",
       description: "Your Slack workspace (used for authentication)"
     },
+    // First cascade level - show after workspace selected
     {
       name: "channel",
       label: "Channel",
@@ -73,8 +75,13 @@ export const setChannelPurposeActionSchema: NodeComponent = {
       dependsOn: "workspace",
       placeholder: "Select a channel...",
       description: "The channel to update",
-      tooltip: "You must have permission to manage this channel. Private channels require the bot to be a member."
+      tooltip: "You must have permission to manage this channel. Private channels require the bot to be a member.",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
+    // Second cascade level - show after channel selected
     {
       name: "purpose",
       label: "Purpose",
@@ -85,7 +92,9 @@ export const setChannelPurposeActionSchema: NodeComponent = {
       placeholder: "Discuss and coordinate marketing campaigns for Q1 2024",
       supportsAI: true,
       description: "The new purpose for the channel (max 250 characters)",
-      tooltip: "Channel purpose describes what the channel is for and appears in channel details. Unlike topics, purposes are more permanent descriptions of the channel's function."
+      tooltip: "Channel purpose describes what the channel is for and appears in channel details. Unlike topics, purposes are more permanent descriptions of the channel's function.",
+      dependsOn: "channel",
+      hidden: { $deps: ["channel"], $condition: { channel: { $exists: false } } }
     }
   ]
 }

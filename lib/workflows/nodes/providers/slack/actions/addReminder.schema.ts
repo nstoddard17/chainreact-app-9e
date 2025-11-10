@@ -61,6 +61,7 @@ export const addReminderActionSchema: NodeComponent = {
     }
   ],
   configSchema: [
+    // Parent field - always visible
     {
       name: "workspace",
       label: "Workspace",
@@ -71,6 +72,7 @@ export const addReminderActionSchema: NodeComponent = {
       placeholder: "Select Slack workspace",
       description: "Your Slack workspace (used for authentication)"
     },
+    // All fields cascade after workspace selected
     {
       name: "text",
       label: "Reminder Text",
@@ -80,7 +82,9 @@ export const addReminderActionSchema: NodeComponent = {
       placeholder: "Follow up on project status...",
       supportsAI: true,
       description: "What to remind the user about",
-      tooltip: "Keep it clear and actionable. This is the message the user will see when the reminder fires."
+      tooltip: "Keep it clear and actionable. This is the message the user will see when the reminder fires.",
+      dependsOn: "workspace",
+      hidden: { $deps: ["workspace"], $condition: { workspace: { $exists: false } } }
     },
     {
       name: "timeType",
@@ -94,7 +98,9 @@ export const addReminderActionSchema: NodeComponent = {
       ],
       defaultValue: "relative",
       description: "How to specify when the reminder should fire",
-      tooltip: "Relative: '30 minutes', '2 hours', '1 day'. Absolute: specific timestamp. Natural: 'tomorrow at 2pm', 'next Monday'."
+      tooltip: "Relative: '30 minutes', '2 hours', '1 day'. Absolute: specific timestamp. Natural: 'tomorrow at 2pm', 'next Monday'.",
+      dependsOn: "workspace",
+      hidden: { $deps: ["workspace"], $condition: { workspace: { $exists: false } } }
     },
     {
       name: "relativeTime",
@@ -104,6 +110,8 @@ export const addReminderActionSchema: NodeComponent = {
       min: 1,
       placeholder: "30",
       description: "How long from now (in selected units)",
+      dependsOn: "workspace",
+      hidden: { $deps: ["workspace"], $condition: { workspace: { $exists: false } } },
       visibleWhen: {
         field: "timeType",
         value: "relative"
@@ -122,6 +130,8 @@ export const addReminderActionSchema: NodeComponent = {
       ],
       defaultValue: "minutes",
       description: "Unit of time",
+      dependsOn: "workspace",
+      hidden: { $deps: ["workspace"], $condition: { workspace: { $exists: false } } },
       visibleWhen: {
         field: "timeType",
         value: "relative"
@@ -135,6 +145,8 @@ export const addReminderActionSchema: NodeComponent = {
       placeholder: "2024-01-15T15:00",
       description: "When to send the reminder",
       tooltip: "Must be a future date and time. Time is in your local timezone.",
+      dependsOn: "workspace",
+      hidden: { $deps: ["workspace"], $condition: { workspace: { $exists: false } } },
       visibleWhen: {
         field: "timeType",
         value: "absolute"
@@ -149,6 +161,8 @@ export const addReminderActionSchema: NodeComponent = {
       supportsAI: true,
       description: "Describe when to send the reminder in natural language",
       tooltip: "Examples: 'tomorrow at 2pm', 'next Monday at 9am', 'in 30 minutes', 'on Friday'. Slack will interpret this.",
+      dependsOn: "workspace",
+      hidden: { $deps: ["workspace"], $condition: { workspace: { $exists: false } } },
       visibleWhen: {
         field: "timeType",
         value: "natural"
@@ -165,7 +179,9 @@ export const addReminderActionSchema: NodeComponent = {
       ],
       defaultValue: "me",
       description: "Who should receive this reminder",
-      tooltip: "You can only set reminders for yourself or users in your workspace."
+      tooltip: "You can only set reminders for yourself or users in your workspace.",
+      dependsOn: "workspace",
+      hidden: { $deps: ["workspace"], $condition: { workspace: { $exists: false } } }
     },
     {
       name: "userId",
@@ -177,6 +193,7 @@ export const addReminderActionSchema: NodeComponent = {
       placeholder: "Select a user...",
       description: "The user to remind",
       tooltip: "This user must be in your Slack workspace.",
+      hidden: { $deps: ["workspace"], $condition: { workspace: { $exists: false } } },
       visibleWhen: {
         field: "userType",
         value: "specific"
@@ -189,7 +206,9 @@ export const addReminderActionSchema: NodeComponent = {
       required: false,
       defaultValue: false,
       description: "Make this a recurring reminder",
-      tooltip: "Only works with natural language time (e.g., 'every Monday at 9am', 'every weekday at 10am')."
+      tooltip: "Only works with natural language time (e.g., 'every Monday at 9am', 'every weekday at 10am').",
+      dependsOn: "workspace",
+      hidden: { $deps: ["workspace"], $condition: { workspace: { $exists: false } } }
     }
   ]
 }

@@ -17,14 +17,29 @@ export const listScheduledMessagesActionSchema: NodeComponent = {
   isTrigger: false,
   configSchema: [
     {
+      name: "workspace",
+      label: "Workspace",
+      type: "select",
+      dynamic: "slack_workspaces",
+      required: true,
+      loadOnMount: true,
+      placeholder: "Select Slack workspace",
+      description: "Your Slack workspace (used for authentication)"
+    },
+    {
       name: "channel",
       label: "Channel (Optional)",
       type: "select",
       required: false,
       dynamic: "slack_channels",
-      loadOnMount: true,
       placeholder: "All channels",
-      tooltip: "Optional: Filter scheduled messages for a specific channel. Leave empty to see all scheduled messages."
+      description: "Filter by channel (optional)",
+      tooltip: "Optional: Filter scheduled messages for a specific channel. Leave empty to see all scheduled messages.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
     {
       name: "limit",
@@ -33,7 +48,12 @@ export const listScheduledMessagesActionSchema: NodeComponent = {
       required: false,
       defaultValue: 100,
       placeholder: "100",
-      tooltip: "Maximum number of scheduled messages to return (1-1000). Default is 100."
+      tooltip: "Maximum number of scheduled messages to return (1-1000). Default is 100.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
     {
       name: "oldest",
@@ -41,7 +61,12 @@ export const listScheduledMessagesActionSchema: NodeComponent = {
       type: "number",
       required: false,
       placeholder: "1609459200",
-      tooltip: "Optional: Only show messages scheduled after this Unix timestamp"
+      tooltip: "Optional: Only show messages scheduled after this Unix timestamp",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
     {
       name: "latest",
@@ -49,7 +74,12 @@ export const listScheduledMessagesActionSchema: NodeComponent = {
       type: "number",
       required: false,
       placeholder: "1699891200",
-      tooltip: "Optional: Only show messages scheduled before this Unix timestamp"
+      tooltip: "Optional: Only show messages scheduled before this Unix timestamp",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     }
   ],
   outputSchema: [

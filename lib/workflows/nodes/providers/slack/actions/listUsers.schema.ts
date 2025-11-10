@@ -17,25 +17,50 @@ export const listUsersActionSchema: NodeComponent = {
   isTrigger: false,
   configSchema: [
     {
+      name: "workspace",
+      label: "Workspace",
+      type: "select",
+      dynamic: "slack_workspaces",
+      required: true,
+      loadOnMount: true,
+      placeholder: "Select Slack workspace",
+      description: "Your Slack workspace (used for authentication)"
+    },
+    {
       name: "includeDeleted",
       label: "Include Deleted Users",
       type: "boolean",
       defaultValue: false,
-      tooltip: "When enabled, includes deactivated/deleted users in the results."
+      tooltip: "When enabled, includes deactivated/deleted users in the results.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
     {
       name: "includeBots",
       label: "Include Bots",
       type: "boolean",
       defaultValue: false,
-      tooltip: "When enabled, includes bot users in the results. Disable to only show human users."
+      tooltip: "When enabled, includes bot users in the results. Disable to only show human users.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
     {
       name: "includeGuests",
       label: "Include Guests",
       type: "boolean",
       defaultValue: true,
-      tooltip: "When enabled, includes guest users (restricted and ultra-restricted). Disable to only show full members."
+      tooltip: "When enabled, includes guest users (restricted and ultra-restricted). Disable to only show full members.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
     {
       name: "limit",
@@ -44,7 +69,12 @@ export const listUsersActionSchema: NodeComponent = {
       required: false,
       defaultValue: 100,
       placeholder: "100",
-      tooltip: "Maximum number of users to return (1-1000). Default is 100. Use 0 for no limit (returns all users)."
+      tooltip: "Maximum number of users to return (1-1000). Default is 100. Use 0 for no limit (returns all users).",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
     {
       name: "sortBy",
@@ -59,7 +89,12 @@ export const listUsersActionSchema: NodeComponent = {
         { label: "Joined Date (Newest first)", value: "joined_desc" },
         { label: "Joined Date (Oldest first)", value: "joined_asc" }
       ],
-      tooltip: "How to sort the user list."
+      tooltip: "How to sort the user list.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     }
   ],
   outputSchema: [

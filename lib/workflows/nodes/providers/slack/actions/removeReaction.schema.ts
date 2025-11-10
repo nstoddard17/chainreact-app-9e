@@ -46,11 +46,14 @@ export const removeReactionActionSchema: NodeComponent = {
     {
       name: "emoji",
       label: "Emoji",
-      type: "text",
+      type: "emoji-picker",
       required: true,
-      placeholder: "thumbsup",
+      dynamic: "slack_emoji_catalog",
+      loadOnMount: true,
+      searchable: true,
+      placeholder: "Choose an emoji",
       supportsAI: true,
-      tooltip: "The emoji name WITHOUT colons to remove. Examples: 'thumbsup', 'heart', 'fire', 'eyes'. For custom emoji, use the custom emoji name.",
+      tooltip: "Select an emoji to remove from the message. Includes both standard emojis and custom workspace emojis.",
       dependsOn: "channel",
       hidden: {
         $deps: ["channel"],

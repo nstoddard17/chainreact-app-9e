@@ -17,24 +17,47 @@ export const downloadFileActionSchema: NodeComponent = {
   isTrigger: false,
   configSchema: [
     {
-      name: "fileId",
-      label: "File ID",
-      type: "text",
+      name: "workspace",
+      label: "Workspace",
+      type: "select",
+      dynamic: "slack_workspaces",
       required: true,
-      placeholder: "F1234567890",
-      tooltip: "The ID of the file to download (from file upload trigger or file info action)"
+      loadOnMount: true,
+      placeholder: "Select Slack workspace",
+      description: "Your Slack workspace (used for authentication)"
+    },
+    {
+      name: "fileId",
+      label: "File",
+      type: "select",
+      dynamic: "slack_files",
+      required: true,
+      placeholder: "Select a file to download",
+      description: "The file to download from Slack",
+      tooltip: "Select the file you want to download. Shows recent files from your workspace.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
     {
       name: "downloadFormat",
       label: "Download Format",
       type: "select",
       required: false,
-      defaultValue: "url",
+      defaultValue: "both",
       options: [
-        { label: "URL Only (for external download)", value: "url" },
-        { label: "Base64 Content (for inline use)", value: "base64" }
+        { label: "URL and Content (recommended)", value: "both" },
+        { label: "URL Only", value: "url" },
+        { label: "Base64 Content Only", value: "base64" }
       ],
-      tooltip: "Choose whether to return a download URL or the file content as base64"
+      tooltip: "Choose what to return: URL, base64 content, or both. 'Both' allows sending the file to other actions while keeping the URL available.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     }
   ],
   outputSchema: [
@@ -42,7 +65,7 @@ export const downloadFileActionSchema: NodeComponent = {
       name: "fileId",
       label: "File ID",
       type: "string",
-      description: "The ID of the downloaded file",
+      description: "The unique ID of the file in Slack",
       example: "F1234567890"
     },
     {
@@ -51,6 +74,20 @@ export const downloadFileActionSchema: NodeComponent = {
       type: "string",
       description: "The name of the file",
       example: "document.pdf"
+    },
+    {
+      name: "title",
+      label: "File Title",
+      type: "string",
+      description: "The title/description of the file set by the uploader",
+      example: "Q4 Report"
+    },
+    {
+      name: "fileType",
+      label: "File Type",
+      type: "string",
+      description: "The file extension or type (e.g., pdf, png, docx)",
+      example: "pdf"
     },
     {
       name: "fileSize",
@@ -67,25 +104,102 @@ export const downloadFileActionSchema: NodeComponent = {
       example: "application/pdf"
     },
     {
+      name: "created",
+      label: "Created Timestamp",
+      type: "number",
+      description: "Unix timestamp when the file was uploaded",
+      example: 1640000000
+    },
+    {
+      name: "createdAt",
+      label: "Created Date",
+      type: "string",
+      description: "ISO 8601 formatted date when the file was created",
+      example: "2024-01-15T10:30:00Z"
+    },
+    {
+      name: "userId",
+      label: "Uploader User ID",
+      type: "string",
+      description: "The Slack user ID who uploaded the file",
+      example: "U1234567890"
+    },
+    {
+      name: "username",
+      label: "Uploader Username",
+      type: "string",
+      description: "The username of the user who uploaded the file",
+      example: "john.doe"
+    },
+    {
+      name: "channels",
+      label: "Shared in Channels",
+      type: "array",
+      description: "Array of channel IDs where this file is shared",
+      example: ["C1234567890", "C0987654321"]
+    },
+    {
+      name: "isPublic",
+      label: "Is Public",
+      type: "boolean",
+      description: "Whether the file is public or private",
+      example: false
+    },
+    {
       name: "downloadUrl",
       label: "Download URL",
       type: "string",
-      description: "URL to download the file (when format is 'url')",
-      example: "https://files.slack.com/..."
+      description: "URL to download the file (available when format is 'url' or 'both'). Requires authentication.",
+      example: "https://files.slack.com/files-pri/..."
+    },
+    {
+      name: "permalink",
+      label: "Permalink",
+      type: "string",
+      description: "Public permalink to view the file in Slack",
+      example: "https://example.slack.com/files/U1234/F1234/file.pdf"
+    },
+    {
+      name: "permalinkPublic",
+      label: "Public Permalink",
+      type: "string",
+      description: "Publicly accessible permalink (if file is public)",
+      example: "https://slack-files.com/..."
     },
     {
       name: "fileContent",
       label: "File Content (Base64)",
       type: "string",
-      description: "Base64-encoded file content (when format is 'base64')",
+      description: "Base64-encoded file content (available when format is 'base64' or 'both'). Can be passed to other actions like Gmail Send Email, Google Drive Upload, or any file upload action.",
       example: "JVBERi0xLjQKJeLjz9MK..."
     },
     {
-      name: "expiresAt",
-      label: "URL Expires At",
+      name: "thumbnail",
+      label: "Thumbnail URL",
       type: "string",
-      description: "When the download URL expires (for URL format)",
-      example: "2024-01-15T10:30:00Z"
+      description: "URL to a thumbnail preview of the file (for images/videos)",
+      example: "https://files.slack.com/files-tmb/..."
+    },
+    {
+      name: "previewUrl",
+      label: "Preview URL",
+      type: "string",
+      description: "URL to preview the file (for images)",
+      example: "https://files.slack.com/files-pri/..."
+    },
+    {
+      name: "isEditable",
+      label: "Is Editable",
+      type: "boolean",
+      description: "Whether the file can be edited in Slack",
+      example: false
+    },
+    {
+      name: "commentsCount",
+      label: "Comments Count",
+      type: "number",
+      description: "Number of comments on the file",
+      example: 3
     }
   ]
 }

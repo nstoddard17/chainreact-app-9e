@@ -17,15 +17,29 @@ export const leaveChannelActionSchema: NodeComponent = {
   isTrigger: false,
   configSchema: [
     {
+      name: "workspace",
+      label: "Workspace",
+      type: "select",
+      dynamic: "slack_workspaces",
+      required: true,
+      loadOnMount: true,
+      placeholder: "Select Slack workspace",
+      description: "Your Slack workspace (used for authentication)"
+    },
+    {
       name: "channel",
       label: "Channel",
-      type: "combobox",
-      required: true,
+      type: "select",
       dynamic: "slack_channels",
-      loadOnMount: true,
-      searchable: true,
+      required: true,
       placeholder: "Select a channel to leave",
-      tooltip: "Select the channel for the bot to leave. The bot will no longer receive messages or have access to this channel. Works with both public and private channels."
+      description: "The channel for the bot to leave",
+      tooltip: "Select the channel for the bot to leave. The bot will no longer receive messages or have access to this channel. Works with both public and private channels.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     }
   ],
   outputSchema: [

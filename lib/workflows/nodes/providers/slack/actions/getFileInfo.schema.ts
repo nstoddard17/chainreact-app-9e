@@ -17,19 +17,54 @@ export const getFileInfoActionSchema: NodeComponent = {
   isTrigger: false,
   configSchema: [
     {
-      name: "fileId",
-      label: "File ID",
-      type: "text",
+      name: "workspace",
+      label: "Workspace",
+      type: "select",
+      dynamic: "slack_workspaces",
       required: true,
+      loadOnMount: true,
+      placeholder: "Select Slack workspace",
+      description: "Your Slack workspace (used for authentication)"
+    },
+    {
+      name: "fileId",
+      label: "File",
+      type: "select",
+      dynamic: "slack_files",
+      required: true,
+      placeholder: "Select a file",
+      description: "The file to get information about",
+      tooltip: "Select the file you want to get information about. Shows recent files from your workspace.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
+    },
+    {
+      name: "fileIdManual",
+      label: "Or Enter File ID",
+      type: "text",
+      required: false,
       placeholder: "F1234567890",
-      tooltip: "The ID of the file to get information about"
+      tooltip: "Alternative: Directly enter the file ID if you have it. This is useful if the file doesn't appear in the dropdown.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
     {
       name: "includeComments",
       label: "Include Comments",
       type: "boolean",
       defaultValue: false,
-      tooltip: "Include comments and reactions on the file"
+      tooltip: "Include comments and reactions on the file",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     }
   ],
   outputSchema: [
