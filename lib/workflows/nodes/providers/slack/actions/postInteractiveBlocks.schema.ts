@@ -32,7 +32,12 @@ export const postInteractiveBlocksActionSchema: NodeComponent = {
       type: "text",
       required: true,
       placeholder: "This message contains interactive elements",
-      tooltip: "Plain text fallback for notifications and accessibility. This text is shown in push notifications and when blocks can't be rendered."
+      tooltip: "Plain text fallback for notifications and accessibility. This text is shown in push notifications and when blocks can't be rendered.",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      }
     },
     {
       name: "blocks",
@@ -63,7 +68,12 @@ export const postInteractiveBlocksActionSchema: NodeComponent = {
         }
       ], null, 2),
       supportsAI: true,
-      tooltip: "Block Kit JSON array defining the interactive message structure. Use the Slack Block Kit Builder (https://app.slack.com/block-kit-builder) to design your blocks visually, then paste the JSON here."
+      tooltip: "Block Kit JSON array defining the interactive message structure. Use the Slack Block Kit Builder (https://app.slack.com/block-kit-builder) to design your blocks visually, then paste the JSON here.",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      }
     },
     {
       name: "threadTimestamp",
@@ -72,28 +82,48 @@ export const postInteractiveBlocksActionSchema: NodeComponent = {
       required: false,
       placeholder: "{{trigger.ts}}",
       supportsAI: true,
-      tooltip: "Reply to a specific message thread by providing its timestamp. Leave empty to post as a new message."
+      tooltip: "Reply to a specific message thread by providing its timestamp. Leave empty to post as a new message.",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      }
     },
     {
       name: "asUser",
       label: "Send as User",
       type: "boolean",
       defaultValue: false,
-      tooltip: "When enabled, sends the message as YOU instead of the bot. Requires user permissions granted during Slack connection."
+      tooltip: "When enabled, sends the message as YOU instead of the bot. Requires user permissions granted during Slack connection.",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      }
     },
     {
       name: "unfurlLinks",
       label: "Unfurl Links",
       type: "boolean",
       defaultValue: false,
-      tooltip: "Enable automatic link previews for URLs in the blocks."
+      tooltip: "Enable automatic link previews for URLs in the blocks.",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      }
     },
     {
       name: "unfurlMedia",
       label: "Unfurl Media",
       type: "boolean",
       defaultValue: false,
-      tooltip: "Enable automatic media previews for image/video links in the blocks."
+      tooltip: "Enable automatic media previews for image/video links in the blocks.",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      }
     },
   ],
   outputSchema: [

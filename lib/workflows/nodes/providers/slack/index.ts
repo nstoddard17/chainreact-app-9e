@@ -6,7 +6,6 @@ import { sendMessageActionSchema } from "./actions/sendMessage.schema"
 import { createChannelActionSchema } from "./actions/createChannel.schema"
 import { getMessagesActionSchema } from "./actions/getMessages.schema"
 import { postInteractiveBlocksActionSchema } from "./actions/postInteractiveBlocks.schema"
-import { findUserActionSchema } from "./actions/findUser.schema"
 import { updateMessageActionSchema } from "./actions/updateMessage.schema"
 import { deleteMessageActionSchema } from "./actions/deleteMessage.schema"
 import { getThreadMessagesActionSchema } from "./actions/getThreadMessages.schema"
@@ -73,11 +72,6 @@ const getMessages: NodeComponent = {
 const postInteractiveBlocks: NodeComponent = {
   ...postInteractiveBlocksActionSchema,
   icon: Layout
-}
-
-const findUser: NodeComponent = {
-  ...findUserActionSchema,
-  icon: User
 }
 
 const updateMessage: NodeComponent = {
@@ -309,7 +303,6 @@ export const slackNodes: NodeComponent[] = [
   createChannel,
   getMessages,
   postInteractiveBlocks,
-  findUser,
   getUserInfo,
   updateMessage,
   deleteMessage,
@@ -365,7 +358,6 @@ export {
   createChannel,
   getMessages,
   postInteractiveBlocks,
-  findUser,
   getUserInfo,
   updateMessage,
   deleteMessage,

@@ -33,7 +33,13 @@ export const getMessagesActionSchema: NodeComponent = {
       required: false,
       defaultValue: 100,
       placeholder: "Number of messages to retrieve (max 1000)",
-      tooltip: "Maximum number of messages to retrieve (default: 100, max: 1000)"
+      tooltip: "Maximum number of messages to retrieve (default: 100, max: 1000)",
+      supportsAI: true,
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      }
     },
     {
       name: "oldest",
@@ -41,7 +47,12 @@ export const getMessagesActionSchema: NodeComponent = {
       type: "datetime",
       required: false,
       placeholder: "Only messages after this date",
-      tooltip: "Only include messages posted after this date and time"
+      tooltip: "Only include messages posted after this date and time",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      }
     },
     {
       name: "latest",
@@ -49,14 +60,24 @@ export const getMessagesActionSchema: NodeComponent = {
       type: "datetime",
       required: false,
       placeholder: "Only messages before this date",
-      tooltip: "Only include messages posted before this date and time"
+      tooltip: "Only include messages posted before this date and time",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      }
     },
     {
       name: "includeThreads",
       label: "Include Thread Replies",
       type: "boolean",
       defaultValue: false,
-      tooltip: "When enabled, includes replies from conversation threads"
+      tooltip: "When enabled, includes replies from conversation threads",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      }
     }
   ],
   outputSchema: [
