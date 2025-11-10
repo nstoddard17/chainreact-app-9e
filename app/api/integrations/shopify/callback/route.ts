@@ -61,10 +61,10 @@ export async function GET(request: NextRequest) {
     const expiresIn = tokenData.expires_in
     const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
 
-    // Fetch shop information
-    let shopInfo = null
-    let shopEmail = null
+    // Fetch all stores associated with this account
+    const stores: Array<{ shop: string; name: string; id: string }> = []
     try {
+      // Fetch the current shop info
       const shopResponse = await fetch(`https://${shop}/admin/api/2024-01/shop.json`, {
         headers: {
           'X-Shopify-Access-Token': tokenData.access_token
@@ -73,17 +73,53 @@ export async function GET(request: NextRequest) {
 
       if (shopResponse.ok) {
         const shopData = await shopResponse.json()
-        shopInfo = shopData.shop
-        shopEmail = shopInfo?.email || null
+        const shopInfo = shopData.shop
+        stores.push({
+          shop: shop,
+          name: shopInfo?.name || shop,
+          id: shopInfo?.id?.toString() || shop
+        })
       }
-    } catch (shopError) {
-      logger.error('Failed to fetch Shopify shop info:', shopError)
+
+      // TODO: If Shopify Partner API is available, fetch all stores from organization
+      // For now, we only store the current shop that was just connected
+      // To connect multiple stores, user will need to run OAuth flow for each store
+
+    } catch (error) {
+      logger.error('Failed to fetch Shopify store info:', error)
+      // If we can't fetch store info, at least store the shop domain
+      stores.push({
+        shop: shop,
+        name: shop,
+        id: shop
+      })
     }
 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
     )
+
+    // Check if integration already exists to merge stores
+    const { data: existingIntegration } = await supabase
+      .from('integrations')
+      .select('metadata')
+      .eq('user_id', userId)
+      .eq('provider', 'shopify')
+      .single()
+
+    let allStores = stores
+    if (existingIntegration?.metadata) {
+      const existingMetadata = existingIntegration.metadata as any
+      const existingStores = existingMetadata.stores || []
+
+      // Merge stores, avoiding duplicates
+      const storeMap = new Map(existingStores.map((s: any) => [s.shop, s]))
+      stores.forEach(s => storeMap.set(s.shop, s))
+      allStores = Array.from(storeMap.values())
+
+      logger.debug(`Merged Shopify stores: ${allStores.length} total (${stores.length} new, ${existingStores.length} existing)`)
+    }
 
     const integrationData = {
       user_id: userId,
@@ -94,14 +130,10 @@ export async function GET(request: NextRequest) {
       status: 'connected',
       expires_at: expiresAt ? expiresAt.toISOString() : null,
       updated_at: new Date().toISOString(),
-      // Store identity fields in metadata (following Gmail pattern)
+      // Store all connected stores in metadata
       metadata: {
-        shop: shop,
-        shop_info: shopInfo,
-        email: shopEmail || null,
-        username: shop || null,
-        account_name: shopInfo?.name || shop || null,
-        provider_user_id: shopInfo?.id?.toString() || null,
+        stores: allStores, // Array of all connected stores (merged with existing)
+        active_store: shop, // The store that was just connected
       },
     }
 
