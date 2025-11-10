@@ -11,20 +11,45 @@ export const reactionRemovedTriggerSchema: NodeComponent = {
   producesOutput: true,
   configSchema: [
     {
-      name: "channel",
-      label: "Channel (Optional)",
+      name: "workspace",
+      label: "Workspace",
       type: "select",
+      dynamic: "slack_workspaces",
+      required: true,
+      loadOnMount: true,
+      placeholder: "Select Slack workspace",
+      description: "Your Slack workspace (used for authentication)"
+    },
+    {
+      name: "channel",
+      label: "Channel",
+      type: "combobox",
       required: false,
       dynamic: "slack_channels",
-      description: "Optional: Filter to a specific channel. Leave empty to watch all channels."
+      loadOnMount: true,
+      searchable: true,
+      placeholder: "Select a channel (optional)",
+      description: "Optional: Filter to a specific channel. Leave empty to listen to all channels.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
     {
       name: "emoji",
-      label: "Emoji (Optional)",
-      type: "text",
+      label: "Emoji",
+      type: "emoji-picker",
       required: false,
-      placeholder: "thumbsup, heart, eyes",
-      description: "Optional: Filter to a specific emoji. Use emoji name without colons (e.g., 'thumbsup' not ':thumbsup:')"
+      dynamic: "slack_emoji_catalog",
+      loadOnMount: true,
+      placeholder: "Choose an emoji to filter",
+      description: "Optional: Filter to a specific emoji. Leave empty to listen to all reactions.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
   ],
   outputSchema: [

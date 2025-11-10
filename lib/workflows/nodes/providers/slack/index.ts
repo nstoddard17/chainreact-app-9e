@@ -41,7 +41,6 @@ import { getFileInfoActionSchema } from "./actions/getFileInfo.schema"
 // Import trigger schemas
 import { newMessageChannelTriggerSchema } from "./triggers/newMessageChannel.schema"
 import { reactionAddedTriggerSchema } from "./triggers/reactionAdded.schema"
-import { newMessagePrivateChannelTriggerSchema } from "./triggers/newMessagePrivateChannel.schema"
 import { newDirectMessageTriggerSchema } from "./triggers/newDirectMessage.schema"
 import { newGroupDirectMessageTriggerSchema } from "./triggers/newGroupDirectMessage.schema"
 import { reactionRemovedTriggerSchema } from "./triggers/reactionRemoved.schema"
@@ -234,11 +233,6 @@ const newMessageChannel: NodeComponent = {
   icon: MessageSquare
 }
 
-const newMessagePrivateChannel: NodeComponent = {
-  ...newMessagePrivateChannelTriggerSchema,
-  icon: MessageSquare
-}
-
 const newDirectMessage: NodeComponent = {
   ...newDirectMessageTriggerSchema,
   icon: MessageSquare
@@ -330,7 +324,6 @@ export const slackNodes: NodeComponent[] = [
 
   // Triggers
   newMessageChannel,
-  newMessagePrivateChannel,
   newDirectMessage,
   newGroupDirectMessage,
   reactionAdded,
@@ -384,7 +377,6 @@ export {
 
   // Triggers
   newMessageChannel,
-  newMessagePrivateChannel,
   newDirectMessage,
   newGroupDirectMessage,
   reactionAdded,

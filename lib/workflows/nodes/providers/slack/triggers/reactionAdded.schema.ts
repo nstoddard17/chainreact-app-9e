@@ -11,13 +11,30 @@ export const reactionAddedTriggerSchema: NodeComponent = {
   producesOutput: true,
   configSchema: [
     {
+      name: "workspace",
+      label: "Workspace",
+      type: "select",
+      dynamic: "slack_workspaces",
+      required: true,
+      loadOnMount: true,
+      placeholder: "Select Slack workspace",
+      description: "Your Slack workspace (used for authentication)"
+    },
+    {
       name: "channel",
       label: "Channel",
-      type: "select",
+      type: "combobox",
       required: false,
       dynamic: "slack_channels",
+      loadOnMount: true,
+      searchable: true,
+      placeholder: "Select a channel (optional)",
       description: "Optional: Filter to a specific channel. Leave empty to listen to all channels.",
-      loadOnMount: true
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
     {
       name: "emoji",
@@ -27,7 +44,12 @@ export const reactionAddedTriggerSchema: NodeComponent = {
       dynamic: "slack_emoji_catalog",
       loadOnMount: true,
       placeholder: "Choose an emoji to filter",
-      description: "Optional: Filter to a specific emoji. Leave empty to listen to all reactions."
+      description: "Optional: Filter to a specific emoji. Leave empty to listen to all reactions.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
   ],
   outputSchema: [
