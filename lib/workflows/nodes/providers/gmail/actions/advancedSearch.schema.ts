@@ -14,6 +14,7 @@ export const advancedSearchActionSchema: NodeComponent = {
   isTrigger: false,
   providerId: "gmail",
   testable: true,
+  producesOutput: true,
   requiredScopes: ["https://www.googleapis.com/auth/gmail.readonly"],
   category: "Communication",
   outputSchema: [
@@ -77,12 +78,16 @@ export const advancedSearchActionSchema: NodeComponent = {
     {
       name: "from",
       label: "From (Sender)",
-      type: "text",
+      type: "combobox",
       required: false,
-      placeholder: "john@company.com",
+      placeholder: "Select sender or type email address",
+      dynamic: "gmail_recent_senders",
+      loadOnMount: true,
+      searchable: true,
+      supportsVariables: true,
       supportsAI: true,
       description: "Email address or name of the sender",
-      tooltip: "Matches emails from this sender. Can be partial (e.g., 'john' matches john@company.com).",
+      tooltip: "Search for emails from a specific sender. Recent senders are shown by default.",
       visibleWhen: {
         field: "searchMode",
         value: "filters"
@@ -91,12 +96,16 @@ export const advancedSearchActionSchema: NodeComponent = {
     {
       name: "to",
       label: "To (Recipient)",
-      type: "text",
+      type: "combobox",
       required: false,
-      placeholder: "jane@company.com",
+      placeholder: "Select your email or alias",
+      dynamic: "gmail_from_addresses",
+      loadOnMount: true,
+      searchable: true,
+      supportsVariables: true,
       supportsAI: true,
-      description: "Email address or name of the recipient",
-      tooltip: "Matches emails sent to this recipient.",
+      description: "Filter emails sent to your account or aliases",
+      tooltip: "Search for emails sent to your connected email address or any of your configured aliases.",
       visibleWhen: {
         field: "searchMode",
         value: "filters"
@@ -229,10 +238,11 @@ export const advancedSearchActionSchema: NodeComponent = {
     },
     {
       name: "hasLabel",
-      label: "Has Label",
+      label: "Label",
       type: "select",
       dynamic: "gmail-labels",
       required: false,
+      loadOnMount: true,
       placeholder: "Select a label...",
       description: "Filter by Gmail label",
       tooltip: "Only include emails with this label applied.",

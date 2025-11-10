@@ -20,6 +20,10 @@ import { GoogleSheetsDataPreview } from '../components/google-sheets/GoogleSheet
 import { GoogleSheetsUpdateFields } from '../components/google-sheets/GoogleSheetsUpdateFields';
 import { GoogleSheetsDeleteConfirmation } from '../components/google-sheets/GoogleSheetsDeleteConfirmation';
 import { GoogleSheetsAddRowFields } from '../components/google-sheets/GoogleSheetsAddRowFields';
+import { GoogleSheetsAddRowPreview } from '../components/google-sheets/GoogleSheetsAddRowPreview';
+import { GoogleSheetsRangePreview } from '../components/google-sheets/GoogleSheetsRangePreview';
+import { GoogleSheetsRowPreview } from '../components/google-sheets/GoogleSheetsRowPreview';
+import { GoogleSheetsFindRowPreview } from '../components/google-sheets/GoogleSheetsFindRowPreview';
 
 import { logger } from '@/lib/utils/logger'
 
@@ -308,42 +312,44 @@ export function GoogleSheetsConfiguration({
     hasInitializedRef.current = true;
   }, [values.action, values.columnMapping, setValue, showPreviewData, previewData]);
 
-  // Auto-load preview data when add action is selected or rowPosition changes
+  // Auto-load preview data when sheet is selected
   React.useEffect(() => {
-    // For add action, load preview data when:
-    // 1. Action changes to 'add' (rowPosition will default to 'end' or use existing value)
-    // 2. Required fields (spreadsheetId and sheetName) are present
-    // 3. Preview not already loaded
-    if (values.action === 'add' && values.spreadsheetId && values.sheetName) {
-      
-      // Load if action just changed to 'add' or if we haven't loaded preview yet
-      const actionJustChangedToAdd = previousAction !== 'add' && values.action === 'add';
+    // For Add Row action (google_sheets_action_append_row), load preview data when:
+    // 1. Required fields (spreadsheetId and sheetName) are present
+    // 2. Preview not already loaded
+    // 3. This is the Add Row action (nodeInfo.type ends with append_row)
+    const isAddRowAction = nodeInfo?.type === 'google_sheets_action_append_row';
+
+    if (isAddRowAction && values.spreadsheetId && values.sheetName) {
       const needsPreviewLoad = !showPreviewData && !loadingPreview;
-      
-      // Also check if rowPosition exists (either from default or user selection)
-      const hasRowPosition = values.rowPosition || 'end'; // Use 'end' as fallback if not set
-      
-      if ((actionJustChangedToAdd || needsPreviewLoad) && hasRowPosition) {
-        logger.debug('📊 [GoogleSheets] Auto-loading preview for add action', {
-          actionJustChangedToAdd,
-          needsPreviewLoad,
-          rowPosition: values.rowPosition || 'end',
+
+      if (needsPreviewLoad) {
+        logger.debug('📊 [GoogleSheets] Auto-loading preview for Add Row action', {
           spreadsheetId: values.spreadsheetId,
           sheetName: values.sheetName,
           showPreviewData,
           loadingPreview
         });
-        
-        // Set rowPosition to default if not already set
+
+        loadGoogleSheetsPreviewData(values.spreadsheetId, values.sheetName, googleSheetsHasHeaders);
+      }
+    }
+
+    // For other actions (update/delete), keep the old logic
+    if (values.action === 'add' && values.spreadsheetId && values.sheetName) {
+      const actionJustChangedToAdd = previousAction !== 'add' && values.action === 'add';
+      const needsPreviewLoad = !showPreviewData && !loadingPreview;
+      const hasRowPosition = values.rowPosition || 'end';
+
+      if ((actionJustChangedToAdd || needsPreviewLoad) && hasRowPosition) {
         if (!values.rowPosition) {
           setValue('rowPosition', 'end');
         }
-        
         loadGoogleSheetsPreviewData(values.spreadsheetId, values.sheetName, googleSheetsHasHeaders);
       }
     }
     setPreviousRowPosition(values.rowPosition);
-  }, [values.action, values.rowPosition, values.spreadsheetId, values.sheetName, 
+  }, [nodeInfo?.type, values.action, values.rowPosition, values.spreadsheetId, values.sheetName,
       previousRowPosition, previousAction, googleSheetsHasHeaders, loadGoogleSheetsPreviewData,
       showPreviewData, loadingPreview, setValue]);
 
@@ -449,6 +455,28 @@ export function GoogleSheetsConfiguration({
                 return false; // Hide field when condition is met
               }
             }
+
+            // Check $ne (not equals) condition
+            if ('$ne' in depCondition) {
+              const expectedValue = (depCondition as any).$ne;
+              const conditionMet = depValue !== expectedValue; // Hide when value is NOT equal
+
+              if (conditionMet) {
+                logger.debug(`📋 [GoogleSheets] Field "${field.name}" hidden by condition - ${depField} !== ${expectedValue} (value: ${depValue})`);
+                return false; // Hide field when condition is met
+              }
+            }
+
+            // Check $eq (equals) condition
+            if ('$eq' in depCondition) {
+              const expectedValue = (depCondition as any).$eq;
+              const conditionMet = depValue !== expectedValue;
+
+              if (conditionMet) {
+                logger.debug(`📋 [GoogleSheets] Field "${field.name}" hidden by condition - ${depField} === ${expectedValue} (value: ${depValue})`);
+                return false; // Hide field when condition is met (value doesn't equal the $eq value)
+              }
+            }
           }
         }
 
@@ -473,7 +501,7 @@ export function GoogleSheetsConfiguration({
       // Special handling for Google Sheets data preview field
       if (field.type === 'google_sheets_data_preview') {
         // Show for update, delete with column_value or conditions, or add action
-        if (values.action === 'update' || 
+        if (values.action === 'update' ||
             (values.action === 'delete' && (values.deleteRowBy === 'column_value' || values.deleteRowBy === 'conditions')) ||
             (values.action === 'add' && values.rowPosition)) {
           return (
@@ -511,6 +539,101 @@ export function GoogleSheetsConfiguration({
         return null;
       }
 
+      // Special handling for Add Row Preview field
+      if (field.type === 'google_sheets_add_row_preview') {
+        return (
+          <GoogleSheetsAddRowPreview
+            key={`field-${field.name}-${index}`}
+            values={values}
+            previewData={previewData}
+            showPreviewData={showPreviewData}
+            loadingPreview={loadingPreview}
+            fieldKey={`field-${field.name}-${index}`}
+            onTogglePreview={() => {
+              setShowPreviewData(false);
+              setPreviewData([]);
+            }}
+            onLoadPreviewData={loadGoogleSheetsPreviewData}
+            onSelectInsertPosition={(position, rowNumber) => {
+              setValue('insertPosition', position);
+              if (rowNumber) {
+                setValue('rowNumber', rowNumber);
+              }
+            }}
+          />
+        );
+      }
+
+      // Special handling for Range Preview field (Clear Range action)
+      if (field.type === 'google_sheets_range_preview') {
+        return (
+          <GoogleSheetsRangePreview
+            key={`field-${field.name}-${index}`}
+            values={values}
+            previewData={previewData}
+            showPreviewData={showPreviewData}
+            loadingPreview={loadingPreview}
+            fieldKey={`field-${field.name}-${index}`}
+            onTogglePreview={() => {
+              setShowPreviewData(false);
+              setPreviewData([]);
+            }}
+            onLoadPreviewData={loadGoogleSheetsPreviewData}
+            setValue={setValue}
+          />
+        );
+      }
+
+      // Special handling for Row Preview field (Clear specific row)
+      if (field.type === 'google_sheets_row_preview') {
+        return (
+          <GoogleSheetsRowPreview
+            key={`field-${field.name}-${index}`}
+            values={values}
+            previewData={previewData}
+            showPreviewData={showPreviewData}
+            loadingPreview={loadingPreview}
+            fieldKey={`field-${field.name}-${index}`}
+            onTogglePreview={() => {
+              setShowPreviewData(false);
+              setPreviewData([]);
+            }}
+            onLoadPreviewData={loadGoogleSheetsPreviewData}
+            setValue={setValue}
+          />
+        );
+      }
+
+      // Special handling for Find Row Preview field
+      if (field.type === 'google_sheets_find_row_preview') {
+        return (
+          <GoogleSheetsFindRowPreview
+            key={`field-${field.name}-${index}`}
+            values={values}
+            fieldKey={`field-${field.name}-${index}`}
+          />
+        );
+      }
+
+      // Special handling for Add Row Fields
+      if (field.type === 'google_sheets_add_row_fields') {
+        return (
+          <GoogleSheetsAddRowFields
+            key={`field-${field.name}-${index}`}
+            values={values}
+            setValue={setValueWithColumnTracking}
+            previewData={previewData}
+            hasHeaders={googleSheetsHasHeaders}
+            action="add"
+            showPreviewData={showPreviewData}
+            loadingPreview={loadingPreview}
+            insertPosition={values.insertPosition}
+            rowNumber={values.rowNumber}
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
+          />
+        );
+      }
 
       // Add the update fields section right after the data preview for Google Sheets
       if (field.type === 'google_sheets_update_fields' && values.action === 'update') {
@@ -801,6 +924,8 @@ export function GoogleSheetsConfiguration({
                 action={values.action}
                 showPreviewData={showPreviewData}
                 loadingPreview={loadingPreview}
+                workflowData={workflowData}
+                currentNodeId={currentNodeId}
               />
             )}
 

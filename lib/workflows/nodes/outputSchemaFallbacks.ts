@@ -1878,38 +1878,6 @@ export const OUTPUT_SCHEMA_FALLBACKS: Record<string, OutputField[]> = {
       description: "Whether the tag operation succeeded.",
     },
   ],
-  gumroad_action_create_product: [
-    {
-      name: "productId",
-      label: "Product ID",
-      type: "string",
-      description: "Identifier of the Gumroad product that was created.",
-    },
-    {
-      name: "name",
-      label: "Product Name",
-      type: "string",
-      description: "Name given to the product.",
-    },
-    {
-      name: "permalink",
-      label: "Permalink",
-      type: "string",
-      description: "Permalink slug for the product.",
-    },
-    {
-      name: "url",
-      label: "Product URL",
-      type: "string",
-      description: "Public URL where the product can be purchased.",
-    },
-    {
-      name: "published",
-      label: "Published",
-      type: "boolean",
-      description: "Whether the product is live and purchasable.",
-    },
-  ],
   gumroad_action_get_sales_analytics: [
     {
       name: "productId",

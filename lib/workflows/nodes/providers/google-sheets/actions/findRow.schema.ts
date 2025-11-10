@@ -24,7 +24,8 @@ export const findRowActionSchema: NodeComponent = {
       dynamic: "google-sheets_spreadsheets",
       required: true,
       loadOnMount: true,
-      placeholder: "Select a spreadsheet"
+      placeholder: "Select a spreadsheet",
+      description: "Choose a spreadsheet from your Google Sheets account"
     },
     {
       name: "sheetName",
@@ -33,7 +34,12 @@ export const findRowActionSchema: NodeComponent = {
       dynamic: "google-sheets_sheets",
       required: true,
       dependsOn: "spreadsheetId",
-      placeholder: "Select a sheet"
+      hidden: {
+        $deps: ["spreadsheetId"],
+        $condition: { spreadsheetId: { $exists: false } }
+      },
+      placeholder: "Select a sheet",
+      description: "The specific sheet (tab) within the spreadsheet"
     },
     {
       name: "searchColumn",
@@ -42,22 +48,37 @@ export const findRowActionSchema: NodeComponent = {
       dynamic: "google-sheets_columns",
       required: true,
       dependsOn: "sheetName",
-      placeholder: "Select column to search in"
+      hidden: {
+        $deps: ["sheetName"],
+        $condition: { sheetName: { $exists: false } }
+      },
+      placeholder: "Select column to search in",
+      description: "Column to search for matching values"
     },
     {
       name: "searchValue",
       label: "Search Value",
       type: "text",
       required: true,
-      placeholder: "{{trigger.email}}",
+      dependsOn: "searchColumn",
+      hidden: {
+        $deps: ["searchColumn"],
+        $condition: { searchColumn: { $exists: false } }
+      },
+      placeholder: "Enter text or variable (e.g., {{trigger.email}})",
       supportsAI: true,
-      description: "Value to search for"
+      description: "Value to search for in the selected column"
     },
     {
       name: "matchType",
       label: "Match Type",
       type: "select",
       required: false,
+      dependsOn: "searchColumn",
+      hidden: {
+        $deps: ["searchColumn"],
+        $condition: { searchColumn: { $exists: false } }
+      },
       options: [
         { value: "exact", label: "Exact Match" },
         { value: "contains", label: "Contains" },
@@ -65,6 +86,18 @@ export const findRowActionSchema: NodeComponent = {
       ],
       defaultValue: "exact",
       description: "How to match the search value"
+    },
+    {
+      name: "findRowPreview",
+      label: "Preview & Test",
+      type: "google_sheets_find_row_preview",
+      required: false,
+      dependsOn: "searchValue",
+      hidden: {
+        $deps: ["searchValue"],
+        $condition: { searchValue: { $exists: false } }
+      },
+      description: "Test your search to preview which row will be found"
     }
   ]
 }

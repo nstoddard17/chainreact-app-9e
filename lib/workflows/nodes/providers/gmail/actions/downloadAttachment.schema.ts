@@ -70,12 +70,17 @@ export const downloadAttachmentActionSchema: NodeComponent = {
   configSchema: [
     {
       name: "messageId",
-      label: "Message ID",
-      type: "text",
+      label: "Email",
+      type: "combobox",
       required: true,
-      placeholder: "{{trigger.messageId}}",
+      placeholder: "Select an email or use {{trigger.messageId}}",
+      dynamic: "gmail-recent-emails",
+      loadOnMount: true,
+      searchable: true,
+      supportsVariables: true,
       supportsAI: true,
-      description: "The ID of the email containing the attachment"
+      description: "Select an email from your recent messages or enter an email ID",
+      tooltip: "Search by subject or sender, or use a variable like {{trigger.messageId}}. Recent emails are shown by default."
     },
     {
       name: "attachmentSelection",
@@ -89,7 +94,9 @@ export const downloadAttachmentActionSchema: NodeComponent = {
         { value: "all", label: "All Attachments" }
       ],
       defaultValue: "all",
-      description: "Which attachment(s) to download"
+      description: "Which attachment(s) to download",
+      dependsOn: "messageId",
+      hidden: { $deps: ["messageId"], $condition: { messageId: { $exists: false } } }
     },
     {
       name: "attachmentId",
@@ -99,6 +106,8 @@ export const downloadAttachmentActionSchema: NodeComponent = {
       placeholder: "{{trigger.attachments[0].id}}",
       supportsAI: true,
       description: "The unique ID of the attachment",
+      dependsOn: "messageId",
+      hidden: { $deps: ["messageId"], $condition: { messageId: { $exists: false } } },
       visibleWhen: {
         field: "attachmentSelection",
         value: "id"
@@ -112,6 +121,8 @@ export const downloadAttachmentActionSchema: NodeComponent = {
       placeholder: "report.pdf",
       supportsAI: true,
       description: "Exact filename of the attachment",
+      dependsOn: "messageId",
+      hidden: { $deps: ["messageId"], $condition: { messageId: { $exists: false } } },
       visibleWhen: {
         field: "attachmentSelection",
         value: "filename"
@@ -125,6 +136,8 @@ export const downloadAttachmentActionSchema: NodeComponent = {
       placeholder: "invoice",
       supportsAI: true,
       description: "Text that the filename must contain",
+      dependsOn: "messageId",
+      hidden: { $deps: ["messageId"], $condition: { messageId: { $exists: false } } },
       visibleWhen: {
         field: "attachmentSelection",
         value: "pattern"
@@ -141,7 +154,9 @@ export const downloadAttachmentActionSchema: NodeComponent = {
         { value: "dropbox", label: "Dropbox" }
       ],
       description: "Where to save the attachment",
-      tooltip: "You must have the corresponding integration connected to use this service."
+      tooltip: "You must have the corresponding integration connected to use this service.",
+      dependsOn: "messageId",
+      hidden: { $deps: ["messageId"], $condition: { messageId: { $exists: false } } }
     },
     {
       name: "folderId",
@@ -152,7 +167,8 @@ export const downloadAttachmentActionSchema: NodeComponent = {
       dependsOn: "storageService",
       placeholder: "Select destination folder...",
       description: "Folder where attachment will be saved (defaults to root)",
-      tooltip: "Leave empty to save in the root folder. The folder list is loaded from your connected storage service."
+      tooltip: "Leave empty to save in the root folder. The folder list is loaded from your connected storage service.",
+      hidden: { $deps: ["messageId"], $condition: { messageId: { $exists: false } } }
     },
     {
       name: "filenameConflict",
@@ -166,7 +182,9 @@ export const downloadAttachmentActionSchema: NodeComponent = {
       ],
       defaultValue: "rename",
       description: "How to handle filename conflicts",
-      tooltip: "Rename: Adds timestamp to filename. Overwrite: Replaces existing file. Skip: Does not download if file exists."
+      tooltip: "Rename: Adds timestamp to filename. Overwrite: Replaces existing file. Skip: Does not download if file exists.",
+      dependsOn: "messageId",
+      hidden: { $deps: ["messageId"], $condition: { messageId: { $exists: false } } }
     },
     {
       name: "createDateFolder",
@@ -175,7 +193,9 @@ export const downloadAttachmentActionSchema: NodeComponent = {
       required: false,
       defaultValue: false,
       description: "Create YYYY/MM subfolders automatically",
-      tooltip: "When enabled, files are saved in Year/Month subfolders (e.g., 2024/01). Helps organize large volumes of attachments."
+      tooltip: "When enabled, files are saved in Year/Month subfolders (e.g., 2024/01). Helps organize large volumes of attachments.",
+      dependsOn: "messageId",
+      hidden: { $deps: ["messageId"], $condition: { messageId: { $exists: false } } }
     }
   ]
 }

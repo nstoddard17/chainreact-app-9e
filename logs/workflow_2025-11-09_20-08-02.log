@@ -1,0 +1,133 @@
+=== Log Session Started: 2025-11-10T02:08:02.596Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-11-10T02:08:02.596Z] [INFO   ] File logging initialized
+[2025-11-10T02:08:02.596Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-09_20-08-02.log
+[2025-11-10T02:08:02.597Z] [INFO   ] 📁 File logging enabled
+[2025-11-10T02:08:02.598Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-09_20-08-02.log
+[2025-11-10T02:08:02.598Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-09_20-08-02.log
+[2025-11-10T02:08:02.598Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-09_20-08-02.log
+[2025-11-10T02:08:02.598Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-09_20-08-02.log
+[2025-11-10T02:08:02.598Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-11-10T02:08:02.598Z] [DEBUG  ] 📁 File logging system initialized
+[2025-11-10T02:08:02.627Z] [INFO   ]  ✓ Ready in 9.4s
+[2025-11-10T02:08:03.665Z] [INFO   ] 2025-11-10T02:08:03.665Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-11-10T02:08:09.159Z] [INFO   ] 2025-11-10T02:08:09.158Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-11-10T02:08:09.160Z] [INFO   ] 2025-11-10T02:08:09.160Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-10T02:08:11.237Z] [INFO   ] 2025-11-10T02:08:11.236Z [DEBUG] Discord Gateway initialization complete
+[2025-11-10T02:08:11.241Z] [INFO   ] 2025-11-10T02:08:11.241Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-11-10T02:08:11.609Z] [INFO   ] 2025-11-10T02:08:11.609Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-10T02:08:11.610Z] [INFO   ] 2025-11-10T02:08:11.610Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-10T02:08:11.899Z] [INFO   ] 2025-11-10T02:08:11.899Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"c1278fec02568dbc8bfc26cc600ebc0b","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-11-10T02:08:11.900Z] [INFO   ] 2025-11-10T02:08:11.899Z [DEBUG] 📋 Initializing invite cache...
+[2025-11-10T02:08:11.901Z] [INFO   ] 2025-11-10T02:08:11.901Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-10T02:08:11.914Z] [INFO   ] 2025-11-10T02:08:11.914Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-10T02:08:12.120Z] [INFO   ] 2025-11-10T02:08:12.120Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-11-10T02:12:24.627Z] [INFO   ]  ✓ Compiled in 1659ms (2754 modules)
+[2025-11-10T02:16:51.201Z] [INFO   ]  ✓ Compiled in 1550ms (2754 modules)
+[2025-11-10T02:25:33.100Z] [INFO   ]  ✓ Compiled in 3.3s (2754 modules)
+[2025-11-10T02:47:03.533Z] [INFO   ]  ✓ Compiled in 2.5s (2754 modules)
+[2025-11-10T02:47:44.987Z] [INFO   ]  ✓ Compiled in 742ms (2754 modules)
+[2025-11-10T02:50:27.100Z] [INFO   ]  ✓ Compiled in 955ms (2754 modules)
+[2025-11-10T03:08:27.917Z] [INFO   ]  ✓ Compiled in 1095ms (2754 modules)
+[2025-11-10T03:14:05.538Z] [INFO   ]  ✓ Compiled in 1456ms (2754 modules)
+[2025-11-10T03:14:22.731Z] [INFO   ]  ✓ Compiled in 284ms (2754 modules)
+[2025-11-10T03:14:33.040Z] [INFO   ]  ✓ Compiled in 362ms (2754 modules)
+[2025-11-10T03:14:55.978Z] [INFO   ]  ✓ Compiled in 577ms (2754 modules)
+[2025-11-10T03:17:44.420Z] [INFO   ]  ✓ Compiled in 3.5s (2754 modules)
+[2025-11-10T03:18:35.951Z] [INFO   ]  ✓ Compiled in 2.8s (2754 modules)
+[2025-11-10T03:18:46.774Z] [INFO   ]  ✓ Compiled in 1201ms (2754 modules)
+[2025-11-10T03:18:58.460Z] [INFO   ]  ✓ Compiled in 621ms (2754 modules)
+[2025-11-10T03:20:49.063Z] [INFO   ]  ✓ Compiled in 725ms (2754 modules)
+[2025-11-10T03:23:29.863Z] [INFO   ]  ✓ Compiled in 1853ms (2754 modules)
+[2025-11-10T03:26:20.477Z] [INFO   ]  ✓ Compiled in 846ms (2754 modules)
+[2025-11-10T03:26:51.431Z] [INFO   ]  ✓ Compiled in 535ms (2754 modules)
+[2025-11-10T03:27:06.721Z] [INFO   ]  ✓ Compiled in 328ms (2754 modules)
+[2025-11-10T03:28:21.875Z] [INFO   ]  ✓ Compiled in 454ms (2754 modules)
+[2025-11-10T03:28:29.739Z] [INFO   ]  ✓ Compiled in 226ms (2754 modules)
+[2025-11-10T03:39:17.367Z] [INFO   ]  ✓ Compiled in 1203ms (2754 modules)
+[2025-11-10T03:40:05.389Z] [INFO   ]  ✓ Compiled in 671ms (2754 modules)
+[2025-11-10T03:40:16.811Z] [INFO   ]  ✓ Compiled in 1428ms (2754 modules)
+[2025-11-10T03:40:22.202Z] [INFO   ]  ✓ Compiled in 542ms (2754 modules)
+[2025-11-10T03:40:49.299Z] [INFO   ]  ✓ Compiled in 424ms (2754 modules)
+[2025-11-10T03:41:03.130Z] [INFO   ]  ✓ Compiled in 904ms (2751 modules)
+[2025-11-10T03:41:06.970Z] [INFO   ]  ✓ Compiled in 831ms (2751 modules)
+[2025-11-10T03:41:37.110Z] [INFO   ]  ✓ Compiled in 761ms (2751 modules)
+[2025-11-10T03:41:46.766Z] [INFO   ]  ✓ Compiled in 472ms (2751 modules)
+[2025-11-10T03:42:09.433Z] [INFO   ]  ✓ Compiled in 398ms (2751 modules)
+[2025-11-10T03:42:27.346Z] [INFO   ]  ✓ Compiled in 305ms (2751 modules)
+[2025-11-10T03:42:59.912Z] [INFO   ]  ✓ Compiled in 442ms (2751 modules)
+[2025-11-10T03:43:24.264Z] [INFO   ]  ✓ Compiled in 355ms (2751 modules)
+[2025-11-10T03:43:58.110Z] [INFO   ]  ✓ Compiled in 472ms (2753 modules)
+[2025-11-10T03:44:25.087Z] [INFO   ]  ✓ Compiled in 407ms (2753 modules)
+[2025-11-10T03:46:01.977Z] [INFO   ]  ✓ Compiled in 538ms (2753 modules)
+[2025-11-10T03:55:16.258Z] [INFO   ]  ✓ Compiled in 2.1s (2753 modules)
+[2025-11-10T03:55:43.562Z] [INFO   ]  ✓ Compiled in 641ms (2753 modules)
+[2025-11-10T03:55:49.521Z] [INFO   ]  ✓ Compiled in 580ms (2753 modules)
+[2025-11-10T03:55:56.440Z] [INFO   ]  ✓ Compiled in 647ms (2753 modules)
+[2025-11-10T03:56:05.604Z] [INFO   ]  ✓ Compiled in 900ms (2753 modules)
+[2025-11-10T03:57:05.648Z] [INFO   ]  ✓ Compiled in 922ms (2752 modules)
+[2025-11-10T03:57:11.729Z] [INFO   ]  ✓ Compiled in 488ms (2751 modules)
+[2025-11-10T03:57:19.815Z] [ERROR  ]  ⨯ ./lib/workflows/nodes/providers/gmail/index.ts
+Module parse failed: Export 'updateSignature' is not defined (129:184)
+| export { // Triggers
+| newEmailTrigger, newAttachmentTrigger, newStarredEmailTrigger, newLabeledEmailTrigger, // Actions
+> sendEmail, replyToEmail, createDraft, createDraftReply, archiveEmail, deleteEmail, addLabel, removeLabel, createLabel, searchEmails, getAttachment, downloadAttachment, advancedSearch, updateSignature, markAsRead, markAsUnread,  };
+| 
+
+Import trace for requested module:
+./lib/workflows/nodes/providers/gmail/index.ts
+./lib/workflows/nodes/index.ts
+./lib/workflows/execution/executionLogger.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T03:57:26.003Z] [ERROR  ]  ⨯ ./lib/workflows/nodes/providers/gmail/index.ts
+Module parse failed: Export 'updateSignature' is not defined (128:184)
+| export { // Triggers
+| newEmailTrigger, newAttachmentTrigger, newStarredEmailTrigger, newLabeledEmailTrigger, // Actions
+> sendEmail, replyToEmail, createDraft, createDraftReply, archiveEmail, deleteEmail, addLabel, removeLabel, createLabel, searchEmails, getAttachment, downloadAttachment, advancedSearch, updateSignature, markAsRead, markAsUnread,  };
+| 
+
+Import trace for requested module:
+./lib/workflows/nodes/providers/gmail/index.ts
+./lib/workflows/nodes/index.ts
+./lib/workflows/execution/executionLogger.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T03:57:32.152Z] [INFO   ]  ✓ Compiled in 480ms (2751 modules)
+[2025-11-10T04:02:08.117Z] [INFO   ]  ✓ Compiled in 1297ms (2751 modules)
+[2025-11-10T04:02:49.188Z] [INFO   ]  ✓ Compiled in 632ms (2751 modules)
+[2025-11-10T04:07:27.424Z] [INFO   ]  ✓ Compiled in 3.7s (2751 modules)
+[2025-11-10T04:08:32.082Z] [INFO   ]  ✓ Compiled in 2.3s (2751 modules)
+[2025-11-10T04:08:38.314Z] [WARN   ]  ⚠ ./lib/workflows/actions/registry.ts
+Attempted import error: 'clearGoogleSheetsRange' is not exported from './googleSheets' (imported as 'clearGoogleSheetsRange').
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-10T04:08:49.555Z] [INFO   ]  ✓ Compiled in 458ms (2752 modules)
+[2025-11-10T04:09:35.238Z] [INFO   ]  ✓ Compiled in 616ms (2752 modules)
+[2025-11-10T04:21:00.609Z] [INFO   ]  ✓ Compiled in 3.5s (2752 modules)
+[2025-11-10T04:22:37.467Z] [INFO   ]  ✓ Compiled in 330ms (2752 modules)
+[2025-11-10T04:22:50.765Z] [INFO   ]  ✓ Compiled in 629ms (2752 modules)
+[2025-11-10T04:24:25.317Z] [INFO   ]  ✓ Compiled in 681ms (2752 modules)
+[2025-11-10T04:24:35.119Z] [INFO   ]  ✓ Compiled in 659ms (2752 modules)
+[2025-11-10T04:24:43.071Z] [INFO   ]  ✓ Compiled in 910ms (2752 modules)
+[2025-11-10T04:24:45.911Z] [INFO   ]  ✓ Compiled in 451ms (2752 modules)
+[2025-11-10T04:24:53.496Z] [INFO   ]  ✓ Compiled in 979ms (2752 modules)
+[2025-11-10T04:25:04.020Z] [INFO   ]  ✓ Compiled in 1898ms (2752 modules)
+[2025-11-10T04:25:13.239Z] [INFO   ]  ✓ Compiled in 576ms (2752 modules)
+[2025-11-10T04:25:25.081Z] [INFO   ]  ✓ Compiled in 718ms (2752 modules)
+[2025-11-10T04:25:36.478Z] [INFO   ]  ✓ Compiled in 607ms (2752 modules)
+[2025-11-10T04:25:46.959Z] [INFO   ]  ✓ Compiled in 444ms (2752 modules)
+[2025-11-10T04:25:56.680Z] [INFO   ]  ✓ Compiled in 788ms (2752 modules)
+[2025-11-10T04:26:18.653Z] [INFO   ]  ✓ Compiled in 1502ms (2752 modules)
+[2025-11-10T04:26:29.801Z] [INFO   ]  ✓ Compiled in 784ms (2752 modules)
+[2025-11-10T04:37:17.445Z] [INFO   ]  ✓ Compiled in 5.2s (2752 modules)
