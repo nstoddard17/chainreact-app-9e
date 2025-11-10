@@ -1,4 +1,4 @@
-import { ShoppingBag, Package, Users, TrendingUp, FileText, AlertCircle } from "lucide-react"
+import { ShoppingBag, Package, Users, TrendingUp, FileText, AlertCircle, DollarSign, CheckCircle, ShoppingCart } from "lucide-react"
 import { NodeComponent } from "../../types"
 
 /**
@@ -6,6 +6,9 @@ import { NodeComponent } from "../../types"
  *
  * Triggers:
  * - New Order
+ * - New Paid Order
+ * - Order Fulfilled
+ * - New Abandoned Cart
  * - Order Updated
  * - New Customer
  * - Product Updated
@@ -15,9 +18,14 @@ import { NodeComponent } from "../../types"
  * - Create Order
  * - Update Order Status
  * - Create Product
+ * - Update Product
  * - Update Inventory
  * - Create Customer
+ * - Update Customer
  * - Add Order Note
+ * - Create Fulfillment
+ * - Create Product Variant
+ * - Update Product Variant
  */
 
 export const shopifyNodes: NodeComponent[] = [
@@ -79,6 +87,116 @@ export const shopifyNodes: NodeComponent[] = [
     ],
   },
   {
+    type: "shopify_trigger_new_paid_order",
+    title: "New Paid Order",
+    description: "Triggers when a new order is created with payment confirmed",
+    icon: DollarSign,
+    providerId: "shopify",
+    category: "E-commerce",
+    isTrigger: true,
+    producesOutput: true,
+    requiredScopes: ["read_orders"],
+    configSchema: [
+      {
+        name: "fulfillment_status",
+        label: "Fulfillment Status Filter (Optional)",
+        type: "select",
+        required: false,
+        options: [
+          { label: "Any Status", value: "any" },
+          { label: "Fulfilled", value: "fulfilled" },
+          { label: "Unfulfilled", value: "unfulfilled" },
+          { label: "Partially Fulfilled", value: "partial" },
+        ],
+        defaultValue: "any",
+        description: "Only trigger for orders with this fulfillment status"
+      },
+    ],
+    outputSchema: [
+      { name: "order_id", label: "Order ID", type: "string", description: "Unique identifier for the order" },
+      { name: "order_number", label: "Order Number", type: "number", description: "Human-readable order number" },
+      { name: "customer_email", label: "Customer Email", type: "string", description: "Email address of the customer" },
+      { name: "customer_name", label: "Customer Name", type: "string", description: "Full name of the customer" },
+      { name: "total_price", label: "Total Price", type: "number", description: "Total price of the order" },
+      { name: "currency", label: "Currency", type: "string", description: "Currency code (e.g., USD, EUR)" },
+      { name: "fulfillment_status", label: "Fulfillment Status", type: "string", description: "Current fulfillment status" },
+      { name: "financial_status", label: "Payment Status", type: "string", description: "Will always be 'paid' for this trigger" },
+      { name: "line_items", label: "Line Items", type: "array", description: "Array of products in the order" },
+      { name: "shipping_address", label: "Shipping Address", type: "object", description: "Customer's shipping address" },
+      { name: "billing_address", label: "Billing Address", type: "object", description: "Customer's billing address" },
+      { name: "created_at", label: "Created At", type: "string", description: "When the order was created (ISO 8601)" },
+    ],
+  },
+  {
+    type: "shopify_trigger_order_fulfilled",
+    title: "Order Fulfilled",
+    description: "Triggers when an order is completely fulfilled",
+    icon: CheckCircle,
+    providerId: "shopify",
+    category: "E-commerce",
+    isTrigger: true,
+    producesOutput: true,
+    requiredScopes: ["read_orders"],
+    configSchema: [
+      {
+        name: "notificationOnly",
+        label: "Trigger Configuration",
+        type: "select",
+        required: false,
+        options: [{ value: "all", label: "Trigger for all fulfilled orders" }],
+        defaultValue: "all",
+        description: "This trigger will fire whenever an order's fulfillment status changes to fulfilled"
+      }
+    ],
+    outputSchema: [
+      { name: "order_id", label: "Order ID", type: "string", description: "Unique identifier for the order" },
+      { name: "order_number", label: "Order Number", type: "number", description: "Human-readable order number" },
+      { name: "customer_email", label: "Customer Email", type: "string", description: "Email address of the customer" },
+      { name: "customer_name", label: "Customer Name", type: "string", description: "Full name of the customer" },
+      { name: "total_price", label: "Total Price", type: "number", description: "Total price of the order" },
+      { name: "currency", label: "Currency", type: "string", description: "Currency code (e.g., USD, EUR)" },
+      { name: "fulfillment_status", label: "Fulfillment Status", type: "string", description: "Will always be 'fulfilled' for this trigger" },
+      { name: "financial_status", label: "Payment Status", type: "string", description: "Current payment status" },
+      { name: "line_items", label: "Line Items", type: "array", description: "Array of products in the order" },
+      { name: "tracking_number", label: "Tracking Number", type: "string", description: "Shipping tracking number (if available)" },
+      { name: "tracking_url", label: "Tracking URL", type: "string", description: "Shipping tracking URL (if available)" },
+      { name: "fulfilled_at", label: "Fulfilled At", type: "string", description: "When the order was fulfilled (ISO 8601)" },
+    ],
+  },
+  {
+    type: "shopify_trigger_abandoned_cart",
+    title: "New Abandoned Cart",
+    description: "Triggers when a customer abandons their shopping cart",
+    icon: ShoppingCart,
+    providerId: "shopify",
+    category: "E-commerce",
+    isTrigger: true,
+    producesOutput: true,
+    requiredScopes: ["read_checkouts"],
+    configSchema: [
+      {
+        name: "minimum_value",
+        label: "Minimum Cart Value (Optional)",
+        type: "number",
+        required: false,
+        placeholder: "50.00",
+        description: "Only trigger for carts above this value (e.g., 50.00)"
+      },
+    ],
+    outputSchema: [
+      { name: "checkout_id", label: "Checkout ID", type: "string", description: "Unique identifier for the abandoned checkout" },
+      { name: "cart_token", label: "Cart Token", type: "string", description: "Token to recover the cart" },
+      { name: "customer_email", label: "Customer Email", type: "string", description: "Email address of the customer" },
+      { name: "customer_name", label: "Customer Name", type: "string", description: "Full name of the customer (if available)" },
+      { name: "total_price", label: "Total Price", type: "number", description: "Total value of the abandoned cart" },
+      { name: "currency", label: "Currency", type: "string", description: "Currency code (e.g., USD, EUR)" },
+      { name: "line_items", label: "Line Items", type: "array", description: "Array of products in the cart" },
+      { name: "abandoned_checkout_url", label: "Recovery URL", type: "string", description: "URL to recover the abandoned cart" },
+      { name: "created_at", label: "Created At", type: "string", description: "When the cart was created (ISO 8601)" },
+      { name: "updated_at", label: "Updated At", type: "string", description: "When the cart was last updated (ISO 8601)" },
+    ],
+  },
+  {
     type: "shopify_trigger_order_updated",
     title: "Order Updated",
     description: "Triggers when an existing order is updated",
@@ -92,7 +210,7 @@ export const shopifyNodes: NodeComponent[] = [
       {
         name: "watch_field",
         label: "Watch For Changes In",
-        type: "multi-select",
+        type: "multi_select",
         required: false,
         options: [
           { label: "Fulfillment Status", value: "fulfillment_status" },
@@ -100,7 +218,8 @@ export const shopifyNodes: NodeComponent[] = [
           { label: "Tags", value: "tags" },
           { label: "Notes", value: "note" },
         ],
-        description: "Only trigger when these fields change (leave empty to trigger on any change)"
+        description: "Only trigger when these fields change (leave empty to trigger on any change)",
+        supportsAI: true,
       },
     ],
     outputSchema: [
@@ -277,6 +396,114 @@ export const shopifyNodes: NodeComponent[] = [
         required: false,
         placeholder: "wholesale, priority",
         description: "Comma-separated tags for the order",
+        supportsAI: true,
+      },
+      {
+        name: "shipping_address_line1",
+        label: "Shipping Address Line 1 (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "123 Main St",
+        description: "Street address for shipping",
+        supportsAI: true,
+      },
+      {
+        name: "shipping_address_line2",
+        label: "Shipping Address Line 2 (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "Apt 4B",
+        description: "Additional address details (apartment, suite, etc.)",
+        supportsAI: true,
+      },
+      {
+        name: "shipping_city",
+        label: "Shipping City (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "San Francisco",
+        description: "City for shipping address",
+        supportsAI: true,
+      },
+      {
+        name: "shipping_province",
+        label: "Shipping State/Province (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "CA",
+        description: "State or province code (e.g., CA, NY, ON)",
+        supportsAI: true,
+      },
+      {
+        name: "shipping_country",
+        label: "Shipping Country (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "US",
+        description: "Country code (e.g., US, CA, GB)",
+        supportsAI: true,
+      },
+      {
+        name: "shipping_zip",
+        label: "Shipping ZIP/Postal Code (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "94102",
+        description: "ZIP or postal code",
+        supportsAI: true,
+      },
+      {
+        name: "billing_address_line1",
+        label: "Billing Address Line 1 (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "456 Oak Ave",
+        description: "Street address for billing (defaults to shipping if empty)",
+        supportsAI: true,
+      },
+      {
+        name: "billing_address_line2",
+        label: "Billing Address Line 2 (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "Suite 100",
+        description: "Additional billing address details",
+        supportsAI: true,
+      },
+      {
+        name: "billing_city",
+        label: "Billing City (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "Los Angeles",
+        description: "City for billing address",
+        supportsAI: true,
+      },
+      {
+        name: "billing_province",
+        label: "Billing State/Province (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "CA",
+        description: "State or province code for billing",
+        supportsAI: true,
+      },
+      {
+        name: "billing_country",
+        label: "Billing Country (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "US",
+        description: "Country code for billing",
+        supportsAI: true,
+      },
+      {
+        name: "billing_zip",
+        label: "Billing ZIP/Postal Code (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "90001",
+        description: "ZIP or postal code for billing",
         supportsAI: true,
       },
     ],
@@ -527,6 +754,124 @@ export const shopifyNodes: NodeComponent[] = [
     ],
   },
   {
+    type: "shopify_action_update_product",
+    title: "Update Product",
+    description: "Update an existing product in Shopify",
+    icon: Package,
+    providerId: "shopify",
+    category: "E-commerce",
+    isTrigger: false,
+    producesOutput: true,
+    testable: true,
+    requiredScopes: ["write_products"],
+    configSchema: [
+      {
+        name: "product_id",
+        label: "Product ID",
+        type: "text",
+        required: true,
+        placeholder: "{{trigger.product_id}}",
+        description: "The ID of the product to update",
+        supportsAI: true,
+      },
+      {
+        name: "title",
+        label: "Product Title (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "Updated Product Name",
+        description: "Update the product title",
+        supportsAI: true,
+      },
+      {
+        name: "body_html",
+        label: "Description (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "<p>Updated description...</p>",
+        description: "Update product description in HTML format",
+        supportsAI: true,
+      },
+      {
+        name: "vendor",
+        label: "Vendor (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "Brand Name",
+        description: "Update the vendor/brand",
+        supportsAI: true,
+      },
+      {
+        name: "product_type",
+        label: "Product Type (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "Electronics",
+        description: "Update the product type/category",
+        supportsAI: true,
+      },
+      {
+        name: "tags",
+        label: "Tags (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "new-arrival, featured, sale",
+        description: "Comma-separated tags (replaces existing tags)",
+        supportsAI: true,
+      },
+      {
+        name: "published",
+        label: "Published Status (Optional)",
+        type: "select",
+        required: false,
+        options: [
+          { label: "Keep Current", value: "" },
+          { label: "Published (Visible)", value: "true" },
+          { label: "Draft (Hidden)", value: "false" },
+        ],
+        defaultValue: "",
+        description: "Update product visibility in storefront"
+      },
+    ],
+    outputSchema: [
+      {
+        name: "success",
+        label: "Success",
+        type: "boolean",
+        description: "Whether the product update was successful",
+        example: true
+      },
+      {
+        name: "product_id",
+        label: "Product ID",
+        type: "string",
+        description: "The unique identifier for the updated product",
+        example: "gid://shopify/Product/9876543210"
+      },
+      {
+        name: "title",
+        label: "Title",
+        type: "string",
+        description: "The updated title of the product",
+        example: "Updated Product Name"
+      },
+      {
+        name: "admin_url",
+        label: "Admin URL",
+        type: "string",
+        description: "Direct link to view the product in Shopify admin",
+        example: "https://mystore.myshopify.com/admin/products/9876543210"
+      },
+      {
+        name: "updated_at",
+        label: "Updated At",
+        type: "string",
+        description: "ISO 8601 timestamp when the product was last updated",
+        example: "2024-01-15T10:30:00Z"
+      },
+    ],
+  },
+  {
     type: "shopify_action_update_inventory",
     title: "Update Inventory",
     description: "Update the inventory level of a product variant",
@@ -709,6 +1054,243 @@ export const shopifyNodes: NodeComponent[] = [
     ],
   },
   {
+    type: "shopify_action_update_customer",
+    title: "Update Customer",
+    description: "Update an existing customer in Shopify",
+    icon: Users,
+    providerId: "shopify",
+    category: "E-commerce",
+    isTrigger: false,
+    producesOutput: true,
+    testable: true,
+    requiredScopes: ["write_customers"],
+    configSchema: [
+      {
+        name: "customer_id",
+        label: "Customer ID",
+        type: "text",
+        required: true,
+        placeholder: "{{trigger.customer_id}}",
+        description: "The ID of the customer to update",
+        supportsAI: true,
+      },
+      {
+        name: "email",
+        label: "Email (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "newemail@example.com",
+        description: "Update customer's email address",
+        supportsAI: true,
+      },
+      {
+        name: "first_name",
+        label: "First Name (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "John",
+        description: "Update customer's first name",
+        supportsAI: true,
+      },
+      {
+        name: "last_name",
+        label: "Last Name (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "Doe",
+        description: "Update customer's last name",
+        supportsAI: true,
+      },
+      {
+        name: "phone",
+        label: "Phone (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "+1-555-5678",
+        description: "Update customer's phone number",
+        supportsAI: true,
+      },
+      {
+        name: "tags",
+        label: "Tags (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "vip, loyal-customer",
+        description: "Comma-separated tags (replaces existing tags)",
+        supportsAI: true,
+      },
+      {
+        name: "note",
+        label: "Note (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "Prefers email communication",
+        description: "Internal note about the customer",
+        supportsAI: true,
+      },
+      {
+        name: "accepts_marketing",
+        label: "Accepts Marketing (Optional)",
+        type: "select",
+        required: false,
+        options: [
+          { label: "Keep Current", value: "" },
+          { label: "Yes (Opted In)", value: "true" },
+          { label: "No (Opted Out)", value: "false" },
+        ],
+        defaultValue: "",
+        description: "Update marketing email preference"
+      },
+    ],
+    outputSchema: [
+      {
+        name: "success",
+        label: "Success",
+        type: "boolean",
+        description: "Whether the customer update was successful",
+        example: true
+      },
+      {
+        name: "customer_id",
+        label: "Customer ID",
+        type: "string",
+        description: "The unique identifier for the updated customer",
+        example: "gid://shopify/Customer/1234567890"
+      },
+      {
+        name: "email",
+        label: "Email",
+        type: "string",
+        description: "The updated email address of the customer",
+        example: "newemail@example.com"
+      },
+      {
+        name: "admin_url",
+        label: "Admin URL",
+        type: "string",
+        description: "Direct link to view the customer in Shopify admin",
+        example: "https://mystore.myshopify.com/admin/customers/1234567890"
+      },
+      {
+        name: "updated_at",
+        label: "Updated At",
+        type: "string",
+        description: "ISO 8601 timestamp when the customer was last updated",
+        example: "2024-01-15T10:30:00Z"
+      },
+    ],
+  },
+  {
+    type: "shopify_action_create_fulfillment",
+    title: "Create Fulfillment",
+    description: "Create a fulfillment for an order with tracking information",
+    icon: CheckCircle,
+    providerId: "shopify",
+    category: "E-commerce",
+    isTrigger: false,
+    producesOutput: true,
+    testable: true,
+    requiredScopes: ["write_orders", "write_fulfillments"],
+    configSchema: [
+      {
+        name: "order_id",
+        label: "Order ID",
+        type: "text",
+        required: true,
+        placeholder: "{{trigger.order_id}}",
+        description: "The ID of the order to fulfill",
+        supportsAI: true,
+      },
+      {
+        name: "tracking_number",
+        label: "Tracking Number (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "1Z999AA10123456784",
+        description: "Shipment tracking number",
+        supportsAI: true,
+      },
+      {
+        name: "tracking_company",
+        label: "Tracking Company (Optional)",
+        type: "select",
+        required: false,
+        options: [
+          { label: "None", value: "" },
+          { label: "UPS", value: "UPS" },
+          { label: "USPS", value: "USPS" },
+          { label: "FedEx", value: "FedEx" },
+          { label: "DHL", value: "DHL" },
+          { label: "Canada Post", value: "Canada Post" },
+          { label: "Other", value: "Other" },
+        ],
+        defaultValue: "",
+        description: "Shipping carrier"
+      },
+      {
+        name: "tracking_url",
+        label: "Tracking URL (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "https://www.ups.com/track?tracknum=1Z999AA10123456784",
+        description: "Direct link to tracking page",
+        supportsAI: true,
+      },
+      {
+        name: "notify_customer",
+        label: "Notify Customer",
+        type: "boolean",
+        required: false,
+        defaultValue: true,
+        description: "Send shipping confirmation email to customer"
+      },
+    ],
+    outputSchema: [
+      {
+        name: "success",
+        label: "Success",
+        type: "boolean",
+        description: "Whether the fulfillment was created successfully",
+        example: true
+      },
+      {
+        name: "fulfillment_id",
+        label: "Fulfillment ID",
+        type: "string",
+        description: "The unique identifier for the created fulfillment",
+        example: "gid://shopify/Fulfillment/4444555566"
+      },
+      {
+        name: "order_id",
+        label: "Order ID",
+        type: "string",
+        description: "The unique identifier of the fulfilled order",
+        example: "gid://shopify/Order/1234567890"
+      },
+      {
+        name: "tracking_number",
+        label: "Tracking Number",
+        type: "string",
+        description: "The tracking number for the shipment",
+        example: "1Z999AA10123456784"
+      },
+      {
+        name: "tracking_url",
+        label: "Tracking URL",
+        type: "string",
+        description: "URL to track the shipment",
+        example: "https://www.ups.com/track?tracknum=1Z999AA10123456784"
+      },
+      {
+        name: "created_at",
+        label: "Created At",
+        type: "string",
+        description: "ISO 8601 timestamp when the fulfillment was created",
+        example: "2024-01-15T10:30:00Z"
+      },
+    ],
+  },
+  {
     type: "shopify_action_add_order_note",
     title: "Add Order Note",
     description: "Add an internal note to an existing order",
@@ -768,6 +1350,280 @@ export const shopifyNodes: NodeComponent[] = [
         type: "string",
         description: "The complete note text after the update (includes appended content if applicable)",
         example: "Customer requested gift wrapping. Special delivery instructions: Leave at front door."
+      },
+    ],
+  },
+  {
+    type: "shopify_action_create_product_variant",
+    title: "Create Product Variant",
+    description: "Add a new variant to an existing product (e.g., new size, color)",
+    icon: Package,
+    providerId: "shopify",
+    category: "E-commerce",
+    isTrigger: false,
+    producesOutput: true,
+    testable: true,
+    requiredScopes: ["write_products"],
+    configSchema: [
+      {
+        name: "product_id",
+        label: "Product ID",
+        type: "text",
+        required: true,
+        placeholder: "{{trigger.product_id}}",
+        description: "The ID of the product to add variant to",
+        supportsAI: true,
+      },
+      {
+        name: "option1",
+        label: "Option 1 (e.g., Size, Color)",
+        type: "text",
+        required: false,
+        placeholder: "Large",
+        description: "First variant option value (e.g., 'Large' for Size option)",
+        supportsAI: true,
+      },
+      {
+        name: "option2",
+        label: "Option 2 (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "Red",
+        description: "Second variant option value (e.g., 'Red' for Color option)",
+        supportsAI: true,
+      },
+      {
+        name: "option3",
+        label: "Option 3 (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "Cotton",
+        description: "Third variant option value (e.g., 'Cotton' for Material option)",
+        supportsAI: true,
+      },
+      {
+        name: "price",
+        label: "Price",
+        type: "number",
+        required: true,
+        placeholder: "39.99",
+        description: "Price for this variant",
+        supportsAI: true,
+      },
+      {
+        name: "sku",
+        label: "SKU (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "PROD-LRG-RED",
+        description: "Unique Stock Keeping Unit for this variant",
+        supportsAI: true,
+      },
+      {
+        name: "inventory_quantity",
+        label: "Initial Inventory (Optional)",
+        type: "number",
+        required: false,
+        placeholder: "100",
+        description: "Starting inventory quantity for this variant"
+      },
+      {
+        name: "weight",
+        label: "Weight (Optional)",
+        type: "number",
+        required: false,
+        placeholder: "1.5",
+        description: "Weight in pounds (or store's default unit)"
+      },
+      {
+        name: "barcode",
+        label: "Barcode (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "123456789012",
+        description: "UPC, EAN, or ISBN barcode",
+        supportsAI: true,
+      },
+    ],
+    outputSchema: [
+      {
+        name: "success",
+        label: "Success",
+        type: "boolean",
+        description: "Whether the variant was created successfully",
+        example: true
+      },
+      {
+        name: "variant_id",
+        label: "Variant ID",
+        type: "string",
+        description: "The unique identifier for the created variant",
+        example: "gid://shopify/ProductVariant/1112223334"
+      },
+      {
+        name: "product_id",
+        label: "Product ID",
+        type: "string",
+        description: "The unique identifier of the parent product",
+        example: "gid://shopify/Product/9876543210"
+      },
+      {
+        name: "sku",
+        label: "SKU",
+        type: "string",
+        description: "The SKU of the created variant",
+        example: "PROD-LRG-RED"
+      },
+      {
+        name: "price",
+        label: "Price",
+        type: "number",
+        description: "The price of the created variant",
+        example: 39.99
+      },
+      {
+        name: "created_at",
+        label: "Created At",
+        type: "string",
+        description: "ISO 8601 timestamp when the variant was created",
+        example: "2024-01-15T10:30:00Z"
+      },
+    ],
+  },
+  {
+    type: "shopify_action_update_product_variant",
+    title: "Update Product Variant",
+    description: "Update an existing product variant (price, inventory, SKU, etc.)",
+    icon: Package,
+    providerId: "shopify",
+    category: "E-commerce",
+    isTrigger: false,
+    producesOutput: true,
+    testable: true,
+    requiredScopes: ["write_products"],
+    configSchema: [
+      {
+        name: "variant_id",
+        label: "Variant ID",
+        type: "text",
+        required: true,
+        placeholder: "{{trigger.variant_id}}",
+        description: "The ID of the variant to update",
+        supportsAI: true,
+      },
+      {
+        name: "price",
+        label: "Price (Optional)",
+        type: "number",
+        required: false,
+        placeholder: "44.99",
+        description: "Update the price",
+        supportsAI: true,
+      },
+      {
+        name: "sku",
+        label: "SKU (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "PROD-LRG-RED-V2",
+        description: "Update the SKU",
+        supportsAI: true,
+      },
+      {
+        name: "inventory_quantity",
+        label: "Inventory Quantity (Optional)",
+        type: "number",
+        required: false,
+        placeholder: "150",
+        description: "Set inventory quantity (requires location if specified)"
+      },
+      {
+        name: "weight",
+        label: "Weight (Optional)",
+        type: "number",
+        required: false,
+        placeholder: "2.0",
+        description: "Update weight in pounds (or store's default unit)"
+      },
+      {
+        name: "barcode",
+        label: "Barcode (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "123456789013",
+        description: "Update UPC, EAN, or ISBN barcode",
+        supportsAI: true,
+      },
+      {
+        name: "option1",
+        label: "Option 1 (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "X-Large",
+        description: "Update first option value",
+        supportsAI: true,
+      },
+      {
+        name: "option2",
+        label: "Option 2 (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "Blue",
+        description: "Update second option value",
+        supportsAI: true,
+      },
+      {
+        name: "option3",
+        label: "Option 3 (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "Polyester",
+        description: "Update third option value",
+        supportsAI: true,
+      },
+    ],
+    outputSchema: [
+      {
+        name: "success",
+        label: "Success",
+        type: "boolean",
+        description: "Whether the variant update was successful",
+        example: true
+      },
+      {
+        name: "variant_id",
+        label: "Variant ID",
+        type: "string",
+        description: "The unique identifier for the updated variant",
+        example: "gid://shopify/ProductVariant/1112223334"
+      },
+      {
+        name: "product_id",
+        label: "Product ID",
+        type: "string",
+        description: "The unique identifier of the parent product",
+        example: "gid://shopify/Product/9876543210"
+      },
+      {
+        name: "sku",
+        label: "SKU",
+        type: "string",
+        description: "The updated SKU of the variant",
+        example: "PROD-LRG-RED-V2"
+      },
+      {
+        name: "price",
+        label: "Price",
+        type: "number",
+        description: "The updated price of the variant",
+        example: 44.99
+      },
+      {
+        name: "updated_at",
+        label: "Updated At",
+        type: "string",
+        description: "ISO 8601 timestamp when the variant was last updated",
+        example: "2024-01-15T10:30:00Z"
       },
     ],
   },
