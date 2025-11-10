@@ -16,7 +16,8 @@ export async function updateGoogleSheetsRow(
     const spreadsheetId = resolveValue(config.spreadsheetId, input)
     const sheetName = resolveValue(config.sheetName, input)
     const findRowBy = resolveValue(config.findRowBy, input)
-    const rowNumber = resolveValue(config.rowNumber, input)
+    const rowSelection = resolveValue(config.rowSelection, input)
+    let rowNumber = resolveValue(config.rowNumber, input)
     const matchColumn = resolveValue(config.matchColumn, input)
     const matchValue = resolveValue(config.matchValue, input)
     const conditions = config.conditions || []
@@ -44,6 +45,7 @@ export async function updateGoogleSheetsRow(
       spreadsheetId,
       sheetName,
       findRowBy,
+      rowSelection,
       rowNumber,
       matchColumn,
       matchValue,
@@ -85,6 +87,15 @@ export async function updateGoogleSheetsRow(
         success: false,
         message: "No data rows found in the sheet"
       }
+    }
+
+    // Handle row selection shortcuts
+    if (rowSelection === 'last') {
+      rowNumber = rows.length // Last row
+      logger.debug(`Using last row: ${rowNumber}`)
+    } else if (rowSelection === 'first_data') {
+      rowNumber = 2 // First data row below headers
+      logger.debug(`Using first data row: ${rowNumber}`)
     }
 
     // Find the row(s) to update

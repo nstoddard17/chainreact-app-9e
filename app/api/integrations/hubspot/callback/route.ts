@@ -28,11 +28,12 @@ export async function GET(request: NextRequest) {
         ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
         : new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(), // Default 6 hours
     }),
-    additionalIntegrationData: async (tokenData, state) => {
+    additionalIntegrationData: async (tokenData) => {
       // Fetch HubSpot account information
       // API VERIFICATION: HubSpot API endpoint for account details
       // Docs: https://developers.hubspot.com/docs/api/oauth/tokens
       // Returns: email, user, hub_id, hub_domain, etc.
+      // NOTE: HubSpot does NOT provide avatar URLs via their OAuth API
       try {
         const accountResponse = await fetch('https://api.hubapi.com/integrations/v1/me', {
           headers: {
@@ -47,13 +48,23 @@ export async function GET(request: NextRequest) {
 
         const accountInfo = await accountResponse.json()
 
+        // Log what we actually received to debug
+        logger.debug('✅ HubSpot account info fetched:', {
+          email: accountInfo.email,
+          user: accountInfo.user,
+          hub_domain: accountInfo.hub_domain,
+          hub_id: accountInfo.hub_id,
+          allFields: Object.keys(accountInfo)
+        })
+
         return {
           email: accountInfo.email || accountInfo.user || null,
           username: accountInfo.user || accountInfo.email || null,
           account_name: accountInfo.hub_domain || accountInfo.user || accountInfo.email || null,
-          provider_user_id: accountInfo.user || null,
+          provider_user_id: accountInfo.user || accountInfo.user_id || null,
           hub_id: accountInfo.hub_id,
           hub_domain: accountInfo.hub_domain,
+          // Note: HubSpot doesn't provide avatar_url in this endpoint
         }
       } catch (error) {
         logger.error('Error fetching HubSpot account info:', error)

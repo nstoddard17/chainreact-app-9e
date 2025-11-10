@@ -338,6 +338,7 @@ export function GoogleSheetsConfiguration({
         logger.debug('🔄 Switched to Visual mode - clearing simple fields');
         setValue('rowNumber', '');
         setValue('values', '');
+        setValue('rowSelection', '');
       }
     }
 

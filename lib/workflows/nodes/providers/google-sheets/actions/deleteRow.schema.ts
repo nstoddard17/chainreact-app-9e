@@ -34,15 +34,47 @@ export const deleteRowActionSchema: NodeComponent = {
       dynamic: "google-sheets_sheets",
       required: true,
       dependsOn: "spreadsheetId",
+      hidden: {
+        $deps: ["spreadsheetId"],
+        $condition: { spreadsheetId: { $exists: false } }
+      },
       placeholder: "Select a sheet",
       loadingPlaceholder: "Loading sheets...",
       description: "The specific sheet (tab) within the spreadsheet"
+    },
+    {
+      name: "rowSelection",
+      label: "Row Selection",
+      type: "select",
+      required: true,
+      defaultValue: "specific",
+      dependsOn: "sheetName",
+      hidden: {
+        $deps: ["sheetName"],
+        $condition: { sheetName: { $exists: false } }
+      },
+      options: [
+        { value: "specific", label: "Specific Row Number" },
+        { value: "last", label: "Last Row" },
+        { value: "first_data", label: "First Data Row (Row 2)" }
+      ],
+      description: "Choose how to select the row to delete"
     },
     {
       name: "rowNumber",
       label: "Row Number",
       type: "number",
       required: true,
+      dependsOn: "sheetName",
+      hidden: {
+        $deps: ["sheetName", "rowSelection"],
+        $condition: {
+          $or: [
+            { sheetName: { $exists: false } },
+            { rowSelection: { $ne: "specific" } }
+          ]
+        }
+      },
       placeholder: "2",
       min: 1,
       supportsAI: true,
