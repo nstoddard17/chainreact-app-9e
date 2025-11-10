@@ -77,7 +77,7 @@ export const clearRangeActionSchema: NodeComponent = {
       name: "range",
       label: "Range to Clear",
       type: "text",
-      required: true,
+      required: false,
       dependsOn: "clearType",
       hidden: {
         $deps: ["clearType"],
@@ -89,17 +89,27 @@ export const clearRangeActionSchema: NodeComponent = {
       tooltip: "Examples: A1:D10 (rectangle), A:A (entire column), 5:5 (entire row)"
     },
     {
-      name: "rowNumber",
-      label: "Row Number",
-      type: "number",
-      required: true,
+      name: "rowPreview",
+      label: "Row Selection",
+      type: "google_sheets_row_preview",
+      required: false,
       dependsOn: "clearType",
       hidden: {
         $deps: ["clearType"],
         $condition: { clearType: { $ne: "specific_row" } }
       },
-      placeholder: "Enter row number (e.g., 5)",
-      description: "The specific row number to clear (will be cleared every time the workflow runs)"
+      description: "Click a row number to select which row to clear"
+    },
+    {
+      name: "rowNumber",
+      label: "Row Number",
+      type: "hidden",
+      required: false,
+      dependsOn: "clearType",
+      hidden: {
+        $deps: ["clearType"],
+        $condition: { clearType: { $ne: "specific_row" } }
+      }
     }
   ]
 }

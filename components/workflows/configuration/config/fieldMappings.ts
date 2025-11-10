@@ -61,10 +61,12 @@ const gmailMappings: Record<string, FieldMapping> = {
   gmail_action_mark_as_read: {
     from: "gmail_recent_senders",
     to: "gmail_from_addresses",
+    hasLabel: "gmail-labels",
   },
   gmail_action_mark_as_unread: {
     from: "gmail_recent_senders",
     to: "gmail_from_addresses",
+    hasLabel: "gmail-labels",
   },
 };
 
