@@ -5,9 +5,13 @@ import {
   Edit,
   Plus,
   UserPlus,
+  UserX,
   DollarSign,
   ShoppingCart,
-  BarChart
+  BarChart,
+  RotateCcw,
+  Truck,
+  Receipt
 } from "lucide-react"
 
 // ManyChat Nodes
@@ -167,7 +171,7 @@ const gumroadTriggerNewSale: NodeComponent = {
   providerId: "gumroad",
   category: "E-commerce",
   isTrigger: true,
-  comingSoon: true,
+  requiredScopes: ["view_sales"],
   configSchema: [
     {
       name: "product",
@@ -329,7 +333,7 @@ const gumroadTriggerNewSubscriber: NodeComponent = {
   providerId: "gumroad",
   category: "E-commerce",
   isTrigger: true,
-  comingSoon: true,
+  requiredScopes: ["view_sales"],
   configSchema: [
     {
       name: "product",
@@ -393,6 +397,278 @@ const gumroadTriggerNewSubscriber: NodeComponent = {
       label: "Subscribed At",
       type: "string",
       description: "When the subscription started (ISO 8601 format)"
+    },
+    {
+      name: "saleId",
+      label: "Sale ID",
+      type: "string",
+      description: "ID of the sale that created this subscription"
+    },
+    {
+      name: "status",
+      label: "Subscription Status",
+      type: "string",
+      description: "Current subscription status (active, paused, cancelled)"
+    },
+    {
+      name: "ended",
+      label: "Subscription Ended",
+      type: "boolean",
+      description: "Whether the subscription has ended"
+    },
+    {
+      name: "endedAt",
+      label: "Ended At",
+      type: "string",
+      description: "When the subscription ended (ISO 8601 format, if applicable)"
+    },
+    {
+      name: "cancelledAt",
+      label: "Cancelled At",
+      type: "string",
+      description: "When the subscription was cancelled (ISO 8601 format, if applicable)"
+    },
+    {
+      name: "failedAt",
+      label: "Last Payment Failed At",
+      type: "string",
+      description: "When the last payment failed (ISO 8601 format, if applicable)"
+    },
+    {
+      name: "currency",
+      label: "Currency",
+      type: "string",
+      description: "Currency code (USD, EUR, GBP, etc.)"
+    },
+    {
+      name: "customFields",
+      label: "Custom Fields",
+      type: "object",
+      description: "Custom fields submitted with the subscription"
+    },
+    {
+      name: "canContact",
+      label: "Can Contact",
+      type: "boolean",
+      description: "Whether subscriber opted in to receive marketing emails"
+    }
+  ]
+}
+
+const gumroadTriggerSubscriptionCancelled: NodeComponent = {
+  type: "gumroad_trigger_subscription_cancelled",
+  title: "Subscription Cancelled",
+  description: "Triggers when a subscription is cancelled on Gumroad",
+  icon: UserX,
+  providerId: "gumroad",
+  category: "E-commerce",
+  isTrigger: true,
+  requiredScopes: ["view_sales"],
+  configSchema: [
+    {
+      name: "product",
+      label: "Product",
+      type: "combobox",
+      dynamic: "gumroad_products",
+      required: false,
+      loadOnMount: true,
+      searchable: true,
+      placeholder: "All Products",
+      emptyPlaceholder: "No products found",
+      emptyMessage: "No products found. Create a product in your Gumroad account first.",
+      tooltip: "Select a specific product to monitor cancellations for, or leave empty to trigger on all subscription cancellations. You can also use variables."
+    }
+  ],
+  outputSchema: [
+    {
+      name: "subscriptionId",
+      label: "Subscription ID",
+      type: "string",
+      description: "Unique identifier for the cancelled subscription"
+    },
+    {
+      name: "productId",
+      label: "Product ID",
+      type: "string",
+      description: "ID of the product"
+    },
+    {
+      name: "productName",
+      label: "Product Name",
+      type: "string",
+      description: "Name of the product"
+    },
+    {
+      name: "subscriberEmail",
+      label: "Subscriber Email",
+      type: "string",
+      description: "Email address of the subscriber who cancelled"
+    },
+    {
+      name: "subscriberName",
+      label: "Subscriber Name",
+      type: "string",
+      description: "Full name of the subscriber"
+    },
+    {
+      name: "cancelledAt",
+      label: "Cancelled At",
+      type: "string",
+      description: "When the subscription was cancelled (ISO 8601 format)"
+    },
+    {
+      name: "subscriptionStartDate",
+      label: "Subscription Start Date",
+      type: "string",
+      description: "When the subscription originally started (ISO 8601 format)"
+    },
+    {
+      name: "subscriptionPlan",
+      label: "Subscription Plan",
+      type: "string",
+      description: "Subscription plan type (monthly, yearly, etc.)"
+    },
+    {
+      name: "amount",
+      label: "Subscription Amount",
+      type: "number",
+      description: "Subscription amount in cents"
+    },
+    {
+      name: "currency",
+      label: "Currency",
+      type: "string",
+      description: "Currency code (USD, EUR, GBP, etc.)"
+    },
+    {
+      name: "reason",
+      label: "Cancellation Reason",
+      type: "string",
+      description: "Reason for cancellation (if provided by customer)"
+    },
+    {
+      name: "refundAmount",
+      label: "Refund Amount",
+      type: "number",
+      description: "Amount refunded upon cancellation in cents (if applicable)"
+    },
+    {
+      name: "customFields",
+      label: "Custom Fields",
+      type: "object",
+      description: "Custom fields associated with the subscription"
+    }
+  ]
+}
+
+const gumroadTriggerSaleRefunded: NodeComponent = {
+  type: "gumroad_trigger_sale_refunded",
+  title: "Sale Refunded",
+  description: "Triggers when a sale is refunded on Gumroad",
+  icon: RotateCcw,
+  providerId: "gumroad",
+  category: "E-commerce",
+  isTrigger: true,
+  requiredScopes: ["view_sales"],
+  configSchema: [
+    {
+      name: "product",
+      label: "Product",
+      type: "combobox",
+      dynamic: "gumroad_products",
+      required: false,
+      loadOnMount: true,
+      searchable: true,
+      placeholder: "All Products",
+      emptyPlaceholder: "No products found",
+      emptyMessage: "No products found. Create a product in your Gumroad account first.",
+      tooltip: "Select a specific product to monitor refunds for, or leave empty to trigger on all refunds. You can also use variables."
+    }
+  ],
+  outputSchema: [
+    {
+      name: "saleId",
+      label: "Sale ID",
+      type: "string",
+      description: "Unique identifier for the refunded sale"
+    },
+    {
+      name: "productId",
+      label: "Product ID",
+      type: "string",
+      description: "ID of the product that was refunded"
+    },
+    {
+      name: "productName",
+      label: "Product Name",
+      type: "string",
+      description: "Name of the product"
+    },
+    {
+      name: "buyerEmail",
+      label: "Buyer Email",
+      type: "string",
+      description: "Email address of the buyer"
+    },
+    {
+      name: "buyerName",
+      label: "Buyer Name",
+      type: "string",
+      description: "Full name of the buyer"
+    },
+    {
+      name: "originalAmount",
+      label: "Original Sale Amount",
+      type: "number",
+      description: "Original sale amount in cents"
+    },
+    {
+      name: "refundAmount",
+      label: "Refund Amount",
+      type: "number",
+      description: "Amount refunded in cents"
+    },
+    {
+      name: "currency",
+      label: "Currency",
+      type: "string",
+      description: "Currency code (USD, EUR, GBP, etc.)"
+    },
+    {
+      name: "refundedAt",
+      label: "Refunded At",
+      type: "string",
+      description: "When the refund was processed (ISO 8601 format)"
+    },
+    {
+      name: "originalSaleDate",
+      label: "Original Sale Date",
+      type: "string",
+      description: "When the original sale occurred (ISO 8601 format)"
+    },
+    {
+      name: "refundReason",
+      label: "Refund Reason",
+      type: "string",
+      description: "Reason for the refund (if provided)"
+    },
+    {
+      name: "subscriptionId",
+      label: "Subscription ID",
+      type: "string",
+      description: "Subscription ID if this was a subscription refund"
+    },
+    {
+      name: "isPartialRefund",
+      label: "Is Partial Refund",
+      type: "boolean",
+      description: "Whether this was a partial refund"
+    },
+    {
+      name: "orderNumber",
+      label: "Order Number",
+      type: "number",
+      description: "Sequential order number"
     }
   ]
 }
@@ -406,7 +682,6 @@ const gumroadActionGetSalesAnalytics: NodeComponent = {
   requiredScopes: ["view_sales"],
   category: "E-commerce",
   isTrigger: false,
-  comingSoon: true,
   configSchema: [
     { name: "startDate", label: "Start Date", type: "date", required: true },
     { name: "endDate", label: "End Date", type: "date", required: true },
@@ -470,6 +745,205 @@ const gumroadActionGetSalesAnalytics: NodeComponent = {
   ]
 }
 
+const gumroadActionMarkAsShipped: NodeComponent = {
+  type: "gumroad_action_mark_as_shipped",
+  title: "Mark Sale as Shipped",
+  description: "Mark a sale as shipped and optionally add tracking information",
+  icon: Truck,
+  providerId: "gumroad",
+  requiredScopes: ["mark_sales_as_shipped"],
+  category: "E-commerce",
+  isTrigger: false,
+  configSchema: [
+    {
+      name: "saleId",
+      label: "Sale ID",
+      type: "text",
+      required: true,
+      placeholder: "Enter sale ID or use variable",
+      tooltip: "The ID of the sale to mark as shipped"
+    },
+    {
+      name: "trackingUrl",
+      label: "Tracking URL",
+      type: "text",
+      required: false,
+      placeholder: "https://www.example.com/tracking/123",
+      tooltip: "Optional tracking URL for the shipment"
+    }
+  ],
+  outputSchema: [
+    {
+      name: "success",
+      label: "Success",
+      type: "boolean",
+      description: "Whether the sale was successfully marked as shipped"
+    },
+    {
+      name: "saleId",
+      label: "Sale ID",
+      type: "string",
+      description: "ID of the sale that was marked as shipped"
+    },
+    {
+      name: "trackingUrl",
+      label: "Tracking URL",
+      type: "string",
+      description: "Tracking URL if provided"
+    },
+    {
+      name: "markedAt",
+      label: "Marked At",
+      type: "string",
+      description: "When the sale was marked as shipped (ISO 8601 format)"
+    }
+  ]
+}
+
+const gumroadActionRefundSale: NodeComponent = {
+  type: "gumroad_action_refund_sale",
+  title: "Refund Sale",
+  description: "Refund a sale fully or partially",
+  icon: RotateCcw,
+  providerId: "gumroad",
+  requiredScopes: ["refund_sales"],
+  category: "E-commerce",
+  isTrigger: false,
+  configSchema: [
+    {
+      name: "saleId",
+      label: "Sale ID",
+      type: "text",
+      required: true,
+      placeholder: "Enter sale ID or use variable",
+      tooltip: "The ID of the sale to refund"
+    },
+    {
+      name: "amountCents",
+      label: "Refund Amount (cents)",
+      type: "number",
+      required: false,
+      placeholder: "Leave empty for full refund",
+      tooltip: "Amount to refund in cents. Leave empty to refund the full amount."
+    }
+  ],
+  outputSchema: [
+    {
+      name: "success",
+      label: "Success",
+      type: "boolean",
+      description: "Whether the refund was successful"
+    },
+    {
+      name: "saleId",
+      label: "Sale ID",
+      type: "string",
+      description: "ID of the refunded sale"
+    },
+    {
+      name: "refundAmount",
+      label: "Refund Amount",
+      type: "number",
+      description: "Amount refunded in cents"
+    },
+    {
+      name: "originalAmount",
+      label: "Original Amount",
+      type: "number",
+      description: "Original sale amount in cents"
+    },
+    {
+      name: "isPartialRefund",
+      label: "Is Partial Refund",
+      type: "boolean",
+      description: "Whether this was a partial refund"
+    },
+    {
+      name: "refundedAt",
+      label: "Refunded At",
+      type: "string",
+      description: "When the refund was processed (ISO 8601 format)"
+    }
+  ]
+}
+
+const gumroadActionListSales: NodeComponent = {
+  type: "gumroad_action_list_sales",
+  title: "List Sales",
+  description: "Retrieve a list of sales with optional filters",
+  icon: Receipt,
+  providerId: "gumroad",
+  requiredScopes: ["view_sales"],
+  category: "E-commerce",
+  isTrigger: false,
+  configSchema: [
+    {
+      name: "startDate",
+      label: "Start Date",
+      type: "date",
+      required: false,
+      tooltip: "Filter sales from this date onwards"
+    },
+    {
+      name: "endDate",
+      label: "End Date",
+      type: "date",
+      required: false,
+      tooltip: "Filter sales up to this date"
+    },
+    {
+      name: "product",
+      label: "Product",
+      type: "combobox",
+      dynamic: "gumroad_products",
+      required: false,
+      loadOnMount: true,
+      searchable: true,
+      placeholder: "All Products",
+      emptyPlaceholder: "No products found",
+      emptyMessage: "No products found. Create a product in your Gumroad account first.",
+      tooltip: "Filter by specific product, or leave empty for all products"
+    },
+    {
+      name: "email",
+      label: "Buyer Email",
+      type: "text",
+      required: false,
+      placeholder: "buyer@example.com",
+      tooltip: "Filter sales by buyer email address"
+    },
+    {
+      name: "limit",
+      label: "Limit",
+      type: "number",
+      required: false,
+      defaultValue: 50,
+      placeholder: "50",
+      tooltip: "Maximum number of sales to retrieve (default: 50)"
+    }
+  ],
+  outputSchema: [
+    {
+      name: "sales",
+      label: "Sales",
+      type: "array",
+      description: "Array of sale objects matching the filters"
+    },
+    {
+      name: "totalCount",
+      label: "Total Count",
+      type: "number",
+      description: "Total number of sales matching the filters"
+    },
+    {
+      name: "filters",
+      label: "Filters Applied",
+      type: "object",
+      description: "Summary of filters that were applied"
+    }
+  ]
+}
+
 // Export all miscellaneous nodes
 export const miscNodes: NodeComponent[] = [
   // ManyChat (3)
@@ -477,8 +951,13 @@ export const miscNodes: NodeComponent[] = [
   manychatActionSendMessage,
   manychatActionTagSubscriber,
   
-  // Gumroad (3)
+  // Gumroad (8) - 4 triggers, 4 actions
   gumroadTriggerNewSale,
   gumroadTriggerNewSubscriber,
+  gumroadTriggerSubscriptionCancelled,
+  gumroadTriggerSaleRefunded,
   gumroadActionGetSalesAnalytics,
+  gumroadActionMarkAsShipped,
+  gumroadActionRefundSale,
+  gumroadActionListSales,
 ]

@@ -1,4 +1,4 @@
-import { Mail, Search, FileEdit, Reply, Archive, Trash2, Tag, Tags, Plus, X, Paperclip, Star, Download, PenTool, MailOpen } from "lucide-react"
+import { Mail, Search, FileEdit, Reply, Archive, Trash2, Tag, Tags, Plus, X, Paperclip, Star, Download, MailOpen } from "lucide-react"
 import { NodeComponent } from "../../types"
 
 // Import action schemas
@@ -15,7 +15,6 @@ import { replyToEmailActionSchema } from "./actions/replyToEmail.schema"
 import { getAttachmentActionSchema } from "./actions/getAttachment.schema"
 import { downloadAttachmentActionSchema } from "./actions/downloadAttachment.schema"
 import { advancedSearchActionSchema } from "./actions/advancedSearch.schema"
-import { updateSignatureActionSchema } from "./actions/updateSignature.schema"
 import { markAsReadActionSchema } from "./actions/markAsRead.schema"
 import { markAsUnreadActionSchema } from "./actions/markAsUnread.schema"
 
@@ -112,11 +111,6 @@ const advancedSearch: NodeComponent = {
   icon: Search
 }
 
-const updateSignature: NodeComponent = {
-  ...updateSignatureActionSchema,
-  icon: PenTool
-}
-
 const markAsRead: NodeComponent = {
   ...markAsReadActionSchema,
   icon: MailOpen
@@ -149,7 +143,6 @@ export const gmailNodes: NodeComponent[] = [
   getAttachment,
   downloadAttachment,
   advancedSearch,
-  updateSignature,
   markAsRead,
   markAsUnread,
 ]
@@ -176,7 +169,6 @@ export {
   getAttachment,
   downloadAttachment,
   advancedSearch,
-  updateSignature,
   markAsRead,
   markAsUnread,
 }

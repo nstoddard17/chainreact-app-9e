@@ -29,7 +29,8 @@
       "Bash(dir:*)",
       "Bash(nul)",
       "Bash(findstr:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "edit": [
       "*"
