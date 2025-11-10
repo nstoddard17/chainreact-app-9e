@@ -7,10 +7,12 @@ import { makeShopifyRequest } from '../utils'
 import { logger } from '@/lib/utils/logger'
 
 export const getShopifyLocations: ShopifyDataHandler<ShopifyLocation[]> = async (
-  integration: ShopifyIntegration
+  integration: ShopifyIntegration,
+  options?: any
 ): Promise<ShopifyLocation[]> => {
   try {
-    const response = await makeShopifyRequest(integration, 'locations.json')
+    const selectedStore = options?.shopify_store || options?.selectedStore
+    const response = await makeShopifyRequest(integration, 'locations.json', {}, selectedStore)
 
     const locations: ShopifyLocation[] = (response.locations || []).map((location: any) => ({
       id: String(location.id),

@@ -28,6 +28,18 @@ import { NodeComponent } from "../../types"
  * - Update Product Variant
  */
 
+// Store selector field - shown first in all Shopify nodes for multi-store support
+const STORE_SELECTOR_FIELD = {
+  name: "shopify_store",
+  label: "Shopify Store",
+  type: "combobox" as const,
+  dynamic: "shopify_stores",
+  required: true,
+  loadOnMount: true,
+  searchable: true,
+  description: "Select which Shopify store to use for this action/trigger"
+}
+
 export const shopifyNodes: NodeComponent[] = [
   // ============================================================================
   // TRIGGERS
@@ -43,6 +55,7 @@ export const shopifyNodes: NodeComponent[] = [
     producesOutput: true,
     requiredScopes: ["read_orders"],
     configSchema: [
+      STORE_SELECTOR_FIELD,
       {
         name: "fulfillment_status",
         label: "Fulfillment Status Filter (Optional)",
@@ -97,6 +110,7 @@ export const shopifyNodes: NodeComponent[] = [
     producesOutput: true,
     requiredScopes: ["read_orders"],
     configSchema: [
+      STORE_SELECTOR_FIELD,
       {
         name: "fulfillment_status",
         label: "Fulfillment Status Filter (Optional)",
@@ -138,6 +152,7 @@ export const shopifyNodes: NodeComponent[] = [
     producesOutput: true,
     requiredScopes: ["read_orders"],
     configSchema: [
+      STORE_SELECTOR_FIELD,
       {
         name: "notificationOnly",
         label: "Trigger Configuration",
@@ -174,6 +189,7 @@ export const shopifyNodes: NodeComponent[] = [
     producesOutput: true,
     requiredScopes: ["read_checkouts"],
     configSchema: [
+      STORE_SELECTOR_FIELD,
       {
         name: "minimum_value",
         label: "Minimum Cart Value (Optional)",
@@ -207,6 +223,7 @@ export const shopifyNodes: NodeComponent[] = [
     producesOutput: true,
     requiredScopes: ["read_orders"],
     configSchema: [
+      STORE_SELECTOR_FIELD,
       {
         name: "watch_field",
         label: "Watch For Changes In",
@@ -243,6 +260,7 @@ export const shopifyNodes: NodeComponent[] = [
     producesOutput: true,
     requiredScopes: ["read_customers"],
     configSchema: [
+      STORE_SELECTOR_FIELD,
       {
         name: "notificationOnly",
         label: "Trigger Configuration",
@@ -275,6 +293,7 @@ export const shopifyNodes: NodeComponent[] = [
     producesOutput: true,
     requiredScopes: ["read_products"],
     configSchema: [
+      STORE_SELECTOR_FIELD,
       {
         name: "collection_id",
         label: "Collection Filter (Optional)",
@@ -307,6 +326,7 @@ export const shopifyNodes: NodeComponent[] = [
     producesOutput: true,
     requiredScopes: ["read_inventory"],
     configSchema: [
+      STORE_SELECTOR_FIELD,
       {
         name: "threshold",
         label: "Low Stock Threshold",
@@ -352,6 +372,7 @@ export const shopifyNodes: NodeComponent[] = [
     testable: true,
     requiredScopes: ["write_orders"],
     configSchema: [
+      STORE_SELECTOR_FIELD,
       {
         name: "customer_email",
         label: "Customer Email",
@@ -557,6 +578,7 @@ export const shopifyNodes: NodeComponent[] = [
     testable: true,
     requiredScopes: ["write_orders"],
     configSchema: [
+      STORE_SELECTOR_FIELD,
       {
         name: "order_id",
         label: "Order ID",
@@ -651,6 +673,7 @@ export const shopifyNodes: NodeComponent[] = [
     testable: true,
     requiredScopes: ["write_products"],
     configSchema: [
+      STORE_SELECTOR_FIELD,
       {
         name: "title",
         label: "Product Title",
@@ -765,6 +788,7 @@ export const shopifyNodes: NodeComponent[] = [
     testable: true,
     requiredScopes: ["write_products"],
     configSchema: [
+      STORE_SELECTOR_FIELD,
       {
         name: "product_id",
         label: "Product ID",
@@ -883,6 +907,7 @@ export const shopifyNodes: NodeComponent[] = [
     testable: true,
     requiredScopes: ["write_inventory"],
     configSchema: [
+      STORE_SELECTOR_FIELD,
       {
         name: "inventory_item_id",
         label: "Inventory Item ID",
@@ -968,6 +993,7 @@ export const shopifyNodes: NodeComponent[] = [
     testable: true,
     requiredScopes: ["write_customers"],
     configSchema: [
+      STORE_SELECTOR_FIELD,
       {
         name: "email",
         label: "Email",
@@ -1065,6 +1091,7 @@ export const shopifyNodes: NodeComponent[] = [
     testable: true,
     requiredScopes: ["write_customers"],
     configSchema: [
+      STORE_SELECTOR_FIELD,
       {
         name: "customer_id",
         label: "Customer ID",
@@ -1192,6 +1219,7 @@ export const shopifyNodes: NodeComponent[] = [
     testable: true,
     requiredScopes: ["write_orders", "write_fulfillments"],
     configSchema: [
+      STORE_SELECTOR_FIELD,
       {
         name: "order_id",
         label: "Order ID",
@@ -1302,6 +1330,7 @@ export const shopifyNodes: NodeComponent[] = [
     testable: true,
     requiredScopes: ["write_orders"],
     configSchema: [
+      STORE_SELECTOR_FIELD,
       {
         name: "order_id",
         label: "Order ID",
@@ -1365,6 +1394,7 @@ export const shopifyNodes: NodeComponent[] = [
     testable: true,
     requiredScopes: ["write_products"],
     configSchema: [
+      STORE_SELECTOR_FIELD,
       {
         name: "product_id",
         label: "Product ID",
@@ -1502,6 +1532,7 @@ export const shopifyNodes: NodeComponent[] = [
     testable: true,
     requiredScopes: ["write_products"],
     configSchema: [
+      STORE_SELECTOR_FIELD,
       {
         name: "variant_id",
         label: "Variant ID",
