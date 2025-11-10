@@ -43,8 +43,33 @@ export async function DELETE(
       return jsonResponse({ success: false, error: "Invalid authentication token" }, { status: 401 })
     }
 
+    // Get the integration to check ownership
+    const { data: integration, error: fetchError } = await supabase
+      .from("integrations")
+      .select("*")
+      .eq("id", integrationId)
+      .single()
+
+    if (fetchError || !integration) {
+      return jsonResponse({ success: false, error: "Integration not found" }, { status: 404 })
+    }
+
     // Check if user has admin permission for this integration
-    const hasPermission = await canUserAdminIntegration(user.id, integrationId)
+    let hasPermission = await canUserAdminIntegration(user.id, integrationId)
+
+    // BACKFILL: If no permissions exist but user owns the integration, auto-grant admin permission
+    if (!hasPermission && integration.user_id === user.id && integration.workspace_type === 'personal') {
+      logger.info(`🔧 [DELETE /api/integrations/${integrationId}] Auto-granting admin permission to owner ${user.id}`)
+
+      const { autoGrantPermissionsForIntegration } = await import('@/lib/services/integration-permissions')
+      try {
+        await autoGrantPermissionsForIntegration(integrationId, user.id)
+        hasPermission = true // Now they have permission
+        logger.info(`✅ [DELETE /api/integrations/${integrationId}] Admin permission granted to owner`)
+      } catch (permError) {
+        logger.error('Failed to auto-grant permissions:', permError)
+      }
+    }
 
     if (!hasPermission) {
       logger.warn(`❌ [DELETE /api/integrations/${integrationId}] Permission denied for user ${user.id}`)
@@ -63,17 +88,6 @@ export async function DELETE(
           ? `Contact ${admins.map(a => a.full_name || a.email).join(', ')} to disconnect this integration`
           : "This is a team or organization integration. Contact your admin to disconnect it."
       }, { status: 403 })
-    }
-
-    // Get the integration details before deleting
-    const { data: integration, error: fetchError } = await supabase
-      .from("integrations")
-      .select("*")
-      .eq("id", integrationId)
-      .single()
-
-    if (fetchError || !integration) {
-      return jsonResponse({ success: false, error: "Integration not found" }, { status: 404 })
     }
 
     // Delete the integration (cascade will delete permissions)

@@ -892,6 +892,8 @@ function generateShopifyAuthUrl(state: string): string {
     response_type: "code",
     scope: "read_products write_products read_orders write_orders read_customers write_customers read_inventory write_inventory",
     state,
+    // Note: Shopify doesn't support a 'prompt' parameter like other OAuth providers
+    // Users must uninstall the app from Shopify admin to see the consent screen again
   })
 
   // The correct format for Shopify OAuth URL includes the shop domain

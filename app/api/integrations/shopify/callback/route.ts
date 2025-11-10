@@ -105,9 +105,13 @@ export async function GET(request: NextRequest) {
       },
     }
 
-    const { error: upsertError } = await supabase.from('integrations').upsert(integrationData, {
-      onConflict: 'user_id, provider',
-    })
+    const { data: integration, error: upsertError } = await supabase
+      .from('integrations')
+      .upsert(integrationData, {
+        onConflict: 'user_id, provider',
+      })
+      .select('id')
+      .single()
 
     if (upsertError) {
       logger.error("Error saving Shopify integration to DB:", upsertError)
@@ -117,6 +121,18 @@ export async function GET(request: NextRequest) {
         `Database Error: ${upsertError.message}`,
         baseUrl,
       )
+    }
+
+    // Grant admin permissions to the user who connected the integration
+    if (integration?.id) {
+      const { autoGrantPermissionsForIntegration } = await import('@/lib/services/integration-permissions')
+      try {
+        await autoGrantPermissionsForIntegration(integration.id, userId)
+        logger.debug(`✅ Granted admin permissions for Shopify integration: ${integration.id}`)
+      } catch (permError) {
+        logger.error('Failed to grant permissions for Shopify integration:', permError)
+        // Don't fail the whole flow - integration is connected, just permissions might be missing
+      }
     }
 
     return createPopupResponse(
