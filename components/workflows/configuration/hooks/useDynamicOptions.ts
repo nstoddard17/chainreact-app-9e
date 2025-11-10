@@ -1228,11 +1228,17 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
             }
           }
 
+          // CRITICAL FIX: When field depends on workspace selection, use workspace ID as integration ID
+          // This ensures we fetch data from the correct workspace/integration instance
+          const actualIntegrationId = dependsOn === 'workspace' && dependsOnValue
+            ? dependsOnValue
+            : integration.id;
+
           const formattedOptions = await loader.loadOptions({
             fieldName,
             nodeType,
             providerId,
-            integrationId: integration.id,
+            integrationId: actualIntegrationId,
             dependsOn,
             dependsOnValue,
             forceRefresh,

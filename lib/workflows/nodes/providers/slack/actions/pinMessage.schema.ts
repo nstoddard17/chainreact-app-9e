@@ -73,7 +73,11 @@ export const pinMessageActionSchema: NodeComponent = {
       dependsOn: "workspace",
       placeholder: "Select a channel...",
       description: "The channel containing the message to pin",
-      tooltip: "The bot must be a member of this channel to pin messages."
+      tooltip: "The bot must be a member of this channel to pin messages.",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
     {
       name: "messageId",

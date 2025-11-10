@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import { useVariableDropTarget } from '../hooks/useVariableDropTarget'
 import { insertVariableIntoContentEditable } from '@/lib/workflows/variableInsertion'
+import { Input } from '@/components/ui/input'
 
 interface SlackMessageEditorProps {
   value: string
@@ -93,6 +94,8 @@ export function SlackMessageEditor({
   const [isFocused, setIsFocused] = useState(false)
   const isInitializedRef = useRef(false)
   const fileDialogOpenRef = useRef(false)
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false)
+  const [mentionPickerOpen, setMentionPickerOpen] = useState(false)
 
   // Initialize editor content on mount or when value changes externally
   React.useEffect(() => {
@@ -125,17 +128,44 @@ export function SlackMessageEditor({
   const applyFormat = (format: string) => {
     if (!editorRef.current) return
 
+    // Save the current selection before any prompt
     const selection = window.getSelection()
-    if (!selection) return
+    if (!selection || selection.rangeCount === 0) {
+      // No selection, insert at the end
+      const currentContent = editorRef.current.innerText
+      let formattedText = ''
 
-    // Get cursor position or selected text
-    const range = selection.rangeCount > 0 ? selection.getRangeAt(0) : null
-    if (!range) return
+      switch (format) {
+        case 'bold':
+          formattedText = '**'
+          break
+        case 'italic':
+          formattedText = '__'
+          break
+        case 'strikethrough':
+          formattedText = '~~'
+          break
+        case 'code':
+          formattedText = '``'
+          break
+        case 'codeblock':
+          formattedText = '```\n\n```'
+          break
+        default:
+          return
+      }
 
+      const newContent = currentContent ? `${currentContent}${formattedText}` : formattedText
+      editorRef.current.innerText = newContent
+      onChange(newContent)
+      editorRef.current.focus()
+      return
+    }
+
+    const range = selection.getRangeAt(0)
     const selectedText = selection.toString()
 
     let formattedText = ''
-    let needsPrompt = false
 
     switch (format) {
       case 'bold':
@@ -158,63 +188,53 @@ export function SlackMessageEditor({
         if (!url) return
         formattedText = selectedText ? `<${url}|${selectedText}>` : `<${url}>`
         break
-      case 'quote':
-        formattedText = selectedText ? `> ${selectedText}` : '> '
-        break
       default:
         return
     }
 
-    // Delete selected text if any
-    if (selectedText) {
-      range.deleteContents()
-    }
+    // Replace selection with formatted text
+    const currentContent = editorRef.current.innerText
+    const beforeSelection = currentContent.substring(0, range.startOffset)
+    const afterSelection = currentContent.substring(range.endOffset)
+    const newContent = beforeSelection + formattedText + afterSelection
 
-    // Insert formatted text
-    const textNode = document.createTextNode(formattedText)
-    range.insertNode(textNode)
+    editorRef.current.innerText = newContent
+    onChange(newContent)
 
-    // Move cursor to appropriate position
-    if (!selectedText) {
-      // If no selection, move cursor between markers (e.g., between ** for bold)
-      const offset = format === 'codeblock' ? 4 : (format === 'quote' ? 2 : 1)
-      range.setStart(textNode, offset)
-      range.setEnd(textNode, offset)
-    } else {
-      // Move cursor after inserted text
-      range.setStartAfter(textNode)
-      range.setEndAfter(textNode)
-    }
-
-    selection.removeAllRanges()
-    selection.addRange(range)
-
-    // Update value
-    onChange(editorRef.current.innerText)
+    // Set cursor position
     editorRef.current.focus()
+    const newRange = document.createRange()
+    const sel = window.getSelection()
+
+    if (editorRef.current.firstChild) {
+      const cursorPos = beforeSelection.length + (selectedText ? formattedText.length : 1)
+      newRange.setStart(editorRef.current.firstChild, Math.min(cursorPos, newContent.length))
+      newRange.collapse(true)
+      sel?.removeAllRanges()
+      sel?.addRange(newRange)
+    }
   }
 
   // Insert list
   const insertList = (ordered: boolean = false) => {
     if (!editorRef.current) return
 
-    const selection = window.getSelection()
-    if (!selection) return
-
-    const range = selection.rangeCount > 0 ? selection.getRangeAt(0) : null
-    if (!range) return
-
+    const currentContent = editorRef.current.innerText.trim()
     const prefix = ordered ? '1. ' : '• '
-    const textNode = document.createTextNode('\n' + prefix)
+    const listItem = currentContent ? `\n${prefix}` : prefix
 
-    range.insertNode(textNode)
-    range.setStartAfter(textNode)
-    range.setEndAfter(textNode)
-    selection.removeAllRanges()
-    selection.addRange(range)
+    const newContent = currentContent + listItem
+    editorRef.current.innerText = newContent
+    onChange(newContent)
 
-    onChange(editorRef.current.innerText)
+    // Focus and move cursor to end
     editorRef.current.focus()
+    const range = document.createRange()
+    const sel = window.getSelection()
+    range.selectNodeContents(editorRef.current)
+    range.collapse(false)
+    sel?.removeAllRanges()
+    sel?.addRange(range)
   }
 
   // Insert variable
@@ -231,6 +251,81 @@ export function SlackMessageEditor({
     if (template && editorRef.current) {
       editorRef.current.innerText = template.content
       onChange(template.content)
+    }
+  }
+
+  // Emoji name to character mapping
+  const emojiMap: Record<string, string> = {
+    'smile': '😊',
+    'laughing': '😂',
+    'heart': '❤️',
+    'tada': '🎉',
+    'thumbsup': '👍',
+    'fire': '🔥',
+    'eyes': '👀',
+    'rocket': '🚀',
+    'star': '⭐',
+    'check': '✅',
+    'wave': '👋',
+    'thinking_face': '🤔',
+    'party': '🥳',
+    'clap': '👏',
+    'raised_hands': '🙌',
+    'ok_hand': '👌'
+  }
+
+  // Insert emoji
+  const insertEmoji = (emoji: string, closePopover?: () => void) => {
+    if (!editorRef.current) return
+
+    const currentContent = editorRef.current.innerText.trim()
+    // Use actual emoji character if available, otherwise use :name: format
+    const emojiChar = emojiMap[emoji] || `:${emoji}:`
+
+    // Append emoji with proper spacing
+    const newContent = currentContent ? `${currentContent} ${emojiChar}` : emojiChar
+    editorRef.current.innerText = newContent
+    onChange(newContent)
+
+    // Focus editor and move cursor to end
+    editorRef.current.focus()
+    const range = document.createRange()
+    const sel = window.getSelection()
+    range.selectNodeContents(editorRef.current)
+    range.collapse(false)
+    sel?.removeAllRanges()
+    sel?.addRange(range)
+
+    // Close popover if callback provided
+    if (closePopover) {
+      closePopover()
+    }
+  }
+
+  // Insert mention
+  const insertMention = (userId: string, displayName: string, closePopover?: () => void) => {
+    if (!editorRef.current) return
+
+    const currentContent = editorRef.current.innerText.trim()
+    const mentionText = `<@${userId}>`
+
+    // Append mention with proper spacing
+    const newContent = currentContent ? `${currentContent} ${mentionText}` : mentionText
+    editorRef.current.innerText = newContent
+    onChange(newContent)
+
+    // Focus editor and move cursor to end
+    editorRef.current.focus()
+    const range = document.createRange()
+    const sel = window.getSelection()
+    range.selectNodeContents(editorRef.current)
+    range.collapse(false)
+    sel?.removeAllRanges()
+    sel?.addRange(range)
+
+    // Close popover if callback provided
+    if (closePopover) {
+      closePopover()
     }
   }
 
@@ -257,27 +352,30 @@ export function SlackMessageEditor({
         <div className="flex items-center gap-0.5 px-3 py-2 bg-muted/30 border-b">
           {/* Text Formatting */}
           <Button
+            type="button"
             variant="ghost"
             size="sm"
-            className="h-7 w-7 p-0 hover:bg-muted"
+            className="h-7 w-7 p-0 hover:bg-muted font-bold"
             onClick={() => applyFormat('bold')}
             title="Bold (Ctrl+B)"
           >
             <Bold className="h-3.5 w-3.5" />
           </Button>
           <Button
+            type="button"
             variant="ghost"
             size="sm"
-            className="h-7 w-7 p-0 hover:bg-muted"
+            className="h-7 w-7 p-0 hover:bg-muted italic"
             onClick={() => applyFormat('italic')}
             title="Italic (Ctrl+I)"
           >
             <Italic className="h-3.5 w-3.5" />
           </Button>
           <Button
+            type="button"
             variant="ghost"
             size="sm"
-            className="h-7 w-7 p-0 hover:bg-muted"
+            className="h-7 w-7 p-0 hover:bg-muted line-through"
             onClick={() => applyFormat('strikethrough')}
             title="Strikethrough (Ctrl+Shift+X)"
           >
@@ -288,6 +386,7 @@ export function SlackMessageEditor({
 
           {/* Lists & Formatting */}
           <Button
+            type="button"
             variant="ghost"
             size="sm"
             className="h-7 w-7 p-0 hover:bg-muted"
@@ -297,6 +396,7 @@ export function SlackMessageEditor({
             <Link className="h-3.5 w-3.5" />
           </Button>
           <Button
+            type="button"
             variant="ghost"
             size="sm"
             className="h-7 w-7 p-0 hover:bg-muted"
@@ -306,6 +406,7 @@ export function SlackMessageEditor({
             <ListOrdered className="h-3.5 w-3.5" />
           </Button>
           <Button
+            type="button"
             variant="ghost"
             size="sm"
             className="h-7 w-7 p-0 hover:bg-muted"
@@ -319,6 +420,7 @@ export function SlackMessageEditor({
 
           {/* Code */}
           <Button
+            type="button"
             variant="ghost"
             size="sm"
             className="h-7 w-7 p-0 hover:bg-muted"
@@ -328,6 +430,7 @@ export function SlackMessageEditor({
             <Code className="h-3.5 w-3.5" />
           </Button>
           <Button
+            type="button"
             variant="ghost"
             size="sm"
             className="h-7 w-7 p-0 hover:bg-muted"
@@ -345,6 +448,7 @@ export function SlackMessageEditor({
           <Popover>
             <PopoverTrigger asChild>
               <Button
+                type="button"
                 variant="ghost"
                 size="sm"
                 className="h-7 px-2 text-xs hover:bg-muted"
@@ -376,40 +480,6 @@ export function SlackMessageEditor({
                     Add a trigger or action to use variables
                   </p>
                 )}
-              </div>
-            </PopoverContent>
-          </Popover>
-
-          {/* Templates Dropdown */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-xs hover:bg-muted"
-              >
-                <FileText className="h-3.5 w-3.5 mr-1" />
-                Templates
-                <ChevronDown className="h-3 w-3 ml-1" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-64" align="end">
-              <div className="space-y-2">
-                <h4 className="font-medium text-sm">Message Templates</h4>
-                <div className="space-y-1 max-h-60 overflow-y-auto">
-                  {SLACK_TEMPLATES.map((template) => (
-                    <Button
-                      key={template.id}
-                      variant="ghost"
-                      size="sm"
-                      className="w-full justify-start text-left"
-                      onClick={() => loadTemplate(template.id)}
-                    >
-                      <span className="mr-2">{template.emoji}</span>
-                      <span className="text-sm">{template.name}</span>
-                    </Button>
-                  ))}
-                </div>
               </div>
             </PopoverContent>
           </Popover>
@@ -481,28 +551,173 @@ export function SlackMessageEditor({
             >
               <Paperclip className="h-3.5 w-3.5" />
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0 hover:bg-muted"
-              title="Insert emoji"
-            >
-              <Smile className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0 hover:bg-muted"
-              title="Mention someone"
-            >
-              <AtSign className="h-3.5 w-3.5" />
-            </Button>
-          </div>
 
-          {/* Formatting Hint */}
-          <span className="text-xs text-muted-foreground">
-            *bold* _italic_ ~strike~ `code`
-          </span>
+            {/* Emoji Picker */}
+            <Popover open={emojiPickerOpen} onOpenChange={setEmojiPickerOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0 hover:bg-muted"
+                  title="Insert emoji"
+                >
+                  <Smile className="h-3.5 w-3.5" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[340px] p-0" align="start">
+                <div className="flex flex-col">
+                  {/* Header */}
+                  <div className="px-4 py-3 border-b">
+                    <h4 className="font-semibold text-sm">Insert Emoji</h4>
+                  </div>
+
+                  {/* Search Input */}
+                  <div className="px-4 py-3">
+                    <Input
+                      placeholder="Search emoji (e.g., smile, heart, tada)"
+                      className="h-9"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          const input = e.currentTarget
+                          const emojiName = input.value.trim()
+                          if (emojiName) {
+                            insertEmoji(emojiName, () => setEmojiPickerOpen(false))
+                            input.value = ''
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+
+                  {/* Emoji Grid */}
+                  <div className="px-4 pb-3">
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground mb-2">Commonly used</p>
+                        <div className="grid grid-cols-8 gap-1">
+                          {[
+                            { name: 'smile', emoji: '😊' },
+                            { name: 'laughing', emoji: '😂' },
+                            { name: 'heart', emoji: '❤️' },
+                            { name: 'tada', emoji: '🎉' },
+                            { name: 'thumbsup', emoji: '👍' },
+                            { name: 'fire', emoji: '🔥' },
+                            { name: 'eyes', emoji: '👀' },
+                            { name: 'rocket', emoji: '🚀' },
+                            { name: 'star', emoji: '⭐' },
+                            { name: 'check', emoji: '✅' },
+                            { name: 'wave', emoji: '👋' },
+                            { name: 'thinking_face', emoji: '🤔' },
+                            { name: 'party', emoji: '🥳' },
+                            { name: 'clap', emoji: '👏' },
+                            { name: 'raised_hands', emoji: '🙌' },
+                            { name: 'ok_hand', emoji: '👌' }
+                          ].map(({ name, emoji }) => (
+                            <Button
+                              key={name}
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-9 w-9 p-0 hover:bg-accent text-xl"
+                              onClick={() => insertEmoji(name, () => setEmojiPickerOpen(false))}
+                              title={`:${name}:`}
+                            >
+                              {emoji}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Footer */}
+                  <div className="px-4 py-2 border-t bg-muted/30">
+                    <p className="text-xs text-muted-foreground text-center">
+                      Type emoji name and press Enter
+                    </p>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            {/* Mention Picker */}
+            <Popover open={mentionPickerOpen} onOpenChange={setMentionPickerOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0 hover:bg-muted"
+                  title="Mention someone"
+                >
+                  <AtSign className="h-3.5 w-3.5" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[340px] p-0" align="start">
+                <div className="flex flex-col">
+                  {/* Header */}
+                  <div className="px-4 py-3 border-b">
+                    <h4 className="font-semibold text-sm">Mention User</h4>
+                  </div>
+
+                  {/* Search Input */}
+                  <div className="p-4 border-b">
+                    <Input
+                      placeholder="Enter user ID"
+                      className="h-9"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          const input = e.currentTarget
+                          const userId = input.value.trim()
+                          if (userId) {
+                            insertMention(userId, userId, () => setMentionPickerOpen(false))
+                            input.value = ''
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+
+                  {/* Special Mentions */}
+                  <div className="p-4">
+                    <p className="text-xs font-medium text-muted-foreground mb-3">Special mentions</p>
+                    <div className="space-y-1">
+                      {[
+                        { id: 'channel', label: 'Notify everyone in channel', icon: Hash },
+                        { id: 'here', label: 'Notify active members', icon: AtSign },
+                        { id: 'everyone', label: 'Notify all workspace members', icon: AtSign }
+                      ].map((mention) => (
+                        <Button
+                          key={mention.id}
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-start h-auto py-2 px-3 hover:bg-accent"
+                          onClick={() => insertMention(mention.id, mention.label, () => setMentionPickerOpen(false))}
+                        >
+                          <div className="flex items-center gap-2 w-full">
+                            <mention.icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                            <div className="flex flex-col items-start flex-1 min-w-0">
+                              <span className="font-medium text-sm">@{mention.id}</span>
+                              <span className="text-xs text-muted-foreground">{mention.label}</span>
+                            </div>
+                          </div>
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Footer */}
+                  <div className="px-4 py-3 border-t bg-muted/30">
+                    <p className="text-xs text-muted-foreground text-center">
+                      Use {'{{user_id}}'} variable for dynamic mentions
+                    </p>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
       </div>
 

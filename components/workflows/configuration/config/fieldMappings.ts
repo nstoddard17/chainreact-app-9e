@@ -134,9 +134,11 @@ const slackMappings: Record<string, FieldMapping> = {
   },
   slack_action_add_reaction: {
     channel: "slack_channels",
+    emoji: "slack_emoji_catalog",
   },
   slack_action_remove_reaction: {
     channel: "slack_channels",
+    emoji: "slack_emoji_catalog",
   },
   slack_action_archive_channel: {
     channel: "slack_channels",
@@ -148,7 +150,9 @@ const slackMappings: Record<string, FieldMapping> = {
     channel: "slack_channels",
   },
   slack_action_delete_message: {
+    workspace: "slack_workspaces",
     channel: "slack_channels",
+    user: "slack_users",
   },
   slack_action_get_channel_info: {
     channel: "slack_channels",
@@ -189,11 +193,20 @@ const slackMappings: Record<string, FieldMapping> = {
   slack_action_update_message: {
     channel: "slack_channels",
   },
+  slack_action_upload_file: {
+    channels: "slack_channels",
+  },
+  slack_action_download_file: {
+    fileId: "slack_files",
+  },
+  slack_action_get_file_info: {
+    fileId: "slack_files",
+  },
   slack_trigger_message_channels: {
-    channel: "slack_channels",
+    channel: "slack_public_channels",
   },
   slack_trigger_message_groups: {
-    channel: "slack_channels",
+    channel: "slack_private_channels",
   },
   slack_trigger_reaction_added: {
     channel: "slack_channels",

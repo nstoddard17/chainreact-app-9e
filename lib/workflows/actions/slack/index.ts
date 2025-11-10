@@ -1,3 +1,4 @@
 // Slack actions
-export * from './createChannel'
-export * from './sendMessage' 
+export { createSlackChannel } from './createChannel'
+export { slackActionSendMessage, sendSlackMessage } from './sendMessage'
+export { slackActionDeleteMessage, deleteSlackMessage } from './deleteMessage' 

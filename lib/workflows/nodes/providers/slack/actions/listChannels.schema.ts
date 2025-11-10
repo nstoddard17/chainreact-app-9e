@@ -17,18 +17,38 @@ export const listChannelsActionSchema: NodeComponent = {
   isTrigger: false,
   configSchema: [
     {
+      name: "workspace",
+      label: "Workspace",
+      type: "select",
+      dynamic: "slack_workspaces",
+      required: true,
+      loadOnMount: true,
+      placeholder: "Select Slack workspace",
+      description: "Your Slack workspace (used for authentication)"
+    },
+    {
       name: "includePrivate",
       label: "Include Private Channels",
       type: "boolean",
       defaultValue: true,
-      tooltip: "When enabled, includes private channels the bot has access to in the results."
+      tooltip: "When enabled, includes private channels the bot has access to in the results.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
     {
       name: "excludeArchived",
       label: "Exclude Archived Channels",
       type: "boolean",
       defaultValue: true,
-      tooltip: "When enabled, excludes archived channels from the results. Disable to include all channels."
+      tooltip: "When enabled, excludes archived channels from the results. Disable to include all channels.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
     {
       name: "limit",
@@ -37,7 +57,12 @@ export const listChannelsActionSchema: NodeComponent = {
       required: false,
       defaultValue: 100,
       placeholder: "100",
-      tooltip: "Maximum number of channels to return (1-1000). Default is 100. Use 0 for no limit (returns all channels)."
+      tooltip: "Maximum number of channels to return (1-1000). Default is 100. Use 0 for no limit (returns all channels).",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
     {
       name: "sortBy",
@@ -51,7 +76,12 @@ export const listChannelsActionSchema: NodeComponent = {
         { label: "Created Date (Oldest first)", value: "created_asc" },
         { label: "Member Count (Highest first)", value: "members_desc" }
       ],
-      tooltip: "How to sort the channel list."
+      tooltip: "How to sort the channel list.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     }
   ],
   outputSchema: [

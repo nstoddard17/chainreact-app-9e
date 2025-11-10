@@ -6,7 +6,6 @@ import { sendMessageActionSchema } from "./actions/sendMessage.schema"
 import { createChannelActionSchema } from "./actions/createChannel.schema"
 import { getMessagesActionSchema } from "./actions/getMessages.schema"
 import { postInteractiveBlocksActionSchema } from "./actions/postInteractiveBlocks.schema"
-import { findUserActionSchema } from "./actions/findUser.schema"
 import { updateMessageActionSchema } from "./actions/updateMessage.schema"
 import { deleteMessageActionSchema } from "./actions/deleteMessage.schema"
 import { getThreadMessagesActionSchema } from "./actions/getThreadMessages.schema"
@@ -28,7 +27,6 @@ import { joinChannelActionSchema } from "./actions/joinChannel.schema"
 import { renameChannelActionSchema } from "./actions/renameChannel.schema"
 import { getChannelInfoActionSchema } from "./actions/getChannelInfo.schema"
 import { findMessageActionSchema } from "./actions/findMessage.schema"
-import { findChannelActionSchema } from "./actions/findChannel.schema"
 import { getUserInfoActionSchema } from "./actions/getUserInfo.schema"
 import { updateUserStatusActionSchema } from "./actions/updateUserStatus.schema"
 import { setUserPresenceActionSchema } from "./actions/setUserPresence.schema"
@@ -43,7 +41,6 @@ import { getFileInfoActionSchema } from "./actions/getFileInfo.schema"
 // Import trigger schemas
 import { newMessageChannelTriggerSchema } from "./triggers/newMessageChannel.schema"
 import { reactionAddedTriggerSchema } from "./triggers/reactionAdded.schema"
-import { newMessagePrivateChannelTriggerSchema } from "./triggers/newMessagePrivateChannel.schema"
 import { newDirectMessageTriggerSchema } from "./triggers/newDirectMessage.schema"
 import { newGroupDirectMessageTriggerSchema } from "./triggers/newGroupDirectMessage.schema"
 import { reactionRemovedTriggerSchema } from "./triggers/reactionRemoved.schema"
@@ -73,11 +70,6 @@ const getMessages: NodeComponent = {
 const postInteractiveBlocks: NodeComponent = {
   ...postInteractiveBlocksActionSchema,
   icon: Layout
-}
-
-const findUser: NodeComponent = {
-  ...findUserActionSchema,
-  icon: User
 }
 
 const updateMessage: NodeComponent = {
@@ -185,11 +177,6 @@ const findMessage: NodeComponent = {
   icon: Search
 }
 
-const findChannel: NodeComponent = {
-  ...findChannelActionSchema,
-  icon: SearchCode
-}
-
 const getUserInfo: NodeComponent = {
   ...getUserInfoActionSchema,
   icon: UserSearch
@@ -243,11 +230,6 @@ const getFileInfo: NodeComponent = {
 // Apply icons to trigger schemas
 const newMessageChannel: NodeComponent = {
   ...newMessageChannelTriggerSchema,
-  icon: MessageSquare
-}
-
-const newMessagePrivateChannel: NodeComponent = {
-  ...newMessagePrivateChannelTriggerSchema,
   icon: MessageSquare
 }
 
@@ -309,7 +291,6 @@ export const slackNodes: NodeComponent[] = [
   createChannel,
   getMessages,
   postInteractiveBlocks,
-  findUser,
   getUserInfo,
   updateMessage,
   deleteMessage,
@@ -331,7 +312,6 @@ export const slackNodes: NodeComponent[] = [
   renameChannel,
   getChannelInfo,
   findMessage,
-  findChannel,
   updateUserStatus,
   setUserPresence,
   listChannels,
@@ -344,7 +324,6 @@ export const slackNodes: NodeComponent[] = [
 
   // Triggers
   newMessageChannel,
-  newMessagePrivateChannel,
   newDirectMessage,
   newGroupDirectMessage,
   reactionAdded,
@@ -365,7 +344,6 @@ export {
   createChannel,
   getMessages,
   postInteractiveBlocks,
-  findUser,
   getUserInfo,
   updateMessage,
   deleteMessage,
@@ -387,7 +365,6 @@ export {
   renameChannel,
   getChannelInfo,
   findMessage,
-  findChannel,
   updateUserStatus,
   setUserPresence,
   listChannels,
@@ -400,7 +377,6 @@ export {
 
   // Triggers
   newMessageChannel,
-  newMessagePrivateChannel,
   newDirectMessage,
   newGroupDirectMessage,
   reactionAdded,

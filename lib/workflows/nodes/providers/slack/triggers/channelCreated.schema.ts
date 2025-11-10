@@ -11,17 +11,14 @@ export const channelCreatedTriggerSchema: NodeComponent = {
   producesOutput: true,
   configSchema: [
     {
-      name: "channelType",
-      label: "Channel Type",
+      name: "workspace",
+      label: "Workspace",
       type: "select",
-      required: false,
-      defaultValue: "all",
-      options: [
-        { value: "all", label: "All Channels" },
-        { value: "public", label: "Public Channels Only" },
-        { value: "private", label: "Private Channels Only" }
-      ],
-      description: "Filter by channel type"
+      dynamic: "slack_workspaces",
+      required: true,
+      loadOnMount: true,
+      placeholder: "Select Slack workspace",
+      description: "Your Slack workspace (used for authentication)"
     },
   ],
   outputSchema: [

@@ -73,7 +73,11 @@ export const unpinMessageActionSchema: NodeComponent = {
       dependsOn: "workspace",
       placeholder: "Select a channel...",
       description: "The channel containing the message to unpin",
-      tooltip: "The bot must be a member of this channel to unpin messages."
+      tooltip: "The bot must be a member of this channel to unpin messages.",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
     {
       name: "messageId",
@@ -83,7 +87,12 @@ export const unpinMessageActionSchema: NodeComponent = {
       placeholder: "{{trigger.messageId}} or 1234567890.123456",
       supportsAI: true,
       description: "The timestamp of the message to unpin",
-      tooltip: "This is the 'ts' value from Slack (e.g., 1234567890.123456). Get this from a trigger or the 'Send Message' action output. The message must currently be pinned."
+      tooltip: "This is the 'ts' value from Slack (e.g., 1234567890.123456). Get this from a trigger or the 'Send Message' action output. The message must currently be pinned.",
+      dependsOn: "channel",
+      hidden: {
+        $deps: ["channel"],
+        $condition: { channel: { $exists: false } }
+      }
     }
   ]
 }

@@ -12,19 +12,35 @@ export const fileUploadedTriggerSchema: NodeComponent = {
   requiredScopes: ["files:read"],
   configSchema: [
     {
-      name: "channel",
-      label: "Channel (Optional)",
+      name: "workspace",
+      label: "Workspace",
       type: "select",
+      dynamic: "slack_workspaces",
+      required: true,
+      loadOnMount: true,
+      placeholder: "Select Slack workspace",
+      description: "Your Slack workspace (used for authentication)"
+    },
+    {
+      name: "channel",
+      label: "Channel",
+      type: "combobox",
       required: false,
       dynamic: "slack_channels",
       loadOnMount: true,
-      placeholder: "All channels",
+      searchable: true,
+      placeholder: "Select a channel (optional)",
       description: "Optional: Filter to a specific channel. Leave empty to watch all file uploads in the workspace.",
-      tooltip: "Select a specific channel to monitor, or leave empty to trigger on any file upload in any channel you have access to."
+      tooltip: "Select a specific channel to monitor, or leave empty to trigger on any file upload in any channel you have access to.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
     {
       name: "fileTypes",
-      label: "File Types (Optional)",
+      label: "File Types",
       type: "multi-select",
       required: false,
       options: [
@@ -40,7 +56,12 @@ export const fileUploadedTriggerSchema: NodeComponent = {
       defaultValue: ["all"],
       placeholder: "All file types",
       description: "Optional: Filter by file type. Select specific types or leave as 'All Files'.",
-      tooltip: "Choose which types of files should trigger the workflow. Leave as 'All Files' to trigger on any upload."
+      tooltip: "Choose which types of files should trigger the workflow. Leave as 'All Files' to trigger on any upload.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     }
   ],
   outputSchema: [

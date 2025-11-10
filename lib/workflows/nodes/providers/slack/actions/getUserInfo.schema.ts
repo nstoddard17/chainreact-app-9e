@@ -26,7 +26,8 @@ export const getUserInfoActionSchema: NodeComponent = {
       loadOnMount: true,
       searchable: true,
       placeholder: "Select a user or enter user ID",
-      tooltip: "Select the user or enter a user ID (e.g., U1234567890) to get information about."
+      tooltip: "Select the user or enter a user ID (e.g., U1234567890) to get information about.",
+      supportsAI: true
     },
     {
       name: "includePresence",

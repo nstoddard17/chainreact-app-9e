@@ -11,11 +11,14 @@ export const newDirectMessageTriggerSchema: NodeComponent = {
   producesOutput: true,
   configSchema: [
     {
-      name: "fromUser",
-      label: "From User (Optional)",
-      type: "select",
+      name: "user",
+      label: "From User",
+      type: "combobox",
       required: false,
       dynamic: "slack_users",
+      loadOnMount: true,
+      searchable: true,
+      placeholder: "Select a user (optional)",
       description: "Optional: Filter to messages from a specific user. Leave empty to receive all direct messages."
     },
   ],

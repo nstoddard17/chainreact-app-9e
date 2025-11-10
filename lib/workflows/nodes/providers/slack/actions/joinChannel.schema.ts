@@ -17,15 +17,29 @@ export const joinChannelActionSchema: NodeComponent = {
   isTrigger: false,
   configSchema: [
     {
+      name: "workspace",
+      label: "Workspace",
+      type: "select",
+      dynamic: "slack_workspaces",
+      required: true,
+      loadOnMount: true,
+      placeholder: "Select Slack workspace",
+      description: "Your Slack workspace (used for authentication)"
+    },
+    {
       name: "channel",
       label: "Channel",
-      type: "combobox",
-      required: true,
+      type: "select",
       dynamic: "slack_channels_public",
-      loadOnMount: true,
-      searchable: true,
+      required: true,
       placeholder: "Select a channel to join",
-      tooltip: "Select the public channel for the bot to join. Once joined, the bot can send messages and receive events from this channel. Note: Private channels require an invitation."
+      description: "The public channel for the bot to join",
+      tooltip: "Select the public channel for the bot to join. Once joined, the bot can send messages and receive events from this channel. Note: Private channels require an invitation.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
     {
       name: "channelId",
@@ -33,7 +47,12 @@ export const joinChannelActionSchema: NodeComponent = {
       type: "text",
       required: false,
       placeholder: "C1234567890",
-      tooltip: "Alternative: Directly enter the channel ID if you have it. Useful for joining channels that don't appear in the dropdown."
+      tooltip: "Alternative: Directly enter the channel ID if you have it. Useful for joining channels that don't appear in the dropdown.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     }
   ],
   outputSchema: [

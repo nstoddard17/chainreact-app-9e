@@ -12,12 +12,27 @@ export const userJoinedWorkspaceTriggerSchema: NodeComponent = {
   requiredScopes: ["users:read", "users:read.email"],
   configSchema: [
     {
+      name: "workspace",
+      label: "Workspace",
+      type: "select",
+      dynamic: "slack_workspaces",
+      required: true,
+      loadOnMount: true,
+      placeholder: "Select Slack workspace",
+      description: "Your Slack workspace (used for authentication)"
+    },
+    {
       name: "includeGuests",
       label: "Include Guest Users",
       type: "boolean",
       defaultValue: true,
       description: "Trigger for guest users as well as full members",
-      tooltip: "When enabled, the workflow will trigger for both full members and guest users (single-channel and multi-channel guests). Disable to only trigger for full members."
+      tooltip: "When enabled, the workflow will trigger for both full members and guest users (single-channel and multi-channel guests). Disable to only trigger for full members.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
     {
       name: "excludeBots",
@@ -25,7 +40,12 @@ export const userJoinedWorkspaceTriggerSchema: NodeComponent = {
       type: "boolean",
       defaultValue: true,
       description: "Don't trigger for bot users",
-      tooltip: "When enabled, bot users joining the workspace will not trigger this workflow. Recommended to keep enabled."
+      tooltip: "When enabled, bot users joining the workspace will not trigger this workflow. Recommended to keep enabled.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     }
   ],
   outputSchema: [

@@ -22,7 +22,14 @@
       "Bash(lsof:*)",
       "Bash(xargs kill:*)",
       "Bash(chmod:*)",
-      "Bash(./scripts/audit-output-schemas.sh:*)"
+      "Bash(./scripts/audit-output-schemas.sh:*)",
+      "Bash(do if grep -q \"name: \"\"channel\"\"\" \"$f\")",
+      "Bash(then echo \"$f\")",
+      "Bash(cat:*)",
+      "Bash(dir:*)",
+      "Bash(nul)",
+      "Bash(findstr:*)",
+      "Bash(git add:*)"
     ],
     "edit": [
       "*"

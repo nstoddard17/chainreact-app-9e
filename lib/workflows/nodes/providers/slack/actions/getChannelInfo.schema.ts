@@ -15,7 +15,20 @@ export const getChannelInfoActionSchema: NodeComponent = {
   requiredScopes: ["channels:read", "groups:read"],
   category: "Communication",
   isTrigger: false,
+  testable: true,
   configSchema: [
+    // Parent field - always visible
+    {
+      name: "workspace",
+      label: "Workspace",
+      type: "select",
+      dynamic: "slack_workspaces",
+      required: true,
+      loadOnMount: true,
+      placeholder: "Select Slack workspace",
+      description: "Your Slack workspace (used for authentication)"
+    },
+    // First cascade level - show after workspace selected
     {
       name: "channel",
       label: "Channel",
@@ -24,18 +37,73 @@ export const getChannelInfoActionSchema: NodeComponent = {
       dynamic: "slack_channels",
       loadOnMount: true,
       searchable: true,
-      placeholder: "Select a channel or enter channel ID",
-      tooltip: "Select the channel or enter a channel ID (e.g., C1234567890) to get information about."
+      placeholder: "Select a channel",
+      tooltip: "Select the channel to get information about. Works with both public and private channels (if bot has permissions).",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
+    },
+    {
+      name: "channelId",
+      label: "Or Enter Channel ID",
+      type: "text",
+      required: false,
+      placeholder: "C1234567890",
+      tooltip: "Alternative: Directly enter the channel ID if you have it. This is useful if the channel doesn't appear in the dropdown.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
+    },
+    // Additional options
+    {
+      name: "includeArchived",
+      label: "Include Archived Channels",
+      type: "boolean",
+      defaultValue: false,
+      tooltip: "When enabled, the search will also include archived channels.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
+    },
+    {
+      name: "includePrivate",
+      label: "Include Private Channels",
+      type: "boolean",
+      defaultValue: true,
+      tooltip: "When enabled, searches both public and private channels the bot has access to. When disabled, only public channels.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
     {
       name: "includeNumMembers",
       label: "Include Member Count",
       type: "boolean",
       defaultValue: true,
-      tooltip: "When enabled, includes the total number of members in the channel."
+      tooltip: "When enabled, includes the total number of members in the channel.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     }
   ],
   outputSchema: [
+    {
+      name: "found",
+      label: "Found",
+      type: "boolean",
+      description: "Whether a matching channel was found (true for select method, may be false for name/ID search)",
+      example: true
+    },
     {
       name: "channelId",
       label: "Channel ID",

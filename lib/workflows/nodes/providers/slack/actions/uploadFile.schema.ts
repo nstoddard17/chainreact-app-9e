@@ -87,14 +87,18 @@ export const uploadFileActionSchema: NodeComponent = {
     },
     {
       name: "channels",
-      label: "Channels",
-      type: "multiselect",
+      label: "Channel",
+      type: "select",
       dynamic: "slack_channels",
       required: true,
+      placeholder: "Select a channel...",
+      description: "Channel or DM to share the file in",
+      tooltip: "Select the channel where the file will be uploaded.",
       dependsOn: "workspace",
-      placeholder: "Select channels to share the file...",
-      description: "Channels or DMs to share the file in",
-      tooltip: "You can select multiple channels. The file will be uploaded and shared in all selected channels."
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
     {
       name: "fileSource",

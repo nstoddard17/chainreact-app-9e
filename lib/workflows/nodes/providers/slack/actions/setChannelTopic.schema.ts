@@ -54,6 +54,7 @@ export const setChannelTopicActionSchema: NodeComponent = {
     }
   ],
   configSchema: [
+    // Parent field - always visible
     {
       name: "workspace",
       label: "Workspace",
@@ -64,6 +65,7 @@ export const setChannelTopicActionSchema: NodeComponent = {
       placeholder: "Select Slack workspace",
       description: "Your Slack workspace (used for authentication)"
     },
+    // First cascade level - show after workspace selected
     {
       name: "channel",
       label: "Channel",
@@ -73,8 +75,13 @@ export const setChannelTopicActionSchema: NodeComponent = {
       dependsOn: "workspace",
       placeholder: "Select a channel...",
       description: "The channel to update",
-      tooltip: "You must have permission to manage this channel. Private channels require the bot to be a member."
+      tooltip: "You must have permission to manage this channel. Private channels require the bot to be a member.",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
+    // Second cascade level - show after channel selected
     {
       name: "topic",
       label: "Topic",
@@ -85,7 +92,9 @@ export const setChannelTopicActionSchema: NodeComponent = {
       placeholder: "Weekly team sync - Mondays at 10am",
       supportsAI: true,
       description: "The new topic for the channel (max 250 characters)",
-      tooltip: "Channel topics appear at the top of the channel and help members understand what the channel is for. Keep it concise and informative."
+      tooltip: "Channel topics appear at the top of the channel and help members understand what the channel is for. Keep it concise and informative.",
+      dependsOn: "channel",
+      hidden: { $deps: ["channel"], $condition: { channel: { $exists: false } } }
     }
   ]
 }

@@ -11,12 +11,30 @@ export const memberJoinedChannelTriggerSchema: NodeComponent = {
   producesOutput: true,
   configSchema: [
     {
-      name: "channel",
-      label: "Channel (Optional)",
+      name: "workspace",
+      label: "Workspace",
       type: "select",
+      dynamic: "slack_workspaces",
+      required: true,
+      loadOnMount: true,
+      placeholder: "Select Slack workspace",
+      description: "Your Slack workspace (used for authentication)"
+    },
+    {
+      name: "channel",
+      label: "Channel",
+      type: "combobox",
       required: false,
       dynamic: "slack_channels",
-      description: "Optional: Filter to a specific channel. Leave empty to watch all channels."
+      loadOnMount: true,
+      searchable: true,
+      placeholder: "Select a channel (optional)",
+      description: "Optional: Filter to a specific channel. Leave empty to watch all channels.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
   ],
   outputSchema: [
