@@ -48,7 +48,9 @@ export async function POST(request: NextRequest) {
       forceFresh = false,
       // NEW: Workspace context
       workspaceType = 'personal',
-      workspaceId
+      workspaceId,
+      // Shopify-specific: shop domain
+      shop
     } = await request.json()
 
     if (!provider) {
@@ -229,7 +231,10 @@ export async function POST(request: NextRequest) {
         break
 
       case "shopify":
-        authUrl = generateShopifyAuthUrl(finalState)
+        if (!shop) {
+          return errorResponse("Shopify integration requires 'shop' parameter (e.g., 'your-store.myshopify.com')", 400)
+        }
+        authUrl = generateShopifyAuthUrl(finalState, shop)
         break
 
       case "stripe":
@@ -874,18 +879,19 @@ function generateMailchimpAuthUrl(state: string): string {
   return `https://login.mailchimp.com/oauth2/authorize?${params.toString()}`
 }
 
-function generateShopifyAuthUrl(state: string): string {
+function generateShopifyAuthUrl(state: string, shop: string): string {
   const clientId = process.env.SHOPIFY_CLIENT_ID
   if (!clientId) throw new Error("Shopify client ID not configured")
   const baseUrl = getBaseUrl()
-  
-  // Shopify requires a shop parameter - this should be set in the app admin
-  // For draft apps, this needs to be your development store
-  const shopifyStore = process.env.SHOPIFY_STORE
-  if (!shopifyStore) {
-    throw new Error("Shopify store not configured. Set SHOPIFY_STORE env variable to your store domain, e.g., 'your-store.myshopify.com'")
+
+  // Normalize shop domain - remove protocol and trailing slash
+  let shopDomain = shop.replace(/^https?:\/\//, '').replace(/\/$/, '')
+
+  // Add .myshopify.com if not already present
+  if (!shopDomain.includes('.myshopify.com')) {
+    shopDomain = `${shopDomain}.myshopify.com`
   }
-  
+
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: `${baseUrl}/api/integrations/shopify/callback`,
@@ -897,7 +903,7 @@ function generateShopifyAuthUrl(state: string): string {
   })
 
   // The correct format for Shopify OAuth URL includes the shop domain
-  return `https://${shopifyStore}/admin/oauth/authorize?${params.toString()}`
+  return `https://${shopDomain}/admin/oauth/authorize?${params.toString()}`
 }
 
 function generateStripeAuthUrl(state: string): string {
