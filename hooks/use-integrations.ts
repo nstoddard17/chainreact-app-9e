@@ -187,7 +187,8 @@ export function useIntegrations(): UseIntegrationsReturn {
       })
 
       if (!response.ok) {
-        throw new Error("Failed to generate OAuth URL")
+        const errorData = await response.json().catch(() => ({ error: "Unknown error" }))
+        throw new Error(errorData.error || errorData.message || "Failed to generate OAuth URL")
       }
 
       const { authUrl } = await response.json()
