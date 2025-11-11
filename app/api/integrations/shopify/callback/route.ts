@@ -154,6 +154,10 @@ export async function GET(request: NextRequest) {
       status: 'connected',
       expires_at: expiresAt ? expiresAt.toISOString() : null,
       updated_at: new Date().toISOString(),
+      // Top-level identity fields for easier querying and display
+      email: shopOwnerEmail,
+      account_name: shopName || shop,
+      provider_user_id: shopId || shop,
       // Store all connected stores in metadata
       metadata: {
         stores: allStores, // Array of all connected stores (merged with existing)
