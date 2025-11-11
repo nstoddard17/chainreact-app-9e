@@ -124,9 +124,13 @@ export async function GET(request: NextRequest) {
     const expiresIn = longLivedTokenData.expires_in || 60 * 24 * 60 * 60 // Default to 60 days
     const expiresAt = new Date(Date.now() + expiresIn * 1000)
 
-    // Get basic account info
+    // Get basic account info including profile picture
+    // API VERIFICATION: Instagram Graph API /me endpoint
+    // Docs: https://developers.facebook.com/docs/instagram-api/reference/ig-user
+    // Available fields: id, username, account_type, media_count, profile_picture_url (requires instagram_business_manage_messages scope)
+    // Note: profile_picture_url may not be available with all scope configurations
     const userInfoResponse = await fetch(
-      `https://graph.instagram.com/me?fields=id,username,account_type&access_token=${longLivedToken}`
+      `https://graph.instagram.com/me?fields=id,username,account_type,profile_picture_url&access_token=${longLivedToken}`
     )
 
     if (!userInfoResponse.ok) {
@@ -160,11 +164,13 @@ export async function GET(request: NextRequest) {
       username: userInfo.username || null,
       account_name: userInfo.username || null,
       email: null, // Instagram API doesn't provide email
+      avatar_url: userInfo.profile_picture_url || null,
       metadata: {
         instagram_account_id: userInfo.id,
         instagram_username: userInfo.username,
         account_type: userInfo.account_type,
-        granted_permissions: grantedPermissions
+        granted_permissions: grantedPermissions,
+        profile_picture_url: userInfo.profile_picture_url || null
       }
     }, {
       onConflict: 'user_id, provider',

@@ -35,29 +35,106 @@ export const updateRowActionSchema: NodeComponent = {
       dynamic: "google-sheets_sheets",
       required: true,
       dependsOn: "spreadsheetId",
+      hidden: {
+        $deps: ["spreadsheetId"],
+        $condition: { spreadsheetId: { $exists: false } }
+      },
       placeholder: "Select a sheet",
       loadingPlaceholder: "Loading sheets...",
       description: "The specific sheet (tab) within the spreadsheet"
+    },
+    {
+      name: "updateMode",
+      label: "Update Mode",
+      type: "select",
+      required: true,
+      defaultValue: "simple",
+      dependsOn: "sheetName",
+      hidden: {
+        $deps: ["sheetName"],
+        $condition: { sheetName: { $exists: false } }
+      },
+      options: [
+        { value: "simple", label: "Simple - Use Variables (for automation)" },
+        { value: "visual", label: "Visual - Select & Edit Row" }
+      ],
+      description: "Choose how to configure the update"
+    },
+    {
+      name: "rowSelection",
+      label: "Row Selection",
+      type: "select",
+      required: true,
+      defaultValue: "specific",
+      dependsOn: "sheetName",
+      hidden: {
+        $deps: ["sheetName", "updateMode"],
+        $condition: {
+          $or: [
+            { sheetName: { $exists: false } },
+            { updateMode: { $eq: "visual" } }
+          ]
+        }
+      },
+      options: [
+        { value: "specific", label: "Specific Row Number" },
+        { value: "last", label: "Last Row" },
+        { value: "first_data", label: "First Data Row (Row 2)" }
+      ],
+      description: "Choose how to select the row to update"
     },
     {
       name: "rowNumber",
       label: "Row Number",
       type: "number",
       required: true,
+      dependsOn: "sheetName",
+      hidden: {
+        $deps: ["sheetName", "updateMode", "rowSelection"],
+        $condition: {
+          $or: [
+            { sheetName: { $exists: false } },
+            { updateMode: { $eq: "visual" } },
+            { rowSelection: { $ne: "specific" } }
+          ]
+        }
+      },
       placeholder: "2",
       min: 1,
       supportsAI: true,
-      description: "Row number to update"
+      description: "Row number to update (e.g., {{trigger.rowNumber}})"
     },
     {
       name: "values",
       label: "New Values",
       type: "textarea",
       required: true,
-      rows: 4,
+      dependsOn: "sheetName",
+      hidden: {
+        $deps: ["sheetName", "updateMode"],
+        $condition: {
+          $or: [
+            { sheetName: { $exists: false } },
+            { updateMode: { $eq: "visual" } }
+          ]
+        }
+      },
+      rows: 6,
       placeholder: JSON.stringify(["Value 1", "Value 2", "Value 3"], null, 2),
       supportsAI: true,
-      description: "Array of new values for the row"
+      description: "Array of new values for the row (e.g., {{trigger.values}})"
+    },
+    {
+      name: "updateRowPreview",
+      label: "Update Row",
+      type: "google_sheets_update_row_preview",
+      required: false,
+      dependsOn: "updateMode",
+      hidden: {
+        $deps: ["updateMode"],
+        $condition: { updateMode: { $ne: "visual" } }
+      },
+      description: "Select a row and update its column values"
     }
   ]
 }

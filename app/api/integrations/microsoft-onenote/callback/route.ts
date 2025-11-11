@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server"
 import { handleOAuthCallback } from '@/lib/integrations/oauth-callback-handler'
+import { logger } from '@/lib/utils/logger'
 
 /**
  * Microsoft OneNote OAuth Callback Handler
@@ -24,5 +25,36 @@ export async function GET(request: NextRequest) {
         ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
         : null,
     }),
+    additionalIntegrationData: async (tokenData, state) => {
+      // Fetch user info from Microsoft Graph API
+      // API VERIFICATION: Microsoft Graph API endpoint for current user
+      // Docs: https://learn.microsoft.com/en-us/graph/api/user-get
+      // Returns: id, mail, userPrincipalName, displayName, etc.
+      try {
+        const userResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
+          headers: {
+            "Authorization": `Bearer ${tokenData.access_token}`
+          }
+        })
+
+        if (userResponse.ok) {
+          const userData = await userResponse.json()
+          const email = userData.mail || userData.userPrincipalName || null
+
+          return {
+            email: email,
+            username: userData.userPrincipalName || email,
+            account_name: userData.displayName || email,
+            provider_user_id: userData.id,
+          }
+        } else {
+          logger.warn("Failed to fetch OneNote user info:", userResponse.status)
+        }
+      } catch (error) {
+        logger.error("Error fetching OneNote user info:", error)
+      }
+
+      return {}
+    },
   })
 }

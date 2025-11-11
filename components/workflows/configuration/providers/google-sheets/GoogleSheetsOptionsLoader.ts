@@ -19,6 +19,8 @@ export class GoogleSheetsOptionsLoader implements ProviderOptionsLoader {
     'filterColumn',
     'filterValue',
     'dateColumn',
+    'sortColumn',
+    'searchColumn',
     'requiredColumns'
   ];
 
@@ -69,6 +71,8 @@ export class GoogleSheetsOptionsLoader implements ProviderOptionsLoader {
             case 'matchColumn':
             case 'filterColumn':
             case 'dateColumn':
+            case 'sortColumn':
+            case 'searchColumn':
             case 'requiredColumns':
               apiDataType = 'google-sheets_columns';
               break;
@@ -76,11 +80,19 @@ export class GoogleSheetsOptionsLoader implements ProviderOptionsLoader {
               apiDataType = 'google-sheets_column_values';
               break;
             default:
-              apiDataType = dataType || fieldName;
+              apiDataType = fieldName;
           }
 
           // Load data through the API
           result = await this.loadFromAPI(apiDataType, integrationId, dependsOnValue, forceRefresh, extraOptions);
+
+          // For searchColumn, prepend the "All Columns" option
+          if (fieldName === 'searchColumn' && result.length > 0) {
+            result.unshift({
+              value: '*',
+              label: 'All Columns (search any column)'
+            });
+          }
 
           resolve(result);
         } catch (error) {

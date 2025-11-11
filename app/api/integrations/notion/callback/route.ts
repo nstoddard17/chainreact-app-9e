@@ -134,6 +134,7 @@ export async function GET(request: NextRequest) {
 
     // Attempt to fetch user information if not included in token response
     let userInfo = {}
+    let avatarUrl = null
     if (tokenData.access_token) {
       try {
         const usersResponse = await fetch('https://api.notion.com/v1/users', {
@@ -142,7 +143,7 @@ export async function GET(request: NextRequest) {
             'Notion-Version': '2022-06-28'
           }
         })
-        
+
         if (usersResponse.ok) {
           const usersData = await usersResponse.json()
           if (usersData.results && usersData.results.length > 0) {
@@ -151,6 +152,10 @@ export async function GET(request: NextRequest) {
             if (botUser) {
               userInfo = {
                 bot_owner: botUser.bot?.owner?.workspace
+              }
+              // Get bot avatar if available
+              if (botUser.avatar_url) {
+                avatarUrl = botUser.avatar_url
               }
             }
           }
@@ -192,7 +197,8 @@ export async function GET(request: NextRequest) {
       user_info: userInfo,
       duplicate_template_privileges: tokenData.duplicated_template_id ? true : false,
       access_token: encrypt(tokenData.access_token, encryptionKey),
-      connected_at: new Date().toISOString()
+      connected_at: new Date().toISOString(),
+      avatar_url: avatarUrl
     }
     
     let integrationData;

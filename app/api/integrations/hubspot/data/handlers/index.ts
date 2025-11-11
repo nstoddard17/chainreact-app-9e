@@ -24,6 +24,16 @@ import {
   getHubSpotIdentifierProperties,
   getHubSpotContactAvailableProperties
 } from './dynamicHandlers'
+// Import new ticket handlers
+import { getHubSpotTickets } from './tickets'
+import { getHubSpotTicketPipelines } from './ticketPipelines'
+import { getHubSpotTicketStages } from './ticketStages'
+
+// Import Phase 2 handlers
+import { getHubSpotWorkflows } from './workflows'
+import { getHubSpotForms } from './forms'
+import { getHubSpotProducts } from './products'
+import { getHubSpotOwners } from './owners'
 
 export const hubspotHandlers = {
   'hubspot_companies': getHubSpotCompanies,
@@ -39,6 +49,15 @@ export const hubspotHandlers = {
   'hubspot_lead_status_options': getHubSpotLeadStatusOptions,
   'hubspot_content_topics_options': getHubSpotContentTopicsOptions,
   'hubspot_preferred_channels_options': getHubSpotPreferredChannelsOptions,
+  // Ticket handlers
+  'hubspot_tickets': getHubSpotTickets,
+  'hubspot_ticket_pipelines': getHubSpotTicketPipelines,
+  'hubspot_ticket_stages': getHubSpotTicketStages,
+  // Phase 2 handlers
+  'hubspot_workflows': getHubSpotWorkflows,
+  'hubspot_forms': getHubSpotForms,
+  'hubspot_products': getHubSpotProducts,
+  'hubspot_owners': getHubSpotOwners,
   // Dynamic handlers
   'hubspot_objects': getHubSpotObjects,
   'hubspot_object_properties': getHubSpotObjectProperties,
@@ -57,5 +76,12 @@ export {
   getHubSpotJobTitles,
   getHubSpotDepartments,
   getHubSpotIndustries,
-  getHubSpotContactProperties
+  getHubSpotContactProperties,
+  getHubSpotTickets,
+  getHubSpotTicketPipelines,
+  getHubSpotTicketStages,
+  getHubSpotWorkflows,
+  getHubSpotForms,
+  getHubSpotProducts,
+  getHubSpotOwners
 }

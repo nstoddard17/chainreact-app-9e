@@ -123,9 +123,13 @@ export async function GET(request: NextRequest) {
       logger.warn('Could not fetch Blackbaud subscription key:', configError)
     }
 
-    // Optional: Fetch additional account data
+    // Fetch additional account data
+    // API VERIFICATION: Blackbaud SKY API endpoint for authenticated user
+    // Docs: https://developer.blackbaud.com/skyapi/docs/users
+    // Endpoint: GET /users/v1/me
+    // Returns: User object with email, username, name, display_name, etc.
     let accountInfo = {}
-    
+
     if (tokenData.access_token && subscriptionKey) {
       try {
         const meResponse = await fetch('https://api.sky.blackbaud.com/users/v1/me', {
@@ -134,7 +138,7 @@ export async function GET(request: NextRequest) {
             'bb-api-subscription-key': subscriptionKey
           }
         })
-        
+
         if (meResponse.ok) {
           accountInfo = await meResponse.json()
         } else {
@@ -153,12 +157,17 @@ export async function GET(request: NextRequest) {
 
     // Store the integration data
     const supabase = createAdminClient()
+    const blackbaudEmail = (accountInfo as any)?.email || null
+    const blackbaudUsername = (accountInfo as any)?.username || blackbaudEmail?.split('@')[0] || null
+    const blackbaudAccountName = (accountInfo as any)?.name || (accountInfo as any)?.display_name || blackbaudEmail || null
+
     const { error: upsertError } = await supabase.from('integrations').upsert({
       user_id: userId,
       provider,
-      email: (accountInfo as any)?.email || null,
-      username: (accountInfo as any)?.username || null,
-      account_name: (accountInfo as any)?.name || (accountInfo as any)?.display_name || null,
+      // Top-level account identity fields
+      email: blackbaudEmail,
+      username: blackbaudUsername,
+      account_name: blackbaudAccountName,
       access_token: encrypt(tokenData.access_token, encryptionKey),
       refresh_token: tokenData.refresh_token ? encrypt(tokenData.refresh_token, encryptionKey) : null,
       expires_at: expiresAt.toISOString(),
@@ -169,7 +178,11 @@ export async function GET(request: NextRequest) {
       metadata: {
         account_info: accountInfo,
         subscription_key: subscriptionKey,
-        token_type: tokenData.token_type
+        token_type: tokenData.token_type,
+        // Keep in metadata for backward compatibility
+        email: blackbaudEmail,
+        username: blackbaudUsername,
+        account_name: blackbaudAccountName
       }
     }, {
       onConflict: 'user_id, provider',
