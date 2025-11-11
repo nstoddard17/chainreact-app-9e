@@ -142,6 +142,25 @@ export function useIntegrations(): UseIntegrationsReturn {
     try {
       setError(null)
 
+      // Shopify-specific: Prompt for shop domain
+      let shop: string | undefined
+      if (providerId.toLowerCase() === 'shopify') {
+        shop = window.prompt(
+          'Enter your Shopify store domain:',
+          'your-store.myshopify.com'
+        )?.trim()
+
+        if (!shop) {
+          // User cancelled
+          return
+        }
+
+        // Basic validation
+        if (!shop.includes('.')) {
+          shop = `${shop}.myshopify.com`
+        }
+      }
+
       // Store the current integration state before redirect
       localStorage.setItem("integration_connecting", providerId)
       localStorage.setItem("integration_redirect_timestamp", Date.now().toString())
@@ -154,12 +173,17 @@ export function useIntegrations(): UseIntegrationsReturn {
       )
 
       // Generate OAuth URL
+      const requestBody: any = { provider: providerId }
+      if (shop) {
+        requestBody.shop = shop
+      }
+
       const response = await fetch("/api/integrations/oauth/generate-url", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ provider: providerId }),
+        body: JSON.stringify(requestBody),
       })
 
       if (!response.ok) {
