@@ -145,6 +145,7 @@ export function useIntegrations(): UseIntegrationsReturn {
       // Shopify-specific: Prompt for shop domain (cache bust: v2)
       let shop: string | undefined
       if (providerId.toLowerCase() === 'shopify') {
+        console.log('[DEBUG] Shopify connection - prompting for shop domain')
         shop = window.prompt(
           'Enter your Shopify store domain:',
           'your-store.myshopify.com'
@@ -152,13 +153,18 @@ export function useIntegrations(): UseIntegrationsReturn {
 
         if (!shop) {
           // User cancelled
+          console.log('[DEBUG] User cancelled shop prompt')
           return
         }
+
+        console.log('[DEBUG] Shop entered:', shop)
 
         // Basic validation
         if (!shop.includes('.')) {
           shop = `${shop}.myshopify.com`
         }
+
+        console.log('[DEBUG] Normalized shop:', shop)
       }
 
       // Store the current integration state before redirect
@@ -177,6 +183,8 @@ export function useIntegrations(): UseIntegrationsReturn {
       if (shop) {
         requestBody.shop = shop
       }
+
+      console.log('[DEBUG] Request body:', requestBody)
 
       const response = await fetch("/api/integrations/auth/generate-url", {
         method: "POST",
