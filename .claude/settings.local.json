@@ -64,7 +64,8 @@
       "Bash(psql \"postgresql://postgres.xzwsdwllmrnrgbltibxt:Lukelombardo10!@aws-0-us-east-1.pooler.supabase.com:6543/postgres\" -c \"SELECT id, provider, email, account_name, avatar_url, created_at FROM integrations WHERE provider = ''hubspot'' ORDER BY created_at DESC LIMIT 5;\")",
       "Bash(del \"c:\\Users\\marcu\\source\\repos\\nstoddard17\\chainreact-app-9e\\app\\api\\integrations\\shopify\\callback\\route.ts\")",
       "Bash(test:*)",
-      "Bash(where:*)"
+      "Bash(where:*)",
+      "Bash(git push:*)"
     ],
     "edit": [
       "*"
