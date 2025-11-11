@@ -141,10 +141,6 @@ export async function GET(request: NextRequest) {
       status: 'connected',
       expires_at: expiresAt ? expiresAt.toISOString() : null,
       updated_at: new Date().toISOString(),
-      // Top-level account identity fields
-      email: shopOwnerEmail,
-      username: shop,
-      account_name: shopName || shop,
       // Store all connected stores in metadata
       metadata: {
         stores: allStores, // Array of all connected stores (merged with existing)
