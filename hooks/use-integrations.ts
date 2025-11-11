@@ -142,6 +142,31 @@ export function useIntegrations(): UseIntegrationsReturn {
     try {
       setError(null)
 
+      // Shopify-specific: Prompt for shop domain (cache bust: v2)
+      let shop: string | undefined
+      if (providerId.toLowerCase() === 'shopify') {
+        console.log('[DEBUG] Shopify connection - prompting for shop domain')
+        shop = window.prompt(
+          'Enter your Shopify store domain:',
+          'your-store.myshopify.com'
+        )?.trim()
+
+        if (!shop) {
+          // User cancelled
+          console.log('[DEBUG] User cancelled shop prompt')
+          return
+        }
+
+        console.log('[DEBUG] Shop entered:', shop)
+
+        // Basic validation
+        if (!shop.includes('.')) {
+          shop = `${shop}.myshopify.com`
+        }
+
+        console.log('[DEBUG] Normalized shop:', shop)
+      }
+
       // Store the current integration state before redirect
       localStorage.setItem("integration_connecting", providerId)
       localStorage.setItem("integration_redirect_timestamp", Date.now().toString())
@@ -154,16 +179,24 @@ export function useIntegrations(): UseIntegrationsReturn {
       )
 
       // Generate OAuth URL
-      const response = await fetch("/api/integrations/oauth/generate-url", {
+      const requestBody: any = { provider: providerId }
+      if (shop) {
+        requestBody.shop = shop
+      }
+
+      console.log('[DEBUG] Request body:', requestBody)
+
+      const response = await fetch("/api/integrations/auth/generate-url", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ provider: providerId }),
+        body: JSON.stringify(requestBody),
       })
 
       if (!response.ok) {
-        throw new Error("Failed to generate OAuth URL")
+        const errorData = await response.json().catch(() => ({ error: "Unknown error" }))
+        throw new Error(errorData.error || errorData.message || "Failed to generate OAuth URL")
       }
 
       const { authUrl } = await response.json()

@@ -78,7 +78,11 @@
       "Bash(node scripts/update-loaders-reconnection.cjs:*)",
       "Bash(psql \"postgresql://postgres.xzwsdwllmrnrgbltibxt:***REDACTED_PASSWORD***@aws-0-us-east-1.pooler.supabase.com:6543/postgres\" -c \"SELECT provider, status, COUNT(*) FROM integrations GROUP BY provider, status ORDER BY provider;\")",
       "Bash(git checkout:*)",
-      "Bash(psql:*)"
+      "Bash(psql:*)",
+      "Bash(del \"c:\\Users\\marcu\\source\\repos\\nstoddard17\\chainreact-app-9e\\app\\api\\integrations\\shopify\\callback\\route.ts\")",
+      "Bash(test:*)",
+      "Bash(where:*)",
+      "Bash(git push:*)"
     ],
     "edit": [
       "*"
