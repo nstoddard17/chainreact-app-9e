@@ -142,7 +142,7 @@ export function useIntegrations(): UseIntegrationsReturn {
     try {
       setError(null)
 
-      // Shopify-specific: Prompt for shop domain
+      // Shopify-specific: Prompt for shop domain (cache bust: v2)
       let shop: string | undefined
       if (providerId.toLowerCase() === 'shopify') {
         shop = window.prompt(
