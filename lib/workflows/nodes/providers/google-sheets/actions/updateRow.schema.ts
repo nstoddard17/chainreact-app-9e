@@ -87,7 +87,7 @@ export const updateRowActionSchema: NodeComponent = {
       name: "rowNumber",
       label: "Row Number",
       type: "number",
-      required: true,
+      required: false,
       dependsOn: "sheetName",
       hidden: {
         $deps: ["sheetName", "updateMode", "rowSelection"],
@@ -95,7 +95,8 @@ export const updateRowActionSchema: NodeComponent = {
           $or: [
             { sheetName: { $exists: false } },
             { updateMode: { $eq: "visual" } },
-            { rowSelection: { $ne: "specific" } }
+            { rowSelection: { $eq: "last" } },
+            { rowSelection: { $eq: "first_data" } }
           ]
         }
       },

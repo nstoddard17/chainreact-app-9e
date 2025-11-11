@@ -7,6 +7,7 @@ import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 import { logger } from "@/lib/utils/logger"
 import { WorkflowService } from "@/services/workflow-service"
 import { SessionManager } from "@/lib/auth/session"
+import { getCrossTabSync } from "@/lib/utils/cross-tab-sync"
 
 export interface WorkflowNode {
   id: string
@@ -1031,3 +1032,38 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
     }))
   },
 }))
+
+// Initialize cross-tab synchronization for workflow state
+if (typeof window !== 'undefined') {
+  const sync = getCrossTabSync()
+
+  // Listen for workflow updates from other tabs
+  sync.subscribe('workflow-updated', (data) => {
+    logger.debug('[WorkflowStore] Received workflow-updated event from another tab', data)
+    const state = useWorkflowStore.getState()
+    // Refresh workflows to get the latest state
+    if (state.fetchWorkflows) {
+      state.fetchWorkflows(true)
+    }
+  })
+
+  // Listen for workflow deletion from other tabs
+  sync.subscribe('workflow-deleted', (data) => {
+    logger.debug('[WorkflowStore] Received workflow-deleted event from another tab', data)
+    const state = useWorkflowStore.getState()
+    // Remove the workflow from local state
+    set((currentState: any) => ({
+      workflows: currentState.workflows.filter((w: any) => w.id !== data.workflowId),
+    }))
+  })
+
+  // Listen for workspace changes from other tabs
+  sync.subscribe('workspace-changed', (data) => {
+    logger.debug('[WorkflowStore] Received workspace-changed event from another tab', data)
+    const state = useWorkflowStore.getState()
+    // Refresh workflows for the new workspace
+    if (state.fetchWorkflows) {
+      state.fetchWorkflows(true)
+    }
+  })
+}

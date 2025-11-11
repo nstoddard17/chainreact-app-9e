@@ -571,6 +571,26 @@ export function GenericSelectField({
     // Only trigger load on transition from closed to open (not on every render while open)
     const isOpeningNow = open && !wasOpen;
 
+    // COMPREHENSIVE LOGGING for selectedProperties to debug infinite loop
+    if (field.name === 'selectedProperties') {
+      console.log('🔍🔍🔍 [GenericSelectField] selectedProperties handleFieldOpen called:', {
+        open,
+        wasOpen,
+        isOpeningNow,
+        fieldName: field.name,
+        fieldDynamic: field.dynamic,
+        loadOnMount: field.loadOnMount,
+        fieldDependsOn: field.dependsOn,
+        hasOnDynamicLoad: !!onDynamicLoad,
+        isLoading,
+        optionsLength: options?.length || 0,
+        hasAttemptedLoad,
+        timeSinceLastLoad: Date.now() - lastLoadTimestamp,
+        isLoadingRefCurrent: isLoadingRef.current,
+        timestamp: new Date().toISOString()
+      });
+    }
+
     logger.debug('🔍 [GenericSelectField] handleFieldOpen called:', {
       open,
       wasOpen,
@@ -619,13 +639,20 @@ export function GenericSelectField({
     // Check if this is a loadOnMount field that already has data
     const isLoadOnMountWithData = field.loadOnMount && hasOptions
 
+    // CRITICAL FIX: Don't load loadOnMount fields when dropdown opens
+    // These fields should only load once on mount via ConfigurationForm's loadOnMount useEffect
+    // Loading them again on dropdown open causes infinite loops
+    const isLoadOnMountField = field.loadOnMount === true
+
     // Only load if:
     // 1. Field is dynamic
     // 2. Not currently loading
-    // 3. Not a loadOnMount field that already has data (avoid double loading)
-    // 4. Either hasn't attempted to load, OR (has no options AND hasn't loaded recently)
-    // 5. For special fields (Google Sheets sheetName, OneDrive fileId), also check if we haven't loaded recently
+    // 3. NOT a loadOnMount field (these are loaded by ConfigurationForm's useEffect)
+    // 4. Not a loadOnMount field that already has data (avoid double loading)
+    // 5. Either hasn't attempted to load, OR (has no options AND hasn't loaded recently)
+    // 6. For special fields (Google Sheets sheetName, OneDrive fileId), also check if we haven't loaded recently
     const shouldLoad = field.dynamic && onDynamicLoad && !isLoading &&
+                      !isLoadOnMountField &&
                       !isLoadOnMountWithData &&
                       (!hasAttemptedLoad || (!hasOptions && !recentlyLoaded)) &&
                       (!(isGoogleSheetsSheetName || isOneDriveFileId) || !recentlyLoaded)
@@ -637,6 +664,7 @@ export function GenericSelectField({
         dynamic: field.dynamic,
         hasOnDynamicLoad: !!onDynamicLoad,
         isLoading,
+        isLoadOnMountField,
         isLoadOnMountWithData,
         hasAttemptedLoad,
         hasOptions,
@@ -646,7 +674,37 @@ export function GenericSelectField({
       });
     }
 
+    // Debug for selectedProperties field specifically (HubSpot infinite loop fix)
+    if (field.name === 'selectedProperties') {
+      console.log('🎯🎯🎯 [GenericSelectField] selectedProperties shouldLoad check:', {
+        shouldLoad,
+        isLoadOnMountField,
+        hasOptions,
+        optionsCount: options?.length,
+        loadOnMount: field.loadOnMount,
+        dynamic: field.dynamic,
+        hasOnDynamicLoad: !!onDynamicLoad,
+        isLoading,
+        isLoadOnMountWithData,
+        hasAttemptedLoad,
+        recentlyLoaded,
+        timeSinceLastLoad: Date.now() - lastLoadTimestamp,
+        timestamp: new Date().toISOString()
+      });
+    }
+
     if (shouldLoad) {
+      // COMPREHENSIVE LOGGING for selectedProperties
+      if (field.name === 'selectedProperties') {
+        console.error('🚨🚨🚨 [GenericSelectField] selectedProperties WILL LOAD (THIS SHOULD NOT HAPPEN!):', {
+          fieldName: field.name,
+          loadOnMount: field.loadOnMount,
+          shouldLoad,
+          isLoadOnMountField,
+          reason: 'This should be prevented by isLoadOnMountField check',
+          timestamp: new Date().toISOString()
+        });
+      }
       // Prevent concurrent loads using ref
       if (isLoadingRef.current) {
         if (field.name === 'searchField') {
@@ -834,6 +892,23 @@ export function GenericSelectField({
     }
   }, [field.name, field.multiple, value, onChange, getFriendlyVariableLabel, workflowNodes, saveLabelToCache])
 
+  // Wrapped onChange with logging to track infinite loops
+  const handleChangeWithLogging = React.useCallback((newValue: any) => {
+    // COMPREHENSIVE LOGGING for selectedProperties
+    if (field.name === 'selectedProperties') {
+      console.log('📝📝📝 [GenericSelectField] selectedProperties onChange called:', {
+        fieldName: field.name,
+        oldValue: Array.isArray(value) ? value.length : value,
+        newValue: Array.isArray(newValue) ? newValue.length : newValue,
+        valueChanged: JSON.stringify(value) !== JSON.stringify(newValue),
+        timestamp: new Date().toISOString(),
+        stackTrace: new Error().stack?.split('\n').slice(0, 5).join('\n')
+      });
+    }
+
+    onChange(newValue);
+  }, [field.name, value, onChange])
+
   // Show loading state for dynamic fields
   // Show full LoadingFieldState for any dynamic field that's currently loading
   // This ensures a clean, consistent loading experience across all providers (Airtable, Gmail, etc.)
@@ -908,14 +983,14 @@ export function GenericSelectField({
         <div className="flex-1">
           <MultiCombobox
             value={Array.isArray(value) ? value : (value ? [value] : [])}
-            onChange={onChange}
+            onChange={handleChangeWithLogging}
             options={processedOptions}
             placeholder={placeholderText}
             emptyPlaceholder={isLoading ? loadingPlaceholder : getEmptyMessage(field.name, field.label, (field as any).emptyMessage)}
             searchPlaceholder="Search options..."
             disabled={isLoading}
             loading={isLoading}
-            creatable={false} // Disable custom option creation - users can only select from available options
+            creatable={(field as any).creatable || false} // Allow custom option creation if specified in field schema
             onOpenChange={handleFieldOpen}
             selectedValues={effectiveSelectedValues} // Pass selected values for checkmarks
             hideSelectedBadges={isAirtableLinkedField} // Hide badges for Airtable fields with bubbles
@@ -999,7 +1074,7 @@ export function GenericSelectField({
             emptyPlaceholder={isLoading || isSearching ? loadingPlaceholder : ((field as any).emptyMessage || "No options found")}
             disabled={isLoading}
             loading={isLoading || isSearching}
-            creatable={false} // Disable custom option creation - users can only select from available options
+            creatable={(field as any).creatable || false} // Allow custom option creation if specified in field schema
             onOpenChange={handleFieldOpen} // Add missing onOpenChange handler
             onSearchChange={handleSearchChange} // Handle debounced search
             selectedValues={effectiveSelectedValues} // Pass selected values for checkmarks
@@ -1079,7 +1154,7 @@ export function GenericSelectField({
           emptyPlaceholder={isLoading || isSearching ? loadingPlaceholder : getEmptyMessage(field.name, field.label, (field as any).emptyMessage)}
           disabled={isLoading}
           loading={isLoading || isSearching}
-          creatable={false} // Disable custom option creation - users can only select from available options
+          creatable={(field as any).creatable || false} // Allow custom option creation if specified in field schema
           onOpenChange={handleFieldOpen}
           onSearchChange={handleSearchChange} // Handle debounced search
           selectedValues={effectiveSelectedValues}

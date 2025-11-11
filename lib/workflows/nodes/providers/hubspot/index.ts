@@ -122,9 +122,14 @@ const hubspotTriggerContactUpdated: NodeComponent = {
     {
       name: "propertyName",
       label: "Property Name",
-      type: "text",
+      type: "combobox",
       required: false,
-      placeholder: "e.g., email, phone, hs_lead_status",
+      dynamic: "hubspot_contact_properties",
+      loadOnMount: true,
+      searchable: true,
+      allowCustomValue: true,
+      supportsVariables: true,
+      placeholder: "All properties",
       description: "Optional: Filter to a specific property. Leave empty to listen to all property updates."
     },
   ],
@@ -362,9 +367,14 @@ const hubspotTriggerCompanyUpdated: NodeComponent = {
     {
       name: "propertyName",
       label: "Property Name",
-      type: "text",
+      type: "combobox",
       required: false,
-      placeholder: "e.g., name, domain, industry",
+      dynamic: "hubspot_company_properties",
+      loadOnMount: true,
+      searchable: true,
+      allowCustomValue: true,
+      supportsVariables: true,
+      placeholder: "All properties",
       description: "Optional: Filter to a specific property. Leave empty to listen to all property updates."
     },
   ],
@@ -585,9 +595,14 @@ const hubspotTriggerDealUpdated: NodeComponent = {
     {
       name: "propertyName",
       label: "Property Name",
-      type: "text",
+      type: "combobox",
       required: false,
-      placeholder: "e.g., dealstage, amount, closedate",
+      dynamic: "hubspot_deal_properties",
+      loadOnMount: true,
+      searchable: true,
+      allowCustomValue: true,
+      supportsVariables: true,
+      placeholder: "All properties",
       description: "Optional: Filter to a specific property. Leave empty to listen to all property updates."
     },
   ],
@@ -727,11 +742,11 @@ const hubspotActionCreateContact: NodeComponent = {
   category: "CRM",
   isTrigger: false,
   configSchema: [
-    // Mode selector - Using toggle_group for pill-style selection
+    // Mode selector - Using select for consistent design
     {
       name: "fieldMode",
       label: "Field Selection Mode",
-      type: "toggle_group",
+      type: "select",
       required: true,
       defaultValue: "basic",
       options: [
@@ -802,8 +817,9 @@ const hubspotActionCreateContact: NodeComponent = {
       name: "jobtitle",
       label: "Job Title",
       type: "combobox",
-      dynamic: true,
-      dynamicDataType: "hubspot_job_titles",
+      dynamic: "hubspot_job_titles",
+      searchable: true,
+      allowCustomValue: true,
       required: false,
       placeholder: "Select or enter job title",
       visibilityCondition: { field: "fieldMode", operator: "equals", value: "basic" }
@@ -829,8 +845,7 @@ const hubspotActionCreateContact: NodeComponent = {
       name: "hs_lead_status",
       label: "Lead Status",
       type: "select",
-      dynamic: true,
-      dynamicDataType: "hubspot_lead_status_options",
+      dynamic: "hubspot_lead_status_options",
       required: false,
       placeholder: "Select lead status",
       visibilityCondition: { field: "fieldMode", operator: "equals", value: "basic" }
@@ -841,8 +856,7 @@ const hubspotActionCreateContact: NodeComponent = {
       name: "selectedProperties",
       label: "Select Properties",
       type: "multiselect",
-      dynamic: true,
-      dynamicDataType: "hubspot_contact_available_properties",
+      dynamic: "hubspot_contact_properties",
       required: false,
       placeholder: "Choose properties to include",
       description: "Select which contact properties you want to set",
@@ -883,14 +897,25 @@ const hubspotActionCreateContact: NodeComponent = {
 
     // Company association (available in all modes)
     {
+      name: "associateWithCompany",
+      label: "Associate with Company",
+      type: "boolean",
+      required: false,
+      defaultValue: false,
+      description: "Link this contact to a company"
+    },
+    {
       name: "associatedCompanyId",
-      label: "Associated Company (Optional)",
+      label: "Company",
       type: "combobox",
-      dynamic: true,
-      dynamicDataType: "hubspot_companies",
+      dynamic: "hubspot_companies",
+      searchable: true,
+      allowCustomValue: true,
       required: false,
       placeholder: "Select a company or enter new company name",
-      description: "Link this contact to a company"
+      description: "Choose which company to associate this contact with",
+      dependsOn: "associateWithCompany",
+      visibilityCondition: { field: "associateWithCompany", operator: "equals", value: true }
     }
   ],
 
@@ -1387,11 +1412,6 @@ const hubspotActionGetDeals: NodeComponent = {
   ]
 }
 
-// Import dynamic nodes
-import { hubspotDynamicNodes } from './dynamicNodes'
-// Import enhanced contact nodes
-import { hubspotActionCreateContactEnhanced, hubspotActionCreateContactFullyDynamic } from './createContactEnhanced'
-
 // Import new Phase 1 actions
 import { hubspotActionUpdateContact } from './actions/updateContact'
 import { hubspotActionUpdateCompany } from './actions/updateCompany'
@@ -1440,11 +1460,9 @@ export const hubspotNodes: NodeComponent[] = [
   ...formTriggers,
 
   // ===== ACTIONS =====
-  // Contact Actions (3 + 2 enhanced)
+  // Contact Actions (2)
   hubspotActionCreateContact,
   hubspotActionUpdateContact, // NEW
-  hubspotActionCreateContactEnhanced,
-  hubspotActionCreateContactFullyDynamic,
 
   // Company Actions (2)
   hubspotActionCreateCompany,
@@ -1482,7 +1500,4 @@ export const hubspotNodes: NodeComponent[] = [
 
   // Phase 3: Line Item Actions (4)
   ...lineItemActions,
-
-  // Dynamic actions (4)
-  ...hubspotDynamicNodes,
 ]

@@ -1,0 +1,110 @@
+=== Log Session Started: 2025-11-11T01:23:16.182Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-11-11T01:23:16.183Z] [INFO   ] File logging initialized
+[2025-11-11T01:23:16.183Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-10_19-23-16.log
+[2025-11-11T01:23:16.184Z] [INFO   ] 📁 File logging enabled
+[2025-11-11T01:23:16.184Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-10_19-23-16.log
+[2025-11-11T01:23:16.184Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-10_19-23-16.log
+[2025-11-11T01:23:16.184Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-10_19-23-16.log
+[2025-11-11T01:23:16.184Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-10_19-23-16.log
+[2025-11-11T01:23:16.184Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-11-11T01:23:16.184Z] [DEBUG  ] 📁 File logging system initialized
+[2025-11-11T01:23:16.203Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 5.9s
+[2025-11-11T01:23:16.715Z] [INFO   ]  [37m[1m○[22m[39m Compiling /test/nodes ...
+[2025-11-11T01:23:17.196Z] [INFO   ] 2025-11-11T01:23:17.196Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-11-11T01:23:19.360Z] [INFO   ] 2025-11-11T01:23:19.360Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-11-11T01:23:19.360Z] [INFO   ] 2025-11-11T01:23:19.360Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-11T01:23:19.889Z] [INFO   ] 2025-11-11T01:23:19.889Z [DEBUG] Discord Gateway initialization complete
+[2025-11-11T01:23:19.891Z] [INFO   ] 2025-11-11T01:23:19.891Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-11-11T01:23:20.149Z] [INFO   ] 2025-11-11T01:23:20.149Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-11T01:23:20.150Z] [INFO   ] 2025-11-11T01:23:20.150Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-11T01:23:20.386Z] [INFO   ] 2025-11-11T01:23:20.386Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"a892afd4a67859670258985182a658c5","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-11-11T01:23:20.386Z] [INFO   ] 2025-11-11T01:23:20.386Z [DEBUG] 📋 Initializing invite cache...
+[2025-11-11T01:23:20.387Z] [INFO   ] 2025-11-11T01:23:20.387Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-11T01:23:20.387Z] [INFO   ] 2025-11-11T01:23:20.387Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-11-11T01:23:21.440Z] [INFO   ] 2025-11-11T01:23:21.440Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-11-11T01:23:23.952Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /test/nodes in 7.7s (5374 modules)
+[2025-11-11T01:23:24.539Z] [INFO   ] 2025-11-11T01:23:24.539Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-11T01:23:24.539Z"}
+[2025-11-11T01:23:24.551Z] [INFO   ] 2025-11-11T01:23:24.551Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-11T01:23:24.551Z"}
+[2025-11-11T01:23:24.551Z] [INFO   ] 2025-11-11T01:23:24.551Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-11T01:23:24.551Z"}
+[2025-11-11T01:23:25.173Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1190ms (1189 modules)
+[2025-11-11T01:23:27.503Z] [INFO   ]  [37m[1m○[22m[39m Compiling /middleware ...
+[2025-11-11T01:23:28.451Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 1447ms (4434 modules)
+[2025-11-11T01:23:29.233Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-11-11T01:23:29.879Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 1211ms (5493 modules)
+[2025-11-11T01:23:30.059Z] [INFO   ] 2025-11-11T01:23:30.059Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-11T01:23:30.059Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-11T01:23:30.272Z] [INFO   ] 2025-11-11T01:23:30.272Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-11T01:23:30.273Z] [INFO   ] 2025-11-11T01:23:30.273Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-11T01:23:30.461Z] [INFO   ] 2025-11-11T01:23:30.461Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":3,"permissionsCount":3,"integrationsError":null,"permissionsError":null}
+[2025-11-11T01:23:30.462Z] [INFO   ] 2025-11-11T01:23:30.462Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"759dc5d5-1fce-4f46-afb2-f7b7c64fc339","provider":"hubspot","permission":"admin"}
+[2025-11-11T01:23:30.463Z] [INFO   ] 2025-11-11T01:23:30.463Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-11T01:23:30.463Z] [INFO   ] 2025-11-11T01:23:30.463Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-11T01:23:30.463Z] [INFO   ] 2025-11-11T01:23:30.463Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":3,"workspaceType":"personal"}
+[2025-11-11T01:23:32.286Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/gumroad/data ...
+[2025-11-11T01:23:32.289Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/gumroad/data in 526ms (5499 modules)
+[2025-11-11T01:23:32.551Z] [INFO   ] 2025-11-11T01:23:32.551Z [DEBUG] 🔍 [Gumroad API] Processing request: {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","dataType":"gumroad_products","status":"connected","hasToken":true}
+[2025-11-11T01:23:32.552Z] [INFO   ] 2025-11-11T01:23:32.552Z [DEBUG] 🔍 Gumroad products fetcher called with integration: {"id":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","hasToken":true,"tokenLength":129}
+[2025-11-11T01:23:32.552Z] [INFO   ] 2025-11-11T01:23:32.552Z [DEBUG] 🔍 Validating Gumroad token...
+[2025-11-11T01:23:32.552Z] [INFO   ] 2025-11-11T01:23:32.552Z [DEBUG] 🔍 Fetching Gumroad products...
+[2025-11-11T01:23:32.902Z] [INFO   ] 2025-11-11T01:23:32.901Z [DEBUG] ✅ Gumroad products fetched successfully: 1 products
+[2025-11-11T01:23:32.902Z] [INFO   ] 2025-11-11T01:23:32.902Z [DEBUG] ✅ [Gumroad API] Successfully processed gumroad_products: {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","resultCount":1}
+[2025-11-11T01:25:06.319Z] [INFO   ] 2025-11-11T01:25:06.319Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-11T01:25:06.319Z"}
+[2025-11-11T01:25:06.334Z] [INFO   ] 2025-11-11T01:25:06.334Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-11T01:25:06.334Z"}
+[2025-11-11T01:25:06.334Z] [INFO   ] 2025-11-11T01:25:06.334Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-11T01:25:06.334Z"}
+[2025-11-11T01:25:08.634Z] [INFO   ] 2025-11-11T01:25:08.634Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-11T01:25:08.634Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-11T01:25:08.851Z] [INFO   ] 2025-11-11T01:25:08.851Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-11T01:25:08.851Z] [INFO   ] 2025-11-11T01:25:08.851Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-11T01:25:08.984Z] [INFO   ] 2025-11-11T01:25:08.983Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":3,"permissionsCount":3,"integrationsError":null,"permissionsError":null}
+[2025-11-11T01:25:08.984Z] [INFO   ] 2025-11-11T01:25:08.984Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"759dc5d5-1fce-4f46-afb2-f7b7c64fc339","provider":"hubspot","permission":"admin"}
+[2025-11-11T01:25:08.984Z] [INFO   ] 2025-11-11T01:25:08.984Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-11T01:25:08.984Z] [INFO   ] 2025-11-11T01:25:08.984Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-11T01:25:08.984Z] [INFO   ] 2025-11-11T01:25:08.984Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":3,"workspaceType":"personal"}
+[2025-11-11T01:25:19.631Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/auth/generate-url ...
+[2025-11-11T01:25:20.302Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/auth/generate-url in 1217ms (5497 modules)
+[2025-11-11T01:25:28.080Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/hubspot/callback ...
+[2025-11-11T01:25:28.256Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/hubspot/callback in 848ms (5505 modules)
+[2025-11-11T01:25:28.372Z] [INFO   ] 2025-11-11T01:25:28.372Z [DEBUG] 🔍 hubspot callback called: {"url":"http://localhost:3000/api/integrations/hubspot/callback?code=na2-f701-1fed-4ba6-80ef-842b6267f45c&state=eyJ1c2VySWQiOiJhM2UzYTUxYS0xNzVjLTRiNTktYWQwMy0yMjdiYTEyYTE4YjAiLCJwcm92aWRlciI6Imh1YnNwb3QiLCJyZWNvbm5lY3QiOmZhbHNlLCJ0aW1lc3RhbXAiOjE3NjI4MjQzMjA3MDUsIndvcmtzcGFjZVR5cGUiOiJwZXJzb25hbCJ9","hasCode":true,"hasState":true,"error":null,"userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"}
+[2025-11-11T01:25:28.373Z] [INFO   ] 2025-11-11T01:25:28.373Z [DEBUG] hubspot OAuth callback state: {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"hubspot","reconnect":false,"workspaceType":"personal"}
+[2025-11-11T01:25:28.661Z] [INFO   ] 2025-11-11T01:25:28.661Z [INFO] 🔍 [HubSpot] Starting account info fetch with access token
+[2025-11-11T01:25:28.662Z] [INFO   ] 2025-11-11T01:25:28.662Z [DEBUG] 🔍 [HubSpot] Trying primary endpoint: /oauth/v1/access-tokens
+[2025-11-11T01:25:28.782Z] [INFO   ] 2025-11-11T01:25:28.781Z [INFO] ✅ [HubSpot] Primary endpoint success: {"hasEmail":true,"hasHubId":true,"hasHubDomain":true,"allFields":["token","user","hub_domain","scopes","signed_access_token","token_type","user_id","app_id","hub_id","is_private_distribution","expires_in"]}
+[2025-11-11T01:25:29.016Z] [INFO   ] 2025-11-11T01:25:29.015Z [DEBUG] ✅ Updated existing integration by email: 759dc5d5-1fce-4f46-afb2-f7b7c64fc339
+[2025-11-11T01:25:29.017Z] [INFO   ] 2025-11-11T01:25:29.017Z [DEBUG] Granting permissions for workspace context: {"type":"personal"}
+[2025-11-11T01:25:29.183Z] [ERROR  ] 2025-11-11T01:25:29.183Z [ERROR] Error granting permission: {"code":"23505","details":null,"hint":null,"message":"duplicate key value violates unique constraint \"integration_permissions_integration_id_user_id_key\""}
+[2025-11-11T01:25:29.183Z] [INFO   ] 2025-11-11T01:25:29.183Z [INFO] Personal integration 759dc5d5-1fce-4f46-afb2-f7b7c64fc339 - granted admin to a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-11-11T01:25:29.184Z] [INFO   ] 2025-11-11T01:25:29.183Z [DEBUG] ✅ Permissions granted successfully
+[2025-11-11T01:25:29.184Z] [INFO   ] 2025-11-11T01:25:29.184Z [DEBUG] ✅ hubspot integration successfully saved
+[2025-11-11T01:25:29.184Z] [INFO   ] 2025-11-11T01:25:29.184Z [DEBUG] 🔄 Creating popup response: type=success, provider=hubspot, displayName=HubSpot, message=hubspot connected successfully!
+[2025-11-11T01:25:29.396Z] [INFO   ] 2025-11-11T01:25:29.396Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-11T01:25:29.396Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-11T01:25:29.508Z] [INFO   ] 2025-11-11T01:25:29.508Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-11T01:25:29.509Z] [INFO   ] 2025-11-11T01:25:29.509Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-11T01:25:29.594Z] [INFO   ] 2025-11-11T01:25:29.594Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":3,"permissionsCount":3,"integrationsError":null,"permissionsError":null}
+[2025-11-11T01:25:29.594Z] [INFO   ] 2025-11-11T01:25:29.594Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"759dc5d5-1fce-4f46-afb2-f7b7c64fc339","provider":"hubspot","permission":"admin"}
+[2025-11-11T01:25:29.594Z] [INFO   ] 2025-11-11T01:25:29.594Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-11T01:25:29.595Z] [INFO   ] 2025-11-11T01:25:29.594Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-11T01:25:29.595Z] [INFO   ] 2025-11-11T01:25:29.595Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":3,"workspaceType":"personal"}
+[2025-11-11T01:25:30.350Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/hubspot/data ...
+[2025-11-11T01:25:30.879Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/hubspot/data in 1092ms (5529 modules)
+[2025-11-11T01:25:30.977Z] [INFO   ] 2025-11-11T01:25:30.977Z [DEBUG] 📥 [HubSpot API] Received request: {"integrationId":"759dc5d5-1fce-4f46-afb2-f7b7c64fc339","dataType":"hubspot_companies","options":{}}
+[2025-11-11T01:25:30.977Z] [INFO   ] 2025-11-11T01:25:30.977Z [DEBUG] 📥 [HubSpot API] Received request: {"integrationId":"759dc5d5-1fce-4f46-afb2-f7b7c64fc339","dataType":"hubspot_job_titles","options":{}}
+[2025-11-11T01:25:31.062Z] [INFO   ] 2025-11-11T01:25:31.062Z [DEBUG] 🔍 [HubSpot API] Processing request: {"integrationId":"759dc5d5-1fce-4f46-afb2-f7b7c64fc339","dataType":"hubspot_job_titles","status":"connected","hasToken":true}
+[2025-11-11T01:25:31.062Z] [INFO   ] 2025-11-11T01:25:31.062Z [DEBUG] 🔍 HubSpot job titles fetcher called with integration: {"id":"759dc5d5-1fce-4f46-afb2-f7b7c64fc339","provider":"hubspot","hasToken":true,"tokenLength":481}
+[2025-11-11T01:25:31.062Z] [INFO   ] 2025-11-11T01:25:31.062Z [DEBUG] 🔍 Validating HubSpot token...
+[2025-11-11T01:25:31.063Z] [INFO   ] 2025-11-11T01:25:31.063Z [DEBUG] 🔍 Using predefined HubSpot job titles list...
+[2025-11-11T01:25:31.063Z] [INFO   ] 2025-11-11T01:25:31.063Z [DEBUG] ✅ HubSpot job titles fetched successfully: 35 job titles
+[2025-11-11T01:25:31.063Z] [INFO   ] 2025-11-11T01:25:31.063Z [DEBUG] ✅ [HubSpot API] Successfully processed hubspot_job_titles: {"integrationId":"759dc5d5-1fce-4f46-afb2-f7b7c64fc339","resultCount":35}
+[2025-11-11T01:25:31.074Z] [INFO   ] 2025-11-11T01:25:31.074Z [DEBUG] 🔍 [HubSpot API] Processing request: {"integrationId":"759dc5d5-1fce-4f46-afb2-f7b7c64fc339","dataType":"hubspot_companies","status":"connected","hasToken":true}
+[2025-11-11T01:25:31.075Z] [INFO   ] 2025-11-11T01:25:31.075Z [DEBUG] 🔍 HubSpot companies fetcher called with integration: {"id":"759dc5d5-1fce-4f46-afb2-f7b7c64fc339","provider":"hubspot","hasToken":true,"tokenLength":481}
+[2025-11-11T01:25:31.075Z] [INFO   ] 2025-11-11T01:25:31.075Z [DEBUG] 🔍 Validating HubSpot token...
+[2025-11-11T01:25:31.075Z] [INFO   ] 2025-11-11T01:25:31.075Z [DEBUG] 🔍 Fetching HubSpot companies from API...
+[2025-11-11T01:25:31.254Z] [INFO   ] 2025-11-11T01:25:31.254Z [DEBUG] ✅ HubSpot companies fetched successfully: 2 companies
+[2025-11-11T01:25:31.254Z] [INFO   ] 2025-11-11T01:25:31.254Z [DEBUG] ✅ [HubSpot API] Successfully processed hubspot_companies: {"integrationId":"759dc5d5-1fce-4f46-afb2-f7b7c64fc339","resultCount":2}
+[2025-11-11T01:27:26.204Z] [INFO   ] 2025-11-11T01:27:26.204Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-11T01:27:26.204Z"}
+[2025-11-11T01:27:26.226Z] [INFO   ] 2025-11-11T01:27:26.226Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-11T01:27:26.226Z"}
+[2025-11-11T01:27:26.226Z] [INFO   ] 2025-11-11T01:27:26.226Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-11T01:27:26.226Z"}
+
+=== Log Session Ended: 2025-11-11T01:27:47.322Z ===

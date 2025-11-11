@@ -19,7 +19,7 @@ import { fetchGmailMessage } from './gmail/fetchMessage'
 import { fetchGmailTriggerEmail } from './gmail/fetchTriggerEmail'
 
 // Google Sheets actions
-import { readGoogleSheetsData, exportGoogleSheetsData, createGoogleSheetsRow, updateGoogleSheetsRow, deleteGoogleSheetsRow, findGoogleSheetsRow, clearGoogleSheetsRange } from './googleSheets'
+import { readGoogleSheetsData, exportGoogleSheetsData, createGoogleSheetsRow, updateGoogleSheetsRow, deleteGoogleSheetsRow, findGoogleSheetsRow, clearGoogleSheetsRange, formatGoogleSheetsRange, batchUpdateGoogleSheets } from './googleSheets'
 
 // Microsoft Excel actions
 import {
@@ -254,13 +254,32 @@ import { createShopifyFulfillment } from './shopify/createFulfillment'
 import { createShopifyProductVariant } from './shopify/createProductVariant'
 import { updateShopifyProductVariant } from './shopify/updateProductVariant'
 
+// Gumroad actions
+import {
+  getGumroadProduct,
+  listGumroadProducts,
+  enableGumroadProduct,
+  disableGumroadProduct,
+  deleteGumroadProduct,
+  createGumroadVariantCategory,
+  createGumroadOfferCode,
+  getGumroadSalesAnalytics,
+  listGumroadSales,
+  markGumroadAsShipped,
+  refundGumroadSale,
+  getGumroadSubscriber,
+  listGumroadSubscribers,
+  resendGumroadReceipt,
+  verifyGumroadLicense,
+  enableGumroadLicense,
+  disableGumroadLicense,
+} from './gumroad'
+
 // Utility actions
 import {
-  executeTransformer,
   formatTransformer,
   executeFileUpload,
   executeExtractWebsiteData,
-  executeGoogleSearch,
   executeTavilySearch
 } from './utility'
 
@@ -272,7 +291,8 @@ import {
 
 // Logic control actions
 import { executePath } from './logic/executePath'
-import { executeFilter } from './logic/executeFilter'
+import { executeRouter } from './logic/executeRouter'
+import { executeFilter } from './logic/executeFilter' // Legacy - for backward compatibility
 import { executeHttpRequest } from './logic/executeHttpRequest'
 import { executeLoop } from './logic/loop'
 
@@ -448,6 +468,10 @@ export const actionHandlerRegistry: Record<string, Function> = {
     deleteGoogleSheetsRow(params.config, params.userId, params.input),
   "google_sheets_action_clear_range": (params: { config: any; userId: string; input: Record<string, any> }) =>
     clearGoogleSheetsRange(params.config, params.userId, params.input),
+  "google_sheets_action_format_range": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    formatGoogleSheetsRange(params.config, params.userId, params.input),
+  "google_sheets_action_batch_update": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    batchUpdateGoogleSheets(params.config, params.userId, params.input),
   "google_sheets_action_find_row": (params: { config: any; userId: string; input: Record<string, any> }) =>
     findGoogleSheetsRow(params.config, params.userId, params.input),
   "google-sheets_action_export_sheet": (params: { config: any; userId: string; input: Record<string, any> }) =>
@@ -833,9 +857,43 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "twitter_action_get_mentions": (params: { config: any; userId: string; input: Record<string, any> }) =>
     getMentionsHandler(params.config, params.userId, params.input),
 
+  // Gumroad actions - wrapped to handle new calling convention
+  "gumroad_action_get_product": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    getGumroadProduct(params.config, params.userId, params.input),
+  "gumroad_action_list_products": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    listGumroadProducts(params.config, params.userId, params.input),
+  "gumroad_action_enable_product": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    enableGumroadProduct(params.config, params.userId, params.input),
+  "gumroad_action_disable_product": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    disableGumroadProduct(params.config, params.userId, params.input),
+  "gumroad_action_delete_product": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    deleteGumroadProduct(params.config, params.userId, params.input),
+  "gumroad_action_create_variant_category": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createGumroadVariantCategory(params.config, params.userId, params.input),
+  "gumroad_action_create_offer_code": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createGumroadOfferCode(params.config, params.userId, params.input),
+  "gumroad_action_get_sales_analytics": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    getGumroadSalesAnalytics(params.config, params.userId, params.input),
+  "gumroad_action_list_sales": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    listGumroadSales(params.config, params.userId, params.input),
+  "gumroad_action_mark_as_shipped": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    markGumroadAsShipped(params.config, params.userId, params.input),
+  "gumroad_action_refund_sale": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    refundGumroadSale(params.config, params.userId, params.input),
+  "gumroad_action_get_subscriber": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    getGumroadSubscriber(params.config, params.userId, params.input),
+  "gumroad_action_list_subscribers": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    listGumroadSubscribers(params.config, params.userId, params.input),
+  "gumroad_action_resend_receipt": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    resendGumroadReceipt(params.config, params.userId, params.input),
+  "gumroad_action_verify_license": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    verifyGumroadLicense(params.config, params.userId, params.input),
+  "gumroad_action_enable_license": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    enableGumroadLicense(params.config, params.userId, params.input),
+  "gumroad_action_disable_license": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    disableGumroadLicense(params.config, params.userId, params.input),
+
   // Utility actions - data transformation, web scraping, search, etc.
-  "transformer": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    executeTransformer(params.config, params.userId, params.input),
   "format_transformer": (params: { config: any; userId: string; input: Record<string, any> }) =>
     formatTransformer(params.config, params.userId, params.input),
   "utility_action_format_transformer": (params: { config: any; userId: string; input: Record<string, any> }) =>
@@ -844,8 +902,6 @@ export const actionHandlerRegistry: Record<string, Function> = {
     executeFileUpload(params.config, params.userId, params.input),
   "extract_website_data": (params: { config: any; userId: string; input: Record<string, any> }) =>
     executeExtractWebsiteData(params.config, params.userId, params.input),
-  "google_search": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    executeGoogleSearch(params.config, params.userId, params.input),
   "tavily_search": (params: { config: any; userId: string; input: Record<string, any> }) =>
     executeTavilySearch(params.config, params.userId, params.input),
 
@@ -855,9 +911,15 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "delay": (params: { config: any; userId: string; input: Record<string, any> }) =>
     executeDelayAction(params.config, params.userId, params.input),
 
-  // Logic control actions - Path, Filter, HTTP Request
+  // Logic control actions - Path, Router (filter + multi-path), HTTP Request
   "path": (params: { config: any; userId: string; input: Record<string, any> }) =>
     executePath({
+      config: params.config,
+      previousOutputs: params.input,
+      trigger: params.input.trigger
+    }),
+  "router": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    executeRouter({
       config: params.config,
       previousOutputs: params.input,
       trigger: params.input.trigger
@@ -867,7 +929,13 @@ export const actionHandlerRegistry: Record<string, Function> = {
       config: params.config,
       previousOutputs: params.input,
       trigger: params.input.trigger
-    }),
+    }),  // Legacy - backward compatibility
+  "path_condition": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    executeFilter({
+      config: params.config,
+      previousOutputs: params.input,
+      trigger: params.input.trigger
+    }),  // Legacy - backward compatibility
   "http_request": (params: { config: any; userId: string; input: Record<string, any> }) =>
     executeHttpRequest({
       config: params.config,

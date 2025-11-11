@@ -465,35 +465,6 @@ export function Combobox({
                         </CommandItem>
                       );
                     })}
-                    {/* Show create option if creatable */}
-                    {creatable && inputValue.trim() && !filteredOptions.some(option => option.value === inputValue.trim()) && (
-                      <CommandItem
-                        key={`create-${inputValue.trim()}`}
-                        value={inputValue.trim()}
-                        onSelect={() => {
-                          const newOption = { value: inputValue.trim(), label: inputValue.trim(), isExisting: false }
-                          setLocalOptions((prev) => [...prev, newOption])
-                          onChange(inputValue.trim())
-                          setInputValue("")
-                          setOpen(false)
-                        }}
-                        className="bg-blue-50 dark:bg-blue-950/20 border-l-2 border-blue-500"
-                      >
-                        <div className="flex items-center w-full">
-                          <div className="flex items-center gap-2 flex-1">
-                            <div className="h-4 w-4 rounded bg-blue-500 flex items-center justify-center">
-                              <span className="text-white text-xs font-bold">+</span>
-                            </div>
-                            <span className="text-blue-700 dark:text-blue-300 font-semibold">
-                              {inputValue.trim().startsWith('{{') && inputValue.trim().endsWith('}}')
-                                ? `Use variable: ${inputValue.trim()}`
-                                : `Use custom value: "${inputValue.trim()}"`}
-                            </span>
-                          </div>
-                          <span className="text-xs text-muted-foreground">Press Enter</span>
-                        </div>
-                      </CommandItem>
-                    )}
                   </CommandGroup>
                 );
               }
@@ -522,7 +493,7 @@ export function Combobox({
               };
 
               // Render groups with collapsible headers
-              return Object.entries(grouped).map(([groupName, groupOptions]) => {
+              const groupElements = Object.entries(grouped).map(([groupName, groupOptions]) => {
                 const isCollapsed = collapsedGroups.has(groupName);
                 return (
                   <CommandGroup key={groupName}>
@@ -589,9 +560,39 @@ export function Combobox({
                   </CommandGroup>
                 );
               });
+
+              return groupElements;
             })()}
           </CommandList>
         </Command>
+
+        {/* Render create button outside Command to avoid cmdk filtering - only show if value doesn't exactly match an existing option */}
+        {creatable && inputValue.trim() && !localOptions.some(option => option.value === inputValue.trim()) && (
+          <div
+            className="border-t border-gray-200 dark:border-gray-700 p-2 bg-blue-50 dark:bg-blue-950/20 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+            onClick={() => {
+              const newOption = { value: inputValue.trim(), label: inputValue.trim(), isExisting: false }
+              setLocalOptions((prev) => [...prev, newOption])
+              onChange(inputValue.trim())
+              setInputValue("")
+              setOpen(false)
+            }}
+          >
+            <div className="flex items-center w-full">
+              <div className="flex items-center gap-2 flex-1">
+                <div className="h-4 w-4 rounded bg-blue-500 flex items-center justify-center">
+                  <span className="text-white text-xs font-bold">+</span>
+                </div>
+                <span className="text-blue-700 dark:text-blue-300 font-semibold">
+                  {inputValue.trim().startsWith('{{') && inputValue.trim().endsWith('}}')
+                    ? `Use variable: ${inputValue.trim()}`
+                    : `Use custom value: "${inputValue.trim()}"`}
+                </span>
+              </div>
+              <span className="text-xs text-muted-foreground">Press Enter</span>
+            </div>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   )
@@ -941,37 +942,36 @@ export function MultiCombobox({
                 </CommandItem>
               );
               })}
-              {/* Show create option if inputValue is not empty and not in options */}
-              {creatable && inputValue.trim() && !options.some(option => option.value === inputValue.trim()) && (
-                <CommandItem
-                  key={`create-${ inputValue.trim()}`}
-                  value={inputValue.trim()}
-                  onSelect={() => {
-                    const newOption = { value: inputValue.trim(), label: inputValue.trim() }
-                    setOptions((prev) => [...prev, newOption])
-                    onChange([...value, inputValue.trim()])
-                    setInputValue("")
-                  }}
-                  className="bg-blue-50 dark:bg-blue-950/20 border-l-2 border-blue-500"
-                >
-                  <div className="flex items-center w-full">
-                    <div className="flex items-center gap-2 flex-1">
-                      <div className="h-4 w-4 rounded bg-blue-500 flex items-center justify-center">
-                        <span className="text-white text-xs font-bold">+</span>
-                      </div>
-                      <span className="text-blue-700 dark:text-blue-300 font-semibold">
-                        {inputValue.trim().startsWith('{{') && inputValue.trim().endsWith('}}')
-                          ? `Use variable: ${inputValue.trim()}`
-                          : `Add custom value: "${inputValue.trim()}"`}
-                      </span>
-                    </div>
-                    <span className="text-xs text-muted-foreground">Press Enter</span>
-                  </div>
-                </CommandItem>
-              )}
             </CommandGroup>
           </CommandList>
         </Command>
+
+        {/* Render create button outside Command to avoid cmdk filtering - only show if value doesn't exactly match an existing option */}
+        {creatable && inputValue.trim() && !options.some(option => option.value === inputValue.trim()) && (
+          <div
+            className="border-t border-gray-200 dark:border-gray-700 p-2 bg-blue-50 dark:bg-blue-950/20 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+            onClick={() => {
+              const newOption = { value: inputValue.trim(), label: inputValue.trim() }
+              setOptions((prev) => [...prev, newOption])
+              onChange([...value, inputValue.trim()])
+              setInputValue("")
+            }}
+          >
+            <div className="flex items-center w-full">
+              <div className="flex items-center gap-2 flex-1">
+                <div className="h-4 w-4 rounded bg-blue-500 flex items-center justify-center">
+                  <span className="text-white text-xs font-bold">+</span>
+                </div>
+                <span className="text-blue-700 dark:text-blue-300 font-semibold">
+                  {inputValue.trim().startsWith('{{') && inputValue.trim().endsWith('}}')
+                    ? `Use variable: ${inputValue.trim()}`
+                    : `Add custom value: "${inputValue.trim()}"`}
+                </span>
+              </div>
+              <span className="text-xs text-muted-foreground">Press Enter</span>
+            </div>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   )

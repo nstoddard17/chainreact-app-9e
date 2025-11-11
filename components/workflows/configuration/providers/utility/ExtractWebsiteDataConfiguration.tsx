@@ -10,6 +10,7 @@ import { ConfigurationContainer } from '../../components/ConfigurationContainer'
 import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Globe, Sparkles } from 'lucide-react';
 
 interface ExtractWebsiteDataConfigurationProps {
   values: Record<string, any>;

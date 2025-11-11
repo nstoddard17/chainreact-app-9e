@@ -46,9 +46,10 @@ import { PayPalConfiguration } from './providers/PayPalConfiguration';
 import { GenericConfiguration } from './providers/GenericConfiguration';
 import { ScheduleConfiguration } from './providers/ScheduleConfiguration';
 import { IfThenConfiguration } from './providers/IfThenConfiguration';
-import { PathConfiguration } from './providers/logic/PathConfiguration';
-import { FilterConfiguration } from './providers/logic/FilterConfiguration';
+import { RouterConfiguration } from './providers/logic/RouterConfiguration';
+import { LoopConfiguration } from './providers/logic/LoopConfiguration';
 import { HttpRequestConfiguration } from './providers/logic/HttpRequestConfiguration';
+import { WebhookConfiguration } from './providers/WebhookConfiguration';
 
 // Utility nodes
 import { TransformerConfiguration } from './providers/utility/TransformerConfiguration';
@@ -168,27 +169,30 @@ function ConfigurationForm({
   // For Microsoft Excel, we need to check OneDrive connection since Excel uses OneDrive's Graph API
   const providerToCheck = provider === 'microsoft-excel' ? 'onedrive' : provider;
   const integration = providerToCheck ? getIntegrationByProvider(providerToCheck) : null;
+
+  // Helper function to check if status means connected
+  const isConnectedStatus = (status?: string) => {
+    if (!status) return false;
+    const normalizedStatus = status.toLowerCase();
+    return normalizedStatus === 'connected' ||
+           normalizedStatus === 'authorized' ||
+           normalizedStatus === 'active' ||
+           normalizedStatus === 'valid';
+  };
+
   const needsConnection =
     provider &&
     provider !== 'logic' &&
     provider !== 'ai' &&
+    provider !== 'core' &&
+    provider !== 'manual' &&
+    provider !== 'schedule' &&
+    provider !== 'webhook' &&
     (
       !integration ||
-      integration?.status === 'needs_reauthorization' ||
-      integration?.status === 'needs_reconnect'
+      !isConnectedStatus(integration?.status)
     );
   const integrationName = integrationNameProp || nodeInfo?.label?.split(' ')[0] || provider;
-
-  // Debug logging for HubSpot
-  if (provider === 'hubspot') {
-    logger.debug('🎯 [ConfigForm] HubSpot integration check:', {
-      provider,
-      integration,
-      status: integration?.status,
-      needsConnection,
-      integrationName
-    });
-  }
 
   // Extract saved dynamic options from initialData if present
   const savedDynamicOptions = initialData?.__dynamicOptions;
@@ -204,6 +208,7 @@ function ConfigurationForm({
       try { fetchIntegrations(false); } catch {}
     }
   }, [provider, integration, fetchIntegrations]);
+
 
   // Dynamic options hook
   const {
@@ -1537,16 +1542,23 @@ function ConfigurationForm({
     return <IfThenConfiguration {...commonProps} />;
   }
 
-  // Check for path router node
+  // Path Router node has no configuration - it's a placeholder node
+  // Paths are configured via connected Path Condition nodes
   if (nodeInfo?.type === 'path') {
-    logger.debug('🛤️ [ConfigForm] Routing to Path configuration');
-    return <PathConfiguration {...commonProps} />;
+    logger.debug('🛤️ [ConfigForm] Path router has no config - showing placeholder');
+    return null; // No config needed
   }
 
-  // Check for filter node
-  if (nodeInfo?.type === 'filter') {
-    logger.debug('🔍 [ConfigForm] Routing to Filter configuration');
-    return <FilterConfiguration {...commonProps} />;
+  // Check for router node (replaces filter and path_condition)
+  if (nodeInfo?.type === 'router' || nodeInfo?.type === 'filter' || nodeInfo?.type === 'path_condition') {
+    logger.debug('🔀 [ConfigForm] Routing to Router configuration');
+    return <RouterConfiguration {...commonProps} />;
+  }
+
+  // Check for loop node
+  if (nodeInfo?.type === 'loop') {
+    logger.debug('🔁 [ConfigForm] Routing to Loop configuration');
+    return <LoopConfiguration {...commonProps} />;
   }
 
   // Check for HTTP request node
@@ -1716,7 +1728,12 @@ function ConfigurationForm({
     case 'github':
       logger.debug('🐙 [ConfigForm] Routing to GitHub configuration');
       return <GitHubConfiguration {...commonProps} />;
-    
+
+    // Automation
+    case 'webhook':
+      logger.debug('🔗 [ConfigForm] Routing to Webhook configuration');
+      return <WebhookConfiguration {...commonProps} />;
+
     default:
       logger.debug('📕 [ConfigForm] Routing to Generic configuration for provider:', provider);
       return <GenericConfiguration {...commonProps} />;

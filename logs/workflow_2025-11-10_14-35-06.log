@@ -744,3 +744,54 @@ Import trace for requested module:
 [2025-11-10T21:24:04.923Z] [INFO   ] 2025-11-10T21:24:04.923Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
 [2025-11-10T21:24:04.923Z] [INFO   ] 2025-11-10T21:24:04.923Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"05a3e250-b869-4fef-87b1-1f258a6c7e41","provider":"hubspot","permission":"admin"}
 [2025-11-10T21:24:04.924Z] [INFO   ] 2025-11-10T21:24:04.924Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":3,"workspaceType":"personal"}
+[2025-11-10T21:26:24.265Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 3.3s (5325 modules)
+[2025-11-10T21:26:25.029Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-11-10T21:26:25.256Z] [INFO   ] 2025-11-10T21:26:25.256Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-10T21:26:25.256Z"}
+[2025-11-10T21:26:25.269Z] [INFO   ] 2025-11-10T21:26:25.269Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-10T21:26:25.269Z"}
+[2025-11-10T21:26:25.269Z] [INFO   ] 2025-11-10T21:26:25.269Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-10T21:26:25.269Z"}
+[2025-11-10T21:26:26.743Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 805ms (5325 modules)
+[2025-11-10T21:30:35.840Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.2s (1175 modules)
+[2025-11-10T21:30:35.895Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-11-10T21:30:36.344Z] [INFO   ] 2025-11-10T21:30:36.344Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-10T21:30:36.343Z"}
+[2025-11-10T21:30:36.356Z] [INFO   ] 2025-11-10T21:30:36.356Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-10T21:30:36.356Z"}
+[2025-11-10T21:30:36.356Z] [INFO   ] 2025-11-10T21:30:36.356Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-10T21:30:36.356Z"}
+[2025-11-10T21:30:39.016Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-11-10T21:30:41.312Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 2.8s (4166 modules)
+[2025-11-10T21:30:41.715Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4282 modules)
+[2025-11-10T21:30:42.853Z] [INFO   ] 2025-11-10T21:30:42.853Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-10T21:30:42.853Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-10T21:30:43.044Z] [INFO   ] 2025-11-10T21:30:43.044Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-10T21:30:43.045Z] [INFO   ] 2025-11-10T21:30:43.045Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-10T21:30:43.258Z] [INFO   ] 2025-11-10T21:30:43.258Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":4,"permissionsCount":4,"integrationsError":null,"permissionsError":null}
+[2025-11-10T21:30:43.258Z] [INFO   ] 2025-11-10T21:30:43.258Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"2c2de805-d2b8-4c1e-a7e0-2a052a619480","provider":"hubspot","permission":"admin"}
+[2025-11-10T21:30:43.258Z] [INFO   ] 2025-11-10T21:30:43.258Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-10T21:30:43.258Z] [INFO   ] 2025-11-10T21:30:43.258Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-10T21:30:43.258Z] [INFO   ] 2025-11-10T21:30:43.258Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"05a3e250-b869-4fef-87b1-1f258a6c7e41","provider":"hubspot","permission":"admin"}
+[2025-11-10T21:30:43.258Z] [INFO   ] 2025-11-10T21:30:43.258Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":4,"workspaceType":"personal"}
+[2025-11-10T21:30:57.442Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 775ms (1175 modules)
+[2025-11-10T21:33:06.301Z] [INFO   ]  [37m[1m [22m[39m Reload env: .env.local
+[2025-11-10T21:33:08.930Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 3s (5544 modules)
+[2025-11-10T21:33:13.813Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 367ms (1175 modules)
+[2025-11-10T21:35:40.429Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-11-10T21:35:40.477Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1281ms (4273 modules)
+[2025-11-10T21:35:53.416Z] [INFO   ] 2025-11-10T21:35:53.416Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-10T21:35:53.416Z"}
+[2025-11-10T21:35:53.428Z] [INFO   ] 2025-11-10T21:35:53.428Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-10T21:35:53.428Z"}
+[2025-11-10T21:35:53.428Z] [INFO   ] 2025-11-10T21:35:53.428Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-10T21:35:53.428Z"}
+[2025-11-10T21:35:54.801Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 382ms (4275 modules)
+[2025-11-10T21:35:55.088Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4282 modules)
+[2025-11-10T21:35:55.166Z] [INFO   ] 2025-11-10T21:35:55.166Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-10T21:35:55.166Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-10T21:35:55.443Z] [INFO   ] 2025-11-10T21:35:55.443Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-10T21:35:55.444Z] [INFO   ] 2025-11-10T21:35:55.444Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-10T21:35:55.615Z] [INFO   ] 2025-11-10T21:35:55.615Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":3,"permissionsCount":3,"integrationsError":null,"permissionsError":null}
+[2025-11-10T21:35:55.616Z] [INFO   ] 2025-11-10T21:35:55.616Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"95193e01-54c3-47b4-b9cd-f9e4fb18a37a","provider":"hubspot","permission":"admin"}
+[2025-11-10T21:35:55.616Z] [INFO   ] 2025-11-10T21:35:55.616Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-10T21:35:55.616Z] [INFO   ] 2025-11-10T21:35:55.616Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-10T21:35:55.616Z] [INFO   ] 2025-11-10T21:35:55.616Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":3,"workspaceType":"personal"}
+[2025-11-10T21:38:22.495Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.1s (1175 modules)
+[2025-11-10T21:38:33.992Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 546ms (1175 modules)
+[2025-11-10T21:38:43.757Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1030ms (1175 modules)
+[2025-11-10T21:38:51.445Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 402ms (1175 modules)
+[2025-11-10T21:38:59.328Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 414ms (1175 modules)
+[2025-11-10T21:39:09.471Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 457ms (1175 modules)
+[2025-11-10T21:39:20.513Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 425ms (1175 modules)
+[2025-11-10T21:39:35.168Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 460ms (1175 modules)
+[2025-11-10T21:39:35.278Z] [WARN   ]  [33m[1m⚠[22m[39m Server is approaching the used memory threshold, restarting...

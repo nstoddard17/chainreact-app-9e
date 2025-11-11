@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/utils/supabase/server'
+import { createClient } from '@supabase/supabase-js'
 import { logger } from '@/lib/utils/logger'
+
+const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
 /**
  * GET /api/integrations/all-connections
@@ -29,13 +31,23 @@ import { logger } from '@/lib/utils/logger'
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient()
+    // Get the current user from authorization header
+    const authHeader = request.headers.get('authorization')
+    if (!authHeader) {
+      return NextResponse.json(
+        { error: 'Authorization header required' },
+        { status: 401 }
+      )
+    }
 
-    // Get authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    // Extract token from Bearer header
+    const token = authHeader.replace('Bearer ', '')
+
+    // Verify the user with Supabase
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
     if (authError || !user) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Invalid authentication token' },
         { status: 401 }
       )
     }
@@ -61,7 +73,9 @@ export async function GET(request: NextRequest) {
     // 1. Personal integrations (user_id = current user)
     // 2. Team integrations (user is member of the team)
     // 3. Organization integrations (user is member of the organization)
-    const { data: integrations, error: integrationsError } = await supabase
+
+    // Try with new columns first (added in migration 20251110000000)
+    let { data: integrations, error: integrationsError } = await supabase
       .from('integrations')
       .select(`
         id,
@@ -84,13 +98,44 @@ export async function GET(request: NextRequest) {
       .in('status', ['connected', 'error', 'pending'])
       .order('created_at', { ascending: false })
 
+    // If query fails due to missing columns, try without them (backward compatibility)
+    if (integrationsError && integrationsError.message?.includes('column')) {
+      logger.debug('[AllConnections] New columns not available, using legacy query', {
+        error: integrationsError.message
+      })
+
+      const fallbackResult = await supabase
+        .from('integrations')
+        .select(`
+          id,
+          provider,
+          status,
+          workspace_type,
+          workspace_id,
+          metadata,
+          created_at,
+          expires_at,
+          user_id,
+          connected_by
+        `)
+        .eq('provider', provider)
+        .in('status', ['connected', 'error', 'pending'])
+        .order('created_at', { ascending: false })
+
+      integrations = fallbackResult.data
+      integrationsError = fallbackResult.error
+    }
+
     if (integrationsError) {
       logger.error('[AllConnections] Error fetching integrations:', {
         error: integrationsError.message,
+        code: integrationsError.code,
+        details: integrationsError.details,
+        hint: integrationsError.hint,
         provider
       })
       return NextResponse.json(
-        { error: 'Failed to fetch connections' },
+        { error: `Failed to fetch connections: ${integrationsError.message}` },
         { status: 500 }
       )
     }
@@ -170,13 +215,13 @@ export async function GET(request: NextRequest) {
       status: integration.status,
       workspace_type: integration.workspace_type,
       workspace_id: integration.workspace_id,
-      // Use top-level columns (added in migration 20251110000000)
+      // Use top-level columns (added in migration 20251110000000) if available
       // Fall back to metadata for backward compatibility
-      email: integration.email || integration.metadata?.email || integration.metadata?.userEmail || null,
-      username: integration.username || integration.metadata?.username || integration.metadata?.name || null,
-      account_name: integration.account_name || integration.metadata?.account_name || integration.metadata?.accountName || null,
-      avatar_url: integration.avatar_url || integration.metadata?.avatar_url || integration.metadata?.picture || null,
-      provider_user_id: integration.provider_user_id || integration.metadata?.provider_user_id || null,
+      email: integration.email ?? integration.metadata?.email ?? integration.metadata?.userEmail ?? null,
+      username: integration.username ?? integration.metadata?.username ?? integration.metadata?.name ?? null,
+      account_name: integration.account_name ?? integration.metadata?.account_name ?? integration.metadata?.accountName ?? null,
+      avatar_url: integration.avatar_url ?? integration.metadata?.avatar_url ?? integration.metadata?.picture ?? null,
+      provider_user_id: integration.provider_user_id ?? integration.metadata?.provider_user_id ?? null,
       created_at: integration.created_at,
       expires_at: integration.expires_at,
       user_permission: integration.user_permission,

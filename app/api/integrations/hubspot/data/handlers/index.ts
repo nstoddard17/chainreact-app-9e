@@ -12,6 +12,9 @@ import { getHubSpotJobTitles } from './jobTitles'
 import { getHubSpotDepartments } from './departments'
 import { getHubSpotIndustries } from './industries'
 import { getHubSpotContactProperties } from './contactProperties'
+import { getHubSpotDealProperties } from './dealProperties'
+import { getHubSpotCompanyProperties } from './companyProperties'
+import { getHubSpotTicketProperties } from './ticketProperties'
 import {
   getHubSpotLeadStatusOptions,
   getHubSpotContentTopicsOptions,
@@ -46,6 +49,9 @@ export const hubspotHandlers = {
   'hubspot_departments': getHubSpotDepartments,
   'hubspot_industries': getHubSpotIndustries,
   'hubspot_contact_properties': getHubSpotContactProperties,
+  'hubspot_deal_properties': getHubSpotDealProperties,
+  'hubspot_company_properties': getHubSpotCompanyProperties,
+  'hubspot_ticket_properties': getHubSpotTicketProperties,
   'hubspot_lead_status_options': getHubSpotLeadStatusOptions,
   'hubspot_content_topics_options': getHubSpotContentTopicsOptions,
   'hubspot_preferred_channels_options': getHubSpotPreferredChannelsOptions,
@@ -77,6 +83,9 @@ export {
   getHubSpotDepartments,
   getHubSpotIndustries,
   getHubSpotContactProperties,
+  getHubSpotDealProperties,
+  getHubSpotCompanyProperties,
+  getHubSpotTicketProperties,
   getHubSpotTickets,
   getHubSpotTicketPipelines,
   getHubSpotTicketStages,

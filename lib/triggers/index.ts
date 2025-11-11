@@ -16,7 +16,8 @@ import { ShopifyTriggerLifecycle } from './providers/ShopifyTriggerLifecycle'
 import { NotionTriggerLifecycle } from './providers/NotionTriggerLifecycle'
 import { HubSpotTriggerLifecycle } from './providers/HubSpotTriggerLifecycle'
 import { MondayTriggerLifecycle } from './providers/MondayTriggerLifecycle'
-import { ConditionalTriggerLifecycle } from './providers/ConditionalTriggerLifecycle'
+import { GumroadTriggerLifecycle } from './providers/GumroadTriggerLifecycle'
+import { WebhookTriggerLifecycle } from './providers/WebhookTriggerLifecycle'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -116,12 +117,20 @@ triggerLifecycleManager.registerProvider({
   description: 'Monday.com webhooks for board and item triggers'
 })
 
-// Register Utility Conditional Trigger
+// Register Gumroad provider
 triggerLifecycleManager.registerProvider({
-  providerId: 'utility',
-  lifecycle: new ConditionalTriggerLifecycle(),
-  requiresExternalResources: false, // Uses polling/cron, not webhooks
-  description: 'Conditional trigger for scheduled condition checking'
+  providerId: 'gumroad',
+  lifecycle: new GumroadTriggerLifecycle(),
+  requiresExternalResources: true,
+  description: 'Gumroad webhooks for sales, subscriptions, and product events (manual setup required)'
+})
+
+// Register Webhook provider (custom HTTP webhooks)
+triggerLifecycleManager.registerProvider({
+  providerId: 'webhook',
+  lifecycle: new WebhookTriggerLifecycle(),
+  requiresExternalResources: false, // Passive receiver, no external resources to create
+  description: 'Custom HTTP webhook triggers for external integrations'
 })
 
 // TODO: Register remaining providers:

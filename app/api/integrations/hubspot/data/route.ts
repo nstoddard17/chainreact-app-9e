@@ -101,11 +101,38 @@ export async function POST(req: NextRequest) {
         stack: handlerError.stack,
         integrationId
       })
-      
+
+      // Check if this is an authentication/authorization error that needs reconnection
+      const needsReconnection =
+        handlerError.message?.includes('authentication') ||
+        handlerError.message?.includes('forbidden') ||
+        handlerError.message?.includes('expired') ||
+        handlerError.status === 401 ||
+        handlerError.status === 403
+
+      // If reconnection is needed, update the integration status in the database
+      if (needsReconnection) {
+        logger.warn(`⚠️ [HubSpot API] Marking integration ${integrationId} as needs_reauthorization`)
+
+        try {
+          await supabase
+            .from('integrations')
+            .update({
+              status: 'needs_reauthorization',
+              disconnect_reason: handlerError.message || 'Authentication failed',
+              disconnected_at: new Date().toISOString(),
+              consecutive_failures: (integration.consecutive_failures || 0) + 1
+            })
+            .eq('id', integrationId)
+        } catch (updateError: any) {
+          logger.error('❌ [HubSpot API] Failed to update integration status:', updateError)
+        }
+      }
+
       // Return a proper error response
       return errorResponse(handlerError.message || 'Failed to fetch HubSpot data', 500, {
         details: process.env.NODE_ENV === 'development' ? handlerError.stack : undefined,
-        needsReconnection: handlerError.message?.includes('authentication')
+        needsReconnection
       })
     }
 
@@ -127,8 +154,16 @@ export async function POST(req: NextRequest) {
       stack: error.stack
     })
 
+    // Check if this is an authentication/authorization error that needs reconnection
+    const needsReconnection =
+      error.message?.includes('authentication') ||
+      error.message?.includes('forbidden') ||
+      error.message?.includes('expired') ||
+      error.status === 401 ||
+      error.status === 403
+
     // Handle authentication errors
-    if (error.message?.includes('authentication') || error.message?.includes('expired')) {
+    if (needsReconnection) {
       return errorResponse(error.message, 401, { needsReconnection: true
        })
     }

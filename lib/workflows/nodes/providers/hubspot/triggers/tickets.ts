@@ -138,9 +138,14 @@ export const hubspotTriggerTicketUpdated: NodeComponent = {
     {
       name: "propertyName",
       label: "Property Name",
-      type: "text",
+      type: "combobox",
       required: false,
-      placeholder: "e.g., subject, hs_pipeline_stage, hs_ticket_priority",
+      dynamic: "hubspot_ticket_properties",
+      loadOnMount: true,
+      searchable: true,
+      allowCustomValue: true,
+      supportsVariables: true,
+      placeholder: "All properties",
       description: "Optional: Filter to a specific property. Leave empty to listen to all property updates."
     },
     {

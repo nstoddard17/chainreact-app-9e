@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -11,10 +10,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Trash2, Variable, Palette } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { Plus, Trash2, TestTube2 } from "lucide-react"
+import { GroupedFieldSelector } from './GroupedFieldSelector'
+import { VariableAutocomplete } from './VariableAutocomplete'
+import { FieldValidation, PathCompletionBadge } from './InlineValidation'
+import { ConditionTester } from './ConditionTester'
+import { LogicFlowPreview } from './LogicFlowPreview'
+import { GenericSelectField } from './shared/GenericSelectField'
 
 export interface Condition {
   id: string
@@ -75,6 +78,8 @@ export function CriteriaBuilder({
   maxPaths = 5,
 }: CriteriaBuilderProps) {
   const [paths, setPaths] = useState<ConditionalPath[]>(value)
+  const [showTester, setShowTester] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, Record<string, string>>>({})
 
   const PATH_COLORS = [
     "#2563EB",
@@ -245,90 +250,113 @@ export function CriteriaBuilder({
     return !['is_empty', 'is_not_empty', 'is_true', 'is_false'].includes(operator)
   }
 
+  const getExampleForType = (type: string): string => {
+    switch (type.toLowerCase()) {
+      case 'string':
+      case 'text':
+        return 'Example text'
+      case 'number':
+        return '42'
+      case 'boolean':
+        return 'true'
+      case 'email':
+        return 'user@example.com'
+      case 'date':
+        return '2025-01-01'
+      default:
+        return 'value'
+    }
+  }
+
+  const getPathCompletion = (path: ConditionalPath) => {
+    const totalConditions = path.conditions.length
+    const validConditions = path.conditions.filter(c => {
+      if (!c.field || !c.operator) return false
+      if (needsValue(c.operator) && !c.value) return false
+      return true
+    }).length
+    return { totalConditions, validConditions }
+  }
+
   const disableAddPath = paths.length >= maxPaths
 
   return (
-    <div className="space-y-5">
-      <div className="rounded-lg border bg-muted/40 p-4 text-sm text-muted-foreground">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-medium text-foreground">Path handles</p>
-            <p>Each named path becomes its own connection handle on the canvas. Workflows fall back to the Else handle when no conditions match.</p>
-          </div>
-          <Badge variant="outline" className="bg-background text-xs">
-            {paths.length} / {maxPaths} paths
-          </Badge>
+    <div className="space-y-6">
+      {/* Header Info */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-foreground">Filter Conditions</p>
+          <p className="text-xs text-muted-foreground">Only continue if the following rules match</p>
         </div>
+        <Badge variant="outline" className="text-xs">
+          {paths.length} {paths.length === 1 ? 'path' : 'paths'}
+        </Badge>
       </div>
 
-      {paths.map((path, pathIndex) => (
-        <Card key={path.id} className="border-border/80 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <div className="flex items-center gap-3">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => cyclePathColor(path.id)}
-                className="h-7 w-7 rounded-full border border-border/80 bg-background/80 hover:bg-background"
-                title="Change path color"
-              >
-                <span
-                  className="h-3.5 w-3.5 rounded-full border border-white shadow-sm"
-                  style={{ backgroundColor: path.color || PATH_COLORS[pathIndex % PATH_COLORS.length] }}
-                />
-              </Button>
-              {showPathNames ? (
-                <Input
-                  value={path.name}
-                  onChange={(e) => updatePathName(path.id, e.target.value)}
-                  className="h-9 max-w-xs border-none px-0 text-base font-semibold shadow-none focus-visible:ring-0"
-                  placeholder={`Path ${String.fromCharCode(65 + pathIndex)}`}
-                />
-              ) : (
-                <CardTitle className="text-base font-semibold">
-                  {path.name}
-                </CardTitle>
-              )}
-              <Badge variant="secondary" className="ml-1 text-xs font-medium">
-                Handle: {path.name || `Path ${String.fromCharCode(65 + pathIndex)}`}
-              </Badge>
-            </div>
-            {paths.length > 1 && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => removePath(path.id)}
-                className="text-muted-foreground hover:text-destructive"
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            )}
-          </CardHeader>
+      {/* Paths */}
+      {paths.map((path, pathIndex) => {
+        const { totalConditions, validConditions } = getPathCompletion(path)
 
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between gap-2 rounded-md border border-dashed border-border/70 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+        return (
+          <div key={path.id} className="space-y-3">
+            {/* Path Header */}
+            <div className="flex items-center justify-between gap-3 pb-2">
               <div className="flex items-center gap-2">
-                <Palette className="h-3.5 w-3.5 text-muted-foreground" />
-                <span>Select conditions that should trigger this branch. The first matching branch runs; the Else branch handles the remainder.</span>
+                <button
+                  type="button"
+                  onClick={() => cyclePathColor(path.id)}
+                  className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-muted transition-colors"
+                  title="Change path color"
+                >
+                  <span
+                    className="h-3 w-3 rounded-full"
+                    style={{ backgroundColor: path.color || PATH_COLORS[pathIndex % PATH_COLORS.length] }}
+                  />
+                </button>
+                {showPathNames ? (
+                  <Input
+                    value={path.name}
+                    onChange={(e) => updatePathName(path.id, e.target.value)}
+                    className="h-8 max-w-[200px] border-0 bg-transparent px-0 text-sm font-medium shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                    placeholder={`Path ${String.fromCharCode(65 + pathIndex)}`}
+                  />
+                ) : (
+                  <span className="text-sm font-medium">
+                    {path.name}
+                  </span>
+                )}
+                <PathCompletionBadge
+                  pathName={path.name}
+                  totalConditions={totalConditions}
+                  validConditions={validConditions}
+                />
               </div>
-              <Badge variant="outline" className="bg-background text-xs">
-                {path.logicOperator.toUpperCase()} logic
-              </Badge>
+              {paths.length > 1 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => removePath(path.id)}
+                  className="h-8 text-muted-foreground hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
             </div>
 
-            <div className="space-y-3">
+            {/* Conditions */}
+            <div className="space-y-2">
               {path.conditions.map((condition, conditionIndex) => (
-                <div key={condition.id} className="space-y-2 rounded-md border border-border/80 bg-background/60 p-3 shadow-xs">
+                <div key={condition.id} className="space-y-2">
+                  {/* AND/OR Connector */}
                   {conditionIndex > 0 && (
-                    <div className="flex items-center justify-center">
+                    <div className="flex items-center justify-center -my-1">
                       <Select
                         value={path.logicOperator}
                         onValueChange={(value: 'and' | 'or') =>
                           updateLogicOperator(path.id, value)
                         }
                       >
-                        <SelectTrigger className="h-8 w-24 text-xs font-semibold uppercase tracking-wide">
+                        <SelectTrigger className="h-7 w-20 border-0 bg-muted/50 text-xs font-medium uppercase">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -339,155 +367,147 @@ export function CriteriaBuilder({
                     </div>
                   )}
 
-                  <div className="flex flex-wrap items-center gap-3">
-                    {conditionIndex === 0 ? (
-                      <Label className="text-sm font-medium text-muted-foreground">If</Label>
-                    ) : (
-                      <span className="w-6" />
-                    )}
-
-                    <Select
-                      value={condition.field}
-                      onValueChange={(value) =>
-                        updateCondition(path.id, condition.id, { field: value })
-                      }
-                    >
-                      <SelectTrigger className="min-w-[200px]">
-                        <SelectValue placeholder="Select field" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {previousNodeOutputs.length > 0 ? (
-                          previousNodeOutputs.map((output) => (
-                            <SelectItem key={output.name} value={output.name}>
-                              {output.label}
-                            </SelectItem>
-                          ))
-                        ) : (
-                          <SelectItem value="custom">Enter custom field</SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-
-                    <Select
-                      value={condition.operator}
-                      onValueChange={(value) =>
-                        updateCondition(path.id, condition.id, { operator: value })
-                      }
-                    >
-                      <SelectTrigger className="min-w-[180px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {getOperatorsForField(condition.field).map((op) => (
-                          <SelectItem key={op.value} value={op.value}>
-                            {op.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-
-                    {needsValue(condition.operator) && (
-                      <div className="relative min-w-[200px] flex-1">
-                        <Input
-                          value={condition.value}
-                          onChange={(e) =>
-                            updateCondition(path.id, condition.id, {
-                              value: e.target.value,
+                  {/* Condition Row */}
+                  <div className="flex items-start gap-2 rounded-lg border bg-card p-3">
+                    <div className="flex flex-1 flex-wrap items-start gap-2">
+                      {/* Field */}
+                      <div className="min-w-[200px] flex-1">
+                        <GroupedFieldSelector
+                          value={condition.field}
+                          onChange={(value) => {
+                            updateCondition(path.id, condition.id, { field: value })
+                            setFieldErrors(prev => {
+                              const newErrors = { ...prev }
+                              if (newErrors[path.id]?.[condition.id]) {
+                                delete newErrors[path.id][condition.id]
+                              }
+                              return newErrors
                             })
-                          }
-                          placeholder="Enter value..."
-                          className={cn(
-                            "pr-9",
-                            condition.isVariable && "bg-blue-50 dark:bg-blue-950 border-blue-300 dark:border-blue-700"
-                          )}
+                          }}
+                          fields={previousNodeOutputs}
+                          placeholder="Choose field..."
                         />
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
-                          onClick={() =>
-                            updateCondition(path.id, condition.id, {
-                              isVariable: !condition.isVariable,
-                            })
-                          }
-                          title="Use variable from previous step"
-                        >
-                          <Variable className={cn(
-                            "w-4 h-4",
-                            condition.isVariable && "text-blue-600 dark:text-blue-400"
-                          )} />
-                        </Button>
+                        <FieldValidation error={fieldErrors[path.id]?.[condition.id]} />
                       </div>
-                    )}
 
+                      {/* Operator */}
+                      <div className="min-w-[160px]">
+                        <GenericSelectField
+                          field={{
+                            name: `operator_${condition.id}`,
+                            label: 'Operator',
+                            type: 'select',
+                            required: true,
+                          }}
+                          value={condition.operator}
+                          onChange={(value) =>
+                            updateCondition(path.id, condition.id, { operator: value })
+                          }
+                          options={getOperatorsForField(condition.field)}
+                        />
+                      </div>
+
+                      {/* Value */}
+                      {needsValue(condition.operator) && (
+                        <div className="min-w-[200px] flex-1">
+                          <VariableAutocomplete
+                            value={condition.value}
+                            onChange={(value) =>
+                              updateCondition(path.id, condition.id, { value })
+                            }
+                            variables={previousNodeOutputs.map(field => ({
+                              name: field.name,
+                              label: field.label,
+                              type: field.type,
+                              example: getExampleForType(field.type)
+                            }))}
+                            placeholder="Enter value..."
+                            isVariable={condition.isVariable}
+                            onToggleVariable={(isVar) =>
+                              updateCondition(path.id, condition.id, { isVariable: isVar })
+                            }
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Remove Button */}
                     {path.conditions.length > 1 && (
                       <Button
                         variant="ghost"
-                        size="icon"
+                        size="sm"
                         onClick={() => removeCondition(path.id, condition.id)}
-                        className="text-muted-foreground hover:text-destructive"
+                        className="h-9 w-9 p-0 text-muted-foreground hover:text-destructive"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     )}
                   </div>
                 </div>
               ))}
             </div>
-          </CardContent>
 
-          <div className="border-t border-border/80 bg-muted/30 px-4 py-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => addCondition(path.id)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add condition
-              </Button>
-
-              <div className="flex items-center gap-6 text-xs text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-foreground">Match logic</span>
-                  <Badge variant="outline" className="bg-background/70">
-                    {path.logicOperator === 'and'
-                      ? 'All conditions must match'
-                      : 'Any condition may match'}
-                  </Badge>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-foreground">Canvas handle</span>
-                  <Badge variant="secondary" className="bg-background text-xs font-medium">
-                    {path.name || `Path ${String.fromCharCode(65 + pathIndex)}`}
-                  </Badge>
-                </div>
-              </div>
-            </div>
+            {/* Add Condition Button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => addCondition(path.id)}
+              className="h-8 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
+              Add condition
+            </Button>
           </div>
-        </Card>
-      ))}
+        )
+      })}
 
-      {/* Add Path */}
+      {/* Add Path Button */}
       {allowMultiplePaths && (
         <Button
           variant="outline"
+          size="sm"
           onClick={addPath}
           disabled={disableAddPath}
           className="w-full border-dashed"
         >
-          <Plus className="w-4 h-4 mr-2" />
+          <Plus className="mr-2 h-4 w-4" />
           {disableAddPath ? 'Maximum paths reached' : 'Add another path'}
         </Button>
       )}
 
-      {/* Else Path Note */}
+      {/* Fallback Info */}
       {allowMultiplePaths && paths.length > 0 && (
-        <div className="rounded-lg border border-dashed border-border/80 bg-muted/40 p-4 text-sm">
-          <span className="font-semibold text-foreground">Else fallback:</span>{" "}
-          When none of the configured paths match, the workflow continues on the <span className="font-medium">Else</span> handle. Leave it unconnected to quietly stop unmatched runs or wire additional steps for catch-all behavior.
+        <div className="rounded-lg border border-dashed bg-muted/30 p-3 text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">Else:</span>{" "}
+          When no paths match, the workflow continues via the Else handle. Leave unconnected to stop, or add steps for fallback behavior.
         </div>
+      )}
+
+      {/* Test Button */}
+      {paths.length > 0 && paths.some(p => p.conditions.length > 0) && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setShowTester(!showTester)}
+          className="w-full"
+        >
+          <TestTube2 className="mr-2 h-4 w-4" />
+          {showTester ? 'Hide' : 'Test'} Conditions
+        </Button>
+      )}
+
+      {/* Condition Tester */}
+      {showTester && (
+        <ConditionTester
+          paths={paths}
+          onClose={() => setShowTester(false)}
+        />
+      )}
+
+      {/* Logic Flow Preview */}
+      {paths.length > 0 && paths.some(p => p.conditions.length > 0 && p.conditions.some(c => c.field)) && (
+        <LogicFlowPreview paths={paths} />
       )}
     </div>
   )

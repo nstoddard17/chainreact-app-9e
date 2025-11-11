@@ -7,6 +7,7 @@ import { ProviderOptionsLoader, LoadOptionsParams, FormattedOption } from '../ty
 import { logger } from '@/lib/utils/logger';
 import { useConfigCacheStore } from '@/stores/configCacheStore';
 import { buildCacheKey, getFieldTTL } from '@/lib/workflows/configuration/cache-utils';
+import { parseErrorAndHandleReconnection } from '@/lib/utils/integration-reconnection';
 
 // Debounce map to prevent rapid consecutive calls
 const debounceTimers = new Map<string, NodeJS.Timeout>();
@@ -116,7 +117,13 @@ export class SlackOptionsLoader implements ProviderOptionsLoader {
       });
 
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
+        const errorText = await response.text();
+        const errorMessage = await parseErrorAndHandleReconnection(
+          errorText,
+          'slack',
+          `API error: ${response.status}`
+        );
+        throw new Error(errorMessage);
       }
 
       const { data } = await response.json();
@@ -166,7 +173,13 @@ export class SlackOptionsLoader implements ProviderOptionsLoader {
       });
 
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
+        const errorText = await response.text();
+        const errorMessage = await parseErrorAndHandleReconnection(
+          errorText,
+          'slack',
+          `API error: ${response.status}`
+        );
+        throw new Error(errorMessage);
       }
 
       const { data } = await response.json();
@@ -217,7 +230,13 @@ export class SlackOptionsLoader implements ProviderOptionsLoader {
       });
 
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
+        const errorText = await response.text();
+        const errorMessage = await parseErrorAndHandleReconnection(
+          errorText,
+          'slack',
+          `API error: ${response.status}`
+        );
+        throw new Error(errorMessage);
       }
 
       const { data } = await response.json();

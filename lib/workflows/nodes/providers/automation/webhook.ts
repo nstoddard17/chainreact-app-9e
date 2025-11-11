@@ -12,7 +12,7 @@ export const webhookTrigger: NodeComponent = {
   category: "Triggers",
   isTrigger: true,
   producesOutput: true,
-  comingSoon: true,
+  providerId: "webhook",
   configSchema: [
     {
       name: "path",

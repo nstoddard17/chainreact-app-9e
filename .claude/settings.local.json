@@ -61,7 +61,24 @@
       "Bash(node check-all-google-sheets.js:*)",
       "Bash(node check-avatar-data.js:*)",
       "Bash(psql \"postgresql://postgres.xzwsdwllmrnrgbltibxt:Lukelombardo10!@aws-0-us-east-1.pooler.supabase.com:6543/postgres\" -c \"SELECT indexname, indexdef FROM pg_indexes WHERE tablename = ''integrations'' AND indexdef LIKE ''%UNIQUE%'';\")",
-      "Bash(psql \"postgresql://postgres.xzwsdwllmrnrgbltibxt:Lukelombardo10!@aws-0-us-east-1.pooler.supabase.com:6543/postgres\" -c \"SELECT id, provider, email, account_name, avatar_url, created_at FROM integrations WHERE provider = ''hubspot'' ORDER BY created_at DESC LIMIT 5;\")"
+      "Bash(psql \"postgresql://postgres.xzwsdwllmrnrgbltibxt:Lukelombardo10!@aws-0-us-east-1.pooler.supabase.com:6543/postgres\" -c \"SELECT id, provider, email, account_name, avatar_url, created_at FROM integrations WHERE provider = ''hubspot'' ORDER BY created_at DESC LIMIT 5;\")",
+      "Bash(paste:*)",
+      "Bash(node -c:*)",
+      "Bash(psql \"postgresql://postgres.xzwsdwllmrnrgbltibxt:Lukelombardo10!@aws-0-us-east-1.pooler.supabase.com:6543/postgres\" -c \"SELECT COUNT(*) as total_workflows, COUNT(DISTINCT user_id) as unique_users FROM workflows WHERE nodes::text LIKE ''%http_request%'';\")",
+      "Bash(npm test:*)",
+      "Bash(npm run:*)",
+      "Bash(node --test:*)",
+      "Bash(npx tsx:*)",
+      "Bash(psql \"postgresql://postgres.xzwsdwllmrnrgbltibxt:Lukelombardo10!@aws-0-us-east-1.pooler.supabase.com:6543/postgres\" -c \"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = ''integrations'' AND column_name IN (''email'', ''username'', ''account_name'', ''avatar_url'', ''provider_user_id'') ORDER BY ordinal_position;\")",
+      "Bash(npm run db:status:*)",
+      "Bash(psql \"postgresql://postgres.xzwsdwllmrnrgbltibxt:Lukelombardo10!@aws-0-us-east-1.pooler.supabase.com:6543/postgres\" -c \"\\d webhook_configs\")",
+      "Bash(npm install:*)",
+      "Bash(wc:*)",
+      "Bash(node scripts/update-loaders-reconnection.js:*)",
+      "Bash(node scripts/update-loaders-reconnection.cjs:*)",
+      "Bash(psql \"postgresql://postgres.xzwsdwllmrnrgbltibxt:Lukelombardo10!@aws-0-us-east-1.pooler.supabase.com:6543/postgres\" -c \"SELECT provider, status, COUNT(*) FROM integrations GROUP BY provider, status ORDER BY provider;\")",
+      "Bash(git checkout:*)",
+      "Bash(psql:*)"
     ],
     "edit": [
       "*"

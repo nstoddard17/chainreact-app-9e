@@ -1,6 +1,5 @@
 import {
   GitBranch,
-  Code,
   Clock,
   Repeat,
   GitFork,
@@ -14,24 +13,30 @@ import { NodeComponent } from "../../types"
 
 export const logicNodes: NodeComponent[] = [
   {
-    type: "path",
-    title: "Path Router",
-    description: "Route workflow to different paths based on multiple conditions",
-    icon: Split,
+    type: "router",
+    title: "Router",
+    description: "Route workflow based on conditions - filter or multi-path routing",
+    icon: GitFork,
     category: "Logic",
     providerId: "logic",
     isTrigger: false,
     testable: true,
     producesOutput: true,
-    multipleOutputs: true, // This node can have multiple output connections
-    noConfigRequired: true, // Special flag: This node intentionally has no config - paths are managed via connected Path Condition nodes
+    multipleOutputs: true,
     outputSchema: [
+      {
+        name: "mode",
+        label: "Router Mode",
+        type: "string",
+        description: "Whether this router is in filter or multi-path mode",
+        example: "router"
+      },
       {
         name: "pathTaken",
         label: "Path Taken",
         type: "string",
-        description: "Which path was taken (pathA, pathB, else)",
-        example: "pathA"
+        description: "Which path was taken (Path A, Path B, Else, or 'stopped' if filter mode failed)",
+        example: "Path A"
       },
       {
         name: "conditionsMet",
@@ -39,88 +44,42 @@ export const logicNodes: NodeComponent[] = [
         type: "boolean",
         description: "Whether the conditions were met",
         example: true
-      }
-    ],
-    configSchema: [], // No configuration needed - paths are managed via Path Condition nodes
-  },
-  {
-    type: "path_condition",
-    title: "Path Conditions",
-    description: "Define conditions for a router path - continues if conditions are met",
-    icon: GitBranch,
-    category: "Logic",
-    providerId: "logic",
-    isTrigger: false,
-    testable: true,
-    producesOutput: true,
-    outputSchema: [
-      {
-        name: "conditionsMet",
-        label: "Conditions Met",
-        type: "boolean",
-        description: "Whether all conditions were satisfied",
-        example: true
       },
       {
-        name: "evaluatedConditions",
-        label: "Evaluated Conditions",
+        name: "evaluatedPaths",
+        label: "Evaluated Paths",
         type: "array",
-        description: "List of conditions that were checked",
-        example: [{ field: "status", operator: "equals", value: "active", result: true }]
-      }
-    ],
-    configSchema: [
-      {
-        name: "pathName",
-        label: "Path Name",
-        type: "text",
-        placeholder: "e.g., High Priority, Active Users, VIP Customers",
-        description: "Give this path a descriptive name",
-        required: true
-      },
-      {
-        name: "conditions",
-        label: "Path Conditions",
-        type: "custom",
-        required: true,
-        description: "This path will be taken if these conditions are met",
-        customComponent: "FilterCriteriaBuilder"
-      }
-    ],
-  },
-  {
-    type: "filter",
-    title: "Filter",
-    description: "Continue only if specific conditions are met, otherwise stop workflow",
-    icon: Filter,
-    category: "Logic",
-    providerId: "logic",
-    isTrigger: false,
-    testable: true,
-    producesOutput: true,
-    outputSchema: [
-      {
-        name: "filterPassed",
-        label: "Filter Passed",
-        type: "boolean",
-        description: "Whether the filter conditions were met",
-        example: true
+        description: "All paths that were evaluated (router mode only)",
+        example: [{ name: "Path A", conditionsMet: true }, { name: "Path B", conditionsMet: false }]
       },
       {
         name: "reason",
         label: "Stop Reason",
         type: "string",
-        description: "Why the workflow was stopped (if filter failed)",
+        description: "Why the workflow was stopped (filter mode only)",
         example: "Status does not equal 'active'"
       }
     ],
     configSchema: [
       {
+        name: "mode",
+        label: "Router Mode",
+        type: "select",
+        required: true,
+        defaultValue: "router",
+        options: [
+          { value: "filter", label: "Filter - Continue or stop workflow" },
+          { value: "router", label: "Router - Multi-path routing" }
+        ],
+        description: "Choose whether to filter (single pass/fail) or route to multiple paths",
+        tooltip: "Filter mode stops the workflow if conditions aren't met. Router mode creates multiple output paths."
+      },
+      {
         name: "conditions",
-        label: "Filter Conditions",
+        label: "Conditions",
         type: "custom",
         required: true,
-        description: "Workflow will stop if these conditions are not met",
+        description: "Define the routing conditions",
         customComponent: "FilterCriteriaBuilder"
       },
       {
@@ -128,8 +87,13 @@ export const logicNodes: NodeComponent[] = [
         label: "Stop Message",
         type: "text",
         placeholder: "Workflow stopped by filter",
-        description: "Custom message to show when workflow is stopped",
-        uiTab: "advanced"
+        description: "Custom message when workflow is stopped (filter mode only)",
+        uiTab: "advanced",
+        visibilityCondition: {
+          field: "mode",
+          operator: "equals",
+          value: "filter"
+        }
       }
     ],
   },
@@ -459,40 +423,26 @@ export const logicNodes: NodeComponent[] = [
         name: "delayDurationSeconds",
         label: "Delay Duration (seconds)",
         type: "number",
-        description: "The total duration of the delay in seconds",
-        example: 60
-      },
-      {
-        name: "delayDuration",
-        label: "Delay Duration (ms)",
-        type: "number",
-        description: "The total duration of the delay in milliseconds",
-        example: 60000
-      },
-      {
-        name: "delayUnit",
-        label: "Time Unit Used",
-        type: "string",
-        description: "The time unit that was used for the delay",
-        example: "minutes"
+        description: "How long the workflow paused",
+        example: 300
       },
       {
         name: "startTime",
-        label: "Start Time",
+        label: "Pause Started",
         type: "string",
-        description: "When the delay started (ISO 8601 format)",
+        description: "When the delay began (ISO 8601 format)",
         example: "2024-01-15T10:30:00Z"
       },
       {
         name: "endTime",
-        label: "End Time",
+        label: "Pause Ended",
         type: "string",
-        description: "When the delay ended (ISO 8601 format)",
-        example: "2024-01-15T10:31:00Z"
+        description: "When the delay completed (ISO 8601 format)",
+        example: "2024-01-15T10:35:00Z"
       },
       {
         name: "success",
-        label: "Success Status",
+        label: "Success",
         type: "boolean",
         description: "Whether the delay completed successfully",
         example: true
@@ -519,22 +469,9 @@ export const logicNodes: NodeComponent[] = [
     ],
   },
   {
-    type: "custom_script",
-    title: "Custom Script",
-    description: "Run custom Javascript code",
-    icon: Code,
-    category: "Logic",
-    providerId: "logic",
-    isTrigger: false,
-    comingSoon: true,
-    configSchema: [
-      { name: "script", label: "JavaScript Code", type: "textarea", placeholder: "return { value: 1 };", description: "Custom JavaScript code to execute (must return an object)" },
-    ],
-  },
-  {
     type: "loop",
     title: "Loop",
-    description: "Iterate through an array and execute actions for each item",
+    description: "Iterate through an array or repeat actions N times",
     icon: Repeat,
     category: "Logic",
     providerId: "logic",
@@ -542,22 +479,86 @@ export const logicNodes: NodeComponent[] = [
     producesOutput: true,
     configSchema: [
       {
+        name: "loopMode",
+        label: "Loop Mode",
+        type: "select",
+        required: true,
+        defaultValue: "items",
+        options: [
+          { value: "items", label: "Loop Over Items" },
+          { value: "count", label: "Loop N Times" }
+        ],
+        description: "Choose whether to loop through items or repeat N times",
+        tooltip: "Loop Over Items processes each item in an array. Loop N Times repeats an action a specific number of times."
+      },
+      {
         name: "items",
         label: "Items to Loop Over",
         type: "text",
         required: true,
         placeholder: "{{Previous Node.items}}",
         description: "Array of items to iterate through. Can be from a previous node or a JSON array.",
-        supportsAI: true
+        supportsAI: true,
+        visibilityCondition: {
+          field: "loopMode",
+          operator: "equals",
+          value: "items"
+        }
       },
       {
         name: "batchSize",
-        label: "Batch Size (Optional)",
+        label: "Batch Size",
         type: "number",
         required: false,
         defaultValue: 1,
         placeholder: "1",
-        description: "Number of items to process in each iteration (default: 1)"
+        description: "Number of items to process in each iteration (default: 1)",
+        visibilityCondition: {
+          field: "loopMode",
+          operator: "equals",
+          value: "items"
+        }
+      },
+      {
+        name: "count",
+        label: "Number of Repetitions",
+        type: "number",
+        required: true,
+        placeholder: "10",
+        description: "How many times to repeat the loop (max: 500)",
+        visibilityCondition: {
+          field: "loopMode",
+          operator: "equals",
+          value: "count"
+        }
+      },
+      {
+        name: "initialValue",
+        label: "Initial Value",
+        type: "number",
+        required: false,
+        defaultValue: 1,
+        placeholder: "1",
+        description: "Starting number for the counter (default: 1)",
+        visibilityCondition: {
+          field: "loopMode",
+          operator: "equals",
+          value: "count"
+        }
+      },
+      {
+        name: "stepIncrement",
+        label: "Step Increment",
+        type: "number",
+        required: false,
+        defaultValue: 1,
+        placeholder: "1",
+        description: "How much to increase the counter each iteration (default: 1)",
+        visibilityCondition: {
+          field: "loopMode",
+          operator: "equals",
+          value: "count"
+        }
       }
     ],
     outputSchema: [
@@ -565,7 +566,7 @@ export const logicNodes: NodeComponent[] = [
         name: "currentItem",
         label: "Current Item",
         type: "object",
-        description: "The current item being processed in the loop"
+        description: "The current item being processed in the loop (items mode only)"
       },
       {
         name: "index",
@@ -580,10 +581,16 @@ export const logicNodes: NodeComponent[] = [
         description: "One-based iteration number (1, 2, 3, ...)"
       },
       {
+        name: "counter",
+        label: "Counter Value",
+        type: "number",
+        description: "Current counter value (count mode only)"
+      },
+      {
         name: "totalItems",
         label: "Total Items",
         type: "number",
-        description: "Total number of items in the array"
+        description: "Total number of items in the array (items mode) or total repetitions (count mode)"
       },
       {
         name: "isFirst",
@@ -601,7 +608,19 @@ export const logicNodes: NodeComponent[] = [
         name: "batch",
         label: "Current Batch",
         type: "array",
-        description: "Array of items in the current batch (if batch size > 1)"
+        description: "Array of items in the current batch (items mode with batch size > 1)"
+      },
+      {
+        name: "progressPercentage",
+        label: "Progress Percentage",
+        type: "number",
+        description: "Completion percentage (0-100)"
+      },
+      {
+        name: "remainingItems",
+        label: "Remaining Items",
+        type: "number",
+        description: "Number of items/iterations remaining"
       }
     ]
   },

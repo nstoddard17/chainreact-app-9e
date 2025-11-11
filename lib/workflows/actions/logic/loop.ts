@@ -3,10 +3,11 @@ import { ExecutionContext } from '../../execution/types'
 import { logger } from '@/lib/utils/logger'
 
 /**
- * Execute loop action - iterate through an array of items
+ * Execute loop action - iterate through an array of items or repeat N times
  *
- * This action processes arrays item-by-item or in batches, providing
- * rich iteration metadata for use in subsequent workflow nodes.
+ * This action supports two modes:
+ * 1. Items mode: processes arrays item-by-item or in batches
+ * 2. Count mode: repeats N times with a counter
  *
  * Progress is tracked in real-time via the execution engine's
  * loop_executions table.
@@ -16,11 +17,124 @@ export async function executeLoop(
   context: ExecutionContext
 ): Promise<ActionResult> {
   try {
+    const loopMode = config.loopMode || 'items'
+
+    logger.debug('[Loop] Starting loop execution', {
+      loopMode,
+      config
+    })
+
+    // Handle count mode
+    if (loopMode === 'count') {
+      return await executeCountLoop(config, context)
+    }
+
+    // Handle items mode (default)
+    return await executeItemsLoop(config, context)
+  } catch (error: any) {
+    logger.error('[Loop] Error executing loop:', error)
+    return {
+      success: false,
+      output: {
+        currentItem: null,
+        index: 0,
+        iteration: 0,
+        totalItems: 0,
+        isFirst: true,
+        isLast: true,
+        batch: []
+      },
+      message: error.message || 'Failed to execute loop'
+    }
+  }
+}
+
+/**
+ * Execute count loop mode - repeat N times
+ */
+async function executeCountLoop(
+  config: any,
+  context: ExecutionContext
+): Promise<ActionResult> {
+  try {
+    const countRaw = context.dataFlowManager.resolveVariable(config.count)
+    const count = parseInt(countRaw)
+    const initialValue = parseInt(config.initialValue) || 1
+    const stepIncrement = parseInt(config.stepIncrement) || 1
+
+    if (isNaN(count) || count <= 0) {
+      throw new Error('Count must be a positive number')
+    }
+
+    if (count > 500) {
+      throw new Error('Count cannot exceed 500 iterations')
+    }
+
+    logger.debug('[Loop:Count] Starting count loop', {
+      count,
+      initialValue,
+      stepIncrement
+    })
+
+    const currentCounter = initialValue
+    const output = {
+      counter: currentCounter,
+      index: 0,
+      iteration: 1,
+      totalItems: count,
+      isFirst: true,
+      isLast: count === 1,
+      progressPercentage: Math.round((1 / count) * 100),
+      remainingItems: count - 1,
+      // Store config for subsequent iterations
+      _loopConfig: {
+        count,
+        initialValue,
+        stepIncrement
+      }
+    }
+
+    logger.debug('[Loop:Count] First iteration prepared', {
+      counter: output.counter,
+      totalItems: output.totalItems,
+      progressPercentage: output.progressPercentage
+    })
+
+    return {
+      success: true,
+      output,
+      message: `Loop iteration 1 of ${count} (counter: ${currentCounter})`
+    }
+  } catch (error: any) {
+    logger.error('[Loop:Count] Error executing count loop:', error)
+    return {
+      success: false,
+      output: {
+        counter: 0,
+        index: 0,
+        iteration: 0,
+        totalItems: 0,
+        isFirst: true,
+        isLast: true
+      },
+      message: error.message || 'Failed to execute count loop'
+    }
+  }
+}
+
+/**
+ * Execute items loop mode - iterate through an array
+ */
+async function executeItemsLoop(
+  config: any,
+  context: ExecutionContext
+): Promise<ActionResult> {
+  try {
     // Resolve dynamic values
     const itemsRaw = context.dataFlowManager.resolveVariable(config.items)
     const batchSize = parseInt(context.dataFlowManager.resolveVariable(config.batchSize)) || 1
 
-    logger.debug('[Loop] Starting loop execution', {
+    logger.debug('[Loop:Items] Starting items loop', {
       itemsRaw: typeof itemsRaw,
       batchSize,
       configItems: config.items
@@ -60,7 +174,7 @@ export async function executeLoop(
     }
 
     if (items.length === 0) {
-      logger.warn('[Loop] Empty array provided, no iterations will run')
+      logger.warn('[Loop:Items] Empty array provided, no iterations will run')
       return {
         success: true,
         output: {
@@ -80,7 +194,7 @@ export async function executeLoop(
     const totalItems = items.length
     const actualBatchSize = Math.min(Math.max(1, batchSize), totalItems)
 
-    logger.debug('[Loop] Processing array', {
+    logger.debug('[Loop:Items] Processing array', {
       totalItems,
       batchSize: actualBatchSize,
       firstItem: items[0]
@@ -109,7 +223,7 @@ export async function executeLoop(
       remainingItems: totalItems - (currentIndex + actualBatchSize)
     }
 
-    logger.debug('[Loop] First iteration prepared', {
+    logger.debug('[Loop:Items] First iteration prepared', {
       index: output.index,
       totalItems: output.totalItems,
       batchSize: output.batchSize,
@@ -122,7 +236,7 @@ export async function executeLoop(
       message: `Loop iteration 1 of ${Math.ceil(totalItems / actualBatchSize)} (processing ${actualBatchSize} item${actualBatchSize > 1 ? 's' : ''})`
     }
   } catch (error: any) {
-    logger.error('[Loop] Error executing loop:', error)
+    logger.error('[Loop:Items] Error executing items loop:', error)
     return {
       success: false,
       output: {
@@ -134,7 +248,7 @@ export async function executeLoop(
         isLast: true,
         batch: []
       },
-      message: error.message || 'Failed to execute loop'
+      message: error.message || 'Failed to execute items loop'
     }
   }
 }
@@ -182,5 +296,44 @@ export async function getNextLoopIteration(
     hasMore: nextIndex + batchSize < totalItems,
     progressPercentage: Math.round(((nextIndex + batchSize) / totalItems) * 100),
     remainingItems: totalItems - (nextIndex + batchSize)
+  }
+}
+
+/**
+ * Get the next iteration of a count loop
+ * This is called by the execution engine to advance the count loop
+ */
+export async function getNextCountIteration(
+  loopConfig: { count: number; initialValue: number; stepIncrement: number },
+  currentIteration: number
+): Promise<{
+  counter: number
+  index: number
+  iteration: number
+  totalItems: number
+  isFirst: boolean
+  isLast: boolean
+  progressPercentage: number
+  remainingItems: number
+} | null> {
+  const { count, initialValue, stepIncrement } = loopConfig
+  const nextIteration = currentIteration + 1
+
+  if (nextIteration > count) {
+    // No more iterations
+    return null
+  }
+
+  const counter = initialValue + ((nextIteration - 1) * stepIncrement)
+
+  return {
+    counter,
+    index: nextIteration - 1,
+    iteration: nextIteration,
+    totalItems: count,
+    isFirst: false,
+    isLast: nextIteration === count,
+    progressPercentage: Math.round((nextIteration / count) * 100),
+    remainingItems: count - nextIteration
   }
 }

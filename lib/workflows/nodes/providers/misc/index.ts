@@ -1211,13 +1211,14 @@ const gumroadActionGetSalesAnalytics: NodeComponent = {
     { name: "startDate", label: "Start Date", type: "date", required: true },
     { name: "endDate", label: "End Date", type: "date", required: true },
     {
-      name: "product",
+      name: "productId",
       label: "Product",
       type: "combobox",
       dynamic: "gumroad_products",
       required: false,
       loadOnMount: true,
       searchable: true,
+      creatable: true,
       placeholder: "All Products",
       emptyPlaceholder: "No products found",
       emptyMessage: "No products found. Create a product in your Gumroad account first.",
@@ -1626,13 +1627,14 @@ const gumroadActionListSales: NodeComponent = {
       tooltip: "Filter sales up to this date"
     },
     {
-      name: "product",
+      name: "productId",
       label: "Product",
       type: "combobox",
       dynamic: "gumroad_products",
       required: false,
       loadOnMount: true,
       searchable: true,
+      creatable: true,
       placeholder: "All Products",
       emptyPlaceholder: "No products found",
       emptyMessage: "No products found. Create a product in your Gumroad account first.",
@@ -1868,11 +1870,15 @@ const gumroadActionGetProduct: NodeComponent = {
   configSchema: [
     {
       name: "productId",
-      label: "Product ID",
-      type: "text",
+      label: "Product",
+      type: "combobox",
       required: true,
-      placeholder: "Enter product ID or permalink",
-      tooltip: "The unique ID or permalink of the product to retrieve"
+      dynamic: "gumroad_products",
+      searchable: true,
+      loadOnMount: true,
+      creatable: true,
+      placeholder: "Select a product or enter ID",
+      tooltip: "Choose from your Gumroad products or enter a product ID/variable"
     }
   ],
   outputSchema: [
@@ -1994,11 +2000,15 @@ const gumroadActionEnableProduct: NodeComponent = {
   configSchema: [
     {
       name: "productId",
-      label: "Product ID",
-      type: "text",
+      label: "Product",
+      type: "combobox",
       required: true,
-      placeholder: "Enter product ID or use variable",
-      tooltip: "The ID of the product to enable"
+      dynamic: "gumroad_products",
+      searchable: true,
+      loadOnMount: true,
+      creatable: true,
+      placeholder: "Select a product or enter ID",
+      tooltip: "Choose the product to enable (publish)"
     }
   ],
   outputSchema: [
@@ -2036,11 +2046,15 @@ const gumroadActionDisableProduct: NodeComponent = {
   configSchema: [
     {
       name: "productId",
-      label: "Product ID",
-      type: "text",
+      label: "Product",
+      type: "combobox",
       required: true,
-      placeholder: "Enter product ID or use variable",
-      tooltip: "The ID of the product to disable"
+      dynamic: "gumroad_products",
+      searchable: true,
+      loadOnMount: true,
+      creatable: true,
+      placeholder: "Select a product or enter ID",
+      tooltip: "Choose the product to disable (unpublish)"
     }
   ],
   outputSchema: [
@@ -2078,11 +2092,15 @@ const gumroadActionDeleteProduct: NodeComponent = {
   configSchema: [
     {
       name: "productId",
-      label: "Product ID",
-      type: "text",
+      label: "Product",
+      type: "combobox",
       required: true,
-      placeholder: "Enter product ID or use variable",
-      tooltip: "The ID of the product to permanently delete. This action cannot be undone."
+      dynamic: "gumroad_products",
+      searchable: true,
+      loadOnMount: true,
+      creatable: true,
+      placeholder: "Select a product or enter ID",
+      tooltip: "Choose the product to permanently delete. This action cannot be undone."
     },
     {
       name: "confirmDeletion",
@@ -2128,11 +2146,15 @@ const gumroadActionCreateVariantCategory: NodeComponent = {
   configSchema: [
     {
       name: "productId",
-      label: "Product ID",
-      type: "text",
+      label: "Product",
+      type: "combobox",
       required: true,
-      placeholder: "Enter product ID",
-      tooltip: "The product to add this variant category to"
+      dynamic: "gumroad_products",
+      searchable: true,
+      loadOnMount: true,
+      creatable: true,
+      placeholder: "Select a product or enter ID",
+      tooltip: "Choose the product to add this variant category to"
     },
     {
       name: "title",
@@ -2184,11 +2206,15 @@ const gumroadActionCreateOfferCode: NodeComponent = {
   configSchema: [
     {
       name: "productId",
-      label: "Product ID",
-      type: "text",
+      label: "Product",
+      type: "combobox",
       required: true,
-      placeholder: "Enter product ID",
-      tooltip: "The product this offer code applies to"
+      dynamic: "gumroad_products",
+      searchable: true,
+      loadOnMount: true,
+      creatable: true,
+      placeholder: "Select a product or enter ID",
+      tooltip: "Choose the product this offer code applies to"
     },
     {
       name: "name",
@@ -2400,11 +2426,15 @@ const gumroadActionListSubscribers: NodeComponent = {
   configSchema: [
     {
       name: "productId",
-      label: "Product ID",
-      type: "text",
+      label: "Product",
+      type: "combobox",
       required: true,
-      placeholder: "Enter product ID",
-      tooltip: "The product to retrieve subscribers for"
+      dynamic: "gumroad_products",
+      searchable: true,
+      loadOnMount: true,
+      creatable: true,
+      placeholder: "Select a product or enter ID",
+      tooltip: "Choose the product to retrieve subscribers for"
     },
     {
       name: "email",
@@ -3227,7 +3257,7 @@ export const miscNodes: NodeComponent[] = [
   manychatActionSendMessage,
   manychatActionTagSubscriber,
 
-  // Gumroad (30 nodes) - 10 triggers, 20 actions
+  // Gumroad (27 nodes) - 10 triggers, 17 actions
   // Triggers (10)
   gumroadTriggerNewSale,
   gumroadTriggerNewSubscriber,
@@ -3240,7 +3270,7 @@ export const miscNodes: NodeComponent[] = [
   gumroadTriggerSubscriptionEnded,
   gumroadTriggerSubscriptionRestarted,
 
-  // Actions (20)
+  // Actions (17)
   gumroadActionGetSalesAnalytics,
   gumroadActionMarkAsShipped,
   gumroadActionRefundSale,

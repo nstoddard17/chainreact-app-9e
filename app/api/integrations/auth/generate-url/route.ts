@@ -425,9 +425,10 @@ function generateGoogleAuthUrl(service: string, state: string): string {
     scope: scopes,
     state,
     access_type: "offline",
-    // Use select_account to allow users to choose which Google account to connect
-    // This is better UX than "consent" which only shows if permissions changed
-    prompt: "select_account",
+    // IMPORTANT: Always use "consent" to force OAuth consent screen
+    // This ensures users always see the permissions and can grant fresh access
+    // This also revokes previous app access when they connect again
+    prompt: "consent",
     include_granted_scopes: "true",
   })
 
@@ -805,13 +806,16 @@ async function generateHubSpotAuthUrl(stateObject: any, supabase: any): Promise<
   // 'webhooks' scope is only needed if you want to create webhooks programmatically
   //   - If you get a webhooks scope error, you can remove it and still use the app
   //   - Only include if your HubSpot app is configured as a Public App with webhooks enabled
-  const hubspotScopes = "oauth crm.lists.read crm.lists.write crm.objects.contacts.read crm.objects.contacts.write crm.objects.companies.read crm.objects.companies.write crm.objects.deals.read crm.objects.deals.write"
+  const hubspotScopes = "oauth crm.lists.read crm.lists.write crm.objects.contacts.read crm.objects.contacts.write crm.objects.companies.read crm.objects.companies.write crm.objects.deals.read crm.objects.deals.write crm.objects.owners.read"
 
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: `${baseUrl}/api/integrations/hubspot/callback`,
     scope: hubspotScopes,
     state,
+    // NOTE: HubSpot doesn't have a "prompt=consent" parameter like Google
+    // To revoke access, users must manually disconnect from their HubSpot account settings
+    // OR we need to call HubSpot's token revocation endpoint before reconnecting
   })
 
   return `https://app.hubspot.com/oauth/authorize?${params.toString()}`

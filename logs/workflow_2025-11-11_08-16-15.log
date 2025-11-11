@@ -1,0 +1,60 @@
+=== Log Session Started: 2025-11-11T14:16:15.512Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-11-11T14:16:15.513Z] [INFO   ] File logging initialized
+[2025-11-11T14:16:15.513Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-11_08-16-15.log
+[2025-11-11T14:16:15.522Z] [INFO   ] Deleted old log file: workflow_2025-11-03_22-34-55.log
+[2025-11-11T14:16:15.542Z] [INFO   ] Deleted old log file: workflow_2025-11-03_20-37-43.log
+[2025-11-11T14:16:15.542Z] [INFO   ] 📁 File logging enabled
+[2025-11-11T14:16:15.542Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-11_08-16-15.log
+[2025-11-11T14:16:15.542Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-11_08-16-15.log
+[2025-11-11T14:16:15.542Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-11_08-16-15.log
+[2025-11-11T14:16:15.542Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-11_08-16-15.log
+[2025-11-11T14:16:15.542Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-11-11T14:16:15.542Z] [DEBUG  ] 📁 File logging system initialized
+[2025-11-11T14:16:15.558Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 4.3s
+[2025-11-11T14:16:16.658Z] [INFO   ] 2025-11-11T14:16:16.658Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-11-11T14:16:18.582Z] [INFO   ] 2025-11-11T14:16:18.582Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-11-11T14:16:18.582Z] [INFO   ] 2025-11-11T14:16:18.582Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-11T14:16:18.843Z] [INFO   ] 2025-11-11T14:16:18.843Z [DEBUG] Discord Gateway initialization complete
+[2025-11-11T14:16:18.844Z] [INFO   ] 2025-11-11T14:16:18.844Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-11-11T14:16:19.087Z] [INFO   ] 2025-11-11T14:16:19.087Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-11T14:16:19.088Z] [INFO   ] 2025-11-11T14:16:19.088Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-11T14:16:29.358Z] [INFO   ]  [37m[1m○[22m[39m Compiling /test/nodes ...
+[2025-11-11T14:16:36.040Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /test/nodes in 7.2s (5331 modules)
+[2025-11-11T14:16:36.730Z] [INFO   ] 2025-11-11T14:16:36.729Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-11T14:16:36.729Z"}
+[2025-11-11T14:16:36.742Z] [INFO   ] 2025-11-11T14:16:36.742Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-11T14:16:36.742Z"}
+[2025-11-11T14:16:36.742Z] [INFO   ] 2025-11-11T14:16:36.742Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-11T14:16:36.742Z"}
+[2025-11-11T14:16:37.331Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1246ms (1177 modules)
+[2025-11-11T14:16:38.198Z] [INFO   ]  [37m[1m○[22m[39m Compiling /middleware ...
+[2025-11-11T14:16:38.244Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 546ms (4403 modules)
+[2025-11-11T14:16:47.883Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-11-11T14:16:48.198Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 848ms (5439 modules)
+[2025-11-11T14:18:31.843Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 739ms (1178 modules)
+[2025-11-11T14:38:12.509Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1922ms (5332 modules)
+[2025-11-11T14:41:47.960Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-11-11T14:41:47.997Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 592ms (4273 modules)
+[2025-11-11T14:44:48.784Z] [INFO   ] 2025-11-11T14:44:48.783Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-11T14:44:48.783Z"}
+[2025-11-11T14:44:48.796Z] [INFO   ] 2025-11-11T14:44:48.796Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-11T14:44:48.796Z"}
+[2025-11-11T14:44:48.796Z] [INFO   ] 2025-11-11T14:44:48.796Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-11T14:44:48.796Z"}
+[2025-11-11T14:44:50.142Z] [INFO   ]  [37m[1m○[22m[39m Compiling /icon.png ...
+[2025-11-11T14:44:50.192Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /icon.png in 768ms (4170 modules)
+[2025-11-11T14:46:47.993Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-11-11T14:46:48.034Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 601ms (4273 modules)
+[2025-11-11T14:57:22.932Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 805ms (1178 modules)
+[2025-11-11T15:00:27.444Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1684ms (5332 modules)
+[2025-11-11T15:01:33.634Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.2s (5332 modules)
+[2025-11-11T15:01:47.601Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 238ms (4273 modules)
+[2025-11-11T16:13:32.169Z] [INFO   ] 2025-11-11T16:13:32.168Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-11T16:13:32.226Z] [INFO   ] 2025-11-11T16:13:32.226Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-11-11T16:13:32.665Z] [INFO   ] 2025-11-11T16:13:32.664Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-11T16:13:32.668Z] [INFO   ] 2025-11-11T16:13:32.667Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-11T17:35:11.569Z] [INFO   ] 2025-11-11T17:35:11.568Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-11T17:35:11.631Z] [INFO   ] 2025-11-11T17:35:11.631Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-11-11T17:35:12.087Z] [INFO   ] 2025-11-11T17:35:12.087Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-11T17:35:12.089Z] [INFO   ] 2025-11-11T17:35:12.089Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+
+=== Log Session Ended: 2025-11-11T18:18:10.954Z ===

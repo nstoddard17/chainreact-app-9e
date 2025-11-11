@@ -2,7 +2,8 @@ import { ActionResult } from '../core/executeWait';
 import { resolveValue } from '../core/resolveValue';
 import { logger } from '@/lib/utils/logger';
 import { createAdminClient } from '@/lib/supabase/admin';
-import * as cheerio from 'cheerio';
+import * as XLSX from 'xlsx';
+import pdf from 'pdf-parse';
 
 /**
  * Execute File Upload and Processing
@@ -170,18 +171,47 @@ export async function executeFileUpload(
         parsedData = { text: fileContent.toString('utf-8') };
         rowCount = 1;
       } else if (fileExtension === 'xlsx' || fileExtension === 'xls' || fileType.includes('spreadsheet')) {
-        // For Excel files, we'd need the 'xlsx' package
-        // For now, return a message that it's uploaded but not parsed
-        logger.warn('[FileUpload] Excel parsing not yet implemented. Install xlsx package for full support.');
-        parsedData = {
-          note: 'Excel file uploaded but parsing requires xlsx package. File is available at the URL.'
-        };
+        // Parse Excel files using xlsx package
+        logger.info('[FileUpload] Parsing Excel file');
+        const workbook = XLSX.read(fileContent, { type: 'buffer' });
+
+        // Use specified sheet or first sheet
+        const sheetName = (resolvedConfig.excelSheet || workbook.SheetNames[0]) as string;
+        const worksheet = workbook.Sheets[sheetName];
+
+        if (!worksheet) {
+          throw new Error(`Sheet "${sheetName}" not found. Available sheets: ${workbook.SheetNames.join(', ')}`);
+        }
+
+        // Convert to JSON (header row: 1 means first row is headers)
+        parsedData = XLSX.utils.sheet_to_json(worksheet, {
+          header: hasHeaders ? undefined : 1, // undefined uses first row as headers
+          defval: '' // Default value for empty cells
+        });
+        rowCount = parsedData.length;
+
+        logger.info('[FileUpload] Excel parsed successfully', {
+          sheetName,
+          rowCount,
+          availableSheets: workbook.SheetNames
+        });
       } else if (fileExtension === 'pdf' || fileType.includes('pdf')) {
-        // For PDF files, we'd need the 'pdf-parse' package
-        logger.warn('[FileUpload] PDF parsing not yet implemented. Install pdf-parse package for full support.');
+        // Parse PDF files using pdf-parse package
+        logger.info('[FileUpload] Extracting text from PDF');
+        const pdfData = await pdf(fileContent);
+
         parsedData = {
-          note: 'PDF file uploaded but text extraction requires pdf-parse package. File is available at the URL.'
+          text: pdfData.text,
+          numPages: pdfData.numpages,
+          info: pdfData.info,
+          metadata: pdfData.metadata
         };
+        rowCount = pdfData.numpages;
+
+        logger.info('[FileUpload] PDF parsed successfully', {
+          numPages: pdfData.numpages,
+          textLength: pdfData.text.length
+        });
       }
     } catch (parseError: any) {
       logger.error('[FileUpload] File parsing error:', parseError);

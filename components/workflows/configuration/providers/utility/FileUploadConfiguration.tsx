@@ -1,21 +1,13 @@
 "use client"
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Upload, AlertCircle, Info, FileText } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { GenericSelectField } from '../../fields/shared/GenericSelectField';
 import { ConfigurationContainer } from '../../components/ConfigurationContainer';
 
 interface FileUploadConfigurationProps {
@@ -35,27 +27,24 @@ export function FileUploadConfiguration({
   errors,
   setValue,
   onSubmit,
-  isLoading,
   onCancel,
   onBack,
-  nodeInfo,
   isEditMode = false,
 }: FileUploadConfigurationProps) {
-  const [activeTab, setActiveTab] = useState('source');
 
   // Set default values
   React.useEffect(() => {
     if (!values.source) {
-      setValue('source', 'upload');
+      setValue('source', 'url');
     }
-    if (!values.maxFileSize) {
-      setValue('maxFileSize', 10);
-    }
-    if (!values.autoDetectFormat) {
-      setValue('autoDetectFormat', true);
+    if (!values.fileType) {
+      setValue('fileType', 'csv');
     }
     if (!values.csvDelimiter) {
       setValue('csvDelimiter', ',');
+    }
+    if (values.hasHeaders === undefined) {
+      setValue('hasHeaders', true);
     }
   }, []);
 
@@ -87,14 +76,6 @@ export function FileUploadConfiguration({
     await onSubmit(values);
   };
 
-  const supportedFormats = [
-    { value: 'csv', label: 'CSV', description: 'Comma-separated values' },
-    { value: 'excel', label: 'Excel', description: '.xlsx, .xls files' },
-    { value: 'pdf', label: 'PDF', description: 'Text extraction' },
-    { value: 'txt', label: 'Text', description: 'Plain text files' },
-    { value: 'json', label: 'JSON', description: 'JSON data files' },
-  ];
-
   return (
     <ConfigurationContainer
       onSubmit={handleSave}
@@ -103,35 +84,19 @@ export function FileUploadConfiguration({
       isEditMode={isEditMode}
       isFormValid={isFormValid}
     >
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold flex items-center gap-2">
-          <Upload className="w-5 h-5" />
-          File Upload
-        </h3>
-        <p className="text-sm text-muted-foreground mt-1">
-          Upload and process files to extract data
-        </p>
-      </div>
+      <div className="space-y-6">
+        {/* File Source Section */}
+        <div className="space-y-4">
+          <div>
+            <Label className="mb-1 block">
+              File Source <span className="text-destructive">*</span>
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Choose where to get your file from
+            </p>
+          </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2 mb-6">
-            <TabsTrigger value="source">File Source</TabsTrigger>
-            <TabsTrigger value="parsing">Parsing Options</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="source" className="space-y-4 mt-0">
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertDescription className="text-xs">
-                Choose where to get your file from. You can upload directly, provide a URL, or use a file from a previous workflow step.
-              </AlertDescription>
-            </Alert>
-
-            {/* File Source */}
-            <div>
-              <Label className="mb-3 block">
-                File Source <span className="text-destructive">*</span>
-              </Label>
+          <div>
               <RadioGroup
                 value={values.source || 'upload'}
                 onValueChange={(value) => setValue('source', value)}
@@ -240,65 +205,93 @@ export function FileUploadConfiguration({
               </div>
             )}
 
-            {/* Supported Formats Display */}
-            <div className="bg-muted/50 border border-border rounded-lg p-4">
-              <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                <FileText className="w-4 h-4" />
-                Supported File Formats
-              </h4>
-              <div className="flex flex-wrap gap-2">
-                {supportedFormats.map((format) => (
-                  <Badge key={format.value} variant="outline" className="text-xs">
-                    {format.label}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          </TabsContent>
+          {/* Supported Formats Display */}
+          <div className="text-xs text-muted-foreground">
+            Supported formats: CSV, Excel (.xlsx, .xls), PDF, TXT, JSON
+          </div>
+        </div>
 
-          <TabsContent value="parsing" className="space-y-4 mt-0">
-            {/* Auto-Detect Format */}
-            <div className="flex items-start space-x-3 p-3 rounded-lg border border-border">
-              <Checkbox
-                id="autoDetectFormat"
-                checked={values.autoDetectFormat !== false}
-                onCheckedChange={(checked) => setValue('autoDetectFormat', checked)}
+        {/* Parsing Options Section */}
+        <div className="space-y-4 pt-6 border-t border-border">
+          <div>
+            <h3 className="text-sm font-semibold">Parsing Options</h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              Configure how files are parsed and processed
+            </p>
+          </div>
+
+          {/* File Type Selection */}
+          <div>
+            <Label htmlFor="fileType">File Type</Label>
+            <div className="mt-2">
+              <GenericSelectField
+                field={{
+                  name: 'fileType',
+                  type: 'select',
+                  label: 'File Type',
+                  required: false,
+                }}
+                value={values.fileType || 'csv'}
+                onChange={(value) => setValue('fileType', value)}
+                options={[
+                  { value: 'csv', label: 'CSV' },
+                  { value: 'excel', label: 'Excel' },
+                  { value: 'pdf', label: 'PDF' },
+                  { value: 'txt', label: 'Text' },
+                  { value: 'json', label: 'JSON' },
+                ]}
               />
-              <div className="flex-1">
-                <label
-                  htmlFor="autoDetectFormat"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                >
-                  Auto-Detect File Format
-                </label>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Automatically detect and parse the file format based on extension
-                </p>
-              </div>
             </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Select the file format you'll be working with
+            </p>
+          </div>
 
-            {/* CSV Options */}
+          {/* Auto-Detect Fallback */}
+          <div className="flex items-start space-x-3 p-3 rounded-lg border border-border">
+            <Checkbox
+              id="autoDetectFormat"
+              checked={values.autoDetectFormat === true}
+              onCheckedChange={(checked) => setValue('autoDetectFormat', checked)}
+            />
+            <div className="flex-1">
+              <label
+                htmlFor="autoDetectFormat"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+              >
+                Auto-detect if unclear
+              </label>
+              <p className="text-xs text-muted-foreground mt-1">
+                Fall back to automatic detection if the file doesn't match the selected type
+              </p>
+            </div>
+          </div>
+
+          {/* CSV-specific Options */}
+          {values.fileType === 'csv' && (
             <div className="space-y-3">
-              <h4 className="text-sm font-medium">CSV Options</h4>
-
               <div>
                 <Label htmlFor="csvDelimiter">Delimiter</Label>
-                <Select
-                  value={values.csvDelimiter || ','}
-                  onValueChange={(value) => setValue('csvDelimiter', value)}
-                >
-                  <SelectTrigger className="mt-2">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value=",">Comma (,)</SelectItem>
-                    <SelectItem value=";">Semicolon (;)</SelectItem>
-                    <SelectItem value="\t">Tab (\t)</SelectItem>
-                    <SelectItem value="|">Pipe (|)</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="mt-2">
+                  <GenericSelectField
+                    field={{
+                      name: 'csvDelimiter',
+                      type: 'select',
+                      label: 'Delimiter',
+                      required: false,
+                    }}
+                    value={values.csvDelimiter || ','}
+                    onChange={(value) => setValue('csvDelimiter', value)}
+                    options={[
+                      { value: ',', label: 'Comma (,)' },
+                      { value: ';', label: 'Semicolon (;)' },
+                      { value: '\t', label: 'Tab (\\t)' },
+                      { value: '|', label: 'Pipe (|)' },
+                    ]}
+                  />
+                </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Character used to separate values in CSV files
+                  Character used to separate values
                 </p>
               </div>
 
@@ -313,7 +306,7 @@ export function FileUploadConfiguration({
                     htmlFor="hasHeaders"
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                   >
-                    First Row Contains Headers
+                    First row contains headers
                   </label>
                   <p className="text-xs text-muted-foreground mt-1">
                     Use the first row as column names
@@ -321,13 +314,13 @@ export function FileUploadConfiguration({
                 </div>
               </div>
             </div>
+          )}
 
-            {/* Excel Options */}
+          {/* Excel-specific Options */}
+          {values.fileType === 'excel' && (
             <div className="space-y-3">
-              <h4 className="text-sm font-medium">Excel Options</h4>
-
               <div>
-                <Label htmlFor="sheetName">Sheet Name (Optional)</Label>
+                <Label htmlFor="sheetName">Sheet Name</Label>
                 <Input
                   id="sheetName"
                   value={values.sheetName || ''}
@@ -339,34 +332,54 @@ export function FileUploadConfiguration({
                   Specific sheet to read (defaults to first sheet)
                 </p>
               </div>
-            </div>
 
-            {/* Max File Size */}
-            <div>
-              <Label htmlFor="maxFileSize">Maximum File Size (MB)</Label>
-              <Input
-                id="maxFileSize"
-                type="number"
-                value={values.maxFileSize || 10}
-                onChange={(e) => setValue('maxFileSize', parseInt(e.target.value))}
-                min={1}
-                max={100}
-                className="mt-2"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Files larger than this will be rejected (1-100 MB)
-              </p>
+              <div className="flex items-start space-x-3 p-3 rounded-lg border border-border">
+                <Checkbox
+                  id="hasHeaders"
+                  checked={values.hasHeaders !== false}
+                  onCheckedChange={(checked) => setValue('hasHeaders', checked)}
+                />
+                <div className="flex-1">
+                  <label
+                    htmlFor="hasHeaders"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  >
+                    First row contains headers
+                  </label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Use the first row as column names
+                  </p>
+                </div>
+              </div>
             </div>
+          )}
 
-            {/* Security Notice */}
-            <Alert variant="default">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription className="text-xs">
-                Files are scanned for viruses and malicious content. Large files may take longer to process. PDF text extraction works best with text-based PDFs (not scanned images).
-              </AlertDescription>
-            </Alert>
-          </TabsContent>
-        </Tabs>
+          {/* Max File Size - Universal */}
+          <div>
+            <Label htmlFor="maxFileSize">Maximum File Size (MB)</Label>
+            <Input
+              id="maxFileSize"
+              type="number"
+              value={values.maxFileSize || 10}
+              onChange={(e) => setValue('maxFileSize', parseInt(e.target.value))}
+              min={1}
+              max={100}
+              className="mt-2"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Files larger than this will be rejected (1-100 MB)
+            </p>
+          </div>
+
+          {/* Security Notice */}
+          <Alert variant="default">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="text-xs">
+              Files are scanned for viruses and malicious content. Large files may take longer to process. PDF text extraction works best with text-based PDFs (not scanned images).
+            </AlertDescription>
+          </Alert>
+        </div>
+      </div>
     </ConfigurationContainer>
   );
 }
