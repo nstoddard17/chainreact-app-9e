@@ -3,7 +3,7 @@
  * Uses Discord's native button/modal system
  */
 
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@/utils/supabase/server'
 
 export interface DiscordInteractionButton {
   label: string

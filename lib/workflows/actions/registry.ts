@@ -19,7 +19,7 @@ import { fetchGmailMessage } from './gmail/fetchMessage'
 import { fetchGmailTriggerEmail } from './gmail/fetchTriggerEmail'
 
 // Google Sheets actions
-import { readGoogleSheetsData, exportGoogleSheetsData, createGoogleSheetsRow, updateGoogleSheetsRow, deleteGoogleSheetsRow, clearGoogleSheetsRange } from './googleSheets'
+import { readGoogleSheetsData, exportGoogleSheetsData, createGoogleSheetsRow, updateGoogleSheetsRow, deleteGoogleSheetsRow, findGoogleSheetsRow, clearGoogleSheetsRange } from './googleSheets'
 
 // Microsoft Excel actions
 import {
@@ -161,6 +161,33 @@ import {
   createHubSpotDeal,
   addContactToHubSpotList,
   updateHubSpotDeal,
+  hubspotUpdateContact,
+  hubspotUpdateCompany,
+  hubspotCreateTicket,
+  hubspotUpdateTicket,
+  hubspotGetTickets,
+  hubspotCreateNote,
+  hubspotCreateTask,
+  hubspotCreateCall,
+  hubspotCreateMeeting,
+  hubspotGetContacts,
+  hubspotGetCompanies,
+  hubspotGetDeals,
+  // Phase 2 actions
+  hubspotAddToWorkflow,
+  hubspotRemoveFromWorkflow,
+  hubspotCreateProduct,
+  hubspotUpdateProduct,
+  hubspotGetProducts,
+  hubspotRemoveFromList,
+  hubspotGetOwners,
+  hubspotGetForms,
+  hubspotGetDealPipelines,
+  // Phase 3 actions
+  hubspotCreateLineItem,
+  hubspotUpdateLineItem,
+  hubspotRemoveLineItem,
+  hubspotGetLineItems,
 } from './hubspot'
 
 // HubSpot dynamic actions
@@ -267,9 +294,7 @@ import { getTrelloCards } from './trello/getCards'
 import { getSlackMessages } from './slack/getMessages'
 import { getOnedriveFile } from './onedrive/getFile'
 import { getDropboxFile } from './dropbox/getFile'
-import { hubspotGetContacts } from './hubspot/getContacts'
-import { hubspotGetCompanies } from './hubspot/getCompanies'
-import { hubspotGetDeals } from './hubspot/getDeals'
+// HubSpot Get actions now imported from index.ts above
 import { mailchimpGetSubscribers } from './mailchimp/getSubscribers'
 import { mailchimpAddSubscriber } from './mailchimp/addSubscriber'
 import { mailchimpUpdateSubscriber } from './mailchimp/updateSubscriber'
@@ -423,6 +448,8 @@ export const actionHandlerRegistry: Record<string, Function> = {
     deleteGoogleSheetsRow(params.config, params.userId, params.input),
   "google_sheets_action_clear_range": (params: { config: any; userId: string; input: Record<string, any> }) =>
     clearGoogleSheetsRange(params.config, params.userId, params.input),
+  "google_sheets_action_find_row": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    findGoogleSheetsRow(params.config, params.userId, params.input),
   "google-sheets_action_export_sheet": (params: { config: any; userId: string; input: Record<string, any> }) =>
     exportGoogleSheetsData(params.config, params.userId, params.input),
 
@@ -636,6 +663,44 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "hubspot_action_get_contacts": createExecutionContextWrapper(hubspotGetContacts),
   "hubspot_action_get_companies": createExecutionContextWrapper(hubspotGetCompanies),
   "hubspot_action_get_deals": createExecutionContextWrapper(hubspotGetDeals),
+  "hubspot_action_get_tickets": createExecutionContextWrapper(hubspotGetTickets),
+
+  // HubSpot Update actions
+  "hubspot_action_update_contact": createExecutionContextWrapper(hubspotUpdateContact),
+  "hubspot_action_update_company": createExecutionContextWrapper(hubspotUpdateCompany),
+  "hubspot_action_update_ticket": createExecutionContextWrapper(hubspotUpdateTicket),
+
+  // HubSpot Ticket actions
+  "hubspot_action_create_ticket": createExecutionContextWrapper(hubspotCreateTicket),
+
+  // HubSpot Engagement actions
+  "hubspot_action_create_note": createExecutionContextWrapper(hubspotCreateNote),
+  "hubspot_action_create_task": createExecutionContextWrapper(hubspotCreateTask),
+  "hubspot_action_create_call": createExecutionContextWrapper(hubspotCreateCall),
+  "hubspot_action_create_meeting": createExecutionContextWrapper(hubspotCreateMeeting),
+
+  // HubSpot Phase 2: Workflow Management
+  "hubspot_action_add_to_workflow": createExecutionContextWrapper(hubspotAddToWorkflow),
+  "hubspot_action_remove_from_workflow": createExecutionContextWrapper(hubspotRemoveFromWorkflow),
+
+  // HubSpot Phase 2: Product Management
+  "hubspot_action_create_product": createExecutionContextWrapper(hubspotCreateProduct),
+  "hubspot_action_update_product": createExecutionContextWrapper(hubspotUpdateProduct),
+  "hubspot_action_get_products": createExecutionContextWrapper(hubspotGetProducts),
+
+  // HubSpot Phase 2: List Management
+  "hubspot_action_remove_from_list": createExecutionContextWrapper(hubspotRemoveFromList),
+
+  // HubSpot Phase 2: Utility Actions
+  "hubspot_action_get_owners": createExecutionContextWrapper(hubspotGetOwners),
+  "hubspot_action_get_forms": createExecutionContextWrapper(hubspotGetForms),
+  "hubspot_action_get_deal_pipelines": createExecutionContextWrapper(hubspotGetDealPipelines),
+
+  // HubSpot Phase 3: Line Items
+  "hubspot_action_create_line_item": createExecutionContextWrapper(hubspotCreateLineItem),
+  "hubspot_action_update_line_item": createExecutionContextWrapper(hubspotUpdateLineItem),
+  "hubspot_action_remove_line_item": createExecutionContextWrapper(hubspotRemoveLineItem),
+  "hubspot_action_get_line_items": createExecutionContextWrapper(hubspotGetLineItems),
 
   // Microsoft OneNote actions - wrapped to handle new calling convention
   "microsoft-onenote_action_create_page": (params: { config: any; userId: string; input: Record<string, any> }) =>

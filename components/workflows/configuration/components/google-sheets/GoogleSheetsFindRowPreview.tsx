@@ -12,6 +12,56 @@ interface GoogleSheetsFindRowPreviewProps {
   fieldKey: string;
 }
 
+/**
+ * Normalize boolean values for comparison
+ * Converts various boolean representations to a standard format
+ */
+function normalizeBooleanValue(value: string): string {
+  const normalized = value.toLowerCase().trim()
+
+  // Check for truthy values
+  if (['yes', 'y', 'true', 't', '1', 'on', 'enabled'].includes(normalized)) {
+    return 'true'
+  }
+
+  // Check for falsy values
+  if (['no', 'n', 'false', 'f', '0', 'off', 'disabled'].includes(normalized)) {
+    return 'false'
+  }
+
+  // Return original if not a boolean-like value
+  return value
+}
+
+/**
+ * Check if a value matches search criteria (with boolean normalization)
+ */
+function matchesSearchCriteria(cellValue: string, searchValue: string, matchType: string): boolean {
+  // Try boolean normalization for exact matches
+  if (matchType === 'exact') {
+    const normalizedCell = normalizeBooleanValue(cellValue)
+    const normalizedSearch = normalizeBooleanValue(searchValue)
+
+    // If both normalized to true/false, compare normalized values
+    if ((normalizedCell === 'true' || normalizedCell === 'false') &&
+        (normalizedSearch === 'true' || normalizedSearch === 'false')) {
+      return normalizedCell === normalizedSearch
+    }
+  }
+
+  // Standard string matching
+  switch (matchType) {
+    case 'exact':
+      return cellValue === searchValue
+    case 'contains':
+      return cellValue.includes(searchValue)
+    case 'starts_with':
+      return cellValue.startsWith(searchValue)
+    default:
+      return cellValue === searchValue
+  }
+}
+
 export function GoogleSheetsFindRowPreview({
   values,
   fieldKey
@@ -75,23 +125,25 @@ export function GoogleSheetsFindRowPreview({
       // Perform search based on match type
       const matchType = values.matchType || 'exact';
       const searchValue = values.searchValue.toLowerCase().trim();
+      const searchAllColumns = values.searchColumn === '*';
 
       const foundRow = rows.find((row: any) => {
+        // If searching all columns, check each column
+        if (searchAllColumns) {
+          return Object.values(row.fields).some((cellValue: any) => {
+            if (cellValue === null || cellValue === undefined) return false;
+
+            const cellValueStr = String(cellValue).toLowerCase().trim();
+            return matchesSearchCriteria(cellValueStr, searchValue, matchType);
+          });
+        }
+
+        // Search specific column
         const cellValue = row.fields[values.searchColumn];
         if (cellValue === null || cellValue === undefined) return false;
 
         const cellValueStr = String(cellValue).toLowerCase().trim();
-
-        switch (matchType) {
-          case 'exact':
-            return cellValueStr === searchValue;
-          case 'contains':
-            return cellValueStr.includes(searchValue);
-          case 'starts_with':
-            return cellValueStr.startsWith(searchValue);
-          default:
-            return cellValueStr === searchValue;
-        }
+        return matchesSearchCriteria(cellValueStr, searchValue, matchType);
       });
 
       if (foundRow) {
@@ -158,7 +210,9 @@ export function GoogleSheetsFindRowPreview({
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-xs">
                 <span className="text-slate-500">Column:</span>
-                <span className="font-mono font-medium text-slate-900">{values.searchColumn}</span>
+                <span className="font-mono font-medium text-slate-900">
+                  {values.searchColumn === '*' ? 'All Columns' : values.searchColumn}
+                </span>
               </div>
               <div className="flex items-center gap-2 text-xs">
                 <span className="text-slate-500">Value:</span>
@@ -221,7 +275,24 @@ export function GoogleSheetsFindRowPreview({
                 </TableHeader>
                 <TableBody>
                   {Object.entries(searchResult.rowData).map(([column, value]) => {
-                    const isSearchColumn = column === values.searchColumn;
+                    // Check if this column is the matched one
+                    let isSearchColumn = false;
+                    const searchAllColumns = values.searchColumn === '*';
+
+                    if (searchAllColumns) {
+                      // For "All Columns", check if this specific column's value matches
+                      const cellValueStr = value !== null && value !== undefined
+                        ? String(value).toLowerCase().trim()
+                        : '';
+                      const searchValue = values.searchValue.toLowerCase().trim();
+                      const matchType = values.matchType || 'exact';
+
+                      isSearchColumn = matchesSearchCriteria(cellValueStr, searchValue, matchType);
+                    } else {
+                      // For specific column search
+                      isSearchColumn = column === values.searchColumn;
+                    }
+
                     return (
                       <TableRow
                         key={column}

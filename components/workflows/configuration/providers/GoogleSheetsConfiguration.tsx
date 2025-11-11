@@ -24,6 +24,8 @@ import { GoogleSheetsAddRowPreview } from '../components/google-sheets/GoogleShe
 import { GoogleSheetsRangePreview } from '../components/google-sheets/GoogleSheetsRangePreview';
 import { GoogleSheetsRowPreview } from '../components/google-sheets/GoogleSheetsRowPreview';
 import { GoogleSheetsFindRowPreview } from '../components/google-sheets/GoogleSheetsFindRowPreview';
+import { GoogleSheetsUpdateRowPreview } from '../components/google-sheets/GoogleSheetsUpdateRowPreview';
+import { getProviderDisplayName } from '@/lib/utils/provider-names';
 
 import { logger } from '@/lib/utils/logger'
 
@@ -311,6 +313,37 @@ export function GoogleSheetsConfiguration({
     // Mark as initialized
     hasInitializedRef.current = true;
   }, [values.action, values.columnMapping, setValue, showPreviewData, previewData]);
+
+  // Handle mode switching for Update Row action - clear fields from the other mode
+  const previousUpdateModeRef = React.useRef<string | undefined>(undefined);
+  React.useEffect(() => {
+    if (nodeInfo?.type !== 'google_sheets_action_update_row') return;
+    if (!values.updateMode) return;
+
+    // Check if mode actually changed (not just initial render)
+    if (previousUpdateModeRef.current && previousUpdateModeRef.current !== values.updateMode) {
+      if (values.updateMode === 'simple') {
+        // Switched to simple mode - clear visual mode fields
+        logger.debug('🔄 Switched to Simple mode - clearing visual fields');
+        // Clear column_ fields
+        Object.keys(values).forEach(key => {
+          if (key.startsWith('column_')) {
+            setValue(key, '');
+          }
+        });
+        // Clear selected row state
+        setGoogleSheetsSelectedRows(new Set());
+      } else if (values.updateMode === 'visual') {
+        // Switched to visual mode - clear simple mode fields
+        logger.debug('🔄 Switched to Visual mode - clearing simple fields');
+        setValue('rowNumber', '');
+        setValue('values', '');
+        setValue('rowSelection', '');
+      }
+    }
+
+    previousUpdateModeRef.current = values.updateMode;
+  }, [values.updateMode, nodeInfo?.type, setValue, values]);
 
   // Auto-load preview data when sheet is selected
   React.useEffect(() => {
@@ -615,6 +648,28 @@ export function GoogleSheetsConfiguration({
         );
       }
 
+      // Special handling for Update Row Preview field
+      if (field.type === 'google_sheets_update_row_preview') {
+        return (
+          <GoogleSheetsUpdateRowPreview
+            key={`field-${field.name}-${index}`}
+            values={values}
+            previewData={previewData}
+            showPreviewData={showPreviewData}
+            loadingPreview={loadingPreview}
+            fieldKey={`field-${field.name}-${index}`}
+            onTogglePreview={() => {
+              setShowPreviewData(false);
+              setPreviewData([]);
+            }}
+            onLoadPreviewData={loadGoogleSheetsPreviewData}
+            setValue={setValueWithColumnTracking}
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
+          />
+        );
+      }
+
       // Special handling for Add Row Fields
       if (field.type === 'google_sheets_add_row_fields') {
         return (
@@ -702,7 +757,16 @@ export function GoogleSheetsConfiguration({
       setValidationErrors(errors);
       return;
     }
-    
+
+    // Additional validation for Update Row visual mode
+    if (nodeInfo?.type === 'google_sheets_action_update_row' && values.updateMode === 'visual') {
+      // Check if a row has been selected (rowNumber should be set by table selection)
+      if (!values.rowNumber) {
+        setValidationErrors({ updateRowPreview: 'Please select a row from the table to update' });
+        return;
+      }
+    }
+
     // Show confirmation dialog for delete action
     if (values.action === 'delete') {
       setShowDeleteConfirmation(true);
@@ -711,9 +775,12 @@ export function GoogleSheetsConfiguration({
     
     // Prepare values for submission
     const submissionValues = { ...values };
-    
+
     // For update action, convert column_ fields to updateMapping
-    if (values.action === 'update') {
+    // Check both the old action-based flow and the new dedicated Update Row action type
+    const isUpdateAction = values.action === 'update' || nodeInfo?.type === 'google_sheets_action_update_row';
+
+    if (isUpdateAction) {
       logger.debug('🔄 Processing update action with values:', values);
       logger.debug('🔄 All value keys:', Object.keys(values));
       logger.debug('🔄 Column fields from values:', Object.keys(values).filter(k => k.startsWith('column_')));
@@ -750,9 +817,35 @@ export function GoogleSheetsConfiguration({
       });
       
       logger.debug('🔄 Final updateMapping:', updateMapping);
-      
-      // Add updateMapping to submission values
-      submissionValues.updateMapping = updateMapping;
+
+      // Only add updateMapping if we have column updates from the UI
+      // If user is using the automation mode (values field), don't add empty updateMapping
+      if (Object.keys(updateMapping).length > 0) {
+        submissionValues.updateMapping = updateMapping;
+      }
+
+      // For the dedicated Update Row action, set findRowBy based on whether we have a rowNumber
+      if (nodeInfo?.type === 'google_sheets_action_update_row' && submissionValues.rowNumber) {
+        submissionValues.findRowBy = 'row_number';
+      }
+
+      // Clean up column_ fields from submission
+      Object.keys(submissionValues).forEach(key => {
+        if (key.startsWith('column_')) {
+          delete submissionValues[key];
+        }
+      });
+
+      // Clean up UI-only fields (not needed by backend)
+      delete submissionValues.updateMode;
+      delete submissionValues.updateRowPreview;
+
+      logger.debug('🔄 Final update submission values:', {
+        updateMapping: submissionValues.updateMapping,
+        rowNumber: submissionValues.rowNumber,
+        values: submissionValues.values,
+        findRowBy: submissionValues.findRowBy
+      });
     }
     
     // For add action, convert newRow_ fields to columnMapping
@@ -868,16 +961,16 @@ export function GoogleSheetsConfiguration({
 
   // Show connection required state
   if (needsConnection) {
+    // Get properly capitalized provider name
+    const displayName = getProviderDisplayName(nodeInfo?.providerId || 'google-sheets');
+
     return (
       <div className="flex flex-col items-center justify-center h-64 text-center">
         <AlertTriangle className="h-12 w-12 text-yellow-500 mb-4" />
-        <h3 className="text-lg font-semibold mb-2">Google Sheets Connection Required</h3>
-        <p className="text-sm text-slate-600 mb-4">
-          Please connect your Google account to use this action.
+        <h3 className="text-lg font-semibold mb-2">{displayName} Connection Required</h3>
+        <p className="text-sm text-slate-600">
+          Please connect your {displayName} account to use this action.
         </p>
-        <Button onClick={onConnectIntegration} variant="default">
-          Connect Google
-        </Button>
       </div>
     );
   }

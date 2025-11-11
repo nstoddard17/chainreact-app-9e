@@ -7,6 +7,7 @@ import { AlertTriangle, Twitter, Settings, Star, ChevronLeft } from "lucide-reac
 import { ConfigurationContainer } from '../components/ConfigurationContainer';
 import { FieldRenderer } from '../fields/FieldRenderer';
 import { AIFieldWrapper } from '../fields/AIFieldWrapper';
+import { getProviderDisplayName } from '@/lib/utils/provider-names';
 
 import { logger } from '@/lib/utils/logger'
 
@@ -203,6 +204,9 @@ export function TwitterConfiguration({
 
   // Show connection prompt if needed
   if (needsConnection) {
+    // Get properly capitalized provider name
+    const displayName = getProviderDisplayName(nodeInfo?.providerId || 'twitter');
+
     return (
       <div className="flex flex-col h-full">
         <div className="flex items-center justify-between p-6 border-b">
@@ -219,9 +223,9 @@ export function TwitterConfiguration({
             )}
             <Twitter className="h-6 w-6 text-blue-500" />
             <div>
-              <h2 className="text-lg font-semibold">Connect Twitter</h2>
+              <h2 className="text-lg font-semibold">Connect {displayName}</h2>
               <p className="text-sm text-muted-foreground">
-                Connect your Twitter account to use this action
+                Connect your {displayName} account to use this action
               </p>
             </div>
           </div>
@@ -230,13 +234,10 @@ export function TwitterConfiguration({
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="text-center space-y-4">
             <Twitter className="h-16 w-16 text-blue-500 mx-auto" />
-            <h3 className="text-lg font-semibold">Twitter not connected</h3>
+            <h3 className="text-lg font-semibold">{displayName} not connected</h3>
             <p className="text-sm text-muted-foreground max-w-sm">
-              You need to connect your Twitter account to use this action.
+              You need to connect your {displayName} account to use this action.
             </p>
-            <Button onClick={onConnectIntegration} className="bg-blue-500 hover:bg-blue-600">
-              Connect Twitter
-            </Button>
           </div>
         </div>
       </div>

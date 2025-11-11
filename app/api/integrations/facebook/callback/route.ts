@@ -86,17 +86,22 @@ export async function GET(request: NextRequest) {
     const expiresIn = tokenData.expires_in
     const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
 
-    // Fetch user info for account display
+    // Fetch user info for account display including profile picture
+    // API VERIFICATION: Facebook Graph API /me endpoint
+    // Docs: https://developers.facebook.com/docs/graph-api/reference/user/
+    // Fields: email, name, picture.type(large) for profile picture
     let userEmail = null
     let userName = null
+    let avatarUrl = null
     try {
       const meResponse = await fetch(
-        `https://graph.facebook.com/v19.0/me?fields=email,name&access_token=${tokenData.access_token}`
+        `https://graph.facebook.com/v19.0/me?fields=email,name,picture.type(large)&access_token=${tokenData.access_token}`
       )
       if (meResponse.ok) {
         const meData = await meResponse.json()
         userEmail = meData.email || null
         userName = meData.name || null
+        avatarUrl = meData.picture?.data?.url || null
       }
     } catch (e) {
       logger.warn('Failed to fetch Facebook user info:', e)
@@ -111,9 +116,16 @@ export async function GET(request: NextRequest) {
       scopes: grantedScopes,
       status: 'connected',
       updated_at: new Date().toISOString(),
+      // Top-level account identity fields
+      email: userEmail,
+      username: userEmail?.split('@')[0] || null,
+      account_name: userName || userEmail,
+      avatar_url: avatarUrl,
       metadata: {
+        // Keep in metadata for backward compatibility
         email: userEmail,
-        account_name: userName
+        account_name: userName,
+        picture: avatarUrl
       }
     }
 

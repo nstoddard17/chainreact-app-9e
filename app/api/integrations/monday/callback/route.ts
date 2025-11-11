@@ -18,6 +18,10 @@ export async function GET(request: NextRequest) {
         : null,
     }),
     // Fetch additional user data from Monday.com for metadata
+    // API VERIFICATION: Monday.com GraphQL API endpoint for authenticated user
+    // Docs: https://developer.monday.com/api-reference/docs/users
+    // Query: { me { id name email } }
+    // Returns: User object with id, name, email
     additionalIntegrationData: async (tokenData, state) => {
       try {
         const userResponse = await fetch('https://api.monday.com/v2', {
@@ -45,7 +49,11 @@ export async function GET(request: NextRequest) {
         }
 
         return {
+          email: user.email,
+          username: user.email?.split('@')[0] || user.name,
+          account_name: user.name || user.email,
           provider_user_id: user.id,
+          // Keep in metadata for backward compatibility
           provider_user_email: user.email,
           provider_user_name: user.name,
         }

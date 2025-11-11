@@ -6,6 +6,7 @@ import { ServiceConnectionSelector } from '../ServiceConnectionSelector'
 import { useIntegrationStore } from '@/stores/integrationStore'
 import { getProviderBrandName } from '@/lib/integrations/brandNames'
 import { useToast } from '@/hooks/use-toast'
+import { AlertCircle } from 'lucide-react'
 
 interface SetupTabProps {
   nodeInfo: any
@@ -64,6 +65,17 @@ export function SetupTab(props: SetupTabProps) {
       int => int.provider === nodeInfo.providerId
     )
 
+    // DEBUG: Log what we got from the store
+    if (providerIntegrations.length > 0 && providerIntegrations[0].email) {
+      console.log('[SetupTab] Provider integrations from store:', providerIntegrations.map(int => ({
+        id: int.id,
+        provider: int.provider,
+        email: int.email,
+        avatar_url: int.avatar_url,
+        has_avatar: !!int.avatar_url
+      })))
+    }
+
     // Map to Connection format
     return providerIntegrations.map(integration => {
       // Determine UI status based on integration status
@@ -78,14 +90,30 @@ export function SetupTab(props: SetupTabProps) {
 
       return {
         id: integration.id,
+        provider: integration.provider,
         email: integration.email,
         username: integration.username,
         accountName: integration.account_name,
+        avatar_url: integration.avatar_url,
         status: uiStatus,
         lastChecked: integration.last_checked ? new Date(integration.last_checked) : undefined,
         // Use disconnect_reason for error message, fallback to generic error
         error: integration.disconnect_reason || integration.error,
+        workspace_type: integration.workspace_type,
+        workspace_id: integration.workspace_id,
+        created_at: integration.created_at,
       }
+    }).map((conn, index) => {
+      // DEBUG: Log mapped connection data
+      if (index === 0 && conn.email) {
+        console.log('[SetupTab] Mapped connection data:', {
+          id: conn.id,
+          email: conn.email,
+          avatar_url: conn.avatar_url,
+          has_avatar: !!conn.avatar_url
+        })
+      }
+      return conn
     })
   }, [requiresConnection, nodeInfo?.providerId, integrations])
 
@@ -219,6 +247,9 @@ export function SetupTab(props: SetupTabProps) {
     ? getProviderBrandName(nodeInfo.providerId)
     : (integrationName || nodeInfo?.category || 'Service')
 
+  // Check if connection has an error
+  const hasConnectionError = requiresConnection && connection?.status === 'error'
+
   return (
     <div className="flex flex-col h-full">
       {/* Connection Status Section */}
@@ -237,9 +268,22 @@ export function SetupTab(props: SetupTabProps) {
         </div>
       )}
 
-      {/* Configuration Form */}
+      {/* Configuration Form or Error Blocker */}
       <div className="flex-1 overflow-hidden">
-        <ConfigurationForm {...props} />
+        {hasConnectionError ? (
+          <div className="flex items-center justify-center h-full p-6">
+            <div className="text-center max-w-md space-y-3">
+              <AlertCircle className="w-12 h-12 mx-auto text-red-500" />
+              <h3 className="text-lg font-semibold text-foreground">Connection Required</h3>
+              <p className="text-sm text-muted-foreground">
+                Please reconnect your {providerName} account above to configure this action.
+                Your account connection has expired or encountered an error.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <ConfigurationForm {...props} hasConnectionError={hasConnectionError} />
+        )}
       </div>
     </div>
   )

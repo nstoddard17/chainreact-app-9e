@@ -16,7 +16,8 @@ export async function deleteGoogleSheetsRow(
     const spreadsheetId = resolveValue(config.spreadsheetId, input)
     const sheetName = resolveValue(config.sheetName, input)
     const deleteBy = resolveValue(config.deleteBy, input)
-    const rowNumber = resolveValue(config.rowNumber, input)
+    const rowSelection = resolveValue(config.rowSelection, input)
+    let rowNumber = resolveValue(config.rowNumber, input)
     const startRow = resolveValue(config.startRow, input)
     const endRow = resolveValue(config.endRow, input)
     const matchColumn = resolveValue(config.matchColumn, input)
@@ -28,6 +29,7 @@ export async function deleteGoogleSheetsRow(
       spreadsheetId,
       sheetName,
       deleteBy,
+      rowSelection,
       rowNumber,
       startRow,
       endRow,
@@ -101,17 +103,29 @@ export async function deleteGoogleSheetsRow(
       }
     }
 
+    // Handle row selection shortcuts
+    if (rowSelection === 'last') {
+      rowNumber = rows.length // Last row
+      logger.debug(`Using last row: ${rowNumber}`)
+    } else if (rowSelection === 'first_data') {
+      rowNumber = 2 // First data row below headers
+      logger.debug(`Using first data row: ${rowNumber}`)
+    }
+
     // Find the row(s) to delete
     const rowsToDelete: number[] = []
     const deletedData: any[] = []
 
-    if (deleteBy === 'row_number' && rowNumber) {
+    // Auto-detect deleteBy if not explicitly set but rowNumber is provided (for new schema)
+    const effectiveDeleteBy = deleteBy || (rowNumber ? 'row_number' : null)
+
+    if (effectiveDeleteBy === 'row_number' && rowNumber) {
       const rowNum = parseInt(rowNumber.toString())
       if (rowNum > 1 && rowNum <= rows.length) {
         rowsToDelete.push(rowNum)
         deletedData.push(rows[rowNum - 1])
       }
-    } else if (deleteBy === 'range' && startRow && endRow) {
+    } else if (effectiveDeleteBy === 'range' && startRow && endRow) {
       const start = parseInt(startRow.toString())
       const end = parseInt(endRow.toString())
       for (let i = start; i <= end && i <= rows.length; i++) {
@@ -120,7 +134,7 @@ export async function deleteGoogleSheetsRow(
           deletedData.push(rows[i - 1])
         }
       }
-    } else if (deleteBy === 'column_value' && matchColumn && matchValue) {
+    } else if (effectiveDeleteBy === 'column_value' && matchColumn && matchValue) {
       // Find column index
       let columnIndex = -1
       // Check if matchColumn is a SINGLE column letter (A-Z only, not AA, AB, etc.)

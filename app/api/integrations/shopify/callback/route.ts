@@ -61,8 +61,15 @@ export async function GET(request: NextRequest) {
     const expiresIn = tokenData.expires_in
     const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
 
-    // Fetch all stores associated with this account
+    // Fetch shop info including owner email
+    // API VERIFICATION: Shopify Admin API endpoint for shop details
+    // Docs: https://shopify.dev/docs/api/admin-rest/2024-01/resources/shop
+    // Returns: email (shop owner), name, id, etc.
     const stores: Array<{ shop: string; name: string; id: string }> = []
+    let shopOwnerEmail = null
+    let shopName = null
+    let shopId = null
+
     try {
       // Fetch the current shop info
       const shopResponse = await fetch(`https://${shop}/admin/api/2024-01/shop.json`, {
@@ -74,10 +81,14 @@ export async function GET(request: NextRequest) {
       if (shopResponse.ok) {
         const shopData = await shopResponse.json()
         const shopInfo = shopData.shop
+        shopOwnerEmail = shopInfo?.email || null
+        shopName = shopInfo?.name || shop
+        shopId = shopInfo?.id?.toString() || shop
+
         stores.push({
           shop: shop,
-          name: shopInfo?.name || shop,
-          id: shopInfo?.id?.toString() || shop
+          name: shopName,
+          id: shopId
         })
       }
 
@@ -130,10 +141,15 @@ export async function GET(request: NextRequest) {
       status: 'connected',
       expires_at: expiresAt ? expiresAt.toISOString() : null,
       updated_at: new Date().toISOString(),
+      // Top-level account identity fields
+      email: shopOwnerEmail,
+      username: shop,
+      account_name: shopName || shop,
       // Store all connected stores in metadata
       metadata: {
         stores: allStores, // Array of all connected stores (merged with existing)
         active_store: shop, // The store that was just connected
+        shop_id: shopId,
       },
     }
 

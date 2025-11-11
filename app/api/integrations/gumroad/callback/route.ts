@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text()
-      logger.error('Gumroad token exchange failed:', tokenResponse.status, errorText)
+      logger.error('Gumroad token exchange failed:', { status: tokenResponse.status, error: errorText })
       return createPopupResponse('error', provider, 'Failed to retrieve access token', baseUrl)
     }
 
@@ -154,7 +154,7 @@ export async function GET(request: NextRequest) {
     const workspaceId = stateObject.workspaceId || null
 
     // Build integration data
-    // Note: email, username, account_name go in metadata (no DB columns for these)
+    // Note: email, username, account_name, provider_user_id are now top-level columns
     const integrationData: any = {
       provider,
       access_token: encrypt(tokenData.access_token, encryptionKey),
@@ -165,14 +165,26 @@ export async function GET(request: NextRequest) {
       workspace_type: workspaceType,
       workspace_id: workspaceId,
       connected_by: userId,
-      metadata: userProfile ? {
+    }
+
+    // Extract account identity fields as top-level columns (for querying and UI display)
+    if (userProfile) {
+      integrationData.email = userProfile.email || null
+      integrationData.username = userProfile.name || null
+      integrationData.account_name = userProfile.name || userProfile.email || null
+      integrationData.provider_user_id = userProfile.userId || null
+
+      // Store additional provider-specific data in metadata
+      integrationData.metadata = {
         user_id: userProfile.userId,
-        email: userProfile.email,
-        username: userProfile.name,
-        account_name: userProfile.name || userProfile.email,
         bio: userProfile.bio,
-        twitter_handle: userProfile.twitter_handle
-      } : {}
+        twitter_handle: userProfile.twitter_handle,
+        // Also keep in metadata for backward compatibility
+        email: userProfile.email,
+        name: userProfile.name
+      }
+    } else {
+      integrationData.metadata = {}
     }
 
     // For personal integrations, keep user_id for backward compatibility
@@ -198,23 +210,61 @@ export async function GET(request: NextRequest) {
 
       integrationId = stateObject.integrationId
     } else {
-      // For personal integrations, use upsert to handle existing integrations
-      // This will update the existing integration or create a new one
-      if (workspaceType === 'personal') {
-        const { data: upsertedIntegration, error: upsertError } = await supabase
+      // For personal integrations, check if integration with same email already exists
+      // This allows multiple accounts per provider with different emails
+      if (workspaceType === 'personal' && userProfile?.email) {
+        // Check for existing integration with same email
+        const { data: existingIntegration } = await supabase
           .from('integrations')
-          .upsert(integrationData, {
-            onConflict: 'user_id, provider',
-          })
+          .select('id')
+          .eq('user_id', userId)
+          .eq('provider', provider)
+          .eq('email', userProfile.email)
+          .eq('workspace_type', 'personal')
+          .maybeSingle()
+
+        if (existingIntegration) {
+          // Update existing integration
+          const { error: updateError } = await supabase
+            .from('integrations')
+            .update(integrationData)
+            .eq('id', existingIntegration.id)
+
+          if (updateError) {
+            logger.error('Failed to update Gumroad integration:', updateError)
+            return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
+          }
+
+          integrationId = existingIntegration.id
+        } else {
+          // Create new integration
+          const { data: newIntegration, error: insertError } = await supabase
+            .from('integrations')
+            .insert(integrationData)
+            .select('id')
+            .single()
+
+          if (insertError || !newIntegration) {
+            logger.error('Failed to save Gumroad integration:', insertError)
+            return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
+          }
+
+          integrationId = newIntegration.id
+        }
+      } else if (workspaceType === 'personal') {
+        // For personal integrations without email (shouldn't happen for Gumroad, but handle it)
+        const { data: newIntegration, error: insertError } = await supabase
+          .from('integrations')
+          .insert(integrationData)
           .select('id')
           .single()
 
-        if (upsertError || !upsertedIntegration) {
-          logger.error('Failed to save Gumroad integration:', upsertError)
+        if (insertError || !newIntegration) {
+          logger.error('Failed to save Gumroad integration:', insertError)
           return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
         }
 
-        integrationId = upsertedIntegration.id
+        integrationId = newIntegration.id
       } else {
         // For team/org integrations, just insert (multiple allowed)
         const { data: newIntegration, error: insertError } = await supabase
@@ -234,7 +284,11 @@ export async function GET(request: NextRequest) {
 
     // Auto-grant permissions based on workspace context
     try {
-      await autoGrantPermissionsForIntegration(integrationId, workspaceType, workspaceId, userId)
+      await autoGrantPermissionsForIntegration(
+        integrationId,
+        { type: workspaceType, id: workspaceId || undefined },
+        userId
+      )
     } catch (permError) {
       logger.warn('Failed to auto-grant permissions:', permError)
       // Don't fail the whole flow if permissions fail
@@ -248,6 +302,7 @@ export async function GET(request: NextRequest) {
       'Gumroad connected successfully!',
       baseUrl,
       {
+        autoClose: true,
         payload: {
           integrationId,
           email: userProfile?.email,

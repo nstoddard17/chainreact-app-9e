@@ -379,6 +379,11 @@ const googleSheetsMappings: Record<string, FieldMapping> = {
     sortColumn: "google-sheets_columns",
     dateColumn: "google-sheets_columns",
   },
+  "google_sheets_action_find_row": {
+    spreadsheetId: "google-sheets_spreadsheets",
+    sheetName: "google-sheets_sheets",
+    searchColumn: "google-sheets_columns",
+  },
 };
 
 // Google Drive field mappings

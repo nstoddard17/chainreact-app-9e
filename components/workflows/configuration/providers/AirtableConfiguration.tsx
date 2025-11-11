@@ -12,6 +12,7 @@ import { AirtableRecordsTable } from '../AirtableRecordsTable';
 import { FieldChecklistWithOverride } from '../FieldChecklistWithOverride';
 import { getAirtableFieldTypeFromSchema, isEditableFieldType } from '../utils/airtableHelpers';
 import { BubbleDisplay } from '../components/BubbleDisplay';
+import { getProviderDisplayName } from '@/lib/utils/provider-names';
 
 import { logger } from '@/lib/utils/logger'
 
@@ -2485,16 +2486,16 @@ export function AirtableConfiguration({
 
   // Show connection required state
   if (needsConnection) {
+    // Get properly capitalized provider name
+    const displayName = getProviderDisplayName(nodeInfo?.providerId || 'airtable');
+
     return (
       <div className="flex flex-col items-center justify-center h-64 text-center">
         <AlertTriangle className="h-12 w-12 text-yellow-500 mb-4" />
-        <h3 className="text-lg font-semibold mb-2">Airtable Connection Required</h3>
-        <p className="text-sm text-slate-600 mb-4">
-          Please connect your Airtable account to use this action.
+        <h3 className="text-lg font-semibold mb-2">{displayName} Connection Required</h3>
+        <p className="text-sm text-slate-600">
+          Please connect your {displayName} account to use this action.
         </p>
-        <Button onClick={onConnectIntegration} variant="default">
-          Connect Airtable
-        </Button>
       </div>
     );
   }

@@ -36,10 +36,16 @@ export async function GET(request: NextRequest) {
     additionalIntegrationData: async (tokenData, state) => {
       let providerEmail: string | null = null
       let providerAccountName: string | null = null
+      let providerUsername: string | null = null
       let providerUserId: string | null = null
+      let avatarUrl: string | null = null
       let metadata: any = {}
 
-      // Fetch user info to check account type
+      // Fetch user info to check account type and get profile photo
+      // API VERIFICATION: Microsoft Graph API endpoints
+      // User endpoint: https://learn.microsoft.com/en-us/graph/api/user-get
+      // Photo endpoint: https://learn.microsoft.com/en-us/graph/api/profilephoto-get
+      // Returns: id, mail, userPrincipalName, displayName, etc.
       try {
         const userResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
           headers: {
@@ -53,7 +59,25 @@ export async function GET(request: NextRequest) {
 
           providerUserId = userData.id || null
           providerEmail = email || null
+          providerUsername = userData.userPrincipalName || email || null
           providerAccountName = userData.displayName || providerEmail
+
+          // Fetch profile photo URL (Microsoft Graph provides photo as binary blob)
+          // We'll get the $value URL which provides the actual photo
+          try {
+            const photoMetaResponse = await fetch("https://graph.microsoft.com/v1.0/me/photo", {
+              headers: {
+                "Authorization": `Bearer ${tokenData.access_token}`
+              }
+            })
+            if (photoMetaResponse.ok) {
+              // Photo exists, construct the URL to fetch it
+              avatarUrl = `https://graph.microsoft.com/v1.0/me/photo/$value`
+            }
+          } catch (photoError) {
+            // Photo might not be set for this user, that's okay
+            logger.debug("Microsoft Graph photo not available for user")
+          }
 
           // Check if this is a personal account
           const isPersonalAccount = !userData.userPrincipalName ||
@@ -95,7 +119,11 @@ export async function GET(request: NextRequest) {
       const refreshTokenExpiresAt = new Date(Date.now() + refreshExpiresIn * 1000)
 
       return {
+        email: providerEmail,
+        username: providerUsername,
+        account_name: providerAccountName,
         provider_user_id: providerUserId,
+        avatar_url: avatarUrl,
         refresh_token_expires_at: refreshTokenExpiresAt.toISOString(),
         metadata
       }
