@@ -98,7 +98,8 @@ export async function GET(request: NextRequest) {
         stores.push({
           shop: shop,
           name: shopName,
-          id: shopId
+          id: shopId,
+          email: shopOwnerEmail
         })
       }
 
