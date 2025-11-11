@@ -1,10 +1,20 @@
-import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
+import { NextRequest } from "next/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { createPopupResponse } from "@/lib/utils/createPopupResponse"
-
+import { encrypt } from "@/lib/security/encryption"
 import { logger } from '@/lib/utils/logger'
 
+export const maxDuration = 30
+
+/**
+ * Shopify OAuth Callback Handler
+ *
+ * Handles the OAuth callback from Shopify for shop integration.
+ * Stores multiple shops in the metadata column of a single integration row.
+ *
+ * Updated: 2025-11-10 - Fixed to work with UNIQUE(user_id, provider) constraint
+ */
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)
   const code = url.searchParams.get("code")
@@ -88,7 +98,8 @@ export async function GET(request: NextRequest) {
         stores.push({
           shop: shop,
           name: shopName,
-          id: shopId
+          id: shopId,
+          email: shopOwnerEmail
         })
       }
 
@@ -106,15 +117,18 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    )
+    const supabase = createAdminClient()
+
+    // Get encryption key
+    const encryptionKey = process.env.ENCRYPTION_KEY
+    if (!encryptionKey) {
+      throw new Error('Encryption key not configured')
+    }
 
     // Check if integration already exists to merge stores
     const { data: existingIntegration } = await supabase
       .from('integrations')
-      .select('metadata')
+      .select('id, metadata')
       .eq('user_id', userId)
       .eq('provider', 'shopify')
       .single()
@@ -135,16 +149,16 @@ export async function GET(request: NextRequest) {
     const integrationData = {
       user_id: userId,
       provider: 'shopify',
-      access_token: tokenData.access_token,
-      refresh_token: tokenData.refresh_token,
+      access_token: encrypt(tokenData.access_token, encryptionKey),
+      refresh_token: tokenData.refresh_token ? encrypt(tokenData.refresh_token, encryptionKey) : null,
       scopes: tokenData.scope.split(' '),
       status: 'connected',
       expires_at: expiresAt ? expiresAt.toISOString() : null,
       updated_at: new Date().toISOString(),
-      // Top-level account identity fields
+      // Top-level identity fields for easier querying and display
       email: shopOwnerEmail,
-      username: shop,
       account_name: shopName || shop,
+      provider_user_id: shopId || shop,
       // Store all connected stores in metadata
       metadata: {
         stores: allStores, // Array of all connected stores (merged with existing)
@@ -153,30 +167,55 @@ export async function GET(request: NextRequest) {
       },
     }
 
-    const { data: integration, error: upsertError } = await supabase
-      .from('integrations')
-      .upsert(integrationData, {
-        onConflict: 'user_id, provider',
-      })
-      .select('id')
-      .single()
+    let integrationId: string
 
-    if (upsertError) {
-      logger.error("Error saving Shopify integration to DB:", upsertError)
-      return createPopupResponse(
-        "error",
-        "shopify",
-        `Database Error: ${upsertError.message}`,
-        baseUrl,
-      )
+    if (existingIntegration) {
+      // Update existing integration
+      const { error: updateError } = await supabase
+        .from('integrations')
+        .update(integrationData)
+        .eq('id', existingIntegration.id)
+
+      if (updateError) {
+        logger.error("Error updating Shopify integration:", updateError)
+        return createPopupResponse(
+          "error",
+          "shopify",
+          `Database Error: ${updateError.message}`,
+          baseUrl,
+        )
+      }
+
+      integrationId = existingIntegration.id
+      logger.debug(`✅ Updated existing Shopify integration: ${integrationId}`)
+    } else {
+      // Insert new integration
+      const { data: integration, error: insertError } = await supabase
+        .from('integrations')
+        .insert(integrationData)
+        .select('id')
+        .single()
+
+      if (insertError) {
+        logger.error("Error inserting Shopify integration:", insertError)
+        return createPopupResponse(
+          "error",
+          "shopify",
+          `Database Error: ${insertError.message}`,
+          baseUrl,
+        )
+      }
+
+      integrationId = integration.id
+      logger.debug(`✅ Created new Shopify integration: ${integrationId}`)
     }
 
     // Grant admin permissions to the user who connected the integration
-    if (integration?.id) {
+    if (integrationId) {
       const { autoGrantPermissionsForIntegration } = await import('@/lib/services/integration-permissions')
       try {
-        await autoGrantPermissionsForIntegration(integration.id, userId)
-        logger.debug(`✅ Granted admin permissions for Shopify integration: ${integration.id}`)
+        await autoGrantPermissionsForIntegration(integrationId, userId)
+        logger.debug(`✅ Granted admin permissions for Shopify integration: ${integrationId}`)
       } catch (permError) {
         logger.error('Failed to grant permissions for Shopify integration:', permError)
         // Don't fail the whole flow - integration is connected, just permissions might be missing

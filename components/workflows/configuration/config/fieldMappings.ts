@@ -1181,12 +1181,15 @@ const gumroadMappings: Record<string, FieldMapping> = {
 // Shopify field mappings
 const shopifyMappings: Record<string, FieldMapping> = {
   shopify_trigger_product_updated: {
+    shopify_store: "shopify_stores",
     collection_id: "shopify_collections",
   },
   shopify_trigger_inventory_low: {
+    shopify_store: "shopify_stores",
     location_id: "shopify_locations",
   },
   shopify_action_update_inventory: {
+    shopify_store: "shopify_stores",
     location_id: "shopify_locations",
   },
 };
@@ -1203,6 +1206,7 @@ const defaultMappings: FieldMapping = {
   // Removed attendees mapping - it shouldn't default to Gmail
   // attendees fields should be simple text inputs for email addresses
   labelIds: "gmail_labels",
+  shopify_store: "shopify_stores", // Shopify store selector (used by all Shopify nodes)
 };
 
 // Combine all mappings
