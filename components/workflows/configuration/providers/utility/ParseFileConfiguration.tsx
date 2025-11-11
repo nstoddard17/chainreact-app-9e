@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { GenericSelectField } from '../../fields/shared/GenericSelectField';
 import { ConfigurationContainer } from '../../components/ConfigurationContainer';
 
-interface FileUploadConfigurationProps {
+interface ParseFileConfigurationProps {
   values: Record<string, any>;
   errors: Record<string, string>;
   setValue: (name: string, value: any) => void;
@@ -22,7 +22,7 @@ interface FileUploadConfigurationProps {
   isEditMode?: boolean;
 }
 
-export function FileUploadConfiguration({
+export function ParseFileConfiguration({
   values,
   errors,
   setValue,
@@ -30,7 +30,7 @@ export function FileUploadConfiguration({
   onCancel,
   onBack,
   isEditMode = false,
-}: FileUploadConfigurationProps) {
+}: ParseFileConfigurationProps) {
 
   // Set default values
   React.useEffect(() => {
@@ -87,28 +87,16 @@ export function FileUploadConfiguration({
               File Source <span className="text-destructive">*</span>
             </Label>
             <p className="text-xs text-muted-foreground">
-              Choose where to get your file from
+              Choose where to get the file to parse
             </p>
           </div>
 
           <div>
               <RadioGroup
-                value={values.source || 'upload'}
+                value={values.source || 'url'}
                 onValueChange={(value) => setValue('source', value)}
                 className="space-y-3"
               >
-                <div className="flex items-start space-x-3 p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors">
-                  <RadioGroupItem value="upload" id="source-upload" className="mt-1" />
-                  <div className="flex-1">
-                    <label htmlFor="source-upload" className="text-sm font-medium cursor-pointer">
-                      Direct Upload
-                    </label>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Upload a file from your computer
-                    </p>
-                  </div>
-                </div>
-
                 <div className="flex items-start space-x-3 p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors">
                   <RadioGroupItem value="url" id="source-url" className="mt-1" />
                   <div className="flex-1">
@@ -116,7 +104,7 @@ export function FileUploadConfiguration({
                       URL
                     </label>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Download file from a URL
+                      Parse a file from a URL
                     </p>
                   </div>
                 </div>
@@ -128,7 +116,7 @@ export function FileUploadConfiguration({
                       From Previous Step
                     </label>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Use a file from a previous workflow step
+                      Parse a file from a previous workflow step
                     </p>
                   </div>
                 </div>
@@ -136,27 +124,6 @@ export function FileUploadConfiguration({
             </div>
 
             {/* Conditional Fields Based on Source */}
-            {values.source === 'upload' && (
-              <div>
-                <Label htmlFor="file">
-                  Select File <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="file"
-                  type="file"
-                  onChange={(e) => setValue('file', e.target.files?.[0])}
-                  className="mt-2"
-                  accept=".csv,.xlsx,.xls,.pdf,.txt,.json"
-                />
-                {errors.file && (
-                  <p className="text-xs text-destructive mt-1">{errors.file}</p>
-                )}
-                <p className="text-xs text-muted-foreground mt-1">
-                  Supported: CSV, Excel, PDF, TXT, JSON (max {values.maxFileSize || 10}MB)
-                </p>
-              </div>
-            )}
-
             {values.source === 'url' && (
               <div>
                 <Label htmlFor="fileUrl">
@@ -195,7 +162,7 @@ export function FileUploadConfiguration({
                   <p className="text-xs text-destructive mt-1">{errors.fileField}</p>
                 )}
                 <p className="text-xs text-muted-foreground mt-1">
-                  Use the variable picker to select a file field from a previous step
+                  Use the variable picker to select a file URL from a previous step
                 </p>
               </div>
             )}
@@ -349,28 +316,11 @@ export function FileUploadConfiguration({
             </div>
           )}
 
-          {/* Max File Size - Universal */}
-          <div>
-            <Label htmlFor="maxFileSize">Maximum File Size (MB)</Label>
-            <Input
-              id="maxFileSize"
-              type="number"
-              value={values.maxFileSize || 10}
-              onChange={(e) => setValue('maxFileSize', parseInt(e.target.value))}
-              min={1}
-              max={100}
-              className="mt-2"
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              Files larger than this will be rejected (1-100 MB)
-            </p>
-          </div>
-
-          {/* Security Notice */}
+          {/* Parsing Info */}
           <Alert variant="default">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription className="text-xs">
-              Files are scanned for viruses and malicious content. Large files may take longer to process. PDF text extraction works best with text-based PDFs (not scanned images).
+              Large files may take longer to process. PDF text extraction works best with text-based PDFs (not scanned images).
             </AlertDescription>
           </Alert>
         </div>

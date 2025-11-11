@@ -107,93 +107,64 @@ export const utilityNodes: NodeComponent[] = [
     ],
   },
   {
-    type: "file_upload",
-    title: "File Upload",
-    description: "Upload and process files (CSV, Excel, PDF) and extract data",
+    type: "parse_file",
+    title: "Parse File",
+    description: "Parse and extract data from files (CSV, Excel, PDF, JSON)",
     icon: FileUp,
-    category: "Action",
+    category: "Data Transformation",
     providerId: "utility",
     isTrigger: false,
     testable: true,
     producesOutput: true,
     outputSchema: [
       {
-        name: "fileUrl",
-        label: "File URL",
-        type: "string",
-        description: "URL where the uploaded file is stored",
-        example: "https://storage.example.com/files/abc123.csv"
-      },
-      {
-        name: "fileName",
-        label: "File Name",
-        type: "string",
-        description: "Original name of the uploaded file",
-        example: "data.csv"
-      },
-      {
-        name: "fileSize",
-        label: "File Size (bytes)",
-        type: "number",
-        description: "Size of the uploaded file in bytes",
-        example: 2048576
-      },
-      {
-        name: "fileType",
-        label: "File Type",
-        type: "string",
-        description: "MIME type of the uploaded file",
-        example: "text/csv"
-      },
-      {
-        name: "extractedData",
-        label: "Extracted Data",
+        name: "rows",
+        label: "Parsed Rows",
         type: "array",
-        description: "Parsed data from the file (for CSV/Excel)",
-        example: [{ column1: "value1", column2: "value2" }]
+        description: "Array of parsed data rows from CSV/Excel files",
+        example: [{ name: "John", email: "john@example.com" }, { name: "Jane", email: "jane@example.com" }]
       },
       {
-        name: "extractedText",
-        label: "Extracted Text",
-        type: "string",
-        description: "Text content extracted from PDF files",
-        example: "This is the text content..."
+        name: "headers",
+        label: "Column Headers",
+        type: "array",
+        description: "Column names extracted from the file",
+        example: ["name", "email", "phone"]
       },
       {
         name: "rowCount",
         label: "Row Count",
         type: "number",
-        description: "Number of rows in the file (for CSV/Excel)",
+        description: "Total number of data rows parsed",
         example: 150
+      },
+      {
+        name: "text",
+        label: "Extracted Text",
+        type: "string",
+        description: "Text content extracted from PDF/TXT files",
+        example: "This is the text content from the PDF..."
+      },
+      {
+        name: "metadata",
+        label: "File Metadata",
+        type: "object",
+        description: "Information about the parsed file",
+        example: { format: "csv", delimiter: ",", hasHeaders: true, fileName: "data.csv" }
       }
     ],
     configSchema: [
       {
-        name: "fileSource",
+        name: "source",
         label: "File Source",
         type: "select",
         required: true,
-        defaultValue: "upload",
+        defaultValue: "url",
         options: [
-          { value: "upload", label: "Upload File" },
           { value: "url", label: "From URL" },
-          { value: "variable", label: "From Previous Step" }
+          { value: "previous_step", label: "From Previous Step" }
         ],
-        description: "Where to get the file from"
-      },
-      {
-        name: "file",
-        label: "Upload File",
-        type: "file",
-        required: true,
-        accept: ".csv,.xlsx,.xls,.pdf,.txt,.json",
-        maxSize: 10485760, // 10MB
-        description: "Upload a file to process",
-        visibilityCondition: {
-          field: "fileSource",
-          operator: "equals",
-          value: "upload"
-        }
+        description: "Where to get the file to parse"
       },
       {
         name: "fileUrl",
@@ -201,85 +172,89 @@ export const utilityNodes: NodeComponent[] = [
         type: "text",
         required: true,
         placeholder: "https://example.com/file.csv",
-        description: "URL of the file to download and process",
+        description: "URL of the file to parse",
         hasVariablePicker: true,
         visibilityCondition: {
-          field: "fileSource",
+          field: "source",
           operator: "equals",
           value: "url"
         }
       },
       {
-        name: "fileVariable",
+        name: "fileField",
         label: "File from Previous Step",
         type: "text",
         required: true,
-        placeholder: "{{previousNode.fileUrl}}",
-        description: "Reference to file from a previous step",
+        placeholder: "{{trigger.file_url}}",
+        description: "File URL from a previous workflow step",
         hasVariablePicker: true,
         visibilityCondition: {
-          field: "fileSource",
+          field: "source",
           operator: "equals",
-          value: "variable"
+          value: "previous_step"
         }
       },
       {
-        name: "parseOptions",
-        label: "Parse Options",
+        name: "fileType",
+        label: "File Type",
         type: "select",
-        defaultValue: "auto",
+        defaultValue: "csv",
         options: [
-          { value: "auto", label: "Auto-detect format" },
-          { value: "csv", label: "Parse as CSV" },
-          { value: "excel", label: "Parse as Excel" },
-          { value: "pdf_text", label: "Extract text from PDF" },
-          { value: "raw", label: "Keep as raw file" }
+          { value: "csv", label: "CSV" },
+          { value: "excel", label: "Excel" },
+          { value: "pdf", label: "PDF" },
+          { value: "txt", label: "Text" },
+          { value: "json", label: "JSON" }
         ],
-        description: "How to process the file content"
+        description: "Format of the file to parse"
+      },
+      {
+        name: "autoDetectFormat",
+        label: "Auto-detect if unclear",
+        type: "boolean",
+        defaultValue: false,
+        description: "Fall back to automatic detection if file doesn't match selected type"
       },
       {
         name: "csvDelimiter",
-        label: "CSV Delimiter",
+        label: "Delimiter",
         type: "select",
         defaultValue: ",",
         options: [
           { value: ",", label: "Comma (,)" },
           { value: ";", label: "Semicolon (;)" },
-          { value: "\t", label: "Tab" },
+          { value: "\t", label: "Tab (\\t)" },
           { value: "|", label: "Pipe (|)" }
         ],
-        description: "Delimiter used in CSV files",
-        uiTab: "advanced",
+        description: "Character used to separate values",
         visibilityCondition: {
-          field: "parseOptions",
-          operator: "in",
-          value: ["csv", "auto"]
+          field: "fileType",
+          operator: "equals",
+          value: "csv"
         }
       },
       {
         name: "hasHeaders",
-        label: "First Row is Headers",
+        label: "First row contains headers",
         type: "boolean",
         defaultValue: true,
-        description: "Whether the first row contains column headers",
-        uiTab: "advanced",
+        description: "Use the first row as column names",
         visibilityCondition: {
-          field: "parseOptions",
+          field: "fileType",
           operator: "in",
-          value: ["csv", "excel", "auto"]
+          value: ["csv", "excel"]
         }
       },
       {
-        name: "excelSheet",
-        label: "Excel Sheet",
+        name: "sheetName",
+        label: "Sheet Name",
         type: "text",
-        placeholder: "Sheet1",
-        description: "Name or index of the Excel sheet to parse (leave empty for first sheet)",
-        uiTab: "advanced",
+        placeholder: "Leave empty for first sheet",
+        description: "Specific sheet to read (defaults to first sheet)",
         visibilityCondition: {
-          field: "parseOptions",
-          operator: "in",
-          value: ["excel", "auto"]
+          field: "fileType",
+          operator: "equals",
+          value: "excel"
         }
       }
     ],
