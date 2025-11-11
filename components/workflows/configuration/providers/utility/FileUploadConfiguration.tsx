@@ -50,20 +50,15 @@ export function FileUploadConfiguration({
 
   // Compute form validity
   const isFormValid = React.useMemo(() => {
-    if (values.source === 'upload' && !values.file) return false;
     if (values.source === 'url' && (!values.fileUrl || values.fileUrl.trim() === '')) return false;
     if (values.source === 'previous_step' && (!values.fileField || values.fileField.trim() === '')) return false;
     return true;
-  }, [values.source, values.file, values.fileUrl, values.fileField]);
+  }, [values.source, values.fileUrl, values.fileField]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validate based on source type
-    if (values.source === 'upload' && !values.file) {
-      alert('Please select a file to upload');
-      return;
-    }
     if (values.source === 'url' && (!values.fileUrl || values.fileUrl.trim() === '')) {
       alert('Please enter a file URL');
       return;
