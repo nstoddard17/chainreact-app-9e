@@ -3,6 +3,7 @@ import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-re
 import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine';
 import { createClient } from '@supabase/supabase-js';
 import { webhookManager } from '@/lib/webhooks/webhookManager';
+import crypto from 'crypto';
 
 import { logger } from '@/lib/utils/logger'
 
@@ -87,6 +88,35 @@ function validateWebhookPayload(payload: any, schema: any): ValidationResult {
   };
 }
 
+/**
+ * Verify HMAC signature if configured
+ * @param payload - The request body
+ * @param signature - The signature from request headers
+ * @param secret - The HMAC secret
+ * @returns boolean indicating if signature is valid
+ */
+function verifyHmacSignature(payload: string, signature: string | null, secret: string): boolean {
+  if (!signature) {
+    return false;
+  }
+
+  try {
+    const computedSignature = crypto
+      .createHmac('sha256', secret)
+      .update(payload)
+      .digest('hex');
+
+    // Use constant-time comparison to prevent timing attacks
+    return crypto.timingSafeEqual(
+      Buffer.from(signature),
+      Buffer.from(computedSignature)
+    );
+  } catch (error) {
+    logger.error('HMAC verification error:', error);
+    return false;
+  }
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ workflowId: string }> }
@@ -111,8 +141,45 @@ export async function POST(
       return errorResponse('No webhook trigger found for this workflow' , 400);
     }
 
-    const payload = await request.json();
+    // Get raw body for HMAC verification
+    const rawBody = await request.text();
     const headers = Object.fromEntries(request.headers.entries());
+
+    // Parse JSON payload
+    let payload: any;
+    try {
+      payload = JSON.parse(rawBody);
+    } catch (error) {
+      logger.error('Failed to parse webhook payload:', error);
+      return errorResponse('Invalid JSON payload', 400);
+    }
+
+    // Check if HMAC signature verification is enabled
+    const { data: triggerResource } = await supabase
+      .from('trigger_resources')
+      .select('config')
+      .eq('workflow_id', workflowId)
+      .eq('provider_id', 'webhook')
+      .eq('status', 'active')
+      .single();
+
+    if (triggerResource?.config?.hmacSecret && triggerResource?.config?.requireSignature) {
+      const signature = headers['x-webhook-signature'] || headers['x-hub-signature-256'];
+
+      if (!signature) {
+        logger.error(`Webhook signature required but not provided for workflow ${workflowId}`);
+        return errorResponse('Webhook signature required', 401);
+      }
+
+      const isValid = verifyHmacSignature(rawBody, signature, triggerResource.config.hmacSecret);
+
+      if (!isValid) {
+        logger.error(`Invalid webhook signature for workflow ${workflowId}`);
+        return errorResponse('Invalid webhook signature', 401);
+      }
+
+      logger.debug(`✅ Webhook signature verified for workflow ${workflowId}`);
+    }
 
     // Validate payload against the trigger node's payload schema
     const validationResult = validateWebhookPayload(payload, triggerNode.data.payloadSchema);

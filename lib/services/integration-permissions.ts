@@ -203,14 +203,18 @@ export async function grantIntegrationPermission(
   }
 
   try {
+    // Use upsert to handle case where permission already exists
     const { error } = await queryWithTimeout(
       supabase
         .from('integration_permissions')
-        .insert({
+        .upsert({
           integration_id: integrationId,
           user_id: userId,
           permission,
           granted_by: grantedBy
+        }, {
+          onConflict: 'integration_id,user_id',
+          ignoreDuplicates: false // Update if exists
         }),
       8000
     )

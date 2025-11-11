@@ -24,21 +24,28 @@ export const batchUpdateActionSchema: NodeComponent = {
       dynamic: "google-sheets_spreadsheets",
       required: true,
       loadOnMount: true,
-      placeholder: "Select a spreadsheet"
+      placeholder: "Select a spreadsheet",
+      loadingPlaceholder: "Loading spreadsheets...",
+      description: "Choose a spreadsheet from your Google Sheets account"
     },
     {
       name: "updates",
       label: "Updates",
       type: "textarea",
       required: true,
-      rows: 10,
+      dependsOn: "spreadsheetId",
+      hidden: {
+        $deps: ["spreadsheetId"],
+        $condition: { spreadsheetId: { $exists: false } }
+      },
+      rows: 23,
       placeholder: JSON.stringify([
         { range: "Sheet1!A1", values: [["Updated Value"]] },
         { range: "Sheet1!B2:C3", values: [["V1", "V2"], ["V3", "V4"]] }
       ], null, 2),
       supportsAI: true,
-      description: "Array of range updates with values",
-      tooltip: "Each update object needs 'range' (A1 notation) and 'values' (2D array)"
+      description: "Array of range updates with values. Each range must include sheet name (e.g., Sheet1!A1)",
+      tooltip: "Each update object needs 'range' (Sheet!A1 notation) and 'values' (2D array). Can update multiple sheets in one operation."
     }
   ]
 }

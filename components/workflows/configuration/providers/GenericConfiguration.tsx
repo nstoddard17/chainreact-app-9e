@@ -14,6 +14,30 @@ import { getProviderDisplayName } from '@/lib/utils/provider-names';
 
 import { logger } from '@/lib/utils/logger'
 
+// Constants - defined outside component to prevent re-creation on every render
+const PREVIEW_LIMIT_OPTIONS = [
+  { value: '10', label: '10' },
+  { value: '25', label: '25' },
+  { value: '50', label: '50' },
+  { value: '100', label: '100' }
+]
+
+const PREVIEW_LIMIT_FIELD = {
+  name: 'previewLimit',
+  label: '',
+  type: 'select',
+  required: false,
+  hideClearButton: true,
+  disableSearch: true
+} as const
+
+const GMAIL_PREVIEW_LIMIT_OPTIONS = [
+  { value: '5', label: '5' },
+  { value: '10', label: '10' },
+  { value: '25', label: '25' },
+  { value: '50', label: '50' }
+]
+
 interface GenericConfigurationProps {
   nodeInfo: any;
   values: Record<string, any>;
@@ -198,6 +222,19 @@ export function GenericConfiguration({
 
   // Handle field value changes and trigger dependent field loading
   const handleFieldChange = useCallback(async (fieldName: string, value: any) => {
+    // COMPREHENSIVE LOGGING for selectedProperties
+    if (fieldName === 'selectedProperties') {
+      console.log('💠💠💠 [GenericConfiguration] selectedProperties handleFieldChange called:', {
+        fieldName,
+        valueType: Array.isArray(value) ? 'array' : typeof value,
+        valueLength: Array.isArray(value) ? value.length : undefined,
+        nodeType: nodeInfo?.type,
+        providerId: nodeInfo?.providerId,
+        timestamp: new Date().toISOString(),
+        stackTrace: new Error().stack?.split('\n').slice(0, 8).join('\n')
+      });
+    }
+
     // Update the field value
     setValue(fieldName, value);
 
@@ -1259,22 +1296,10 @@ export function GenericConfiguration({
                         <span className="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">Show:</span>
                         <div className="w-[100px]">
                           <GenericSelectField
-                            field={{
-                              name: 'previewLimit',
-                              label: '',
-                              type: 'select',
-                              required: false,
-                              hideClearButton: true,
-                              disableSearch: true
-                            }}
+                            field={PREVIEW_LIMIT_FIELD}
                             value={previewLimit.toString()}
                             onChange={(value) => setPreviewLimit(parseInt(value))}
-                            options={[
-                              { value: '10', label: '10' },
-                              { value: '25', label: '25' },
-                              { value: '50', label: '50' },
-                              { value: '100', label: '100' }
-                            ]}
+                            options={PREVIEW_LIMIT_OPTIONS}
                             isLoading={false}
                           />
                         </div>
@@ -1394,22 +1419,10 @@ export function GenericConfiguration({
                       <span className="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">Show:</span>
                       <div className="w-[100px]">
                         <GenericSelectField
-                          field={{
-                            name: 'previewLimit',
-                            label: '',
-                            type: 'select',
-                            required: false,
-                            hideClearButton: true,
-                            disableSearch: true
-                          }}
+                          field={PREVIEW_LIMIT_FIELD}
                           value={previewLimit.toString()}
                           onChange={(value) => setPreviewLimit(parseInt(value))}
-                          options={[
-                            { value: '10', label: '10' },
-                            { value: '25', label: '25' },
-                            { value: '50', label: '50' },
-                            { value: '100', label: '100' }
-                          ]}
+                          options={PREVIEW_LIMIT_OPTIONS}
                           isLoading={false}
                         />
                       </div>
@@ -1519,26 +1532,14 @@ export function GenericConfiguration({
                       <span className="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">Show:</span>
                       <div className="min-w-[100px]">
                         <GenericSelectField
-                          field={{
-                            name: 'previewLimit',
-                            label: '',
-                            type: 'select',
-                            required: false,
-                            hideClearButton: true,
-                            disableSearch: true
-                          }}
+                          field={PREVIEW_LIMIT_FIELD}
                           value={previewLimit.toString()}
                           onChange={(value) => {
                             setPreviewLimit(parseInt(value))
                             // Auto-refresh preview when limit changes
                             setTimeout(() => handleGmailSearchEmailsPreview(), 100)
                           }}
-                          options={[
-                            { value: '5', label: '5' },
-                            { value: '10', label: '10' },
-                            { value: '25', label: '25' },
-                            { value: '50', label: '50' }
-                          ]}
+                          options={GMAIL_PREVIEW_LIMIT_OPTIONS}
                           isLoading={false}
                         />
                       </div>
@@ -1727,26 +1728,14 @@ export function GenericConfiguration({
                       <span className="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">Show:</span>
                       <div className="min-w-[100px]">
                         <GenericSelectField
-                          field={{
-                            name: 'previewLimit',
-                            label: '',
-                            type: 'select',
-                            required: false,
-                            hideClearButton: true,
-                            disableSearch: true
-                          }}
+                          field={PREVIEW_LIMIT_FIELD}
                           value={previewLimit.toString()}
                           onChange={(value) => {
                             setPreviewLimit(parseInt(value))
                             // Auto-refresh preview when limit changes
                             setTimeout(() => handleGmailAdvancedSearchPreview(), 100)
                           }}
-                          options={[
-                            { value: '5', label: '5' },
-                            { value: '10', label: '10' },
-                            { value: '25', label: '25' },
-                            { value: '50', label: '50' }
-                          ]}
+                          options={GMAIL_PREVIEW_LIMIT_OPTIONS}
                           isLoading={false}
                         />
                       </div>
@@ -1933,25 +1922,13 @@ export function GenericConfiguration({
                       <span className="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">Show:</span>
                       <div className="min-w-[100px]">
                         <GenericSelectField
-                          field={{
-                            name: 'previewLimit',
-                            label: '',
-                            type: 'select',
-                            required: false,
-                            hideClearButton: true,
-                            disableSearch: true
-                          }}
+                          field={PREVIEW_LIMIT_FIELD}
                           value={previewLimit.toString()}
                           onChange={(value) => {
                             setPreviewLimit(parseInt(value))
                             setTimeout(() => handleGmailMarkAsReadPreview(), 100)
                           }}
-                          options={[
-                            { value: '5', label: '5' },
-                            { value: '10', label: '10' },
-                            { value: '25', label: '25' },
-                            { value: '50', label: '50' }
-                          ]}
+                          options={GMAIL_PREVIEW_LIMIT_OPTIONS}
                           isLoading={false}
                         />
                       </div>
@@ -2107,25 +2084,13 @@ export function GenericConfiguration({
                       <span className="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">Show:</span>
                       <div className="min-w-[100px]">
                         <GenericSelectField
-                          field={{
-                            name: 'previewLimit',
-                            label: '',
-                            type: 'select',
-                            required: false,
-                            hideClearButton: true,
-                            disableSearch: true
-                          }}
+                          field={PREVIEW_LIMIT_FIELD}
                           value={previewLimit.toString()}
                           onChange={(value) => {
                             setPreviewLimit(parseInt(value))
                             setTimeout(() => handleGmailMarkAsUnreadPreview(), 100)
                           }}
-                          options={[
-                            { value: '5', label: '5' },
-                            { value: '10', label: '10' },
-                            { value: '25', label: '25' },
-                            { value: '50', label: '50' }
-                          ]}
+                          options={GMAIL_PREVIEW_LIMIT_OPTIONS}
                           isLoading={false}
                         />
                       </div>

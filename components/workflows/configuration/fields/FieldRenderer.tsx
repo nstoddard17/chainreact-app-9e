@@ -433,8 +433,10 @@ export function FieldRenderer({
     // - combobox fields (always auto-load)
     // - select fields with loadOnMount: true (e.g., spreadsheetId)
     // - select fields with dependsOn (e.g., sheetName when spreadsheet is selected)
+    // - multiselect/multi_select fields with dynamic data
     const shouldAutoLoad = (field.type === 'combobox' && field.dynamic) ||
-                          (field.type === 'select' && field.dynamic && (field.loadOnMount || field.dependsOn));
+                          (field.type === 'select' && field.dynamic && (field.loadOnMount || field.dependsOn)) ||
+                          ((field.type === 'multiselect' || field.type === 'multi_select') && field.dynamic);
 
     if (shouldAutoLoad) {
       // Only load if we don't have options yet

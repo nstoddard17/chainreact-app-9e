@@ -345,6 +345,27 @@ export function GoogleSheetsConfiguration({
     previousUpdateModeRef.current = values.updateMode;
   }, [values.updateMode, nodeInfo?.type, setValue, values]);
 
+  // Handle row selection changes for Update Row and Delete Row actions
+  const previousRowSelectionRef = React.useRef<string | undefined>(undefined);
+  React.useEffect(() => {
+    const isUpdateRow = nodeInfo?.type === 'google_sheets_action_update_row';
+    const isDeleteRow = nodeInfo?.type === 'google_sheets_action_delete_row';
+
+    if (!isUpdateRow && !isDeleteRow) return;
+    if (!values.rowSelection) return;
+
+    // Check if rowSelection actually changed (not just initial render)
+    if (previousRowSelectionRef.current && previousRowSelectionRef.current !== values.rowSelection) {
+      // Clear rowNumber when switching away from "specific"
+      if (values.rowSelection === 'last' || values.rowSelection === 'first_data') {
+        logger.debug('🔄 Switched row selection to automated - clearing rowNumber');
+        setValue('rowNumber', '');
+      }
+    }
+
+    previousRowSelectionRef.current = values.rowSelection;
+  }, [values.rowSelection, nodeInfo?.type, setValue]);
+
   // Auto-load preview data when sheet is selected
   React.useEffect(() => {
     // For Add Row action (google_sheets_action_append_row), load preview data when:
@@ -469,48 +490,70 @@ export function GoogleSheetsConfiguration({
         // Evaluate the condition based on dependencies
         const condition = field.hidden.$condition;
 
-        // Check each condition
-        for (const [depField, depCondition] of Object.entries(condition)) {
-          if (typeof depCondition === 'object' && depCondition !== null) {
-            const depValue = values[depField];
+        // Helper function to evaluate a single condition object
+        const evaluateCondition = (condObj: any): boolean => {
+          for (const [depField, depCondition] of Object.entries(condObj)) {
+            if (typeof depCondition === 'object' && depCondition !== null) {
+              const depValue = values[depField];
 
-            // Check $exists condition
-            if ('$exists' in depCondition) {
-              const shouldExist = (depCondition as any).$exists;
-              const doesExist = depValue !== undefined && depValue !== null && depValue !== '';
+              // Check $exists condition
+              if ('$exists' in depCondition) {
+                const shouldExist = (depCondition as any).$exists;
+                const doesExist = depValue !== undefined && depValue !== null && depValue !== '';
 
-              // If condition says field should NOT exist but it DOES exist, show the field
-              // If condition says field should exist but it DOESN'T exist, hide the field
-              const conditionMet = shouldExist ? doesExist : !doesExist;
+                // If condition says field should NOT exist but it DOES exist, return false (don't hide)
+                // If condition says field should exist but it DOESN'T exist, return true (hide)
+                const conditionMet = shouldExist ? doesExist : !doesExist;
 
-              if (conditionMet) {
-                logger.debug(`📋 [GoogleSheets] Field "${field.name}" hidden by condition - ${depField} existence check`);
-                return false; // Hide field when condition is met
+                if (conditionMet) {
+                  logger.debug(`📋 [GoogleSheets] Field "${field.name}" condition met - ${depField} existence check`);
+                  return true; // Condition met
+                }
               }
-            }
 
-            // Check $ne (not equals) condition
-            if ('$ne' in depCondition) {
-              const expectedValue = (depCondition as any).$ne;
-              const conditionMet = depValue !== expectedValue; // Hide when value is NOT equal
+              // Check $ne (not equals) condition
+              if ('$ne' in depCondition) {
+                const expectedValue = (depCondition as any).$ne;
+                const conditionMet = depValue !== expectedValue;
 
-              if (conditionMet) {
-                logger.debug(`📋 [GoogleSheets] Field "${field.name}" hidden by condition - ${depField} !== ${expectedValue} (value: ${depValue})`);
-                return false; // Hide field when condition is met
+                if (conditionMet) {
+                  logger.debug(`📋 [GoogleSheets] Field "${field.name}" condition met - ${depField} !== ${expectedValue} (value: ${depValue})`);
+                  return true; // Condition met
+                }
               }
-            }
 
-            // Check $eq (equals) condition
-            if ('$eq' in depCondition) {
-              const expectedValue = (depCondition as any).$eq;
-              const conditionMet = depValue !== expectedValue;
+              // Check $eq (equals) condition
+              if ('$eq' in depCondition) {
+                const expectedValue = (depCondition as any).$eq;
+                const conditionMet = depValue === expectedValue;
 
-              if (conditionMet) {
-                logger.debug(`📋 [GoogleSheets] Field "${field.name}" hidden by condition - ${depField} === ${expectedValue} (value: ${depValue})`);
-                return false; // Hide field when condition is met (value doesn't equal the $eq value)
+                if (conditionMet) {
+                  logger.debug(`📋 [GoogleSheets] Field "${field.name}" condition met - ${depField} === ${expectedValue} (value: ${depValue})`);
+                  return true; // Condition met
+                }
               }
             }
           }
+          return false; // No conditions met
+        };
+
+        // Handle $or operator - hide if ANY condition is met
+        if (condition.$or && Array.isArray(condition.$or)) {
+          for (const orCondition of condition.$or) {
+            if (evaluateCondition(orCondition)) {
+              logger.debug(`📋 [GoogleSheets] Field "${field.name}" hidden - $or condition met`);
+              return false; // Hide field when any $or condition is met
+            }
+          }
+          // None of the $or conditions were met, show the field
+          logger.debug(`📋 [GoogleSheets] Field "${field.name}" shown - no $or conditions met`);
+          return true;
+        }
+
+        // Handle single condition (no $or)
+        if (evaluateCondition(condition)) {
+          logger.debug(`📋 [GoogleSheets] Field "${field.name}" hidden by condition`);
+          return false; // Hide field when condition is met
         }
 
         // If we get here, condition was not met, so show the field
@@ -763,6 +806,22 @@ export function GoogleSheetsConfiguration({
       // Check if a row has been selected (rowNumber should be set by table selection)
       if (!values.rowNumber) {
         setValidationErrors({ updateRowPreview: 'Please select a row from the table to update' });
+        return;
+      }
+    }
+
+    // Additional validation for Update Row with specific row selection
+    if (nodeInfo?.type === 'google_sheets_action_update_row' && values.rowSelection === 'specific') {
+      if (!values.rowNumber) {
+        setValidationErrors({ rowNumber: 'Row number is required when using specific row selection' });
+        return;
+      }
+    }
+
+    // Additional validation for Delete Row with specific row selection
+    if (nodeInfo?.type === 'google_sheets_action_delete_row' && values.rowSelection === 'specific') {
+      if (!values.rowNumber) {
+        setValidationErrors({ rowNumber: 'Row number is required when using specific row selection' });
         return;
       }
     }

@@ -425,18 +425,22 @@ export async function executeDelayAction(
       delayMs = maxDelayMs
       logger.warn(`Delay capped at maximum of 30 days (requested: ${duration} ${unit})`)
     }
-    
+
+    // Record start time
+    const startTime = new Date().toISOString()
+
     // Wait for the specified duration
     await new Promise(resolve => setTimeout(resolve, delayMs))
-    
+
+    // Record end time
+    const endTime = new Date().toISOString()
+
     return {
       success: true,
       output: {
         delayDurationSeconds: delayMs / 1000,
-        delayDuration: delayMs,
-        delayUnit: unit,
-        startTime: new Date(Date.now() - delayMs).toISOString(),
-        endTime: new Date().toISOString(),
+        startTime,
+        endTime,
         success: true
       },
       message: `Delay completed after ${duration} ${unit}`

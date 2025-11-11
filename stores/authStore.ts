@@ -6,6 +6,7 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { supabase } from "@/utils/supabaseClient"
 import { useEffect } from "react"
+import { getCrossTabSync } from "@/lib/utils/cross-tab-sync"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -100,13 +101,39 @@ export const useAuthStore = create<AuthState>()(
           timestamp: new Date().toISOString()
         })
 
-        // Skip if already initialized or currently loading
-        if (state.initialized || state.loading) {
-          logger.debug('⏭️ [AUTH] Already initialized or loading, skipping', {
-            initialized: state.initialized,
+        // IMPORTANT: Don't skip if we have user from localStorage but haven't verified session yet
+        // This ensures each tab independently verifies the session with Supabase
+        // Only skip if we're currently loading to prevent concurrent initializations
+        if (state.loading) {
+          logger.debug('⏭️ [AUTH] Currently loading, skipping to avoid concurrent initialization', {
             loading: state.loading
           })
           return
+        }
+
+        // If we think we're initialized but don't have a user, force re-initialization
+        // This handles the case where localStorage says initialized but session is actually invalid
+        if (state.initialized && !state.user) {
+          logger.debug('⚠️ [AUTH] Initialized but no user, forcing re-initialization')
+          set({ initialized: false })
+        }
+
+        // If we're already initialized AND have a valid user, verify the session is still valid
+        if (state.initialized && state.user) {
+          logger.debug('🔍 [AUTH] Already initialized with user, verifying session validity')
+          try {
+            const { data: { session } } = await supabase.auth.getSession()
+            if (session) {
+              logger.debug('✅ [AUTH] Session is valid, skipping full initialization')
+              return
+            } else {
+              logger.warn('⚠️ [AUTH] Session invalid, forcing re-initialization')
+              set({ initialized: false, user: null, profile: null })
+            }
+          } catch (error) {
+            logger.error('❌ [AUTH] Error verifying session, forcing re-initialization', error)
+            set({ initialized: false, user: null, profile: null })
+          }
         }
 
         // Temporary bypass for debugging
@@ -679,7 +706,17 @@ export const useAuthStore = create<AuthState>()(
                     keepExisting ? existingProfile : profile,
                   error: null
                 })
-                
+
+                // Broadcast login to other tabs
+                if (typeof window !== 'undefined') {
+                  const sync = getCrossTabSync()
+                  sync.broadcast('auth-login', {
+                    userId: user.id,
+                    profile: keepExisting ? existingProfile : profile
+                  })
+                  logger.debug('[AuthStore] Broadcasted login to other tabs')
+                }
+
                 // Check for missing username and redirect if needed
                 setTimeout(() => {
                   get().checkUsernameAndRedirect()
@@ -879,6 +916,11 @@ export const useAuthStore = create<AuthState>()(
           // Stop any ongoing activities by dispatching a custom event
           if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent('user-signout'))
+
+            // Broadcast logout to other tabs
+            const sync = getCrossTabSync()
+            sync.broadcast('auth-logout', {})
+            logger.debug('[AuthStore] Broadcasted logout to other tabs')
           }
 
           // Note: Navigation is handled by the component calling signOut
@@ -989,6 +1031,15 @@ export const useAuthStore = create<AuthState>()(
             user: updatedUser,
             profile: updatedProfile,
           })
+
+          // Broadcast profile update to other tabs
+          if (typeof window !== 'undefined') {
+            const sync = getCrossTabSync()
+            sync.broadcast('auth-update', {
+              profile: updatedProfile
+            })
+            logger.debug('[AuthStore] Broadcasted profile update to other tabs')
+          }
         } catch (error: any) {
           logger.error("Profile update error:", error)
           set({ error: error.message })
@@ -1548,3 +1599,38 @@ export const useAuthStore = create<AuthState>()(
     },
   ),
 )
+
+// Initialize cross-tab synchronization for auth state
+if (typeof window !== 'undefined') {
+  const sync = getCrossTabSync()
+
+  // Listen for login events from other tabs
+  sync.subscribe('auth-login', (data) => {
+    logger.debug('[AuthStore] Received login event from another tab', data)
+    const state = useAuthStore.getState()
+    if (!state.user || state.user.id !== data.userId) {
+      // Re-initialize to fetch the new user
+      state.initialize()
+    }
+  })
+
+  // Listen for logout events from other tabs
+  sync.subscribe('auth-logout', () => {
+    logger.debug('[AuthStore] Received logout event from another tab')
+    const state = useAuthStore.getState()
+    if (state.user) {
+      // Sign out without broadcasting (to avoid infinite loop)
+      state.signOut()
+    }
+  })
+
+  // Listen for profile updates from other tabs
+  sync.subscribe('auth-update', (data) => {
+    logger.debug('[AuthStore] Received profile update from another tab', data)
+    const state = useAuthStore.getState()
+    if (state.user && data.profile) {
+      // Update local profile state
+      useAuthStore.setState({ profile: data.profile })
+    }
+  })
+}

@@ -805,6 +805,36 @@ const mondayMappings: Record<string, FieldMapping> = {
 
 // HubSpot field mappings
 const hubspotMappings: Record<string, FieldMapping> = {
+  // Triggers
+  hubspot_trigger_contact_created: {
+    filterByOwner: "hubspot_owners",
+  },
+  hubspot_trigger_contact_updated: {
+    propertyName: "hubspot_contact_properties",
+  },
+  hubspot_trigger_company_created: {
+    filterByOwner: "hubspot_owners",
+  },
+  hubspot_trigger_company_updated: {
+    propertyName: "hubspot_company_properties",
+  },
+  hubspot_trigger_deal_created: {
+    filterByPipeline: "hubspot_pipelines",
+  },
+  hubspot_trigger_deal_updated: {
+    propertyName: "hubspot_deal_properties",
+  },
+  hubspot_trigger_ticket_created: {
+    filterByPipeline: "hubspot_ticket_pipelines",
+  },
+  hubspot_trigger_ticket_updated: {
+    propertyName: "hubspot_ticket_properties",
+    filterByPipeline: "hubspot_ticket_pipelines",
+  },
+  hubspot_trigger_ticket_deleted: {
+    filterByPipeline: "hubspot_ticket_pipelines",
+  },
+  // Actions
   hubspot_action_create_contact: {
     associatedCompanyId: "hubspot_companies",
     jobtitle: "hubspot_job_titles",
@@ -813,6 +843,7 @@ const hubspotMappings: Record<string, FieldMapping> = {
     hs_lead_status: "hubspot_lead_status_options",
     favorite_content_topics: "hubspot_content_topics_options",
     preferred_channels: "hubspot_preferred_channels_options",
+    selectedProperties: "hubspot_contact_properties",
   },
   hubspot_action_create_deal: {
     associatedContactId: "hubspot_contacts",
@@ -823,6 +854,11 @@ const hubspotMappings: Record<string, FieldMapping> = {
   },
   hubspot_action_update_deal: {
     dealId: "hubspot_deals",
+  },
+  hubspot_action_update_contact: {
+    contactId: "hubspot_contacts",
+    hubspot_owner_id: "hubspot_owners",
+    hs_lead_status: "hubspot_lead_status_options",
   },
   // Dynamic HubSpot object actions
   hubspot_action_create_object: {
@@ -1090,6 +1126,7 @@ const googleAnalyticsMappings: Record<string, FieldMapping> = {
 
 // Gumroad field mappings
 const gumroadMappings: Record<string, FieldMapping> = {
+  // Triggers
   gumroad_trigger_new_sale: {
     product: "gumroad_products",
   },
@@ -1102,11 +1139,42 @@ const gumroadMappings: Record<string, FieldMapping> = {
   gumroad_trigger_sale_refunded: {
     product: "gumroad_products",
   },
-  gumroad_action_get_sales_analytics: {
+  gumroad_trigger_subscription_updated: {
     product: "gumroad_products",
   },
-  gumroad_action_list_sales: {
+  gumroad_trigger_subscription_ended: {
     product: "gumroad_products",
+  },
+  gumroad_trigger_subscription_restarted: {
+    product: "gumroad_products",
+  },
+  // Actions
+  gumroad_action_get_product: {
+    productId: "gumroad_products",
+  },
+  gumroad_action_enable_product: {
+    productId: "gumroad_products",
+  },
+  gumroad_action_disable_product: {
+    productId: "gumroad_products",
+  },
+  gumroad_action_delete_product: {
+    productId: "gumroad_products",
+  },
+  gumroad_action_create_variant_category: {
+    productId: "gumroad_products",
+  },
+  gumroad_action_create_offer_code: {
+    productId: "gumroad_products",
+  },
+  gumroad_action_get_sales_analytics: {
+    productId: "gumroad_products",
+  },
+  gumroad_action_list_sales: {
+    productId: "gumroad_products",
+  },
+  gumroad_action_list_subscribers: {
+    productId: "gumroad_products",
   },
 };
 

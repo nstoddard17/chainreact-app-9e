@@ -4,12 +4,12 @@ import React, { useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Globe } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Globe, Lock, Settings } from 'lucide-react';
 import { KeyValuePairs, KeyValuePair } from '../../fields/KeyValuePairs';
 import { VariablePicker } from '../../../VariablePicker';
 import { ConfigurationContainer } from '../../components/ConfigurationContainer';
+import { GenericSelectField } from '../../fields/shared/GenericSelectField';
+import { Separator } from '@/components/ui/separator';
 
 interface HttpRequestConfigurationProps {
   values: Record<string, any>;
@@ -36,8 +36,6 @@ export function HttpRequestConfiguration({
   isEditMode = false,
   availableVariables = []
 }: HttpRequestConfigurationProps) {
-
-  const [activeTab, setActiveTab] = useState('request');
 
   // Set default values
   React.useEffect(() => {
@@ -115,42 +113,37 @@ export function HttpRequestConfiguration({
       isFormValid={isFormValid}
       submitLabel={`${isEditMode ? 'Update' : 'Save'} Request`}
     >
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold flex items-center gap-2">
-          <Globe className="w-5 h-5" />
-          HTTP Request
-        </h3>
-        <p className="text-sm text-muted-foreground mt-1">
-          Send data to any custom API endpoint
-        </p>
-      </div>
-
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-3 mb-6">
-              <TabsTrigger value="request">Request</TabsTrigger>
-              <TabsTrigger value="auth">Authentication</TabsTrigger>
-              <TabsTrigger value="advanced">Advanced</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="request" className="space-y-4 mt-0">
+      <div className="space-y-6">
+        {/* Request Configuration */}
+        <div className="space-y-4">
               {/* Method */}
               <div>
                 <Label htmlFor="method">HTTP Method</Label>
-                <Select
-                  value={values.method || 'GET'}
-                  onValueChange={(value) => setValue('method', value)}
-                >
-                  <SelectTrigger id="method" className="mt-2">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="GET">GET</SelectItem>
-                    <SelectItem value="POST">POST</SelectItem>
-                    <SelectItem value="PUT">PUT</SelectItem>
-                    <SelectItem value="PATCH">PATCH</SelectItem>
-                    <SelectItem value="DELETE">DELETE</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="mt-2">
+                  <GenericSelectField
+                    field={{
+                      name: 'method',
+                      label: 'HTTP Method',
+                      type: 'select',
+                      required: true,
+                      description: 'The HTTP method to use for this request'
+                    }}
+                    value={values.method || 'GET'}
+                    onChange={(value) => setValue('method', value)}
+                    error={errors.method}
+                    options={[
+                      { value: 'GET', label: 'GET' },
+                      { value: 'POST', label: 'POST' },
+                      { value: 'PUT', label: 'PUT' },
+                      { value: 'PATCH', label: 'PATCH' },
+                      { value: 'DELETE', label: 'DELETE' }
+                    ]}
+                    nodeInfo={nodeInfo}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  The HTTP method to use for this request
+                </p>
               </div>
 
               {/* URL */}
@@ -239,26 +232,44 @@ export function HttpRequestConfiguration({
                   </p>
                 </div>
               )}
-            </TabsContent>
+        </div>
 
-            <TabsContent value="auth" className="space-y-4 mt-0">
-              {/* Auth Type */}
+        {/* Authentication Section */}
+        <Separator className="my-6" />
+
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 mb-4">
+            <Lock className="w-4 h-4 text-muted-foreground" />
+            <h4 className="text-sm font-medium">Authentication</h4>
+          </div>
+
+          {/* Auth Type */}
               <div>
                 <Label htmlFor="authType">Authentication Type</Label>
-                <Select
-                  value={values.authType || 'none'}
-                  onValueChange={(value) => setValue('authType', value)}
-                >
-                  <SelectTrigger id="authType" className="mt-2">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    <SelectItem value="bearer">Bearer Token</SelectItem>
-                    <SelectItem value="basic">Basic Auth</SelectItem>
-                    <SelectItem value="apikey">API Key</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="mt-2">
+                  <GenericSelectField
+                    field={{
+                      name: 'authType',
+                      label: 'Authentication Type',
+                      type: 'select',
+                      required: false,
+                      description: 'Choose the authentication method required by the API'
+                    }}
+                    value={values.authType || 'none'}
+                    onChange={(value) => setValue('authType', value)}
+                    error={errors.authType}
+                    options={[
+                      { value: 'none', label: 'None' },
+                      { value: 'bearer', label: 'Bearer Token' },
+                      { value: 'basic', label: 'Basic Auth' },
+                      { value: 'apikey', label: 'API Key' }
+                    ]}
+                    nodeInfo={nodeInfo}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Choose the authentication method required by the API
+                </p>
               </div>
 
               {/* Bearer Token */}
@@ -372,15 +383,23 @@ export function HttpRequestConfiguration({
                 </>
               )}
 
-              {values.authType === 'none' && (
-                <div className="p-4 bg-muted/30 rounded border text-sm text-muted-foreground">
-                  No authentication will be used. Select an authentication type above if your API requires it.
-                </div>
-              )}
-            </TabsContent>
+          {values.authType === 'none' && (
+            <div className="p-4 bg-muted/30 rounded border text-sm text-muted-foreground">
+              No authentication will be used. Select an authentication type above if your API requires it.
+            </div>
+          )}
+        </div>
 
-            <TabsContent value="advanced" className="space-y-4 mt-0">
-              {/* Timeout */}
+        {/* Advanced Settings Section */}
+        <Separator className="my-6" />
+
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 mb-4">
+            <Settings className="w-4 h-4 text-muted-foreground" />
+            <h4 className="text-sm font-medium">Advanced Settings</h4>
+          </div>
+
+          {/* Timeout */}
               <div>
                 <Label htmlFor="timeoutSeconds">Timeout (seconds)</Label>
                 <Input
@@ -397,19 +416,19 @@ export function HttpRequestConfiguration({
                 </p>
               </div>
 
-              <div className="p-4 bg-muted/30 rounded border">
-                <p className="text-sm font-medium mb-2">Response Data</p>
-                <p className="text-sm text-muted-foreground">
-                  The response from this HTTP request will be available in subsequent nodes as:
-                </p>
-                <ul className="text-sm text-muted-foreground mt-2 space-y-1">
-                  <li>• <code className="bg-background px-1 py-0.5 rounded">{'{{nodeOutputs.this_node.body}}'}</code> - Response body (JSON parsed if applicable)</li>
-                  <li>• <code className="bg-background px-1 py-0.5 rounded">{'{{nodeOutputs.this_node.status}}'}</code> - HTTP status code</li>
-                  <li>• <code className="bg-background px-1 py-0.5 rounded">{'{{nodeOutputs.this_node.headers}}'}</code> - Response headers</li>
-                </ul>
-              </div>
-            </TabsContent>
-          </Tabs>
+          <div className="p-4 bg-muted/30 rounded border">
+            <p className="text-sm font-medium mb-2">Response Data</p>
+            <p className="text-sm text-muted-foreground">
+              The response from this HTTP request will be available in subsequent nodes as:
+            </p>
+            <ul className="text-sm text-muted-foreground mt-2 space-y-1">
+              <li>• <code className="bg-background px-1 py-0.5 rounded">{'{{nodeOutputs.this_node.body}}'}</code> - Response body (JSON parsed if applicable)</li>
+              <li>• <code className="bg-background px-1 py-0.5 rounded">{'{{nodeOutputs.this_node.status}}'}</code> - HTTP status code</li>
+              <li>• <code className="bg-background px-1 py-0.5 rounded">{'{{nodeOutputs.this_node.headers}}'}</code> - Response headers</li>
+            </ul>
+          </div>
+        </div>
+      </div>
     </ConfigurationContainer>
   );
 }

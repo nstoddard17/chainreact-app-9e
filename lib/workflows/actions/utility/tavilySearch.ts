@@ -5,18 +5,12 @@ import { logger } from '@/lib/utils/logger';
 /**
  * Execute Tavily Search
  *
- * NOTE: This is a mock implementation for development/testing.
- * Production implementation would require:
- * - Tavily API key
- * - API rate limiting and quota management
- * - Error handling for API limits
- * - Result caching
- * - Response parsing and validation
+ * Production implementation using Tavily AI Search API.
  *
  * API Setup:
  * 1. Sign up at https://tavily.com
  * 2. Get API key from dashboard
- * 3. Store in integration settings
+ * 3. Set TAVILY_API_KEY environment variable
  *
  * API Endpoint: https://api.tavily.com/search
  * Features:
@@ -26,6 +20,8 @@ import { logger } from '@/lib/utils/logger';
  * - Domain filtering (include/exclude)
  * - Time range filtering
  * - Multiple search depths (basic/advanced)
+ *
+ * Docs: https://docs.tavily.com/
  */
 export async function executeTavilySearch(
   config: any,
@@ -58,7 +54,18 @@ export async function executeTavilySearch(
       };
     }
 
-    logger.info('[TavilySearch] Executing search (MOCK)', {
+    // Check for API key
+    const apiKey = process.env.TAVILY_API_KEY;
+    if (!apiKey) {
+      logger.error('[TavilySearch] TAVILY_API_KEY not configured');
+      return {
+        success: false,
+        output: {},
+        message: 'Tavily API key not configured. Set TAVILY_API_KEY environment variable.'
+      };
+    }
+
+    logger.info('[TavilySearch] Executing search', {
       query,
       searchDepth,
       maxResults,
@@ -66,64 +73,125 @@ export async function executeTavilySearch(
       userId
     });
 
-    // MOCK IMPLEMENTATION
-    // In production, this would:
-    // 1. Call Tavily API with query and parameters
-    // 2. Parse AI-optimized results with relevance scores
-    // 3. Get AI-generated answer if requested
-    // 4. Handle domain filtering
-    // 5. Process raw content and images if requested
+    // Parse domain filters
+    const includeDomainsArray = includeDomains
+      ? includeDomains.split(',').map((d: string) => d.trim()).filter(Boolean)
+      : [];
+    const excludeDomainsArray = excludeDomains
+      ? excludeDomains.split(',').map((d: string) => d.trim()).filter(Boolean)
+      : [];
 
-    // Simulate API call time (advanced is slower)
-    const delay = searchDepth === 'advanced' ? 500 : 250;
-    await new Promise(resolve => setTimeout(resolve, delay));
-
-    // Mock search results with relevance scores
-    const mockResults = Array.from({ length: Math.min(maxResults, 10) }, (_, i) => ({
-      title: `${query} - AI-Optimized Result ${i + 1}`,
-      url: `https://example.com/result${i + 1}`,
-      content: `This is AI-extracted content relevant to "${query}". In production, Tavily provides high-quality, relevant excerpts from web pages optimized for AI consumption.`,
-      score: 0.95 - (i * 0.05), // Decreasing relevance scores
-      publishedDate: timeRange ? new Date(Date.now() - i * 86400000).toISOString() : undefined,
-      ...(includeRawContent && {
-        rawContent: `Full page content would be here for ${query}...`
-      }),
-      ...(includeImages && {
-        images: [`https://images.example.com/result${i + 1}.jpg`]
-      })
-    }));
-
-    const executionTime = Date.now() - startTime;
-
-    const output: any = {
-      results: mockResults,
+    // Build Tavily API request
+    const requestBody: any = {
+      api_key: apiKey,
       query,
-      searchDepth,
-      resultCount: mockResults.length,
-      responseTime: executionTime / 1000,
-      mock: true,
-      message: 'Search completed (mock implementation)'
+      search_depth: searchDepth,
+      max_results: Math.min(maxResults, 10),
+      include_answer: includeAnswer,
+      include_raw_content: includeRawContent || false,
+      include_images: includeImages || false
     };
 
-    // Add AI-generated answer if requested
-    if (includeAnswer) {
-      output.answer = `Based on the search results for "${query}", here is an AI-generated summary: This is a mock answer that would provide a comprehensive summary of the search results. In production, Tavily's AI generates intelligent answers synthesized from multiple sources.`;
-      output.answerSources = mockResults.slice(0, 3).map(r => r.url);
+    // Add optional filters
+    if (includeDomainsArray.length > 0) {
+      requestBody.include_domains = includeDomainsArray;
+    }
+    if (excludeDomainsArray.length > 0) {
+      requestBody.exclude_domains = excludeDomainsArray;
+    }
+    if (timeRange && timeRange !== 'any') {
+      requestBody.days = timeRange === 'day' ? 1 : timeRange === 'week' ? 7 : timeRange === 'month' ? 30 : timeRange === 'year' ? 365 : undefined;
     }
 
-    // Add filter information
-    if (includeDomains.length > 0) {
-      output.includedDomains = includeDomains;
-    }
-    if (excludeDomains.length > 0) {
-      output.excludedDomains = excludeDomains;
-    }
+    // Call Tavily API
+    try {
+      const response = await fetch('https://api.tavily.com/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+      });
 
-    return {
-      success: true,
-      output,
-      message: `Found ${mockResults.length} AI-optimized results for "${query}" in ${executionTime}ms (mock)`
-    };
+      if (!response.ok) {
+        const errorText = await response.text();
+        logger.error('[TavilySearch] API error', {
+          status: response.status,
+          error: errorText
+        });
+
+        if (response.status === 401) {
+          return {
+            success: false,
+            output: {},
+            message: 'Tavily API key is invalid. Check your TAVILY_API_KEY.'
+          };
+        }
+
+        if (response.status === 429) {
+          return {
+            success: false,
+            output: {},
+            message: 'Tavily API rate limit exceeded. Please try again later.'
+          };
+        }
+
+        return {
+          success: false,
+          output: {},
+          message: `Tavily API error: ${response.status} ${response.statusText}`
+        };
+      }
+
+      const data = await response.json();
+      const executionTime = Date.now() - startTime;
+
+      // Parse Tavily response
+      const output: any = {
+        results: data.results || [],
+        query,
+        searchDepth,
+        resultCount: (data.results || []).length,
+        responseTime: executionTime
+      };
+
+      // Add answer if included
+      if (includeAnswer && data.answer) {
+        output.answer = data.answer;
+      }
+
+      // Add images if included
+      if (includeImages && data.images) {
+        output.images = data.images;
+      }
+
+      // Add filter information
+      if (includeDomainsArray.length > 0) {
+        output.includedDomains = includeDomainsArray;
+      }
+      if (excludeDomainsArray.length > 0) {
+        output.excludedDomains = excludeDomainsArray;
+      }
+
+      logger.info('[TavilySearch] Search completed', {
+        resultCount: output.resultCount,
+        executionTime
+      });
+
+      return {
+        success: true,
+        output,
+        message: `Found ${output.resultCount} AI-optimized results for "${query}" in ${executionTime}ms`
+      };
+
+    } catch (fetchError: any) {
+      logger.error('[TavilySearch] Fetch error:', fetchError);
+      return {
+        success: false,
+        output: {},
+        message: `Failed to connect to Tavily API: ${fetchError.message}`
+      };
+    }
 
   } catch (error: any) {
     const executionTime = Date.now() - startTime;

@@ -3,6 +3,7 @@ import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
 import { createClient } from "@supabase/supabase-js"
 import { logger } from '@/lib/utils/logger'
 import { canUserAdminIntegration, canUserUseIntegration, getIntegrationAdmins } from '@/lib/services/integration-permissions'
+import { revokeOAuthTokenAsync } from '@/lib/integrations/oauth-revocation'
 
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
@@ -88,6 +89,17 @@ export async function DELETE(
           ? `Contact ${admins.map(a => a.full_name || a.email).join(', ')} to disconnect this integration`
           : "This is a team or organization integration. Contact your admin to disconnect it."
       }, { status: 403 })
+    }
+
+    // Revoke OAuth tokens in the background (fire and forget)
+    // This ensures the user needs to re-authorize from scratch if reconnecting
+    if (integration.access_token) {
+      logger.info(`🔐 [DELETE /api/integrations/${integrationId}] Revoking OAuth token for ${integration.provider}`)
+      revokeOAuthTokenAsync(
+        integration.provider,
+        integration.access_token,
+        integration.refresh_token
+      )
     }
 
     // Delete the integration (cascade will delete permissions)

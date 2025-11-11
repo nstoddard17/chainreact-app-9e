@@ -700,6 +700,16 @@ export function useFieldChangeHandler({
       return false;
     }
 
+    // Get the field definition for the field that changed
+    const changedField = nodeInfo?.configSchema?.find((f: any) => f.name === fieldName);
+
+    // CRITICAL FIX: Don't reload fields marked with loadOnMount when their value changes
+    // These fields (like HubSpot selectedProperties) should only load once on mount, not when the user changes the value
+    // This prevents infinite loops where changing the field value triggers a reload which triggers another change
+    if (changedField?.loadOnMount === true) {
+      logger.debug(`⏭️ Field ${fieldName} has loadOnMount=true, will handle dependent fields but won't reload parent`);
+    }
+
     // Create a unique key for this field change
     const changeKey = `${fieldName}-${value}`;
 
@@ -712,10 +722,25 @@ export function useFieldChangeHandler({
     // Mark this change as being processed
     processingFieldChanges.current.add(changeKey);
 
+    // COMPREHENSIVE LOGGING for selectedProperties
+    if (fieldName === 'selectedProperties') {
+      console.log('🔄🔄🔄 [useFieldChangeHandler] selectedProperties value changed:', {
+        fieldName,
+        valueType: Array.isArray(value) ? 'array' : typeof value,
+        valueLength: Array.isArray(value) ? value.length : undefined,
+        dependentFields: dependentFields.map((f: any) => f.name),
+        hasLoadOnMount: changedField?.loadOnMount,
+        changeKey,
+        timestamp: new Date().toISOString(),
+        stackTrace: new Error().stack
+      });
+    }
+
     logger.debug('🔍 Generic dependent field change:', {
       fieldName,
       value,
       dependentFields: dependentFields.map((f: any) => f.name),
+      hasLoadOnMount: changedField?.loadOnMount,
       changeKey
     });
 
@@ -724,9 +749,9 @@ export function useFieldChangeHandler({
       logger.debug(`🧹 Clearing dependent field: ${depField.name}`);
       setValue(depField.name, '');
 
-      // Skip dynamic_fields type - they handle their own data loading
-      if (depField.type === 'dynamic_fields') {
-        logger.debug(`⏭️ Skipping dynamic_fields type field: ${depField.name}`);
+      // Skip special field types that handle their own rendering/data (no API loading needed)
+      if (depField.type === 'dynamic_fields' || depField.type === 'dynamic_properties') {
+        logger.debug(`⏭️ Skipping special field type: ${depField.name} (type: ${depField.type})`);
         return;
       }
 
@@ -747,7 +772,8 @@ export function useFieldChangeHandler({
     if (value) {
       // Check if any dependent fields are already loading BEFORE creating setTimeout
       const fieldsToLoad = dependentFields.filter((depField: any) => {
-        if (depField.type === 'dynamic_fields') return false;
+        // Skip special field types that don't need API loading
+        if (depField.type === 'dynamic_fields' || depField.type === 'dynamic_properties') return false;
         if (!depField.dynamic && !depField.dynamicOptions) return false;
 
         // Check if already loading

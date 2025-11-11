@@ -33,6 +33,7 @@ import { CheckCircle, AlertCircle, RefreshCw, ExternalLink, Plus, Users, Buildin
 import { cn } from '@/lib/utils'
 import { fetchWithTimeout } from '@/lib/utils/fetch-with-timeout'
 import { logger } from '@/lib/utils/logger'
+import { createClient } from '@/utils/supabaseClient'
 
 interface Connection {
   id: string
@@ -96,9 +97,12 @@ export function ServiceConnectionSelector({
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [connectionToDelete, setConnectionToDelete] = useState<Connection | null>(null)
+  const [deletedConnectionIds, setDeletedConnectionIds] = useState<Set<string>>(new Set())
 
   // Use prop connections if provided, otherwise use fetched connections
-  const connections = propConnections || fetchedConnections
+  // Filter out optimistically deleted connections
+  const allConnections = propConnections || fetchedConnections
+  const connections = allConnections.filter(conn => !deletedConnectionIds.has(conn.id))
   const selectedConnection = propSelectedConnection || (connections.length > 0 ? connections[0] : undefined)
 
   // Fetch all connections for this provider on mount
@@ -115,9 +119,22 @@ export function ServiceConnectionSelector({
     try {
       logger.debug('[ServiceConnectionSelector] Fetching all connections', { providerId })
 
+      // Get the current session for authorization
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (!session?.access_token) {
+        throw new Error('No active session')
+      }
+
       const response = await fetchWithTimeout(
         `/api/integrations/all-connections?provider=${encodeURIComponent(providerId)}`,
-        {},
+        {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        },
         8000
       )
 
@@ -150,6 +167,16 @@ export function ServiceConnectionSelector({
   const connectedConnections = connections.filter(c => c.status === 'connected')
   const hasConnectedAccounts = connectedConnections.length > 0
 
+  // DEBUG: Log rendering conditions
+  console.log('[ServiceConnectionSelector] Render state:', {
+    providerId,
+    hasConnection: !!connection,
+    hasDeleteHandler: !!onDeleteConnection,
+    shouldShowDeleteButton: !!(onDeleteConnection && connection),
+    connectionId: connection?.id,
+    deleteDialogOpen
+  })
+
   const isConnected = connection?.status === 'connected'
   const hasError = connection?.status === 'error' || connection?.status === 'disconnected'
   const needsReconnection = connection && (connection.status === 'error' || connection.status === 'disconnected')
@@ -160,10 +187,52 @@ export function ServiceConnectionSelector({
     setIsRefreshing(true)
     try {
       await onReconnect()
-    } finally {
-      setTimeout(() => setIsRefreshing(false), 1000)
+      // Note: We don't set isRefreshing = false here
+      // The window focus and reconnection event listeners will handle refreshing
+      // and clearing the spinner after the OAuth completes
+    } catch (error: any) {
+      logger.error('[ServiceConnectionSelector] Reconnection failed', { error: error.message })
+      setIsRefreshing(false)
     }
   }
+
+  // Listen for window focus (when OAuth popup closes)
+  useEffect(() => {
+    const handleFocus = async () => {
+      logger.debug('[ServiceConnectionSelector] Window focused, refreshing connections', { providerId })
+      if (isRefreshing) {
+        await fetchAllConnections()
+        // Clear spinner after refresh completes
+        setIsRefreshing(false)
+      }
+    }
+
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRefreshing, providerId]) // Include isRefreshing to know when to refresh
+
+  // Listen for integration reconnection events
+  useEffect(() => {
+    const handleReconnectionEvent = async (event: CustomEvent) => {
+      logger.debug('[ServiceConnectionSelector] Reconnection event received', {
+        eventProvider: event.detail?.provider,
+        componentProviderId: providerId,
+        matches: event.detail?.provider === providerId
+      })
+
+      if (event.detail?.provider === providerId) {
+        logger.debug('[ServiceConnectionSelector] Provider matches, refreshing connections')
+        await fetchAllConnections()
+        // Clear spinner after refresh completes
+        setIsRefreshing(false)
+      }
+    }
+
+    window.addEventListener('integration-reconnected' as any, handleReconnectionEvent as any)
+    return () => window.removeEventListener('integration-reconnected' as any, handleReconnectionEvent as any)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [providerId]) // Include providerId for comparison
 
   // Get account display text
   const getAccountDisplay = (conn?: Connection) => {
@@ -205,9 +274,10 @@ export function ServiceConnectionSelector({
       case 'connected':
         return 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950/50 dark:text-green-400 dark:border-green-800/50'
       case 'error':
-        return 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/50 dark:text-red-400 dark:border-red-800/50'
-      case 'pending':
+      case 'disconnected':
         return 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800/50'
+      case 'pending':
+        return 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-400 dark:border-blue-800/50'
       default:
         return 'bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950/50 dark:text-gray-400 dark:border-gray-800/50'
     }
@@ -262,15 +332,47 @@ export function ServiceConnectionSelector({
     setDeleteDialogOpen(true)
   }
 
-  const handleConfirmDelete = () => {
-    if (connectionToDelete && onDeleteConnection) {
-      onDeleteConnection(connectionToDelete.id)
-      setDeleteDialogOpen(false)
-      setConnectionToDelete(null)
+  const handleConfirmDelete = async () => {
+    if (!connectionToDelete || !onDeleteConnection) return
+
+    const connectionId = connectionToDelete.id
+
+    // Optimistic update: Immediately remove from UI
+    setDeletedConnectionIds(prev => new Set([...prev, connectionId]))
+    setDeleteDialogOpen(false)
+    setConnectionToDelete(null)
+
+    try {
+      // Call the delete handler (runs in background)
+      await onDeleteConnection(connectionId)
+
+      logger.info('[ServiceConnectionSelector] Account deleted successfully', {
+        connectionId,
+        provider: providerId
+      })
+
+      // Optionally re-fetch connections after deletion to sync
+      if (autoFetch && !propConnections) {
+        setTimeout(() => fetchAllConnections(), 500)
+      }
+    } catch (error: any) {
+      // On error, restore the connection in UI
+      logger.error('[ServiceConnectionSelector] Failed to delete account', {
+        error: error.message,
+        connectionId
+      })
+
+      setDeletedConnectionIds(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(connectionId)
+        return newSet
+      })
+
+      setFetchError(`Failed to delete account: ${error.message}`)
     }
   }
 
-  // Format options for Combobox
+  // Format options for Combobox (without delete button to avoid nested button issue)
   const comboboxOptions: ComboboxOption[] = connections.map((conn) => {
     // DEBUG: Log avatar data
     if (conn.email) {
@@ -285,7 +387,7 @@ export function ServiceConnectionSelector({
     return {
     value: conn.id,
     label: (
-      <div className="flex items-center gap-2 py-1 w-full group">
+      <div className="flex items-center gap-2 py-1 w-full">
         {/* Profile Picture / Initials */}
         {conn.avatar_url ? (
           <img
@@ -330,20 +432,37 @@ export function ServiceConnectionSelector({
               getStatusBadgeClass(conn.status)
             )}
           >
-            {conn.status === 'error' ? 'Error' :
+            {conn.status === 'error' ? 'Disconnected' :
              conn.status === 'pending' ? 'Pending' : 'Disconnected'}
           </Badge>
         )}
 
-        {/* Delete button - only show if multiple connections and callback provided */}
-        {connections.length > 1 && onDeleteConnection && (
-          <button
-            onClick={(e) => handleDeleteClick(conn, e)}
-            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-destructive/10 rounded flex-shrink-0"
-            title="Remove account"
+        {/* Delete button inside dropdown option */}
+        {onDeleteConnection && (
+          <div
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              console.log('[ServiceConnectionSelector] X button clicked in dropdown', {
+                connectionId: conn.id,
+                email: conn.email
+              })
+              handleDeleteClick(conn, e)
+            }}
+            className="flex-shrink-0 w-4 h-4 flex items-center justify-center rounded hover:bg-destructive/10 hover:text-destructive transition-colors cursor-pointer"
+            title="Remove this account"
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                e.stopPropagation()
+                handleDeleteClick(conn, e as any)
+              }
+            }}
           >
-            <X className="w-3.5 h-3.5 text-destructive" />
-          </button>
+            <X className="w-3 h-3" />
+          </div>
         )}
       </div>
     ),
@@ -379,6 +498,7 @@ export function ServiceConnectionSelector({
                 disabled={isFetching || connections.length === 0}
                 loading={isFetching}
                 disableSearch={connections.length <= 5}
+                hideClearButton={true}
               />
             </div>
 
@@ -437,7 +557,7 @@ export function ServiceConnectionSelector({
             <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50">
               <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
               <span className="text-xs text-amber-900 dark:text-amber-100">
-                {connection?.error || 'This account needs to be reconnected to continue working.'}
+                This account is disconnected. Please reconnect to continue using this workflow.
               </span>
             </div>
           )}
@@ -490,13 +610,27 @@ export function ServiceConnectionSelector({
       )}
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => {
+        console.log('[ServiceConnectionSelector] Dialog open state changed:', open)
+        setDeleteDialogOpen(open)
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remove Account?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to remove <span className="font-semibold">{getAccountDisplay(connectionToDelete || undefined)}</span>?
-              This action cannot be undone and will disconnect this account from all workflows.
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <div>
+                  Are you sure you want to remove <span className="font-semibold">{getAccountDisplay(connectionToDelete || undefined)}</span>?
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  This will:
+                </div>
+                <ul className="text-xs text-muted-foreground list-disc list-inside space-y-1 pl-2">
+                  <li>Disconnect this account from all workflows</li>
+                  <li>Revoke all permissions granted to ChainReact</li>
+                  <li>Require you to re-authorize from scratch if reconnecting</li>
+                </ul>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

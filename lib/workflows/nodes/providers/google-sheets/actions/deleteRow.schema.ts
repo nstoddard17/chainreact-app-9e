@@ -64,14 +64,15 @@ export const deleteRowActionSchema: NodeComponent = {
       name: "rowNumber",
       label: "Row Number",
       type: "number",
-      required: true,
+      required: false,
       dependsOn: "sheetName",
       hidden: {
         $deps: ["sheetName", "rowSelection"],
         $condition: {
           $or: [
             { sheetName: { $exists: false } },
-            { rowSelection: { $ne: "specific" } }
+            { rowSelection: { $eq: "last" } },
+            { rowSelection: { $eq: "first_data" } }
           ]
         }
       },

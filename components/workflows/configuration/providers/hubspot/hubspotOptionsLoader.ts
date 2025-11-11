@@ -6,6 +6,7 @@
 import { ProviderOptionsLoader, LoadOptionsParams, FormattedOption } from '../types'
 
 import { logger } from '@/lib/utils/logger'
+import { parseErrorAndHandleReconnection } from '@/lib/utils/integration-reconnection'
 
 export const hubspotOptionsLoader: ProviderOptionsLoader = {
   canHandle(fieldName: string, providerId: string): boolean {
@@ -19,10 +20,17 @@ export const hubspotOptionsLoader: ProviderOptionsLoader = {
       'listId',
       'associatedCompanyId',
       'associatedContactId',
+      'contactId',
       'dealId',
       'jobtitle',
       'department',
-      'industry'
+      'industry',
+      'filterByOwner',
+      'hubspot_owner_id',
+      'propertyName',
+      'filterByPipeline',
+      'hs_lead_status',
+      'selectedProperties'
     ]
     
     return supportedFields.includes(fieldName)
@@ -56,13 +64,37 @@ export const hubspotOptionsLoader: ProviderOptionsLoader = {
       listId: 'hubspot_lists',
       associatedCompanyId: 'hubspot_companies',
       associatedContactId: 'hubspot_contacts',
+      contactId: 'hubspot_contacts',
       dealId: 'hubspot_deals',
       jobtitle: 'hubspot_job_titles',
       department: 'hubspot_departments',
       industry: 'hubspot_industries',
+      filterByOwner: 'hubspot_owners',
+      hubspot_owner_id: 'hubspot_owners',
+      propertyName: 'hubspot_contact_properties', // Default to contact properties
+      filterByPipeline: 'hubspot_pipelines',
+      hs_lead_status: 'hubspot_lead_status_options',
+      selectedProperties: 'hubspot_contact_properties',
     }
-    
-    const dataType = fieldToDataType[fieldName]
+
+    // Special handling: determine if propertyName is for contacts, deals, or companies based on provider context
+    // We need to check the node type to determine which properties to load
+    let dataType = fieldToDataType[fieldName]
+
+    // If it's propertyName field, we need context to know if it's contact, deal, company, or ticket properties
+    // This will be handled dynamically in the component, but for now we default to contact
+    if (fieldName === 'propertyName' && params.nodeType) {
+      // The component should pass additional context, but we'll handle all types
+      if (params.nodeType.includes('deal')) {
+        dataType = 'hubspot_deal_properties'
+      } else if (params.nodeType.includes('company')) {
+        dataType = 'hubspot_company_properties'
+      } else if (params.nodeType.includes('ticket')) {
+        dataType = 'hubspot_ticket_properties'
+      } else {
+        dataType = 'hubspot_contact_properties'
+      }
+    }
     if (!dataType) {
       logger.warn(`No data type mapping for HubSpot field: ${fieldName}`)
       return []
@@ -120,18 +152,13 @@ export const hubspotOptionsLoader: ProviderOptionsLoader = {
           hasIntegrationId: !!integrationId
         })
         
-        // Parse error if it's JSON
-        let errorMessage = `Failed to fetch HubSpot ${dataType}`
-        if (errorText) {
-          try {
-            const errorData = JSON.parse(errorText)
-            errorMessage = errorData.error || errorMessage
-          } catch {
-            // Use text as is if not JSON
-            errorMessage = errorText.substring(0, 200) // Limit length
-          }
-        }
-        
+        // Parse error and handle reconnection if needed
+        const errorMessage = await parseErrorAndHandleReconnection(
+          errorText,
+          'hubspot',
+          `Failed to fetch HubSpot ${dataType}`
+        )
+
         throw new Error(errorMessage)
       }
       
@@ -180,9 +207,57 @@ export const hubspotOptionsLoader: ProviderOptionsLoader = {
           label: deal.properties?.dealname || `Deal ${deal.id}`
         }))
       }
-      
-      // For job titles, departments, industries - these might be simple string arrays
-      if (['hubspot_job_titles', 'hubspot_departments', 'hubspot_industries'].includes(dataType)) {
+
+      if (dataType === 'hubspot_owners') {
+        return (result.data || []).map((owner: any) => ({
+          value: owner.id,
+          label: owner.email ? `${owner.firstName || ''} ${owner.lastName || ''} (${owner.email})`.trim() :
+                 `${owner.firstName || ''} ${owner.lastName || ''}`.trim() || `Owner ${owner.id}`
+        }))
+      }
+
+      if (dataType === 'hubspot_contact_properties') {
+        return (result.data || []).map((property: any) => ({
+          value: property.name,
+          label: property.label ? `${property.label} (${property.name})` : property.name,
+          raw: property
+        }))
+      }
+
+      if (dataType === 'hubspot_deal_properties') {
+        return (result.data || []).map((property: any) => ({
+          value: property.name,
+          label: property.label ? `${property.label} (${property.name})` : property.name,
+          raw: property
+        }))
+      }
+
+      if (dataType === 'hubspot_company_properties') {
+        return (result.data || []).map((property: any) => ({
+          value: property.name,
+          label: property.label ? `${property.label} (${property.name})` : property.name,
+          raw: property
+        }))
+      }
+
+      if (dataType === 'hubspot_ticket_properties') {
+        return (result.data || []).map((property: any) => ({
+          value: property.name,
+          label: property.label ? `${property.label} (${property.name})` : property.name,
+          raw: property
+        }))
+      }
+
+      if (dataType === 'hubspot_pipelines') {
+        return (result.data || []).map((pipeline: any) => ({
+          value: pipeline.id,
+          label: pipeline.label || pipeline.name || `Pipeline ${pipeline.id}`,
+          raw: pipeline
+        }))
+      }
+
+      // For job titles, departments, industries, lead status - these might be simple string arrays or option objects
+      if (['hubspot_job_titles', 'hubspot_departments', 'hubspot_industries', 'hubspot_lead_status_options', 'hubspot_content_topics_options', 'hubspot_preferred_channels_options'].includes(dataType)) {
         return (result.data || []).map((item: any) => ({
           value: typeof item === 'string' ? item : item.value || item.id,
           label: typeof item === 'string' ? item : item.label || item.name || item.value

@@ -35,6 +35,36 @@ export function SetupTab(props: SetupTabProps) {
   const { toast } = useToast()
   const [isConnecting, setIsConnecting] = useState(false)
 
+  // Listen for reconnection events to refresh integration store
+  React.useEffect(() => {
+    const handleReconnectionEvent = async (event: CustomEvent) => {
+      if (event.detail?.provider === nodeInfo?.providerId) {
+        console.log('[SetupTab] Reconnection event received, refreshing integrations')
+        // Refresh integrations from the store
+        await fetchIntegrations(true)
+        // Clear connecting state
+        setIsConnecting(false)
+      }
+    }
+
+    window.addEventListener('integration-reconnected' as any, handleReconnectionEvent as any)
+    return () => window.removeEventListener('integration-reconnected' as any, handleReconnectionEvent as any)
+  }, [nodeInfo?.providerId, fetchIntegrations])
+
+  // Listen for window focus (when OAuth popup closes) to refresh integrations
+  React.useEffect(() => {
+    const handleFocus = async () => {
+      if (isConnecting) {
+        console.log('[SetupTab] Window focused after OAuth, refreshing integrations')
+        await fetchIntegrations(true)
+        setIsConnecting(false)
+      }
+    }
+
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [isConnecting, fetchIntegrations])
+
   // Determine if this node requires an integration connection
   const requiresConnection = useMemo(() => {
     // Nodes without a provider don't need connections (logic nodes, etc.)
@@ -242,6 +272,49 @@ export function SetupTab(props: SetupTabProps) {
     console.log('Selected connection:', connectionId)
   }
 
+  const handleDeleteConnection = async (connectionId: string) => {
+    // Get Supabase session for auth token
+    const { createClient } = await import('@/utils/supabase/client')
+    const supabase = createClient()
+    const { data: { session } } = await supabase.auth.getSession()
+
+    if (!session?.access_token) {
+      toast({
+        title: "Authentication Error",
+        description: "You must be logged in to delete connections.",
+        variant: "destructive",
+      })
+      throw new Error("Authentication required")
+    }
+
+    // Call DELETE API
+    const response = await fetch(`/api/integrations/${connectionId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+    })
+
+    const data = await response.json()
+
+    if (!response.ok || !data.success) {
+      toast({
+        title: "Delete Failed",
+        description: data.error || "Failed to remove account. Please try again.",
+        variant: "destructive",
+      })
+      throw new Error(data.error || 'Failed to delete connection')
+    }
+
+    // Refresh integrations to update UI
+    await fetchIntegrations(true)
+
+    toast({
+      title: "Account Removed",
+      description: "The account has been disconnected and all permissions have been revoked.",
+    })
+  }
+
   // Get provider display name with proper branding
   const providerName = nodeInfo?.providerId
     ? getProviderBrandName(nodeInfo.providerId)
@@ -263,7 +336,9 @@ export function SetupTab(props: SetupTabProps) {
             onConnect={handleConnect}
             onReconnect={handleReconnect}
             onSelectConnection={handleChangeAccount}
+            onDeleteConnection={handleDeleteConnection}
             isLoading={isConnecting}
+            autoFetch={false}
           />
         </div>
       )}

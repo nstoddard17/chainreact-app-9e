@@ -26,6 +26,7 @@ import { TwitterOptionsLoader } from './twitter/TwitterOptionsLoader';
 import { GoogleAnalyticsOptionsLoader } from './google-analytics/GoogleAnalyticsOptionsLoader';
 import { GmailOptionsLoader } from './gmail/GmailOptionsLoader';
 import { SlackOptionsLoader } from './slack/slackOptionsLoader';
+import { GumroadOptionsLoader } from './gumroad/gumroadOptionsLoader';
 
 import { logger } from '@/lib/utils/logger'
 
@@ -106,6 +107,9 @@ class ProviderRegistryImpl implements IProviderRegistry {
 
     // Register Slack loader
     this.register('slack', new SlackOptionsLoader());
+
+    // Register Gumroad loader
+    this.register('gumroad', new GumroadOptionsLoader());
 
     // Additional providers can be registered here as they're implemented
     // this.register('trello', new TrelloOptionsLoader());

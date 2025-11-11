@@ -31,6 +31,14 @@ export async function GET(request: NextRequest) {
       return errorResponse('Integration not found', 404);
     }
 
+    // Validate integration status
+    if (integration.status !== 'connected') {
+      return errorResponse('Teams integration is not connected. Please reconnect your account.', 400, {
+        needsReconnection: true,
+        currentStatus: integration.status
+      });
+    }
+
     // Decrypt access token
     const { decrypt } = await import('@/lib/security/encryption');
     const accessToken = integration.access_token ? await decrypt(integration.access_token) : null;
@@ -149,6 +157,14 @@ export async function POST(request: NextRequest) {
 
     if (integrationError || !integration) {
       return errorResponse('Integration not found', 404);
+    }
+
+    // Validate integration status
+    if (integration.status !== 'connected') {
+      return errorResponse('Teams integration is not connected. Please reconnect your account.', 400, {
+        needsReconnection: true,
+        currentStatus: integration.status
+      });
     }
 
     // Decrypt access token

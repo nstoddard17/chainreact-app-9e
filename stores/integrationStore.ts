@@ -7,6 +7,7 @@ import { IntegrationService, Provider } from "@/services/integration-service"
 import { ScopeValidator } from "@/lib/integrations/scope-validator"
 import { OAuthConnectionFlow } from "@/lib/oauth/connection-flow"
 import { useWorkflowStore } from "./workflowStore"
+import { getCrossTabSync } from "@/lib/utils/cross-tab-sync"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -585,6 +586,13 @@ export const useIntegrationStore = create<IntegrationStore>()(
               setLoading(`connect-${providerId}`, false)
               emitIntegrationEvent('INTEGRATION_CONNECTED', { providerId })
 
+              // Broadcast integration connected to other tabs
+              if (typeof window !== 'undefined') {
+                const sync = getCrossTabSync()
+                sync.broadcast('integration-connected', { providerId })
+                logger.debug('[IntegrationStore] Broadcasted integration-connected to other tabs')
+              }
+
               // Fetch from server immediately to update UI with real data
               // Don't wait 1.5 seconds - user needs instant feedback
               fetchIntegrations(true).catch(error => {
@@ -694,6 +702,16 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
         // Emit event for other components to listen to
         emitIntegrationEvent('INTEGRATION_DISCONNECTED', { integrationId })
+
+        // Broadcast integration disconnected to other tabs
+        if (typeof window !== 'undefined') {
+          const sync = getCrossTabSync()
+          sync.broadcast('integration-disconnected', {
+            integrationId,
+            providerId: integration?.provider
+          })
+          logger.debug('[IntegrationStore] Broadcasted integration-disconnected to other tabs')
+        }
 
         setLoading(loadingKey, false)
         
@@ -820,7 +838,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
     getIntegrationByProvider: (providerId: string) => {
       const { integrations } = get()
-      
+
       // For Google services, they might all be under a single 'google' integration
       // Map specific Google service providers to the base 'google' provider
       const providerMapping: Record<string, string> = {
@@ -830,10 +848,10 @@ export const useIntegrationStore = create<IntegrationStore>()(
         'google-calendar': 'google',
         'google_calendar': 'google',  // Also handle underscore variant
       }
-      
+
       // Check if we need to map the provider
       const actualProvider = providerMapping[providerId] || providerId
-      
+
       // First try exact match
       let integration = integrations.find((i) => i.provider === providerId)
 
@@ -1153,3 +1171,32 @@ export const useIntegrationStore = create<IntegrationStore>()(
     },
   }
 })
+
+// Initialize cross-tab synchronization for integration state
+if (typeof window !== 'undefined') {
+  const sync = getCrossTabSync()
+
+  // Listen for integration connected events from other tabs
+  sync.subscribe('integration-connected', (data) => {
+    logger.debug('[IntegrationStore] Received integration-connected event from another tab', data)
+    const state = useIntegrationStore.getState()
+    // Force refresh integrations to get the latest state
+    state.fetchIntegrations(true)
+  })
+
+  // Listen for integration disconnected events from other tabs
+  sync.subscribe('integration-disconnected', (data) => {
+    logger.debug('[IntegrationStore] Received integration-disconnected event from another tab', data)
+    const state = useIntegrationStore.getState()
+    // Force refresh integrations to get the latest state
+    state.fetchIntegrations(true)
+  })
+
+  // Listen for integration refresh requests from other tabs
+  sync.subscribe('integration-refresh', () => {
+    logger.debug('[IntegrationStore] Received integration-refresh event from another tab')
+    const state = useIntegrationStore.getState()
+    // Force refresh integrations
+    state.fetchIntegrations(true)
+  })
+}
