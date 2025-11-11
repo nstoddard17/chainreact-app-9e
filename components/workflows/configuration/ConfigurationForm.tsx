@@ -53,7 +53,7 @@ import { WebhookConfiguration } from './providers/WebhookConfiguration';
 
 // Utility nodes
 import { TransformerConfiguration } from './providers/utility/TransformerConfiguration';
-import { FileUploadConfiguration } from './providers/utility/FileUploadConfiguration';
+import { ParseFileConfiguration } from './providers/utility/ParseFileConfiguration';
 import { ExtractWebsiteDataConfiguration } from './providers/utility/ExtractWebsiteDataConfiguration';
 import { ConditionalTriggerConfiguration } from './providers/utility/ConditionalTriggerConfiguration';
 import { GoogleSearchConfiguration } from './providers/utility/GoogleSearchConfiguration';
@@ -1573,9 +1573,9 @@ function ConfigurationForm({
     return <TransformerConfiguration {...commonProps} />;
   }
 
-  if (nodeInfo?.type === 'file_upload') {
-    logger.debug('📁 [ConfigForm] Routing to File Upload configuration');
-    return <FileUploadConfiguration {...commonProps} />;
+  if (nodeInfo?.type === 'parse_file') {
+    logger.debug('📄 [ConfigForm] Routing to Parse File configuration');
+    return <ParseFileConfiguration {...commonProps} />;
   }
 
   if (nodeInfo?.type === 'extract_website_data') {
