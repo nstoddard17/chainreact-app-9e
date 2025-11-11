@@ -178,7 +178,7 @@ export function useIntegrations(): UseIntegrationsReturn {
         requestBody.shop = shop
       }
 
-      const response = await fetch("/api/integrations/oauth/generate-url", {
+      const response = await fetch("/api/integrations/auth/generate-url", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
