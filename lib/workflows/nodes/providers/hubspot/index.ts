@@ -1327,9 +1327,11 @@ const hubspotActionGetCompanies: NodeComponent = {
     {
       name: "filterProperty",
       label: "Filter by Property (Optional)",
-      type: "text",
+      type: "multi-select",
+      dynamic: "hubspot_company_properties",
       required: false,
-      placeholder: "e.g., name, domain, industry"
+      placeholder: "Select company properties (e.g., name, domain)",
+      description: "Choose one or more company properties to filter on"
     },
     {
       name: "filterValue",
@@ -1341,10 +1343,11 @@ const hubspotActionGetCompanies: NodeComponent = {
     {
       name: "properties",
       label: "Properties to Retrieve (Optional)",
-      type: "array",
+      type: "multi-select",
+      dynamic: "hubspot_company_properties",
       required: false,
-      placeholder: JSON.stringify(["name", "domain", "industry"], null, 2),
-      tooltip: "Customize which properties to retrieve. Leave empty for defaults. Example: [\"name\", \"domain\", \"industry\", \"city\"]"
+      placeholder: "Select company properties to include",
+      description: "Choose specific properties to return. Leave empty for defaults."
     }
   ],
   outputSchema: [
@@ -1384,9 +1387,11 @@ const hubspotActionGetDeals: NodeComponent = {
     {
       name: "filterProperty",
       label: "Filter by Property (Optional)",
-      type: "text",
+      type: "multi-select",
+      dynamic: "hubspot_deal_properties",
       required: false,
-      placeholder: "e.g., dealname, dealstage, amount"
+      placeholder: "Select deal properties (e.g., dealname, dealstage)",
+      description: "Choose one or more deal properties to filter on"
     },
     {
       name: "filterValue",
@@ -1398,10 +1403,11 @@ const hubspotActionGetDeals: NodeComponent = {
     {
       name: "properties",
       label: "Properties to Retrieve (Optional)",
-      type: "array",
+      type: "multi-select",
+      dynamic: "hubspot_deal_properties",
       required: false,
-      placeholder: JSON.stringify(["dealname", "dealstage", "amount"], null, 2),
-      tooltip: "Customize which properties to retrieve. Leave empty for defaults. Example: [\"dealname\", \"dealstage\", \"amount\", \"closedate\"]"
+      placeholder: "Select deal properties to include",
+      description: "Choose specific properties to return. Leave empty for defaults."
     }
   ],
   outputSchema: [

@@ -545,7 +545,7 @@ export const hubspotActionCreateMeeting: NodeComponent = {
       required: false,
       defaultValue: "{{now}}",
       placeholder: "2025-01-15T10:30:00Z",
-      description: "When this meeting occurred/is scheduled (defaults to now)"
+      description: undefined
     },
 
     // Associations

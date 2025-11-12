@@ -383,7 +383,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     // 'webhooks' scope is optional - only needed if creating webhooks programmatically via API
     // If you get a webhooks scope error, remove it from your HubSpot app settings
     // 'tickets' scope is required for ticket pipeline and ticket management
-    scope: "oauth crm.lists.read crm.lists.write crm.objects.contacts.read crm.objects.contacts.write crm.objects.companies.read crm.objects.companies.write crm.objects.deals.read crm.objects.deals.write crm.objects.owners.read tickets",
+    scope: "oauth forms automation crm.lists.read crm.lists.write crm.objects.contacts.read crm.objects.contacts.write crm.objects.companies.read crm.objects.companies.write crm.objects.deals.read crm.objects.deals.write crm.objects.line_items.read crm.objects.line_items.write crm.objects.owners.read crm.schemas.deals.read crm.objects.products.read crm.objects.products.write tickets",
   },
   airtable: {
     id: "airtable",

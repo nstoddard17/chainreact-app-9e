@@ -18,6 +18,7 @@ export interface HubSpotProduct {
   price: number
   hs_sku: string
   description: string
+  warning?: boolean
 }
 
 export const getHubSpotProducts: HubSpotDataHandler<HubSpotProduct> = async (integration: HubSpotIntegration, options: any = {}): Promise<HubSpotProduct[]> => {
@@ -31,6 +32,18 @@ export const getHubSpotProducts: HubSpotDataHandler<HubSpotProduct> = async (int
 
     const apiUrl = buildHubSpotApiUrl('/crm/v3/objects/products?limit=100&properties=name,price,hs_sku,description')
     const response = await makeHubSpotApiRequest(apiUrl, tokenResult.token!)
+
+    if (response.status === 403) {
+      logger.warn('HubSpot products endpoint forbidden (missing products permission). Returning fallback option.')
+      return [{
+        id: '__hubspot_products_scope_missing__',
+        name: 'Reconnect HubSpot with CRM Products access to load products',
+        price: 0,
+        hs_sku: '',
+        description: 'HubSpot denied access to products. Reconnect your HubSpot account with the “Products” (CRM objects) permission to fetch real items.',
+        warning: true
+      }]
+    }
 
     if (!response.ok) {
       throw new Error(`HubSpot API error: ${response.status}`)

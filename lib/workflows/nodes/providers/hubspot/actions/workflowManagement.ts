@@ -28,9 +28,12 @@ export const hubspotActionAddToWorkflow: NodeComponent = {
     {
       name: "contactEmail",
       label: "Contact Email",
-      type: "text",
+      type: "combobox",
+      dynamic: "hubspot_contacts",
+      loadOnMount: true,
+      creatable: true,
       required: true,
-      placeholder: "contact@example.com",
+      placeholder: "Select or type contact email",
       description: "Email address of the contact to enroll"
     }
   ],
@@ -70,9 +73,12 @@ export const hubspotActionRemoveFromWorkflow: NodeComponent = {
     {
       name: "contactEmail",
       label: "Contact Email",
-      type: "text",
+      type: "combobox",
+      dynamic: "hubspot_contacts",
+      loadOnMount: true,
+      creatable: true,
       required: true,
-      placeholder: "contact@example.com",
+      placeholder: "Select or type contact email",
       description: "Email address of the contact to unenroll"
     }
   ],

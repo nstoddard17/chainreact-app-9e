@@ -748,7 +748,8 @@ export async function POST(req: NextRequest) {
       dataType === 'hubspot_deal_stages' ||
       dataType === 'hubspot_owners' ||
       dataType === 'hubspot_contact_properties' ||
-      dataType === 'hubspot_deal_properties'
+      dataType === 'hubspot_deal_properties' ||
+      dataType === 'hubspot_products'
     )) {
       logger.debug(`🔄 [SERVER] Routing HubSpot request to dedicated API: ${dataType}`);
       

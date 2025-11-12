@@ -27,11 +27,15 @@ export const hubspotActionRemoveFromList: NodeComponent = {
     },
     {
       name: "contactId",
-      label: "Contact ID",
-      type: "text",
+      label: "Contact",
+      type: "combobox",
+      dynamic: "hubspot_contacts",
+      loadOnMount: true,
+      searchable: true,
+      creatable: true,
       required: true,
-      placeholder: "Enter contact ID or VID",
-      description: "The contact ID (VID) to remove from the list"
+      placeholder: "Select or type contact",
+      description: "Choose the contact to remove (or type an email manually)"
     }
   ],
   producesOutput: true,
