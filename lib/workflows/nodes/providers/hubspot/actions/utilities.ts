@@ -26,10 +26,13 @@ export const hubspotActionGetOwners: NodeComponent = {
     {
       name: "email",
       label: "Filter by Email",
-      type: "text",
+      type: "combobox",
+      dynamic: "hubspot_owners",
+      loadOnMount: true,
+      searchable: true,
       required: false,
-      placeholder: "owner@example.com",
-      description: "Filter owners by email address (optional)"
+      placeholder: "All owners",
+      description: "Select a specific owner email (leave blank to include everyone)"
     }
   ],
   producesOutput: true,

@@ -10,7 +10,7 @@ export const hubspotActionCreateProduct: NodeComponent = {
   description: "Create a new product in HubSpot",
   icon: Package,
   providerId: "hubspot",
-  requiredScopes: ["e-commerce"],
+  requiredScopes: ["crm.objects.products.write"],
   category: "Products",
   isTrigger: false,
   configSchema: [
@@ -89,7 +89,7 @@ export const hubspotActionUpdateProduct: NodeComponent = {
   description: "Update an existing product in HubSpot",
   icon: Edit,
   providerId: "hubspot",
-  requiredScopes: ["e-commerce"],
+  requiredScopes: ["crm.objects.products.read", "crm.objects.products.write"],
   category: "Products",
   isTrigger: false,
   configSchema: [
@@ -101,6 +101,7 @@ export const hubspotActionUpdateProduct: NodeComponent = {
       dynamic: "hubspot_products",
       required: true,
       loadOnMount: true,
+      creatable: true,
       searchable: true,
       placeholder: "Select or enter product ID",
       description: "Choose the product you want to update"
@@ -177,7 +178,7 @@ export const hubspotActionGetProducts: NodeComponent = {
   description: "Search and retrieve products from HubSpot",
   icon: Search,
   providerId: "hubspot",
-  requiredScopes: ["e-commerce"],
+  requiredScopes: ["crm.objects.products.read"],
   category: "Products",
   isTrigger: false,
   configSchema: [
@@ -192,11 +193,12 @@ export const hubspotActionGetProducts: NodeComponent = {
     },
     {
       name: "filterProperty",
-      label: "Filter Property",
-      type: "text",
+      label: "Filter by Property (Optional)",
+      type: "multi-select",
+      dynamic: "hubspot_product_properties",
       required: false,
-      placeholder: "e.g., hs_sku, name",
-      description: "Property to filter by (optional)"
+      placeholder: "Select product properties (e.g., hs_sku, name)",
+      description: "Choose one or more product properties to filter on"
     },
     {
       name: "filterValue",
@@ -204,7 +206,7 @@ export const hubspotActionGetProducts: NodeComponent = {
       type: "text",
       required: false,
       placeholder: "Filter value",
-      description: "Value to match for the filter property"
+      description: "Value to match. For multiple properties, provide an array or object (e.g., {\"name\": \"Widget\"})."
     }
   ],
   producesOutput: true,

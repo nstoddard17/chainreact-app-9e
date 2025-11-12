@@ -870,6 +870,35 @@ const hubspotMappings: Record<string, FieldMapping> = {
     filterProperty: "hubspot_ticket_properties",
     properties: "hubspot_ticket_properties",
   },
+  hubspot_action_get_owners: {
+    email: "hubspot_owners",
+  },
+  hubspot_action_create_line_item: {
+    dealId: "hubspot_deals",
+    productId: "hubspot_products",
+  },
+  hubspot_action_update_line_item: {
+    lineItemId: "hubspot_line_items",
+  },
+  hubspot_action_get_contacts: {
+    filterProperty: "hubspot_contact_properties",
+    properties: "hubspot_contact_properties",
+  },
+  hubspot_action_get_companies: {
+    filterProperty: "hubspot_company_properties",
+    properties: "hubspot_company_properties",
+  },
+  hubspot_action_get_deals: {
+    filterProperty: "hubspot_deal_properties",
+    properties: "hubspot_deal_properties",
+  },
+  hubspot_action_get_products: {
+    filterProperty: "hubspot_product_properties",
+    properties: "hubspot_product_properties",
+  },
+  hubspot_action_update_product: {
+    productId: "hubspot_products",
+  },
   // Dynamic HubSpot object actions
   hubspot_action_create_object: {
     objectType: "hubspot_objects",

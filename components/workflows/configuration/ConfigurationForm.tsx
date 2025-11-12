@@ -1129,7 +1129,21 @@ function ConfigurationForm({
             dynamic: field.dynamic,
             provider: nodeInfo?.providerId
           });
-          loadOptions(field.name, undefined, undefined, forceRefresh);
+          // Proactively mark field as loading so UI shows spinner immediately
+          setLoadingFields(prev => {
+            const newSet = new Set(prev);
+            newSet.add(field.name);
+            return newSet;
+          });
+
+          loadOptions(field.name, undefined, undefined, forceRefresh)
+            .finally(() => {
+              setLoadingFields(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(field.name);
+                return newSet;
+              });
+            });
         });
       }, 150); // Slightly longer delay to ensure reset has completed
 

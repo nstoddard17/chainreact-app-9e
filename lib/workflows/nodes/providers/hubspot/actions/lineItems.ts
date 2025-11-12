@@ -132,11 +132,14 @@ export const hubspotActionUpdateLineItem: NodeComponent = {
   configSchema: [
     {
       name: "lineItemId",
-      label: "Line Item ID",
-      type: "text",
+      label: "Line Item",
+      type: "combobox",
+      dynamic: "hubspot_line_items",
+      loadOnMount: true,
+      searchable: true,
       required: true,
-      placeholder: "Enter line item ID",
-      description: "The ID of the line item to update"
+      placeholder: "Select or enter line item ID",
+      description: "Choose the line item you want to update"
     },
     {
       name: "quantity",

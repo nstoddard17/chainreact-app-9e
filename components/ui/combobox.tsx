@@ -704,6 +704,15 @@ export function MultiCombobox({
     onOpenChange?.(newOpen);
   };
 
+  const buildSearchValue = React.useCallback((option: ComboboxOption) => {
+    const parts: string[] = []
+    if (typeof option.value === 'string') parts.push(option.value)
+    if (typeof option.label === 'string') parts.push(option.label)
+    if (typeof option.description === 'string') parts.push(option.description)
+    if (option.searchValue) parts.push(option.searchValue)
+    return parts.join(' ').trim() || (typeof option.value === 'string' ? option.value : '')
+  }, [])
+
   // Handle drag and drop
   React.useEffect(() => {
     if (!onDrop) return;
@@ -904,7 +913,7 @@ export function MultiCombobox({
                 return (
                 <CommandItem
                   key={`multi-option-${index}-${option.value || 'undefined'}`}
-                  value={option.value}
+                  value={buildSearchValue(option)}
                   onSelect={() => {
                     // Just handle the selection, don't close
                     handleSelect(option.value);

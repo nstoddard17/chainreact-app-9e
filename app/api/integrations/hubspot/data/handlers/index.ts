@@ -37,6 +37,7 @@ import { getHubSpotWorkflows } from './workflows'
 import { getHubSpotForms } from './forms'
 import { getHubSpotProducts } from './products'
 import { getHubSpotOwners } from './owners'
+import { getHubSpotLineItems } from './lineItems'
 
 export const hubspotHandlers = {
   'hubspot_companies': getHubSpotCompanies,
@@ -64,6 +65,7 @@ export const hubspotHandlers = {
   'hubspot_forms': getHubSpotForms,
   'hubspot_products': getHubSpotProducts,
   'hubspot_owners': getHubSpotOwners,
+  'hubspot_line_items': getHubSpotLineItems,
   // Dynamic handlers
   'hubspot_objects': getHubSpotObjects,
   'hubspot_object_properties': getHubSpotObjectProperties,
@@ -92,5 +94,6 @@ export {
   getHubSpotWorkflows,
   getHubSpotForms,
   getHubSpotProducts,
-  getHubSpotOwners
+  getHubSpotOwners,
+  getHubSpotLineItems
 }

@@ -16,8 +16,8 @@ export const hubspotOptionsLoader: ProviderOptionsLoader = {
     }
     
     // List of fields this loader can handle
-    // NOTE: 'listId' is now handled by hubspotDynamicOptionsLoader for better handling
     const supportedFields = [
+      'listId',
       'associatedCompanyId',
       'associatedContactId',
       'associatedDealId',
@@ -38,7 +38,10 @@ export const hubspotOptionsLoader: ProviderOptionsLoader = {
       'hs_pipeline',
       'hs_pipeline_stage',
       'hs_lead_status',
-      'selectedProperties'
+      'selectedProperties',
+      'contactEmail',
+      'productId',
+      'email'
     ]
     
     return supportedFields.includes(fieldName)
@@ -84,6 +87,7 @@ export const hubspotOptionsLoader: ProviderOptionsLoader = {
       hubspot_owner_id: 'hubspot_owners',
       propertyName: 'hubspot_contact_properties', // Default to contact properties
       filterProperty: 'hubspot_contact_properties', // Default to contact properties until nodeType inspected
+      properties: 'hubspot_contact_properties',
       filterPipeline: 'hubspot_ticket_pipelines',
       filterStage: 'hubspot_ticket_stages',
       filterByPipeline: 'hubspot_pipelines',
@@ -91,6 +95,10 @@ export const hubspotOptionsLoader: ProviderOptionsLoader = {
       hs_pipeline_stage: 'hubspot_ticket_stages',
       hs_lead_status: 'hubspot_lead_status_options',
       selectedProperties: 'hubspot_contact_properties',
+      properties: 'hubspot_contact_properties',
+      contactEmail: 'hubspot_contacts',
+      productId: 'hubspot_products',
+      email: 'hubspot_owners'
     }
 
     const resolvePropertyDataType = (nodeType?: string) => {
@@ -117,7 +125,7 @@ export const hubspotOptionsLoader: ProviderOptionsLoader = {
     let dataType = fieldToDataType[fieldName]
 
     // If it's propertyName or filterProperty field, detect which object type is in use
-    if ((fieldName === 'propertyName' || fieldName === 'filterProperty')) {
+    if ((fieldName === 'propertyName' || fieldName === 'filterProperty' || fieldName === 'properties')) {
       dataType = resolvePropertyDataType(params.nodeType)
     }
     if (!dataType) {
@@ -204,15 +212,13 @@ export const hubspotOptionsLoader: ProviderOptionsLoader = {
       
       // Format the response based on data type
       if (dataType === 'hubspot_lists') {
-        // Filter to only show manual lists (not dynamic lists)
-        const manualLists = (result.data || []).filter((list: any) => 
-          list.listType === 'MANUAL' || list.listType === 'STATIC'
-        )
-        
-        return manualLists.map((list: any) => ({
-          value: list.listId.toString(),
-          label: `${list.name} (${list.size || 0} contacts)`
-        }))
+        return (result.data || []).map((list: any) => {
+          const typeLabel = list.listType || (list.dynamic ? 'Dynamic' : 'Static');
+          return {
+            value: list.listId?.toString() || list.id?.toString(),
+            label: `${list.name || `List ${list.listId || list.id}`} (${typeLabel}${typeof list.size === 'number' ? ` · ${list.size} contacts` : ''})`
+          }
+        }).filter((option: any) => option.value);
       }
       
       if (dataType === 'hubspot_companies') {
@@ -222,6 +228,23 @@ export const hubspotOptionsLoader: ProviderOptionsLoader = {
         }))
       }
       
+      if (fieldName === 'contactEmail') {
+        const seen = new Set<string>();
+        return (result.data || [])
+          .map((contact: any) => contact.properties?.email?.trim())
+          .filter((email: string | undefined): email is string => {
+            if (!email) return false;
+            const normalized = email.toLowerCase();
+            if (seen.has(normalized)) return false;
+            seen.add(normalized);
+            return true;
+          })
+          .map((email: string) => ({
+            value: email,
+            label: email
+          }));
+      }
+
       if (dataType === 'hubspot_contacts') {
         return (result.data || []).map((contact: any) => {
           const name = [contact.properties?.firstname, contact.properties?.lastname]
@@ -249,35 +272,35 @@ export const hubspotOptionsLoader: ProviderOptionsLoader = {
         }))
       }
 
-      if (dataType === 'hubspot_contact_properties') {
-        return (result.data || []).map((property: any) => ({
+      const mapPropertyOptions = (properties: any[] = []) =>
+        properties.map((property: any) => ({
           value: property.name,
-          label: property.label ? `${property.label} (${property.name})` : property.name,
+          label: property.label || property.name,
           raw: property
         }))
+
+      if (dataType === 'hubspot_contact_properties') {
+        return mapPropertyOptions(result.data)
       }
 
       if (dataType === 'hubspot_deal_properties') {
-        return (result.data || []).map((property: any) => ({
-          value: property.name,
-          label: property.label ? `${property.label} (${property.name})` : property.name,
-          raw: property
-        }))
+        return mapPropertyOptions(result.data)
       }
 
       if (dataType === 'hubspot_company_properties') {
-        return (result.data || []).map((property: any) => ({
-          value: property.name,
-          label: property.label ? `${property.label} (${property.name})` : property.name,
-          raw: property
-        }))
+        return mapPropertyOptions(result.data)
       }
 
       if (dataType === 'hubspot_ticket_properties') {
-        return (result.data || []).map((property: any) => ({
-          value: property.name,
-          label: property.label ? `${property.label} (${property.name})` : property.name,
-          raw: property
+        return mapPropertyOptions(result.data)
+      }
+
+      if (dataType === 'hubspot_products') {
+        return (result.data || []).map((product: any) => ({
+          value: product.id,
+          label: product.name || `Product ${product.id}`,
+          raw: product,
+          disabled: product.warning
         }))
       }
 

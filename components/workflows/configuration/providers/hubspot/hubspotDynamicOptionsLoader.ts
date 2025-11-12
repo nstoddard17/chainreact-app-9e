@@ -49,7 +49,6 @@ export const hubspotDynamicOptionsLoader: ProviderOptionsLoader = {
 
     // List of fields this loader can handle
     const supportedFields = [
-      'listId',
       'associatedCompanyId',
       'associatedContactId',
       'dealId',
@@ -311,39 +310,6 @@ export const hubspotDynamicOptionsLoader: ProviderOptionsLoader = {
       const result = await response.json();
 
       // Format the response based on data type
-      if (dataType === 'hubspot_lists') {
-        console.log('🔍 [HubSpot Loader] Raw lists data:', {
-          dataCount: result.data?.length || 0,
-          firstList: result.data?.[0],
-          allLists: result.data
-        });
-
-        const manualLists = (result.data || []).filter((list: any) => {
-          const isManual = list.listType === 'MANUAL' || list.listType === 'STATIC';
-          console.log('🔍 [HubSpot Loader] Filtering list:', {
-            name: list.name,
-            listType: list.listType,
-            isManual,
-            listKeys: Object.keys(list)
-          });
-          return isManual;
-        });
-
-        console.log('🔍 [HubSpot Loader] After filtering:', {
-          originalCount: result.data?.length || 0,
-          manualCount: manualLists.length
-        });
-
-        const formatted = manualLists.map((list: any) => ({
-          value: list.listId?.toString() || list.id?.toString(),
-          label: `${list.name} (${list.size || 0} contacts)`
-        }));
-
-        console.log('🔍 [HubSpot Loader] Formatted options:', formatted);
-
-        return formatted;
-      }
-
       if (dataType === 'hubspot_companies') {
         return (result.data || []).map((company: any) => ({
           value: company.id,

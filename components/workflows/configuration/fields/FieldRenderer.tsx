@@ -264,7 +264,7 @@ const shouldUseConnectMode = (field: ConfigField | NodeField) => {
 
   // Default: use connect mode for text, email, number, date, dropdown, object, and array field types
   return field.type === 'text' || field.type === 'email' || field.type === 'number' || field.type === 'date' ||
-         field.type === 'combobox' || field.type === 'select' || field.type === 'multi_select' ||
+         field.type === 'combobox' || field.type === 'select' || field.type === 'multi_select' || field.type === 'multi-select' ||
          field.type === 'object' || field.type === 'array'
 }
 
@@ -432,9 +432,26 @@ export function FieldRenderer({
   };
 
   // Prepare field options for select/combobox fields
-  const fieldOptions = field.options ||
+  let fieldOptions = field.options ||
     (field.dynamic && dynamicOptions?.[field.name]) ||
     [];
+
+  // Ensure HubSpot property selectors share the same option list
+  if (nodeInfo?.providerId === 'hubspot') {
+    const sharedPropertyOptions =
+      (Array.isArray(dynamicOptions?.filterProperty) && dynamicOptions.filterProperty.length > 0
+        ? dynamicOptions.filterProperty
+        : Array.isArray(dynamicOptions?.properties) && dynamicOptions.properties.length > 0
+          ? dynamicOptions.properties
+          : null);
+
+    if (
+      sharedPropertyOptions &&
+      (field.name === 'properties' || field.name === 'filterProperty')
+    ) {
+      fieldOptions = sharedPropertyOptions;
+    }
+  }
 
   // Debug logging for HubSpot listId field
   if (nodeInfo?.providerId === 'hubspot' && field.name === 'listId') {
@@ -457,7 +474,7 @@ export function FieldRenderer({
     // - multiselect/multi_select fields with dynamic data
     const shouldAutoLoad = (field.type === 'combobox' && field.dynamic) ||
                           (field.type === 'select' && field.dynamic && (field.loadOnMount || field.dependsOn)) ||
-                          ((field.type === 'multiselect' || field.type === 'multi_select') && field.dynamic);
+                          ((field.type === 'multiselect' || field.type === 'multi_select' || field.type === 'multi-select') && field.dynamic);
 
     if (shouldAutoLoad) {
       // Only load if we don't have options yet
@@ -642,6 +659,7 @@ export function FieldRenderer({
 
   // Render the appropriate field based on type
   const renderFieldByType = () => {
+    const fieldIsLoading = loadingFields?.has(field.name) || false;
     // Special handling for Discord slash command trigger
     // Hide all fields except guildId until a server is selected
     if (nodeInfo?.type === 'discord_trigger_slash_command') {
@@ -1375,9 +1393,6 @@ export function FieldRenderer({
           ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
           : fieldOptions;
 
-        // Check if THIS specific field is loading (only show loading for the specific field being loaded)
-        const isFieldLoading = loadingFields?.has(field.name) || false;
-
         // Debug logging for board field
         if (field.name === 'boardId') {
           logger.debug('[FieldRenderer] Board field select options:', {
@@ -1405,7 +1420,7 @@ export function FieldRenderer({
                 onChange={onChange}
                 error={error}
                 options={selectOptions}
-                isLoading={isFieldLoading}
+                isLoading={fieldIsLoading}
                 onDynamicLoad={onDynamicLoad}
                 nodeInfo={nodeInfo}
                 selectedValues={selectedValues}
@@ -1439,7 +1454,7 @@ export function FieldRenderer({
             onChange={onChange}
             error={error}
             options={selectOptions}
-            isLoading={isFieldLoading}
+            isLoading={fieldIsLoading}
             onDynamicLoad={onDynamicLoad}
             nodeInfo={nodeInfo}
             selectedValues={selectedValues}
@@ -1473,20 +1488,18 @@ export function FieldRenderer({
           : fieldOptions;
 
         // Check if THIS specific field is loading (only show loading for the specific field being loaded)
-        const isMultiSelectLoading = loadingFields?.has(field.name) || false;
-
-        return (
-          <GenericSelectField
-            field={{
+          return (
+            <GenericSelectField
+              field={{
               ...field,
               type: 'select', // GenericSelectField handles multi vs single based on value type
               multiple: true
             }}
-            value={value}
-            onChange={onChange}
-            error={error}
-            options={multiSelectOptions}
-            isLoading={isMultiSelectLoading}
+              value={value}
+              onChange={onChange}
+              error={error}
+              options={multiSelectOptions}
+              isLoading={fieldIsLoading}
             onDynamicLoad={onDynamicLoad}
             nodeInfo={nodeInfo}
             selectedValues={selectedValues}
@@ -1522,7 +1535,7 @@ export function FieldRenderer({
             onChange={onChange}
             error={error}
             options={fieldOptions}
-            isLoading={loadingDynamic}
+            isLoading={fieldIsLoading}
             onDynamicLoad={onDynamicLoad}
             nodeInfo={nodeInfo}
             selectedValues={selectedValues}
