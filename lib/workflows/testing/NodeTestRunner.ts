@@ -13,7 +13,7 @@
 import { ALL_NODE_COMPONENTS } from '../nodes'
 import type { NodeComponent } from '../nodes/types'
 import { logger } from '@/lib/utils/logger'
-import actionRegistry from '../actions/registry'
+import { actionHandlerRegistry } from '../actions/registry'
 import { buildTestConfig, TEST_USER_ID, shouldSkipTest } from './testData'
 import { createClient } from '@supabase/supabase-js'
 import { TriggerLifecycleManager } from '@/lib/triggers/TriggerLifecycleManager'
@@ -398,7 +398,7 @@ export class NodeTestRunner {
       }
 
       // Get the action handler from registry
-      const handler = actionRegistry[node.type]
+      const handler = actionHandlerRegistry[node.type]
       if (!handler) {
         result.warnings.push(`No handler found in action registry for: ${node.type}`)
         result.details.executionSuccessful = false

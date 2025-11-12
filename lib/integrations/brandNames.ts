@@ -82,6 +82,8 @@ export function getProviderBrandName(providerId: string): string {
     'zapier': 'Zapier',
     'make': 'Make',
     'integromat': 'Integromat',
+    'ai': 'AI Agent',
+    'ask-human': 'Ask Human via Chat',
   }
 
   // Return mapped name or capitalize first letter as fallback

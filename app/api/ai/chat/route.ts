@@ -8,10 +8,18 @@ import { formatAIResponse, extractStructuredData } from "@/lib/ai/smart-formatte
 
 import { logger } from '@/lib/utils/logger'
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
-})
+let cachedOpenAIClient: OpenAI | null = null
+function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY
+  if (!apiKey) {
+    logger.warn('[AI Chat] OPENAI_API_KEY is not configured')
+    return null
+  }
+  if (!cachedOpenAIClient) {
+    cachedOpenAIClient = new OpenAI({ apiKey })
+  }
+  return cachedOpenAIClient
+}
 
 // Pricing configuration (per 1K tokens)
 const MODEL_PRICING: Record<string, { prompt: number; completion: number }> = {
@@ -112,6 +120,11 @@ export async function POST(request: NextRequest) {
     // This can be implemented later with proper subscription/plan management
 
     try {
+      const openai = getOpenAIClient()
+      if (!openai) {
+        return errorResponse("AI service not configured" , 500)
+      }
+
       // Make OpenAI API call
       const completion = await openai.chat.completions.create({
         model,
@@ -263,4 +276,3 @@ function calculateCost(model: string, promptTokens: number, completionTokens: nu
   const completionCost = (completionTokens / 1000) * pricing.completion
   return parseFloat((promptCost + completionCost).toFixed(6))
 }
-

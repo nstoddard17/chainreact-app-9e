@@ -223,12 +223,22 @@ export async function fetchDiscordWithRateLimit<T>(
         }
       }
       
-      throw createDiscordApiError(
+      const discordError = createDiscordApiError(
         `Discord API error: ${response.status} - ${response.statusText} - ${errorText}`,
         response.status,
         response
       )
+
+      if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+        ;(discordError as any).retryable = false
+      }
+
+      throw discordError
     } catch (error: any) {
+      if (error?.retryable === false) {
+        throw error
+      }
+
       if (attempt === maxRetries) {
         throw error
       }

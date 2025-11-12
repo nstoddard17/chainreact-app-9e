@@ -108,6 +108,36 @@ async function verifyBotInGuild(guildId: string): Promise<{ isInGuild: boolean; 
   }
 }
 
+async function getBotGuildMembership(): Promise<{ ids: Set<string> | null; error?: string }> {
+  const botToken = process.env.DISCORD_BOT_TOKEN
+
+  if (!botToken) {
+    return {
+      ids: null,
+      error: "Discord bot not configured"
+    }
+  }
+
+  try {
+    const botGuilds = await makeDiscordApiRequest<any[]>(
+      "https://discord.com/api/v10/users/@me/guilds",
+      `Bot ${botToken}`,
+      {},
+      true
+    )
+
+    return {
+      ids: new Set(botGuilds.map((guild) => guild.id))
+    }
+  } catch (error: any) {
+    logger.warn(`[Discord Guilds] Failed to load bot guild membership:`, error?.message || error)
+    return {
+      ids: null,
+      error: "Unable to verify bot membership"
+    }
+  }
+}
+
 export const getDiscordGuilds: DiscordDataHandler<DiscordGuild> = async (integration: DiscordIntegration, options?: any) => {
   try {
     // Validate and get token
@@ -141,143 +171,184 @@ export const getDiscordGuilds: DiscordDataHandler<DiscordGuild> = async (integra
 
     logger.debug(`🔍 [Discord Guilds] Found ${guilds.length} guilds`);
 
-    // Skip bot status checks by default for faster loading
-    // Only check bot status if explicitly requested via options
-    if (options?.checkBotStatus === true) {
-      logger.debug(`🔍 [Discord Guilds] Bot status check requested, checking bot status for guilds...`);
-      
-      // Check if bot tokens are configured
-      const botToken = process.env.DISCORD_BOT_TOKEN;
-      const botClientId = process.env.DISCORD_CLIENT_ID || process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID;
-      
-      if (!botToken || !botClientId) {
-        logger.warn(`🔍 [Discord Guilds] Discord bot not configured, returning guilds without bot status`);
-        return guilds.map(guild => ({
+    const requireBotAccess = Boolean(options?.requireBotAccess)
+    const checkBotStatus = Boolean(options?.checkBotStatus)
+    const needsBotMembership = requireBotAccess || checkBotStatus
+
+    let processedGuilds: DiscordGuild[] = guilds
+    let botGuildIds: Set<string> | null = null
+    let botMembershipError: string | undefined
+
+    if (needsBotMembership) {
+      const membership = await getBotGuildMembership()
+      botGuildIds = membership.ids
+      botMembershipError = membership.error
+
+      processedGuilds = guilds.map((guild) => {
+        if (!botGuildIds) {
+          return {
+            ...guild,
+            botInGuild: undefined,
+            hasPermissions: false,
+            botError: botMembershipError
+          }
+        }
+
+        const botInGuild = botGuildIds.has(guild.id)
+        return {
           ...guild,
-          botInGuild: undefined,
-          hasPermissions: false,
-          botError: "Discord bot not configured"
-        }));
+          botInGuild,
+          hasPermissions: botInGuild,
+          botError: botInGuild ? undefined : "Bot not added to this server"
+        }
+      })
+
+      if (requireBotAccess) {
+        if (!botGuildIds) {
+          logger.warn(`🔍 [Discord Guilds] Cannot verify bot membership, returning no guilds`)
+          return []
+        }
+
+        const beforeFilter = processedGuilds.length
+        processedGuilds = processedGuilds.filter((guild) => guild.botInGuild)
+        const removed = beforeFilter - processedGuilds.length
+        if (removed > 0) {
+          logger.debug(`🔍 [Discord Guilds] Filtered ${removed} guild(s) without bot access`)
+        }
+      }
+    }
+
+    if (!checkBotStatus) {
+      logger.debug(
+        `🔍 [Discord Guilds] ${requireBotAccess ? 'Applied bot access filter and ' : ''}skipping detailed bot status checks`
+      )
+      return processedGuilds
+    }
+
+    logger.debug(`🔍 [Discord Guilds] Bot status check requested, verifying guild permissions...`)
+
+    // Check if bot tokens are configured
+    const botToken = process.env.DISCORD_BOT_TOKEN
+    const botClientId = process.env.DISCORD_CLIENT_ID || process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID
+
+    if (!botToken || !botClientId) {
+      logger.warn(`🔍 [Discord Guilds] Discord bot not configured, returning guilds without detailed bot status`)
+      return processedGuilds.map((guild) => ({
+        ...guild,
+        botInGuild: guild.botInGuild,
+        hasPermissions: guild.botInGuild ? guild.hasPermissions : false,
+        botError: guild.botInGuild ? undefined : (guild.botError || "Discord bot not configured")
+      }))
+    }
+
+    try {
+      const guildsEligibleForCheck = processedGuilds.filter((guild) => guild.botInGuild !== false)
+      const guildsToCheck = guildsEligibleForCheck.slice(0, 3)
+
+      if (guildsToCheck.length === 0) {
+        logger.debug(`🔍 [Discord Guilds] No guilds eligible for bot status verification after filtering`)
+        return processedGuilds
       }
 
-    // Make bot status checking less aggressive to avoid rate limits
-    try {
-      logger.debug(`🔍 [Discord Guilds] Checking bot status for ${Math.min(guilds.length, 3)} guilds (rate limit protection)`);
-      
-      // Only check bot status for the first few guilds to avoid rate limits
-      const guildsToCheck = guilds.slice(0, 3); // Only check first 3 guilds
-      const remainingGuilds = guilds.slice(3);
-      
+      logger.debug(`🔍 [Discord Guilds] Checking bot permissions for ${guildsToCheck.length} guild(s)`)
+
       const botStatusPromise = Promise.allSettled(
         guildsToCheck.map(async (guild, index) => {
-          // Spread out requests more to avoid rate limits
           if (index > 0) {
-            await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second between requests
+            await new Promise((resolve) => setTimeout(resolve, 1000))
           }
-          
-          // Set timeout for individual bot checks (5 seconds each)
-          const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Bot check timeout')), 5000)
-          );
-          
-          const botCheckPromise = verifyBotInGuild(guild.id);
-          
+
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Bot check timeout")), 5000)
+          )
+
+          const botCheckPromise = verifyBotInGuild(guild.id)
+
           try {
-            const botStatus = await Promise.race([botCheckPromise, timeoutPromise]);
+            const botStatus = await Promise.race([botCheckPromise, timeoutPromise])
             return {
               ...guild,
               botInGuild: botStatus.isInGuild,
               hasPermissions: botStatus.hasPermissions,
               botError: botStatus.error
-            };
+            }
           } catch (error: any) {
-            // If bot check fails or times out, return guild without bot status
-            logger.warn(`🔍 [Discord Guilds] Bot check failed for guild ${guild.name}:`, error?.message || 'Unknown error');
+            logger.warn(
+              `🔍 [Discord Guilds] Bot check failed for guild ${guild.name}:`,
+              error?.message || "Unknown error"
+            )
             return {
               ...guild,
-              botInGuild: undefined, // undefined means we couldn't check
+              botInGuild: guild.botInGuild,
               hasPermissions: false,
               botError: "Could not verify bot status"
-            };
+            }
           }
         })
-      );
+      )
 
-      // Set overall timeout for bot checks (15 seconds for fewer guilds)
-      const overallTimeout = new Promise((resolve) => 
+      const overallTimeout = new Promise((resolve) =>
         setTimeout(() => {
-          logger.warn(`🔍 [Discord Guilds] Bot status checking timed out, returning guilds without full bot status`);
-          resolve([...guildsToCheck.map(guild => ({
-            ...guild,
-            botInGuild: undefined,
-            hasPermissions: false,
-            botError: "Bot status check timed out"
-          })), ...remainingGuilds.map(guild => ({
-            ...guild,
-            botInGuild: undefined,
-            hasPermissions: false,
-            botError: "Bot status not checked (rate limit protection)"
-          }))]);
+          logger.warn(
+            `🔍 [Discord Guilds] Bot status checking timed out, returning guilds without full bot status`
+          )
+          resolve(
+            guildsToCheck.map((guild) => ({
+              ...guild,
+              botInGuild: guild.botInGuild,
+              hasPermissions: guild.hasPermissions,
+              botError: "Bot status check timed out"
+            }))
+          )
         }, 15000)
-      );
+      )
 
-      const checkedGuildsResult = await Promise.race([botStatusPromise, overallTimeout]);
+      const checkedGuildsResult = await Promise.race([botStatusPromise, overallTimeout])
 
-      // Process the results and combine with unchecked guilds
-      let processedGuilds;
+      let updatedGuilds: DiscordGuild[]
       if (Array.isArray(checkedGuildsResult) && checkedGuildsResult[0]?.status) {
-        // This is from Promise.allSettled
         const checkedGuilds = checkedGuildsResult.map((result, index) => {
-          if (result.status === 'fulfilled') {
-            return result.value;
-          } 
-            logger.warn(`🔍 [Discord Guilds] Failed to check bot status for guild ${guildsToCheck[index]?.name}:`, result.reason);
-            return {
-              ...guildsToCheck[index],
-              botInGuild: undefined,
-              hasPermissions: false,
-              botError: "Failed to check bot status"
-            };
-          
-        });
-        
-        // Add remaining guilds that weren't checked
-        processedGuilds = [
-          ...checkedGuilds,
-          ...remainingGuilds.map(guild => ({
-            ...guild,
-            botInGuild: undefined,
+          if (result.status === "fulfilled") {
+            return result.value
+          }
+
+          logger.warn(
+            `🔍 [Discord Guilds] Failed to check bot status for guild ${guildsToCheck[index]?.name}:`,
+            result.reason
+          )
+          return {
+            ...guildsToCheck[index],
+            botInGuild: guildsToCheck[index].botInGuild,
             hasPermissions: false,
-            botError: "Bot status not checked (rate limit protection)"
-          }))
-        ];
+            botError: "Failed to check bot status"
+          }
+        })
+
+        const updatedMap = new Map(checkedGuilds.map((guild) => [guild.id, guild]))
+        updatedGuilds = processedGuilds.map((guild) => updatedMap.get(guild.id) || guild)
+      } else if (Array.isArray(checkedGuildsResult)) {
+        const updatedMap = new Map(checkedGuildsResult.map((guild: any) => [guild.id, guild]))
+        updatedGuilds = processedGuilds.map((guild) => updatedMap.get(guild.id) || guild)
       } else {
-        // This is from the timeout fallback
-        processedGuilds = checkedGuildsResult;
+        updatedGuilds = processedGuilds
       }
 
       logger.debug(`🔍 [Discord Guilds] Bot status check complete:`, {
-        totalGuilds: processedGuilds.length,
-        botsInGuild: processedGuilds.filter(g => g.botInGuild === true).length,
-        withPermissions: processedGuilds.filter(g => g.botInGuild === true && g.hasPermissions).length,
-        unknownBotStatus: processedGuilds.filter(g => g.botInGuild === undefined).length
-      });
+        totalGuilds: updatedGuilds.length,
+        botsInGuild: updatedGuilds.filter((g) => g.botInGuild === true).length,
+        withPermissions: updatedGuilds.filter((g) => g.botInGuild === true && g.hasPermissions).length,
+        unknownBotStatus: updatedGuilds.filter((g) => g.botInGuild === undefined).length
+      })
 
-      return processedGuilds;
+      return updatedGuilds
     } catch (error) {
-      // If bot status checking completely fails, return guilds without bot status
-      logger.error(`🔍 [Discord Guilds] Bot status checking failed completely:`, error);
-      return guilds.map(guild => ({
+      logger.error(`🔍 [Discord Guilds] Bot status checking failed completely:`, error)
+      return processedGuilds.map((guild) => ({
         ...guild,
-        botInGuild: undefined,
-        hasPermissions: false,
-        botError: "Bot status unavailable"
-      }));
-    }
-    } else {
-      // Return guilds immediately without bot status checks for faster loading
-      logger.debug(`🔍 [Discord Guilds] Skipping bot status checks for faster loading`);
-      return guilds;
+        botInGuild: guild.botInGuild,
+        hasPermissions: guild.hasPermissions,
+        botError: guild.botError || "Bot status unavailable"
+      }))
     }
   } catch (error: any) {
     logger.error("Error fetching Discord guilds:", error)

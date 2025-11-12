@@ -503,6 +503,27 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       // Special handling for Discord guilds
       // Support both 'guildId' (standard Discord actions) and 'discordGuildId' (HITL)
       if ((fieldName === 'guildId' || fieldName === 'discordGuildId') && providerId === 'discord') {
+        const isHitlNode = nodeType === 'hitl_conversation'
+        const hasAdminPrivileges = (guild: any) => {
+          if (!guild) return false
+          if (guild.owner) return true
+          const permissionValue = guild.permissions ?? guild.permission ?? guild.userPermissions ?? guild.user_permissions
+          if (!permissionValue) return false
+          try {
+            const permissionBigInt = typeof permissionValue === 'string' || typeof permissionValue === 'number'
+              ? BigInt(permissionValue)
+              : BigInt(permissionValue?.toString?.() || 0)
+            const ADMIN_PERMISSION = 8n
+            return (permissionBigInt & ADMIN_PERMISSION) === ADMIN_PERMISSION
+          } catch (error) {
+            logger.warn('⚠️ [DynamicOptions] Failed to parse Discord permissions for guild:', {
+              guildId: guild.id,
+              error
+            })
+            return false
+          }
+        }
+
         try {
           // Check if we have a Discord integration first to avoid unnecessary API calls
           let discordIntegration = getIntegrationByProvider('discord');
@@ -585,11 +606,24 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
           const response = await loadIntegrationData(
             'discord_guilds',
             discordIntegration.id,
-            {},
+            {
+              requireBotAccess: !isHitlNode,
+              checkBotStatus: isHitlNode
+            },
             forceRefresh
           );
 
-          const guilds = response?.data || response || [];
+          let guilds = response?.data || response || [];
+
+          if (isHitlNode) {
+            const adminGuilds = guilds.filter((guild: any) => hasAdminPrivileges(guild));
+            if (adminGuilds.length === 0) {
+              logger.warn('⚠️ [DynamicOptions] No admin-level Discord servers found for HITL node; showing full list as fallback');
+            } else {
+              logger.debug(`✅ [DynamicOptions] HITL node showing ${adminGuilds.length}/${guilds.length} admin Discord servers`);
+              guilds = adminGuilds;
+            }
+          }
 
           if (!guilds || guilds.length === 0) {
             setDynamicOptions(prev => ({

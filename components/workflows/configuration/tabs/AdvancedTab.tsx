@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
+import { ConfigurationSectionHeader } from '../components/ConfigurationSectionHeader'
 
 interface Condition {
   id: string
@@ -173,9 +174,9 @@ export function AdvancedTab({
         <div className="px-6 py-6 space-y-6">
           {/* Run Behavior Section */}
           <div className="space-y-3">
-            <div>
-              <h3 className="text-sm font-semibold text-foreground">Run Behavior</h3>
-              <p className="text-xs text-muted-foreground mt-1">
+            <div className="space-y-1">
+              <ConfigurationSectionHeader label="Run Behavior" />
+              <p className="text-xs text-muted-foreground">
                 Control how this node executes during flow runs
               </p>
             </div>
@@ -255,9 +256,9 @@ export function AdvancedTab({
           {/* Conditional Execution Section - Hidden for Triggers */}
           {!isTrigger && (
             <div className="space-y-3">
-              <div>
-                <h3 className="text-sm font-semibold text-foreground">Conditional Execution</h3>
-                <p className="text-xs text-muted-foreground mt-1">
+              <div className="space-y-1">
+                <ConfigurationSectionHeader label="Conditional Execution" />
+                <p className="text-xs text-muted-foreground">
                   Run this node only when specific conditions are met
                 </p>
               </div>
@@ -436,9 +437,9 @@ export function AdvancedTab({
 
           {/* Execution Policies - Always visible, no dropdown */}
           <div className="space-y-4">
-            <div>
-              <h3 className="text-sm font-semibold text-foreground">Execution Policies</h3>
-              <p className="text-xs text-muted-foreground mt-1">
+            <div className="space-y-1">
+              <ConfigurationSectionHeader label="Execution Policies" />
+              <p className="text-xs text-muted-foreground">
                 Configure timeout and retry behavior for this node
               </p>
             </div>
@@ -505,10 +506,10 @@ export function AdvancedTab({
 
           {/* Documentation Section */}
           <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <FileText className="h-4 w-4 text-muted-foreground" />
-              <h3 className="text-sm font-semibold text-foreground">Documentation</h3>
-            </div>
+            <ConfigurationSectionHeader
+              label="Documentation"
+              prefix={<FileText className="h-4 w-4 text-muted-foreground" />}
+            />
             <Textarea
               id="notes"
               placeholder="Add internal notes about this node's purpose, configuration decisions, or usage guidelines..."

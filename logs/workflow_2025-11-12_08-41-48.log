@@ -226,3 +226,563 @@ Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
 [2025-11-12T14:51:19.336Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1143ms (5468 modules)
 [2025-11-12T14:53:01.915Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1256ms (1180 modules)
 [2025-11-12T14:53:11.209Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 380ms (1180 modules)
+[2025-11-12T14:54:23.658Z] [INFO   ] 2025-11-12T14:54:23.657Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-12T14:54:23.657Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-12T14:54:23.873Z] [INFO   ] 2025-11-12T14:54:23.873Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-12T14:54:23.874Z] [INFO   ] 2025-11-12T14:54:23.874Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-12T14:54:24.059Z] [INFO   ] 2025-11-12T14:54:24.059Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":10,"permissionsCount":4,"integrationsError":null,"permissionsError":null}
+[2025-11-12T14:54:24.060Z] [INFO   ] 2025-11-12T14:54:24.060Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","permission":"admin"}
+[2025-11-12T14:54:24.060Z] [INFO   ] 2025-11-12T14:54:24.060Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","permission":"admin","reason":"connected_by"}
+[2025-11-12T14:54:24.060Z] [INFO   ] 2025-11-12T14:54:24.060Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","permission":"admin","reason":"connected_by"}
+[2025-11-12T14:54:24.060Z] [INFO   ] 2025-11-12T14:54:24.060Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","permission":"admin","reason":"connected_by"}
+[2025-11-12T14:54:24.061Z] [INFO   ] 2025-11-12T14:54:24.061Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-12T14:54:24.061Z] [INFO   ] 2025-11-12T14:54:24.061Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","permission":"admin"}
+[2025-11-12T14:54:24.061Z] [INFO   ] 2025-11-12T14:54:24.061Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","permission":"admin","reason":"connected_by"}
+[2025-11-12T14:54:24.061Z] [INFO   ] 2025-11-12T14:54:24.061Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","permission":"admin","reason":"connected_by"}
+[2025-11-12T14:54:24.061Z] [INFO   ] 2025-11-12T14:54:24.061Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-12T14:54:24.061Z] [INFO   ] 2025-11-12T14:54:24.061Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","permission":"admin","reason":"connected_by"}
+[2025-11-12T14:54:24.061Z] [INFO   ] 2025-11-12T14:54:24.061Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":10,"workspaceType":"personal"}
+[2025-11-12T14:54:31.044Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.5s (5460 modules)
+[2025-11-12T14:54:53.448Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 512ms (1180 modules)
+[2025-11-12T14:54:57.408Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 784ms (5460 modules)
+[2025-11-12T14:55:37.702Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/hubspot/data ...
+[2025-11-12T14:55:37.738Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/hubspot/data in 646ms (4288 modules)
+[2025-11-12T14:55:37.894Z] [INFO   ] 2025-11-12T14:55:37.894Z [DEBUG] 📥 [HubSpot API] Received request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_products","options":{}}
+[2025-11-12T14:55:37.894Z] [INFO   ] 2025-11-12T14:55:37.894Z [DEBUG] 📥 [HubSpot API] Received request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_deals","options":{}}
+[2025-11-12T14:55:38.187Z] [INFO   ] 2025-11-12T14:55:38.187Z [DEBUG] 🔍 [HubSpot API] Processing request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_deals","status":"connected","hasToken":true}
+[2025-11-12T14:55:38.188Z] [INFO   ] 2025-11-12T14:55:38.188Z [DEBUG] 🔍 HubSpot deals fetcher called with integration: {"id":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","hasToken":true,"tokenLength":609}
+[2025-11-12T14:55:38.188Z] [INFO   ] 2025-11-12T14:55:38.188Z [DEBUG] 🔍 Validating HubSpot token...
+[2025-11-12T14:55:38.189Z] [INFO   ] 2025-11-12T14:55:38.189Z [DEBUG] 🔍 Fetching HubSpot deals from API...
+[2025-11-12T14:55:38.194Z] [INFO   ] 2025-11-12T14:55:38.194Z [DEBUG] 🔍 [HubSpot API] Processing request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_products","status":"connected","hasToken":true}
+[2025-11-12T14:55:38.384Z] [INFO   ] 2025-11-12T14:55:38.384Z [DEBUG] ✅ Fetched 0 products
+[2025-11-12T14:55:38.384Z] [INFO   ] 2025-11-12T14:55:38.384Z [DEBUG] ✅ [HubSpot API] Successfully processed hubspot_products: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","resultCount":0}
+[2025-11-12T14:55:38.388Z] [INFO   ] 2025-11-12T14:55:38.388Z [DEBUG] ✅ HubSpot deals fetched successfully: 0 deals
+[2025-11-12T14:55:38.388Z] [INFO   ] 2025-11-12T14:55:38.388Z [DEBUG] ✅ [HubSpot API] Successfully processed hubspot_deals: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","resultCount":0}
+[2025-11-12T14:55:41.994Z] [INFO   ] 2025-11-12T14:55:41.993Z [DEBUG] 📥 [HubSpot API] Received request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_line_items","options":{}}
+[2025-11-12T14:55:42.118Z] [INFO   ] 2025-11-12T14:55:42.118Z [DEBUG] 🔍 [HubSpot API] Processing request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_line_items","status":"connected","hasToken":true}
+[2025-11-12T14:55:42.297Z] [INFO   ] 2025-11-12T14:55:42.296Z [DEBUG] ✅ HubSpot line items fetched successfully: 0 items
+[2025-11-12T14:55:42.297Z] [INFO   ] 2025-11-12T14:55:42.297Z [DEBUG] ✅ [HubSpot API] Successfully processed hubspot_line_items: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","resultCount":0}
+[2025-11-12T14:55:51.767Z] [INFO   ] 2025-11-12T14:55:51.767Z [DEBUG] 📥 [HubSpot API] Received request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_line_items","options":{}}
+[2025-11-12T14:55:51.909Z] [INFO   ] 2025-11-12T14:55:51.909Z [DEBUG] 🔍 [HubSpot API] Processing request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_line_items","status":"connected","hasToken":true}
+[2025-11-12T14:55:52.105Z] [INFO   ] 2025-11-12T14:55:52.105Z [DEBUG] ✅ HubSpot line items fetched successfully: 0 items
+[2025-11-12T14:55:52.106Z] [INFO   ] 2025-11-12T14:55:52.106Z [DEBUG] ✅ [HubSpot API] Successfully processed hubspot_line_items: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","resultCount":0}
+[2025-11-12T14:55:55.744Z] [INFO   ] 2025-11-12T14:55:55.743Z [DEBUG] 📥 [HubSpot API] Received request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_deals","options":{}}
+[2025-11-12T14:55:55.833Z] [INFO   ] 2025-11-12T14:55:55.833Z [DEBUG] 🔍 [HubSpot API] Processing request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_deals","status":"connected","hasToken":true}
+[2025-11-12T14:55:55.834Z] [INFO   ] 2025-11-12T14:55:55.833Z [DEBUG] 🔍 HubSpot deals fetcher called with integration: {"id":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","hasToken":true,"tokenLength":609}
+[2025-11-12T14:55:55.834Z] [INFO   ] 2025-11-12T14:55:55.834Z [DEBUG] 🔍 Validating HubSpot token...
+[2025-11-12T14:55:55.834Z] [INFO   ] 2025-11-12T14:55:55.834Z [DEBUG] 🔍 Fetching HubSpot deals from API...
+[2025-11-12T14:55:55.981Z] [INFO   ] 2025-11-12T14:55:55.981Z [DEBUG] ✅ HubSpot deals fetched successfully: 0 deals
+[2025-11-12T14:55:55.982Z] [INFO   ] 2025-11-12T14:55:55.982Z [DEBUG] ✅ [HubSpot API] Successfully processed hubspot_deals: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","resultCount":0}
+[2025-11-12T14:55:56.540Z] [INFO   ] 2025-11-12T14:55:56.539Z [DEBUG] 📥 [HubSpot API] Received request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_deals","options":{}}
+[2025-11-12T14:55:56.631Z] [INFO   ] 2025-11-12T14:55:56.631Z [DEBUG] 🔍 [HubSpot API] Processing request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_deals","status":"connected","hasToken":true}
+[2025-11-12T14:55:56.632Z] [INFO   ] 2025-11-12T14:55:56.632Z [DEBUG] 🔍 HubSpot deals fetcher called with integration: {"id":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","hasToken":true,"tokenLength":609}
+[2025-11-12T14:55:56.632Z] [INFO   ] 2025-11-12T14:55:56.632Z [DEBUG] 🔍 Validating HubSpot token...
+[2025-11-12T14:55:56.632Z] [INFO   ] 2025-11-12T14:55:56.632Z [DEBUG] 🔍 Fetching HubSpot deals from API...
+[2025-11-12T14:55:56.797Z] [INFO   ] 2025-11-12T14:55:56.797Z [DEBUG] ✅ HubSpot deals fetched successfully: 0 deals
+[2025-11-12T14:55:56.797Z] [INFO   ] 2025-11-12T14:55:56.797Z [DEBUG] ✅ [HubSpot API] Successfully processed hubspot_deals: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","resultCount":0}
+[2025-11-12T14:56:11.864Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 253ms (4308 modules)
+[2025-11-12T14:56:44.815Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1226ms (5488 modules)
+[2025-11-12T14:56:44.898Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-11-12T14:56:45.250Z] [INFO   ] 2025-11-12T14:56:45.250Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-12T14:56:45.250Z"}
+[2025-11-12T14:56:45.264Z] [INFO   ] 2025-11-12T14:56:45.264Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-12T14:56:45.264Z"}
+[2025-11-12T14:56:45.264Z] [INFO   ] 2025-11-12T14:56:45.264Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-12T14:56:45.264Z"}
+[2025-11-12T14:56:46.531Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-11-12T14:56:46.561Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 542ms (4310 modules)
+[2025-11-12T14:56:47.022Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4316 modules)
+[2025-11-12T14:56:47.110Z] [INFO   ] 2025-11-12T14:56:47.110Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-12T14:56:47.110Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-12T14:56:47.283Z] [INFO   ] 2025-11-12T14:56:47.283Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-12T14:56:47.284Z] [INFO   ] 2025-11-12T14:56:47.284Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-12T14:56:47.441Z] [INFO   ] 2025-11-12T14:56:47.441Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":10,"permissionsCount":4,"integrationsError":null,"permissionsError":null}
+[2025-11-12T14:56:47.442Z] [INFO   ] 2025-11-12T14:56:47.442Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","permission":"admin"}
+[2025-11-12T14:56:47.442Z] [INFO   ] 2025-11-12T14:56:47.442Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","permission":"admin","reason":"connected_by"}
+[2025-11-12T14:56:47.442Z] [INFO   ] 2025-11-12T14:56:47.442Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","permission":"admin","reason":"connected_by"}
+[2025-11-12T14:56:47.442Z] [INFO   ] 2025-11-12T14:56:47.442Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","permission":"admin","reason":"connected_by"}
+[2025-11-12T14:56:47.442Z] [INFO   ] 2025-11-12T14:56:47.442Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-12T14:56:47.442Z] [INFO   ] 2025-11-12T14:56:47.442Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","permission":"admin"}
+[2025-11-12T14:56:47.442Z] [INFO   ] 2025-11-12T14:56:47.442Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","permission":"admin","reason":"connected_by"}
+[2025-11-12T14:56:47.442Z] [INFO   ] 2025-11-12T14:56:47.442Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","permission":"admin","reason":"connected_by"}
+[2025-11-12T14:56:47.442Z] [INFO   ] 2025-11-12T14:56:47.442Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-12T14:56:47.442Z] [INFO   ] 2025-11-12T14:56:47.442Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","permission":"admin","reason":"connected_by"}
+[2025-11-12T14:56:47.442Z] [INFO   ] 2025-11-12T14:56:47.442Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":10,"workspaceType":"personal"}
+[2025-11-12T14:58:17.137Z] [INFO   ] 2025-11-12T14:58:17.137Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-12T14:58:17.137Z"}
+[2025-11-12T14:58:17.150Z] [INFO   ] 2025-11-12T14:58:17.150Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-12T14:58:17.150Z"}
+[2025-11-12T14:58:17.150Z] [INFO   ] 2025-11-12T14:58:17.150Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-12T14:58:17.150Z"}
+[2025-11-12T14:58:18.093Z] [INFO   ] 2025-11-12T14:58:18.093Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-12T14:58:18.093Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-12T14:58:18.280Z] [INFO   ] 2025-11-12T14:58:18.280Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-12T14:58:18.280Z] [INFO   ] 2025-11-12T14:58:18.280Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-12T14:58:18.485Z] [INFO   ] 2025-11-12T14:58:18.485Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":10,"permissionsCount":4,"integrationsError":null,"permissionsError":null}
+[2025-11-12T14:58:18.487Z] [INFO   ] 2025-11-12T14:58:18.486Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","permission":"admin"}
+[2025-11-12T14:58:18.487Z] [INFO   ] 2025-11-12T14:58:18.487Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","permission":"admin","reason":"connected_by"}
+[2025-11-12T14:58:18.487Z] [INFO   ] 2025-11-12T14:58:18.487Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","permission":"admin","reason":"connected_by"}
+[2025-11-12T14:58:18.487Z] [INFO   ] 2025-11-12T14:58:18.487Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","permission":"admin","reason":"connected_by"}
+[2025-11-12T14:58:18.488Z] [INFO   ] 2025-11-12T14:58:18.488Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-12T14:58:18.488Z] [INFO   ] 2025-11-12T14:58:18.488Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","permission":"admin"}
+[2025-11-12T14:58:18.488Z] [INFO   ] 2025-11-12T14:58:18.488Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","permission":"admin","reason":"connected_by"}
+[2025-11-12T14:58:18.488Z] [INFO   ] 2025-11-12T14:58:18.488Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","permission":"admin","reason":"connected_by"}
+[2025-11-12T14:58:18.488Z] [INFO   ] 2025-11-12T14:58:18.488Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-12T14:58:18.488Z] [INFO   ] 2025-11-12T14:58:18.488Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","permission":"admin","reason":"connected_by"}
+[2025-11-12T14:58:18.488Z] [INFO   ] 2025-11-12T14:58:18.488Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":10,"workspaceType":"personal"}
+[2025-11-12T14:58:22.641Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/ui/combobox.tsx
+Module parse failed: Identifier 'buildSearchValue' has already been declared (808:10)
+|         onOpenChange === null || onOpenChange === void 0 ? void 0 : onOpenChange(newOpen);
+|     };
+>     const buildSearchValue = React.useCallback({
+|         "MultiCombobox.useCallback[buildSearchValue]": (option)=>{
+|             const parts = [];
+
+Import trace for requested module:
+./components/ui/combobox.tsx
+./components/workflows/configuration/ServiceConnectionSelector.tsx
+./components/workflows/configuration/tabs/SetupTab.tsx
+./components/workflows/configuration/tabs/index.ts
+./components/workflows/configuration/ConfigurationModal.tsx
+./app/test/nodes/page.tsx
+[2025-11-12T14:59:14.645Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1622ms (5468 modules)
+[2025-11-12T14:59:44.840Z] [INFO   ] 2025-11-12T14:59:44.840Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-12T14:59:44.840Z"}
+[2025-11-12T14:59:44.856Z] [INFO   ] 2025-11-12T14:59:44.856Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-12T14:59:44.856Z"}
+[2025-11-12T14:59:44.856Z] [INFO   ] 2025-11-12T14:59:44.856Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-12T14:59:44.856Z"}
+[2025-11-12T14:59:45.712Z] [INFO   ] 2025-11-12T14:59:45.712Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-12T14:59:45.712Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-12T14:59:45.874Z] [INFO   ] 2025-11-12T14:59:45.874Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-12T14:59:45.874Z] [INFO   ] 2025-11-12T14:59:45.874Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-12T14:59:46.098Z] [INFO   ] 2025-11-12T14:59:46.097Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":10,"permissionsCount":4,"integrationsError":null,"permissionsError":null}
+[2025-11-12T14:59:46.100Z] [INFO   ] 2025-11-12T14:59:46.099Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","permission":"admin"}
+[2025-11-12T14:59:46.100Z] [INFO   ] 2025-11-12T14:59:46.100Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","permission":"admin","reason":"connected_by"}
+[2025-11-12T14:59:46.100Z] [INFO   ] 2025-11-12T14:59:46.100Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","permission":"admin","reason":"connected_by"}
+[2025-11-12T14:59:46.101Z] [INFO   ] 2025-11-12T14:59:46.101Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","permission":"admin","reason":"connected_by"}
+[2025-11-12T14:59:46.101Z] [INFO   ] 2025-11-12T14:59:46.101Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-12T14:59:46.101Z] [INFO   ] 2025-11-12T14:59:46.101Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","permission":"admin"}
+[2025-11-12T14:59:46.101Z] [INFO   ] 2025-11-12T14:59:46.101Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","permission":"admin","reason":"connected_by"}
+[2025-11-12T14:59:46.101Z] [INFO   ] 2025-11-12T14:59:46.101Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","permission":"admin","reason":"connected_by"}
+[2025-11-12T14:59:46.101Z] [INFO   ] 2025-11-12T14:59:46.101Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-12T14:59:46.102Z] [INFO   ] 2025-11-12T14:59:46.102Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","permission":"admin","reason":"connected_by"}
+[2025-11-12T14:59:46.102Z] [INFO   ] 2025-11-12T14:59:46.102Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":10,"workspaceType":"personal"}
+[2025-11-12T15:00:20.300Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/hubspot/data ...
+[2025-11-12T15:00:21.653Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/hubspot/data in 1853ms (4316 modules)
+[2025-11-12T15:00:21.747Z] [INFO   ] 2025-11-12T15:00:21.747Z [DEBUG] 📥 [HubSpot API] Received request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_deals","options":{}}
+[2025-11-12T15:00:21.988Z] [INFO   ] 2025-11-12T15:00:21.988Z [DEBUG] 🔍 [HubSpot API] Processing request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_deals","status":"connected","hasToken":true}
+[2025-11-12T15:00:21.989Z] [INFO   ] 2025-11-12T15:00:21.989Z [DEBUG] 🔍 HubSpot deals fetcher called with integration: {"id":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","hasToken":true,"tokenLength":609}
+[2025-11-12T15:00:21.989Z] [INFO   ] 2025-11-12T15:00:21.989Z [DEBUG] 🔍 Validating HubSpot token...
+[2025-11-12T15:00:21.990Z] [INFO   ] 2025-11-12T15:00:21.990Z [DEBUG] 🔍 Fetching HubSpot deals from API...
+[2025-11-12T15:00:22.192Z] [INFO   ] 2025-11-12T15:00:22.192Z [DEBUG] ✅ HubSpot deals fetched successfully: 0 deals
+[2025-11-12T15:00:22.192Z] [INFO   ] 2025-11-12T15:00:22.192Z [DEBUG] ✅ [HubSpot API] Successfully processed hubspot_deals: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","resultCount":0}
+[2025-11-12T15:01:26.794Z] [INFO   ] 2025-11-12T15:01:26.794Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-12T15:01:26.794Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-12T15:01:26.969Z] [INFO   ] 2025-11-12T15:01:26.969Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-12T15:01:26.969Z] [INFO   ] 2025-11-12T15:01:26.969Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-12T15:01:27.166Z] [INFO   ] 2025-11-12T15:01:27.166Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":10,"permissionsCount":4,"integrationsError":null,"permissionsError":null}
+[2025-11-12T15:01:27.166Z] [INFO   ] 2025-11-12T15:01:27.166Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","permission":"admin"}
+[2025-11-12T15:01:27.166Z] [INFO   ] 2025-11-12T15:01:27.166Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:01:27.166Z] [INFO   ] 2025-11-12T15:01:27.166Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:01:27.166Z] [INFO   ] 2025-11-12T15:01:27.166Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:01:27.166Z] [INFO   ] 2025-11-12T15:01:27.166Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","permission":"admin"}
+[2025-11-12T15:01:27.166Z] [INFO   ] 2025-11-12T15:01:27.166Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:01:27.166Z] [INFO   ] 2025-11-12T15:01:27.166Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-12T15:01:27.166Z] [INFO   ] 2025-11-12T15:01:27.166Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:01:27.166Z] [INFO   ] 2025-11-12T15:01:27.166Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-12T15:01:27.167Z] [INFO   ] 2025-11-12T15:01:27.167Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:01:27.167Z] [INFO   ] 2025-11-12T15:01:27.167Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":10,"workspaceType":"personal"}
+[2025-11-12T15:02:23.156Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/auth/generate-url ...
+[2025-11-12T15:02:23.663Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/auth/generate-url in 1329ms (4286 modules)
+[2025-11-12T15:03:18.288Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1451ms (5463 modules)
+[2025-11-12T15:04:46.119Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-11-12T15:04:46.140Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 600ms (4279 modules)
+[2025-11-12T15:09:10.870Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/hubspot/callback ...
+[2025-11-12T15:09:11.480Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/hubspot/callback in 1639ms (4271 modules)
+[2025-11-12T15:09:11.589Z] [INFO   ] 2025-11-12T15:09:11.589Z [DEBUG] 🔍 hubspot callback called: {"url":"http://localhost:3000/api/integrations/hubspot/callback?code=na2-8785-9b10-401a-ab50-ed66a6dc6957&state=eyJ1c2VySWQiOiJhM2UzYTUxYS0xNzVjLTRiNTktYWQwMy0yMjdiYTEyYTE4YjAiLCJwcm92aWRlciI6Imh1YnNwb3QiLCJyZWNvbm5lY3QiOnRydWUsImludGVncmF0aW9uSWQiOiI2Zjk1OWU1OS0xOGMzLTQ3ZjAtYTIwZi1jYzhhMjY4Y2ViMjEiLCJ0aW1lc3RhbXAiOjE3NjI5NTk3NDQyMTUsIndvcmtzcGFjZVR5cGUiOiJwZXJzb25hbCJ9","hasCode":true,"hasState":true,"error":null,"userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"}
+[2025-11-12T15:09:11.590Z] [INFO   ] 2025-11-12T15:09:11.590Z [DEBUG] hubspot OAuth callback state: {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"hubspot","reconnect":true,"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","workspaceType":"personal"}
+[2025-11-12T15:09:11.880Z] [INFO   ] 2025-11-12T15:09:11.879Z [INFO] 🔍 [HubSpot] Starting account info fetch with access token
+[2025-11-12T15:09:11.881Z] [INFO   ] 2025-11-12T15:09:11.881Z [DEBUG] 🔍 [HubSpot] Trying primary endpoint: /oauth/v1/access-tokens
+[2025-11-12T15:09:12.010Z] [INFO   ] 2025-11-12T15:09:12.010Z [INFO] ✅ [HubSpot] Primary endpoint success: {"hasEmail":true,"hasHubId":true,"hasHubDomain":true,"allFields":["token","user","hub_domain","scopes","signed_access_token","token_type","user_id","app_id","hub_id","is_private_distribution","expires_in"]}
+[2025-11-12T15:09:12.310Z] [INFO   ] 2025-11-12T15:09:12.310Z [DEBUG] ✅ Updated existing integration: 6f959e59-18c3-47f0-a20f-cc8a268ceb21
+[2025-11-12T15:09:12.310Z] [INFO   ] 2025-11-12T15:09:12.310Z [DEBUG] Skipping permission grant for reconnect
+[2025-11-12T15:09:12.310Z] [INFO   ] 2025-11-12T15:09:12.310Z [DEBUG] ✅ hubspot integration successfully saved
+[2025-11-12T15:09:12.310Z] [INFO   ] 2025-11-12T15:09:12.310Z [DEBUG] 🔄 Creating popup response: type=success, provider=hubspot, displayName=HubSpot, message=hubspot connected successfully!
+[2025-11-12T15:09:12.701Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 250ms (4291 modules)
+[2025-11-12T15:09:12.793Z] [INFO   ] 2025-11-12T15:09:12.793Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-12T15:09:12.793Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-12T15:09:12.928Z] [INFO   ] 2025-11-12T15:09:12.928Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-12T15:09:12.928Z] [INFO   ] 2025-11-12T15:09:12.928Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-12T15:09:13.117Z] [INFO   ] 2025-11-12T15:09:13.116Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":10,"permissionsCount":4,"integrationsError":null,"permissionsError":null}
+[2025-11-12T15:09:13.118Z] [INFO   ] 2025-11-12T15:09:13.118Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","permission":"admin"}
+[2025-11-12T15:09:13.118Z] [INFO   ] 2025-11-12T15:09:13.118Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:09:13.118Z] [INFO   ] 2025-11-12T15:09:13.118Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:09:13.119Z] [INFO   ] 2025-11-12T15:09:13.118Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:09:13.119Z] [INFO   ] 2025-11-12T15:09:13.119Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","permission":"admin"}
+[2025-11-12T15:09:13.119Z] [INFO   ] 2025-11-12T15:09:13.119Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:09:13.119Z] [INFO   ] 2025-11-12T15:09:13.119Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-12T15:09:13.119Z] [INFO   ] 2025-11-12T15:09:13.119Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:09:13.119Z] [INFO   ] 2025-11-12T15:09:13.119Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-12T15:09:13.119Z] [INFO   ] 2025-11-12T15:09:13.119Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:09:13.119Z] [INFO   ] 2025-11-12T15:09:13.119Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":10,"workspaceType":"personal"}
+[2025-11-12T15:09:13.787Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/hubspot/data ...
+[2025-11-12T15:09:14.229Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/hubspot/data in 956ms (4318 modules)
+[2025-11-12T15:09:14.294Z] [INFO   ] 2025-11-12T15:09:14.294Z [DEBUG] 📥 [HubSpot API] Received request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_company_properties","options":{}}
+[2025-11-12T15:09:14.294Z] [INFO   ] 2025-11-12T15:09:14.294Z [DEBUG] 📥 [HubSpot API] Received request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_contact_properties","options":{}}
+[2025-11-12T15:09:14.431Z] [INFO   ] 2025-11-12T15:09:14.431Z [DEBUG] 🔍 [HubSpot API] Processing request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_company_properties","status":"connected","hasToken":true}
+[2025-11-12T15:09:14.431Z] [INFO   ] 2025-11-12T15:09:14.431Z [DEBUG] 🔍 HubSpot company properties fetcher called with integration: {"id":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","hasToken":true,"tokenLength":609}
+[2025-11-12T15:09:14.431Z] [INFO   ] 2025-11-12T15:09:14.431Z [DEBUG] 🔍 Validating HubSpot token...
+[2025-11-12T15:09:14.432Z] [INFO   ] 2025-11-12T15:09:14.432Z [DEBUG] 🔍 Fetching HubSpot company properties from API...
+[2025-11-12T15:09:14.433Z] [INFO   ] 2025-11-12T15:09:14.433Z [DEBUG] 🔍 [HubSpot API] Processing request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_contact_properties","status":"connected","hasToken":true}
+[2025-11-12T15:09:14.433Z] [INFO   ] 2025-11-12T15:09:14.433Z [DEBUG] 🔍 HubSpot contact properties fetcher called with integration: {"id":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","hasToken":true,"tokenLength":609}
+[2025-11-12T15:09:14.433Z] [INFO   ] 2025-11-12T15:09:14.433Z [DEBUG] 🔍 Validating HubSpot token...
+[2025-11-12T15:09:14.433Z] [INFO   ] 2025-11-12T15:09:14.433Z [DEBUG] 🔍 Fetching HubSpot contact properties from API...
+[2025-11-12T15:09:15.024Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/all-connections ...
+[2025-11-12T15:09:15.056Z] [INFO   ] 2025-11-12T15:09:15.056Z [DEBUG] ✅ HubSpot contact properties fetched successfully: 357 properties
+[2025-11-12T15:09:15.057Z] [INFO   ] 2025-11-12T15:09:15.057Z [DEBUG] ✅ [HubSpot API] Successfully processed hubspot_contact_properties: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","resultCount":357}
+[2025-11-12T15:09:15.065Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/all-connections in 629ms (4320 modules)
+[2025-11-12T15:09:15.079Z] [INFO   ] 2025-11-12T15:09:15.079Z [DEBUG] ✅ HubSpot company properties fetched successfully: 234 properties
+[2025-11-12T15:09:15.079Z] [INFO   ] 2025-11-12T15:09:15.079Z [DEBUG] ✅ [HubSpot API] Successfully processed hubspot_company_properties: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","resultCount":234}
+[2025-11-12T15:09:15.230Z] [INFO   ] 2025-11-12T15:09:15.230Z [DEBUG] [AllConnections] Fetching all connections for provider: hubspot {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"hubspot"}
+[2025-11-12T15:09:15.556Z] [INFO   ] 2025-11-12T15:09:15.556Z [DEBUG] [AllConnections] Found 1 accessible connections {"provider":"hubspot","connectionIds":["6f959e59-18c3-47f0-a20f-cc8a268ceb21"]}
+[2025-11-12T15:09:27.879Z] [INFO   ] 2025-11-12T15:09:27.879Z [DEBUG] 📥 [HubSpot API] Received request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_deal_properties","options":{}}
+[2025-11-12T15:09:28.018Z] [INFO   ] 2025-11-12T15:09:28.018Z [DEBUG] 🔍 [HubSpot API] Processing request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_deal_properties","status":"connected","hasToken":true}
+[2025-11-12T15:09:28.018Z] [INFO   ] 2025-11-12T15:09:28.018Z [DEBUG] 🔍 HubSpot deal properties fetcher called with integration: {"id":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","hasToken":true,"tokenLength":609}
+[2025-11-12T15:09:28.018Z] [INFO   ] 2025-11-12T15:09:28.018Z [DEBUG] 🔍 Validating HubSpot token...
+[2025-11-12T15:09:28.019Z] [INFO   ] 2025-11-12T15:09:28.019Z [DEBUG] 🔍 Fetching HubSpot deal properties from API...
+[2025-11-12T15:09:28.293Z] [INFO   ] 2025-11-12T15:09:28.293Z [DEBUG] ✅ HubSpot deal properties fetched successfully: 190 properties
+[2025-11-12T15:09:28.294Z] [INFO   ] 2025-11-12T15:09:28.293Z [DEBUG] ✅ [HubSpot API] Successfully processed hubspot_deal_properties: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","resultCount":190}
+[2025-11-12T15:09:36.542Z] [INFO   ] 2025-11-12T15:09:36.542Z [DEBUG] 📥 [HubSpot API] Received request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_contact_properties","options":{}}
+[2025-11-12T15:09:36.691Z] [INFO   ] 2025-11-12T15:09:36.691Z [DEBUG] 🔍 [HubSpot API] Processing request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_contact_properties","status":"connected","hasToken":true}
+[2025-11-12T15:09:36.691Z] [INFO   ] 2025-11-12T15:09:36.691Z [DEBUG] 🔍 HubSpot contact properties fetcher called with integration: {"id":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","hasToken":true,"tokenLength":609}
+[2025-11-12T15:09:36.691Z] [INFO   ] 2025-11-12T15:09:36.691Z [DEBUG] 🔍 Validating HubSpot token...
+[2025-11-12T15:09:36.691Z] [INFO   ] 2025-11-12T15:09:36.691Z [DEBUG] 🔍 Fetching HubSpot contact properties from API...
+[2025-11-12T15:09:37.236Z] [INFO   ] 2025-11-12T15:09:37.236Z [DEBUG] ✅ HubSpot contact properties fetched successfully: 357 properties
+[2025-11-12T15:09:37.237Z] [INFO   ] 2025-11-12T15:09:37.237Z [DEBUG] ✅ [HubSpot API] Successfully processed hubspot_contact_properties: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","resultCount":357}
+[2025-11-12T15:09:46.052Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-11-12T15:09:46.261Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 718ms (4322 modules)
+[2025-11-12T15:10:19.711Z] [INFO   ] 2025-11-12T15:10:19.711Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-12T15:10:19.711Z"}
+[2025-11-12T15:10:19.725Z] [INFO   ] 2025-11-12T15:10:19.725Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-12T15:10:19.725Z"}
+[2025-11-12T15:10:19.725Z] [INFO   ] 2025-11-12T15:10:19.725Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-12T15:10:19.725Z"}
+[2025-11-12T15:10:20.980Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-11-12T15:10:21.480Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 1096ms (4310 modules)
+[2025-11-12T15:10:21.841Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4316 modules)
+[2025-11-12T15:10:22.077Z] [INFO   ] 2025-11-12T15:10:22.077Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-12T15:10:22.077Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-12T15:10:22.348Z] [INFO   ] 2025-11-12T15:10:22.348Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-12T15:10:22.349Z] [INFO   ] 2025-11-12T15:10:22.349Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-12T15:10:22.494Z] [INFO   ] 2025-11-12T15:10:22.494Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":10,"permissionsCount":4,"integrationsError":null,"permissionsError":null}
+[2025-11-12T15:10:22.494Z] [INFO   ] 2025-11-12T15:10:22.494Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","permission":"admin"}
+[2025-11-12T15:10:22.494Z] [INFO   ] 2025-11-12T15:10:22.494Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:10:22.494Z] [INFO   ] 2025-11-12T15:10:22.494Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:10:22.494Z] [INFO   ] 2025-11-12T15:10:22.494Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:10:22.494Z] [INFO   ] 2025-11-12T15:10:22.494Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","permission":"admin"}
+[2025-11-12T15:10:22.494Z] [INFO   ] 2025-11-12T15:10:22.494Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:10:22.494Z] [INFO   ] 2025-11-12T15:10:22.494Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-12T15:10:22.495Z] [INFO   ] 2025-11-12T15:10:22.494Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:10:22.495Z] [INFO   ] 2025-11-12T15:10:22.495Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-12T15:10:22.495Z] [INFO   ] 2025-11-12T15:10:22.495Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:10:22.495Z] [INFO   ] 2025-11-12T15:10:22.495Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":10,"workspaceType":"personal"}
+[2025-11-12T15:10:57.254Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.7s (5468 modules)
+[2025-11-12T15:11:17.596Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 980ms (5468 modules)
+[2025-11-12T15:21:04.594Z] [INFO   ] 2025-11-12T15:21:04.594Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-12T15:21:04.594Z"}
+[2025-11-12T15:21:04.615Z] [INFO   ] 2025-11-12T15:21:04.615Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-12T15:21:04.615Z"}
+[2025-11-12T15:21:04.616Z] [INFO   ] 2025-11-12T15:21:04.616Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-12T15:21:04.616Z"}
+[2025-11-12T15:21:05.517Z] [INFO   ] 2025-11-12T15:21:05.517Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-12T15:21:05.517Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-12T15:21:05.651Z] [INFO   ] 2025-11-12T15:21:05.651Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-12T15:21:05.651Z] [INFO   ] 2025-11-12T15:21:05.651Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-12T15:21:05.785Z] [INFO   ] 2025-11-12T15:21:05.785Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":10,"permissionsCount":4,"integrationsError":null,"permissionsError":null}
+[2025-11-12T15:21:05.786Z] [INFO   ] 2025-11-12T15:21:05.786Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","permission":"admin"}
+[2025-11-12T15:21:05.786Z] [INFO   ] 2025-11-12T15:21:05.786Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:21:05.786Z] [INFO   ] 2025-11-12T15:21:05.786Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:21:05.786Z] [INFO   ] 2025-11-12T15:21:05.786Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:21:05.786Z] [INFO   ] 2025-11-12T15:21:05.786Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:21:05.786Z] [INFO   ] 2025-11-12T15:21:05.786Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","permission":"admin"}
+[2025-11-12T15:21:05.786Z] [INFO   ] 2025-11-12T15:21:05.786Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-12T15:21:05.786Z] [INFO   ] 2025-11-12T15:21:05.786Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:21:05.787Z] [INFO   ] 2025-11-12T15:21:05.786Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-12T15:21:05.787Z] [INFO   ] 2025-11-12T15:21:05.787Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:21:05.787Z] [INFO   ] 2025-11-12T15:21:05.787Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":10,"workspaceType":"personal"}
+[2025-11-12T15:21:11.449Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/auth/generate-url ...
+[2025-11-12T15:21:12.003Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/auth/generate-url in 1515ms (4292 modules)
+[2025-11-12T15:22:17.466Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/hubspot/callback ...
+[2025-11-12T15:22:18.935Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/hubspot/callback in 2.2s (4292 modules)
+[2025-11-12T15:22:19.032Z] [INFO   ] 2025-11-12T15:22:19.031Z [DEBUG] 🔍 hubspot callback called: {"url":"http://localhost:3000/api/integrations/hubspot/callback?code=na2-5bae-138f-4b74-a894-0768c362c0ea&state=eyJ1c2VySWQiOiJhM2UzYTUxYS0xNzVjLTRiNTktYWQwMy0yMjdiYTEyYTE4YjAiLCJwcm92aWRlciI6Imh1YnNwb3QiLCJyZWNvbm5lY3QiOnRydWUsImludGVncmF0aW9uSWQiOiI2Zjk1OWU1OS0xOGMzLTQ3ZjAtYTIwZi1jYzhhMjY4Y2ViMjEiLCJ0aW1lc3RhbXAiOjE3NjI5NjA4NzIzOTcsIndvcmtzcGFjZVR5cGUiOiJwZXJzb25hbCJ9","hasCode":true,"hasState":true,"error":null,"userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"}
+[2025-11-12T15:22:19.032Z] [INFO   ] 2025-11-12T15:22:19.032Z [DEBUG] hubspot OAuth callback state: {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"hubspot","reconnect":true,"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","workspaceType":"personal"}
+[2025-11-12T15:22:19.032Z] [INFO   ] 2025-11-12T15:22:19.032Z [DEBUG] 🔍 hubspot callback called: {"url":"http://localhost:3000/api/integrations/hubspot/callback?code=na2-4850-1501-48ff-b970-1751f0ce8534&state=eyJ1c2VySWQiOiJhM2UzYTUxYS0xNzVjLTRiNTktYWQwMy0yMjdiYTEyYTE4YjAiLCJwcm92aWRlciI6Imh1YnNwb3QiLCJyZWNvbm5lY3QiOnRydWUsImludGVncmF0aW9uSWQiOiI2Zjk1OWU1OS0xOGMzLTQ3ZjAtYTIwZi1jYzhhMjY4Y2ViMjEiLCJ0aW1lc3RhbXAiOjE3NjI5NjA4NzIzOTcsIndvcmtzcGFjZVR5cGUiOiJwZXJzb25hbCJ9","hasCode":true,"hasState":true,"error":null,"userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"}
+[2025-11-12T15:22:19.032Z] [INFO   ] 2025-11-12T15:22:19.032Z [DEBUG] hubspot OAuth callback state: {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"hubspot","reconnect":true,"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","workspaceType":"personal"}
+[2025-11-12T15:22:19.465Z] [INFO   ] 2025-11-12T15:22:19.464Z [INFO] 🔍 [HubSpot] Starting account info fetch with access token
+[2025-11-12T15:22:19.465Z] [INFO   ] 2025-11-12T15:22:19.465Z [DEBUG] 🔍 [HubSpot] Trying primary endpoint: /oauth/v1/access-tokens
+[2025-11-12T15:22:19.614Z] [INFO   ] 2025-11-12T15:22:19.614Z [INFO] ✅ [HubSpot] Primary endpoint success: {"hasEmail":true,"hasHubId":true,"hasHubDomain":true,"allFields":["token","user","hub_domain","scopes","signed_access_token","token_type","user_id","app_id","hub_id","is_private_distribution","expires_in"]}
+[2025-11-12T15:22:19.631Z] [INFO   ] 2025-11-12T15:22:19.631Z [INFO] 🔍 [HubSpot] Starting account info fetch with access token
+[2025-11-12T15:22:19.632Z] [INFO   ] 2025-11-12T15:22:19.631Z [DEBUG] 🔍 [HubSpot] Trying primary endpoint: /oauth/v1/access-tokens
+[2025-11-12T15:22:19.766Z] [INFO   ] 2025-11-12T15:22:19.766Z [INFO] ✅ [HubSpot] Primary endpoint success: {"hasEmail":true,"hasHubId":true,"hasHubDomain":true,"allFields":["token","user","hub_domain","scopes","signed_access_token","token_type","user_id","app_id","hub_id","is_private_distribution","expires_in"]}
+[2025-11-12T15:22:19.870Z] [INFO   ] 2025-11-12T15:22:19.870Z [DEBUG] ✅ Updated existing integration: 6f959e59-18c3-47f0-a20f-cc8a268ceb21
+[2025-11-12T15:22:19.870Z] [INFO   ] 2025-11-12T15:22:19.870Z [DEBUG] Skipping permission grant for reconnect
+[2025-11-12T15:22:19.870Z] [INFO   ] 2025-11-12T15:22:19.870Z [DEBUG] ✅ hubspot integration successfully saved
+[2025-11-12T15:22:19.871Z] [INFO   ] 2025-11-12T15:22:19.871Z [DEBUG] 🔄 Creating popup response: type=success, provider=hubspot, displayName=HubSpot, message=hubspot connected successfully!
+[2025-11-12T15:22:19.948Z] [INFO   ] 2025-11-12T15:22:19.948Z [DEBUG] ✅ Updated existing integration: 6f959e59-18c3-47f0-a20f-cc8a268ceb21
+[2025-11-12T15:22:19.949Z] [INFO   ] 2025-11-12T15:22:19.949Z [DEBUG] Skipping permission grant for reconnect
+[2025-11-12T15:22:19.949Z] [INFO   ] 2025-11-12T15:22:19.949Z [DEBUG] ✅ hubspot integration successfully saved
+[2025-11-12T15:22:19.949Z] [INFO   ] 2025-11-12T15:22:19.949Z [DEBUG] 🔄 Creating popup response: type=success, provider=hubspot, displayName=HubSpot, message=hubspot connected successfully!
+[2025-11-12T15:22:20.289Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 280ms (4294 modules)
+[2025-11-12T15:22:20.364Z] [INFO   ] 2025-11-12T15:22:20.364Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-12T15:22:20.364Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-12T15:22:20.476Z] [INFO   ] 2025-11-12T15:22:20.476Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-12T15:22:20.476Z] [INFO   ] 2025-11-12T15:22:20.476Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-12T15:22:20.596Z] [INFO   ] 2025-11-12T15:22:20.596Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":10,"permissionsCount":4,"integrationsError":null,"permissionsError":null}
+[2025-11-12T15:22:20.597Z] [INFO   ] 2025-11-12T15:22:20.597Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","permission":"admin"}
+[2025-11-12T15:22:20.597Z] [INFO   ] 2025-11-12T15:22:20.597Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:22:20.597Z] [INFO   ] 2025-11-12T15:22:20.597Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:22:20.598Z] [INFO   ] 2025-11-12T15:22:20.598Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:22:20.598Z] [INFO   ] 2025-11-12T15:22:20.598Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:22:20.598Z] [INFO   ] 2025-11-12T15:22:20.598Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","permission":"admin"}
+[2025-11-12T15:22:20.598Z] [INFO   ] 2025-11-12T15:22:20.598Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-12T15:22:20.599Z] [INFO   ] 2025-11-12T15:22:20.598Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:22:20.599Z] [INFO   ] 2025-11-12T15:22:20.599Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-12T15:22:20.599Z] [INFO   ] 2025-11-12T15:22:20.599Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:22:20.599Z] [INFO   ] 2025-11-12T15:22:20.599Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":10,"workspaceType":"personal"}
+[2025-11-12T15:22:21.354Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/hubspot/data ...
+[2025-11-12T15:22:22.233Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/all-connections in 1523ms (4321 modules)
+[2025-11-12T15:22:22.888Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4323 modules)
+[2025-11-12T15:22:23.210Z] [INFO   ] 2025-11-12T15:22:23.210Z [DEBUG] 📥 [HubSpot API] Received request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_line_items","options":{}}
+[2025-11-12T15:22:23.286Z] [INFO   ] 2025-11-12T15:22:23.286Z [DEBUG] [AllConnections] Fetching all connections for provider: hubspot {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"hubspot"}
+[2025-11-12T15:22:23.303Z] [INFO   ] 2025-11-12T15:22:23.303Z [DEBUG] 🔍 [HubSpot API] Processing request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_line_items","status":"connected","hasToken":true}
+[2025-11-12T15:22:23.457Z] [INFO   ] 2025-11-12T15:22:23.457Z [DEBUG] ✅ HubSpot line items fetched successfully: 0 items
+[2025-11-12T15:22:23.457Z] [INFO   ] 2025-11-12T15:22:23.457Z [DEBUG] ✅ [HubSpot API] Successfully processed hubspot_line_items: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","resultCount":0}
+[2025-11-12T15:22:23.582Z] [INFO   ] 2025-11-12T15:22:23.582Z [DEBUG] [AllConnections] Found 1 accessible connections {"provider":"hubspot","connectionIds":["6f959e59-18c3-47f0-a20f-cc8a268ceb21"]}
+[2025-11-12T15:26:06.174Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-11-12T15:26:06.631Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1311ms (4279 modules)
+[2025-11-12T15:42:20.597Z] [INFO   ] 2025-11-12T15:42:20.597Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-12T15:42:20.596Z"}
+[2025-11-12T15:42:20.612Z] [INFO   ] 2025-11-12T15:42:20.612Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-12T15:42:20.612Z"}
+[2025-11-12T15:42:20.612Z] [INFO   ] 2025-11-12T15:42:20.612Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-12T15:42:20.612Z"}
+[2025-11-12T15:42:22.138Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-11-12T15:42:23.364Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 2.1s (4176 modules)
+[2025-11-12T15:42:24.562Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4288 modules)
+[2025-11-12T15:42:24.736Z] [INFO   ] 2025-11-12T15:42:24.736Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-12T15:42:24.736Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-12T15:42:25.144Z] [INFO   ] 2025-11-12T15:42:25.144Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-12T15:42:25.145Z] [INFO   ] 2025-11-12T15:42:25.145Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-12T15:42:25.376Z] [INFO   ] 2025-11-12T15:42:25.376Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":10,"permissionsCount":4,"integrationsError":null,"permissionsError":null}
+[2025-11-12T15:42:25.376Z] [INFO   ] 2025-11-12T15:42:25.376Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","permission":"admin"}
+[2025-11-12T15:42:25.376Z] [INFO   ] 2025-11-12T15:42:25.376Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:42:25.376Z] [INFO   ] 2025-11-12T15:42:25.376Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:42:25.376Z] [INFO   ] 2025-11-12T15:42:25.376Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:42:25.376Z] [INFO   ] 2025-11-12T15:42:25.376Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:42:25.376Z] [INFO   ] 2025-11-12T15:42:25.376Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","permission":"admin"}
+[2025-11-12T15:42:25.376Z] [INFO   ] 2025-11-12T15:42:25.376Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-12T15:42:25.376Z] [INFO   ] 2025-11-12T15:42:25.376Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:42:25.376Z] [INFO   ] 2025-11-12T15:42:25.376Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-12T15:42:25.377Z] [INFO   ] 2025-11-12T15:42:25.377Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:42:25.377Z] [INFO   ] 2025-11-12T15:42:25.377Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":10,"workspaceType":"personal"}
+[2025-11-12T15:42:30.616Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/auth/generate-url in 357ms (4292 modules)
+[2025-11-12T15:42:51.938Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/all-connections ...
+[2025-11-12T15:42:52.947Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/all-connections in 1579ms (4294 modules)
+[2025-11-12T15:42:53.307Z] [INFO   ] 2025-11-12T15:42:53.307Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-12T15:42:53.307Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-12T15:42:53.728Z] [INFO   ] 2025-11-12T15:42:53.728Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-12T15:42:53.728Z"}
+[2025-11-12T15:42:53.742Z] [INFO   ] 2025-11-12T15:42:53.742Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-12T15:42:53.742Z"}
+[2025-11-12T15:42:53.742Z] [INFO   ] 2025-11-12T15:42:53.742Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-12T15:42:53.742Z"}
+[2025-11-12T15:42:54.077Z] [INFO   ] 2025-11-12T15:42:54.077Z [DEBUG] [AllConnections] Fetching all connections for provider: hubspot {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"hubspot"}
+[2025-11-12T15:42:54.119Z] [INFO   ] 2025-11-12T15:42:54.119Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-12T15:42:54.120Z] [INFO   ] 2025-11-12T15:42:54.120Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-12T15:42:54.205Z] [INFO   ] 2025-11-12T15:42:54.205Z [DEBUG] [AllConnections] No connections found {"provider":"hubspot"}
+[2025-11-12T15:42:54.265Z] [INFO   ] 2025-11-12T15:42:54.265Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":10,"permissionsCount":4,"integrationsError":null,"permissionsError":null}
+[2025-11-12T15:42:54.265Z] [INFO   ] 2025-11-12T15:42:54.265Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","permission":"admin"}
+[2025-11-12T15:42:54.265Z] [INFO   ] 2025-11-12T15:42:54.265Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:42:54.266Z] [INFO   ] 2025-11-12T15:42:54.265Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:42:54.266Z] [INFO   ] 2025-11-12T15:42:54.266Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:42:54.266Z] [INFO   ] 2025-11-12T15:42:54.266Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:42:54.266Z] [INFO   ] 2025-11-12T15:42:54.266Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","permission":"admin"}
+[2025-11-12T15:42:54.266Z] [INFO   ] 2025-11-12T15:42:54.266Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-12T15:42:54.266Z] [INFO   ] 2025-11-12T15:42:54.266Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:42:54.266Z] [INFO   ] 2025-11-12T15:42:54.266Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-12T15:42:54.267Z] [INFO   ] 2025-11-12T15:42:54.266Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:42:54.267Z] [INFO   ] 2025-11-12T15:42:54.267Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":10,"workspaceType":"personal"}
+[2025-11-12T15:42:54.726Z] [INFO   ] 2025-11-12T15:42:54.726Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-12T15:42:54.726Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-12T15:42:54.823Z] [INFO   ] 2025-11-12T15:42:54.823Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-12T15:42:54.824Z] [INFO   ] 2025-11-12T15:42:54.824Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-12T15:42:54.982Z] [INFO   ] 2025-11-12T15:42:54.982Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":10,"permissionsCount":4,"integrationsError":null,"permissionsError":null}
+[2025-11-12T15:42:54.982Z] [INFO   ] 2025-11-12T15:42:54.982Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","permission":"admin"}
+[2025-11-12T15:42:54.982Z] [INFO   ] 2025-11-12T15:42:54.982Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:42:54.982Z] [INFO   ] 2025-11-12T15:42:54.982Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:42:54.982Z] [INFO   ] 2025-11-12T15:42:54.982Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:42:54.982Z] [INFO   ] 2025-11-12T15:42:54.982Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:42:54.982Z] [INFO   ] 2025-11-12T15:42:54.982Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","permission":"admin"}
+[2025-11-12T15:42:54.982Z] [INFO   ] 2025-11-12T15:42:54.982Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-12T15:42:54.982Z] [INFO   ] 2025-11-12T15:42:54.982Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:42:54.982Z] [INFO   ] 2025-11-12T15:42:54.982Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-12T15:42:54.982Z] [INFO   ] 2025-11-12T15:42:54.982Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:42:54.982Z] [INFO   ] 2025-11-12T15:42:54.982Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":10,"workspaceType":"personal"}
+[2025-11-12T15:43:17.055Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/hubspot/callback ...
+[2025-11-12T15:43:18.242Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/hubspot/callback in 1714ms (4302 modules)
+[2025-11-12T15:43:18.321Z] [INFO   ] 2025-11-12T15:43:18.321Z [DEBUG] 🔍 hubspot callback called: {"url":"http://localhost:3000/api/integrations/hubspot/callback?code=na2-958f-4e20-48b0-9c15-fdd73291b82c&state=eyJ1c2VySWQiOiJhM2UzYTUxYS0xNzVjLTRiNTktYWQwMy0yMjdiYTEyYTE4YjAiLCJwcm92aWRlciI6Imh1YnNwb3QiLCJyZWNvbm5lY3QiOnRydWUsImludGVncmF0aW9uSWQiOiI2Zjk1OWU1OS0xOGMzLTQ3ZjAtYTIwZi1jYzhhMjY4Y2ViMjEiLCJ0aW1lc3RhbXAiOjE3NjI5NjIxODg5MTMsIndvcmtzcGFjZVR5cGUiOiJwZXJzb25hbCJ9","hasCode":true,"hasState":true,"error":null,"userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"}
+[2025-11-12T15:43:18.321Z] [INFO   ] 2025-11-12T15:43:18.321Z [DEBUG] hubspot OAuth callback state: {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"hubspot","reconnect":true,"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","workspaceType":"personal"}
+[2025-11-12T15:43:18.773Z] [INFO   ] 2025-11-12T15:43:18.773Z [INFO] 🔍 [HubSpot] Starting account info fetch with access token
+[2025-11-12T15:43:18.773Z] [INFO   ] 2025-11-12T15:43:18.773Z [DEBUG] 🔍 [HubSpot] Trying primary endpoint: /oauth/v1/access-tokens
+[2025-11-12T15:43:18.885Z] [INFO   ] 2025-11-12T15:43:18.885Z [INFO] ✅ [HubSpot] Primary endpoint success: {"hasEmail":true,"hasHubId":true,"hasHubDomain":true,"allFields":["token","user","hub_domain","scopes","signed_access_token","token_type","user_id","app_id","hub_id","is_private_distribution","expires_in"]}
+[2025-11-12T15:43:19.043Z] [INFO   ] 2025-11-12T15:43:19.043Z [DEBUG] ✅ Updated existing integration: 6f959e59-18c3-47f0-a20f-cc8a268ceb21
+[2025-11-12T15:43:19.044Z] [INFO   ] 2025-11-12T15:43:19.044Z [DEBUG] Skipping permission grant for reconnect
+[2025-11-12T15:43:19.044Z] [INFO   ] 2025-11-12T15:43:19.044Z [DEBUG] ✅ hubspot integration successfully saved
+[2025-11-12T15:43:19.044Z] [INFO   ] 2025-11-12T15:43:19.044Z [DEBUG] 🔄 Creating popup response: type=success, provider=hubspot, displayName=HubSpot, message=hubspot connected successfully!
+[2025-11-12T15:43:19.213Z] [INFO   ] 2025-11-12T15:43:19.213Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-12T15:43:19.213Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-12T15:43:19.326Z] [INFO   ] 2025-11-12T15:43:19.326Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-12T15:43:19.327Z] [INFO   ] 2025-11-12T15:43:19.327Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-12T15:43:19.466Z] [INFO   ] 2025-11-12T15:43:19.465Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":10,"permissionsCount":4,"integrationsError":null,"permissionsError":null}
+[2025-11-12T15:43:19.466Z] [INFO   ] 2025-11-12T15:43:19.466Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","permission":"admin"}
+[2025-11-12T15:43:19.466Z] [INFO   ] 2025-11-12T15:43:19.466Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:43:19.466Z] [INFO   ] 2025-11-12T15:43:19.466Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:43:19.466Z] [INFO   ] 2025-11-12T15:43:19.466Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:43:19.466Z] [INFO   ] 2025-11-12T15:43:19.466Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:43:19.466Z] [INFO   ] 2025-11-12T15:43:19.466Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","permission":"admin"}
+[2025-11-12T15:43:19.466Z] [INFO   ] 2025-11-12T15:43:19.466Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-12T15:43:19.466Z] [INFO   ] 2025-11-12T15:43:19.466Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:43:19.466Z] [INFO   ] 2025-11-12T15:43:19.466Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-12T15:43:19.466Z] [INFO   ] 2025-11-12T15:43:19.466Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","permission":"admin","reason":"connected_by"}
+[2025-11-12T15:43:19.466Z] [INFO   ] 2025-11-12T15:43:19.466Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":10,"workspaceType":"personal"}
+[2025-11-12T15:43:20.147Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/hubspot/data ...
+[2025-11-12T15:43:20.620Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/hubspot/data in 1001ms (4329 modules)
+[2025-11-12T15:43:20.692Z] [INFO   ] 2025-11-12T15:43:20.692Z [DEBUG] 📥 [HubSpot API] Received request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_line_items","options":{}}
+[2025-11-12T15:43:20.781Z] [INFO   ] 2025-11-12T15:43:20.781Z [DEBUG] 🔍 [HubSpot API] Processing request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_line_items","status":"connected","hasToken":true}
+[2025-11-12T15:43:20.922Z] [INFO   ] 2025-11-12T15:43:20.922Z [DEBUG] ✅ HubSpot line items fetched successfully: 0 items
+[2025-11-12T15:43:20.923Z] [INFO   ] 2025-11-12T15:43:20.923Z [DEBUG] ✅ [HubSpot API] Successfully processed hubspot_line_items: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","resultCount":0}
+[2025-11-12T15:43:21.329Z] [INFO   ] 2025-11-12T15:43:21.329Z [DEBUG] [AllConnections] Fetching all connections for provider: hubspot {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"hubspot"}
+[2025-11-12T15:43:21.660Z] [INFO   ] 2025-11-12T15:43:21.659Z [DEBUG] [AllConnections] Found 1 accessible connections {"provider":"hubspot","connectionIds":["6f959e59-18c3-47f0-a20f-cc8a268ceb21"]}
+[2025-11-12T15:43:29.208Z] [INFO   ] 2025-11-12T15:43:29.208Z [DEBUG] 📥 [HubSpot API] Received request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_line_items","options":{}}
+[2025-11-12T15:43:29.354Z] [INFO   ] 2025-11-12T15:43:29.354Z [DEBUG] 🔍 [HubSpot API] Processing request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_line_items","status":"connected","hasToken":true}
+[2025-11-12T15:43:29.538Z] [INFO   ] 2025-11-12T15:43:29.538Z [DEBUG] ✅ HubSpot line items fetched successfully: 0 items
+[2025-11-12T15:43:29.539Z] [INFO   ] 2025-11-12T15:43:29.539Z [DEBUG] ✅ [HubSpot API] Successfully processed hubspot_line_items: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","resultCount":0}
+[2025-11-12T15:43:32.980Z] [INFO   ] 2025-11-12T15:43:32.980Z [DEBUG] 📥 [HubSpot API] Received request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_deals","options":{}}
+[2025-11-12T15:43:33.066Z] [INFO   ] 2025-11-12T15:43:33.066Z [DEBUG] 🔍 [HubSpot API] Processing request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_deals","status":"connected","hasToken":true}
+[2025-11-12T15:43:33.066Z] [INFO   ] 2025-11-12T15:43:33.066Z [DEBUG] 🔍 HubSpot deals fetcher called with integration: {"id":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","hasToken":true,"tokenLength":609}
+[2025-11-12T15:43:33.066Z] [INFO   ] 2025-11-12T15:43:33.066Z [DEBUG] 🔍 Validating HubSpot token...
+[2025-11-12T15:43:33.067Z] [INFO   ] 2025-11-12T15:43:33.067Z [DEBUG] 🔍 Fetching HubSpot deals from API...
+[2025-11-12T15:43:33.206Z] [INFO   ] 2025-11-12T15:43:33.206Z [DEBUG] ✅ HubSpot deals fetched successfully: 0 deals
+[2025-11-12T15:43:33.207Z] [INFO   ] 2025-11-12T15:43:33.207Z [DEBUG] ✅ [HubSpot API] Successfully processed hubspot_deals: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","resultCount":0}
+[2025-11-12T15:43:33.718Z] [INFO   ] 2025-11-12T15:43:33.718Z [DEBUG] 📥 [HubSpot API] Received request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_deals","options":{}}
+[2025-11-12T15:43:33.801Z] [INFO   ] 2025-11-12T15:43:33.801Z [DEBUG] 🔍 [HubSpot API] Processing request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_deals","status":"connected","hasToken":true}
+[2025-11-12T15:43:33.802Z] [INFO   ] 2025-11-12T15:43:33.802Z [DEBUG] 🔍 HubSpot deals fetcher called with integration: {"id":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","hasToken":true,"tokenLength":609}
+[2025-11-12T15:43:33.802Z] [INFO   ] 2025-11-12T15:43:33.802Z [DEBUG] 🔍 Validating HubSpot token...
+[2025-11-12T15:43:33.802Z] [INFO   ] 2025-11-12T15:43:33.802Z [DEBUG] 🔍 Fetching HubSpot deals from API...
+[2025-11-12T15:43:33.938Z] [INFO   ] 2025-11-12T15:43:33.937Z [DEBUG] ✅ HubSpot deals fetched successfully: 0 deals
+[2025-11-12T15:43:33.939Z] [INFO   ] 2025-11-12T15:43:33.939Z [DEBUG] ✅ [HubSpot API] Successfully processed hubspot_deals: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","resultCount":0}
+[2025-11-12T15:43:51.448Z] [INFO   ] 2025-11-12T15:43:51.448Z [DEBUG] 📥 [HubSpot API] Received request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_deal_properties","options":{}}
+[2025-11-12T15:43:51.493Z] [INFO   ] 2025-11-12T15:43:51.493Z [DEBUG] 📥 [HubSpot API] Received request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_deal_properties","options":{}}
+[2025-11-12T15:43:51.692Z] [INFO   ] 2025-11-12T15:43:51.692Z [DEBUG] 🔍 [HubSpot API] Processing request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_deal_properties","status":"connected","hasToken":true}
+[2025-11-12T15:43:51.693Z] [INFO   ] 2025-11-12T15:43:51.693Z [DEBUG] 🔍 HubSpot deal properties fetcher called with integration: {"id":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","hasToken":true,"tokenLength":609}
+[2025-11-12T15:43:51.693Z] [INFO   ] 2025-11-12T15:43:51.693Z [DEBUG] 🔍 Validating HubSpot token...
+[2025-11-12T15:43:51.693Z] [INFO   ] 2025-11-12T15:43:51.693Z [DEBUG] 🔍 Fetching HubSpot deal properties from API...
+[2025-11-12T15:43:51.696Z] [INFO   ] 2025-11-12T15:43:51.696Z [DEBUG] 🔍 [HubSpot API] Processing request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_deal_properties","status":"connected","hasToken":true}
+[2025-11-12T15:43:51.696Z] [INFO   ] 2025-11-12T15:43:51.696Z [DEBUG] 🔍 HubSpot deal properties fetcher called with integration: {"id":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","hasToken":true,"tokenLength":609}
+[2025-11-12T15:43:51.696Z] [INFO   ] 2025-11-12T15:43:51.696Z [DEBUG] 🔍 Validating HubSpot token...
+[2025-11-12T15:43:51.696Z] [INFO   ] 2025-11-12T15:43:51.696Z [DEBUG] 🔍 Fetching HubSpot deal properties from API...
+[2025-11-12T15:43:51.859Z] [INFO   ] 2025-11-12T15:43:51.859Z [DEBUG] ✅ HubSpot deal properties fetched successfully: 190 properties
+[2025-11-12T15:43:51.859Z] [INFO   ] 2025-11-12T15:43:51.859Z [DEBUG] ✅ [HubSpot API] Successfully processed hubspot_deal_properties: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","resultCount":190}
+[2025-11-12T15:43:51.919Z] [INFO   ] 2025-11-12T15:43:51.919Z [DEBUG] ✅ HubSpot deal properties fetched successfully: 190 properties
+[2025-11-12T15:43:51.920Z] [INFO   ] 2025-11-12T15:43:51.920Z [DEBUG] ✅ [HubSpot API] Successfully processed hubspot_deal_properties: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","resultCount":190}
+[2025-11-12T15:44:01.839Z] [INFO   ] 2025-11-12T15:44:01.839Z [DEBUG] 📥 [HubSpot API] Received request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_contact_properties","options":{}}
+[2025-11-12T15:44:01.994Z] [INFO   ] 2025-11-12T15:44:01.994Z [DEBUG] 🔍 [HubSpot API] Processing request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_contact_properties","status":"connected","hasToken":true}
+[2025-11-12T15:44:01.995Z] [INFO   ] 2025-11-12T15:44:01.995Z [DEBUG] 🔍 HubSpot contact properties fetcher called with integration: {"id":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","hasToken":true,"tokenLength":609}
+[2025-11-12T15:44:01.995Z] [INFO   ] 2025-11-12T15:44:01.995Z [DEBUG] 🔍 Validating HubSpot token...
+[2025-11-12T15:44:01.995Z] [INFO   ] 2025-11-12T15:44:01.995Z [DEBUG] 🔍 Fetching HubSpot contact properties from API...
+[2025-11-12T15:44:02.297Z] [INFO   ] 2025-11-12T15:44:02.297Z [DEBUG] ✅ HubSpot contact properties fetched successfully: 357 properties
+[2025-11-12T15:44:02.298Z] [INFO   ] 2025-11-12T15:44:02.298Z [DEBUG] ✅ [HubSpot API] Successfully processed hubspot_contact_properties: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","resultCount":357}
+[2025-11-12T15:44:06.579Z] [INFO   ] 2025-11-12T15:44:06.579Z [DEBUG] 📥 [HubSpot API] Received request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_contact_properties","options":{}}
+[2025-11-12T15:44:06.738Z] [INFO   ] 2025-11-12T15:44:06.738Z [DEBUG] 🔍 [HubSpot API] Processing request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_contact_properties","status":"connected","hasToken":true}
+[2025-11-12T15:44:06.738Z] [INFO   ] 2025-11-12T15:44:06.738Z [DEBUG] 🔍 HubSpot contact properties fetcher called with integration: {"id":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","hasToken":true,"tokenLength":609}
+[2025-11-12T15:44:06.739Z] [INFO   ] 2025-11-12T15:44:06.738Z [DEBUG] 🔍 Validating HubSpot token...
+[2025-11-12T15:44:06.739Z] [INFO   ] 2025-11-12T15:44:06.739Z [DEBUG] 🔍 Fetching HubSpot contact properties from API...
+[2025-11-12T15:44:06.944Z] [INFO   ] 2025-11-12T15:44:06.944Z [DEBUG] ✅ HubSpot contact properties fetched successfully: 357 properties
+[2025-11-12T15:44:06.945Z] [INFO   ] 2025-11-12T15:44:06.945Z [DEBUG] ✅ [HubSpot API] Successfully processed hubspot_contact_properties: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","resultCount":357}
+[2025-11-12T15:50:13.199Z] [INFO   ] 2025-11-12T15:50:13.199Z [DEBUG] 📥 [HubSpot API] Received request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_deals","options":{}}
+[2025-11-12T15:50:13.520Z] [INFO   ] 2025-11-12T15:50:13.520Z [DEBUG] 🔍 [HubSpot API] Processing request: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","dataType":"hubspot_deals","status":"connected","hasToken":true}
+[2025-11-12T15:50:13.521Z] [INFO   ] 2025-11-12T15:50:13.521Z [DEBUG] 🔍 HubSpot deals fetcher called with integration: {"id":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","hasToken":true,"tokenLength":609}
+[2025-11-12T15:50:13.521Z] [INFO   ] 2025-11-12T15:50:13.521Z [DEBUG] 🔍 Validating HubSpot token...
+[2025-11-12T15:50:13.521Z] [INFO   ] 2025-11-12T15:50:13.521Z [DEBUG] 🔍 Fetching HubSpot deals from API...
+[2025-11-12T15:50:13.957Z] [INFO   ] 2025-11-12T15:50:13.957Z [DEBUG] ✅ HubSpot deals fetched successfully: 0 deals
+[2025-11-12T15:50:13.957Z] [INFO   ] 2025-11-12T15:50:13.957Z [DEBUG] ✅ [HubSpot API] Successfully processed hubspot_deals: {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","resultCount":0}
+[2025-11-12T15:53:12.466Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1623ms (1180 modules)
+[2025-11-12T15:53:22.966Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 785ms (1180 modules)
+[2025-11-12T15:53:29.269Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 413ms (1180 modules)
+[2025-11-12T15:53:34.550Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 397ms (1180 modules)
+[2025-11-12T15:53:48.372Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 409ms (1180 modules)
+[2025-11-12T15:53:54.295Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 397ms (1180 modules)
+[2025-11-12T15:54:04.803Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 394ms (1180 modules)
+[2025-11-12T15:54:37.103Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1332ms (1180 modules)
+[2025-11-12T15:54:51.977Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 659ms (1180 modules)
+[2025-11-12T15:55:12.557Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 384ms (1180 modules)
+[2025-11-12T15:55:19.393Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 385ms (1180 modules)
+[2025-11-12T15:57:42.805Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1354ms (1180 modules)
+[2025-11-12T15:57:49.229Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 431ms (1180 modules)
+[2025-11-12T16:11:38.921Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1670ms (1180 modules)
+[2025-11-12T16:11:44.719Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 482ms (1180 modules)
+[2025-11-12T16:12:15.424Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 3.9s (5559 modules)
+[2025-11-12T16:12:32.349Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 520ms (1180 modules)
+[2025-11-12T16:12:36.125Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1460ms (5340 modules)
+[2025-11-12T16:12:38.109Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 410ms (1180 modules)
+[2025-11-12T16:12:44.314Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 380ms (1180 modules)
+[2025-11-12T16:12:54.134Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1403ms (5573 modules)
+[2025-11-12T16:12:55.607Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-11-12T16:12:56.600Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1601ms (4279 modules)
+[2025-11-12T16:13:39.383Z] [INFO   ]  [37m[1m○[22m[39m Compiling /test/hitl ...
+[2025-11-12T16:13:43.575Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/test/HitlDebugDashboard.tsx
+Error:   [31m×[0m Expected '</', got 'entry'
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/test/HitlDebugDashboard.tsx[0m:211:1]
+ [2m208[0m │                 entry.role === "assistant" ? "bg-slate-50" : "bg-white"
+ [2m209[0m │               )}
+ [2m210[0m │             {
+ [2m211[0m │               entry.role && (
+     · [35;1m              ─────[0m
+ [2m212[0m │                 <p className="text-xs uppercase tracking-wide text-muted-foreground">
+ [2m213[0m │                   {entry.role}
+ [2m214[0m │                 </p>
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/test/HitlDebugDashboard.tsx
+./app/test/hitl/page.tsx
+[2025-11-12T16:13:49.792Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/test/HitlDebugDashboard.tsx
+Error:   [31m×[0m Expected '</', got 'entry'
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/test/HitlDebugDashboard.tsx[0m:211:1]
+ [2m208[0m │                 entry.role === "assistant" ? "bg-slate-50" : "bg-white"
+ [2m209[0m │               )}
+ [2m210[0m │             {
+ [2m211[0m │               entry.role && (
+     · [35;1m              ─────[0m
+ [2m212[0m │                 <p className="text-xs uppercase tracking-wide text-muted-foreground">
+ [2m213[0m │                   {entry.role}
+ [2m214[0m │                 </p>
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/test/HitlDebugDashboard.tsx
+./app/test/hitl/page.tsx
+[2025-11-12T16:13:52.439Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/test/HitlDebugDashboard.tsx
+Error:   [31m×[0m Expected '</', got 'entry'
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/test/HitlDebugDashboard.tsx[0m:211:1]
+ [2m208[0m │                 entry.role === "assistant" ? "bg-slate-50" : "bg-white"
+ [2m209[0m │               )}
+ [2m210[0m │             {
+ [2m211[0m │               entry.role && (
+     · [35;1m              ─────[0m
+ [2m212[0m │                 <p className="text-xs uppercase tracking-wide text-muted-foreground">
+ [2m213[0m │                   {entry.role}
+ [2m214[0m │                 </p>
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/test/HitlDebugDashboard.tsx
+./app/test/hitl/page.tsx
+[2025-11-12T16:13:52.477Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload when ?608e changed. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-11-12T16:13:52.792Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/test/HitlDebugDashboard.tsx
+Error:   [31m×[0m Expected '</', got 'entry'
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/test/HitlDebugDashboard.tsx[0m:211:1]
+ [2m208[0m │                 entry.role === "assistant" ? "bg-slate-50" : "bg-white"
+ [2m209[0m │               )}
+ [2m210[0m │             {
+ [2m211[0m │               entry.role && (
+     · [35;1m              ─────[0m
+ [2m212[0m │                 <p className="text-xs uppercase tracking-wide text-muted-foreground">
+ [2m213[0m │                   {entry.role}
+ [2m214[0m │                 </p>
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/test/HitlDebugDashboard.tsx
+./app/test/hitl/page.tsx
+
+=== Log Session Ended: 2025-11-12T16:13:54.769Z ===

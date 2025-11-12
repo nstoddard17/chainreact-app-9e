@@ -161,12 +161,7 @@ export function ExtractWebsiteDataConfiguration({
       isFormValid={isFormValid}
     >
       <div className="space-y-6">
-        {/* Website & Extraction Method Section */}
-        <div>
-          <h3 className="text-base font-semibold mb-1 text-foreground">Website & Extraction Method</h3>
-          <p className="text-xs text-muted-foreground mb-4">Configure the URL and how you want to extract data</p>
-
-          <div className="space-y-4">
+        <div className="space-y-4">
             {/* URL */}
             <div>
               <Label htmlFor="url">
@@ -483,9 +478,8 @@ export function ExtractWebsiteDataConfiguration({
                 </ul>
               </AlertDescription>
             </Alert>
-          </div>
+            </div>
         </div>
-      </div>
     </ConfigurationContainer>
   );
 }

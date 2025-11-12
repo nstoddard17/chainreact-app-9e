@@ -361,6 +361,9 @@ const fieldFormatters: Record<string, (data: any[]) => FormattedOption[]> = {
   folderId: formatFolderField,
   parentFolderId: formatFolderField,
   emoji: formatSlackEmojiField,
+
+  // HubSpot fields
+  lineItemId: formatDefaultField,
 };
 
 /**

@@ -3,7 +3,7 @@
  * Uses Discord's native button/modal system
  */
 
-import { createClient } from '@/utils/supabase/server'
+import { createSupabaseServiceClient } from '@/utils/supabase/server'
 
 export interface DiscordInteractionButton {
   label: string
@@ -22,7 +22,7 @@ export async function sendDiscordHITLWithButtons(
   buttons: DiscordInteractionButton[],
   conversationId: string
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  const supabase = await createClient()
+  const supabase = await createSupabaseServiceClient()
 
   // Get Discord bot token
   const { data: integration } = await supabase
@@ -101,7 +101,7 @@ export async function updateDiscordMessage(
   newContent: string,
   removeButtons: boolean = true
 ): Promise<boolean> {
-  const supabase = await createClient()
+  const supabase = await createSupabaseServiceClient()
 
   const { data: integration } = await supabase
     .from('integrations')
@@ -154,7 +154,7 @@ export async function sendDiscordFollowUp(
   message: string,
   buttons?: DiscordInteractionButton[]
 ): Promise<{ success: boolean; messageId?: string }> {
-  const supabase = await createClient()
+  const supabase = await createSupabaseServiceClient()
 
   const { data: integration } = await supabase
     .from('integrations')

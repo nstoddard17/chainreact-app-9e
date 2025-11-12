@@ -16,8 +16,12 @@ export async function hubspotGetDeals(
 
     // Resolve dynamic values
     const limit = context.dataFlowManager.resolveVariable(config.limit) || 100
+    const after = context.dataFlowManager.resolveVariable(config.after)
     const filterProperty = context.dataFlowManager.resolveVariable(config.filterProperty)
     const filterValue = context.dataFlowManager.resolveVariable(config.filterValue)
+    const advancedFilters = context.dataFlowManager.resolveVariable(config.advancedFilters)
+    const sortProperty = context.dataFlowManager.resolveVariable(config.sortProperty)
+    const sortDirection = (context.dataFlowManager.resolveVariable(config.sortDirection) || 'ASCENDING').toUpperCase()
     const properties = context.dataFlowManager.resolveVariable(config.properties) || [
       'dealname', 'amount', 'dealstage', 'pipeline', 'closedate'
     ]
@@ -28,13 +32,108 @@ export async function hubspotGetDeals(
       properties: Array.isArray(properties) ? properties : properties.split(',').map((p: string) => p.trim())
     }
 
-    // Add filtering if specified
-    if (filterProperty && filterValue) {
-      payload.filters = [{
-        propertyName: filterProperty,
+    if (after) {
+      payload.after = after
+    }
+
+    if (sortProperty) {
+      payload.sorts = [
+        {
+          propertyName: sortProperty,
+          direction: sortDirection === 'DESCENDING' ? 'DESCENDING' : 'ASCENDING'
+        }
+      ]
+    }
+
+    const filters: any[] = []
+
+    const normalizeFilterProperties = (value: any): string[] => {
+      if (Array.isArray(value)) {
+        return value
+          .map((prop) => typeof prop === 'string' ? prop.trim() : '')
+          .filter(Boolean)
+      }
+      if (typeof value === 'string' && value.trim()) {
+        return [value.trim()]
+      }
+      return []
+    }
+
+    const resolveFilterValueForProperty = (property: string, index: number): any => {
+      if (Array.isArray(filterValue)) {
+        if (filterValue.length === 0) return undefined
+        return filterValue[index] ?? filterValue[filterValue.length - 1]
+      }
+
+      if (filterValue && typeof filterValue === 'object') {
+        return filterValue[property]
+      }
+
+      return filterValue
+    }
+
+    const appendAdvancedFilter = (filter: any) => {
+      if (!filter) return
+      const propertyName = filter.property || filter.field
+      const operator = (filter.operator || 'EQ').toUpperCase()
+
+      if (!propertyName) return
+
+      if (['HAS_PROPERTY', 'NOT_HAS_PROPERTY', 'IS_EMPTY', 'IS_NOT_EMPTY'].includes(operator)) {
+        filters.push({ propertyName, operator })
+        return
+      }
+
+      if (operator === 'BETWEEN') {
+        if (filter.value && filter.valueTo) {
+          filters.push({
+            propertyName,
+            operator,
+            value: filter.value,
+            highValue: filter.valueTo
+          })
+        }
+        return
+      }
+
+      if (operator === 'IN') {
+        const rawValues = Array.isArray(filter.values)
+          ? filter.values
+          : typeof filter.value === 'string'
+            ? filter.value.split(',').map((v: string) => v.trim()).filter(Boolean)
+            : []
+
+        if (rawValues.length > 0) {
+          filters.push({ propertyName, operator, values: rawValues })
+        }
+        return
+      }
+
+      if (filter.value !== undefined && filter.value !== null && filter.value !== '') {
+        filters.push({ propertyName, operator, value: filter.value })
+      }
+    }
+
+    if (Array.isArray(advancedFilters)) {
+      advancedFilters.forEach(appendAdvancedFilter)
+    }
+
+    const filterProperties = normalizeFilterProperties(filterProperty)
+    filterProperties.forEach((propertyName, index) => {
+      const valueForProperty = resolveFilterValueForProperty(propertyName, index)
+      if (valueForProperty === undefined || valueForProperty === null || valueForProperty === '') {
+        return
+      }
+
+      filters.push({
+        propertyName,
         operator: 'EQ',
-        value: filterValue
-      }]
+        value: valueForProperty
+      })
+    })
+
+    if (filters.length > 0) {
+      payload.filterGroups = [{ filters }]
     }
 
     const response = await fetch('https://api.hubapi.com/crm/v3/objects/deals/search', {
@@ -53,13 +152,18 @@ export async function hubspotGetDeals(
 
     const data = await response.json()
     const deals = data.results || []
+    const nextCursor = data.paging?.next?.after || null
+    const hasMore = Boolean(nextCursor)
 
     return {
       success: true,
       output: {
         deals,
         count: deals.length,
-        total: data.total || deals.length
+        total: data.total || deals.length,
+        nextCursor,
+        hasMore,
+        paging: data.paging || null
       },
       message: `Successfully retrieved ${deals.length} deals from HubSpot`
     }

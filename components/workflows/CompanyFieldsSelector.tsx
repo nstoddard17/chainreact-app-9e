@@ -42,6 +42,8 @@ interface CompanyFieldsSelectorProps {
   currentNodeId?: string
 }
 
+const CUSTOM_COMPANY_VALUE_OPTION = "__chainreact_internal__company_field_custom_value__"
+
 export default function CompanyFieldsSelector({
   integrationId,
   selectedFields,
@@ -159,12 +161,17 @@ export default function CompanyFieldsSelector({
         // Show dropdown with existing values if available
         if (field.existingValues && field.existingValues.length > 0) {
           return renderInputWithVariablePicker(
-            <Select value={currentValue} onValueChange={(value) => onFieldValueChange(field.name, value)}>
+            <Select
+              value={currentValue === '' ? CUSTOM_COMPANY_VALUE_OPTION : currentValue}
+              onValueChange={(value) =>
+                onFieldValueChange(field.name, value === CUSTOM_COMPANY_VALUE_OPTION ? '' : value)
+              }
+            >
               <SelectTrigger>
                 <SelectValue placeholder={`Select or type ${field.label}`} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">
+                <SelectItem value={CUSTOM_COMPANY_VALUE_OPTION}>
                   <span className="text-muted-foreground">Type a new value...</span>
                 </SelectItem>
                 {field.existingValues.map((value) => (

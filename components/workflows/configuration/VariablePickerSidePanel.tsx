@@ -17,6 +17,7 @@ import { resolveVariableValue, getNodeVariableValues } from '@/lib/workflows/var
 import { StaticIntegrationLogo } from '@/components/ui/static-integration-logo'
 import { useVariableDragContext } from './VariableDragContext'
 import { buildVariableReference, createVariableAlias } from '@/lib/workflows/variableInsertion'
+import { ConfigurationSectionHeader } from './components/ConfigurationSectionHeader'
 
 import { logger } from '@/lib/utils/logger'
 import { getActionOutputSchema, mergeSchemas, type OutputField } from '@/lib/workflows/actions/outputSchemaRegistry'
@@ -816,8 +817,8 @@ export function VariablePickerSidePanel({
             <div className="w-8 h-8 flex items-center justify-center bg-slate-100 rounded-lg">
               <span className="text-sm font-mono font-semibold text-slate-700">{`{}`}</span>
             </div>
-            <div>
-              <h3 className="text-sm font-semibold text-slate-900">Variables</h3>
+            <div className="space-y-1">
+              <ConfigurationSectionHeader label="Variables" className="border-none pb-0" />
               <span className="text-xs text-slate-500">Available data from previous steps</span>
             </div>
           </div>

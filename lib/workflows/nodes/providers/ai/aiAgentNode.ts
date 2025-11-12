@@ -1,5 +1,17 @@
-import { Sparkles } from "lucide-react"
+import React from "react"
 import { NodeComponent } from "../../types"
+
+const AIAgentIcon = ({ className }: { className?: string }) =>
+  React.createElement("img", {
+    src: "/integrations/ai.svg",
+    alt: "AI Agent",
+    className: className ? `object-contain ${className}` : "h-5 w-5 object-contain",
+    width: 20,
+    height: 20,
+    draggable: false,
+    loading: "lazy",
+    decoding: "async",
+  })
 
 /**
  * Autonomous AI Agent Node
@@ -20,7 +32,7 @@ export const aiAgentNode: NodeComponent = {
   type: "ai_agent",
   title: "AI Agent",
   description: "Get Custom AI Responses Using ChatGPT or Gemini",
-  icon: Sparkles,
+  icon: AIAgentIcon,
   category: "AI & Automation",
   providerId: "ai",
   isTrigger: false,
@@ -38,6 +50,7 @@ export const aiAgentNode: NodeComponent = {
       label: "What should the AI do?",
       type: "textarea",
       multiline: true,
+      rows: 16,
       required: true,
       hasVariablePicker: true,
       hasImproveButton: true, // Enable "Improve Prompt" button
@@ -68,6 +81,7 @@ The AI will:
       label: "Additional Instructions (Optional)",
       type: "textarea",
       multiline: true,
+      rows: 7,
       placeholder: `Optional: Give the AI additional context or rules
 
 Examples:
@@ -155,6 +169,7 @@ Examples:
       label: "Output Format Hint (Optional)",
       type: "textarea",
       multiline: true,
+      rows: 9,
       placeholder: `Optionally tell the AI what format you need the output in:
 
 Examples:

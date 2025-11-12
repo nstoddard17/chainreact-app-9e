@@ -51,6 +51,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react"
 import { ConfigurationModalProps } from "./utils/types"
+import type { NodeComponent } from "@/lib/workflows/nodes/types"
 import ConfigurationForm from "./ConfigurationForm"
 import { ConfigurationDataInspector } from "./ConfigurationDataInspector"
 import { VariableDragProvider } from "./VariableDragContext"
@@ -105,10 +106,7 @@ const FreeLabel = () => (
   }}>✅ Free</span>
 );
 
-/**
- * Get icon for node type (fallback for non-integration nodes)
- */
-const getNodeIcon = (nodeType: string) => {
+const getFallbackNodeIcon = (nodeType: string) => {
   if (nodeType.includes('gmail')) return <Mail className="h-5 w-5" />
   if (nodeType.includes('discord')) return <MessageSquare className="h-5 w-5" />
   if (nodeType.includes('slack')) return <MessageSquare className="h-5 w-5" />
@@ -120,6 +118,65 @@ const getNodeIcon = (nodeType: string) => {
   if (nodeType.includes('trigger')) return <Bell className="h-5 w-5" />
   if (nodeType.includes('action')) return <Zap className="h-5 w-5" />
   return <Settings className="h-5 w-5" />
+}
+
+const createNodeIconElement = (nodeInfo?: NodeComponent) => {
+  if (!nodeInfo?.icon) return null
+  const iconValue = nodeInfo.icon as any
+
+  if (React.isValidElement(iconValue)) {
+    return React.cloneElement(iconValue, {
+      className: cn("h-6 w-6", iconValue.props?.className),
+    })
+  }
+
+  if (typeof iconValue === "string") {
+    const path = iconValue.startsWith("/") ? iconValue : `/integrations/${iconValue}.svg`
+    return (
+      <img
+        src={path}
+        alt={nodeInfo.title || nodeInfo.type || "Node icon"}
+        className="h-6 w-6 object-contain"
+        width={24}
+        height={24}
+        draggable={false}
+      />
+    )
+  }
+
+  if (typeof iconValue === "function" || typeof iconValue === "object") {
+    const IconComponent = iconValue as React.ComponentType<{ className?: string }>
+    return <IconComponent className="h-6 w-6" />
+  }
+
+  return null
+}
+
+const renderNodeBadge = (nodeInfo?: NodeComponent) => {
+  const iconElement = createNodeIconElement(nodeInfo)
+
+  if (iconElement) {
+    return (
+      <div className="p-1.5 bg-slate-100 dark:bg-slate-900 rounded-lg flex items-center justify-center">
+        {iconElement}
+      </div>
+    )
+  }
+
+  if (nodeInfo?.providerId) {
+    return (
+      <StaticIntegrationLogo
+        providerId={nodeInfo.providerId}
+        providerName={getProviderBrandName(nodeInfo.providerId)}
+      />
+    )
+  }
+
+  return (
+    <div className="p-1.5 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg text-white flex-shrink-0">
+      {getFallbackNodeIcon(nodeInfo?.type || '')}
+    </div>
+  )
 }
 
 /**
@@ -503,19 +560,10 @@ export function ConfigurationModal({
                   <ArrowRight className="h-4 w-4 text-slate-600 dark:text-slate-400" />
                 </Button>
 
-                {/* Integration Logo or Fallback Icon */}
-                {nodeInfo?.providerId ? (
-                  <div className="flex-shrink-0">
-                    <StaticIntegrationLogo
-                      providerId={nodeInfo.providerId}
-                      providerName={getProviderBrandName(nodeInfo.providerId)}
-                    />
-                  </div>
-                ) : (
-                  <div className="p-1.5 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg text-white flex-shrink-0">
-                    {React.cloneElement(getNodeIcon(nodeInfo?.type || ''), { className: 'h-5 w-5' })}
-                  </div>
-                )}
+                {/* Integration Logo or Node-specific Icon */}
+                <div className="flex-shrink-0">
+                  {renderNodeBadge(nodeInfo || undefined)}
+                </div>
                 <div className="flex-1 min-w-0">
                   <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2 truncate">
                     {getModalTitle()}

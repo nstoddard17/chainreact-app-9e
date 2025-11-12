@@ -7,6 +7,7 @@ import { useIntegrationStore } from '@/stores/integrationStore'
 import { getProviderBrandName } from '@/lib/integrations/brandNames'
 import { useToast } from '@/hooks/use-toast'
 import { AlertCircle } from 'lucide-react'
+import { isNodeTypeConnectionExempt, isProviderConnectionExempt } from '../utils/connectionExemptions'
 
 interface SetupTabProps {
   nodeInfo: any
@@ -67,24 +68,13 @@ export function SetupTab(props: SetupTabProps) {
 
   // Determine if this node requires an integration connection
   const requiresConnection = useMemo(() => {
-    // Nodes without a provider don't need connections (logic nodes, etc.)
-    if (!nodeInfo?.providerId) return false
-
-    // Check if this is an actual integration provider (not utility/logic/AI)
-    const nonIntegrationProviders = [
-      // Logic nodes
-      'logic',
-      // Scheduling
-      'schedule', 'conditional', 'if_then', 'path', 'filter', 'http_request',
-      // Utility nodes (providerId: 'utility')
-      'utility', 'transformer', 'file_upload', 'extract_website_data',
-      'conditional_trigger', 'google_search', 'tavily_search',
-      // AI nodes (providerId: 'ai')
-      'ai', 'ai_agent', 'ai_router', 'ai_message', 'ai_action'
-    ]
-
-    return !nonIntegrationProviders.includes(nodeInfo.providerId)
-  }, [nodeInfo?.providerId])
+    if (!nodeInfo) return false
+    if (isNodeTypeConnectionExempt(nodeInfo.type)) {
+      return false
+    }
+    if (!nodeInfo.providerId) return false
+    return !isProviderConnectionExempt(nodeInfo.providerId)
+  }, [nodeInfo?.providerId, nodeInfo?.type])
 
   // Get ALL connections for this provider (not just one)
   const connections = useMemo(() => {

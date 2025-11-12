@@ -12,6 +12,7 @@ import { AirtableRecordsTable } from '../AirtableRecordsTable';
 import { FieldChecklistWithOverride } from '../FieldChecklistWithOverride';
 import { getAirtableFieldTypeFromSchema, isEditableFieldType } from '../utils/airtableHelpers';
 import { BubbleDisplay } from '../components/BubbleDisplay';
+import { ConfigurationSectionHeader } from '../components/ConfigurationSectionHeader';
 import { getProviderDisplayName } from '@/lib/utils/provider-names';
 
 import { logger } from '@/lib/utils/logger'
@@ -2511,8 +2512,12 @@ export function AirtableConfiguration({
             {/* Advanced fields - Always visible section */}
             {advancedFields.length > 0 && (
               <div className="border-t border-slate-200 pt-4 mt-6">
-                <h3 className="text-sm font-semibold text-slate-700 mb-1">Advanced Settings</h3>
-                <p className="text-xs text-slate-500 mb-4">Optional configuration for batch processing</p>
+                <div className="space-y-1 mb-4">
+                  <ConfigurationSectionHeader label="Advanced Settings" />
+                  <p className="text-xs text-slate-500">
+                    Optional configuration for batch processing
+                  </p>
+                </div>
                 <div className="space-y-3">
                   {renderFields(advancedFields)}
                 </div>
@@ -2790,10 +2795,11 @@ export function AirtableConfiguration({
               <div className="w-full space-y-6">
                 {/* Record selection table */}
                 <div className="overflow-hidden">
-                  <div className="mb-3">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-1">
-                      Select Record to Duplicate
-                    </h3>
+                  <div className="mb-3 space-y-1">
+                    <ConfigurationSectionHeader
+                      label="Select Record to Duplicate"
+                      className="border-none pb-0"
+                    />
                     <p className="text-xs text-gray-600">
                       Click a row to select the record you want to duplicate, or paste a record ID above
                     </p>
@@ -2811,10 +2817,11 @@ export function AirtableConfiguration({
                 {/* Field checklist with override toggles */}
                 {selectedDuplicateRecord && duplicateFieldChecklist.length > 0 && (
                   <div className="border border-gray-300 rounded-lg p-4 bg-white">
-                    <div className="mb-4">
-                      <h3 className="text-sm font-semibold text-gray-900 mb-1">
-                        Select Fields to Duplicate
-                      </h3>
+                    <div className="mb-4 space-y-1">
+                      <ConfigurationSectionHeader
+                        label="Select Fields to Duplicate"
+                        className="border-none pb-0"
+                      />
                       <p className="text-xs text-gray-600">
                         Check fields to copy, and enable "Override" to change their values in the duplicate
                       </p>
@@ -2832,8 +2839,12 @@ export function AirtableConfiguration({
             {(isCreateRecord || (isUpdateRecord && selectedRecord) || (isUpdateMultipleRecords && selectedMultipleRecords.length > 0)) && dynamicFields.length > 0 && (
               <div className="space-y-3" data-dynamic-fields>
                 <div className="mt-6 border-t border-slate-200 pt-4">
-                  <h3 className="text-sm font-semibold text-slate-700 mb-1">Table Fields</h3>
-                  <p className="text-xs text-slate-500 mb-4">Configure the values for each field in the {values.tableName} table</p>
+                  <div className="space-y-1 mb-4">
+                    <ConfigurationSectionHeader label="Table Fields" />
+                    <p className="text-xs text-slate-500">
+                      Configure the values for each field in the {values.tableName} table
+                    </p>
+                  </div>
                 </div>
                 <div className="space-y-3">
                   {renderFields(dynamicFields, true)}

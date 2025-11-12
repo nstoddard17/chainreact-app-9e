@@ -7,10 +7,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import type { WorkflowPlan, NodePlan } from '@/lib/workflows/ai/SequentialWorkflowBuilder'
+import { logger } from '@/lib/utils/logger'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-})
+let cachedOpenAIClient: OpenAI | null = null
+function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY
+  if (!apiKey) {
+    logger.warn('[AI Workflow Plan] OPENAI_API_KEY is not configured')
+    return null
+  }
+  if (!cachedOpenAIClient) {
+    cachedOpenAIClient = new OpenAI({ apiKey })
+  }
+  return cachedOpenAIClient
+}
 
 // Node catalog for AI to choose from
 const NODE_CATALOG = `
@@ -107,7 +117,8 @@ Return ONLY a JSON object with this structure:
 export async function POST(req: NextRequest) {
   try {
     // Check if API key is configured
-    if (!process.env.OPENAI_API_KEY) {
+    const openai = getOpenAIClient()
+    if (!openai) {
       return NextResponse.json(
         {
           error: 'AI service not configured. Please set OPENAI_API_KEY environment variable.',
@@ -165,7 +176,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(enhancedPlan)
   } catch (error: any) {
-    console.error('Error generating workflow plan:', error)
+    logger.error('Error generating workflow plan:', error)
     return NextResponse.json(
       {
         error: 'Failed to generate workflow plan',

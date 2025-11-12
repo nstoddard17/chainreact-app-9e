@@ -38,6 +38,7 @@ import type { DynamicOptionsState } from "../configuration/utils/types"
 import { ProviderSelectionUI } from "../ai-agent/ProviderSelectionUI"
 import { ProviderBadge } from "../ai-agent/ProviderBadge"
 import { getProviderOptions } from "@/lib/workflows/ai-agent/providerDisambiguation"
+import { isNodeTypeConnectionExempt, isProviderConnectionExempt } from "../configuration/utils/connectionExemptions"
 
 interface PanelLayoutProps {
   isOpen: boolean
@@ -1030,7 +1031,8 @@ export function FlowV2AgentPanel({
                                   const NodeIcon = planNode.icon
 
                                   const showExpanded = isActive && buildMachine.state === BuildState.WAITING_USER
-                                  const requiresConnection = !!(planNode.providerId && planNode.providerId !== 'ai' && planNode.providerId !== 'logic' && planNode.providerId !== 'mapper')
+                                  const requiresConnection = !isNodeTypeConnectionExempt(planNode.nodeType) &&
+                                    !!(planNode.providerId && !isProviderConnectionExempt(planNode.providerId))
 
                                   return (
                                     <div key={planNode.id} className={`plan-item ${isDone ? 'done' : ''} ${isActive ? 'active' : ''} ${showExpanded ? 'expanded' : ''} w-full overflow-visible min-w-0`}>

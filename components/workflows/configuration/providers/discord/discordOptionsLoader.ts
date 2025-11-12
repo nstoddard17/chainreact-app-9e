@@ -226,7 +226,10 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            dataType: 'discord_guilds'
+            dataType: 'discord_guilds',
+            options: {
+              requireBotAccess: true
+            }
           })
         });
 

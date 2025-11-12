@@ -9,10 +9,15 @@ import { logger } from '@/lib/utils/logger'
 
 // Lazy-load Supabase client to avoid build-time env var requirement
 function getSupabaseClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    logger.warn('[WorkflowTriggerFix] Supabase credentials are not configured; skipping fix')
+    return null
+  }
+
+  return createClient(supabaseUrl, supabaseServiceKey)
 }
 
 // Map of known trigger types based on their properties
@@ -46,6 +51,9 @@ export async function fixWorkflowTriggerNodes(workflowId?: string) {
     logger.debug('🔧 Starting workflow trigger node fix...')
 
     const supabase = getSupabaseClient()
+    if (!supabase) {
+      return { success: false, error: 'Supabase credentials are not configured' }
+    }
 
     // Get workflows to fix
     let query = supabase.from('workflows').select('id, name, nodes')

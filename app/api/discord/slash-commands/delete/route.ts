@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/utils/logger';
-import { createClient } from '@/utils/supabase/server';
+import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server';
 
 export async function DELETE(request: NextRequest) {
   try {
@@ -26,7 +26,7 @@ export async function DELETE(request: NextRequest) {
     });
 
     // Get user from session
-    const supabase = await createClient();
+    const supabase = await createSupabaseRouteHandlerClient();
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
     if (userError || !user) {

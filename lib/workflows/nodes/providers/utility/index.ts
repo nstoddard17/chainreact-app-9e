@@ -1,17 +1,38 @@
-import {
-  FileUp,
-  Globe2,
-  Compass,
-  RefreshCw,
-} from "lucide-react"
+import React from "react"
 import { NodeComponent } from "../../types"
+
+type IconProps = {
+  className?: string
+}
+
+const createImageIcon = (src: string, alt: string) => {
+  const Icon = ({ className }: IconProps) =>
+    React.createElement("img", {
+      src,
+      alt,
+      className: className ? `object-contain ${className}` : "h-5 w-5 object-contain",
+      width: 20,
+      height: 20,
+      loading: "lazy",
+      decoding: "async",
+      draggable: false,
+    })
+
+  Icon.displayName = `${alt.replace(/\s+/g, "")}Icon`
+  return Icon
+}
+
+const FormatTransformerIcon = createImageIcon("/integrations/format-transformer.svg", "Format Transformer")
+const ParseFileIcon = createImageIcon("/integrations/parse-file.svg", "Parse File")
+const ExtractWebsiteIcon = createImageIcon("/integrations/extract-website.svg", "Extract Info from Website")
+const TavilySearchIcon = createImageIcon("/integrations/tavily-search.svg", "Internet Search (Tavily)")
 
 export const utilityNodes: NodeComponent[] = [
   {
     type: "format_transformer",
     title: "Format Transformer",
     description: "Convert content between formats (HTML → Slack markdown, plain text, etc.)",
-    icon: RefreshCw,
+    icon: FormatTransformerIcon,
     category: "Data Transformation",
     providerId: "utility",
     isTrigger: false,
@@ -110,7 +131,7 @@ export const utilityNodes: NodeComponent[] = [
     type: "parse_file",
     title: "Parse File",
     description: "Parse and extract data from files (CSV, Excel, PDF, JSON)",
-    icon: FileUp,
+    icon: ParseFileIcon,
     category: "Data Transformation",
     providerId: "utility",
     isTrigger: false,
@@ -263,7 +284,7 @@ export const utilityNodes: NodeComponent[] = [
     type: "extract_website_data",
     title: "Extract Info from Website",
     description: "Scrape and extract specific data from websites using CSS selectors or AI",
-    icon: Globe2,
+    icon: ExtractWebsiteIcon,
     category: "Data Enrichment",
     providerId: "utility",
     isTrigger: false,
@@ -402,7 +423,7 @@ export const utilityNodes: NodeComponent[] = [
     type: "tavily_search",
     title: "Internet Search (Tavily)",
     description: "Quickly find relevant website links from the internet using Tavily API",
-    icon: Compass,
+    icon: TavilySearchIcon,
     category: "Data Enrichment",
     providerId: "utility",
     isTrigger: false,

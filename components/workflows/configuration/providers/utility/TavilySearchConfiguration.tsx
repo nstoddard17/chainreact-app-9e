@@ -4,8 +4,7 @@ import React, { useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Search, AlertCircle, Info, Sparkles } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AlertCircle, Info, Sparkles } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -17,6 +16,7 @@ import {
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ConfigurationContainer } from '../../components/ConfigurationContainer';
+import { ConfigurationSectionHeader } from '../../components/ConfigurationSectionHeader';
 
 interface TavilySearchConfigurationProps {
   values: Record<string, any>;
@@ -41,8 +41,6 @@ export function TavilySearchConfiguration({
   nodeInfo,
   isEditMode = false,
 }: TavilySearchConfigurationProps) {
-  const [activeTab, setActiveTab] = useState('basic');
-
   // Set default values
   React.useEffect(() => {
     if (!values.searchDepth) {
@@ -99,6 +97,8 @@ export function TavilySearchConfiguration({
     },
   ];
 
+  const TAVILY_ALL_TIME_VALUE = "__chainreact_internal__tavily_all_time__"
+
   const timeRangeOptions = [
     { value: '', label: 'All time' },
     { value: 'day', label: 'Past 24 hours' },
@@ -115,23 +115,9 @@ export function TavilySearchConfiguration({
       isEditMode={isEditMode}
       isFormValid={isFormValid}
     >
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold flex items-center gap-2">
-          <Search className="w-5 h-5" />
-          Internet Search (Tavily)
-        </h3>
-        <p className="text-sm text-muted-foreground mt-1">
-          Find relevant website links using Tavily API
-        </p>
-      </div>
-
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2 mb-6">
-            <TabsTrigger value="basic">Basic Search</TabsTrigger>
-            <TabsTrigger value="advanced">Advanced Options</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="basic" className="space-y-4 mt-0">
+      <div className="space-y-6">
+        <section className="space-y-4">
+          <ConfigurationSectionHeader label="Basic Search" caption="Required" />
             <Alert>
               <Info className="h-4 w-4" />
               <AlertDescription className="text-xs">
@@ -248,22 +234,32 @@ export function TavilySearchConfiguration({
 }`}
               </pre>
             </div>
-          </TabsContent>
+        </section>
 
-          <TabsContent value="advanced" className="space-y-4 mt-0">
+        <section className="space-y-4 pt-6 border-t border-border/60">
+          <ConfigurationSectionHeader label="Advanced Options" caption="Fine-tune your search" />
             {/* Time Range */}
             <div>
               <Label htmlFor="timeRange">Time Range</Label>
               <Select
-                value={values.timeRange || ''}
-                onValueChange={(value) => setValue('timeRange', value)}
+                value={
+                  values.timeRange && values.timeRange.length > 0
+                    ? values.timeRange
+                    : TAVILY_ALL_TIME_VALUE
+                }
+                onValueChange={(value) =>
+                  setValue('timeRange', value === TAVILY_ALL_TIME_VALUE ? '' : value)
+                }
               >
                 <SelectTrigger className="mt-2">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {timeRangeOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
+                    <SelectItem
+                      key={option.value || TAVILY_ALL_TIME_VALUE}
+                      value={option.value === '' ? TAVILY_ALL_TIME_VALUE : option.value}
+                    >
                       {option.label}
                     </SelectItem>
                   ))}
@@ -381,8 +377,8 @@ export function TavilySearchConfiguration({
                 </ul>
               </AlertDescription>
             </Alert>
-          </TabsContent>
-        </Tabs>
+        </section>
+      </div>
     </ConfigurationContainer>
   );
 }

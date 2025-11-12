@@ -19,10 +19,17 @@ try {
   Anthropic = null
 }
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+function getSupabaseClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!supabaseUrl || !serviceKey) {
+    logger.warn('[AI Decision] Supabase credentials are not configured')
+    return null
+  }
+
+  return createClient(supabaseUrl, serviceKey)
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -35,6 +42,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Check user authentication
+    const supabase = getSupabaseClient()
+    if (!supabase) {
+      return errorResponse('Supabase not configured' , 500)
+    }
+
     const { data: user, error: userError } = await supabase
       .from('users')
       .select('id')

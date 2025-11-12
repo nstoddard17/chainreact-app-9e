@@ -6,16 +6,22 @@ import { checkUsageLimit, trackUsage } from "@/lib/usageTracking"
 
 import { logger } from '@/lib/utils/logger'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY
+  if (!apiKey) {
+    logger.warn('[AI Compose] OPENAI_API_KEY is not configured')
+    return null
+  }
+  return new OpenAI({ apiKey })
+}
 
 export async function POST(request: NextRequest) {
   try {
-    if (!process.env.OPENAI_API_KEY) {
+    const openai = getOpenAIClient()
+    if (!openai) {
       return errorResponse("AI not configured" , 500)
     }
-    
+ 
     const { prompt, context, tone, field, integration, previous, regenerate } = await request.json()
     if (!prompt) {
       return errorResponse("Missing prompt" , 400)

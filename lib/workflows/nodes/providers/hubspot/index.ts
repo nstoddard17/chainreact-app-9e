@@ -1385,20 +1385,64 @@ const hubspotActionGetDeals: NodeComponent = {
       placeholder: "Number of deals to retrieve (max 100)"
     },
     {
+      name: "after",
+      label: "Start After Cursor",
+      type: "text",
+      required: false,
+      placeholder: "Use paging cursor to continue",
+      description: "Provide the paging cursor from a previous run to continue where the last request ended.",
+      uiTab: "advanced"
+    },
+    {
+      name: "sortProperty",
+      label: "Sort By Property",
+      type: "select",
+      dynamic: "hubspot_deal_properties",
+      required: false,
+      placeholder: "Choose field to sort by",
+      loadOnMount: true,
+      description: "Select a deal property to sort results by."
+    },
+    {
+      name: "sortDirection",
+      label: "Sort Direction",
+      type: "select",
+      required: false,
+      defaultValue: "ASCENDING",
+      options: [
+        { value: "ASCENDING", label: "Ascending" },
+        { value: "DESCENDING", label: "Descending" }
+      ],
+      dependsOn: "sortProperty",
+      placeholder: "Select direction"
+    },
+    {
+      name: "advancedFilters",
+      label: "Advanced Filters",
+      type: "hubspot_filters",
+      dynamic: "hubspot_deal_properties",
+      loadOnMount: true,
+      required: false,
+      description: "Build property/operator/value rules. All filters are combined with AND."
+    },
+    {
       name: "filterProperty",
       label: "Filter by Property (Optional)",
       type: "multi-select",
       dynamic: "hubspot_deal_properties",
       required: false,
       placeholder: "Select deal properties (e.g., dealname, dealstage)",
-      description: "Choose one or more deal properties to filter on"
+      description: "Legacy filter option that matches properties exactly.",
+      uiTab: "advanced"
     },
     {
       name: "filterValue",
       label: "Filter Value",
       type: "text",
       required: false,
-      placeholder: "Value to match"
+      placeholder: "Value to match",
+      uiTab: "advanced",
+      description: "Provide the value to match for the properties selected above."
     },
     {
       name: "properties",
@@ -1422,6 +1466,24 @@ const hubspotActionGetDeals: NodeComponent = {
       label: "Count",
       type: "number",
       description: "Number of deals retrieved"
+    },
+    {
+      name: "total",
+      label: "Total Matches",
+      type: "number",
+      description: "Total number of deals that match the filters"
+    },
+    {
+      name: "nextCursor",
+      label: "Next Cursor",
+      type: "string",
+      description: "Cursor to use in the next request for pagination"
+    },
+    {
+      name: "hasMore",
+      label: "Has More",
+      type: "boolean",
+      description: "Indicates if additional pages are available"
     }
   ]
 }
