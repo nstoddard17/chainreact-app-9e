@@ -859,6 +859,7 @@ const hubspotMappings: Record<string, FieldMapping> = {
     contactId: "hubspot_contacts",
     hubspot_owner_id: "hubspot_owners",
     hs_lead_status: "hubspot_lead_status_options",
+    selectedProperties: "hubspot_contact_properties"
   },
   hubspot_action_update_company: {
     companyId: "hubspot_companies",
@@ -880,6 +881,9 @@ const hubspotMappings: Record<string, FieldMapping> = {
   hubspot_action_update_line_item: {
     lineItemId: "hubspot_line_items",
   },
+  hubspot_action_remove_line_item: {
+    lineItemId: "hubspot_line_items",
+  },
   hubspot_action_get_contacts: {
     filterProperty: "hubspot_contact_properties",
     properties: "hubspot_contact_properties",
@@ -890,6 +894,8 @@ const hubspotMappings: Record<string, FieldMapping> = {
   },
   hubspot_action_get_deals: {
     filterProperty: "hubspot_deal_properties",
+    sortProperty: "hubspot_deal_properties",
+    advancedFilters: "hubspot_deal_properties",
     properties: "hubspot_deal_properties",
   },
   hubspot_action_get_products: {

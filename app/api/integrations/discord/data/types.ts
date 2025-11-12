@@ -24,6 +24,9 @@ export interface DiscordGuild {
   features?: string[]
   approximate_member_count?: number
   approximate_presence_count?: number
+  botInGuild?: boolean
+  hasPermissions?: boolean
+  botError?: string
 }
 
 export interface DiscordChannel {

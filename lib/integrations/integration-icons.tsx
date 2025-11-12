@@ -36,4 +36,5 @@ export const integrationIcons: Record<string, string> = {
   blackbaud: '/integrations/blackbaud.svg',
   kit: '/integrations/kit.svg',
   ai: '/integrations/ai.svg',
+  'ask-human': '/integrations/ask-human.svg',
 };

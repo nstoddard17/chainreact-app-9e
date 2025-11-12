@@ -90,6 +90,12 @@ export const hubspotTriggerTicketCreated: NodeComponent = {
       description: "The ticket's category"
     },
     {
+      name: "hs_ticket_status",
+      label: "Status",
+      type: "string",
+      description: "The ticket status (pipeline dependent)"
+    },
+    {
       name: "hubspot_owner_id",
       label: "Owner ID",
       type: "string",
@@ -112,6 +118,12 @@ export const hubspotTriggerTicketCreated: NodeComponent = {
       label: "Portal ID",
       type: "string",
       description: "The HubSpot portal ID"
+    },
+    {
+      name: "properties",
+      label: "All Properties",
+      type: "object",
+      description: "Full ticket property payload"
     }
   ],
 }
@@ -215,6 +227,12 @@ export const hubspotTriggerTicketUpdated: NodeComponent = {
       description: "The ticket's priority"
     },
     {
+      name: "hs_ticket_status",
+      label: "Status",
+      type: "string",
+      description: "The ticket's status"
+    },
+    {
       name: "updateTimestamp",
       label: "Update Timestamp",
       type: "string",
@@ -225,6 +243,12 @@ export const hubspotTriggerTicketUpdated: NodeComponent = {
       label: "Portal ID",
       type: "string",
       description: "The HubSpot portal ID"
+    },
+    {
+      name: "properties",
+      label: "All Properties",
+      type: "object",
+      description: "Full ticket property payload"
     }
   ],
 }
@@ -285,6 +309,12 @@ export const hubspotTriggerTicketDeleted: NodeComponent = {
       description: "The ticket's stage (if available)"
     },
     {
+      name: "hs_ticket_status",
+      label: "Status",
+      type: "string",
+      description: "The ticket's status (if available)"
+    },
+    {
       name: "deleteTimestamp",
       label: "Delete Timestamp",
       type: "string",
@@ -295,6 +325,12 @@ export const hubspotTriggerTicketDeleted: NodeComponent = {
       label: "Portal ID",
       type: "string",
       description: "The HubSpot portal ID"
+    },
+    {
+      name: "properties",
+      label: "All Properties",
+      type: "object",
+      description: "Full ticket property payload when available"
     }
   ],
 }

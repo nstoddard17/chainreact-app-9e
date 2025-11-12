@@ -28,6 +28,9 @@ interface GoogleSearchConfigurationProps {
   isEditMode?: boolean;
 }
 
+const ALL_COUNTRIES_VALUE = "__chainreact_internal__all_countries__";
+const DATE_RANGE_ALL_TIME_VALUE = "__chainreact_internal__date_range_all_time__";
+
 export function GoogleSearchConfiguration({
   values,
   errors,
@@ -249,15 +252,18 @@ export function GoogleSearchConfiguration({
             <div>
               <Label htmlFor="country">Country/Region</Label>
               <Select
-                value={values.country || ''}
-                onValueChange={(value) => setValue('country', value)}
+                value={values.country && values.country.length > 0 ? values.country : ALL_COUNTRIES_VALUE}
+                onValueChange={(value) => setValue('country', value === ALL_COUNTRIES_VALUE ? '' : value)}
               >
                 <SelectTrigger className="mt-2">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {countries.map((country) => (
-                    <SelectItem key={country.value} value={country.value}>
+                    <SelectItem
+                      key={country.value || ALL_COUNTRIES_VALUE}
+                      value={country.value === '' ? ALL_COUNTRIES_VALUE : country.value}
+                    >
                       {country.label}
                     </SelectItem>
                   ))}
@@ -295,14 +301,20 @@ export function GoogleSearchConfiguration({
             <div>
               <Label htmlFor="dateRange">Date Range (Optional)</Label>
               <Select
-                value={values.dateRange || ''}
-                onValueChange={(value) => setValue('dateRange', value)}
+                value={
+                  values.dateRange && values.dateRange.length > 0
+                    ? values.dateRange
+                    : DATE_RANGE_ALL_TIME_VALUE
+                }
+                onValueChange={(value) =>
+                  setValue('dateRange', value === DATE_RANGE_ALL_TIME_VALUE ? '' : value)
+                }
               >
                 <SelectTrigger className="mt-2">
                   <SelectValue placeholder="All time" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All time</SelectItem>
+                  <SelectItem value={DATE_RANGE_ALL_TIME_VALUE}>All time</SelectItem>
                   <SelectItem value="day">Past 24 hours</SelectItem>
                   <SelectItem value="week">Past week</SelectItem>
                   <SelectItem value="month">Past month</SelectItem>

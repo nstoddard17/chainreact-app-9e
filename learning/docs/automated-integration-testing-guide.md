@@ -95,13 +95,13 @@ When dynamic loading fails AND field validation fails:
 
 Files:
 - `/app/api/admin/test-fields/route.ts` - Returns field requirements
-- `/app/(authenticated)/admin/integration-tests/page.tsx` - UI with dialog
+- `/app/test/apps/page.tsx` - UI with dialog
 
 ## Using the System
 
 ### Step 1: Navigate to Testing Page
 ```
-http://localhost:3000/admin/integration-tests
+http://localhost:3000/test/apps
 ```
 
 ### Step 2: Select Integration

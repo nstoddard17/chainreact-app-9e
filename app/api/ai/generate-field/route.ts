@@ -19,10 +19,17 @@ try {
   Anthropic = null
 }
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+function getSupabaseClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!supabaseUrl || !serviceKey) {
+    logger.warn('[AI Field Generation] Supabase credentials are not configured')
+    return null
+  }
+
+  return createClient(supabaseUrl, serviceKey)
+}
 
 // Cache for field values to reduce API calls
 const fieldCache = new Map<string, { value: any; timestamp: number }>()
@@ -67,6 +74,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Check user authentication
+    const supabase = getSupabaseClient()
+    if (!supabase) {
+      return errorResponse('Supabase not configured' , 500)
+    }
+
     const { data: user, error: userError } = await supabase
       .from('users')
       .select('id')

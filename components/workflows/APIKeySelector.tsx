@@ -23,6 +23,8 @@ interface APIKeySelectorProps {
   disabled?: boolean
 }
 
+const PLATFORM_DEFAULT_OPTION = "__chainreact_internal__platform_api_key__"
+
 export function APIKeySelector({ value, onChange, className, disabled }: APIKeySelectorProps) {
   const [apiKeys, setApiKeys] = useState<APIKey[]>([])
   const [loading, setLoading] = useState(true)
@@ -99,12 +101,18 @@ export function APIKeySelector({ value, onChange, className, disabled }: APIKeyS
   return (
     <div className={className}>
       <div className="flex items-center gap-2">
-        <Select value={value} onValueChange={onChange} disabled={disabled}>
+        <Select
+          value={value && value.length > 0 ? value : PLATFORM_DEFAULT_OPTION}
+          onValueChange={(nextValue) =>
+            onChange(nextValue === PLATFORM_DEFAULT_OPTION ? "" : nextValue)
+          }
+          disabled={disabled}
+        >
           <SelectTrigger className="flex-1">
             <SelectValue placeholder="Use platform API key (default)" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">
+            <SelectItem value={PLATFORM_DEFAULT_OPTION}>
               <div className="flex items-center gap-2">
                 <Badge variant="secondary" className="text-xs">Default</Badge>
                 <span>Platform API Key</span>

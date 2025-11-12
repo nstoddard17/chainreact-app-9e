@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { ConfigurationSectionHeader } from '../../components/ConfigurationSectionHeader'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -971,9 +972,15 @@ export function NotionBlockFields({
         {/* To-Do List Section */}
         {todoListBlock && (
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <span className="bg-green-500/10 text-green-600 dark:text-green-400 px-2 py-1 rounded text-xs">TO-DO LIST</span>
-          </h3>
+          <ConfigurationSectionHeader
+            label={null}
+            prefix={
+              <span className="bg-green-500/10 text-green-600 dark:text-green-400 px-2 py-1 rounded text-xs">
+                TO-DO LIST
+              </span>
+            }
+            className="border-none pb-0"
+          />
           <div className="border rounded-lg p-4 bg-green-50/30 dark:bg-green-900/10">
             {todoListBlock.properties.map(renderField)}
           </div>
@@ -983,9 +990,15 @@ export function NotionBlockFields({
       {/* Document Embedding Section */}
       {documentSection && (
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <span className="bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-2 py-1 rounded text-xs">DOCUMENT EMBEDS</span>
-          </h3>
+          <ConfigurationSectionHeader
+            label={null}
+            prefix={
+              <span className="bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-2 py-1 rounded text-xs">
+                DOCUMENT EMBEDS
+              </span>
+            }
+            className="border-none pb-0"
+          />
           <div className="border rounded-lg p-4 bg-indigo-50/30 dark:bg-indigo-900/10">
             <p className="text-xs text-muted-foreground mb-4">
               Embed documents from various sources into your Notion page
@@ -1000,9 +1013,15 @@ export function NotionBlockFields({
       {/* Content Blocks Section */}
       {contentBlocks.length > 0 && (
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <span className="bg-primary/10 text-primary px-2 py-1 rounded text-xs">CONTENT BLOCKS</span>
-          </h3>
+          <ConfigurationSectionHeader
+            label={null}
+            prefix={
+              <span className="bg-primary/10 text-primary px-2 py-1 rounded text-xs">
+                CONTENT BLOCKS
+              </span>
+            }
+            className="border-none pb-0"
+          />
           <div className="space-y-3">
             {contentBlocks.map((block) => (
               <div key={block.id} className="border rounded-lg p-4 space-y-3 bg-card">
@@ -1027,14 +1046,20 @@ export function NotionBlockFields({
       {/* Primary Properties Section (Header Properties) */}
       {primaryProperties && (
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <span className="bg-purple-500/10 text-purple-600 dark:text-purple-400 px-2 py-1 rounded text-xs">
-              PRIMARY PROPERTIES
-            </span>
-            <span className="text-xs text-muted-foreground font-normal">
-              (Typically shown in page header)
-            </span>
-          </h3>
+          <ConfigurationSectionHeader
+            label={null}
+            prefix={
+              <span className="bg-purple-500/10 text-purple-600 dark:text-purple-400 px-2 py-1 rounded text-xs">
+                PRIMARY PROPERTIES
+              </span>
+            }
+            suffix={
+              <span className="text-xs text-muted-foreground font-normal">
+                (Typically shown in page header)
+              </span>
+            }
+            className="border-none pb-0"
+          />
           <div className="border rounded-lg p-4 space-y-4 bg-purple-50/30 dark:bg-purple-900/10">
             <div className="grid gap-4 md:grid-cols-2">
               {primaryProperties.properties.map(renderField)}
@@ -1046,11 +1071,15 @@ export function NotionBlockFields({
       {/* Secondary Properties Section (Additional Fields) */}
       {secondaryProperties && (
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <span className="bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-1 rounded text-xs">
-              ADDITIONAL PROPERTIES
-            </span>
-          </h3>
+          <ConfigurationSectionHeader
+            label={null}
+            prefix={
+              <span className="bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-1 rounded text-xs">
+                ADDITIONAL PROPERTIES
+              </span>
+            }
+            className="border-none pb-0"
+          />
           <div className="border rounded-lg p-4 space-y-4 bg-amber-50/30 dark:bg-amber-900/10">
             <div className="grid gap-4">
               {secondaryProperties.properties.map(renderField)}
@@ -1062,11 +1091,15 @@ export function NotionBlockFields({
       {/* Fallback for old format */}
       {!primaryProperties && !secondaryProperties && propertyBlock && (
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <span className="bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-1 rounded text-xs">
-              DATABASE PROPERTIES
-            </span>
-          </h3>
+          <ConfigurationSectionHeader
+            label={null}
+            prefix={
+              <span className="bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-1 rounded text-xs">
+                DATABASE PROPERTIES
+              </span>
+            }
+            className="border-none pb-0"
+          />
           <div className="border rounded-lg p-4 space-y-4 bg-amber-50/50 dark:bg-amber-900/10">
             <p className="text-xs text-muted-foreground mb-3">
               These are database-specific fields that structure your page data

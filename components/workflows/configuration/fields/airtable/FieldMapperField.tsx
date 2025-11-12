@@ -6,6 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowRight, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+const SKIP_FIELD_OPTION = "__chainreact_internal__skip_field__";
+
 interface FieldMappingFieldProps {
   value: any;
   onChange: (value: any) => void;
@@ -174,14 +176,23 @@ export function FieldMapperField({
             {/* Target field (select) */}
             <div className="flex-1">
               <Select
-                value={mappings[sourceField.name] || ''}
-                onValueChange={(value) => handleMappingChange(sourceField.name, value)}
+                value={
+                  mappings[sourceField.name] && mappings[sourceField.name] !== ''
+                    ? mappings[sourceField.name]
+                    : SKIP_FIELD_OPTION
+                }
+                onValueChange={(value) =>
+                  handleMappingChange(
+                    sourceField.name,
+                    value === SKIP_FIELD_OPTION ? '' : value
+                  )
+                }
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select Airtable field..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">-- Skip this field --</SelectItem>
+                  <SelectItem value={SKIP_FIELD_OPTION}>-- Skip this field --</SelectItem>
                   {targetFields.map((targetField: any) => (
                     <SelectItem key={targetField.id} value={targetField.name}>
                       {targetField.name}

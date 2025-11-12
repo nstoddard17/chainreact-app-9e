@@ -23,7 +23,7 @@ export const DISCORD_EXTENDED_CONFIG = {
   // Add more Discord-specific UI configuration here as needed
 };
 
-interface DiscordConfigurationProps {
+export interface DiscordConfigurationProps {
   nodeInfo: any;
   values: Record<string, any>;
   setValue: (field: string, value: any) => void;

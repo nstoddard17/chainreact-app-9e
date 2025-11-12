@@ -30,6 +30,8 @@ interface Column {
   sampleValues: string[];
 }
 
+const NO_COLUMNS_PLACEHOLDER_VALUE = "__chainreact_internal__no_columns__";
+
 export function GoogleSheetsColumnSelector({
   field,
   value = [],
@@ -163,7 +165,7 @@ export function GoogleSheetsColumnSelector({
                 </SelectItem>
               ))}
               {availableColumns.length === 0 && (
-                <SelectItem value="" disabled>
+                <SelectItem value={NO_COLUMNS_PLACEHOLDER_VALUE} disabled>
                   {columns.length === 0 ? 'No columns available' : 'All columns selected'}
                 </SelectItem>
               )}

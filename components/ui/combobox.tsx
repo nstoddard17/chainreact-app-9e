@@ -152,12 +152,9 @@ export function Combobox({
       const labelText = typeof option.label === 'string' ? option.label : '';
       const groupText = option.group || '';
 
-      // Add singular forms of common plural words for better matching
-      // e.g., "file" matches "Files", "folder" matches "Folders"
-      const groupSingular = groupText.replace(/folders/i, 'folder folders').replace(/files/i, 'file files');
-
+      const descriptionText = typeof option.description === 'string' ? option.description : '';
       const searchText = (option.searchValue ||
-        `${option.value} ${labelText} ${groupText} ${groupSingular}`).toLowerCase()
+        `${labelText} ${groupText} ${descriptionText}`).toLowerCase()
       const matches = searchText.includes(searchLower)
 
       if (matches) {
@@ -626,6 +623,21 @@ export function MultiCombobox({
     setOptions(initialOptions)
   }, [initialOptions])
 
+  const buildSearchValue = React.useCallback((option: ComboboxOption) => {
+    const parts: string[] = []
+    if (typeof option.label === 'string') parts.push(option.label)
+    if (typeof option.description === 'string') parts.push(option.description)
+    if (option.searchValue) parts.push(option.searchValue)
+    if (parts.length === 0 && typeof option.value === 'string') parts.push(option.value)
+    return parts.join(' ').trim().toLowerCase()
+  }, [])
+
+  const filteredOptions = React.useMemo(() => {
+    const search = inputValue.trim().toLowerCase()
+    if (!search) return options
+    return options.filter(option => buildSearchValue(option).includes(search))
+  }, [options, inputValue, buildSearchValue])
+
   // Get selected options - include saved values even if not in current options
   const selectedOptions = React.useMemo(() => {
     const optionsMap = new Map(options.map(opt => [opt.value, opt]));
@@ -703,15 +715,6 @@ export function MultiCombobox({
     setOpen(newOpen);
     onOpenChange?.(newOpen);
   };
-
-  const buildSearchValue = React.useCallback((option: ComboboxOption) => {
-    const parts: string[] = []
-    if (typeof option.value === 'string') parts.push(option.value)
-    if (typeof option.label === 'string') parts.push(option.label)
-    if (typeof option.description === 'string') parts.push(option.description)
-    if (option.searchValue) parts.push(option.searchValue)
-    return parts.join(' ').trim() || (typeof option.value === 'string' ? option.value : '')
-  }, [])
 
   // Handle drag and drop
   React.useEffect(() => {
@@ -865,7 +868,7 @@ export function MultiCombobox({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[9999]" align="start" sideOffset={4}>
-        <Command>
+        <Command shouldFilter={false}>
           <CommandInput
             placeholder={searchPlaceholder || "Search..."}
             value={inputValue}
@@ -886,7 +889,7 @@ export function MultiCombobox({
           >
             <CommandEmpty>{emptyPlaceholder || "No results found."}</CommandEmpty>
             <CommandGroup>
-              {options.map((option, index) => {
+              {filteredOptions.map((option, index) => {
                 // Debug logging for checkmark visibility
                 if (placeholder?.toLowerCase().includes('task') || placeholder?.toLowerCase().includes('project') || placeholder?.toLowerCase().includes('feedback')) {
                   const isChecked = value.includes(option.value) || (Array.isArray(selectedValues) && selectedValues.some(v => {
@@ -913,7 +916,13 @@ export function MultiCombobox({
                 return (
                 <CommandItem
                   key={`multi-option-${index}-${option.value || 'undefined'}`}
-                  value={buildSearchValue(option)}
+                  value={
+                    typeof option.label === 'string'
+                      ? option.label
+                      : typeof option.value === 'string'
+                        ? option.value
+                        : String(option.value ?? '')
+                  }
                   onSelect={() => {
                     // Just handle the selection, don't close
                     handleSelect(option.value);

@@ -12,6 +12,7 @@ export const hitlAction: NodeComponent = {
   description: "Pause workflow and have an AI-powered conversation with a human before continuing",
   icon: MessageCircle,
   category: "Automation",
+  providerId: "ask-human",
   isTrigger: false,
   producesOutput: true,
   configSchema: [

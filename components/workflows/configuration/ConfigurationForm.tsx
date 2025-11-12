@@ -13,6 +13,7 @@ import { useFieldValidation } from './hooks/useFieldValidation';
 
 // Provider-specific components
 import { DiscordConfiguration } from './providers/DiscordConfiguration';
+import { AskHumanConfiguration } from './providers/AskHumanConfiguration';
 import { AIMessageConfiguration } from './providers/AIMessageConfiguration';
 import { AirtableConfiguration } from './providers/AirtableConfiguration';
 import { GoogleSheetsConfiguration } from './providers/GoogleSheetsConfiguration';
@@ -60,6 +61,7 @@ import { GoogleSearchConfiguration } from './providers/utility/GoogleSearchConfi
 import { TavilySearchConfiguration } from './providers/utility/TavilySearchConfiguration';
 
 import { logger } from '@/lib/utils/logger'
+import { isNodeTypeConnectionExempt, isProviderConnectionExempt } from './utils/connectionExemptions'
 
 interface ConfigurationFormProps {
   nodeInfo: any;
@@ -165,10 +167,16 @@ function ConfigurationForm({
   const provider = nodeInfo?.providerId;
   const nodeType = nodeInfo?.type;
 
-  // Check integration connection
-  // For Microsoft Excel, we need to check OneDrive connection since Excel uses OneDrive's Graph API
+  // Determine whether this node/provider should bypass connection requirements
   const providerToCheck = provider === 'microsoft-excel' ? 'onedrive' : provider;
-  const integration = providerToCheck ? getIntegrationByProvider(providerToCheck) : null;
+  const skipConnectionCheck =
+    isNodeTypeConnectionExempt(nodeType) ||
+    isProviderConnectionExempt(providerToCheck);
+
+  // Only look up integrations when we truly require them
+  const integration = !skipConnectionCheck && providerToCheck
+    ? getIntegrationByProvider(providerToCheck)
+    : null;
 
   // Helper function to check if status means connected
   const isConnectedStatus = (status?: string) => {
@@ -181,13 +189,7 @@ function ConfigurationForm({
   };
 
   const needsConnection =
-    provider &&
-    provider !== 'logic' &&
-    provider !== 'ai' &&
-    provider !== 'core' &&
-    provider !== 'manual' &&
-    provider !== 'schedule' &&
-    provider !== 'webhook' &&
+    !skipConnectionCheck &&
     (
       !integration ||
       !isConnectedStatus(integration?.status)
@@ -1481,7 +1483,9 @@ function ConfigurationForm({
 
   // Handle integration connection
   const handleConnectIntegration = async () => {
-    if (!provider) return;
+    if (!provider || isProviderConnectionExempt(provider) || isNodeTypeConnectionExempt(nodeInfo?.type)) {
+      return;
+    }
     // For Microsoft Excel, we need to connect OneDrive instead
     const providerToConnect = provider === 'microsoft-excel' ? 'onedrive' : provider;
     try {
@@ -1642,6 +1646,11 @@ function ConfigurationForm({
   if (nodeInfo?.type === 'tavily_search') {
     logger.debug('🔎 [ConfigForm] Routing to Tavily Search configuration');
     return <TavilySearchConfiguration {...commonProps} />;
+  }
+
+  if (nodeInfo?.type === 'hitl_conversation') {
+    logger.debug('🧑‍🤝‍🧑 [ConfigForm] Routing to Ask Human configuration');
+    return <AskHumanConfiguration {...commonProps} setValue={setValueBase} />;
   }
 
   // Gmail search email now uses GenericConfiguration like other actions

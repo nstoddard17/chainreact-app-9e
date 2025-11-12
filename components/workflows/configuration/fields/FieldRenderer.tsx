@@ -62,6 +62,7 @@ import { GoogleSheetsFindRowPreview } from "../components/google-sheets/GoogleSh
 
 // Shared field components
 import { GenericSelectField } from "./shared/GenericSelectField";
+import { HubspotFilterBuilder } from "./hubspot/HubspotFilterBuilder";
 import { GenericTextInput } from "./shared/GenericTextInput";
 import { ConnectButton } from "./shared/ConnectButton";
 import { VariableSelectionDropdown } from "./shared/VariableSelectionDropdown";
@@ -437,19 +438,18 @@ export function FieldRenderer({
     [];
 
   // Ensure HubSpot property selectors share the same option list
-  if (nodeInfo?.providerId === 'hubspot') {
-    const sharedPropertyOptions =
-      (Array.isArray(dynamicOptions?.filterProperty) && dynamicOptions.filterProperty.length > 0
-        ? dynamicOptions.filterProperty
-        : Array.isArray(dynamicOptions?.properties) && dynamicOptions.properties.length > 0
-          ? dynamicOptions.properties
-          : null);
+  if (nodeInfo?.providerId === 'hubspot' && ['properties', 'filterProperty', 'advancedFilters', 'sortProperty'].includes(field.name)) {
+    const candidateLists = [
+      Array.isArray(dynamicOptions?.filterProperty) ? dynamicOptions.filterProperty : [],
+      Array.isArray(dynamicOptions?.properties) ? dynamicOptions.properties : [],
+      Array.isArray(dynamicOptions?.advancedFilters) ? dynamicOptions.advancedFilters : [],
+      Array.isArray(dynamicOptions?.sortProperty) ? dynamicOptions.sortProperty : []
+    ].filter((list) => list.length > 0);
 
-    if (
-      sharedPropertyOptions &&
-      (field.name === 'properties' || field.name === 'filterProperty')
-    ) {
-      fieldOptions = sharedPropertyOptions;
+    if (candidateLists.length > 0) {
+      fieldOptions = candidateLists.reduce((longest, current) =>
+        current.length > longest.length ? current : longest
+      , candidateLists[0]);
     }
   }
 
@@ -474,7 +474,8 @@ export function FieldRenderer({
     // - multiselect/multi_select fields with dynamic data
     const shouldAutoLoad = (field.type === 'combobox' && field.dynamic) ||
                           (field.type === 'select' && field.dynamic && (field.loadOnMount || field.dependsOn)) ||
-                          ((field.type === 'multiselect' || field.type === 'multi_select' || field.type === 'multi-select') && field.dynamic);
+                          ((field.type === 'multiselect' || field.type === 'multi_select' || field.type === 'multi-select') && field.dynamic) ||
+                          ((field.type === 'hubspot_filters') && field.dynamic && (field.loadOnMount || !field.dependsOn));
 
     if (shouldAutoLoad) {
       // Only load if we don't have options yet
@@ -1342,6 +1343,27 @@ export function FieldRenderer({
             enableConnectMode={shouldUseConnectMode(field)}
             isConnectedMode={isConnectedMode}
             onConnectToggle={handleConnectToggle}
+          />
+        );
+
+      case "hubspot_filters":
+        return (
+          <HubspotFilterBuilder
+            field={field}
+            value={Array.isArray(value) ? value : []}
+            onChange={onChange}
+            propertyOptions={fieldOptions}
+            error={error}
+            nodeInfo={nodeInfo}
+            parentValues={parentValues}
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
+            onRefreshOptions={field.dynamic ? () => onDynamicLoadRef.current?.(
+              field.name,
+              field.dependsOn,
+              field.dependsOn ? parentValues[field.dependsOn] : undefined,
+              true
+            ) : undefined}
           />
         );
 

@@ -665,6 +665,8 @@ export const actionHandlerRegistry: Record<string, Function> = {
   // HubSpot actions - wrapped to handle new calling convention
   "hubspot_action_create_contact": (params: { config: any; userId: string; input: Record<string, any> }) =>
     createHubSpotContact(params.config, params.userId, params.input),
+  "hubspot_action_create_contact_dynamic": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createHubSpotContact(params.config, params.userId, params.input),
   "hubspot_action_create_company": (params: { config: any; userId: string; input: Record<string, any> }) =>
     createHubSpotCompany(params.config, params.userId, params.input),
   "hubspot_action_create_deal": (params: { config: any; userId: string; input: Record<string, any> }) =>

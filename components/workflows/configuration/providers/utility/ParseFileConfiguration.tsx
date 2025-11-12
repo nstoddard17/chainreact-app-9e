@@ -9,6 +9,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { GenericSelectField } from '../../fields/shared/GenericSelectField';
 import { ConfigurationContainer } from '../../components/ConfigurationContainer';
+import { ConfigurationSectionHeader } from '../../components/ConfigurationSectionHeader';
 
 interface ParseFileConfigurationProps {
   values: Record<string, any>;
@@ -175,9 +176,9 @@ export function ParseFileConfiguration({
 
         {/* Parsing Options Section */}
         <div className="space-y-4 pt-6 border-t border-border">
-          <div>
-            <h3 className="text-sm font-semibold">Parsing Options</h3>
-            <p className="text-xs text-muted-foreground mt-1">
+          <div className="space-y-1">
+            <ConfigurationSectionHeader label="Parsing Options" />
+            <p className="text-xs text-muted-foreground">
               Configure how files are parsed and processed
             </p>
           </div>

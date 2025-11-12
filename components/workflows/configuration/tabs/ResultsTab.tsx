@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
+import { ConfigurationSectionHeader } from '../components/ConfigurationSectionHeader'
 
 interface ResultsTabProps {
   nodeInfo: any
@@ -310,10 +311,10 @@ export function ResultsTab({
           {/* Output Data */}
           {hasTestData && (
             <div className="space-y-4">
-              <div className="flex items-center gap-2 pb-2 border-b border-border/50">
-                <Code2 className="h-4 w-4 text-muted-foreground" />
-                <h3 className="text-sm font-semibold text-foreground">Output Data</h3>
-              </div>
+              <ConfigurationSectionHeader
+                label="Output Data"
+                prefix={<Code2 className="h-4 w-4 text-muted-foreground" />}
+              />
 
               <div className="space-y-2">
                 {outputSchema.map((field) => {

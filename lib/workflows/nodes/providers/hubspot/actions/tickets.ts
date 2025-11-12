@@ -17,7 +17,7 @@ export const hubspotActionCreateTicket: NodeComponent = {
   description: "Create a new support ticket in HubSpot",
   icon: Ticket,
   providerId: "hubspot",
-  requiredScopes: ["tickets"],
+  requiredScopes: ["tickets", "files"],
   category: "CRM",
   isTrigger: false,
   configSchema: [
@@ -74,6 +74,19 @@ export const hubspotActionCreateTicket: NodeComponent = {
       required: false,
       defaultValue: "MEDIUM",
       placeholder: "Select priority"
+    },
+    {
+      name: "hs_ticket_status",
+      label: "Status",
+      type: "select",
+      options: [
+        { value: "NEW", label: "New" },
+        { value: "WAITING_ON_CONTACT", label: "Waiting on Contact" },
+        { value: "WAITING_ON_US", label: "Waiting on Us" },
+        { value: "CLOSED", label: "Closed" }
+      ],
+      required: false,
+      placeholder: "Select status"
     },
     {
       name: "hs_ticket_category",
@@ -145,6 +158,43 @@ export const hubspotActionCreateTicket: NodeComponent = {
       ],
       required: false,
       placeholder: "How was this ticket created?"
+    },
+    {
+      name: "attachments",
+      label: "Attachments",
+      type: "file",
+      required: false,
+      multiple: true,
+      description: "Upload files or reference files/URLs from previous workflow steps"
+    },
+    {
+      name: "customPropertiesGroup",
+      label: "Additional Properties",
+      type: "field_group",
+      collapsible: true,
+      defaultExpanded: false,
+      fields: [
+        {
+          name: "selectedProperties",
+          label: "Select Properties to Add",
+          type: "multi-select",
+          dynamic: "hubspot_ticket_properties",
+          required: false,
+          placeholder: "Choose ticket properties"
+        },
+        {
+          name: "customProperties",
+          label: "Property Values",
+          type: "dynamic_properties",
+          dynamic: true,
+          dependsOn: "selectedProperties",
+          required: false,
+          metadata: {
+            objectType: "tickets",
+            requiredFields: []
+          }
+        }
+      ]
     }
   ],
   producesOutput: true,

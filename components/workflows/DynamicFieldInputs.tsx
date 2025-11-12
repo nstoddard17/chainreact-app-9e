@@ -27,6 +27,8 @@ interface PropertyDetails {
   existingValues?: string[]
 }
 
+const CUSTOM_VALUE_OPTION = "__chainreact_internal__custom_property_value__"
+
 export default function DynamicFieldInputs({
   selectedProperties,
   values,
@@ -211,12 +213,17 @@ export default function DynamicFieldInputs({
         // For text fields, show dropdown with existing values if available
         if (property.existingValues && property.existingValues.length > 0) {
           return (
-            <Select value={currentValue} onValueChange={(value) => handleValueChange(propertyName, value)}>
+            <Select
+              value={currentValue === '' ? CUSTOM_VALUE_OPTION : currentValue}
+              onValueChange={(value) =>
+                handleValueChange(propertyName, value === CUSTOM_VALUE_OPTION ? '' : value)
+              }
+            >
               <SelectTrigger>
                 <SelectValue placeholder={`Select or type ${property.label}`} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">
+                <SelectItem value={CUSTOM_VALUE_OPTION}>
                   <span className="text-muted-foreground">Type a new value...</span>
                 </SelectItem>
                 {property.existingValues.map(value => (

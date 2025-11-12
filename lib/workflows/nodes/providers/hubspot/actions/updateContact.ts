@@ -20,6 +20,19 @@ export const hubspotActionUpdateContact: NodeComponent = {
   category: "CRM",
   isTrigger: false,
   configSchema: [
+    {
+      name: "contactSelectionMode",
+      label: "How should we find the contact?",
+      type: "select",
+      required: true,
+      defaultValue: "picker",
+      options: [
+        { value: "picker", label: "Select from list" },
+        { value: "email", label: "Find by email" },
+        { value: "id", label: "Enter contact ID" }
+      ],
+      description: "Choose whether to pick a contact from the dropdown, look it up by email, or provide the contact ID directly."
+    },
     // Contact Selection (Parent field - always visible)
     {
       name: "contactId",
@@ -29,7 +42,51 @@ export const hubspotActionUpdateContact: NodeComponent = {
       required: true,
       searchable: true,
       placeholder: "Select or enter contact ID",
-      description: "Choose the contact you want to update"
+      description: "Choose the contact you want to update",
+      visibilityCondition: {
+        field: "contactSelectionMode",
+        operator: "equals",
+        value: "picker"
+      }
+    },
+    {
+      name: "lookupEmail",
+      label: "Email to Find",
+      type: "email",
+      required: false,
+      placeholder: "john.doe@example.com",
+      description: "We will search HubSpot for a contact with this email address.",
+      visibilityCondition: {
+        field: "contactSelectionMode",
+        operator: "equals",
+        value: "email"
+      }
+    },
+    {
+      name: "createIfNotFound",
+      label: "Create contact if not found",
+      type: "boolean",
+      required: false,
+      defaultValue: false,
+      description: "When enabled, a new contact will be created using the values below if no match is found for the email.",
+      visibilityCondition: {
+        field: "contactSelectionMode",
+        operator: "equals",
+        value: "email"
+      }
+    },
+    {
+      name: "lookupContactId",
+      label: "Contact ID",
+      type: "text",
+      required: false,
+      placeholder: "Enter HubSpot contact ID",
+      description: "Provide the contact ID directly if you already know it.",
+      visibilityCondition: {
+        field: "contactSelectionMode",
+        operator: "equals",
+        value: "id"
+      }
     },
 
     // All updatable fields cascade after contact selection
@@ -40,11 +97,6 @@ export const hubspotActionUpdateContact: NodeComponent = {
       type: "email",
       required: false,
       placeholder: "john.doe@example.com",
-      dependsOn: "contactId",
-      hidden: {
-        $deps: ["contactId"],
-        $condition: { contactId: { $exists: false } }
-      }
     },
     {
       name: "firstname",
@@ -52,11 +104,6 @@ export const hubspotActionUpdateContact: NodeComponent = {
       type: "text",
       required: false,
       placeholder: "John",
-      dependsOn: "contactId",
-      hidden: {
-        $deps: ["contactId"],
-        $condition: { contactId: { $exists: false } }
-      }
     },
     {
       name: "lastname",
@@ -64,11 +111,6 @@ export const hubspotActionUpdateContact: NodeComponent = {
       type: "text",
       required: false,
       placeholder: "Doe",
-      dependsOn: "contactId",
-      hidden: {
-        $deps: ["contactId"],
-        $condition: { contactId: { $exists: false } }
-      }
     },
     {
       name: "phone",
@@ -76,11 +118,6 @@ export const hubspotActionUpdateContact: NodeComponent = {
       type: "text",
       required: false,
       placeholder: "+1-555-123-4567",
-      dependsOn: "contactId",
-      hidden: {
-        $deps: ["contactId"],
-        $condition: { contactId: { $exists: false } }
-      }
     },
     {
       name: "mobilephone",
@@ -88,11 +125,6 @@ export const hubspotActionUpdateContact: NodeComponent = {
       type: "text",
       required: false,
       placeholder: "+1-555-987-6543",
-      dependsOn: "contactId",
-      hidden: {
-        $deps: ["contactId"],
-        $condition: { contactId: { $exists: false } }
-      }
     },
 
     // Company Information
@@ -102,11 +134,6 @@ export const hubspotActionUpdateContact: NodeComponent = {
       type: "text",
       required: false,
       placeholder: "Acme Inc.",
-      dependsOn: "contactId",
-      hidden: {
-        $deps: ["contactId"],
-        $condition: { contactId: { $exists: false } }
-      }
     },
     {
       name: "jobtitle",
@@ -114,11 +141,6 @@ export const hubspotActionUpdateContact: NodeComponent = {
       type: "text",
       required: false,
       placeholder: "Marketing Manager",
-      dependsOn: "contactId",
-      hidden: {
-        $deps: ["contactId"],
-        $condition: { contactId: { $exists: false } }
-      }
     },
     {
       name: "website",
@@ -126,11 +148,6 @@ export const hubspotActionUpdateContact: NodeComponent = {
       type: "text",
       required: false,
       placeholder: "https://example.com",
-      dependsOn: "contactId",
-      hidden: {
-        $deps: ["contactId"],
-        $condition: { contactId: { $exists: false } }
-      }
     },
 
     // Address Information
@@ -140,11 +157,6 @@ export const hubspotActionUpdateContact: NodeComponent = {
       type: "text",
       required: false,
       placeholder: "123 Main St",
-      dependsOn: "contactId",
-      hidden: {
-        $deps: ["contactId"],
-        $condition: { contactId: { $exists: false } }
-      }
     },
     {
       name: "city",
@@ -152,11 +164,6 @@ export const hubspotActionUpdateContact: NodeComponent = {
       type: "text",
       required: false,
       placeholder: "Boston",
-      dependsOn: "contactId",
-      hidden: {
-        $deps: ["contactId"],
-        $condition: { contactId: { $exists: false } }
-      }
     },
     {
       name: "state",
@@ -164,11 +171,6 @@ export const hubspotActionUpdateContact: NodeComponent = {
       type: "text",
       required: false,
       placeholder: "MA",
-      dependsOn: "contactId",
-      hidden: {
-        $deps: ["contactId"],
-        $condition: { contactId: { $exists: false } }
-      }
     },
     {
       name: "zip",
@@ -176,11 +178,6 @@ export const hubspotActionUpdateContact: NodeComponent = {
       type: "text",
       required: false,
       placeholder: "02101",
-      dependsOn: "contactId",
-      hidden: {
-        $deps: ["contactId"],
-        $condition: { contactId: { $exists: false } }
-      }
     },
     {
       name: "country",
@@ -188,11 +185,6 @@ export const hubspotActionUpdateContact: NodeComponent = {
       type: "text",
       required: false,
       placeholder: "United States",
-      dependsOn: "contactId",
-      hidden: {
-        $deps: ["contactId"],
-        $condition: { contactId: { $exists: false } }
-      }
     },
 
     // Lifecycle and Status
@@ -213,11 +205,6 @@ export const hubspotActionUpdateContact: NodeComponent = {
       ],
       required: false,
       placeholder: "Select lifecycle stage",
-      dependsOn: "contactId",
-      hidden: {
-        $deps: ["contactId"],
-        $condition: { contactId: { $exists: false } }
-      }
     },
     {
       name: "hs_lead_status",
@@ -226,11 +213,6 @@ export const hubspotActionUpdateContact: NodeComponent = {
       dynamic: "hubspot_lead_status_options",
       required: false,
       placeholder: "Select lead status",
-      dependsOn: "contactId",
-      hidden: {
-        $deps: ["contactId"],
-        $condition: { contactId: { $exists: false } }
-      }
     },
 
     // Ownership
@@ -243,11 +225,35 @@ export const hubspotActionUpdateContact: NodeComponent = {
       searchable: true,
       placeholder: "Assign to owner",
       description: "Assign this contact to a HubSpot user",
-      dependsOn: "contactId",
-      hidden: {
-        $deps: ["contactId"],
-        $condition: { contactId: { $exists: false } }
-      }
+    },
+    {
+      name: "customPropertiesGroup",
+      label: "Additional Properties",
+      type: "field_group",
+      collapsible: true,
+      defaultExpanded: false,
+      fields: [
+        {
+          name: "selectedProperties",
+          label: "Select Properties to Update",
+          type: "multi-select",
+          dynamic: "hubspot_contact_properties",
+          required: false,
+          placeholder: "Choose contact properties"
+        },
+        {
+          name: "customProperties",
+          label: "Property Values",
+          type: "dynamic_properties",
+          dynamic: true,
+          dependsOn: "selectedProperties",
+          required: false,
+          metadata: {
+            objectType: "contacts",
+            requiredFields: []
+          }
+        }
+      ]
     }
   ],
   producesOutput: true,

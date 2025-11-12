@@ -47,6 +47,14 @@ const TRIGGER_TYPE_MAPPING: Record<string, { subscriptionType: string; propertyN
   'hubspot_trigger_deal_created': { subscriptionType: 'deal.creation' },
   'hubspot_trigger_deal_updated': { subscriptionType: 'deal.propertyChange' },
   'hubspot_trigger_deal_deleted': { subscriptionType: 'deal.deletion' },
+  'hubspot_trigger_ticket_created': { subscriptionType: 'ticket.creation' },
+  'hubspot_trigger_ticket_updated': { subscriptionType: 'ticket.propertyChange' },
+  'hubspot_trigger_ticket_deleted': { subscriptionType: 'ticket.deletion' },
+  'hubspot_trigger_note_created': { subscriptionType: 'note.creation' },
+  'hubspot_trigger_task_created': { subscriptionType: 'task.creation' },
+  'hubspot_trigger_call_created': { subscriptionType: 'call.creation' },
+  'hubspot_trigger_meeting_created': { subscriptionType: 'meeting.creation' },
+  'hubspot_trigger_form_submission': { subscriptionType: 'form.submission' },
 }
 
 export class HubSpotTriggerLifecycle implements TriggerLifecycle {

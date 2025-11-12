@@ -11,6 +11,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 import { logger } from '@/lib/utils/logger'
+import {
+  buildHubSpotTriggerData,
+  shouldSkipByConfig,
+  logUnsupportedEvent,
+  logWebhookSample
+} from '@/lib/webhooks/hubspotWebhookUtils'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -28,6 +34,14 @@ const SUBSCRIPTION_TO_TRIGGER_MAP: Record<string, string> = {
   'deal.creation': 'hubspot_trigger_deal_created',
   'deal.propertyChange': 'hubspot_trigger_deal_updated',
   'deal.deletion': 'hubspot_trigger_deal_deleted',
+  'ticket.creation': 'hubspot_trigger_ticket_created',
+  'ticket.propertyChange': 'hubspot_trigger_ticket_updated',
+  'ticket.deletion': 'hubspot_trigger_ticket_deleted',
+  'note.creation': 'hubspot_trigger_note_created',
+  'task.creation': 'hubspot_trigger_task_created',
+  'call.creation': 'hubspot_trigger_call_created',
+  'meeting.creation': 'hubspot_trigger_meeting_created',
+  'form.submission': 'hubspot_trigger_form_submission',
 }
 
 /**
@@ -58,7 +72,7 @@ export async function POST(req: NextRequest) {
     // Map subscription type to trigger type
     const triggerType = SUBSCRIPTION_TO_TRIGGER_MAP[subscriptionType]
     if (!triggerType) {
-      logger.warn(`⚠️ Unknown subscription type: ${subscriptionType}`)
+      logUnsupportedEvent(subscriptionType)
       return jsonResponse({ success: true, message: 'Unknown subscription type' })
     }
 
@@ -91,7 +105,8 @@ export async function POST(req: NextRequest) {
     logger.debug(`📋 Found ${triggerResources.length} workflow(s) to execute`)
 
     // Build trigger data from HubSpot payload
-    const triggerData = buildTriggerData(payload, subscriptionType)
+    const triggerData = buildHubSpotTriggerData(payload, subscriptionType)
+    logWebhookSample(subscriptionType, payload)
 
     // Execute each matching workflow
     let executed = 0
@@ -101,6 +116,12 @@ export async function POST(req: NextRequest) {
       const propertyName = resource.config?.propertyName
       if (propertyName && payload.propertyName !== propertyName) {
         logger.debug(`⏭️ Skipping workflow ${resource.workflow_id} - property filter mismatch`)
+        continue
+      }
+
+      const skipReason = shouldSkipByConfig(triggerType, resource.config || {}, triggerData)
+      if (skipReason) {
+        logger.debug(`⏭️ Skipping workflow ${resource.workflow_id} - ${skipReason}`)
         continue
       }
 
@@ -119,69 +140,6 @@ export async function POST(req: NextRequest) {
     })
     return errorResponse(error.message || 'Failed to process webhook', 500)
   }
-}
-
-/**
- * Build trigger data from HubSpot webhook payload
- */
-function buildTriggerData(payload: any, subscriptionType: string): Record<string, any> {
-  const baseData = {
-    objectId: payload.objectId,
-    portalId: payload.portalId,
-    subscriptionId: payload.subscriptionId,
-    occurredAt: payload.occurredAt || new Date().toISOString(),
-    eventId: payload.eventId
-  }
-
-  // Add type-specific data
-  if (subscriptionType.includes('contact')) {
-    return {
-      ...baseData,
-      contactId: payload.objectId,
-      email: payload.properties?.email,
-      firstName: payload.properties?.firstname,
-      lastName: payload.properties?.lastname,
-      company: payload.properties?.company,
-      phone: payload.properties?.phone,
-      lifecycleStage: payload.properties?.lifecyclestage,
-      leadStatus: payload.properties?.hs_lead_status,
-      properties: payload.properties || {}
-    }
-  } else if (subscriptionType.includes('company')) {
-    return {
-      ...baseData,
-      companyId: payload.objectId,
-      name: payload.properties?.name,
-      domain: payload.properties?.domain,
-      industry: payload.properties?.industry,
-      city: payload.properties?.city,
-      state: payload.properties?.state,
-      country: payload.properties?.country,
-      numberOfEmployees: payload.properties?.numberofemployees,
-      annualRevenue: payload.properties?.annualrevenue,
-      properties: payload.properties || {}
-    }
-  } else if (subscriptionType.includes('deal')) {
-    return {
-      ...baseData,
-      dealId: payload.objectId,
-      dealName: payload.properties?.dealname,
-      amount: payload.properties?.amount,
-      dealStage: payload.properties?.dealstage,
-      pipeline: payload.properties?.pipeline,
-      closeDate: payload.properties?.closedate,
-      dealType: payload.properties?.dealtype,
-      properties: payload.properties || {}
-    }
-  }
-
-  // For property change events, include change details
-  if (subscriptionType.includes('propertyChange')) {
-    baseData.propertyName = payload.propertyName
-    baseData.propertyValue = payload.propertyValue
-  }
-
-  return baseData
 }
 
 /**
