@@ -4,14 +4,14 @@ import { createClient } from '@supabase/supabase-js'
 
 import { logger } from '@/lib/utils/logger'
 
-// Initialize Supabase with service role for admin access
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
 export async function POST(request: NextRequest) {
   try {
+    // Initialize Supabase with service role for admin access
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
     // TODO: Add proper admin authentication check here
 
     const body = await request.json()

@@ -1136,20 +1136,22 @@ const hubspotActionAddContactToList: NodeComponent = {
   category: "CRM",
   isTrigger: false,
   configSchema: [
-    { 
-      name: "contactEmail", 
-      label: "Contact Email", 
+    {
+      name: "contactEmail",
+      label: "Contact Email",
       type: "email",
       required: true,
       placeholder: "contact@example.com",
       description: "Email of the contact to add to the list"
     },
-    { 
-      name: "listId", 
-      label: "List", 
-      type: "select",
-      dynamic: true,
+    {
+      name: "listId",
+      label: "List",
+      type: "combobox",
+      dynamic: "hubspot_lists",
       required: true,
+      loadOnMount: true,
+      searchable: true,
       placeholder: "Select a list",
       description: "Choose the list to add the contact to (only manual lists can have contacts added)"
     }
@@ -1175,12 +1177,14 @@ const hubspotActionUpdateDeal: NodeComponent = {
   isTrigger: false,
   configSchema: [
     // Deal Selection
-    { 
-      name: "dealId", 
-      label: "Deal to Update", 
+    {
+      name: "dealId",
+      label: "Deal to Update",
       type: "combobox",
       dynamic: "hubspot_deals",
       required: true,
+      loadOnMount: true,
+      searchable: true,
       placeholder: "Select or enter deal ID",
       description: "Choose the deal you want to update"
     },
@@ -1262,24 +1266,28 @@ const hubspotActionGetContacts: NodeComponent = {
     {
       name: "filterProperty",
       label: "Filter by Property (Optional)",
-      type: "text",
+      type: "multi-select",
+      dynamic: "hubspot_contact_properties",
       required: false,
-      placeholder: "e.g., email, firstname, lifecyclestage"
+      placeholder: "Select contact properties (e.g., email, firstname)",
+      description: "Choose one or more contact properties to filter on"
     },
     {
       name: "filterValue",
       label: "Filter Value",
       type: "text",
       required: false,
-      placeholder: "Value to match"
+      placeholder: "Value to match",
+      description: "Enter the value to match. For multiple properties, provide an array/object (e.g., {\"email\": \"test@example.com\"})."
     },
     {
       name: "properties",
       label: "Properties to Retrieve (Optional)",
-      type: "array",
+      type: "multi-select",
+      dynamic: "hubspot_contact_properties",
       required: false,
-      placeholder: JSON.stringify(["firstname", "lastname", "email"], null, 2),
-      tooltip: "Customize which properties to retrieve. Leave empty for defaults. Example: [\"firstname\", \"lastname\", \"email\", \"company\"]"
+      placeholder: "Select contact properties to include",
+      description: "Choose specific properties to return. Leave empty for defaults."
     }
   ],
   outputSchema: [

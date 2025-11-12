@@ -754,15 +754,35 @@ function ConfigurationForm({
 
   // Load fields marked with loadOnMount immediately when form opens
   useEffect(() => {
-    logger.debug('🔵 [ConfigForm] loadOnMount useEffect fired', {
+    const logData = {
       hasConfigSchema: !!nodeInfo?.configSchema,
       isInitialLoading,
       nodeType: nodeInfo?.type,
-      nodeId: nodeInfo?.id
-    });
+      nodeId: nodeInfo?.id,
+      providerId: nodeInfo?.providerId,
+      configSchemaLength: nodeInfo?.configSchema?.length
+    };
+    console.log('🔵 [ConfigForm] loadOnMount useEffect fired', logData);
+
+    // Also log to window for debugging
+    if (nodeInfo?.providerId === 'hubspot') {
+      window.__HUBSPOT_LOAD_DEBUG = logData;
+      console.warn('🔴 HUBSPOT CONFIG FORM LOAD EFFECT', logData);
+    }
 
     if (!nodeInfo?.configSchema || isInitialLoading) {
-      logger.debug('⏭️ [ConfigForm] Skipping loadOnMount - missing configSchema or still loading');
+      console.log('⏭️ [ConfigForm] Skipping loadOnMount - missing configSchema or still loading', {
+        hasConfigSchema: !!nodeInfo?.configSchema,
+        isInitialLoading
+      });
+      return;
+    }
+
+    if (needsConnection) {
+      logger.debug('⏭️ [ConfigForm] Skipping loadOnMount - integration not connected yet', {
+        providerId: nodeInfo?.providerId,
+        nodeType: nodeInfo?.type
+      });
       return;
     }
 
@@ -770,7 +790,7 @@ function ConfigurationForm({
     // Use a combination of nodeId, nodeType, and currentNodeId to ensure uniqueness
     const nodeInstanceKey = `${nodeInfo?.id}-${nodeInfo?.type}-${currentNodeId}`;
 
-    logger.debug('🚀 [ConfigForm] Checking for loadOnMount fields...', {
+    console.log('🚀 [ConfigForm] Checking for loadOnMount fields...', {
       nodeInstanceKey,
       hasLoadedOnMount: hasLoadedOnMount.current,
       isInitialLoading,
@@ -789,18 +809,19 @@ function ConfigurationForm({
         // Don't check dynamicOptions or values here as it causes dependency issues
         const shouldLoad = !hasLoadedOnMount.current;
 
-        logger.debug(`🔄 [ConfigForm] Field ${field.name} has loadOnMount, shouldLoad: ${shouldLoad}`, {
+        console.log(`🔄 [ConfigForm] Field ${field.name} has loadOnMount, shouldLoad: ${shouldLoad}`, {
           fieldType: field.type,
           dynamic: field.dynamic,
-          loadOnMount: field.loadOnMount
+          loadOnMount: field.loadOnMount,
+          hasLoadedOnMount: hasLoadedOnMount.current
         });
         return shouldLoad;
       }
       return false;
     });
 
-    logger.debug(`📋 [ConfigForm] Fields to load on mount:`, fieldsToLoad.map((f: any) => ({ name: f.name, type: f.type, dynamic: f.dynamic })));
-    logger.debug(`📋 [ConfigForm] ALL configSchema fields:`, nodeInfo.configSchema.map((f: any) => ({ name: f.name, type: f.type, dynamic: f.dynamic, loadOnMount: f.loadOnMount })));
+    console.log(`📋 [ConfigForm] Fields to load on mount:`, fieldsToLoad.map((f: any) => ({ name: f.name, type: f.type, dynamic: f.dynamic })));
+    console.log(`📋 [ConfigForm] ALL configSchema fields:`, nodeInfo.configSchema.map((f: any) => ({ name: f.name, type: f.type, dynamic: f.dynamic, loadOnMount: f.loadOnMount })));
 
     if (fieldsToLoad.length > 0) {
       logger.debug('🚀 [ConfigForm] Loading fields on mount:', fieldsToLoad.map((f: any) => f.name));
@@ -958,6 +979,13 @@ function ConfigurationForm({
         loadOptions('folder', undefined, undefined, false); // Use cache for better performance
       }
 
+      // Load immediately for HubSpot pipeline field
+      const hubspotPipelineField = fieldsToLoad.find((f: any) => f.name === 'hs_pipeline');
+      if (hubspotPipelineField && nodeInfo?.providerId === 'hubspot') {
+        logger.debug(`🚀 [ConfigForm] Loading HubSpot pipeline immediately with cache`);
+        loadOptions('hs_pipeline', undefined, undefined, false); // Use cache for better performance
+      }
+
       // Load immediately for HITL Discord server field
       logger.debug(`🔍 [ConfigForm] Checking for HITL Discord field...`, {
         nodeType: nodeInfo?.type,
@@ -1057,6 +1085,10 @@ function ConfigurationForm({
             // Already loaded above
             return;
           }
+          if (field.name === 'hs_pipeline' && nodeInfo?.providerId === 'hubspot') {
+            // Already loaded above
+            return;
+          }
           if (field.name === 'discordGuildId' && nodeInfo?.type === 'hitl_conversation') {
             // Already loaded above
             return;
@@ -1103,7 +1135,7 @@ function ConfigurationForm({
 
       return () => clearTimeout(timeoutId);
     }
-  }, [nodeInfo?.id, nodeInfo?.type, currentNodeId, isInitialLoading, loadOptions]); // Track node identity changes - removed values.boardId to prevent re-runs
+  }, [nodeInfo?.id, nodeInfo?.type, currentNodeId, isInitialLoading, loadOptions, needsConnection]); // Track node identity changes and connection state
 
   // Load options for dynamic fields with saved values
   useEffect(() => {

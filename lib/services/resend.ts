@@ -6,14 +6,17 @@ import BetaInvitationEmail from '../../emails/beta-invitation'
 import WaitlistWelcomeEmail from '../../emails/waitlist-welcome'
 import WaitlistInvitationEmail from '../../emails/waitlist-invitation'
 import TeamInvitationEmail from '../../emails/team-invitation'
+import IntegrationDisconnectedEmail from '../../emails/integration-disconnected'
 
 import { logger } from '@/lib/utils/logger'
 
-if (!process.env.RESEND_API_KEY) {
-  throw new Error('Missing RESEND_API_KEY environment variable')
+// Lazy-load Resend client to avoid build-time env var requirement
+function getResendClient() {
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error('Missing RESEND_API_KEY environment variable')
+  }
+  return new Resend(process.env.RESEND_API_KEY)
 }
-
-const resend = new Resend(process.env.RESEND_API_KEY)
 
 export interface EmailOptions {
   to: string | string[]
@@ -41,7 +44,7 @@ export async function sendWelcomeEmail(
   try {
     const emailHtml = await render(WelcomeEmail(data))
     
-    const result = await resend.emails.send({
+    const result = await getResendClient().emails.send({
       from: options.from || 'ChainReact <noreply@chainreact.app>',
       to: options.to,
       subject: options.subject,
@@ -74,7 +77,7 @@ export async function sendPasswordResetEmail(
   try {
     const emailHtml = await render(PasswordResetEmail(data))
     
-    const result = await resend.emails.send({
+    const result = await getResendClient().emails.send({
       from: options.from || 'ChainReact <noreply@chainreact.app>',
       to: options.to,
       subject: options.subject,
@@ -104,7 +107,7 @@ export async function sendCustomEmail(
   }
 ) {
   try {
-    const result = await resend.emails.send({
+    const result = await getResendClient().emails.send({
       from: options.from || 'ChainReact <noreply@chainreact.app>',
       to: options.to,
       subject: options.subject,
@@ -159,7 +162,7 @@ export async function sendBulkEmails(
   try {
     const results = await Promise.allSettled(
       emails.map(email =>
-        resend.emails.send({
+        getResendClient().emails.send({
           from: from || 'ChainReact <noreply@chainreact.app>',
           to: email.to,
           subject: email.subject,
@@ -201,7 +204,7 @@ export async function sendBetaInvitationEmail(
       expiresInDays: testerData.expiresInDays || 30,
     }))
 
-    const result = await resend.emails.send({
+    const result = await getResendClient().emails.send({
       from: 'ChainReact <noreply@chainreact.app>',
       to: email,
       subject: '🚀 Your Exclusive ChainReact Beta Access Awaits!',
@@ -232,7 +235,7 @@ export async function sendWaitlistWelcomeEmail(
   try {
     const emailHtml = await render(WaitlistWelcomeEmail({ name }))
 
-    const result = await resend.emails.send({
+    const result = await getResendClient().emails.send({
       from: 'ChainReact <noreply@chainreact.app>',
       to: email,
       subject: "You're on the ChainReact Waitlist! 🎉",
@@ -266,7 +269,7 @@ export async function sendWaitlistInvitationEmail(
       signupUrl,
     }))
 
-    const result = await resend.emails.send({
+    const result = await getResendClient().emails.send({
       from: 'ChainReact <noreply@chainreact.app>',
       to: email,
       subject: '🎉 Your ChainReact Access is Ready!',
@@ -311,7 +314,7 @@ export async function sendTeamInvitationEmail(
       expiresAt,
     }))
 
-    const result = await resend.emails.send({
+    const result = await getResendClient().emails.send({
       from: 'ChainReact <noreply@chainreact.app>',
       to: inviteeEmail,
       subject: `${inviterName} invited you to join ${teamName} on ChainReact`,
@@ -329,6 +332,47 @@ export async function sendTeamInvitationEmail(
     return { success: true, id: result.data?.id }
   } catch (error) {
     logger.error('Error sending team invitation email:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}
+
+/**
+ * Send integration disconnection email
+ */
+export async function sendIntegrationDisconnectedEmail(
+  userEmail: string,
+  userName: string,
+  providerName: string,
+  reconnectUrl: string,
+  disconnectReason?: string,
+  consecutiveFailures?: number
+) {
+  try {
+    const emailHtml = await render(IntegrationDisconnectedEmail({
+      userName,
+      providerName,
+      reconnectUrl,
+      disconnectReason,
+      consecutiveFailures,
+    }))
+
+    const result = await getResendClient().emails.send({
+      from: 'ChainReact <noreply@chainreact.app>',
+      to: userEmail,
+      subject: `🔴 Action Required: ${providerName} Integration Disconnected`,
+      html: emailHtml,
+      headers: {
+        'X-Priority': '1',
+        'X-MSMail-Priority': 'High',
+        'Importance': 'high',
+        'X-Mailer': 'ChainReact Integrations',
+      },
+    })
+
+    logger.debug('Integration disconnection email sent successfully:', result.data?.id)
+    return { success: true, id: result.data?.id }
+  } catch (error) {
+    logger.error('Error sending integration disconnection email:', error)
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
   }
 }

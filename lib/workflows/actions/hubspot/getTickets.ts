@@ -21,8 +21,8 @@ export async function hubspotGetTickets(
 
     // Resolve dynamic values
     const limit = context.dataFlowManager.resolveVariable(config.limit) || 100
-    const filterProperty = context.dataFlowManager.resolveVariable(config.filterProperty)
-    const filterValue = context.dataFlowManager.resolveVariable(config.filterValue)
+    const rawFilterProperty = context.dataFlowManager.resolveVariable(config.filterProperty)
+    const rawFilterValue = context.dataFlowManager.resolveVariable(config.filterValue)
     const filterPipeline = context.dataFlowManager.resolveVariable(config.filterPipeline)
     const filterStage = context.dataFlowManager.resolveVariable(config.filterStage)
     const filterPriority = context.dataFlowManager.resolveVariable(config.filterPriority)
@@ -39,13 +39,46 @@ export async function hubspotGetTickets(
     // Build filters array
     const filters: any[] = []
 
-    if (filterProperty && filterValue) {
-      filters.push({
-        propertyName: filterProperty,
-        operator: 'EQ',
-        value: filterValue
-      })
+    const normalizeFilterProperties = (value: any): string[] => {
+      if (Array.isArray(value)) {
+        return value
+          .map((prop) => typeof prop === 'string' ? prop.trim() : '')
+          .filter((prop) => Boolean(prop))
+      }
+      if (typeof value === 'string' && value.trim()) {
+        return [value.trim()]
+      }
+      return []
     }
+
+    const filterProperties = normalizeFilterProperties(rawFilterProperty)
+
+    const resolveFilterValueForProperty = (property: string, index: number): any => {
+      if (Array.isArray(rawFilterValue)) {
+        if (rawFilterValue.length === 0) return undefined
+        return rawFilterValue[index] ?? rawFilterValue[rawFilterValue.length - 1]
+      }
+
+      if (rawFilterValue && typeof rawFilterValue === 'object') {
+        return rawFilterValue[property]
+      }
+
+      return rawFilterValue
+    }
+
+    filterProperties.forEach((propertyName, index) => {
+      const value = resolveFilterValueForProperty(propertyName, index)
+
+      if (value === undefined || value === null || value === '') {
+        return
+      }
+
+      filters.push({
+        propertyName,
+        operator: 'EQ',
+        value
+      })
+    })
 
     if (filterPipeline) {
       filters.push({

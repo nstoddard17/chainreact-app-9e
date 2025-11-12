@@ -30,6 +30,7 @@ export interface RefreshResult {
   invalidRefreshToken?: boolean
   needsReauthorization?: boolean
   scope?: string
+  isTransientFailure?: boolean // True for rate limits, network errors, 5xx errors
 }
 
 /**
@@ -750,7 +751,8 @@ export async function refreshTokenForProvider(
           success: false,
           error: `Provider returned HTML instead of JSON. The refresh token may be invalid or the provider's API may have changed.`,
           statusCode: response.status,
-          needsReauthorization: true
+          needsReauthorization: true,
+          isTransientFailure: false // HTML response usually means permanent auth issue
         }
       }
       
@@ -758,7 +760,8 @@ export async function refreshTokenForProvider(
       return {
         success: false,
         error: `Failed to parse response: ${parseError.message}`,
-        statusCode: response.status
+        statusCode: response.status,
+        isTransientFailure: response.status >= 500 // Likely a server issue if unparseable
       }
     }
 
@@ -869,6 +872,14 @@ export async function refreshTokenForProvider(
         }
       }
 
+      // Classify failure as transient or permanent
+      // Transient: Rate limits (429), server errors (5xx), network timeouts
+      // Permanent: Auth errors (401, 403), invalid_grant, expired tokens
+      const isRateLimit = response.status === 429
+      const isServerError = response.status >= 500 && response.status < 600
+      const isNetworkError = response.status === 0 || response.status === 408 // Timeout
+      const isTransient = isRateLimit || isServerError || isNetworkError
+
       return {
         success: false,
         error: finalErrorMessage,
@@ -876,6 +887,7 @@ export async function refreshTokenForProvider(
         providerResponse: responseData,
         invalidRefreshToken: needsReauth,
         needsReauthorization: needsReauth,
+        isTransientFailure: isTransient,
       }
     }
 

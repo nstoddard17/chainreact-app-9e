@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const objectType = searchParams.get('objectType');
     const forceRefresh = searchParams.get('refresh') === 'true';
+    const includeReadOnly = searchParams.get('includeReadOnly') === 'true';
 
     if (!objectType) {
       return errorResponse('objectType parameter is required' , 400);
@@ -116,9 +117,9 @@ export async function GET(request: NextRequest) {
         }
 
         const customPropsData: HubspotPropertiesResponse = await customPropsResponse.json();
-        const fieldDefs = customPropsData.results
-          .map(prop => hubspotPropertyToFieldDef(prop))
-          .filter(field => !field.hidden) // Filter out hidden fields
+    const fieldDefs = customPropsData.results
+      .map(prop => hubspotPropertyToFieldDef(prop))
+      .filter(field => includeReadOnly ? !field.hidden : (!field.hidden && !field.readOnly))
           .sort((a, b) => {
             // Sort by group, then by display order, then alphabetically
             if (a.group !== b.group) {
@@ -161,7 +162,7 @@ export async function GET(request: NextRequest) {
     // Convert to our field definitions
     const fieldDefs = propertiesData.results
       .map(prop => hubspotPropertyToFieldDef(prop))
-      .filter(field => !field.hidden && !field.readOnly) // Filter out hidden and read-only fields for editing
+      .filter(field => includeReadOnly ? !field.hidden : (!field.hidden && !field.readOnly))
       .sort((a, b) => {
         // Sort by group, then by display order, then alphabetically
         if (a.group !== b.group) {

@@ -113,8 +113,8 @@ function formatBoardField(data: any[]): FormattedOption[] {
  */
 function formatListField(data: any[]): FormattedOption[] {
   return data.map((item: any) => ({
-    value: item.id,
-    label: item.name || item.id,
+    value: item.id || item.listId,  // HubSpot uses 'listId', others use 'id'
+    label: item.name || item.id || item.listId,
   }));
 }
 

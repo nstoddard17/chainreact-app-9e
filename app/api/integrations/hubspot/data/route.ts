@@ -103,16 +103,24 @@ export async function POST(req: NextRequest) {
       })
 
       // Check if this is an authentication/authorization error that needs reconnection
-      const needsReconnection =
-        handlerError.message?.includes('authentication') ||
-        handlerError.message?.includes('forbidden') ||
-        handlerError.message?.includes('expired') ||
-        handlerError.status === 401 ||
-        handlerError.status === 403
+      // IMPORTANT: Only mark as needs_reauthorization for explicit auth failures (401/403)
+      // Don't mark on transient errors, timeouts, or network issues
+      const isExplicitAuthError = handlerError.status === 401 || handlerError.status === 403
+      const isTokenExpiredError =
+        handlerError.message?.toLowerCase().includes('token expired') ||
+        handlerError.message?.toLowerCase().includes('invalid token') ||
+        handlerError.message?.toLowerCase().includes('token is no longer valid')
+
+      const needsReconnection = isExplicitAuthError || isTokenExpiredError
 
       // If reconnection is needed, update the integration status in the database
       if (needsReconnection) {
-        logger.warn(`⚠️ [HubSpot API] Marking integration ${integrationId} as needs_reauthorization`)
+        logger.warn(`⚠️ [HubSpot API] Marking integration ${integrationId} as needs_reauthorization`, {
+          status: handlerError.status,
+          message: handlerError.message,
+          isExplicitAuthError,
+          isTokenExpiredError
+        })
 
         try {
           await supabase
@@ -127,6 +135,11 @@ export async function POST(req: NextRequest) {
         } catch (updateError: any) {
           logger.error('❌ [HubSpot API] Failed to update integration status:', updateError)
         }
+      } else {
+        logger.debug('❌ [HubSpot API] Error is not an auth issue, not marking as needs_reauthorization', {
+          status: handlerError.status,
+          message: handlerError.message
+        })
       }
 
       // Return a proper error response
@@ -155,12 +168,15 @@ export async function POST(req: NextRequest) {
     })
 
     // Check if this is an authentication/authorization error that needs reconnection
-    const needsReconnection =
-      error.message?.includes('authentication') ||
-      error.message?.includes('forbidden') ||
-      error.message?.includes('expired') ||
-      error.status === 401 ||
-      error.status === 403
+    // IMPORTANT: Use same specific logic as handler error block
+    const isExplicitAuthError = error.status === 401 || error.status === 403
+    const isTokenExpiredError =
+      error.message?.toLowerCase().includes('token expired') ||
+      error.message?.toLowerCase().includes('invalid token') ||
+      error.message?.toLowerCase().includes('token is no longer valid') ||
+      error.message?.toLowerCase().includes('authentication expired')
+
+    const needsReconnection = isExplicitAuthError || isTokenExpiredError
 
     // Handle authentication errors
     if (needsReconnection) {

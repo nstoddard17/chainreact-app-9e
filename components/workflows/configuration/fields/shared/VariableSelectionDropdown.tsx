@@ -99,8 +99,8 @@ export function VariableSelectionDropdown({
       : "No variables available. The connected nodes don't output any data."
 
     return (
-      <div className="relative">
-        <div className="h-9 w-full flex items-center rounded-md border border-input bg-white dark:bg-background px-3 py-2 text-sm text-muted-foreground">
+      <div className="relative w-full">
+        <div className="h-10 w-full min-w-0 flex items-center rounded-md border border-input bg-white dark:bg-background px-3 py-2 text-sm text-muted-foreground">
           {emptyMessage}
         </div>
       </div>
@@ -113,7 +113,7 @@ export function VariableSelectionDropdown({
       onValueChange={onChange}
       disabled={disabled}
     >
-      <SelectTrigger className="h-9 bg-white dark:bg-background">
+      <SelectTrigger className="h-10 bg-white dark:bg-background">
         <SelectValue placeholder={placeholder}>
           {value && getDisplayValue()}
         </SelectValue>

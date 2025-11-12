@@ -8,6 +8,38 @@ import { ProviderOptionsLoader, LoadOptionsParams, FormattedOption } from '../ty
 import { logger } from '@/lib/utils/logger'
 import type { HubspotFieldDef } from '@/lib/workflows/nodes/providers/hubspot/types';
 
+const detectDefaultObjectType = (nodeType?: string): string => {
+  if (!nodeType) return 'contacts';
+  const normalized = nodeType.toLowerCase();
+
+  if (normalized.includes('ticket')) {
+    return 'tickets';
+  }
+
+  if (normalized.includes('deal')) {
+    return 'deals';
+  }
+
+  if (normalized.includes('company')) {
+    return 'companies';
+  }
+
+  return 'contacts';
+}
+
+const standardObjectDataTypes: Record<string, string> = {
+  contacts: 'hubspot_contact_properties',
+  companies: 'hubspot_company_properties',
+  deals: 'hubspot_deal_properties',
+  tickets: 'hubspot_ticket_properties'
+}
+
+const formatPropertyOption = (property: any) => ({
+  value: property.name || property.value || property.id,
+  label: property.label ? `${property.label} (${property.name})` : property.name || property.value || property.id,
+  raw: property
+})
+
 export const hubspotDynamicOptionsLoader: ProviderOptionsLoader = {
   canHandle(fieldName: string, providerId: string): boolean {
     // Check if this is a HubSpot provider
@@ -35,23 +67,20 @@ export const hubspotDynamicOptionsLoader: ProviderOptionsLoader = {
   },
 
   async loadOptions(params: LoadOptionsParams): Promise<FormattedOption[]> {
-    const { fieldName, integrationId, searchQuery, dependentFieldValue } = params;
+    const { fieldName, integrationId, searchQuery, dependsOnValue } = params;
 
-    logger.debug('🔍 HubSpot Dynamic options loader called with params:', {
-      fieldName,
-      integrationId,
-      searchQuery,
-      dependentFieldValue,
-    });
+    console.log('⭐ [HubSpot Loader] loadOptions CALLED for field:', fieldName, params);
 
     if (!integrationId) {
-      logger.error('❌ [HubSpot Loader] No integration ID provided');
+      console.error('❌ [HubSpot Loader] No integration ID provided');
       return [{
         value: '',
         label: 'Please connect your HubSpot account first',
         disabled: true
       }];
     }
+
+    console.log('⭐ [HubSpot Loader] Has integration ID, continuing...');
 
     try {
       // Handle dynamic object type field
@@ -77,9 +106,52 @@ export const hubspotDynamicOptionsLoader: ProviderOptionsLoader = {
 
       // Handle dynamic properties field (depends on objectType)
       if (fieldName === 'properties') {
-        const objectType = dependentFieldValue || 'contacts'; // Default to contacts if not specified
+        const objectType =
+          params.extraOptions?.objectType ||
+          dependsOnValue ||
+          detectDefaultObjectType(params.nodeType);
 
-        const response = await fetch(`/api/integrations/hubspot/properties?objectType=${objectType}`, {
+        const standardDataType = standardObjectDataTypes[objectType];
+        const hasCustomObjectContext = Boolean(params.extraOptions?.objectType || dependsOnValue);
+
+        // For standard HubSpot objects (contacts/companies/deals/tickets) without custom context,
+        // use the same data endpoint as other fields so options stay consistent.
+        if (standardDataType && !hasCustomObjectContext) {
+          const requestBody = {
+            integrationId,
+            dataType: standardDataType,
+            options: { searchQuery }
+          };
+
+          const response = await fetch('/api/integrations/hubspot/data', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody)
+          });
+
+          if (!response.ok) {
+            throw new Error(`Failed to fetch ${objectType} properties`);
+          }
+
+          const result = await response.json();
+          return (result.data || []).map((prop: any) => formatPropertyOption(prop));
+        }
+
+        // Fallback to the advanced schema-aware endpoint for custom objects
+        const shouldIncludeReadOnly =
+          params.nodeType?.includes('_get_') ||
+          params.nodeType?.includes('_search_') ||
+          params.nodeType?.includes('_list_') ||
+          params.nodeType?.includes('retrieve');
+
+        const queryParams = new URLSearchParams({
+          objectType,
+          ...(shouldIncludeReadOnly ? { includeReadOnly: 'true' } : {})
+        });
+
+        const response = await fetch(`/api/integrations/hubspot/properties?${queryParams.toString()}`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -92,11 +164,8 @@ export const hubspotDynamicOptionsLoader: ProviderOptionsLoader = {
 
         const properties: HubspotFieldDef[] = await response.json();
 
-        // Return properties as a special format for dynamic field rendering
-        // This will be handled specially by the ConfigurationForm
         return properties.map(prop => ({
-          value: prop.name,
-          label: prop.label,
+          ...formatPropertyOption(prop),
           metadata: {
             type: prop.type,
             required: prop.required,
@@ -104,14 +173,14 @@ export const hubspotDynamicOptionsLoader: ProviderOptionsLoader = {
             group: prop.group,
             options: prop.options,
             hubspotType: prop.hubspotType,
-            isProperty: true, // Flag to indicate this is a property definition
+            isProperty: true,
           }
         }));
       }
 
       // Handle record ID field (depends on objectType)
       if (fieldName === 'recordId') {
-        const objectType = dependentFieldValue || 'contacts';
+        const objectType = dependsOnValue || 'contacts';
 
         const requestBody = {
           integrationId,
@@ -162,7 +231,7 @@ export const hubspotDynamicOptionsLoader: ProviderOptionsLoader = {
 
       // Handle identifier property field (for upsert)
       if (fieldName === 'identifierProperty') {
-        const objectType = dependentFieldValue || 'contacts';
+        const objectType = dependsOnValue || 'contacts';
 
         const response = await fetch(`/api/integrations/hubspot/properties?objectType=${objectType}`, {
           method: 'GET',
@@ -197,6 +266,8 @@ export const hubspotDynamicOptionsLoader: ProviderOptionsLoader = {
       }
 
       // Handle legacy fields (backward compatibility)
+      logger.info('🔍 [HubSpot Loader] Reached legacy fields section for:', fieldName);
+
       const fieldToDataType: Record<string, string> = {
         listId: 'hubspot_lists',
         associatedCompanyId: 'hubspot_companies',
@@ -208,6 +279,8 @@ export const hubspotDynamicOptionsLoader: ProviderOptionsLoader = {
       };
 
       const dataType = fieldToDataType[fieldName];
+      logger.info('🔍 [HubSpot Loader] Data type mapping:', { fieldName, dataType });
+
       if (!dataType) {
         logger.warn(`No data type mapping for HubSpot field: ${fieldName}`);
         return [];
@@ -219,6 +292,8 @@ export const hubspotDynamicOptionsLoader: ProviderOptionsLoader = {
         options: { searchQuery }
       };
 
+      logger.info('🔍 [HubSpot Loader] About to fetch data:', requestBody);
+
       const response = await fetch('/api/integrations/hubspot/data', {
         method: 'POST',
         headers: {
@@ -226,6 +301,8 @@ export const hubspotDynamicOptionsLoader: ProviderOptionsLoader = {
         },
         body: JSON.stringify(requestBody)
       });
+
+      logger.info('🔍 [HubSpot Loader] Fetch response status:', response.status);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch HubSpot ${dataType}`);
@@ -235,14 +312,36 @@ export const hubspotDynamicOptionsLoader: ProviderOptionsLoader = {
 
       // Format the response based on data type
       if (dataType === 'hubspot_lists') {
-        const manualLists = (result.data || []).filter((list: any) =>
-          list.listType === 'MANUAL' || list.listType === 'STATIC'
-        );
+        console.log('🔍 [HubSpot Loader] Raw lists data:', {
+          dataCount: result.data?.length || 0,
+          firstList: result.data?.[0],
+          allLists: result.data
+        });
 
-        return manualLists.map((list: any) => ({
-          value: list.listId.toString(),
+        const manualLists = (result.data || []).filter((list: any) => {
+          const isManual = list.listType === 'MANUAL' || list.listType === 'STATIC';
+          console.log('🔍 [HubSpot Loader] Filtering list:', {
+            name: list.name,
+            listType: list.listType,
+            isManual,
+            listKeys: Object.keys(list)
+          });
+          return isManual;
+        });
+
+        console.log('🔍 [HubSpot Loader] After filtering:', {
+          originalCount: result.data?.length || 0,
+          manualCount: manualLists.length
+        });
+
+        const formatted = manualLists.map((list: any) => ({
+          value: list.listId?.toString() || list.id?.toString(),
           label: `${list.name} (${list.size || 0} contacts)`
         }));
+
+        console.log('🔍 [HubSpot Loader] Formatted options:', formatted);
+
+        return formatted;
       }
 
       if (dataType === 'hubspot_companies') {

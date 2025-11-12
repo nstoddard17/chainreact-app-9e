@@ -3,6 +3,12 @@ import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-re
 import type { NextRequest } from "next/server"
 import { getAdminSupabaseClient } from "@/lib/supabase/admin"
 import { refreshTokenForProvider } from "@/lib/integrations/tokenRefreshService"
+import {
+  sendWarningNotification,
+  sendDisconnectionNotification,
+  sendRateLimitNotification,
+  shouldSendNotification,
+} from "@/lib/integrations/notificationService"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -59,9 +65,10 @@ export async function GET(request: NextRequest) {
       return errorResponse("Failed to create database client" , 500)
     }
 
-    // Calculate the threshold for token expiration (30 minutes from now)
+    // Calculate the threshold for token expiration (10 minutes from now)
+    // This gives us time for multiple retry attempts before actual expiration
     const now = new Date()
-    const expiryThreshold = new Date(now.getTime() + 30 * 60 * 1000) // 30 minutes
+    const expiryThreshold = new Date(now.getTime() + 10 * 60 * 1000) // 10 minutes
 
     // Build the query to get integrations with refresh tokens that need refreshing
     // Exclude integrations that already need reauthorization to avoid repeated error logs
@@ -177,20 +184,32 @@ export async function GET(request: NextRequest) {
           // Skip if no refresh token
           if (!integration.refresh_token) {
             if (verbose) logger.debug(`Skipping ${integration.provider} - no refresh token`)
-            
+
             // Check if the token is expired and update status if needed
-            if (integration.expires_at && new Date(integration.expires_at) <= now) {
-              if (verbose) logger.debug(`${integration.provider} has expired without refresh token - marking as needs_reauthorization`)
-              
-              await supabase
-                .from("integrations")
-                .update({ 
-                  status: "needs_reauthorization",
-                  disconnect_reason: "Access token expired and no refresh token available"
-                })
-                .eq("id", integration.id)
+            // IMPORTANT: Add 10-minute grace period to avoid premature marking
+            // Only mark as expired if token has been expired for >10 minutes
+            if (integration.expires_at) {
+              const expiresAt = new Date(integration.expires_at)
+              const gracePeriodMinutes = 10
+              const gracePeriodMs = gracePeriodMinutes * 60 * 1000
+              const expiredWithGrace = now.getTime() > (expiresAt.getTime() + gracePeriodMs)
+
+              if (expiredWithGrace) {
+                if (verbose) logger.debug(`${integration.provider} has been expired for >${gracePeriodMinutes} minutes without refresh token - marking as needs_reauthorization`)
+
+                await supabase
+                  .from("integrations")
+                  .update({
+                    status: "needs_reauthorization",
+                    disconnect_reason: "Access token expired and no refresh token available"
+                  })
+                  .eq("id", integration.id)
+              } else if (verbose) {
+                const minutesUntilExpiry = Math.ceil((expiresAt.getTime() - now.getTime()) / (60 * 1000))
+                logger.debug(`${integration.provider} expires in ${minutesUntilExpiry} minutes or expired <${gracePeriodMinutes} min ago - not marking yet`)
+              }
             }
-            
+
             continue
           }
 
@@ -211,6 +230,7 @@ export async function GET(request: NextRequest) {
               updated_at: now.toISOString(),
               last_refresh_success: now.toISOString(),
               consecutive_failures: 0,
+              consecutive_transient_failures: 0, // Reset transient failures too
               disconnect_reason: null,
               status: "connected",
             }
@@ -249,34 +269,110 @@ export async function GET(request: NextRequest) {
             const reason = refreshResult.error || "Unknown error"
             failureReasons[reason] = (failureReasons[reason] || 0) + 1
 
-            // Get current consecutive failures
+            // Get current failure counts
             const { data } = await supabase
               .from("integrations")
-              .select("consecutive_failures")
+              .select("consecutive_failures, consecutive_transient_failures")
               .eq("id", integration.id)
               .single()
 
-            const consecutiveFailures = ((data?.consecutive_failures || 0) + 1)
+            // Separate transient vs permanent failures
+            const isTransient = refreshResult.isTransientFailure || false
+            const currentAuthFailures = data?.consecutive_failures || 0
+            const currentTransientFailures = data?.consecutive_transient_failures || 0
+
+            let newAuthFailures = currentAuthFailures
+            let newTransientFailures = currentTransientFailures
+
+            if (isTransient) {
+              // Transient failure (rate limit, network error, 5xx)
+              newTransientFailures = currentTransientFailures + 1
+              if (verbose) {
+                logger.debug(`${integration.provider}: Transient failure #${newTransientFailures} (rate limit/network)`)
+              }
+            } else {
+              // Permanent auth failure
+              newAuthFailures = currentAuthFailures + 1
+              if (verbose) {
+                logger.debug(`${integration.provider}: Auth failure #${newAuthFailures} (permanent)`)
+              }
+            }
+
+            // Determine if we should mark as needs_reauthorization
+            const shouldMarkDisconnected =
+              refreshResult.invalidRefreshToken ||
+              refreshResult.needsReauthorization ||
+              newAuthFailures >= 3
 
             // Update the integration with error details
+            const updateData: Record<string, any> = {
+              consecutive_failures: newAuthFailures,
+              consecutive_transient_failures: newTransientFailures,
+              disconnect_reason: refreshResult.error || "Unknown error during token refresh",
+              last_failure_at: now.toISOString(),
+            }
+
+            if (shouldMarkDisconnected) {
+              updateData.status = "needs_reauthorization"
+            }
+
             const { error: updateError } = await supabase
               .from("integrations")
-              .update({
-                consecutive_failures: consecutiveFailures,
-                disconnect_reason: refreshResult.error || "Unknown error during token refresh",
-                last_failure_at: now.toISOString(),
-                // Only update status to needs_reauthorization if specifically indicated by the refresh result
-                // or if we've hit too many consecutive failures
-                ...(refreshResult.invalidRefreshToken || refreshResult.needsReauthorization || consecutiveFailures >= 3 
-                  ? { status: "needs_reauthorization" } 
-                  : {})
-              })
+              .update(updateData)
               .eq("id", integration.id)
 
             if (updateError) {
               logger.error(`Error updating integration after failed refresh:`, updateError)
             } else if (verbose) {
               logger.debug(`Failed to refresh ${integration.provider}: ${refreshResult.error}`)
+            }
+
+            // Send notifications based on failure type and count
+            try {
+              if (isTransient) {
+                // Send rate limit notification after 5+ transient failures
+                if (shouldSendNotification(0, newTransientFailures, 'rate_limit')) {
+                  await sendRateLimitNotification(supabase, {
+                    userId: integration.user_id,
+                    provider: integration.provider,
+                    integrationId: integration.id,
+                    consecutiveTransientFailures: newTransientFailures,
+                    notificationType: 'rate_limit'
+                  })
+                  logger.info(`📧 Sent rate limit notification for ${integration.provider} (${newTransientFailures} failures)`)
+                }
+              } else {
+                // Send warning on 2nd auth failure
+                if (shouldSendNotification(newAuthFailures, 0, 'warning')) {
+                  await sendWarningNotification(supabase, {
+                    userId: integration.user_id,
+                    provider: integration.provider,
+                    integrationId: integration.id,
+                    consecutiveFailures: newAuthFailures,
+                    errorMessage: refreshResult.error,
+                    notificationType: 'warning'
+                  })
+                  logger.info(`⚠️ Sent warning notification for ${integration.provider} (${newAuthFailures} failures)`)
+                }
+
+                // Send disconnection notification on 3rd auth failure or permanent error
+                if (shouldSendNotification(newAuthFailures, 0, 'disconnected')) {
+                  const shouldEmail = newAuthFailures >= 2 || refreshResult.invalidRefreshToken
+                  await sendDisconnectionNotification(supabase, {
+                    userId: integration.user_id,
+                    provider: integration.provider,
+                    integrationId: integration.id,
+                    consecutiveFailures: newAuthFailures,
+                    errorMessage: refreshResult.error,
+                    sendEmail: shouldEmail,
+                    notificationType: 'disconnected'
+                  })
+                  logger.info(`🔴 Sent disconnection notification for ${integration.provider} (${newAuthFailures} failures, email: ${shouldEmail})`)
+                }
+              }
+            } catch (notificationError: any) {
+              logger.error(`Failed to send notification for ${integration.provider}:`, notificationError)
+              // Don't fail the whole job if notification fails
             }
 
             results.push({

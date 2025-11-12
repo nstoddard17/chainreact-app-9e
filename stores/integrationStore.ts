@@ -526,7 +526,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
               clearTimeout(connectionTimeout) // Clear timeout on successful reconnection
               setLoading(`connect-${providerId}`, false)
-              emitIntegrationEvent('INTEGRATION_RECONNECTED', { providerId })
+              emitIntegrationEvent('INTEGRATION_RECONNECTED', { provider: providerId })
 
               // Fetch from server immediately to update UI with real data
               // Don't wait 1.5 seconds - user needs instant feedback

@@ -13,7 +13,7 @@
  * - Connection health monitoring
  */
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -105,14 +105,8 @@ export function ServiceConnectionSelector({
   const connections = allConnections.filter(conn => !deletedConnectionIds.has(conn.id))
   const selectedConnection = propSelectedConnection || (connections.length > 0 ? connections[0] : undefined)
 
-  // Fetch all connections for this provider on mount
-  useEffect(() => {
-    if (autoFetch && !propConnections && providerId) {
-      fetchAllConnections()
-    }
-  }, [providerId, autoFetch, propConnections])
-
-  const fetchAllConnections = async () => {
+  // Memoized fetch function to prevent infinite loops
+  const fetchAllConnections = useCallback(async () => {
     setIsFetching(true)
     setFetchError(null)
 
@@ -160,7 +154,14 @@ export function ServiceConnectionSelector({
     } finally {
       setIsFetching(false)
     }
-  }
+  }, [providerId])
+
+  // Fetch all connections for this provider on mount
+  useEffect(() => {
+    if (autoFetch && !propConnections && providerId) {
+      fetchAllConnections()
+    }
+  }, [providerId, autoFetch, propConnections, fetchAllConnections])
 
   const connection = selectedConnection
   const hasMultipleConnections = connections.length > 1
@@ -199,18 +200,27 @@ export function ServiceConnectionSelector({
   // Listen for window focus (when OAuth popup closes)
   useEffect(() => {
     const handleFocus = async () => {
-      logger.debug('[ServiceConnectionSelector] Window focused, refreshing connections', { providerId })
+      logger.debug('[ServiceConnectionSelector] Window focused, checking if should refresh', {
+        providerId,
+        isRefreshing
+      })
       if (isRefreshing) {
-        await fetchAllConnections()
-        // Clear spinner after refresh completes
-        setIsRefreshing(false)
+        try {
+          await fetchAllConnections()
+          logger.debug('[ServiceConnectionSelector] Connections refreshed after focus')
+        } catch (error: any) {
+          logger.error('[ServiceConnectionSelector] Failed to refresh on focus', { error: error.message })
+        } finally {
+          // Always clear spinner after refresh completes
+          setIsRefreshing(false)
+          logger.debug('[ServiceConnectionSelector] Cleared refreshing state after focus')
+        }
       }
     }
 
     window.addEventListener('focus', handleFocus)
     return () => window.removeEventListener('focus', handleFocus)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isRefreshing, providerId]) // Include isRefreshing to know when to refresh
+  }, [isRefreshing, providerId, fetchAllConnections])
 
   // Listen for integration reconnection events
   useEffect(() => {
@@ -218,21 +228,28 @@ export function ServiceConnectionSelector({
       logger.debug('[ServiceConnectionSelector] Reconnection event received', {
         eventProvider: event.detail?.provider,
         componentProviderId: providerId,
-        matches: event.detail?.provider === providerId
+        matches: event.detail?.provider === providerId,
+        isCurrentlyRefreshing: isRefreshing
       })
 
       if (event.detail?.provider === providerId) {
         logger.debug('[ServiceConnectionSelector] Provider matches, refreshing connections')
-        await fetchAllConnections()
-        // Clear spinner after refresh completes
-        setIsRefreshing(false)
+        try {
+          await fetchAllConnections()
+          logger.debug('[ServiceConnectionSelector] Connections refreshed successfully')
+        } catch (error: any) {
+          logger.error('[ServiceConnectionSelector] Failed to refresh connections', { error: error.message })
+        } finally {
+          // Always clear spinner, even if fetch fails
+          setIsRefreshing(false)
+          logger.debug('[ServiceConnectionSelector] Cleared refreshing state')
+        }
       }
     }
 
     window.addEventListener('integration-reconnected' as any, handleReconnectionEvent as any)
     return () => window.removeEventListener('integration-reconnected' as any, handleReconnectionEvent as any)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [providerId]) // Include providerId for comparison
+  }, [providerId, fetchAllConnections, isRefreshing])
 
   // Get account display text
   const getAccountDisplay = (conn?: Connection) => {

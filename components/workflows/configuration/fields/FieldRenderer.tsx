@@ -323,8 +323,15 @@ export function FieldRenderer({
     onDynamicLoadRef.current = onDynamicLoad;
   }, [onDynamicLoad]);
 
+  // Helper to detect runtime "now" placeholder regardless of casing
+  const isRuntimeNowValue = (val: any) => {
+    if (typeof val !== 'string') return false
+    return val.trim().toUpperCase() === '{{NOW}}'
+  }
+
   // State for Connect mode - check if value is already a connected variable
   const isConnectedValue = (val: any) => {
+    if (isRuntimeNowValue(val)) return false
     if (typeof val !== 'string') return false
     const trimmed = val.trim()
     return trimmed.startsWith('{{') && trimmed.endsWith('}}') && !trimmed.includes(' ')
@@ -333,23 +340,25 @@ export function FieldRenderer({
   const [isConnectedMode, setIsConnectedMode] = useState(() =>
     shouldUseConnectMode(field) && isConnectedValue(value)
   );
+  const fieldSupportsRuntimeNowToggle =
+    field.type === 'date' ||
+    field.type === 'datetime' ||
+    field.type === 'datetime-local';
 
   // Update connected mode when value changes externally
   useEffect(() => {
-    if (shouldUseConnectMode(field)) {
-      setIsConnectedMode(isConnectedValue(value))
+    if (!shouldUseConnectMode(field)) return;
+    if (isConnectedValue(value) && !isConnectedMode) {
+      setIsConnectedMode(true);
     }
-  }, [value]);
+  }, [value, field, isConnectedMode]);
 
   // Handle connect button toggle
   const handleConnectToggle = () => {
     if (isConnectedMode) {
-      // Disconnect: Switch back to text input and clear value
-      setIsConnectedMode(false)
-      onChange('')
+      setIsConnectedMode(false);
     } else {
-      // Connect: Switch to dropdown mode
-      setIsConnectedMode(true)
+      setIsConnectedMode(true);
     }
   };
 
@@ -426,6 +435,18 @@ export function FieldRenderer({
   const fieldOptions = field.options ||
     (field.dynamic && dynamicOptions?.[field.name]) ||
     [];
+
+  // Debug logging for HubSpot listId field
+  if (nodeInfo?.providerId === 'hubspot' && field.name === 'listId') {
+    console.log('🔵 [FieldRenderer] listId field options:', {
+      fieldName: field.name,
+      fieldDynamic: field.dynamic,
+      dynamicOptions: dynamicOptions,
+      dynamicOptionsForField: dynamicOptions?.[field.name],
+      fieldOptions: fieldOptions,
+      fieldOptionsLength: fieldOptions?.length
+    });
+  }
 
   // Auto-load options for combobox/select fields with dynamic data
   useEffect(() => {
@@ -1600,8 +1621,10 @@ export function FieldRenderer({
           );
         }
 
+        const supportsConnectMode = shouldUseConnectMode(field);
+
         // If connect mode is enabled, show variable dropdown when in connected mode
-        if (shouldUseConnectMode(field) && workflowData && currentNodeId && isConnectedMode) {
+        if (supportsConnectMode && workflowData && currentNodeId && isConnectedMode) {
           return (
             <VariableSelectionDropdown
               workflowData={workflowData}
@@ -1615,13 +1638,12 @@ export function FieldRenderer({
         }
 
         const rawDateValue = typeof value === 'string' ? value : '';
+        const trimmedDateValue = rawDateValue ? rawDateValue.trim() : '';
+        const isUsingNow = isRuntimeNowValue(trimmedDateValue);
         const isVariableValue =
-          rawDateValue.startsWith('{{') &&
-          rawDateValue.endsWith('}}') &&
-          rawDateValue !== '{{NOW}}';
-
-        // Check if "Use current date/time" is selected
-        const isUsingNow = typeof value === 'string' && value === '{{NOW}}';
+          trimmedDateValue.startsWith('{{') &&
+          trimmedDateValue.endsWith('}}') &&
+          !isRuntimeNowValue(trimmedDateValue);
 
         // Format date value for input
         let formattedDateValue = '';
@@ -1653,6 +1675,8 @@ export function FieldRenderer({
           }
         };
 
+        const showUseNowToggle = !(supportsConnectMode && isConnectedMode);
+
         return (
           <div className="space-y-2">
             <Input
@@ -1674,20 +1698,22 @@ export function FieldRenderer({
                 isUsingNow && !isVariableValue && "opacity-50"
               )}
             />
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id={`${field.name}-use-now`}
-                checked={isUsingNow}
-                onCheckedChange={handleUseNowChange}
-                disabled={field.disabled}
-              />
-              <Label
-                htmlFor={`${field.name}-use-now`}
-                className="text-sm text-muted-foreground cursor-pointer font-normal"
-              >
-                Use current date/time when action runs
-              </Label>
-            </div>
+            {showUseNowToggle && (
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id={`${field.name}-use-now`}
+                  checked={isUsingNow}
+                  onCheckedChange={handleUseNowChange}
+                  disabled={field.disabled}
+                />
+                <Label
+                  htmlFor={`${field.name}-use-now`}
+                  className="text-sm text-muted-foreground cursor-pointer font-normal"
+                >
+                  Use current date/time when action runs
+                </Label>
+              </div>
+            )}
             {isVariableValue && (
               <p className="text-xs text-muted-foreground">
                 Variable value will be resolved when the workflow runs.
@@ -1776,6 +1802,8 @@ export function FieldRenderer({
           updateRange(currentStart, variable);
         };
 
+        const showUseNowToggle = !(useConnectMode && isConnectedMode);
+
         return (
           <div className="space-y-2">
             <div className="flex items-center gap-2">
@@ -1861,14 +1889,19 @@ export function FieldRenderer({
           />
         );
 
+      case "datetime":
       case "datetime-local": {
         // Handle datetime-local input for date and time selection
         const rawDateTime = typeof value === 'string' ? value : '';
+        const normalizedDateTime = rawDateTime ? rawDateTime.trim() : '';
+        const isUsingNow = isRuntimeNowValue(normalizedDateTime);
         const isVariableDateTime =
-          rawDateTime.startsWith('{{') && rawDateTime.endsWith('}}');
+          normalizedDateTime.startsWith('{{') &&
+          normalizedDateTime.endsWith('}}') &&
+          !isRuntimeNowValue(normalizedDateTime);
 
         const datetimeValue = useMemo(() => {
-          if (!value || isVariableDateTime) return '';
+          if (!value || isVariableDateTime || isUsingNow) return '';
           if (value instanceof Date) {
             // Format as YYYY-MM-DDTHH:mm for datetime-local input
             const year = value.getFullYear();
@@ -1890,10 +1923,20 @@ export function FieldRenderer({
             }
           }
           return '';
-        }, [value, isVariableDateTime]);
+        }, [value, isVariableDateTime, isUsingNow]);
 
         // Check if this field should use connect mode
         const useConnectMode = shouldUseConnectMode(field);
+
+        const handleUseNowChange = (checked: boolean) => {
+          if (checked) {
+            onChange('{{NOW}}');
+          } else {
+            onChange('');
+          }
+        };
+
+        const showUseNowToggle = !(useConnectMode && isConnectedMode);
 
         return (
           <div className="space-y-2">
@@ -1928,9 +1971,11 @@ export function FieldRenderer({
                   }}
                   min={field.min}
                   max={field.max}
+                  disabled={field.disabled || isUsingNow}
                   className={cn(
                     "w-full",
-                    error && "border-red-500"
+                    error && "border-red-500",
+                    isUsingNow && "opacity-50"
                   )}
                   placeholder={field.placeholder || "Select date & time or insert variable"}
                 />
@@ -1945,10 +1990,26 @@ export function FieldRenderer({
                 />
               )}
             </div>
+            {showUseNowToggle && (
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id={`${field.name}-use-now`}
+                  checked={isUsingNow}
+                  onCheckedChange={handleUseNowChange}
+                  disabled={field.disabled}
+                />
+                <Label
+                  htmlFor={`${field.name}-use-now`}
+                  className="text-sm text-muted-foreground cursor-pointer font-normal"
+                >
+                  Use current date/time when workflow runs
+                </Label>
+              </div>
+            )}
             {field.description && (
               <p className="text-sm text-muted-foreground">{field.description}</p>
             )}
-            {isVariableDateTime && !useConnectMode && (
+            {isVariableDateTime && (
               <p className="text-xs text-muted-foreground">
                 Variable value will be resolved at runtime.
               </p>

@@ -860,6 +860,16 @@ const hubspotMappings: Record<string, FieldMapping> = {
     hubspot_owner_id: "hubspot_owners",
     hs_lead_status: "hubspot_lead_status_options",
   },
+  hubspot_action_update_company: {
+    companyId: "hubspot_companies",
+    hubspot_owner_id: "hubspot_owners",
+  },
+  hubspot_action_get_tickets: {
+    filterPipeline: "hubspot_ticket_pipelines",
+    filterStage: "hubspot_ticket_stages",
+    filterProperty: "hubspot_ticket_properties",
+    properties: "hubspot_ticket_properties",
+  },
   // Dynamic HubSpot object actions
   hubspot_action_create_object: {
     objectType: "hubspot_objects",

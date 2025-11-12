@@ -16,19 +16,27 @@ export const hubspotOptionsLoader: ProviderOptionsLoader = {
     }
     
     // List of fields this loader can handle
+    // NOTE: 'listId' is now handled by hubspotDynamicOptionsLoader for better handling
     const supportedFields = [
-      'listId',
       'associatedCompanyId',
       'associatedContactId',
+      'associatedDealId',
       'contactId',
+      'companyId',
       'dealId',
+      'ticketId',
       'jobtitle',
       'department',
       'industry',
       'filterByOwner',
       'hubspot_owner_id',
       'propertyName',
+      'filterProperty',
+      'filterPipeline',
+      'filterStage',
       'filterByPipeline',
+      'hs_pipeline',
+      'hs_pipeline_stage',
       'hs_lead_status',
       'selectedProperties'
     ]
@@ -64,36 +72,53 @@ export const hubspotOptionsLoader: ProviderOptionsLoader = {
       listId: 'hubspot_lists',
       associatedCompanyId: 'hubspot_companies',
       associatedContactId: 'hubspot_contacts',
+      associatedDealId: 'hubspot_deals',
       contactId: 'hubspot_contacts',
+      companyId: 'hubspot_companies',
       dealId: 'hubspot_deals',
+      ticketId: 'hubspot_tickets',
       jobtitle: 'hubspot_job_titles',
       department: 'hubspot_departments',
       industry: 'hubspot_industries',
       filterByOwner: 'hubspot_owners',
       hubspot_owner_id: 'hubspot_owners',
       propertyName: 'hubspot_contact_properties', // Default to contact properties
+      filterProperty: 'hubspot_contact_properties', // Default to contact properties until nodeType inspected
+      filterPipeline: 'hubspot_ticket_pipelines',
+      filterStage: 'hubspot_ticket_stages',
       filterByPipeline: 'hubspot_pipelines',
+      hs_pipeline: 'hubspot_ticket_pipelines',
+      hs_pipeline_stage: 'hubspot_ticket_stages',
       hs_lead_status: 'hubspot_lead_status_options',
       selectedProperties: 'hubspot_contact_properties',
+    }
+
+    const resolvePropertyDataType = (nodeType?: string) => {
+      if (!nodeType) return 'hubspot_contact_properties'
+      const normalized = nodeType.toLowerCase()
+
+      if (normalized.includes('deal')) {
+        return 'hubspot_deal_properties'
+      }
+
+      if (normalized.includes('company')) {
+        return 'hubspot_company_properties'
+      }
+
+      if (normalized.includes('ticket')) {
+        return 'hubspot_ticket_properties'
+      }
+
+      return 'hubspot_contact_properties'
     }
 
     // Special handling: determine if propertyName is for contacts, deals, or companies based on provider context
     // We need to check the node type to determine which properties to load
     let dataType = fieldToDataType[fieldName]
 
-    // If it's propertyName field, we need context to know if it's contact, deal, company, or ticket properties
-    // This will be handled dynamically in the component, but for now we default to contact
-    if (fieldName === 'propertyName' && params.nodeType) {
-      // The component should pass additional context, but we'll handle all types
-      if (params.nodeType.includes('deal')) {
-        dataType = 'hubspot_deal_properties'
-      } else if (params.nodeType.includes('company')) {
-        dataType = 'hubspot_company_properties'
-      } else if (params.nodeType.includes('ticket')) {
-        dataType = 'hubspot_ticket_properties'
-      } else {
-        dataType = 'hubspot_contact_properties'
-      }
+    // If it's propertyName or filterProperty field, detect which object type is in use
+    if ((fieldName === 'propertyName' || fieldName === 'filterProperty')) {
+      dataType = resolvePropertyDataType(params.nodeType)
     }
     if (!dataType) {
       logger.warn(`No data type mapping for HubSpot field: ${fieldName}`)
@@ -101,10 +126,18 @@ export const hubspotOptionsLoader: ProviderOptionsLoader = {
     }
     
     try {
+      // Special handling for fields that depend on parent values
+      const options: any = { searchQuery }
+
+      // For ticket stages, we need the pipeline parameter
+      if ((fieldName === 'hs_pipeline_stage' || fieldName === 'filterStage') && params.dependsOnValue) {
+        options.pipeline = params.dependsOnValue
+      }
+
       const requestBody = {
         integrationId,
         dataType,
-        options: { searchQuery }
+        options
       }
       
       logger.debug('📡 [HubSpot Loader] Making API request:', {
@@ -253,6 +286,30 @@ export const hubspotOptionsLoader: ProviderOptionsLoader = {
           value: pipeline.id,
           label: pipeline.label || pipeline.name || `Pipeline ${pipeline.id}`,
           raw: pipeline
+        }))
+      }
+
+      if (dataType === 'hubspot_ticket_pipelines') {
+        return (result.data || []).map((pipeline: any) => ({
+          value: pipeline.id,
+          label: pipeline.label || pipeline.name || `Pipeline ${pipeline.id}`,
+          raw: pipeline
+        }))
+      }
+
+      if (dataType === 'hubspot_ticket_stages') {
+        return (result.data || []).map((stage: any) => ({
+          value: stage.id,
+          label: stage.label || stage.name || `Stage ${stage.id}`,
+          raw: stage
+        }))
+      }
+
+      if (dataType === 'hubspot_tickets') {
+        return (result.data || []).map((ticket: any) => ({
+          value: ticket.id,
+          label: ticket.properties?.subject || `Ticket ${ticket.id}`,
+          raw: ticket
         }))
       }
 
