@@ -5,6 +5,7 @@ import { cookies } from "next/headers"
 import crypto from "crypto"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
+import { getHubSpotScopeString } from "@/lib/integrations/hubspotScopes"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -802,36 +803,8 @@ async function generateHubSpotAuthUrl(stateObject: any, supabase: any): Promise<
     throw new Error(`Failed to store HubSpot OAuth state: ${error.message}`)
   }
 
-  // HubSpot scopes - IMPORTANT: Must match oauthConfig.ts
-  // Note: These scopes must be configured in your HubSpot app settings
-  // If you get a scope error, ensure these are enabled in your HubSpot app at:
-  // https://app.hubspot.com/developer/{your-account-id}/application/{your-app-id}
-  //
-  // 'oauth' scope is REQUIRED for basic OAuth functionality
-  // 'webhooks' scope is only needed if you want to create webhooks programmatically
-  //   - If you get a webhooks scope error, you can remove it and still use the app
-  //   - Only include if your HubSpot app is configured as a Public App with webhooks enabled
-  // 'tickets' scope is required for ticket pipeline and ticket management
-  const hubspotScopes = [
-    "oauth",
-    "forms",
-    "automation",
-    "crm.lists.read",
-    "crm.lists.write",
-    "crm.objects.contacts.read",
-    "crm.objects.contacts.write",
-    "crm.objects.companies.read",
-    "crm.objects.companies.write",
-    "crm.objects.deals.read",
-    "crm.objects.deals.write",
-    "crm.objects.line_items.read",
-    "crm.objects.line_items.write",
-    "crm.objects.owners.read",
-    "crm.objects.products.read",
-    "crm.objects.products.write",
-    "crm.schemas.deals.read",
-    "tickets"
-  ].join(" ")
+  // HubSpot scopes - IMPORTANT: Must match oauthConfig.ts and your HubSpot app configuration
+  const hubspotScopes = getHubSpotScopeString()
 
   const params = new URLSearchParams({
     client_id: clientId,

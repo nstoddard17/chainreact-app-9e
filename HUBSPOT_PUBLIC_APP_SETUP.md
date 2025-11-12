@@ -76,9 +76,16 @@ HUBSPOT_CLIENT_ID=your-client-id-here
 HUBSPOT_CLIENT_SECRET=your-client-secret-here
 HUBSPOT_APP_ID=your-app-id-here
 
+# Optional: override requested OAuth scopes (space or comma separated)
+# HUBSPOT_OAUTH_SCOPES="oauth crm.objects.contacts.read crm.objects.contacts.write"
+
 # IMPORTANT: Remove or comment out the Private App token
 # HUBSPOT_PRIVATE_APP_TOKEN=...
 ```
+
+> ⚠️ **Scope mismatches**
+>
+> If you see `Authorization failed because there is a mismatch between the scopes in the install URL and the app's configured scopes`, set `HUBSPOT_OAUTH_SCOPES` (or `HUBSPOT_SCOPES`) to exactly match the scopes enabled in your HubSpot developer app. The OAuth flow and refresh token handler both read from this environment variable, so you only need to keep the list up to date in one place.
 
 ### Where to Find App ID
 
