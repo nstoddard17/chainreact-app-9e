@@ -1,14 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { createClient } from '@supabase/supabase-js'
 import { fixWorkflowTriggerNodes } from '@/lib/utils/fixWorkflowTriggerNodes'
 
 import { logger } from '@/lib/utils/logger'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 export async function POST(request: NextRequest) {
   try {

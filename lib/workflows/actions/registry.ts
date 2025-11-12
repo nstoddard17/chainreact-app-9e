@@ -280,7 +280,8 @@ import {
   formatTransformer,
   executeFileUpload,
   executeExtractWebsiteData,
-  executeTavilySearch
+  executeTavilySearch,
+  executeParseFile
 } from './utility'
 
 // Workflow control actions
@@ -904,6 +905,8 @@ export const actionHandlerRegistry: Record<string, Function> = {
     executeExtractWebsiteData(params.config, params.userId, params.input),
   "tavily_search": (params: { config: any; userId: string; input: Record<string, any> }) =>
     executeTavilySearch(params.config, params.userId, params.input),
+  "parse_file": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    executeParseFile(params.config, params.userId, params.input),
 
   // Workflow control actions - special handling needed for wait_for_time - wrapped to handle new calling convention
   "if_then_condition": (params: { config: any; userId: string; input: Record<string, any> }) =>

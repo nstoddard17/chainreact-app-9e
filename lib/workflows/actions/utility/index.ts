@@ -7,3 +7,4 @@ export { formatTransformer } from './formatTransformer';
 export { executeFileUpload } from './fileUpload';
 export { executeExtractWebsiteData } from './extractWebsiteData';
 export { executeTavilySearch } from './tavilySearch';
+export { executeParseFile } from './parseFile';

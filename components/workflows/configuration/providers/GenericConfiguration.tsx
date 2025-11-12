@@ -85,6 +85,25 @@ export function GenericConfiguration({
   isConnectedToAIAgent = false,
   loadingFields: loadingFieldsProp,
 }: GenericConfigurationProps) {
+
+  // Debug: Log dynamicOptions for HubSpot
+  const hasTriedLoadRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (nodeInfo?.providerId === 'hubspot') {
+      console.log('🔍 [GenericConfig] HubSpot dynamicOptions:', dynamicOptions);
+      console.log('🔍 [GenericConfig] HubSpot listId options:', dynamicOptions.listId);
+
+      // Auto-load if empty (only once)
+      if (nodeInfo?.type === 'hubspot_action_add_contact_to_list' &&
+          (!dynamicOptions.listId || dynamicOptions.listId.length === 0) &&
+          !hasTriedLoadRef.current) {
+        console.log('🔄 [GenericConfig] Auto-loading listId options');
+        hasTriedLoadRef.current = true;
+        loadOptions('listId', undefined, undefined, true);
+      }
+    }
+  }, [dynamicOptions, nodeInfo?.providerId, nodeInfo?.type, loadOptions]);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [localLoadingFields, setLocalLoadingFields] = useState<Set<string>>(new Set());
   const [isFormValid, setIsFormValid] = useState(true);
@@ -101,6 +120,7 @@ export function GenericConfiguration({
 
   // Store current values in a ref to avoid re-creating callbacks
   const valuesRef = useRef(values);
+  const autoLoadedFieldsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     valuesRef.current = values;
   }, [values]);
@@ -173,6 +193,34 @@ export function GenericConfiguration({
     }
   }, [nodeInfo, loadOptions]);
 
+  // Reset auto-loaded field tracking when node changes
+  useEffect(() => {
+    autoLoadedFieldsRef.current.clear();
+  }, [nodeInfo?.type, nodeInfo?.providerId]);
+
+  // Automatically load dynamic fields (without dependencies) when the modal opens
+  useEffect(() => {
+    if (!nodeInfo?.configSchema || needsConnection) return;
+
+    const fieldsNeedingLoad = nodeInfo.configSchema.filter((field: any) => {
+      if (!field.dynamic) return false;
+      if (field.dependsOn) return false; // Require parent value first
+      if (field.loadOnMount) return false; // Already handled elsewhere
+      if (autoLoadedFieldsRef.current.has(field.name)) return false;
+
+      const existingOptions = dynamicOptions?.[field.name];
+      const hasOptions = Array.isArray(existingOptions) && existingOptions.length > 0;
+
+      // Mark as handled to avoid duplicate loads
+      autoLoadedFieldsRef.current.add(field.name);
+      return !hasOptions;
+    });
+
+    fieldsNeedingLoad.forEach((field: any) => {
+      handleDynamicLoad(field.name);
+    });
+  }, [nodeInfo?.configSchema, needsConnection, dynamicOptions, handleDynamicLoad]);
+
   // Validate form whenever values or visible fields change
   useEffect(() => {
     const validateForm = () => {
@@ -212,7 +260,7 @@ export function GenericConfiguration({
         const isVisible = FieldVisibilityEngine.isFieldVisible(field, values, nodeInfo);
 
         // Apply default if field is visible and doesn't have a value yet
-        if (isVisible && (values[field.name] === undefined || values[field.name] === '')) {
+        if (isVisible && (values[field.name] === undefined || values[field.name] === null)) {
           logger.debug(`[GenericConfig] Applying default value to ${field.name}:`, field.defaultValue);
           setValue(field.name, field.defaultValue);
         }

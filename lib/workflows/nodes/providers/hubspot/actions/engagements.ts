@@ -38,8 +38,7 @@ export const hubspotActionCreateNote: NodeComponent = {
       type: "datetime",
       required: false,
       defaultValue: "{{now}}",
-      placeholder: "2025-01-15T10:30:00Z",
-      description: "When this note was created (defaults to now)"
+      placeholder: "2025-01-15T10:30:00Z"
     },
 
     // Associations
@@ -50,7 +49,8 @@ export const hubspotActionCreateNote: NodeComponent = {
       dynamic: "hubspot_contacts",
       required: false,
       placeholder: "Link to a contact",
-      description: "Associate this note with a contact"
+      description: "Associate this note with a contact",
+      loadOnMount: true
     },
     {
       name: "associatedCompanyId",
@@ -59,7 +59,8 @@ export const hubspotActionCreateNote: NodeComponent = {
       dynamic: "hubspot_companies",
       required: false,
       placeholder: "Link to a company",
-      description: "Associate this note with a company"
+      description: "Associate this note with a company",
+      loadOnMount: true
     },
     {
       name: "associatedDealId",
@@ -68,7 +69,8 @@ export const hubspotActionCreateNote: NodeComponent = {
       dynamic: "hubspot_deals",
       required: false,
       placeholder: "Link to a deal",
-      description: "Associate this note with a deal"
+      description: "Associate this note with a deal",
+      loadOnMount: true
     },
     {
       name: "associatedTicketId",
@@ -77,7 +79,8 @@ export const hubspotActionCreateNote: NodeComponent = {
       dynamic: "hubspot_tickets",
       required: false,
       placeholder: "Link to a ticket",
-      description: "Associate this note with a ticket"
+      description: "Associate this note with a ticket",
+      loadOnMount: true
     },
 
     // Ownership
@@ -192,10 +195,9 @@ export const hubspotActionCreateTask: NodeComponent = {
     {
       name: "hs_timestamp",
       label: "Due Date",
-      type: "datetime",
+      type: "datetime-local",
       required: false,
-      placeholder: "2025-01-20T17:00:00Z",
-      description: "When this task is due"
+      placeholder: "Select date & time"
     },
 
     // Reminder
@@ -216,7 +218,8 @@ export const hubspotActionCreateTask: NodeComponent = {
       dynamic: "hubspot_contacts",
       required: false,
       placeholder: "Link to a contact",
-      description: "Associate this task with a contact"
+      description: "Associate this task with a contact",
+      loadOnMount: true
     },
     {
       name: "associatedCompanyId",
@@ -225,7 +228,8 @@ export const hubspotActionCreateTask: NodeComponent = {
       dynamic: "hubspot_companies",
       required: false,
       placeholder: "Link to a company",
-      description: "Associate this task with a company"
+      description: "Associate this task with a company",
+      loadOnMount: true
     },
     {
       name: "associatedDealId",
@@ -234,7 +238,8 @@ export const hubspotActionCreateTask: NodeComponent = {
       dynamic: "hubspot_deals",
       required: false,
       placeholder: "Link to a deal",
-      description: "Associate this task with a deal"
+      description: "Associate this task with a deal",
+      loadOnMount: true
     },
     {
       name: "associatedTicketId",
@@ -243,7 +248,8 @@ export const hubspotActionCreateTask: NodeComponent = {
       dynamic: "hubspot_tickets",
       required: false,
       placeholder: "Link to a ticket",
-      description: "Associate this task with a ticket"
+      description: "Associate this task with a ticket",
+      loadOnMount: true
     },
 
     // Ownership
@@ -383,6 +389,7 @@ export const hubspotActionCreateCall: NodeComponent = {
       label: "Associated Contact",
       type: "combobox",
       dynamic: "hubspot_contacts",
+      loadOnMount: true,
       required: false,
       placeholder: "Link to a contact",
       description: "Associate this call with a contact"
@@ -392,6 +399,7 @@ export const hubspotActionCreateCall: NodeComponent = {
       label: "Associated Company",
       type: "combobox",
       dynamic: "hubspot_companies",
+      loadOnMount: true,
       required: false,
       placeholder: "Link to a company",
       description: "Associate this call with a company"
@@ -401,6 +409,7 @@ export const hubspotActionCreateCall: NodeComponent = {
       label: "Associated Deal",
       type: "combobox",
       dynamic: "hubspot_deals",
+      loadOnMount: true,
       required: false,
       placeholder: "Link to a deal",
       description: "Associate this call with a deal"
@@ -410,6 +419,7 @@ export const hubspotActionCreateCall: NodeComponent = {
       label: "Associated Ticket",
       type: "combobox",
       dynamic: "hubspot_tickets",
+      loadOnMount: true,
       required: false,
       placeholder: "Link to a ticket",
       description: "Associate this call with a ticket"
@@ -487,18 +497,20 @@ export const hubspotActionCreateMeeting: NodeComponent = {
     {
       name: "hs_meeting_start_time",
       label: "Start Time",
-      type: "datetime",
+      type: "datetime-local",
+      supportsAI: true,
       required: false,
       placeholder: "2025-01-20T14:00:00Z",
-      description: "When the meeting starts"
+      description: undefined
     },
     {
       name: "hs_meeting_end_time",
       label: "End Time",
-      type: "datetime",
+      type: "datetime-local",
+      supportsAI: true,
       required: false,
       placeholder: "2025-01-20T15:00:00Z",
-      description: "When the meeting ends"
+      description: undefined
     },
     {
       name: "hs_meeting_location",
@@ -528,7 +540,8 @@ export const hubspotActionCreateMeeting: NodeComponent = {
     {
       name: "hs_timestamp",
       label: "Meeting Time",
-      type: "datetime",
+      type: "datetime-local",
+      supportsAI: true,
       required: false,
       defaultValue: "{{now}}",
       placeholder: "2025-01-15T10:30:00Z",
@@ -541,6 +554,7 @@ export const hubspotActionCreateMeeting: NodeComponent = {
       label: "Associated Contact",
       type: "combobox",
       dynamic: "hubspot_contacts",
+      loadOnMount: true,
       required: false,
       placeholder: "Link to a contact",
       description: "Associate this meeting with a contact"
@@ -550,6 +564,7 @@ export const hubspotActionCreateMeeting: NodeComponent = {
       label: "Associated Company",
       type: "combobox",
       dynamic: "hubspot_companies",
+      loadOnMount: true,
       required: false,
       placeholder: "Link to a company",
       description: "Associate this meeting with a company"
@@ -559,6 +574,7 @@ export const hubspotActionCreateMeeting: NodeComponent = {
       label: "Associated Deal",
       type: "combobox",
       dynamic: "hubspot_deals",
+      loadOnMount: true,
       required: false,
       placeholder: "Link to a deal",
       description: "Associate this meeting with a deal"
@@ -568,6 +584,7 @@ export const hubspotActionCreateMeeting: NodeComponent = {
       label: "Associated Ticket",
       type: "combobox",
       dynamic: "hubspot_tickets",
+      loadOnMount: true,
       required: false,
       placeholder: "Link to a ticket",
       description: "Associate this meeting with a ticket"

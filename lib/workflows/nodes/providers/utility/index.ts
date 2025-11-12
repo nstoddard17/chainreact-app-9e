@@ -297,6 +297,20 @@ export const utilityNodes: NodeComponent[] = [
         type: "boolean",
         description: "Whether extraction was successful",
         example: true
+      },
+      {
+        name: "screenshot",
+        label: "Screenshot (Base64)",
+        type: "string",
+        description: "Base64-encoded screenshot of the webpage (if enabled)",
+        example: "iVBORw0KGgoAAAANSUhEUgAA..."
+      },
+      {
+        name: "screenshotUrl",
+        label: "Screenshot URL",
+        type: "string",
+        description: "Data URL for the screenshot image (if enabled)",
+        example: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
       }
     ],
     configSchema: [

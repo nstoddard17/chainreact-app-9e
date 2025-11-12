@@ -4,13 +4,14 @@ import { createClient } from "@supabase/supabase-js"
 
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
 export async function POST() {
   try {
+    // Create Supabase client at request time (not build time)
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
     // Process expired beta testers
     const { data: expiredTesters, error: fetchError } = await supabase
       .from("beta_testers")

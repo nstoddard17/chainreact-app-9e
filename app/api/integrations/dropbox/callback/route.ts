@@ -133,8 +133,9 @@ export async function GET(request: NextRequest) {
     const supabase = createAdminClient()
     const dropboxEmail = (accountInfo as any)?.email || null
     const dropboxName = (accountInfo as any)?.name?.display_name || (accountInfo as any)?.name?.given_name || null
+    const accountId = tokenData.account_id || (accountInfo as any)?.account_id || null
 
-    const { data: upsertedIntegration, error: upsertError } = await supabase.from('integrations').upsert({
+    const integrationData = {
       user_id: userId,
       provider,
       access_token: encrypt(tokenData.access_token, encryptionKey),
@@ -143,12 +144,20 @@ export async function GET(request: NextRequest) {
       refresh_token_expires_at: tokenData.refresh_token ? null : undefined, // Dropbox refresh tokens don't expire
       status: 'connected',
       updated_at: new Date().toISOString(),
+      // Clear disconnect fields on successful connection
+      disconnect_reason: null,
+      disconnected_at: null,
+      // Workspace context (personal by default)
+      workspace_type: 'personal',
+      workspace_id: null,
+      connected_by: userId,
       // Top-level account identity fields
       email: dropboxEmail,
       username: dropboxEmail?.split('@')[0] || null,
       account_name: dropboxName || dropboxEmail,
+      provider_user_id: accountId,
       metadata: {
-        account_id: tokenData.account_id || (accountInfo as any).account_id,
+        account_id: accountId,
         account_info: accountInfo,
         token_type: tokenData.token_type,
         scope: tokenData.scope,
@@ -158,13 +167,93 @@ export async function GET(request: NextRequest) {
         email: dropboxEmail,
         account_name: dropboxName
       }
-    }, {
-      onConflict: 'user_id, provider',
-    }).select('id').single()
+    }
 
-    if (upsertError) {
-      logger.error('Failed to save Dropbox integration:', upsertError)
-      return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
+    // EMAIL-BASED DEDUPLICATION: Check if this account already exists
+    let upsertedIntegration
+    if (dropboxEmail) {
+      // Check if user already has this provider connected with this email
+      const { data: existingIntegration } = await supabase
+        .from('integrations')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('provider', 'dropbox')
+        .eq('email', dropboxEmail)
+        .eq('workspace_type', 'personal')
+        .single()
+
+      if (existingIntegration) {
+        // Update existing integration (refresh tokens for same account)
+        const { data, error: updateError } = await supabase
+          .from('integrations')
+          .update(integrationData)
+          .eq('id', existingIntegration.id)
+          .select('id')
+          .single()
+
+        if (updateError) {
+          logger.error('Failed to update Dropbox integration:', updateError)
+          return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
+        }
+
+        upsertedIntegration = data
+        logger.debug(`✅ Updated existing Dropbox integration: ${existingIntegration.id}`)
+      } else {
+        // Insert new integration (different email = new account)
+        const { data, error: insertError } = await supabase
+          .from('integrations')
+          .insert(integrationData)
+          .select('id')
+          .single()
+
+        if (insertError) {
+          logger.error('Failed to save Dropbox integration:', insertError)
+          return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
+        }
+
+        upsertedIntegration = data
+        logger.debug(`✅ Created new Dropbox integration for ${dropboxEmail}`)
+      }
+    } else {
+      // Fallback: No email available, try to update by user_id + provider
+      const { data: existingIntegration } = await supabase
+        .from('integrations')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('provider', 'dropbox')
+        .eq('workspace_type', 'personal')
+        .single()
+
+      if (existingIntegration) {
+        const { data, error: updateError } = await supabase
+          .from('integrations')
+          .update(integrationData)
+          .eq('id', existingIntegration.id)
+          .select('id')
+          .single()
+
+        if (updateError) {
+          logger.error('Failed to update Dropbox integration:', updateError)
+          return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
+        }
+
+        upsertedIntegration = data
+        logger.debug(`✅ Updated existing Dropbox integration (no email): ${existingIntegration.id}`)
+      } else {
+        const { data, error: insertError } = await supabase
+          .from('integrations')
+          .insert(integrationData)
+          .select('id')
+          .single()
+
+        if (insertError) {
+          logger.error('Failed to save Dropbox integration:', insertError)
+          return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
+        }
+
+        upsertedIntegration = data
+        logger.debug(`✅ Created new Dropbox integration (no email)`)
+      }
     }
 
     if (upsertedIntegration) {

@@ -153,7 +153,7 @@ export function SetupTab(props: SetupTabProps) {
   }, [connections])
 
   // OAuth popup handler - Executes immediately without blocking on other operations
-  const handleConnect = () => {
+  const handleConnect = (isReconnect = false) => {
     if (!nodeInfo?.providerId) return
 
     // Immediately set connecting state
@@ -164,10 +164,18 @@ export function SetupTab(props: SetupTabProps) {
     Promise.resolve().then(async () => {
       try {
         // Generate OAuth URL
+        const requestBody: any = { provider: nodeInfo.providerId }
+
+        // For reconnections, include the reconnect flag and integration ID
+        if (isReconnect && connection?.id) {
+          requestBody.reconnect = true
+          requestBody.integrationId = connection.id
+        }
+
         const response = await fetch('/api/integrations/auth/generate-url', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ provider: nodeInfo.providerId })
+          body: JSON.stringify(requestBody)
         })
 
         if (!response.ok) {
@@ -190,6 +198,8 @@ export function SetupTab(props: SetupTabProps) {
 
         // Cleanup function (defined early for use in handleMessage)
         let broadcastChannel: BroadcastChannel | null = null
+        let hasHandledOAuthCompletion = false
+
         const cleanup = () => {
           window.removeEventListener('message', handleMessage)
           broadcastChannel?.close()
@@ -200,6 +210,10 @@ export function SetupTab(props: SetupTabProps) {
         const handleMessage = async (event: MessageEvent) => {
           // Verify message is from our OAuth callback
           if (event.data?.type === 'oauth-complete') {
+            if (hasHandledOAuthCompletion) {
+              return
+            }
+            hasHandledOAuthCompletion = true
             cleanup()
 
             if (event.data.success) {
@@ -246,7 +260,16 @@ export function SetupTab(props: SetupTabProps) {
         const checkClosed = setInterval(() => {
           if (popup?.closed) {
             clearInterval(checkClosed)
+            const shouldRefresh = !hasHandledOAuthCompletion
+            if (shouldRefresh) {
+              hasHandledOAuthCompletion = true
+            }
             cleanup()
+            if (shouldRefresh) {
+              fetchIntegrations(true).catch((error) => {
+                console.error('[SetupTab] Failed to refresh integrations after OAuth popup closed', error)
+              })
+            }
           }
         }, 500)
 
@@ -262,8 +285,8 @@ export function SetupTab(props: SetupTabProps) {
   }
 
   const handleReconnect = () => {
-    // Use same OAuth flow for reconnection
-    handleConnect()
+    // Use same OAuth flow for reconnection, but pass reconnect flag
+    handleConnect(true)
   }
 
   const handleChangeAccount = (connectionId: string) => {
@@ -357,7 +380,7 @@ export function SetupTab(props: SetupTabProps) {
             </div>
           </div>
         ) : (
-          <ConfigurationForm {...props} hasConnectionError={hasConnectionError} />
+          <ConfigurationForm {...props} />
         )}
       </div>
     </div>

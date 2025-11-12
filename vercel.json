@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/token-refresh",
-      "schedule": "*/20 * * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/process-scheduled-executions",

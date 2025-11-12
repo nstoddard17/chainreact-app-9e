@@ -521,11 +521,14 @@ export function ConfigurationModal({
                     {getModalTitle()}
                     {getNodeTypeBadge(nodeInfo?.type || '')}
                   </h2>
-                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5 truncate">
-                    {(nodeInfo as any)?.description || (nodeInfo?.providerId
-                      ? `Configure your ${getProviderBrandName(nodeInfo.providerId)} integration settings`
-                      : 'Configure your workflow node settings')}
-                  </p>
+                  {/* Hide description for nodes that manage their own headers */}
+                  {!['extract_website_data', 'format_transformer', 'parse_file', 'internet_search'].includes(nodeInfo?.type || '') && (
+                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5 truncate">
+                      {(nodeInfo as any)?.description || (nodeInfo?.providerId
+                        ? `Configure your ${getProviderBrandName(nodeInfo.providerId)} integration settings`
+                        : 'Configure your workflow node settings')}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

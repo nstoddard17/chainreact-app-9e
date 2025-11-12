@@ -3,10 +3,109 @@ import { resolveValue } from '../core/resolveValue';
 import { logger } from '@/lib/utils/logger';
 import * as cheerio from 'cheerio';
 import OpenAI from 'openai';
+import puppeteer from 'puppeteer';
+import { createClient } from '@supabase/supabase-js';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
+
+// Initialize Supabase client for usage tracking
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+/**
+ * Check if user can use browser automation and hasn't exceeded limits
+ */
+async function checkBrowserAutomationLimits(userId: string): Promise<{
+  allowed: boolean;
+  reason?: string;
+  tier?: string;
+  used?: number;
+  limit?: number;
+}> {
+  try {
+    const { data: profile, error } = await supabase
+      .from('user_profiles')
+      .select('subscription_tier, browser_automation_seconds_used, browser_automation_seconds_limit')
+      .eq('user_id', userId)
+      .single();
+
+    if (error || !profile) {
+      logger.error('[ExtractWebsiteData] Failed to fetch user profile', { error, userId });
+      return { allowed: true }; // Fail open - don't block if we can't check
+    }
+
+    const tier = profile.subscription_tier || 'free';
+    const used = profile.browser_automation_seconds_used || 0;
+    const limit = profile.browser_automation_seconds_limit || 1800; // 30 minutes default
+
+    // Pro/Enterprise users have unlimited usage (limit = -1 or very high)
+    if (tier === 'pro' || tier === 'enterprise' || limit === -1 || limit > 100000) {
+      return { allowed: true, tier };
+    }
+
+    // Check if free user has exceeded limit
+    if (used >= limit) {
+      return {
+        allowed: false,
+        reason: `Browser automation limit reached. You've used ${Math.floor(used / 60)} of ${Math.floor(limit / 60)} minutes this month. Upgrade to Pro for unlimited usage.`,
+        tier,
+        used,
+        limit
+      };
+    }
+
+    return { allowed: true, tier, used, limit };
+  } catch (error: any) {
+    logger.error('[ExtractWebsiteData] Error checking limits', { error: error.message });
+    return { allowed: true }; // Fail open
+  }
+}
+
+/**
+ * Track browser automation usage
+ */
+async function trackBrowserAutomationUsage(
+  userId: string,
+  durationSeconds: number,
+  workflowId?: string,
+  executionId?: string,
+  hadScreenshot?: boolean,
+  hadDynamicContent?: boolean,
+  url?: string
+): Promise<void> {
+  try {
+    // Log the usage
+    await supabase.from('browser_automation_logs').insert({
+      user_id: userId,
+      workflow_id: workflowId,
+      execution_id: executionId,
+      duration_seconds: durationSeconds,
+      had_screenshot: hadScreenshot,
+      had_dynamic_content: hadDynamicContent,
+      url
+    });
+
+    // Increment user's usage counter
+    await supabase.rpc('increment_browser_automation_usage', {
+      p_user_id: userId,
+      p_seconds: durationSeconds
+    });
+
+    logger.info('[ExtractWebsiteData] Tracked browser automation usage', {
+      userId,
+      durationSeconds,
+      hadScreenshot,
+      hadDynamicContent
+    });
+  } catch (error: any) {
+    logger.error('[ExtractWebsiteData] Failed to track usage', { error: error.message });
+    // Don't fail the request if tracking fails
+  }
+}
 
 /**
  * Execute Website Data Extraction
@@ -14,10 +113,9 @@ const openai = new OpenAI({
  * Production implementation using:
  * - Cheerio for CSS selector extraction (fast, lightweight)
  * - OpenAI GPT-4 for AI-powered extraction
- * - Native fetch for HTTP requests
+ * - Puppeteer for dynamic content and screenshots
  *
- * This works for 90% of websites. For JavaScript-heavy sites,
- * consider adding Puppeteer as a fallback.
+ * Premium features (dynamic content + screenshots) are gated by subscription tier.
  */
 export async function executeExtractWebsiteData(
   config: any,
@@ -36,7 +134,9 @@ export async function executeExtractWebsiteData(
       cssSelectors,
       userAgent,
       timeout = 30000,
-      includeScreenshot = false
+      includeScreenshot = false,
+      waitForElement = false,
+      waitSelector
     } = resolvedConfig;
 
     if (!url) {
@@ -79,37 +179,134 @@ export async function executeExtractWebsiteData(
     logger.info('[ExtractWebsiteData] Fetching website', {
       url,
       extractionMethod,
+      usesPuppeteer: waitForElement || includeScreenshot,
       userId
     });
 
-    // Fetch the webpage with timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    let html: string;
+    let screenshotBase64: string | null = null;
+    let puppeteerStartTime: number | null = null;
 
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent': userAgent || 'Mozilla/5.0 (compatible; ChainReact/1.0; +https://chainreact.app)',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
+    // Use Puppeteer for dynamic content or screenshot capture
+    if (waitForElement || includeScreenshot) {
+      // Check usage limits before using browser automation
+      const limitsCheck = await checkBrowserAutomationLimits(userId);
+
+      if (!limitsCheck.allowed) {
+        return {
+          success: false,
+          output: {},
+          message: limitsCheck.reason || 'Browser automation limit reached. Upgrade to Pro for unlimited usage.'
+        };
       }
-    });
 
-    clearTimeout(timeoutId);
+      // Log usage info
+      if (limitsCheck.tier === 'free') {
+        const remaining = (limitsCheck.limit || 1800) - (limitsCheck.used || 0);
+        logger.info('[ExtractWebsiteData] Free user browser automation', {
+          used: limitsCheck.used,
+          limit: limitsCheck.limit,
+          remaining: remaining,
+          remainingMinutes: Math.floor(remaining / 60)
+        });
+      }
 
-    if (!response.ok) {
-      return {
-        success: false,
-        output: {},
-        message: `Failed to fetch URL: ${response.status} ${response.statusText}`
-      };
+      try {
+        puppeteerStartTime = Date.now();
+
+        const puppeteerResult = await fetchWithPuppeteer(
+          url,
+          userAgent,
+          timeout,
+          waitForElement,
+          waitSelector,
+          includeScreenshot
+        );
+
+        html = puppeteerResult.html;
+        screenshotBase64 = puppeteerResult.screenshot;
+
+        // Track usage
+        const puppeteerDuration = Math.ceil((Date.now() - puppeteerStartTime) / 1000);
+        await trackBrowserAutomationUsage(
+          userId,
+          puppeteerDuration,
+          input.workflowId,
+          input.executionId,
+          includeScreenshot,
+          waitForElement,
+          url
+        );
+
+        logger.info('[ExtractWebsiteData] Fetched HTML with Puppeteer', {
+          contentLength: html.length,
+          hasScreenshot: !!screenshotBase64,
+          durationSeconds: puppeteerDuration
+        });
+      } catch (puppeteerError: any) {
+        logger.warn('[ExtractWebsiteData] Puppeteer failed, falling back to standard fetch', {
+          error: puppeteerError.message
+        });
+
+        // Fallback to standard fetch if Puppeteer fails
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+        const response = await fetch(url, {
+          signal: controller.signal,
+          headers: {
+            'User-Agent': userAgent || 'Mozilla/5.0 (compatible; ChainReact/1.0; +https://chainreact.app)',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+          }
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          return {
+            success: false,
+            output: {},
+            message: `Failed to fetch URL: ${response.status} ${response.statusText}`
+          };
+        }
+
+        html = await response.text();
+        logger.info('[ExtractWebsiteData] Fetched HTML with fallback', {
+          contentLength: html.length,
+          note: 'Puppeteer unavailable - dynamic content may not be rendered'
+        });
+      }
+    } else {
+      // Use standard fetch for static sites
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+      const response = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': userAgent || 'Mozilla/5.0 (compatible; ChainReact/1.0; +https://chainreact.app)',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+        }
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        return {
+          success: false,
+          output: {},
+          message: `Failed to fetch URL: ${response.status} ${response.statusText}`
+        };
+      }
+
+      html = await response.text();
+      logger.info('[ExtractWebsiteData] Fetched HTML', {
+        contentLength: html.length,
+        contentType: response.headers.get('content-type')
+      });
     }
-
-    const html = await response.text();
-    logger.info('[ExtractWebsiteData] Fetched HTML', {
-      contentLength: html.length,
-      contentType: response.headers.get('content-type')
-    });
 
     let extractedData: any;
 
@@ -136,16 +333,24 @@ export async function executeExtractWebsiteData(
 
     const executionTime = Date.now() - startTime;
 
+    const output: any = {
+      data: extractedData,
+      url,
+      timestamp: new Date().toISOString(),
+      extractionMethod,
+      executionTime
+    };
+
+    // Include screenshot if captured
+    if (screenshotBase64) {
+      output.screenshot = screenshotBase64;
+      output.screenshotUrl = `data:image/png;base64,${screenshotBase64}`;
+    }
+
     return {
       success: true,
-      output: {
-        data: extractedData,
-        url,
-        timestamp: new Date().toISOString(),
-        extractionMethod,
-        executionTime
-      },
-      message: `Successfully extracted data from ${parsedUrl.hostname} in ${executionTime}ms`
+      output,
+      message: `Successfully extracted data from ${parsedUrl.hostname} in ${executionTime}ms${screenshotBase64 ? ' (with screenshot)' : ''}`
     };
 
   } catch (error: any) {
@@ -179,6 +384,127 @@ export async function executeExtractWebsiteData(
       },
       message: `Website extraction failed: ${error.message}`
     };
+  }
+}
+
+/**
+ * Fetch webpage using Puppeteer for dynamic content
+ * Supports both local Puppeteer and remote Browserless.io
+ */
+async function fetchWithPuppeteer(
+  url: string,
+  userAgent?: string,
+  timeout: number = 30000,
+  waitForElement: boolean = false,
+  waitSelector?: string,
+  includeScreenshot: boolean = false
+): Promise<{ html: string; screenshot: string | null }> {
+  let browser = null;
+
+  try {
+    // Launch local Puppeteer (works on VPS and local development)
+    logger.info('[ExtractWebsiteData] Launching Puppeteer');
+    browser = await puppeteer.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--disable-gpu',
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process'
+      ]
+    });
+
+    const page = await browser.newPage();
+
+    // Set user agent if provided
+    if (userAgent) {
+      await page.setUserAgent(userAgent);
+    }
+
+    // Set viewport for consistent screenshots
+    await page.setViewport({ width: 1280, height: 800 });
+
+    // Block unnecessary resources to speed up loading
+    await page.setRequestInterception(true);
+    page.on('request', (request) => {
+      const resourceType = request.resourceType();
+      // Block images, stylesheets, fonts unless screenshot is needed
+      if (!includeScreenshot && ['image', 'stylesheet', 'font', 'media'].includes(resourceType)) {
+        request.abort();
+      } else {
+        request.continue();
+      }
+    });
+
+    // Navigate to URL with timeout
+    await page.goto(url, {
+      waitUntil: waitForElement ? 'networkidle2' : 'domcontentloaded', // Faster for static sites
+      timeout
+    });
+
+    // Wait for specific element if requested
+    if (waitForElement && waitSelector) {
+      logger.info('[ExtractWebsiteData] Waiting for selector:', waitSelector);
+      try {
+        await page.waitForSelector(waitSelector, { timeout: Math.min(timeout, 10000) });
+      } catch (selectorError) {
+        logger.warn('[ExtractWebsiteData] Selector not found, continuing anyway', {
+          selector: waitSelector
+        });
+      }
+    } else if (waitForElement) {
+      // Wait a bit for JavaScript to execute
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+
+    // Get HTML content
+    const html = await page.content();
+
+    // Capture screenshot if requested
+    let screenshot: string | null = null;
+    if (includeScreenshot) {
+      logger.info('[ExtractWebsiteData] Capturing screenshot');
+      try {
+        const screenshotBuffer = await page.screenshot({
+          type: 'png',
+          fullPage: false, // Viewport only - faster and smaller
+          quality: 80 // Reduce quality slightly for smaller size
+        });
+        screenshot = screenshotBuffer.toString('base64');
+      } catch (screenshotError: any) {
+        logger.warn('[ExtractWebsiteData] Screenshot failed:', screenshotError.message);
+        // Continue without screenshot
+      }
+    }
+
+    // Close browser
+    await browser.close();
+
+    return { html, screenshot };
+
+  } catch (error: any) {
+    if (browser) {
+      try {
+        await browser.close();
+      } catch (closeError) {
+        logger.warn('[ExtractWebsiteData] Failed to close browser:', closeError);
+      }
+    }
+
+    // Provide helpful error messages
+    if (error.message.includes('timeout')) {
+      throw new Error(`Page load timeout after ${timeout}ms. Try increasing timeout or disabling "Wait for Dynamic Content".`);
+    }
+
+    if (error.message.includes('net::ERR_')) {
+      throw new Error(`Network error: ${error.message}. Check if the URL is accessible.`);
+    }
+
+    throw new Error(`Puppeteer fetch failed: ${error.message}`);
   }
 }
 

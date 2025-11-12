@@ -795,13 +795,24 @@ export function GenericSelectField({
     const processed = processOptions(options);
     const duration = performance.now() - startTime;
 
+    // Debug logging for HubSpot listId field
+    if (nodeInfo?.providerId === 'hubspot' && field.name === 'listId') {
+      console.log('🟠 [GenericSelectField] listId processedOptions:', {
+        fieldName: field.name,
+        rawOptionsLength: options?.length,
+        processedLength: processed.length,
+        rawOptions: options,
+        processed: processed
+      });
+    }
+
     // Log performance for searchField
     if (field.name === 'searchField') {
       console.log(`⚡ [GenericSelectField] searchField processOptions took ${duration.toFixed(2)}ms for ${processed.length} options`);
     }
 
     return processed;
-  }, [options, processOptions, field.name]);
+  }, [options, processOptions, field.name, nodeInfo?.providerId]);
 
   // Track when options change for performance monitoring
   React.useEffect(() => {
@@ -813,6 +824,16 @@ export function GenericSelectField({
       });
     }
   }, [processedOptions, field.name]);
+
+  // If dynamic options were loaded elsewhere (e.g., auto-load), mark as attempted to prevent duplicate fetches on dropdown open
+  React.useEffect(() => {
+    if (!field.dynamic) return;
+    if (processedOptions.length === 0) return;
+    if (hasAttemptedLoad) return;
+
+    setHasAttemptedLoad(true);
+    setLastLoadTimestamp(Date.now());
+  }, [field.dynamic, processedOptions.length, hasAttemptedLoad]);
 
   // Drag and drop handlers
   const handleDragOver = React.useCallback((e: React.DragEvent) => {
@@ -1142,7 +1163,7 @@ export function GenericSelectField({
             // Clear display label when value is cleared
             if (!newValue) {
               setDisplayLabel(null);
-            } else if (newValue.startsWith('{{') && newValue.endsWith('}}')) {
+            } else if (typeof newValue === 'string' && newValue.startsWith('{{') && newValue.endsWith('}}')) {
               // Set friendly label for variables
               const friendlyLabel = getFriendlyVariableLabel(newValue, workflowNodes);
               setDisplayLabel(friendlyLabel);

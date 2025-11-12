@@ -7,10 +7,13 @@ import { createClient } from '@supabase/supabase-js'
 
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+// Lazy-load Supabase client to avoid build-time env var requirement
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
 
 // Map of known trigger types based on their properties
 const TRIGGER_TYPE_MAPPING: Record<string, { providerId: string, type: string }> = {
@@ -41,6 +44,8 @@ const TRIGGER_TYPE_MAPPING: Record<string, { providerId: string, type: string }>
 export async function fixWorkflowTriggerNodes(workflowId?: string) {
   try {
     logger.debug('🔧 Starting workflow trigger node fix...')
+
+    const supabase = getSupabaseClient()
 
     // Get workflows to fix
     let query = supabase.from('workflows').select('id, name, nodes')

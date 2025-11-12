@@ -168,7 +168,7 @@ export function LoopConfiguration({
                     error={errors.items}
                   />
                 ) : (
-                  <div className="flex h-10 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground">
+                  <div className="flex h-10 w-full min-w-0 items-center rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground">
                     <span>No upstream nodes found. Connect nodes to this one to see available data.</span>
                   </div>
                 )}

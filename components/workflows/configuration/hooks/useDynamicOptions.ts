@@ -114,6 +114,38 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
   // Integration store methods
   const { getIntegrationByProvider, loadIntegrationData, fetchIntegrations } = useIntegrationStore();
 
+  const syncLinkedOptions = useCallback((optionsState: DynamicOptionsState): DynamicOptionsState => {
+    if (nodeType !== 'hubspot_action_get_tickets') {
+      return optionsState;
+    }
+
+    const filterOptions = optionsState.filterProperty;
+    const propertyOptions = optionsState.properties;
+
+    if (filterOptions && filterOptions.length > 0 && (!propertyOptions || propertyOptions.length === 0)) {
+      return {
+        ...optionsState,
+        properties: filterOptions
+      };
+    }
+
+    if (propertyOptions && propertyOptions.length > 0 && (!filterOptions || filterOptions.length === 0)) {
+      return {
+        ...optionsState,
+        filterProperty: propertyOptions
+      };
+    }
+
+    return optionsState;
+  }, [nodeType]);
+
+  useEffect(() => {
+    setDynamicOptions(prev => {
+      const synced = syncLinkedOptions(prev);
+      return synced === prev ? prev : synced;
+    });
+  }, [syncLinkedOptions]);
+
   // Notify parent when options are updated AND save to localStorage cache
   useEffect(() => {
     if (Object.keys(dynamicOptions).length > 0) {
@@ -158,7 +190,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       return changed ? updated : prev;
     });
   }, []);
-  
+
   // Load options for a dynamic field with request deduplication
   const loadOptions = useCallback(async (fieldName: string, dependsOn?: string, dependsOnValue?: any, forceRefresh?: boolean, silent?: boolean, extraOptions?: Record<string, any>) => {
 
@@ -1186,18 +1218,31 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
         } // End of else block for linked record handling
       }
 
-      
+
       // Check for provider-specific loader first (for all providers that have custom loaders)
+      console.log('🟢 [useDynamicOptions] Reached provider loader section for:', { providerId, fieldName });
+
       try {
         // Import provider registry
         const { providerRegistry } = await import('../providers/registry');
         const loader = providerRegistry.getLoader(providerId, fieldName);
 
+        console.log('🟢 [useDynamicOptions] Loader result:', { hasLoader: !!loader, providerId, fieldName });
+
         if (loader) {
+          console.log('🟢 [useDynamicOptions] About to call loader.loadOptions for:', fieldName);
           // Check if we already have options and not forcing refresh
           const existingOptions = dynamicOptionsRef.current[fieldName];
+          console.log('🟢 [useDynamicOptions] existingOptions check:', {
+            fieldName,
+            forceRefresh,
+            hasExistingOptions: !!existingOptions,
+            existingOptionsLength: existingOptions?.length,
+            willSkip: !forceRefresh && existingOptions && existingOptions.length > 0
+          });
+
           if (!forceRefresh && existingOptions && existingOptions.length > 0) {
-            logger.debug(`✅ [useDynamicOptions] Already have options for ${fieldName}, skipping loader`);
+            console.log(`❌ [useDynamicOptions] SKIPPING - Already have options for ${fieldName}`);
             // Clear loading state
             if (activeRequestIds.current.get(requestKey) === requestId) {
               loadingFields.current.delete(requestKey);
@@ -1206,6 +1251,8 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
             }
             return;
           }
+
+          console.log('✅ [useDynamicOptions] Proceeding to call loader for:', fieldName);
 
           logger.debug(`🔧 [useDynamicOptions] Using custom loader for ${providerId}/${fieldName}`);
 
@@ -1238,7 +1285,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
             ? dependsOnValue
             : integration.id;
 
-          const formattedOptions = await loader.loadOptions({
+          console.log('🚀 [useDynamicOptions] CALLING loader.loadOptions with params:', {
             fieldName,
             nodeType,
             providerId,
@@ -1246,11 +1293,41 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
             dependsOn,
             dependsOnValue,
             forceRefresh,
-            extraOptions: {
-              ...enhancedExtraOptions,
-              ...(workflowId && { workflowId })
-            }
+            loaderType: typeof loader,
+            hasLoadOptionsMethod: typeof loader.loadOptions === 'function'
           });
+
+          let formattedOptions;
+
+          try {
+            formattedOptions = await loader.loadOptions({
+              fieldName,
+              nodeType,
+              providerId,
+              integrationId: actualIntegrationId,
+              dependsOn,
+              dependsOnValue,
+              forceRefresh,
+              extraOptions: {
+                ...enhancedExtraOptions,
+                ...(workflowId && { workflowId })
+              }
+            });
+
+            console.log('✨ [useDynamicOptions] loader.loadOptions COMPLETED successfully for:', fieldName, {
+              resultLength: formattedOptions?.length,
+              firstResult: formattedOptions?.[0]
+            });
+          } catch (loaderError) {
+            console.error('❌ [useDynamicOptions] ERROR calling loader.loadOptions:', {
+              error: loaderError,
+              message: loaderError instanceof Error ? loaderError.message : String(loaderError),
+              stack: loaderError instanceof Error ? loaderError.stack : undefined,
+              fieldName,
+              providerId
+            });
+            throw loaderError; // Re-throw to be caught by outer catch
+          }
 
           logger.debug(`📊 [useDynamicOptions] Loader returned options for ${fieldName}:`, {
             optionsCount: formattedOptions?.length || 0,
@@ -1322,7 +1399,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
               newValue: formattedOptions,
               fullNewState: newState
             });
-            return newState;
+            return syncLinkedOptions(newState);
           });
 
           // Log how long setState took for searchField
@@ -1954,7 +2031,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
           });
         }
 
-        return updated;
+        return syncLinkedOptions(updated);
       });
       // Record last loaded time for throttle
       lastLoadedAt.current.set(requestKey, Date.now());

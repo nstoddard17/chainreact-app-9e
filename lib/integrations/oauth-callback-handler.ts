@@ -275,6 +275,9 @@ async function saveIntegration(
     status: 'connected',
     expires_at: tokenData.expires_at,
     updated_at: new Date().toISOString(),
+    // Clear disconnect fields on successful connection
+    disconnect_reason: null,
+    disconnected_at: null,
     // NEW: Workspace context
     workspace_type: workspaceType,
     workspace_id: workspaceId,

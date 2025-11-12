@@ -811,7 +811,8 @@ async function generateHubSpotAuthUrl(stateObject: any, supabase: any): Promise<
   // 'webhooks' scope is only needed if you want to create webhooks programmatically
   //   - If you get a webhooks scope error, you can remove it and still use the app
   //   - Only include if your HubSpot app is configured as a Public App with webhooks enabled
-  const hubspotScopes = "oauth crm.lists.read crm.lists.write crm.objects.contacts.read crm.objects.contacts.write crm.objects.companies.read crm.objects.companies.write crm.objects.deals.read crm.objects.deals.write crm.objects.owners.read"
+  // 'tickets' scope is required for ticket pipeline and ticket management
+  const hubspotScopes = "oauth crm.lists.read crm.lists.write crm.objects.contacts.read crm.objects.contacts.write crm.objects.companies.read crm.objects.companies.write crm.objects.deals.read crm.objects.deals.write crm.objects.owners.read tickets"
 
   const params = new URLSearchParams({
     client_id: clientId,

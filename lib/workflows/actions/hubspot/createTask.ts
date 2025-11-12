@@ -47,7 +47,9 @@ export async function hubspotCreateTask(
     const timestamp = context.dataFlowManager.resolveVariable(config.hs_timestamp)
     if (timestamp) {
       const timestampMs = new Date(timestamp).getTime()
-      properties.hs_timestamp = timestampMs.toString()
+      if (!Number.isNaN(timestampMs)) {
+        properties.hs_timestamp = timestampMs.toString()
+      }
     }
 
     const reminders = context.dataFlowManager.resolveVariable(config.hs_task_reminders)

@@ -3,6 +3,7 @@ import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-re
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
+import { encrypt } from '@/lib/security/encryption'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -107,15 +108,28 @@ export async function GET(request: NextRequest) {
       logger.warn('Failed to fetch Facebook user info:', e)
     }
 
+    // Encrypt tokens before storing
+    const encryptionKey = process.env.ENCRYPTION_KEY
+    if (!encryptionKey) {
+      return createPopupResponse('error', provider, 'Encryption key not configured', baseUrl)
+    }
+
     const integrationData = {
       user_id: userId,
       provider: provider,
-      access_token: tokenData.access_token,
-      refresh_token: tokenData.refresh_token,
+      access_token: encrypt(tokenData.access_token, encryptionKey),
+      refresh_token: tokenData.refresh_token ? encrypt(tokenData.refresh_token, encryptionKey) : null,
       expires_at: expiresAt ? expiresAt.toISOString() : null,
       scopes: grantedScopes,
       status: 'connected',
       updated_at: new Date().toISOString(),
+      // Clear disconnect fields on successful connection
+      disconnect_reason: null,
+      disconnected_at: null,
+      // Workspace context (personal by default)
+      workspace_type: 'personal',
+      workspace_id: null,
+      connected_by: userId,
       // Top-level account identity fields
       email: userEmail,
       username: userEmail?.split('@')[0] || null,
@@ -129,13 +143,79 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const { error: upsertError } = await supabase.from('integrations').upsert(integrationData, {
-      onConflict: 'user_id, provider',
-    })
+    // EMAIL-BASED DEDUPLICATION: Check if this account already exists
+    // This allows multiple accounts per provider (different emails = different integrations)
+    if (userEmail) {
+      // Check if user already has this provider connected with this email
+      const { data: existingIntegration } = await supabase
+        .from('integrations')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('provider', 'facebook')
+        .eq('email', userEmail)
+        .eq('workspace_type', 'personal')
+        .single()
 
-    if (upsertError) {
-      logger.error('Error saving Facebook integration to DB:', upsertError)
-      return createPopupResponse('error', provider, `Database Error: ${upsertError.message}`, baseUrl)
+      if (existingIntegration) {
+        // Update existing integration (refresh tokens for same account)
+        const { error: updateError } = await supabase
+          .from('integrations')
+          .update(integrationData)
+          .eq('id', existingIntegration.id)
+
+        if (updateError) {
+          logger.error('Failed to update Facebook integration:', updateError)
+          return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
+        }
+
+        logger.debug(`✅ Updated existing Facebook integration: ${existingIntegration.id}`)
+      } else {
+        // Insert new integration (different email = new account)
+        const { error: insertError } = await supabase
+          .from('integrations')
+          .insert(integrationData)
+
+        if (insertError) {
+          logger.error('Failed to save Facebook integration:', insertError)
+          return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
+        }
+
+        logger.debug(`✅ Created new Facebook integration for ${userEmail}`)
+      }
+    } else {
+      // Fallback: No email available, try to update by user_id + provider
+      const { data: existingIntegration } = await supabase
+        .from('integrations')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('provider', 'facebook')
+        .eq('workspace_type', 'personal')
+        .single()
+
+      if (existingIntegration) {
+        const { error: updateError } = await supabase
+          .from('integrations')
+          .update(integrationData)
+          .eq('id', existingIntegration.id)
+
+        if (updateError) {
+          logger.error('Failed to update Facebook integration:', updateError)
+          return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
+        }
+
+        logger.debug(`✅ Updated existing Facebook integration (no email): ${existingIntegration.id}`)
+      } else {
+        const { error: insertError } = await supabase
+          .from('integrations')
+          .insert(integrationData)
+
+        if (insertError) {
+          logger.error('Failed to save Facebook integration:', insertError)
+          return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
+        }
+
+        logger.debug(`✅ Created new Facebook integration (no email)`)
+      }
     }
 
     return createPopupResponse('success', provider, 'Facebook account connected successfully.', baseUrl)

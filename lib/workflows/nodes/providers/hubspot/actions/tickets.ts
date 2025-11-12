@@ -355,10 +355,11 @@ export const hubspotActionGetTickets: NodeComponent = {
     {
       name: "filterProperty",
       label: "Filter by Property (Optional)",
-      type: "text",
+      type: "multi-select",
+      dynamic: "hubspot_ticket_properties",
       required: false,
-      placeholder: "e.g., subject, hs_ticket_priority, hs_pipeline_stage",
-      description: "Filter tickets by a specific property"
+      placeholder: "Select ticket properties (e.g., subject, hs_ticket_priority)",
+      description: "Choose one or more ticket properties to filter on"
     },
     {
       name: "filterValue",
@@ -366,7 +367,7 @@ export const hubspotActionGetTickets: NodeComponent = {
       type: "text",
       required: false,
       placeholder: "Value to match",
-      description: "The value to filter by"
+      description: "Enter the value to match. For multiple properties, provide an array or object (e.g., {\"subject\": \"Bug\", \"hs_ticket_priority\": \"HIGH\"})."
     },
     {
       name: "filterPipeline",
@@ -404,10 +405,11 @@ export const hubspotActionGetTickets: NodeComponent = {
     {
       name: "properties",
       label: "Properties to Retrieve (Optional)",
-      type: "array",
+      type: "multi-select",
+      dynamic: "hubspot_ticket_properties",
       required: false,
-      placeholder: JSON.stringify(["subject", "content", "hs_ticket_priority"], null, 2),
-      tooltip: "Customize which properties to retrieve. Leave empty for defaults."
+      placeholder: "Select ticket properties to include",
+      description: "Choose specific properties to return. Leave empty for defaults."
     }
   ],
   outputSchema: [

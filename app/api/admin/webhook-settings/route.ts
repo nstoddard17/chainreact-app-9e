@@ -9,15 +9,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+// Helper to create Supabase client at request time
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
 
 // GET - Fetch all webhook settings
 export async function GET(request: NextRequest) {
   try {
-    const { data: settings, error } = await supabase
+    const supabase = getSupabaseClient()
+    const { data: settings, error} = await supabase
       .from('webhook_settings')
       .select('*')
       .order('created_at', { ascending: false })
@@ -44,6 +48,7 @@ export async function GET(request: NextRequest) {
 // PUT - Update webhook setting
 export async function PUT(request: NextRequest) {
   try {
+    const supabase = getSupabaseClient()
     const body = await request.json()
     const { id, webhook_url, webhook_type, enabled, description, metadata } = body
 
@@ -93,6 +98,7 @@ export async function PUT(request: NextRequest) {
 // POST - Create new webhook setting
 export async function POST(request: NextRequest) {
   try {
+    const supabase = getSupabaseClient()
     const body = await request.json()
     const { setting_key, webhook_url, webhook_type, enabled, description, metadata } = body
 
@@ -140,6 +146,7 @@ export async function POST(request: NextRequest) {
 // DELETE - Delete webhook setting
 export async function DELETE(request: NextRequest) {
   try {
+    const supabase = getSupabaseClient()
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 

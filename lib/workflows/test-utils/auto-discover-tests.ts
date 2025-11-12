@@ -109,7 +109,13 @@ function isUtilityProvider(providerId: string): boolean {
     'generic',
   ]
 
-  return utilityProviders.some(util => providerId.startsWith(util))
+  // Use exact match or check if it starts with the utility name followed by a separator
+  // This prevents "airtable" from matching "ai" prefix
+  return utilityProviders.some(util =>
+    providerId === util ||
+    providerId.startsWith(util + '-') ||
+    providerId.startsWith(util + '_')
+  )
 }
 
 /**
@@ -118,6 +124,7 @@ function isUtilityProvider(providerId: string): boolean {
 function formatProviderName(provider: string): string {
   // Handle special cases
   const specialCases: Record<string, string> = {
+    'airtable': 'Airtable',
     'gmail': 'Gmail',
     'google-sheets': 'Google Sheets',
     'google-calendar': 'Google Calendar',
