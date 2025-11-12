@@ -10,14 +10,28 @@ import IntegrationDisconnectedEmail from '../../emails/integration-disconnected'
 
 import { logger } from '@/lib/utils/logger'
 
+let cachedResendClient: Resend | null = null
+
 // Lazy-load Resend client to avoid build-time env var requirement
-function getResendClient(): Resend | null {
+export function getResendClient(): Resend | null {
+  if (cachedResendClient) {
+    return cachedResendClient
+  }
+
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey) {
     logger.warn('[Resend] RESEND_API_KEY is not configured; email delivery is disabled')
     return null
   }
-  return new Resend(apiKey)
+
+  cachedResendClient = new Resend(apiKey)
+  return cachedResendClient
+}
+
+export const resend = {
+  get client() {
+    return getResendClient()
+  }
 }
 
 function emailServiceDisabledResult() {
