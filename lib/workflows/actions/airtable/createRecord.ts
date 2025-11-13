@@ -500,6 +500,29 @@ export async function createAirtableRecord(
       logger.debug('📎 [Airtable] Proceeding without resolved tableId for attachment upload context')
     }
 
+    // Fetch table schema to get field types and date formats
+    let tableSchema: any = null
+    try {
+      const schemaUrl = `https://api.airtable.com/v0/meta/bases/${baseId}/tables`
+      const schemaResponse = await fetch(schemaUrl, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (schemaResponse.ok) {
+        const schemaResult = await schemaResponse.json()
+        tableSchema = schemaResult.tables?.find((t: any) => t.name === tableName)
+        if (tableSchema) {
+          logger.debug(`📊 [Airtable] Retrieved table schema with ${tableSchema.fields?.length || 0} fields`)
+        }
+      }
+    } catch (error) {
+      logger.debug('📊 [Airtable] Could not fetch table schema, proceeding without field type information')
+    }
+
     // Resolve field values using template variables
     const resolvedFields: Record<string, any> = {}
     const attachmentFields: string[] = []
@@ -513,9 +536,63 @@ export async function createAirtableRecord(
       tableName: tableName
     }
 
+    // Helper function to format date/datetime values based on field schema
+    const formatDateForAirtable = (value: any, fieldInfo: any): any => {
+      if (!fieldInfo || !value) return value
+
+      const fieldType = fieldInfo.type
+
+      // Only process date and dateTime fields
+      if (fieldType !== 'date' && fieldType !== 'dateTime') {
+        return value
+      }
+
+      // Convert to Date object if it's a string
+      let date: Date
+      if (typeof value === 'string') {
+        // Handle ISO strings like "2025-11-13T20:59:23.844Z"
+        date = new Date(value)
+        if (isNaN(date.getTime())) {
+          logger.debug(`📊 [Airtable] Invalid date value for field "${fieldInfo.name}": ${value}`)
+          return value
+        }
+      } else if (value instanceof Date) {
+        date = value
+      } else {
+        return value
+      }
+
+      // Format based on field type
+      if (fieldType === 'date') {
+        // Date-only field: format as YYYY-MM-DD
+        const year = date.getFullYear()
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const day = String(date.getDate()).padStart(2, '0')
+        const formatted = `${year}-${month}-${day}`
+        logger.debug(`📊 [Airtable] Formatted date field "${fieldInfo.name}": ${formatted}`)
+        return formatted
+      } else if (fieldType === 'dateTime') {
+        // DateTime field: format as ISO 8601 string
+        // Airtable accepts ISO 8601 format: YYYY-MM-DDTHH:mm:ss.sssZ
+        const formatted = date.toISOString()
+        logger.debug(`📊 [Airtable] Formatted datetime field "${fieldInfo.name}": ${formatted}`)
+        return formatted
+      }
+
+      return value
+    }
+
     for (const [fieldName, fieldValue] of Object.entries(fields)) {
       if (fieldValue !== undefined && fieldValue !== null && fieldValue !== '') {
-        const resolved = resolveValue(fieldValue, input)
+        let resolved = resolveValue(fieldValue, input)
+
+        // Check if we have schema information for this field
+        const fieldInfo = tableSchema?.fields?.find((f: any) => f.id === fieldName || f.name === fieldName)
+
+        // Format date/datetime fields based on schema
+        if (fieldInfo && (fieldInfo.type === 'date' || fieldInfo.type === 'dateTime')) {
+          resolved = formatDateForAirtable(resolved, fieldInfo)
+        }
 
         // Check if this is likely an attachment field
         // Need to handle field names with spaces properly
@@ -583,9 +660,19 @@ export async function createAirtableRecord(
         // Regular fields - add non-empty resolved values
         if (resolved !== undefined && resolved !== null && resolved !== '') {
           // Unwrap single-element arrays for non-attachment fields
+          // EXCEPT for linked record fields and multiselect fields which MUST be arrays
           // This handles cases where the config stores values as arrays but the field expects a single value
           let finalValue = resolved
-          if (Array.isArray(resolved) && resolved.length === 1) {
+
+          // Check if field name suggests it should remain an array (linked records, multiselects)
+          const shouldStayArray = Array.isArray(resolved) && (
+            // Don't unwrap if it's already multiple elements
+            resolved.length > 1 ||
+            // Don't unwrap if every element starts with "rec" (likely Airtable record IDs)
+            (resolved.length > 0 && resolved.every((v: any) => typeof v === 'string' && v.startsWith('rec')))
+          )
+
+          if (Array.isArray(resolved) && resolved.length === 1 && !shouldStayArray) {
             finalValue = resolved[0]
             logger.debug(`📊 [Airtable] Unwrapped single-element array for field "${fieldName}"`)
           }

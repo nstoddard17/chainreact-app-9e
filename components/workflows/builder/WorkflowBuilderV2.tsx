@@ -78,6 +78,7 @@ import { useIntegrationSelection } from "@/hooks/workflows/useIntegrationSelecti
 import { swapProviderInPlan, canSwapProviders } from "@/lib/workflows/ai-agent/providerSwapping"
 import { matchTemplate, logTemplateMatch, logTemplateMiss } from "@/lib/workflows/ai-agent/templateMatching"
 import { logPrompt, updatePrompt } from "@/lib/workflows/ai-agent/promptAnalytics"
+import { logger } from '@/lib/utils/logger'
 
 type PendingChatMessage = {
   localId: string
@@ -1338,6 +1339,100 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
   }, [actions, builder, toast])
 
   // React Flow props with last-node detection
+  // Handle test node from context menu
+  const handleTestNode = useCallback(async (nodeId: string) => {
+    const node = builder?.nodes?.find((n: any) => n.id === nodeId)
+    if (!node || !reactFlowInstanceRef.current) {
+      logger.error('[WorkflowBuilder] Cannot test node - node or ReactFlow instance not found')
+      return
+    }
+
+    const reactFlowNode = reactFlowInstanceRef.current.getNode(nodeId)
+    if (!reactFlowNode) {
+      logger.error('[WorkflowBuilder] Cannot find ReactFlow node:', nodeId)
+      return
+    }
+
+    try {
+      logger.debug('[WorkflowBuilder] Testing node:', { nodeId, nodeType: node.data?.type })
+
+      // Set node to running state
+      setNodeState(reactFlowInstanceRef.current, nodeId, 'running')
+
+      // Strip test metadata from config
+      const config = node.data?.config || {}
+      const cleanConfig = Object.keys(config).reduce((acc, key) => {
+        if (!key.startsWith('__test') && !key.startsWith('__validation')) {
+          acc[key] = config[key]
+        }
+        return acc
+      }, {} as Record<string, any>)
+
+      // Call test-node API
+      const response = await fetch('/api/workflows/test-node', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          nodeType: node.data?.type,
+          config: cleanConfig,
+          testData: {}
+        })
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to test node')
+      }
+
+      logger.debug('[WorkflowBuilder] Test completed:', result)
+
+      // Update node with test results
+      if (actions?.updateConfig) {
+        const updatedConfig = {
+          ...config,
+          __testData: result.testResult?.output || {},
+          __testResult: {
+            success: result.testResult?.success !== false,
+            executionTime: result.testResult?.executionTime,
+            timestamp: new Date().toISOString(),
+            error: result.testResult?.error,
+            message: result.testResult?.message,
+            rawResponse: result.testResult?.output
+          }
+        }
+        actions.updateConfig(nodeId, updatedConfig)
+      }
+
+      // Set node to passed or failed state
+      if (result.testResult?.success !== false) {
+        setNodeState(reactFlowInstanceRef.current, nodeId, 'passed')
+        toast({
+          title: "Test passed",
+          description: result.testResult?.message || "Node executed successfully",
+        })
+      } else {
+        setNodeState(reactFlowInstanceRef.current, nodeId, 'failed')
+        toast({
+          title: "Test failed",
+          description: result.testResult?.error || result.testResult?.message || "Node test failed",
+          variant: "destructive"
+        })
+      }
+
+    } catch (error: any) {
+      logger.error('[WorkflowBuilder] Test failed:', error)
+      setNodeState(reactFlowInstanceRef.current, nodeId, 'failed')
+      toast({
+        title: "Test failed",
+        description: error.message || "Failed to execute test",
+        variant: "destructive"
+      })
+    }
+  }, [builder?.nodes, actions, toast])
+
   const reactFlowProps = useMemo(() => {
     if (!builder) {
       return null
@@ -1357,13 +1452,14 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
       }
     })
 
-    // Enhance nodes with isLastNode and onAddNodeAfter
+    // Enhance nodes with isLastNode, onAddNodeAfter, and onTestNode
     const enhancedNodes = builder.nodes.map((node: any) => ({
       ...node,
       data: {
         ...node.data,
         isLastNode: lastNodeIds.has(node.id),
         onAddNodeAfter: handleAddNodeAfter,
+        onTestNode: handleTestNode,
       }
     }))
 
@@ -1392,7 +1488,7 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
       nodeTypes: builder.nodeTypes,
       edgeTypes: builder.edgeTypes,
     }
-  }, [builder, handleAddNodeAfter])
+  }, [builder, handleAddNodeAfter, handleTestNode])
 
   // Name update handler
   const persistName = useCallback(

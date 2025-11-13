@@ -349,6 +349,109 @@ export function ConfigurationModal({
     })
   }, [autoMappingEntries, effectiveInitialData, toast])
 
+  // State for test node functionality
+  const [isTestingNode, setIsTestingNode] = useState(false)
+
+  // Handler for testing the node
+  const handleTestNode = useCallback(async () => {
+    if (!nodeInfo?.type) {
+      toast({
+        title: "Cannot test node",
+        description: "Node type is not defined",
+        variant: "destructive"
+      })
+      return
+    }
+
+    setIsTestingNode(true)
+    setActiveTab('results') // Switch to results tab to show progress
+
+    try {
+      // Strip out test metadata before sending to API
+      const cleanConfig = Object.keys(effectiveInitialData).reduce((acc, key) => {
+        if (!key.startsWith('__test') && !key.startsWith('__validation')) {
+          acc[key] = effectiveInitialData[key]
+        }
+        return acc
+      }, {} as Record<string, any>)
+
+      logger.debug('[ConfigModal] Testing node:', {
+        nodeType: nodeInfo.type,
+        config: cleanConfig,
+        strippedKeys: Object.keys(effectiveInitialData).filter(k => k.startsWith('__test'))
+      })
+
+      const response = await fetch('/api/workflows/test-node', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          nodeType: nodeInfo.type,
+          config: cleanConfig,
+          testData: {}
+        })
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to test node')
+      }
+
+      logger.debug('[ConfigModal] Test completed:', result)
+
+      // Update the config with test results
+      const updatedConfig = {
+        ...effectiveInitialData,
+        __testData: result.testResult?.output || {},
+        __testResult: {
+          success: result.testResult?.success !== false,
+          executionTime: result.testResult?.executionTime,
+          timestamp: new Date().toISOString(),
+          error: result.testResult?.error,
+          message: result.testResult?.message,
+          rawResponse: result.testResult?.output
+        }
+      }
+
+      setInitialOverride(updatedConfig)
+      setFormSeedVersion((prev) => prev + 1)
+
+      toast({
+        title: result.testResult?.success !== false ? "Test passed" : "Test failed",
+        description: result.testResult?.message || "Node executed successfully",
+        variant: result.testResult?.success !== false ? "default" : "destructive"
+      })
+
+    } catch (error: any) {
+      logger.error('[ConfigModal] Test failed:', error)
+
+      // Update with error state
+      const errorConfig = {
+        ...effectiveInitialData,
+        __testData: {},
+        __testResult: {
+          success: false,
+          timestamp: new Date().toISOString(),
+          error: error.message || 'Test execution failed',
+          message: error.message || 'Test execution failed'
+        }
+      }
+
+      setInitialOverride(errorConfig)
+      setFormSeedVersion((prev) => prev + 1)
+
+      toast({
+        title: "Test failed",
+        description: error.message || "Failed to execute test",
+        variant: "destructive"
+      })
+    } finally {
+      setIsTestingNode(false)
+    }
+  }, [nodeInfo, effectiveInitialData, toast])
+
   const getRouterChainHints = useCallback(() => {
     if (!workflowData || !currentNodeId) return [] as string[];
 
@@ -699,6 +802,8 @@ export function ConfigurationModal({
                     currentNodeId={currentNodeId}
                     testData={effectiveInitialData?.__testData}
                     testResult={effectiveInitialData?.__testResult}
+                    onRunTest={handleTestNode}
+                    isTestingNode={isTestingNode}
                   />
                 </TabsContent>
               </Tabs>
