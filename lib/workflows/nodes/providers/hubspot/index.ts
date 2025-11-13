@@ -1264,6 +1264,15 @@ const hubspotActionGetContacts: NodeComponent = {
       placeholder: "Number of contacts to retrieve (max 100)"
     },
     {
+      name: "after",
+      label: "Start After Cursor",
+      type: "text",
+      required: false,
+      placeholder: "Paste cursor from previous run",
+      description: "Use the paging cursor returned in a previous run to continue where you left off.",
+      uiTab: "advanced"
+    },
+    {
       name: "filterProperty",
       label: "Filter by Property (Optional)",
       type: "multi-select",
@@ -1302,6 +1311,24 @@ const hubspotActionGetContacts: NodeComponent = {
       label: "Count",
       type: "number",
       description: "Number of contacts retrieved"
+    },
+    {
+      name: "total",
+      label: "Total Matches",
+      type: "number",
+      description: "Total number of contacts that match the filters"
+    },
+    {
+      name: "nextCursor",
+      label: "Next Cursor",
+      type: "string",
+      description: "Cursor to use in the next request for pagination"
+    },
+    {
+      name: "hasMore",
+      label: "Has More",
+      type: "boolean",
+      description: "Indicates if additional pages are available"
     }
   ]
 }
@@ -1323,6 +1350,15 @@ const hubspotActionGetCompanies: NodeComponent = {
       required: false,
       defaultValue: 100,
       placeholder: "Number of companies to retrieve (max 100)"
+    },
+    {
+      name: "after",
+      label: "Start After Cursor",
+      type: "text",
+      required: false,
+      placeholder: "Paste cursor from previous run",
+      description: "Use the paging cursor returned in a previous run to continue where you left off.",
+      uiTab: "advanced"
     },
     {
       name: "filterProperty",
@@ -1362,6 +1398,24 @@ const hubspotActionGetCompanies: NodeComponent = {
       label: "Count",
       type: "number",
       description: "Number of companies retrieved"
+    },
+    {
+      name: "total",
+      label: "Total Matches",
+      type: "number",
+      description: "Total number of companies that match the filters"
+    },
+    {
+      name: "nextCursor",
+      label: "Next Cursor",
+      type: "string",
+      description: "Cursor to use in the next request for pagination"
+    },
+    {
+      name: "hasMore",
+      label: "Has More",
+      type: "boolean",
+      description: "Indicates if additional pages are available"
     }
   ]
 }

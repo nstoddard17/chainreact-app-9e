@@ -29,7 +29,8 @@ async function getAirtableTableFieldNames(
   baseId: string,
   tableName: string
 ): Promise<Set<string> | null> {
-  const cacheKey = `${baseId}:${tableName}`.toLowerCase()
+  const normalizedTableName = (tableName || '').trim()
+  const cacheKey = `${baseId}:${normalizedTableName}`.toLowerCase()
   const cached = TABLE_SCHEMA_CACHE.get(cacheKey)
   if (cached && Date.now() - cached.fetchedAt < TABLE_SCHEMA_TTL) {
     return cached.fields
@@ -51,10 +52,16 @@ async function getAirtableTableFieldNames(
     }
 
     const payload = await res.json().catch(() => null)
-    const tables: Array<{ name: string; fields?: Array<{ name: string }> }> = payload?.tables || []
-    const table = tables.find((t) => t.name.toLowerCase() === tableName.toLowerCase())
+    const tables: Array<{ id: string; name: string; fields?: Array<{ name: string }> }> = payload?.tables || []
+    const loweredName = normalizedTableName.toLowerCase()
+    const table = tables.find((t) => {
+      if (!normalizedTableName) return false
+      if (t.id === normalizedTableName) return true
+      return t.name?.toLowerCase() === loweredName
+    })
+
     if (!table?.fields) {
-      logger.debug('[Airtable] Table schema response did not include fields for', tableName)
+      logger.debug('[Airtable] Table schema response did not include fields for', normalizedTableName)
       return null
     }
 
@@ -246,6 +253,9 @@ export async function resolveTableId(
     return null
   }
 
+  const normalized = tableName.trim()
+  const isLikelyId = normalized.toLowerCase().startsWith('tbl')
+
   try {
     const response = await fetch(`https://api.airtable.com/v0/meta/bases/${baseId}/tables`, {
       headers: {
@@ -264,10 +274,19 @@ export async function resolveTableId(
 
     const data = await response.json()
     const tables: Array<{ id: string; name: string }> = data?.tables || []
-    const match = tables.find((table) => table.name.toLowerCase() === tableName.toLowerCase())
+    const lowered = normalized.toLowerCase()
+    const match = tables.find((table) => {
+      if (table.name?.toLowerCase() === lowered) return true
+      if (table.id === normalized) return true
+      return false
+    })
 
     if (match?.id) {
       return match.id
+    }
+
+    if (isLikelyId) {
+      return normalized
     }
 
     logger.warn(`⚠️ [Airtable] Unable to locate table ID for name "${tableName}" in base ${baseId}`)

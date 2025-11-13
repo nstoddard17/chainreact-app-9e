@@ -8,7 +8,7 @@
  * Select provider → Input test credentials → Press Test → See results → Export.
  */
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,6 +23,8 @@ import { Switch } from '@/components/ui/switch'
 import { createClient } from '@/utils/supabase/client'
 import { useToast } from '@/hooks/use-toast'
 import { OAuthConnectionFlow } from '@/lib/oauth/connection-flow'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { GenericSelectField } from '@/components/workflows/configuration/fields/shared/GenericSelectField'
 import {
   PlayCircle,
   CheckCircle,
@@ -47,7 +49,8 @@ import {
   FolderOpen,
   Trash2,
   Eye,
-  Bug
+  Bug,
+  Database
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -109,11 +112,41 @@ export default function IntegrationTestsPage() {
   const [missingFieldsData, setMissingFieldsData] = useState<{
     nodeType: string
     nodeName: string
-    fields: Array<{ name: string; label: string; type: string; dynamic?: string }>
+    fields: Array<{ name: string; label: string; type: string; dynamic?: string; dependsOn?: string | string[] }>
   } | null>(null)
   const [manualFieldValues, setManualFieldValues] = useState<Record<string, string>>({})
+  const [manualFieldOptions, setManualFieldOptions] = useState<Record<string, Array<{ value: string; label: string }>>>({})
+  const [manualFieldLoading, setManualFieldLoading] = useState<Record<string, boolean>>({})
+  const [manualFieldErrors, setManualFieldErrors] = useState<Record<string, string>>({})
   const { toast } = useToast()
   const [connectionError, setConnectionError] = useState<string | null>(null)
+  const isAirtableProvider = selectedProvider === 'airtable'
+  const [isAirtableModalOpen, setIsAirtableModalOpen] = useState(false)
+  const [airtableBases, setAirtableBases] = useState<Array<{ id: string; name: string }>>([])
+  const [airtableTables, setAirtableTables] = useState<Array<{ id: string; name: string }>>([])
+  const [airtableFields, setAirtableFields] = useState<Array<{ id: string; name: string; type?: string }>>([])
+  const [airtableRecords, setAirtableRecords] = useState<Array<{ id: string; label: string }>>([])
+  const [airtableFilterValues, setAirtableFilterValues] = useState<string[]>([])
+  const [airtableLoading, setAirtableLoading] = useState({
+    bases: false,
+    tables: false,
+    fields: false,
+    records: false,
+    filterValues: false,
+  })
+  const [airtableSelection, setAirtableSelection] = useState({
+    baseId: '',
+    tableId: '',
+    tableName: '',
+    filterField: '',
+    filterValue: '',
+    searchField: '',
+    searchValue: '',
+    attachmentField: '',
+    watchedFieldIds: [] as string[],
+    recordId: '',
+    recordIds: [] as string[],
+  })
 
   // Selective testing
   const [selectedTests, setSelectedTests] = useState<Set<string>>(new Set())
@@ -277,6 +310,513 @@ export default function IntegrationTestsPage() {
     runTests()
   }
 
+  // Get provider config and integration data
+  const providerConfig = selectedProvider
+    ? providers.find(c => c.provider === selectedProvider)
+    : undefined
+
+  const providerIntegration = selectedProvider
+    ? connectedIntegrations.find(i => i.provider === selectedProvider)
+    : undefined
+
+  const isConnected = providerIntegration?.status === 'connected'
+  const reconnectableStatuses = ['disconnected', 'expired', 'error', 'needs_reauthorization', 'needs_reauth', 'pending_reconnect']
+  const needsReconnection = providerIntegration
+    ? reconnectableStatuses.includes(providerIntegration.status)
+    : false
+
+  useEffect(() => {
+    if (isConnected) {
+      setConnectionError(null)
+    }
+  }, [isConnected])
+
+  const loadManualFieldOptions = useCallback(async (
+    field: { name: string; dynamic?: string; dependsOn?: string | string[] },
+    dependencyOverrides?: Record<string, string>
+  ) => {
+    if (!field.dynamic) return
+
+    if (!providerIntegration?.id) {
+      setManualFieldErrors(prev => ({
+        ...prev,
+        [field.name]: `Connect ${providerConfig?.displayName || selectedProvider} to load options.`,
+      }))
+      return
+    }
+
+    const dependencies = Array.isArray(field.dependsOn)
+      ? field.dependsOn
+      : field.dependsOn
+        ? [field.dependsOn]
+        : []
+
+    const dependencyValuesSource = dependencyOverrides
+      ? { ...manualFieldValues, ...dependencyOverrides }
+      : manualFieldValues
+
+    if (dependencies.length && dependencies.some(dep => !dependencyValuesSource[dep])) {
+      setManualFieldOptions(prev => ({
+        ...prev,
+        [field.name]: [],
+      }))
+      return
+    }
+
+    setManualFieldLoading(prev => ({ ...prev, [field.name]: true }))
+    setManualFieldErrors(prev => {
+      if (!prev[field.name]) return prev
+      const updated = { ...prev }
+      delete updated[field.name]
+      return updated
+    })
+
+    try {
+      const dependencyOptions: Record<string, any> = {}
+      dependencies.forEach(dep => {
+        dependencyOptions[dep] = dependencyValuesSource[dep]
+      })
+
+      const response = await fetch('/api/integrations/fetch-user-data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          integrationId: providerIntegration.id,
+          dataType: field.dynamic,
+          options: dependencyOptions,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(errorText || `Failed to load options for ${field.name}`)
+      }
+
+      const payload = await response.json()
+      const rawOptions = Array.isArray(payload?.data) ? payload.data : payload
+      const normalized = (Array.isArray(rawOptions) ? rawOptions : [])
+        .map((option: any) => {
+          const value =
+            option?.value ??
+            option?.id ??
+            option?.key ??
+            option?.tableId ??
+            option?.name
+          if (!value) return null
+          const label =
+            option?.label ??
+            option?.name ??
+            option?.title ??
+            option?.displayName ??
+            `${value}`
+          return {
+            value: typeof value === 'string' ? value : `${value}`,
+            label: typeof label === 'string' ? label : `${label}`,
+          }
+        })
+        .filter(Boolean) as Array<{ value: string; label: string }>
+
+      setManualFieldOptions(prev => ({
+        ...prev,
+        [field.name]: normalized,
+      }))
+    } catch (error: any) {
+      setManualFieldErrors(prev => ({
+        ...prev,
+        [field.name]: error?.message || 'Failed to load options',
+      }))
+    } finally {
+      setManualFieldLoading(prev => ({ ...prev, [field.name]: false }))
+    }
+  }, [manualFieldValues, providerConfig?.displayName, providerIntegration?.id, selectedProvider])
+
+  const normalizeAirtableBase = (item: any, fallbackLabel = 'Untitled Base') => ({
+    id: item?.id || item?.base_id || item?.value || item?.key || '',
+    name: item?.name || item?.label || item?.baseName || item?.title || fallbackLabel,
+  })
+
+  const normalizeAirtableTable = (item: any, fallbackLabel = 'Untitled Table') => ({
+    id: item?.id || item?.tableId || item?.value || item?.key || '',
+    name: item?.name || item?.label || item?.tableName || item?.title || fallbackLabel,
+  })
+
+  const normalizeAirtableField = (item: any) => ({
+    id: item?.id || item?.value || item?.key || item?.name || '',
+    name: item?.name || item?.label || item?.value || 'Untitled Field',
+    type: item?.type,
+  })
+
+  const normalizeAirtableRecord = (item: any) => {
+    const fallback = item?.id || 'record'
+    if (!item || typeof item !== 'object') {
+      return { id: fallback, label: fallback }
+    }
+    const fields = item.fields || {}
+    const preferredKeys = ['Name', 'Title', 'Record Name']
+    let label = preferredKeys
+      .map(key => fields[key])
+      .find(Boolean) as string | undefined
+    if (!label) {
+      const firstValue = Object.values(fields)[0]
+      label = typeof firstValue === 'string' ? firstValue : fallback
+    }
+    return {
+      id: item.id || fallback,
+      label: label || fallback,
+    }
+  }
+
+  const fetchAirtableData = useCallback(async (dataType: string, options: Record<string, any> = {}) => {
+    if (!providerIntegration?.id) {
+      throw new Error('Connect the Airtable integration to load data.')
+    }
+    const response = await fetch('/api/integrations/fetch-user-data', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        integrationId: providerIntegration.id,
+        dataType,
+        options,
+      }),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '')
+      throw new Error(errorText || `Failed to load ${dataType}`)
+    }
+
+    const payload = await response.json()
+    return Array.isArray(payload?.data) ? payload.data : payload
+  }, [providerIntegration?.id])
+
+  const handleOpenAirtableModal = useCallback(async () => {
+    if (!providerIntegration?.id) {
+      toast({
+        title: 'Connect Airtable',
+        description: 'Please connect your Airtable account before selecting data.',
+        variant: 'destructive',
+      })
+      return
+    }
+    setIsAirtableModalOpen(true)
+    if (airtableBases.length === 0) {
+      try {
+        setAirtableLoading(prev => ({ ...prev, bases: true }))
+        const data = await fetchAirtableData('airtable_bases')
+        const normalized = (Array.isArray(data) ? data : []).map((item: any, index: number) =>
+          normalizeAirtableBase(item, `Base ${index + 1}`)
+        ).filter(base => base.id)
+        setAirtableBases(normalized)
+      } catch (error: any) {
+        toast({
+          title: 'Failed to load bases',
+          description: error?.message || 'Unknown error while loading Airtable bases.',
+          variant: 'destructive',
+        })
+      } finally {
+        setAirtableLoading(prev => ({ ...prev, bases: false }))
+      }
+    }
+  }, [airtableBases.length, fetchAirtableData, providerIntegration?.id, toast])
+
+  const handleSelectAirtableBase = useCallback(async (baseId: string) => {
+    setAirtableSelection(prev => ({
+      ...prev,
+      baseId,
+      tableId: '',
+      tableName: '',
+      filterField: '',
+      filterValue: '',
+      searchField: '',
+      searchValue: '',
+      attachmentField: '',
+      watchedFieldIds: [],
+      recordId: '',
+      recordIds: [],
+    }))
+    setAirtableTables([])
+    setAirtableFields([])
+    setAirtableRecords([])
+    setAirtableFilterValues([])
+    if (!baseId) return
+    try {
+      setAirtableLoading(prev => ({ ...prev, tables: true }))
+      const data = await fetchAirtableData('airtable_tables', { baseId })
+      const normalized = (Array.isArray(data) ? data : []).map((item: any, index: number) =>
+        normalizeAirtableTable(item, `Table ${index + 1}`)
+      ).filter(table => table.id)
+      setAirtableTables(normalized)
+    } catch (error: any) {
+      toast({
+        title: 'Failed to load tables',
+        description: error?.message || 'Unknown error while loading Airtable tables.',
+        variant: 'destructive',
+      })
+    } finally {
+      setAirtableLoading(prev => ({ ...prev, tables: false }))
+    }
+  }, [fetchAirtableData, toast])
+
+  const handleSelectAirtableTable = useCallback(async (tableId: string) => {
+    const table = airtableTables.find(t => t.id === tableId)
+    setAirtableSelection(prev => ({
+      ...prev,
+      tableId,
+      tableName: table?.name || tableId,
+      filterField: '',
+      filterValue: '',
+      searchField: '',
+      searchValue: '',
+      attachmentField: '',
+      watchedFieldIds: [],
+      recordId: '',
+      recordIds: [],
+    }))
+    setAirtableFields([])
+    setAirtableRecords([])
+    setAirtableFilterValues([])
+    if (!tableId || !airtableSelection.baseId) return
+    try {
+      setAirtableLoading(prev => ({ ...prev, fields: true }))
+      const data = await fetchAirtableData('airtable_fields', {
+        baseId: airtableSelection.baseId,
+        tableName: tableId,
+      })
+      const normalized = (Array.isArray(data) ? data : []).map((item: any) => normalizeAirtableField(item)).filter(field => field.id)
+      setAirtableFields(normalized)
+    } catch (error: any) {
+      toast({
+        title: 'Failed to load fields',
+        description: error?.message || 'Unknown error while loading Airtable fields.',
+        variant: 'destructive',
+      })
+    } finally {
+      setAirtableLoading(prev => ({ ...prev, fields: false }))
+    }
+  }, [airtableSelection.baseId, airtableTables, fetchAirtableData, toast])
+
+  const loadAirtableFilterValues = useCallback(async (fieldId: string) => {
+    if (!fieldId || !airtableSelection.baseId || (!airtableSelection.tableId && !airtableSelection.tableName)) {
+      setAirtableFilterValues([])
+      return
+    }
+    try {
+      setAirtableLoading(prev => ({ ...prev, filterValues: true }))
+      const data = await fetchAirtableData('airtable_field_values', {
+        baseId: airtableSelection.baseId,
+        tableName: airtableSelection.tableId || airtableSelection.tableName,
+        filterField: fieldId,
+      })
+      const normalized = (Array.isArray(data?.data) ? data.data : data || [])
+        .map((value: any) => value?.value ?? value?.label ?? value)
+        .filter(Boolean)
+        .map((value: any) => (typeof value === 'string' ? value : JSON.stringify(value)))
+      setAirtableFilterValues(normalized as string[])
+    } catch (error: any) {
+      setAirtableFilterValues([])
+      toast({
+        title: 'Failed to load field values',
+        description: error?.message || 'Unknown error while loading Airtable field values.',
+        variant: 'destructive',
+      })
+    } finally {
+      setAirtableLoading(prev => ({ ...prev, filterValues: false }))
+    }
+  }, [airtableSelection.baseId, airtableSelection.tableId, airtableSelection.tableName, fetchAirtableData, toast])
+
+  const handleLoadAirtableRecords = useCallback(async () => {
+    if (!airtableSelection.baseId || (!airtableSelection.tableId && !airtableSelection.tableName)) {
+      toast({
+        title: 'Select a base and table',
+        description: 'Choose a base and table before loading records.',
+        variant: 'destructive',
+      })
+      return
+    }
+    try {
+      setAirtableLoading(prev => ({ ...prev, records: true }))
+      const data = await fetchAirtableData('airtable_records', {
+        baseId: airtableSelection.baseId,
+        tableName: airtableSelection.tableId || airtableSelection.tableName,
+        maxRecords: 25,
+      })
+      const normalized = (Array.isArray(data?.records) ? data.records : data || [])
+        .map((record: any) => normalizeAirtableRecord(record))
+      setAirtableRecords(normalized)
+    } catch (error: any) {
+      toast({
+        title: 'Failed to load records',
+        description: error?.message || 'Unknown error while loading Airtable records.',
+        variant: 'destructive',
+      })
+    } finally {
+      setAirtableLoading(prev => ({ ...prev, records: false }))
+    }
+  }, [airtableSelection.baseId, airtableSelection.tableId, airtableSelection.tableName, fetchAirtableData, toast])
+
+  const handleApplyAirtableSelection = useCallback(() => {
+    if (!airtableSelection.baseId || !airtableSelection.tableName) {
+      toast({
+        title: 'Missing base or table',
+        description: 'Please select a base and a table before applying.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    const nextValues: Record<string, any> = {
+      baseId: airtableSelection.baseId,
+      tableName: airtableSelection.tableName,
+    }
+
+    if (airtableSelection.tableId) {
+      nextValues.tableId = airtableSelection.tableId
+    }
+    if (airtableSelection.filterField) {
+      nextValues.filterField = airtableSelection.filterField
+    }
+    if (airtableSelection.filterValue) {
+      nextValues.filterValue = airtableSelection.filterValue
+    }
+    if (airtableSelection.searchField) {
+      nextValues.searchField = airtableSelection.searchField
+    }
+    if (airtableSelection.searchValue) {
+      nextValues.searchValue = airtableSelection.searchValue
+    }
+    if (airtableSelection.attachmentField) {
+      nextValues.attachmentField = airtableSelection.attachmentField
+    }
+    if (airtableSelection.watchedFieldIds.length > 0) {
+      nextValues.watchedFieldIds = airtableSelection.watchedFieldIds
+    }
+    if (airtableSelection.recordId) {
+      nextValues.recordId = airtableSelection.recordId
+    }
+    if (airtableSelection.recordIds.length > 0) {
+      nextValues.recordIds = airtableSelection.recordIds.join(',')
+    }
+
+    setTestData(prev => ({ ...prev, ...nextValues }))
+    setIsAirtableModalOpen(false)
+    toast({
+      title: 'Airtable data selected',
+      description: 'Values saved for upcoming tests.',
+    })
+  }, [airtableSelection, toast])
+
+  const handleFieldTargetChange = useCallback((key: 'filterField' | 'searchField' | 'attachmentField', value: string) => {
+    setAirtableSelection(prev => ({
+      ...prev,
+      [key]: value,
+    }))
+    if (key === 'filterField') {
+      setAirtableSelection(prev => ({ ...prev, filterValue: '' }))
+      if (value) {
+        loadAirtableFilterValues(value)
+      } else {
+        setAirtableFilterValues([])
+      }
+    }
+  }, [loadAirtableFilterValues])
+
+  const toggleWatchedField = useCallback((fieldId: string) => {
+    setAirtableSelection(prev => {
+      const exists = prev.watchedFieldIds.includes(fieldId)
+      return {
+        ...prev,
+        watchedFieldIds: exists
+          ? prev.watchedFieldIds.filter(id => id !== fieldId)
+          : [...prev.watchedFieldIds, fieldId],
+      }
+    })
+  }, [])
+
+  const toggleSelectedRecord = useCallback((recordId: string) => {
+    setAirtableSelection(prev => ({
+      ...prev,
+      recordId,
+    }))
+  }, [])
+
+  const toggleSelectedRecordIds = useCallback((recordId: string) => {
+    setAirtableSelection(prev => {
+      const exists = prev.recordIds.includes(recordId)
+      return {
+        ...prev,
+        recordIds: exists
+          ? prev.recordIds.filter(id => id !== recordId)
+          : [...prev.recordIds, recordId],
+      }
+    })
+  }, [])
+
+  const handleManualFieldValueChange = (fieldName: string, value: string) => {
+    const dependentFields =
+      missingFieldsData?.fields.filter(field => {
+        if (!field.dependsOn) return false
+        const deps = Array.isArray(field.dependsOn) ? field.dependsOn : [field.dependsOn]
+        return deps.includes(fieldName)
+      }) || []
+
+    setManualFieldValues(prev => {
+      const updated = { ...prev, [fieldName]: value }
+      dependentFields.forEach(dep => {
+        delete updated[dep.name]
+      })
+      return updated
+    })
+
+    if (dependentFields.length) {
+      setManualFieldOptions(prev => {
+        const updated = { ...prev }
+        dependentFields.forEach(dep => {
+          delete updated[dep.name]
+        })
+        return updated
+      })
+      setManualFieldErrors(prev => {
+        const updated = { ...prev }
+        dependentFields.forEach(dep => {
+          delete updated[dep.name]
+        })
+        return updated
+      })
+      setManualFieldLoading(prev => {
+        const updated = { ...prev }
+        dependentFields.forEach(dep => {
+          delete updated[dep.name]
+        })
+        return updated
+      })
+    }
+
+    dependentFields.forEach(dep => {
+      loadManualFieldOptions(dep, { [fieldName]: value })
+    })
+  }
+
+  useEffect(() => {
+    if (!showMissingFieldsDialog) {
+      setManualFieldValues({})
+      setManualFieldOptions({})
+      setManualFieldErrors({})
+      setManualFieldLoading({})
+    }
+  }, [showMissingFieldsDialog])
+
+  useEffect(() => {
+    if (!showMissingFieldsDialog || !missingFieldsData) return
+
+    missingFieldsData.fields
+      .filter(field => field.dynamic && !field.dependsOn)
+      .forEach(field => loadManualFieldOptions(field))
+  }, [showMissingFieldsDialog, missingFieldsData, loadManualFieldOptions])
+
   // Selective testing helpers
   const getTestId = (type: 'action' | 'trigger', name: string) => `${type}:${name}`
 
@@ -421,28 +961,6 @@ export default function IntegrationTestsPage() {
     setDryRunResults(results)
     setIsRunning(false)
   }
-
-  // Get provider config
-  const providerConfig = selectedProvider
-    ? providers.find(c => c.provider === selectedProvider)
-    : undefined
-
-  // Check if provider is connected
-  const providerIntegration = selectedProvider
-    ? connectedIntegrations.find(i => i.provider === selectedProvider)
-    : undefined
-
-  const isConnected = providerIntegration?.status === 'connected'
-  const reconnectableStatuses = ['disconnected', 'expired', 'error', 'needs_reauthorization', 'needs_reauth', 'pending_reconnect']
-  const needsReconnection = providerIntegration
-    ? reconnectableStatuses.includes(providerIntegration.status)
-    : false
-
-  useEffect(() => {
-    if (isConnected) {
-      setConnectionError(null)
-    }
-  }, [isConnected])
 
   // Provider options for combobox
   const providerOptions = providers.map(config => ({
@@ -822,6 +1340,23 @@ export default function IntegrationTestsPage() {
                       Other fields will be auto-filled with test values. You can customize them as needed.
                     </AlertDescription>
                   </Alert>
+
+                  {isAirtableProvider && (
+                    <div className="flex items-center justify-between gap-3 border rounded-md p-3 bg-muted/40">
+                      <div className="text-sm text-muted-foreground">
+                        Need a specific Airtable base, table, or field?
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleOpenAirtableModal}
+                        disabled={!providerIntegration?.id || isConnecting}
+                      >
+                        <Database className="mr-2 h-3 w-3" />
+                        Select Airtable Data
+                      </Button>
+                    </div>
+                  )}
 
                   {/* Test Presets */}
                   <div className="flex gap-2">
@@ -1303,6 +1838,288 @@ export default function IntegrationTestsPage() {
         </div>
       </div>
 
+      {/* Airtable Selector Dialog */}
+      {isAirtableProvider && (
+        <Dialog open={isAirtableModalOpen} onOpenChange={setIsAirtableModalOpen}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Select Airtable Data</DialogTitle>
+              <DialogDescription>
+                Choose the base, table, fields, and records to use for automated tests.
+              </DialogDescription>
+            </DialogHeader>
+            {!providerIntegration?.id ? (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Connect your Airtable account in the section above to load data.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <div className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Base</Label>
+                    <GenericSelectField
+                      field={{
+                        name: 'airtable_base',
+                        label: 'Base',
+                        type: 'select',
+                        placeholder: 'Select a base',
+                      }}
+                      value={airtableSelection.baseId}
+                      onChange={(value) => handleSelectAirtableBase(value as string)}
+                      options={airtableBases.map(base => ({
+                        value: base.id,
+                        label: base.name,
+                      }))}
+                      isLoading={airtableLoading.bases}
+                      nodeInfo={{ providerId: 'airtable' }}
+                      parentValues={{}}
+                      workflowNodes={[]}
+                    />
+                    {airtableLoading.bases && (
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Loading bases...
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Table</Label>
+                    <GenericSelectField
+                      field={{
+                        name: 'airtable_table',
+                        label: 'Table',
+                        type: 'select',
+                        placeholder: airtableSelection.baseId ? 'Select a table' : 'Choose a base first',
+                      }}
+                      value={airtableSelection.tableId}
+                      onChange={(value) => handleSelectAirtableTable(value as string)}
+                      options={airtableTables.map(table => ({
+                        value: table.id,
+                        label: table.name,
+                      }))}
+                      isLoading={airtableLoading.tables}
+                      nodeInfo={{ providerId: 'airtable' }}
+                      parentValues={{}}
+                      workflowNodes={[]}
+                    />
+                    {airtableLoading.tables && (
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Loading tables...
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Filter Field</Label>
+                    <GenericSelectField
+                      field={{
+                        name: 'airtable_filter_field',
+                        label: 'Filter Field',
+                        type: 'select',
+                        placeholder: airtableFields.length ? 'Select field' : 'Select a table first',
+                      }}
+                      value={airtableSelection.filterField}
+                      onChange={(value) => handleFieldTargetChange('filterField', value as string)}
+                      options={airtableFields.map(field => ({
+                        value: field.id,
+                        label: field.name,
+                      }))}
+                      isLoading={airtableLoading.fields}
+                      nodeInfo={{ providerId: 'airtable' }}
+                      parentValues={{}}
+                      workflowNodes={[]}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Filter Value</Label>
+                    {airtableFilterValues.length > 0 ? (
+                      <GenericSelectField
+                        field={{
+                          name: 'airtable_filter_value',
+                          label: 'Filter Value',
+                          type: 'select',
+                          placeholder: 'Select a value',
+                        }}
+                        value={airtableSelection.filterValue}
+                        onChange={(value) => setAirtableSelection(prev => ({ ...prev, filterValue: value as string }))}
+                        options={airtableFilterValues.map(value => ({
+                          value,
+                          label: value,
+                        }))}
+                        isLoading={airtableLoading.filterValues}
+                        nodeInfo={{ providerId: 'airtable' }}
+                        parentValues={{}}
+                        workflowNodes={[]}
+                      />
+                    ) : (
+                      <Input
+                        value={airtableSelection.filterValue}
+                        onChange={(event) => setAirtableSelection(prev => ({ ...prev, filterValue: event.target.value }))}
+                        placeholder="Type a value"
+                        disabled={!airtableSelection.filterField}
+                      />
+                    )}
+                    {airtableLoading.filterValues && (
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Loading field values...
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Search Field</Label>
+                    <GenericSelectField
+                      field={{
+                        name: 'airtable_search_field',
+                        label: 'Search Field',
+                        type: 'select',
+                        placeholder: airtableFields.length ? 'Select field' : 'Select a table first',
+                      }}
+                      value={airtableSelection.searchField}
+                      onChange={(value) => handleFieldTargetChange('searchField', value as string)}
+                      options={airtableFields.map(field => ({
+                        value: field.id,
+                        label: field.name,
+                      }))}
+                      isLoading={airtableLoading.fields}
+                      nodeInfo={{ providerId: 'airtable' }}
+                      parentValues={{}}
+                      workflowNodes={[]}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Search Value</Label>
+                    <Input
+                      value={airtableSelection.searchValue}
+                      onChange={(event) => setAirtableSelection(prev => ({ ...prev, searchValue: event.target.value }))}
+                      placeholder="Type keywords"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Attachment Field</Label>
+                    <GenericSelectField
+                      field={{
+                        name: 'airtable_attachment_field',
+                        label: 'Attachment Field',
+                        type: 'select',
+                        placeholder: airtableFields.length ? 'Select field' : 'Select a table first',
+                      }}
+                      value={airtableSelection.attachmentField}
+                      onChange={(value) => handleFieldTargetChange('attachmentField', value as string)}
+                      options={airtableFields.map(field => ({
+                        value: field.id,
+                        label: field.name,
+                      }))}
+                      isLoading={airtableLoading.fields}
+                      nodeInfo={{ providerId: 'airtable' }}
+                      parentValues={{}}
+                      workflowNodes={[]}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Watched Fields (multi-select)</Label>
+                  <div className="border rounded-md p-3 max-h-48 overflow-y-auto space-y-2">
+                    {airtableFields.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">Select a table to load fields.</p>
+                    ) : (
+                      airtableFields.map(field => (
+                        <label key={field.id} className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={airtableSelection.watchedFieldIds.includes(field.id)}
+                            onChange={() => toggleWatchedField(field.id)}
+                          />
+                          <span>{field.name}</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="mb-0">Records</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleLoadAirtableRecords}
+                      disabled={
+                        !airtableSelection.baseId ||
+                        (!airtableSelection.tableId && !airtableSelection.tableName) ||
+                        airtableLoading.records
+                      }
+                    >
+                      {airtableLoading.records ? (
+                        <>
+                          <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                          Loading
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="mr-2 h-3 w-3" />
+                          Load Records
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  {airtableRecords.length === 0 ? (
+                    <p className="text-xs text-muted-foreground border rounded-md p-3">
+                      Load records to pick IDs for update/delete actions.
+                    </p>
+                  ) : (
+                    <div className="border rounded-md max-h-48 overflow-y-auto divide-y">
+                      {airtableRecords.map(record => (
+                        <div key={record.id} className="p-3 space-y-2">
+                          <label className="flex items-center gap-2 text-sm font-medium">
+                            <input
+                              type="radio"
+                              name="airtable-record"
+                              checked={airtableSelection.recordId === record.id}
+                              onChange={() => toggleSelectedRecord(record.id)}
+                            />
+                            <span>{record.label}</span>
+                            <span className="text-xs text-muted-foreground">({record.id})</span>
+                          </label>
+                          <label className="flex items-center gap-2 text-xs text-muted-foreground pl-6">
+                            <input
+                              type="checkbox"
+                              checked={airtableSelection.recordIds.includes(record.id)}
+                              onChange={() => toggleSelectedRecordIds(record.id)}
+                            />
+                            <span>Select for multi-update</span>
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-between">
+                  <Button variant="outline" onClick={() => setIsAirtableModalOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleApplyAirtableSelection}
+                    disabled={!airtableSelection.baseId || !airtableSelection.tableName}
+                  >
+                    Use Selection
+                  </Button>
+                </DialogFooter>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
+
       {/* Test Presets Dialog */}
       <Dialog open={showPresetsDialog} onOpenChange={setShowPresetsDialog}>
         <DialogContent className="max-w-md">
@@ -1422,33 +2239,89 @@ export default function IntegrationTestsPage() {
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            {missingFieldsData?.fields.map(field => (
-              <div key={field.name} className="space-y-2">
-                <Label htmlFor={`manual-${field.name}`}>
-                  {field.label}
-                  {field.dynamic && (
-                    <Badge variant="outline" className="ml-2 text-xs">
-                      {field.dynamic}
-                    </Badge>
+            {missingFieldsData?.fields.map(field => {
+              const options = manualFieldOptions[field.name] || []
+              const loading = manualFieldLoading[field.name]
+              const selectedValue = manualFieldValues[field.name] || ''
+              const dependencies = Array.isArray(field.dependsOn)
+                ? field.dependsOn
+                : field.dependsOn
+                  ? [field.dependsOn]
+                  : []
+              const requiresDependency = dependencies.length > 0 && dependencies.some(dep => !manualFieldValues[dep])
+
+              return (
+                <div key={field.name} className="space-y-2">
+                  <Label htmlFor={`manual-${field.name}`}>
+                    {field.label}
+                    {field.dynamic && (
+                      <Badge variant="outline" className="ml-2 text-xs">
+                        {field.dynamic}
+                      </Badge>
+                    )}
+                  </Label>
+                  {field.dynamic ? (
+                    <>
+                      <Select
+                        value={selectedValue}
+                        onValueChange={(value) => handleManualFieldValueChange(field.name, value)}
+                        disabled={requiresDependency || loading || (options.length === 0 && !loading)}
+                      >
+                        <SelectTrigger id={`manual-${field.name}`}>
+                          <SelectValue
+                            placeholder={
+                              loading
+                                ? 'Loading options...'
+                                : requiresDependency
+                                  ? `Select ${dependencies.join(', ')} first`
+                                  : options.length > 0
+                                    ? `Select ${field.label.toLowerCase()}`
+                                    : 'No options available'
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {options.map(option => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {manualFieldErrors[field.name] && (
+                        <p className="text-xs text-destructive">{manualFieldErrors[field.name]}</p>
+                      )}
+                      {loading && (
+                        <p className="text-xs text-muted-foreground">Loading options…</p>
+                      )}
+                      {!loading && options.length === 0 && !requiresDependency && (
+                        <p className="text-xs text-muted-foreground">
+                          No options available from your {selectedProvider} account.
+                        </p>
+                      )}
+                      {requiresDependency && (
+                        <p className="text-xs text-muted-foreground">
+                          Select {dependencies.join(', ')} first.
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <Input
+                        id={`manual-${field.name}`}
+                        type={field.type === 'number' ? 'number' : 'text'}
+                        placeholder={`Enter ${field.label.toLowerCase()}...`}
+                        value={selectedValue}
+                        onChange={(e) => handleManualFieldValueChange(field.name, e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        This field requires a value from your {selectedProvider} account
+                      </p>
+                    </>
                   )}
-                </Label>
-                <Input
-                  id={`manual-${field.name}`}
-                  type={field.type === 'number' ? 'number' : 'text'}
-                  placeholder={`Enter ${field.label.toLowerCase()}...`}
-                  value={manualFieldValues[field.name] || ''}
-                  onChange={(e) =>
-                    setManualFieldValues(prev => ({
-                      ...prev,
-                      [field.name]: e.target.value,
-                    }))
-                  }
-                />
-                <p className="text-xs text-muted-foreground">
-                  This field requires a value from your {selectedProvider} account
-                </p>
-              </div>
-            ))}
+                </div>
+              )
+            })}
 
             {missingFieldsData?.fields.length === 0 && (
               <Alert>

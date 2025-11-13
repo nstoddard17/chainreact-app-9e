@@ -71,9 +71,24 @@ export function useWorkflowNodes() {
         if (!existingTitle || (typeof existingTitle === 'string' && existingTitle.trim().length === 0) || existingTitle === 'Unnamed Action') {
           const component = ALL_NODE_COMPONENTS.find(c => c.type === nodeType)
           const safeTitle = component?.title || nodeType || (isTrigger ? 'Trigger' : 'Action')
+
+          // Preserve handler functions during sanitization
+          const currentNode = currentNodes.find(n => n.id === node.id)
+          const preservedHandlers = currentNode?.data ? {
+            onTestNode: currentNode.data.onTestNode,
+            onTestFlowFromHere: currentNode.data.onTestFlowFromHere,
+            onFreeze: currentNode.data.onFreeze,
+            onStop: currentNode.data.onStop,
+            onDelete: currentNode.data.onDelete,
+            onDeleteSelected: currentNode.data.onDeleteSelected,
+            onConfigure: currentNode.data.onConfigure,
+            onRename: currentNode.data.onRename,
+            onAddChain: currentNode.data.onAddChain,
+          } : {}
+
           sanitized.push({
             ...node,
-            data: { ...(node.data as any), title: safeTitle }
+            data: { ...(node.data as any), title: safeTitle, ...preservedHandlers }
           })
         } else {
           sanitized.push(node)

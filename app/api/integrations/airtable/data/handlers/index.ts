@@ -18,6 +18,7 @@ import { getAirtableProjects } from './projects'
 import { getAirtableFeedback } from './feedback'
 import { getAirtableTasks } from './tasks'
 import { getLinkedTableRecords } from './linkedRecords'
+import { getAirtableAttachmentFields } from './attachmentFields'
 
 export const airtableHandlers = {
   'airtable_bases': getAirtableBases,
@@ -29,6 +30,7 @@ export const airtableHandlers = {
   'airtable_project_records': getAirtableProjectRecords,
   'airtable_fields': getAirtableFields,
   'airtable_field_values': getAirtableFieldValues,
+  'airtable_attachment_fields': getAirtableAttachmentFields,
   'airtable_batch_field_values': getAirtableBatchFieldValues,
   'airtable_draft_names': getAirtableDraftNames,
   'airtable_designers': getAirtableDesigners,
@@ -48,6 +50,7 @@ export {
   getAirtableProjectRecords,
   getAirtableFields,
   getAirtableFieldValues,
+  getAirtableAttachmentFields,
   getAirtableBatchFieldValues,
   getAirtableDraftNames,
   getAirtableDesigners,

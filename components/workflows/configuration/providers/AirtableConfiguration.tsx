@@ -1520,22 +1520,47 @@ export function AirtableConfiguration({
   }, [isCreateRecord, isCreateMultipleRecords, isUpdateRecord, isUpdateMultipleRecords, isDuplicateRecord, isFindRecord, values.tableName, values.baseId, fetchAirtableTableSchema, loadAirtableRecords]);
 
   // Helper function to get a proper string label from any value
-  const getLabelFromValue = useCallback((val: any): string => {
+  const getLabelFromValue = useCallback((val: any, fieldName?: string): string => {
     // Handle attachment objects
     if (val && typeof val === 'object' && (val.url || val.filename)) {
       return val.filename || val.url || 'Attachment';
     }
     // Handle arrays
     if (Array.isArray(val)) {
-      return val.map(v => getLabelFromValue(v)).join(', ');
+      return val.map(v => getLabelFromValue(v, fieldName)).join(', ');
     }
     // Handle null/undefined
     if (val === null || val === undefined) {
       return '';
     }
+
+    // Try to find friendly label from dynamic options if fieldName is provided
+    if (fieldName && dynamicOptions[fieldName]) {
+      const option = dynamicOptions[fieldName].find((opt: any) => {
+        // Handle id::name format
+        if (opt.value?.includes('::')) {
+          return opt.value.startsWith(`${val}::`);
+        }
+        return opt.value === val;
+      });
+      if (option?.label) {
+        return option.label;
+      }
+    }
+
+    // Check for saved label metadata
+    if (fieldName) {
+      const labelMetadataKey = `${fieldName}_labels`;
+      const savedLabels = values[labelMetadataKey] as Record<string, string> | undefined;
+      const savedLabel = savedLabels?.[val];
+      if (savedLabel) {
+        return savedLabel;
+      }
+    }
+
     // Convert to string
     return String(val);
-  }, []);
+  }, [dynamicOptions, values]);
 
   // Handle field changes with bubble creation
   const handleFieldChange = useCallback((fieldName: string, value: any, skipBubbleCreation = false) => {
@@ -1558,15 +1583,15 @@ export function AirtableConfiguration({
           if (!exists) {
             const newBubble = {
               value: val,
-              label: getLabelFromValue(val),
+              label: getLabelFromValue(val, fieldName),
               fieldName: field.name
             };
-            
+
             setFieldSuggestions(prev => ({
               ...prev,
               [fieldName]: [...(prev[fieldName] || []), newBubble]
             }));
-            
+
             // Auto-activate new bubbles for multi-select
             setActiveBubbles(prev => {
               const current = Array.isArray(prev[fieldName]) ? prev[fieldName] as number[] : [];
@@ -1578,15 +1603,15 @@ export function AirtableConfiguration({
             });
           }
         });
-        
+
         // Clear the dropdown after selection
         setValue(fieldName, null);
-        
+
       } else if (field.airtableFieldType === 'singleSelect') {
         // For single select, replace existing bubble
         const newBubble = {
           value: value,
-          label: getLabelFromValue(value),
+          label: getLabelFromValue(value, fieldName),
           fieldName: field.name
         };
         
@@ -1603,6 +1628,53 @@ export function AirtableConfiguration({
         
         // Clear the dropdown
         setValue(fieldName, null);
+      } else if (field.airtableFieldType === 'multipleAttachments' || field.type === 'file') {
+        // Handle image/attachment fields
+        logger.debug('🖼️ [BUBBLE CREATION] Image/attachment field detected:', {
+          fieldName,
+          value,
+          valueType: typeof value,
+          isArray: Array.isArray(value)
+        });
+
+        const attachments = Array.isArray(value) ? value : [value];
+
+        // Create bubbles for each attachment
+        const newBubbles = attachments.filter(Boolean).map((attachment: any) => {
+          const isImageAttachment = attachment?.url || attachment?.thumbnails;
+          return {
+            value: attachment?.url || attachment,
+            label: attachment?.filename || attachment?.name || 'Image',
+            fieldName: field.name,
+            isImage: isImageAttachment,
+            thumbnailUrl: attachment?.thumbnails?.small?.url || attachment?.thumbnails?.large?.url || attachment?.url,
+            fullUrl: attachment?.url,
+            filename: attachment?.filename || attachment?.name,
+            size: attachment?.size,
+            isNewUpload: true
+          };
+        });
+
+        if (newBubbles.length > 0) {
+          setFieldSuggestions(prev => ({
+            ...prev,
+            [fieldName]: [...(prev[fieldName] || []), ...newBubbles]
+          }));
+
+          // Auto-activate all image bubbles
+          setActiveBubbles(prev => {
+            const currentCount = (prev[fieldName] as number[] || []).length;
+            const newIndices = newBubbles.map((_, idx) => currentCount + idx);
+            return {
+              ...prev,
+              [fieldName]: [...(Array.isArray(prev[fieldName]) ? prev[fieldName] : []), ...newIndices]
+            };
+          });
+
+          logger.debug('🖼️ [BUBBLE CREATION] Created image bubbles:', newBubbles);
+        }
+
+        // Don't clear the value for attachments as they might be used directly
       } else if (field.airtableFieldType === 'multipleRecordLinks' || field.airtableFieldType === 'singleRecordLink') {
         // Handle linked record fields - parse the id::name format
         logger.debug('🔵 [BUBBLE CREATION] Linked record field detected:', {
@@ -1768,9 +1840,9 @@ export function AirtableConfiguration({
           dependsOn: field.dependsOn
         });
 
-        // Load the options
+        // Load the options (use cache for better UX - don't force refresh)
         if (field.dependsOn === 'tableName') {
-          loadOptions(field.name, 'tableName', values.tableName, true, false, extraOptions)
+          loadOptions(field.name, 'tableName', values.tableName, false, false, extraOptions)
             .finally(() => {
               setLocalLoadingFields(prev => {
                 const newSet = new Set(prev);
@@ -1779,7 +1851,7 @@ export function AirtableConfiguration({
               });
             });
         } else {
-          loadOptions(field.name, undefined, undefined, true, false, extraOptions)
+          loadOptions(field.name, undefined, undefined, false, false, extraOptions)
             .finally(() => {
               setLocalLoadingFields(prev => {
                 const newSet = new Set(prev);
@@ -1794,9 +1866,23 @@ export function AirtableConfiguration({
   }, [dynamicFields, values.tableName, values.baseId, isCreateRecord, isUpdateRecord, isUpdateMultipleRecords, isFindRecord,
       dynamicOptions, batchLoadedOptions, autoLoadedFields, airtableTableSchema]); // Don't include loadOptions
 
-  // Clear auto-loaded fields when table changes
+  // Clear auto-loaded fields and invalidate dynamic field cache when table changes
   useEffect(() => {
     setAutoLoadedFields(new Set());
+
+    // Invalidate cached options for dynamic fields when table changes
+    // This ensures fresh data is loaded when switching to a different table
+    if (values.tableName) {
+      const { useConfigCacheStore } = require('@/stores/configCacheStore');
+      const cacheStore = useConfigCacheStore.getState();
+
+      // Invalidate only airtable_field_* options, keep baseId and tableName cache
+      Object.keys(cacheStore.cache).forEach(key => {
+        if (key.includes('airtable_field_')) {
+          cacheStore.invalidate(key);
+        }
+      });
+    }
   }, [values.tableName]);
 
   // Auto-load config schema fields with autoLoad: true when they become visible
@@ -1873,7 +1959,7 @@ export function AirtableConfiguration({
         });
 
         if (field.dependsOn === 'tableName') {
-          loadOptions(field.name, 'tableName', values.tableName, true, false, extraOptions)
+          loadOptions(field.name, 'tableName', values.tableName, false, false, extraOptions)
             .finally(() => {
               setLocalLoadingFields(prev => {
                 const newSet = new Set(prev);
@@ -1882,7 +1968,7 @@ export function AirtableConfiguration({
               });
             });
         } else {
-          loadOptions(field.name, undefined, undefined, true, false, extraOptions)
+          loadOptions(field.name, undefined, undefined, false, false, extraOptions)
             .finally(() => {
               setLocalLoadingFields(prev => {
                 const newSet = new Set(prev);
@@ -2102,8 +2188,21 @@ export function AirtableConfiguration({
             firstOption: options[0]
           });
           
-          const bubbles = recordIds.map(recordId => {
-            // Find the option that matches this record ID
+          // Check for saved bubble metadata first (includes all bubble data like images)
+          const bubbleMetadataKey = `${actualFieldName}_bubbles`;
+          const savedBubbles = values[bubbleMetadataKey] as any[] | undefined;
+
+          const bubbles = recordIds.map((recordId, idx) => {
+            // First check if we have saved bubble metadata for this value
+            const savedBubble = savedBubbles?.find(b => b.value === recordId);
+
+            // If we have saved bubble data, use it (preserves images and other rich data)
+            if (savedBubble) {
+              logger.debug('🟢 [BUBBLE INIT] Using saved bubble metadata:', savedBubble);
+              return savedBubble;
+            }
+
+            // Otherwise, try to find the option in loaded options
             const option = options.find((opt: any) => {
               // Options might be in "id::name" format or just "id"
               if (opt.value?.includes('::')) {
@@ -2111,17 +2210,23 @@ export function AirtableConfiguration({
               }
               return opt.value === recordId;
             });
-            
+
+            // Check for saved label metadata
+            const labelMetadataKey = `${actualFieldName}_labels`;
+            const savedLabels = values[labelMetadataKey] as Record<string, string> | undefined;
+            const savedLabel = savedLabels?.[recordId];
+
             logger.debug('🟢 [BUBBLE INIT] Mapping record ID to bubble:', {
               recordId,
               foundOption: !!option,
               optionLabel: option?.label,
+              savedLabel,
               optionValue: option?.value
             });
-            
+
             return {
               value: recordId,
-              label: option?.label || recordId, // Use label if found, otherwise fallback to ID
+              label: option?.label || savedLabel || recordId, // Use option label, then saved label, then ID
               fieldName: field.name
             };
           });
@@ -2151,7 +2256,7 @@ export function AirtableConfiguration({
           const selectValues = Array.isArray(existingValue) ? existingValue : [existingValue];
           const bubbles = selectValues.map(val => ({
             value: val,
-            label: val,
+            label: getLabelFromValue(val, actualFieldName),
             fieldName: field.name
           }));
           
@@ -2173,7 +2278,7 @@ export function AirtableConfiguration({
             ...prev,
             [actualFieldName]: [{
               value: existingValue,
-              label: existingValue,
+              label: getLabelFromValue(existingValue, actualFieldName),
               fieldName: field.name
             }]
           }));
@@ -2350,6 +2455,45 @@ export function AirtableConfiguration({
         });
       }
 
+      // For linked record fields, enhance options to ensure proper display
+      let enhancedDynamicOptions = mergedDynamicOptions;
+      if (field.airtableFieldType === 'multipleRecordLinks' || field.airtableFieldType === 'singleRecordLink') {
+        const fieldValue = values[field.name];
+        const labelMetadataKey = `${field.name}_labels`;
+        const savedLabels = values[labelMetadataKey] as Record<string, string> | undefined;
+        const existingOptions = mergedDynamicOptions[field.name] || [];
+
+        // If we have options in "id::name" format, normalize them to show properly
+        if (existingOptions.length > 0 && existingOptions[0]?.value?.includes('::')) {
+          const normalizedOptions = existingOptions.map((opt: any) => {
+            // Extract ID from "id::name" format
+            const parts = opt.value.split('::');
+            const id = parts[0];
+            const name = parts[1] || opt.label;
+            return {
+              value: id, // Store just the ID as the value
+              label: name || opt.label, // Use the name as the label
+              recordId: id
+            };
+          });
+          enhancedDynamicOptions = {
+            ...mergedDynamicOptions,
+            [field.name]: normalizedOptions
+          };
+        }
+        // If we have saved labels but no loaded options, create temporary options from saved labels
+        else if (savedLabels && existingOptions.length === 0) {
+          const tempOptions = Object.entries(savedLabels).map(([id, label]) => ({
+            value: id,
+            label: label
+          }));
+          enhancedDynamicOptions = {
+            ...mergedDynamicOptions,
+            [field.name]: tempOptions
+          };
+        }
+      }
+
       return (
       <React.Fragment key={`field-${field.name}-${index}`}>
         <FieldRenderer
@@ -2359,7 +2503,7 @@ export function AirtableConfiguration({
           error={errors[field.name] || validationErrors[field.name]}
           workflowData={workflowData}
           currentNodeId={currentNodeId}
-          dynamicOptions={mergedDynamicOptions}
+          dynamicOptions={enhancedDynamicOptions}
           loadingDynamic={fieldIsLoading}
           loadingFields={loadingFields}
           nodeInfo={nodeInfo}
@@ -2378,9 +2522,18 @@ export function AirtableConfiguration({
           const suggestions = fieldSuggestions[field.name] || fieldSuggestions[altFieldName];
           const active = activeBubbles[field.name] || activeBubbles[altFieldName];
           const actualFieldName = fieldSuggestions[field.name] ? field.name : altFieldName;
-          
+
           if (!suggestions) return null;
-          
+
+          // Don't show pills for single-select fields (they're already shown inline in the field)
+          // For multi-select fields, only show pills when there are 2+ selections
+          const isSingleSelect = field.airtableFieldType === 'singleSelect';
+          const isMultiSelectWithOnlyOne = field.airtableFieldType === 'multipleSelects' && suggestions.length === 1;
+
+          if (isSingleSelect || isMultiSelectWithOnlyOne) {
+            return null;
+          }
+
           return (
             <BubbleDisplay
               fieldName={actualFieldName}
@@ -2450,22 +2603,50 @@ export function AirtableConfiguration({
         if (fieldName.startsWith('airtable_field_')) {
           const activeBubblesForField = activeBubbles[fieldName];
           const suggestions = fieldSuggestions[fieldName];
-          
+
           if (activeBubblesForField !== undefined && suggestions) {
             let aggregatedValue;
-            
+            let labelMetadata: Record<string, string> = {};
+            let bubbleMetadata: any[] = [];
+
             if (Array.isArray(activeBubblesForField)) {
               // Multi-value: collect all active bubble values
-              aggregatedValue = activeBubblesForField.map(idx => 
+              aggregatedValue = activeBubblesForField.map(idx =>
                 suggestions[idx]?.value
               ).filter(v => v !== undefined);
+
+              // Store labels and full bubble data for each value
+              activeBubblesForField.forEach(idx => {
+                const suggestion = suggestions[idx];
+                if (suggestion?.value && suggestion?.label) {
+                  labelMetadata[suggestion.value] = suggestion.label;
+                }
+                // Store full bubble data (includes image info)
+                if (suggestion) {
+                  bubbleMetadata.push(suggestion);
+                }
+              });
             } else if (typeof activeBubblesForField === 'number') {
               // Single-value: get the active bubble value
               aggregatedValue = suggestions[activeBubblesForField]?.value;
+
+              // Store label for single value
+              const suggestion = suggestions[activeBubblesForField];
+              if (suggestion?.value && suggestion?.label) {
+                labelMetadata[suggestion.value] = suggestion.label;
+              }
+              // Store full bubble data
+              if (suggestion) {
+                bubbleMetadata.push(suggestion);
+              }
             }
-            
+
             if (aggregatedValue !== undefined) {
               submissionValues[fieldName] = aggregatedValue;
+              // Store label metadata with a special key
+              submissionValues[`${fieldName}_labels`] = labelMetadata;
+              // Store full bubble metadata (for images and other rich data)
+              submissionValues[`${fieldName}_bubbles`] = bubbleMetadata;
             }
           }
         }
@@ -2582,21 +2763,39 @@ export function AirtableConfiguration({
                             firstOption: options[0]
                           });
                           
+                          // Check for saved bubble metadata first (includes all bubble data like images)
+                          const bubbleMetadataKey = `${actualFieldName}_bubbles`;
+                          const savedBubbles = values[bubbleMetadataKey] as any[] | undefined;
+
                           const bubbles = recordIds.map(recordId => {
-                            // Find the option that matches this record ID
+                            // First check if we have saved bubble metadata for this value
+                            const savedBubble = savedBubbles?.find(b => b.value === recordId);
+
+                            // If we have saved bubble data, use it (preserves images and other rich data)
+                            if (savedBubble) {
+                              logger.debug('🟣 [RECORD SELECT] Using saved bubble metadata:', savedBubble);
+                              return savedBubble;
+                            }
+
+                            // Otherwise, create new bubble from options or saved labels
                             const option = options.find((opt: any) => {
                               if (opt.value?.includes('::')) {
                                 return opt.value.startsWith(`${recordId }::`);
                               }
                               return opt.value === recordId;
                             });
-                            
+
+                            // Check for saved label metadata
+                            const labelMetadataKey = `${actualFieldName}_labels`;
+                            const savedLabels = values[labelMetadataKey] as Record<string, string> | undefined;
+                            const savedLabel = savedLabels?.[recordId];
+
                             const bubble = {
                               value: recordId,
-                              label: option?.label || recordId, // Use name if found, otherwise ID
+                              label: option?.label || savedLabel || recordId, // Use option label, saved label, or ID
                               fieldName: field.name
                             };
-                            
+
                             logger.debug('🟣 [RECORD SELECT] Created bubble for linked record:', bubble);
                             return bubble;
                           });
@@ -2628,7 +2827,7 @@ export function AirtableConfiguration({
                           // For multi-select fields, create bubbles
                           const bubbles = value.map(v => ({
                             value: v,
-                            label: v,
+                            label: getLabelFromValue(v, actualFieldName),
                             fieldName: field.name
                           }));
                           
@@ -2652,7 +2851,7 @@ export function AirtableConfiguration({
                             ...prev,
                             [actualFieldName]: [{
                               value: value,
-                              label: value,
+                              label: getLabelFromValue(value, actualFieldName),
                               fieldName: field.name
                             }]
                           }));
@@ -2690,7 +2889,30 @@ export function AirtableConfiguration({
 
                             // Set the value to the attachments array
                             setValue(actualFieldName, attachments);
-                            logger.debug('🖼️ [RECORD SELECT] Set multiple attachments:', attachments);
+
+                            // Create bubbles for the images
+                            const imageBubbles = attachments.map(attachment => ({
+                              value: attachment.url,
+                              label: attachment.filename || 'Image',
+                              fieldName: field.name,
+                              isImage: true,
+                              thumbnailUrl: attachment.thumbnails?.small?.url || attachment.thumbnails?.large?.url || attachment.url,
+                              fullUrl: attachment.url,
+                              filename: attachment.filename,
+                              size: attachment.size
+                            }));
+
+                            setFieldSuggestions(prev => ({
+                              ...prev,
+                              [actualFieldName]: imageBubbles
+                            }));
+
+                            setActiveBubbles(prev => ({
+                              ...prev,
+                              [actualFieldName]: imageBubbles.map((_, idx) => idx)
+                            }));
+
+                            logger.debug('🖼️ [RECORD SELECT] Set multiple attachments and created bubbles:', { attachments, imageBubbles });
                           } else if (!Array.isArray(value) && value.url) {
                             // Single attachment (convert to array for consistency with AirtableImageField)
                             const attachment = {
@@ -2702,7 +2924,30 @@ export function AirtableConfiguration({
                               size: value.size
                             };
                             setValue(actualFieldName, [attachment]);
-                            logger.debug('🖼️ [RECORD SELECT] Set single attachment as array:', attachment);
+
+                            // Create bubble for the image
+                            const imageBubble = {
+                              value: attachment.url,
+                              label: attachment.filename || 'Image',
+                              fieldName: field.name,
+                              isImage: true,
+                              thumbnailUrl: attachment.thumbnails?.small?.url || attachment.thumbnails?.large?.url || attachment.url,
+                              fullUrl: attachment.url,
+                              filename: attachment.filename,
+                              size: attachment.size
+                            };
+
+                            setFieldSuggestions(prev => ({
+                              ...prev,
+                              [actualFieldName]: [imageBubble]
+                            }));
+
+                            setActiveBubbles(prev => ({
+                              ...prev,
+                              [actualFieldName]: 0
+                            }));
+
+                            logger.debug('🖼️ [RECORD SELECT] Set single attachment as array and created bubble:', { attachment, imageBubble });
                           }
                         } else {
                           // For non-select fields, handle the value properly

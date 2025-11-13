@@ -799,7 +799,8 @@ export async function POST(req: NextRequest) {
       dataType === 'airtable_project_records' ||
       dataType === 'airtable_fields' ||
       dataType === 'airtable_field_values' ||
-      dataType === 'airtable_records'
+      dataType === 'airtable_records' ||
+      dataType === 'airtable_attachment_fields'
     )) {
       logger.debug(`🔄 [SERVER] Routing Airtable request to dedicated API: ${dataType}`);
       

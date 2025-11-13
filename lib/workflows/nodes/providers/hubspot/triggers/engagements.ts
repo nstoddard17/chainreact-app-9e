@@ -57,6 +57,12 @@ export const hubspotTriggerNoteCreated: NodeComponent = {
       description: "The ID of the note owner"
     },
     {
+      name: "hubspot_owner_name",
+      label: "Owner Name",
+      type: "string",
+      description: "Owner name when provided by HubSpot"
+    },
+    {
       name: "associatedContactIds",
       label: "Associated Contact IDs",
       type: "array",
@@ -91,6 +97,12 @@ export const hubspotTriggerNoteCreated: NodeComponent = {
       label: "Portal ID",
       type: "string",
       description: "The HubSpot portal ID"
+    },
+    {
+      name: "properties",
+      label: "All Properties",
+      type: "object",
+      description: "Full note property payload"
     }
   ],
 }
@@ -203,6 +215,12 @@ export const hubspotTriggerTaskCreated: NodeComponent = {
       description: "The ID of the task owner"
     },
     {
+      name: "hubspot_owner_name",
+      label: "Owner Name",
+      type: "string",
+      description: "Owner name when provided"
+    },
+    {
       name: "associatedContactIds",
       label: "Associated Contact IDs",
       type: "array",
@@ -237,6 +255,12 @@ export const hubspotTriggerTaskCreated: NodeComponent = {
       label: "Portal ID",
       type: "string",
       description: "The HubSpot portal ID"
+    },
+    {
+      name: "properties",
+      label: "All Properties",
+      type: "object",
+      description: "Full task property payload"
     }
   ],
 }
@@ -356,6 +380,12 @@ export const hubspotTriggerCallCreated: NodeComponent = {
       description: "The ID of the call owner"
     },
     {
+      name: "hubspot_owner_name",
+      label: "Owner Name",
+      type: "string",
+      description: "Owner name when provided"
+    },
+    {
       name: "associatedContactIds",
       label: "Associated Contact IDs",
       type: "array",
@@ -390,6 +420,12 @@ export const hubspotTriggerCallCreated: NodeComponent = {
       label: "Portal ID",
       type: "string",
       description: "The HubSpot portal ID"
+    },
+    {
+      name: "properties",
+      label: "All Properties",
+      type: "object",
+      description: "Full call property payload"
     }
   ],
 }
@@ -495,6 +531,12 @@ export const hubspotTriggerMeetingCreated: NodeComponent = {
       description: "The ID of the meeting owner"
     },
     {
+      name: "hubspot_owner_name",
+      label: "Owner Name",
+      type: "string",
+      description: "Owner name when provided"
+    },
+    {
       name: "associatedContactIds",
       label: "Associated Contact IDs",
       type: "array",
@@ -529,6 +571,12 @@ export const hubspotTriggerMeetingCreated: NodeComponent = {
       label: "Portal ID",
       type: "string",
       description: "The HubSpot portal ID"
+    },
+    {
+      name: "properties",
+      label: "All Properties",
+      type: "object",
+      description: "Full meeting property payload"
     }
   ],
 }

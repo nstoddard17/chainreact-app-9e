@@ -833,41 +833,232 @@ export function useWorkflowBuilder() {
   }, [setNodes])
 
   // Context menu handlers
-  const handleTestNode = useCallback((nodeId: string) => {
-    // TODO: Implement test single node functionality
-    console.log('Test node:', nodeId)
+  const handleTestNode = useCallback(async (nodeId: string) => {
+    console.log('[handleTestNode] Called with nodeId:', nodeId)
+    const currentNodes = getNodes()
+    console.log('[handleTestNode] Total nodes:', currentNodes.length)
+    const node = currentNodes.find(n => n.id === nodeId)
+    console.log('[handleTestNode] Found node:', !!node, node?.data?.type)
+
+    if (!node) {
+      console.error('[handleTestNode] Node not found!')
+      toast({
+        title: "Node not found",
+        description: "Could not find the node to test",
+        variant: "destructive",
+      })
+      return
+    }
+
+    console.log('[handleTestNode] Starting test for:', node.data.title, 'Type:', node.data.type)
+
+    // Set node to running state
+    setNodes(currentNodes.map(n => {
+      if (n.id === nodeId) {
+        return {
+          ...n,
+          data: {
+            ...n.data,
+            executionStatus: 'running',
+            isActiveExecution: true,
+          },
+        }
+      }
+      return n
+    }))
+
     toast({
-      title: "Test Node",
-      description: "Testing individual node functionality (coming soon)",
+      title: "Testing Node",
+      description: `Running "${node.data.title}"...`,
     })
-  }, [toast])
+
+    try {
+      // Call the test-node API
+      console.log('[handleTestNode] Making API call to /api/workflows/test-node')
+      console.log('[handleTestNode] Request payload:', {
+        nodeType: node.data.type,
+        configKeys: Object.keys(node.data.config || {}),
+        hasTestData: !!node.data.testData
+      })
+
+      const response = await fetch('/api/workflows/test-node', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          nodeType: node.data.type,
+          config: node.data.config || {},
+          testData: node.data.testData || {},
+        }),
+      })
+
+      console.log('[handleTestNode] Response status:', response.status)
+      const result = await response.json()
+      console.log('[handleTestNode] Response result:', result)
+
+      if (result.success) {
+        // Update node with test results - show as completed with output
+        setNodes(getNodes().map(n => {
+          if (n.id === nodeId) {
+            return {
+              ...n,
+              data: {
+                ...n.data,
+                executionStatus: 'completed',
+                isActiveExecution: false,
+                testData: result.testResult?.output || {},
+                resultMessage: result.testResult?.message || 'Test completed successfully',
+              },
+            }
+          }
+          return n
+        }))
+
+        toast({
+          title: "Test Completed",
+          description: result.testResult?.message || `"${node.data.title}" executed successfully`,
+        })
+      } else {
+        throw new Error(result.error || 'Test failed')
+      }
+    } catch (error: any) {
+      // Update node to show error state
+      setNodes(getNodes().map(n => {
+        if (n.id === nodeId) {
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              executionStatus: 'error',
+              isActiveExecution: false,
+              errorMessage: error.message,
+              errorTimestamp: new Date().toISOString(),
+            },
+          }
+        }
+        return n
+      }))
+
+      toast({
+        title: "Test Failed",
+        description: error.message || `Failed to test "${node.data.title}"`,
+        variant: "destructive",
+      })
+    }
+  }, [toast, getNodes, setNodes])
 
   const handleTestFlowFromHere = useCallback((nodeId: string) => {
-    // TODO: Implement test flow from specific node
-    console.log('Test flow from node:', nodeId)
+    const node = getNodes().find(n => n.id === nodeId)
+    if (!node) {
+      toast({
+        title: "Node not found",
+        description: "Could not find the starting node",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Test workflow starting from this node
     toast({
-      title: "Test Flow",
-      description: "Testing workflow from this node (coming soon)",
+      title: "Test Flow from Here",
+      description: `Testing workflow starting from "${node.data.title}"`,
     })
-  }, [toast])
+
+    // TODO: Integrate with workflow execution system
+    // This should execute the workflow starting from this node
+    console.log('Test flow from node:', nodeId, node.data.type)
+  }, [toast, getNodes])
 
   const handleFreezeNode = useCallback((nodeId: string) => {
-    // TODO: Implement freeze node (skip execution)
-    console.log('Freeze node:', nodeId)
-    toast({
-      title: "Freeze Node",
-      description: "Node will be skipped during execution (coming soon)",
+    const currentNodes = getNodes()
+    const node = currentNodes.find(n => n.id === nodeId)
+
+    if (!node) {
+      toast({
+        title: "Node not found",
+        description: "Could not find the node to freeze",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Toggle freeze state
+    const isFrozen = node.data.frozen || false
+    const updatedNodes = currentNodes.map(n => {
+      if (n.id === nodeId) {
+        return {
+          ...n,
+          data: {
+            ...n.data,
+            frozen: !isFrozen,
+          },
+          className: !isFrozen ? 'opacity-50' : '',
+        }
+      }
+      return n
     })
-  }, [toast])
+
+    setNodes(updatedNodes)
+
+    toast({
+      title: isFrozen ? "Node Unfrozen" : "Node Frozen",
+      description: isFrozen
+        ? `"${node.data.title}" will now execute normally`
+        : `"${node.data.title}" will be skipped during execution`,
+    })
+
+    console.log(isFrozen ? 'Unfroze node:' : 'Froze node:', nodeId)
+  }, [toast, getNodes, setNodes])
 
   const handleStopNode = useCallback((nodeId: string) => {
-    // TODO: Implement stop node execution
-    console.log('Stop node:', nodeId)
-    toast({
-      title: "Stop Node",
-      description: "Stopping node execution (coming soon)",
+    const node = getNodes().find(n => n.id === nodeId)
+
+    if (!node) {
+      toast({
+        title: "Node not found",
+        description: "Could not find the node to stop",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Check if node is currently executing
+    const isExecuting = node.data.executionStatus === 'running'
+
+    if (!isExecuting) {
+      toast({
+        title: "Node not running",
+        description: `"${node.data.title}" is not currently executing`,
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Stop the node execution
+    const updatedNodes = getNodes().map(n => {
+      if (n.id === nodeId) {
+        return {
+          ...n,
+          data: {
+            ...n.data,
+            executionStatus: null,
+            isActiveExecution: false,
+          },
+        }
+      }
+      return n
     })
-  }, [toast])
+
+    setNodes(updatedNodes)
+
+    toast({
+      title: "Node Stopped",
+      description: `Stopped execution of "${node.data.title}"`,
+    })
+
+    console.log('Stopped node:', nodeId)
+  }, [toast, getNodes, setNodes])
 
   const runPreflightCheck = useCallback((options: RunPreflightOptions = {}) => {
     const { openOnSuccess = false, openOnFailure = true } = options

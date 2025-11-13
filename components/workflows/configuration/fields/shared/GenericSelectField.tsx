@@ -987,6 +987,11 @@ export function GenericSelectField({
        field.airtableFieldType === 'singleRecordLink' ||
        field.multiple); // Any Airtable field marked as multiple uses bubbles
 
+    // Hide badges for disabled/status fields (like monetization eligibility)
+    const isDisabledStatusField = field.disabled &&
+      (field.name?.toLowerCase().includes('status') ||
+       field.name?.toLowerCase().includes('eligibility'));
+
     return (
       <div className="flex items-center gap-2">
         {isFromCache && (
@@ -1014,7 +1019,7 @@ export function GenericSelectField({
             creatable={(field as any).creatable || false} // Allow custom option creation if specified in field schema
             onOpenChange={handleFieldOpen}
             selectedValues={effectiveSelectedValues} // Pass selected values for checkmarks
-            hideSelectedBadges={isAirtableLinkedField} // Hide badges for Airtable fields with bubbles
+            hideSelectedBadges={isAirtableLinkedField || isDisabledStatusField} // Hide badges for Airtable fields with bubbles and disabled status fields
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}

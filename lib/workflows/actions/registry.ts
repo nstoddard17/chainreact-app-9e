@@ -52,16 +52,19 @@ import {
 
 // Airtable actions
 import {
-  moveAirtableRecord,
-  createAirtableRecord,
-  updateAirtableRecord,
-  listAirtableRecords,
-  findAirtableRecord,
-  deleteAirtableRecord,
   addAirtableAttachment,
+  createAirtableRecord,
+  createMultipleAirtableRecords,
+  deleteAirtableRecord,
   duplicateAirtableRecord,
-  getAirtableTableSchema,
+  findAirtableRecord,
   getAirtableBaseSchema,
+  getAirtableRecord,
+  getAirtableTableSchema,
+  listAirtableRecords,
+  moveAirtableRecord,
+  updateAirtableRecord,
+  updateMultipleAirtableRecords,
 } from './airtable'
 
 // Monday.com actions
@@ -531,6 +534,12 @@ export const actionHandlerRegistry: Record<string, Function> = {
     getAirtableTableSchema(params.config, params.userId, params.input),
   "airtable_action_get_base_schema": (params: { config: any; userId: string; input: Record<string, any> }) =>
     getAirtableBaseSchema(params.config, params.userId, params.input),
+  "airtable_action_get_record": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    getAirtableRecord(params.config, params.userId, params.input),
+  "airtable_action_create_multiple_records": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createMultipleAirtableRecords(params.config, params.userId, params.input),
+  "airtable_action_update_multiple_records": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    updateMultipleAirtableRecords(params.config, params.userId, params.input),
 
   // Monday.com actions - wrapped to handle new calling convention
   "monday_action_create_item": (params: { config: any; userId: string; input: Record<string, any> }) =>

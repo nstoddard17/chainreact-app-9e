@@ -21,6 +21,7 @@ export async function hubspotGetTickets(
 
     // Resolve dynamic values
     const limit = context.dataFlowManager.resolveVariable(config.limit) || 100
+    const after = context.dataFlowManager.resolveVariable(config.after)
     const rawFilterProperty = context.dataFlowManager.resolveVariable(config.filterProperty)
     const rawFilterValue = context.dataFlowManager.resolveVariable(config.filterValue)
     const filterPipeline = context.dataFlowManager.resolveVariable(config.filterPipeline)
@@ -34,6 +35,10 @@ export async function hubspotGetTickets(
     const payload: any = {
       limit: Math.min(limit, 100),
       properties: Array.isArray(properties) ? properties : properties.split(',').map((p: string) => p.trim())
+    }
+
+    if (after) {
+      payload.after = after
     }
 
     // Build filters array
@@ -126,13 +131,18 @@ export async function hubspotGetTickets(
 
     const data = await response.json()
     const tickets = data.results || []
+    const nextCursor = data.paging?.next?.after || null
+    const hasMore = Boolean(nextCursor)
 
     return {
       success: true,
       output: {
         tickets,
         count: tickets.length,
-        total: data.total || tickets.length
+        total: data.total || tickets.length,
+        nextCursor,
+        hasMore,
+        paging: data.paging || null
       },
       message: `Successfully retrieved ${tickets.length} tickets from HubSpot`
     }

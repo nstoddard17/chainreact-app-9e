@@ -93,15 +93,8 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
   const onOptionsUpdatedRef = useRef(onOptionsUpdated);
   onOptionsUpdatedRef.current = onOptionsUpdated;
 
-  // Initialize with cached options from localStorage if available, otherwise use initialOptions
+  // Don't use localStorage cache - always fetch fresh from Airtable
   const [dynamicOptions, setDynamicOptions] = useState<DynamicOptionsState>(() => {
-    if (providerId && nodeType) {
-      const cached = getCachedOptions(providerId, nodeType);
-      if (cached && Object.keys(cached).length > 0) {
-        logger.debug(`📦 [useDynamicOptions] Loaded from localStorage cache:`, Object.keys(cached));
-        return cached;
-      }
-    }
     return initialOptions || {};
   });
 
@@ -154,12 +147,9 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
         onOptionsUpdatedRef.current(dynamicOptions);
       }
 
-      // Save to localStorage (for global cache across page refreshes)
-      if (providerId && nodeType) {
-        setCachedOptions(providerId, nodeType, dynamicOptions);
-      }
+      // Don't save to localStorage - always fetch fresh from Airtable
     }
-  }, [dynamicOptions, providerId, nodeType]);
+  }, [dynamicOptions]);
   
   // Enhanced loading prevention with request deduplication
   const loadingFields = useRef<Set<string>>(new Set());

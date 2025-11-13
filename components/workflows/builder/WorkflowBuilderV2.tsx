@@ -1554,7 +1554,7 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
 
     try {
       // Update the node with the new config
-      await actions.updateNode(nodeId, { config })
+      actions.updateConfig(nodeId, config)
 
       toast({
         title: "Configuration saved",

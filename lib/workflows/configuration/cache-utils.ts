@@ -30,6 +30,9 @@ export function buildCacheKey(
  * how frequently they change.
  */
 export function getFieldTTL(fieldName: string): number {
+  // 30 minutes for persistent data across modal opens
+  const PERSISTENT_TTL = 30 * 60 * 1000
+
   // 10 minutes for very stable data
   const STABLE_TTL = 10 * 60 * 1000
 
@@ -41,6 +44,12 @@ export function getFieldTTL(fieldName: string): number {
 
   // 2 minutes for dependent fields
   const DEPENDENT_TTL = 2 * 60 * 1000
+
+  // Airtable dynamic fields - persist across modal opens for better UX
+  if (fieldName.startsWith('airtable_field_') ||
+      ['tableName', 'baseId', 'filterField', 'filterValue'].includes(fieldName)) {
+    return PERSISTENT_TTL
+  }
 
   // Very stable data - rarely changes during workflow building
   const stableFields = ['bases', 'workspaces', 'labels', 'mailboxes']

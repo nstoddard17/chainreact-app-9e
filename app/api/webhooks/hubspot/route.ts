@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
     // Map subscription type to trigger type
     const triggerType = SUBSCRIPTION_TO_TRIGGER_MAP[subscriptionType]
     if (!triggerType) {
-      logUnsupportedEvent(subscriptionType)
+      await logUnsupportedEvent(subscriptionType, payload)
       return jsonResponse({ success: true, message: 'Unknown subscription type' })
     }
 

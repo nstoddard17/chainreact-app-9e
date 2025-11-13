@@ -38,6 +38,10 @@ export function buildHubSpotTriggerData(payload: any, subscriptionType: string):
   const props = payload.properties || {}
   const associations = payload.associations || {}
 
+  const resolveOwnerName = () => {
+    return props.hubspot_owner_id__label || props.hubspot_owner_name || props.hs_owner_name || props.ownername
+  }
+
   const addAssociations = (target: HubSpotTriggerData) => {
     target.associatedContactIds = normalizeIdList(associations.contacts || props.associatedcontactids)
     target.associatedCompanyIds = normalizeIdList(associations.companies || props.associatedcompanyids)
@@ -105,7 +109,9 @@ export function buildHubSpotTriggerData(payload: any, subscriptionType: string):
       hs_note_body: props.hs_note_body || props.body,
       hs_timestamp: props.hs_timestamp,
       hubspot_owner_id: props.hubspot_owner_id,
-      createDate: props.createdate || props.createdAt
+      hubspot_owner_name: resolveOwnerName(),
+      createDate: props.createdate || props.createdAt,
+      customProperties: { ...props }
     }
     addAssociations(data)
   } else if (subscriptionType.includes('task')) {
@@ -119,7 +125,9 @@ export function buildHubSpotTriggerData(payload: any, subscriptionType: string):
       hs_task_type: props.hs_task_type,
       hs_timestamp: props.hs_timestamp,
       hubspot_owner_id: props.hubspot_owner_id,
-      createDate: props.createdate || props.createdAt
+      hubspot_owner_name: resolveOwnerName(),
+      createDate: props.createdate || props.createdAt,
+      customProperties: { ...props }
     }
     addAssociations(data)
   } else if (subscriptionType.includes('call')) {
@@ -134,7 +142,9 @@ export function buildHubSpotTriggerData(payload: any, subscriptionType: string):
       hs_call_status: props.hs_call_status,
       hs_timestamp: props.hs_timestamp,
       hubspot_owner_id: props.hubspot_owner_id,
-      createDate: props.createdate || props.createdAt
+      hubspot_owner_name: resolveOwnerName(),
+      createDate: props.createdate || props.createdAt,
+      customProperties: { ...props }
     }
     addAssociations(data)
   } else if (subscriptionType.includes('meeting')) {
@@ -149,10 +159,13 @@ export function buildHubSpotTriggerData(payload: any, subscriptionType: string):
       hs_meeting_outcome: props.hs_meeting_outcome,
       hs_timestamp: props.hs_timestamp,
       hubspot_owner_id: props.hubspot_owner_id,
-      createDate: props.createdate || props.createdAt
+      hubspot_owner_name: resolveOwnerName(),
+      createDate: props.createdate || props.createdAt,
+      customProperties: { ...props }
     }
     addAssociations(data)
   } else if (subscriptionType.includes('form')) {
+    const formFieldData = normalizeFormFields(payload, props)
     data = {
       ...data,
       submissionId: payload.objectId,
@@ -161,10 +174,11 @@ export function buildHubSpotTriggerData(payload: any, subscriptionType: string):
       submittedAt: payload.occurredAt || props.submittedAt || data.occurredAt,
       pageUrl: props.pageUrl || props.page_url,
       pageTitle: props.pageTitle || props.page_title,
-      contactEmail: props.email || props.contactEmail,
+      contactEmail: props.email || props.contactEmail || formFieldData.fieldValues.email,
       contactId: props.contactId,
-      fields: props.fields || props.formFields || props,
-      submissionValues: payload.values || props.values || []
+      fields: formFieldData.fieldValues,
+      fieldValues: formFieldData.fieldValues,
+      submissionValues: formFieldData.entries
     }
   }
 
@@ -175,6 +189,49 @@ export function buildHubSpotTriggerData(payload: any, subscriptionType: string):
   }
 
   return data
+}
+
+function normalizeFormFields(payload: any, props: Record<string, any>) {
+  const fieldValues: Record<string, any> = {}
+  const entries: Array<{ name: string; value: any }> = []
+
+  const addEntry = (name?: string, value?: any) => {
+    if (!name) return
+    const trimmed = String(name).trim()
+    if (!trimmed) return
+    if (!(trimmed in fieldValues)) {
+      fieldValues[trimmed] = value
+    }
+    entries.push({ name: trimmed, value })
+  }
+
+  const processSource = (source: any) => {
+    if (!source) return
+    if (Array.isArray(source)) {
+      source.forEach(item => {
+        if (item && typeof item === 'object') {
+          addEntry(item.name || item.fieldName || item.inputName, item.value ?? item.inputValue)
+        }
+      })
+      return
+    }
+    if (typeof source === 'object') {
+      Object.entries(source).forEach(([key, value]) => addEntry(key, value))
+    }
+  }
+
+  const candidateSources = [
+    payload.values,
+    payload.fields,
+    props.fields,
+    props.formFields,
+    props.values,
+    props.submissionValues
+  ]
+
+  candidateSources.forEach(processSource)
+
+  return { fieldValues, entries }
 }
 
 export function shouldSkipByConfig(triggerType: string, config: Record<string, any> = {}, data: Record<string, any>): string | null {
@@ -232,8 +289,43 @@ export function shouldSkipByConfig(triggerType: string, config: Record<string, a
   return null
 }
 
-export function logUnsupportedEvent(subscriptionType: string) {
+const reportedUnsupportedSubscriptions = new Set<string>()
+
+export async function logUnsupportedEvent(subscriptionType: string, payload?: any) {
   logger.warn('[HubSpotWebhook] Unsupported subscription type received', { subscriptionType })
+
+  if (reportedUnsupportedSubscriptions.has(subscriptionType)) {
+    return
+  }
+
+  reportedUnsupportedSubscriptions.add(subscriptionType)
+
+  try {
+    const { createAdminClient } = await import('@/lib/supabase/admin')
+    const supabase = createAdminClient()
+
+    const eventData = {
+      subscriptionType,
+      objectId: payload?.objectId,
+      portalId: payload?.portalId,
+      occurredAt: payload?.occurredAt,
+      propertyKeys: payload?.properties ? Object.keys(payload.properties) : undefined
+    }
+
+    await supabase.from('webhook_events').insert({
+      provider: 'hubspot',
+      request_id: `${subscriptionType}-${payload?.objectId ?? Date.now()}`,
+      status: 'unsupported_subscription',
+      service: 'hubspot_webhook_monitor',
+      event_data: eventData,
+      timestamp: new Date().toISOString()
+    })
+  } catch (error) {
+    logger.error('[HubSpotWebhook] Failed to persist unsupported subscription event', {
+      subscriptionType,
+      error: (error as Error)?.message
+    })
+  }
 }
 
 const SAMPLE_EVENT_TYPES = new Set([

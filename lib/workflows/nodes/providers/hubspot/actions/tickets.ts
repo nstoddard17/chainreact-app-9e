@@ -403,6 +403,15 @@ export const hubspotActionGetTickets: NodeComponent = {
       description: "How many tickets to return"
     },
     {
+      name: "after",
+      label: "Start After Cursor",
+      type: "text",
+      required: false,
+      placeholder: "Paste cursor from previous run",
+      description: "Use the paging cursor returned in a previous run to continue where you left off.",
+      uiTab: "advanced"
+    },
+    {
       name: "filterProperty",
       label: "Filter by Property (Optional)",
       type: "multi-select",
@@ -474,6 +483,24 @@ export const hubspotActionGetTickets: NodeComponent = {
       label: "Count",
       type: "number",
       description: "Number of tickets retrieved"
+    },
+    {
+      name: "total",
+      label: "Total Matches",
+      type: "number",
+      description: "Total number of tickets that match the filters"
+    },
+    {
+      name: "nextCursor",
+      label: "Next Cursor",
+      type: "string",
+      description: "Cursor to use in the next request for pagination"
+    },
+    {
+      name: "hasMore",
+      label: "Has More",
+      type: "boolean",
+      description: "Indicates if additional pages are available"
     }
   ]
 }

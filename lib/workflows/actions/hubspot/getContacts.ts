@@ -16,6 +16,7 @@ export async function hubspotGetContacts(
 
     // Resolve dynamic values
     const limit = context.dataFlowManager.resolveVariable(config.limit) || 100
+    const after = context.dataFlowManager.resolveVariable(config.after)
     const filterProperty = context.dataFlowManager.resolveVariable(config.filterProperty)
     const filterValue = context.dataFlowManager.resolveVariable(config.filterValue)
     const properties = context.dataFlowManager.resolveVariable(config.properties) || [
@@ -26,6 +27,10 @@ export async function hubspotGetContacts(
     const payload: any = {
       limit: Math.min(limit, 100),
       properties: Array.isArray(properties) ? properties : properties.split(',').map((p: string) => p.trim())
+    }
+
+    if (after) {
+      payload.after = after
     }
 
     // Add filtering if specified
@@ -53,13 +58,18 @@ export async function hubspotGetContacts(
 
     const data = await response.json()
     const contacts = data.results || []
+    const nextCursor = data.paging?.next?.after || null
+    const hasMore = Boolean(nextCursor)
 
     return {
       success: true,
       output: {
         contacts,
         count: contacts.length,
-        total: data.total || contacts.length
+        total: data.total || contacts.length,
+        nextCursor,
+        hasMore,
+        paging: data.paging || null
       },
       message: `Successfully retrieved ${contacts.length} contacts from HubSpot`
     }
