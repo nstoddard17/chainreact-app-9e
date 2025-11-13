@@ -2261,14 +2261,19 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
     // Also exclude dependent fields like messageId (depends on channelId), channelId (depends on guildId), etc.
     // Also exclude fields with loadOnMount: true as they are handled by ConfigurationForm
     const independentFields = ['baseId', 'guildId', 'workspace', 'workspaceId'];
-    
-    independentFields.forEach(fieldName => {
-      // Check if this field exists for this node type
+
+    // Load all independent fields in parallel for faster initial load
+    const fieldsToLoad = independentFields.filter(fieldName => {
       const resourceType = getResourceTypeForField(fieldName, nodeType);
-      if (resourceType) {
-        loadOptions(fieldName);
-      }
+      return !!resourceType;
     });
+
+    if (fieldsToLoad.length > 0) {
+      logger.debug('🚀 [useDynamicOptions] Loading independent fields in parallel:', fieldsToLoad);
+      Promise.all(fieldsToLoad.map(fieldName => loadOptions(fieldName))).catch(err => {
+        logger.error('❌ [useDynamicOptions] Error loading independent fields:', err);
+      });
+    }
     
     // Cleanup function when component unmounts
     return () => {

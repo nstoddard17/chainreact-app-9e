@@ -1021,89 +1021,57 @@ function ConfigurationForm({
 
       // Add a small delay for other fields to ensure options are cleared first
       const timeoutId = setTimeout(() => {
-        // Load each field marked with loadOnMount (except boardId and Airtable baseId if already loaded above)
-        fieldsToLoad.forEach((field: any) => {
-          if (field.name === 'boardId' && values.boardId) {
-            // Already loaded above
-            return;
-          }
-          if (field.name === 'baseId' && nodeInfo?.providerId === 'airtable') {
-            // Already loaded above with cache
-            return;
-          }
-          if (field.name === 'calendarId' && nodeInfo?.providerId === 'google-calendar') {
-            // Already loaded above
-            return;
-          }
-          if (field.name === 'calendars' && nodeInfo?.providerId === 'google-calendar') {
-            // Already loaded above
-            return;
-          }
-          if (field.name === 'spreadsheetId' && nodeInfo?.providerId === 'google-sheets') {
-            // Already loaded above
-            return;
-          }
-          if (field.name === 'workbookId' && nodeInfo?.providerId === 'microsoft-excel') {
-            // Already loaded above
-            return;
-          }
-          if (field.name === 'path' && nodeInfo?.providerId === 'dropbox') {
-            // Already loaded above
-            return;
-          }
-          if (field.name === 'filePath' && nodeInfo?.providerId === 'dropbox') {
-            // Already loaded above
-            return;
-          }
-          if (field.name === 'folderId' && nodeInfo?.providerId === 'box') {
-            // Already loaded above
-            return;
-          }
-          if (field.name === 'fileId' && nodeInfo?.providerId === 'box') {
-            // Already loaded above
-            return;
-          }
-          if (field.name === 'folderId' && nodeInfo?.providerId === 'onedrive') {
-            // Already loaded above
-            return;
-          }
-          if (field.name === 'fileId' && nodeInfo?.providerId === 'onedrive') {
-            // Already loaded above
-            return;
-          }
-          if (field.name === 'databaseId' && nodeInfo?.providerId === 'notion') {
-            // Already loaded above
-            return;
-          }
-          if (field.name === 'channel' && nodeInfo?.providerId === 'slack') {
-            // Already loaded above
-            return;
-          }
-          if (field.name === 'from' && nodeInfo?.providerId === 'gmail') {
-            // Already loaded above
-            return;
-          }
-          if (field.name === 'labelIds' && nodeInfo?.providerId === 'gmail') {
-            // Already loaded above
-            return;
-          }
-          if (field.name === 'hs_pipeline' && nodeInfo?.providerId === 'hubspot') {
-            // Already loaded above
-            return;
-          }
-          if (field.name === 'discordGuildId' && nodeInfo?.type === 'hitl_conversation') {
-            // Already loaded above
-            return;
-          }
+        // Filter out fields that were already loaded above
+        const alreadyLoadedFields = [
+          { name: 'boardId', condition: values.boardId },
+          { name: 'baseId', condition: nodeInfo?.providerId === 'airtable' },
+          { name: 'calendarId', condition: nodeInfo?.providerId === 'google-calendar' },
+          { name: 'calendars', condition: nodeInfo?.providerId === 'google-calendar' },
+          { name: 'spreadsheetId', condition: nodeInfo?.providerId === 'google-sheets' },
+          { name: 'workbookId', condition: nodeInfo?.providerId === 'microsoft-excel' },
+          { name: 'path', condition: nodeInfo?.providerId === 'dropbox' },
+          { name: 'filePath', condition: nodeInfo?.providerId === 'dropbox' },
+          { name: 'folderId', condition: nodeInfo?.providerId === 'box' },
+          { name: 'fileId', condition: nodeInfo?.providerId === 'box' },
+          { name: 'folderId', condition: nodeInfo?.providerId === 'onedrive' },
+          { name: 'fileId', condition: nodeInfo?.providerId === 'onedrive' },
+          { name: 'databaseId', condition: nodeInfo?.providerId === 'notion' },
+          { name: 'channel', condition: nodeInfo?.providerId === 'slack' },
+          { name: 'from', condition: nodeInfo?.providerId === 'gmail' },
+          { name: 'labelIds', condition: nodeInfo?.providerId === 'gmail' },
+          { name: 'hs_pipeline', condition: nodeInfo?.providerId === 'hubspot' },
+          { name: 'discordGuildId', condition: nodeInfo?.type === 'hitl_conversation' }
+        ];
+
+        const remainingFields = fieldsToLoad.filter((field: any) => {
+          return !alreadyLoadedFields.some(
+            loaded => loaded.name === field.name && loaded.condition
+          );
+        });
+
+        if (remainingFields.length === 0) {
+          logger.debug('⏭️ [ConfigForm] All loadOnMount fields already loaded');
+          return;
+        }
+
+        logger.debug(`🚀 [ConfigForm] Loading ${remainingFields.length} fields in parallel:`, remainingFields.map((f: any) => f.name));
+
+        // Mark all fields as loading upfront
+        setLoadingFields(prev => {
+          const newSet = new Set(prev);
+          remainingFields.forEach((field: any) => newSet.add(field.name));
+          return newSet;
+        });
+
+        // Load all fields in parallel with Promise.all
+        const loadPromises = remainingFields.map((field: any) => {
           logger.debug(`🔄 [ConfigForm] Auto-loading field: ${field.name}`);
-          // Ensure Google Drive folders force-load on mount to avoid stale cache
-          // BUT only if we don't have saved options for it already
+
+          // Special handling for Google Drive folders
           if (nodeInfo?.providerId === 'google-drive' && field.name === 'folderId') {
-            // Check if we already have saved options for this field
             const hasSavedOptions = dynamicOptions['folderId'] && dynamicOptions['folderId'].length > 0;
             const savedValue = values['folderId'];
 
-            // Check if saved value exists in current options
             let valueExistsInOptions = false;
             if (hasSavedOptions && savedValue) {
               valueExistsInOptions = dynamicOptions['folderId'].some((opt: any) =>
@@ -1111,7 +1079,6 @@ function ConfigurationForm({
               );
             }
 
-            // Only force refresh if no saved options exist OR if saved value is not in options
             const shouldForceRefresh = !hasSavedOptions || (savedValue && !valueExistsInOptions);
             logger.debug(`🔍 [ConfigForm] Google Drive folderId check:`, {
               hasSavedOptions,
@@ -1119,26 +1086,25 @@ function ConfigurationForm({
               valueExistsInOptions,
               shouldForceRefresh
             });
-            loadOptions('folderId', undefined, undefined, shouldForceRefresh);
-            return;
+            return loadOptions('folderId', undefined, undefined, shouldForceRefresh)
+              .finally(() => {
+                setLoadingFields(prev => {
+                  const newSet = new Set(prev);
+                  newSet.delete(field.name);
+                  return newSet;
+                });
+              });
           }
-          // Always force refresh for loadOnMount fields to ensure fresh data
-          // The 5-second cache in useDynamicOptions will prevent API spam
-          const forceRefresh = true;
 
+          // Always force refresh for loadOnMount fields to ensure fresh data
+          const forceRefresh = true;
           logger.debug(`🔄 [ConfigForm] Loading ${field.name} on mount with forceRefresh to ensure fresh data`, {
             fieldType: field.type,
             dynamic: field.dynamic,
             provider: nodeInfo?.providerId
           });
-          // Proactively mark field as loading so UI shows spinner immediately
-          setLoadingFields(prev => {
-            const newSet = new Set(prev);
-            newSet.add(field.name);
-            return newSet;
-          });
 
-          loadOptions(field.name, undefined, undefined, forceRefresh)
+          return loadOptions(field.name, undefined, undefined, forceRefresh)
             .finally(() => {
               setLoadingFields(prev => {
                 const newSet = new Set(prev);
@@ -1146,6 +1112,11 @@ function ConfigurationForm({
                 return newSet;
               });
             });
+        });
+
+        // Wait for all fields to load (or fail) in parallel
+        Promise.all(loadPromises).catch(err => {
+          logger.error('❌ [ConfigForm] Error loading fields in parallel:', err);
         });
       }, 150); // Slightly longer delay to ensure reset has completed
 
@@ -1286,12 +1257,12 @@ function ConfigurationForm({
     });
 
     if (fieldsWithValues.length > 0) {
-      logger.debug('🚀 [ConfigForm] Loading options for fields with saved values:',
+      logger.debug('🚀 [ConfigForm] Loading options for fields with saved values in parallel:',
         fieldsWithValues.map((f: any) => ({ name: f.name, value: values[f.name], dependsOn: f.dependsOn }))
       );
 
-      // Load options for each field with a saved value
-      fieldsWithValues.forEach(async (field: any) => {
+      // Load options for all fields with saved values in parallel
+      const loadPromises = fieldsWithValues.map(async (field: any) => {
         // Mark this field as loaded to prevent duplicate loads
         loadedFieldsWithValues.current.add(field.name);
 
@@ -1318,6 +1289,11 @@ function ConfigurationForm({
             return newSet;
           });
         }
+      });
+
+      // Execute all loads in parallel
+      Promise.all(loadPromises).catch(err => {
+        logger.error('❌ [ConfigForm] Error loading fields with saved values:', err);
       });
     }
   }, [nodeInfo, isInitialLoading, values, dynamicOptions, loadOptions]);
@@ -1370,25 +1346,50 @@ function ConfigurationForm({
     });
     
     if (fieldsToLoad.length > 0) {
-      fieldsToLoad.forEach((field: any) => {
-        logger.debug(`🔄 [ConfigForm] Auto-loading field that became visible: ${field.name}`);
+      logger.debug(`🚀 [ConfigForm] Auto-loading ${fieldsToLoad.length} visible fields in parallel:`, fieldsToLoad.map((f: any) => f.name));
 
-        // Check if the field has dependencies
-        if (field.dependsOn) {
-          const dependencyValue = values[field.dependsOn];
-          if (dependencyValue) {
-            // Load with the dependency value
-            logger.debug(`📦 [ConfigForm] Loading ${field.name} with dependency ${field.dependsOn}: ${dependencyValue}`);
-            // Avoid forcing reloads for dependent fields; prevents sheetName thrash
-            loadOptions(field.name, field.dependsOn, dependencyValue, false);
-          } else {
-            logger.debug(`⚠️ [ConfigForm] Skipping auto-load for ${field.name} - missing dependency value for ${field.dependsOn}`);
-          }
+      // Group fields by their dependencies to load in parallel within each group
+      const independentFields: any[] = [];
+      const dependentFieldsByParent: Record<string, any[]> = {};
+
+      fieldsToLoad.forEach((field: any) => {
+        if (!field.dependsOn) {
+          independentFields.push(field);
         } else {
-          // No dependencies, load normally
-          loadOptions(field.name);
+          if (!dependentFieldsByParent[field.dependsOn]) {
+            dependentFieldsByParent[field.dependsOn] = [];
+          }
+          dependentFieldsByParent[field.dependsOn].push(field);
         }
       });
+
+      // Load all independent fields in parallel
+      const loadPromises: Promise<any>[] = independentFields.map(field => {
+        logger.debug(`🔄 [ConfigForm] Auto-loading independent field: ${field.name}`);
+        return loadOptions(field.name);
+      });
+
+      // Load all fields with the same dependency in parallel
+      Object.entries(dependentFieldsByParent).forEach(([parentField, fields]) => {
+        const dependencyValue = values[parentField];
+        if (dependencyValue) {
+          logger.debug(`📦 [ConfigForm] Loading ${fields.length} fields that depend on ${parentField}:`, fields.map((f: any) => f.name));
+          fields.forEach((field: any) => {
+            loadPromises.push(
+              loadOptions(field.name, field.dependsOn, dependencyValue, false)
+            );
+          });
+        } else {
+          logger.debug(`⚠️ [ConfigForm] Skipping auto-load for fields depending on ${parentField} - missing dependency value`);
+        }
+      });
+
+      // Execute all loads in parallel
+      if (loadPromises.length > 0) {
+        Promise.all(loadPromises).catch(err => {
+          logger.error('❌ [ConfigForm] Error auto-loading visible fields:', err);
+        });
+      }
     }
   }, [nodeInfo, isInitialLoading, values.pageId, loadOptions, dynamicOptions, values]);
 
