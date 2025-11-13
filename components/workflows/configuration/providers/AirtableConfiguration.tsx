@@ -1534,17 +1534,33 @@ export function AirtableConfiguration({
       return '';
     }
 
-    // Try to find friendly label from dynamic options if fieldName is provided
-    if (fieldName && dynamicOptions[fieldName]) {
-      const option = dynamicOptions[fieldName].find((opt: any) => {
-        // Handle id::name format
-        if (opt.value?.includes('::')) {
-          return opt.value.startsWith(`${val}::`);
+    const findLabelInOptions = (options?: any[]) => {
+      if (!options || !Array.isArray(options)) return undefined;
+      const option = options.find((opt: any) => {
+        if (opt.value?.includes?.('::')) {
+          return opt.value.split('::')[0] === val;
         }
         return opt.value === val;
       });
-      if (option?.label) {
-        return option.label;
+      if (!option) return undefined;
+      if (option.label) return option.label;
+      if (option.name) return option.name;
+      if (typeof option.value === 'string' && option.value.includes('::')) {
+        return option.value.split('::').slice(1).join('::') || option.value.split('::')[0];
+      }
+      return undefined;
+    };
+
+    // Try to find friendly label from dynamic options if fieldName is provided
+    if (fieldName) {
+      const directLabel = findLabelInOptions(dynamicOptions[fieldName]);
+      if (directLabel) return directLabel;
+
+      if (fieldName.startsWith('airtable_field_')) {
+        const rawName = fieldName.replace('airtable_field_', '');
+        const altLabel = findLabelInOptions(dynamicOptions[rawName]) ||
+                         findLabelInOptions(dynamicOptions[`airtable_field_${rawName}`]);
+        if (altLabel) return altLabel;
       }
     }
 
@@ -1562,16 +1578,42 @@ export function AirtableConfiguration({
     return String(val);
   }, [dynamicOptions, values]);
 
-  const getOptionLabelForValue = useCallback((fieldName: string, val: any): string | undefined => {
+  const getOptionLabelForValue = useCallback((fieldName: string, val: any, fieldLabel?: string): string | undefined => {
     if (!fieldName) return undefined;
-    const options = mergedDynamicOptions[fieldName] || [];
-    const option = options.find((opt: any) => {
-      if (typeof opt.value === 'string' && opt.value.includes('::')) {
-        return opt.value.split('::')[0] === val;
+    const lookupKeys = [fieldName];
+    if (fieldLabel) {
+      const normalized = typeof fieldLabel === 'string' ? fieldLabel : '';
+      if (normalized) {
+        lookupKeys.push(`airtable_field_${normalized}`);
       }
-      return opt.value === val;
-    });
-    return option?.label;
+    }
+
+    for (const key of lookupKeys) {
+      const options = mergedDynamicOptions[key] || [];
+      const option = options.find((opt: any) => {
+        if (typeof opt.value === 'string' && opt.value.includes('::')) {
+          return opt.value.split('::')[0] === val;
+        }
+        return opt.value === val;
+      });
+
+      if (option) {
+        if (typeof option.label === 'string' && option.label.trim().length > 0) {
+          return option.label;
+        }
+        if (typeof option.name === 'string' && option.name.trim().length > 0) {
+          return option.name;
+        }
+        if (typeof option.value === 'string' && option.value.includes('::')) {
+          const parts = option.value.split('::');
+          return parts.slice(1).join('::') || parts[0];
+        }
+        if (option.value) {
+          return String(option.value);
+        }
+      }
+    }
+    return undefined;
   }, [mergedDynamicOptions]);
 
   // Handle field changes with bubble creation
@@ -1621,7 +1663,7 @@ export function AirtableConfiguration({
             return existing;
           }
           const friendlyLabel =
-            getOptionLabelForValue(fieldName, val) ||
+            getOptionLabelForValue(fieldName, val, field.label) ||
             getLabelFromValue(val, fieldName) ||
             String(val);
           labelMetadata[val] = friendlyLabel;
@@ -1796,7 +1838,7 @@ export function AirtableConfiguration({
 
           const friendlyLabel =
             recordName ||
-            getOptionLabelForValue(fieldName, recordId) ||
+            getOptionLabelForValue(fieldName, recordId, field.label) ||
             getLabelFromValue(recordId, fieldName) ||
             String(recordId);
 
@@ -2545,6 +2587,25 @@ export function AirtableConfiguration({
       }
 
       const actualFieldName = suggestionsForField ? (fieldSuggestions[field.name] ? field.name : altFieldName) : undefined;
+      const labelMetadataForField = actualFieldName
+        ? (values[`${actualFieldName}_labels`] as Record<string, string> | undefined)
+        : undefined;
+
+      const displaySuggestions = suggestionsForField
+        ? suggestionsForField.map((suggestion: any) => {
+            const savedLabel = labelMetadataForField?.[suggestion.value];
+            if (savedLabel && savedLabel !== suggestion.label) {
+              return { ...suggestion, label: savedLabel };
+            }
+            if (typeof suggestion.label === 'string' && suggestion.label.startsWith('rec')) {
+              const friendlyLabel = getOptionLabelForValue(actualFieldName || field.name, suggestion.value, field.label);
+              if (friendlyLabel && friendlyLabel !== suggestion.label) {
+                return { ...suggestion, label: friendlyLabel };
+              }
+            }
+            return suggestion;
+          })
+        : undefined;
       const isMultiValueField = field.airtableFieldType === 'multipleRecordLinks' ||
         field.airtableFieldType === 'multipleSelects' ||
         field.airtableFieldType === 'multipleAttachments' ||
@@ -2716,15 +2777,14 @@ export function AirtableConfiguration({
           aiFields={aiFields}
           setAiFields={setAiFields}
           airtableTableSchema={airtableTableSchema}
-          airtableBubbleSuggestions={suggestionsForField}
-          onAirtableBubbleRemove={handleBubbleRemove}
+          airtableBubbleSuggestions={displaySuggestions || suggestionsForField}
         />
         
         {/* Bubble display for multi-select fields */}
         {field.name?.startsWith('airtable_field_') && (() => {
           // Check both possible field name formats
           const altFieldName = `airtable_field_${field.label}`;
-          const suggestions = fieldSuggestions[field.name] || fieldSuggestions[altFieldName];
+          const suggestions = displaySuggestions || fieldSuggestions[field.name] || fieldSuggestions[altFieldName];
           const actualFieldNameForDisplay = fieldSuggestions[field.name] ? field.name : altFieldName;
 
           if (!suggestions) return null;
