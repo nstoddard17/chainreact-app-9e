@@ -1447,35 +1447,17 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
     const position = nodeData.position || { x: 400, y: 300 }
     const nodeComponent = nodeComponentMap.get(nodeData.type)
 
-    const placeholderId = `temp-${Date.now()}`
-    const providerId = nodeComponent?.providerId ?? nodeData.providerId
-
-    const placeholderNode = {
-      id: placeholderId,
-      type: "custom",
-      position,
-      data: {
-        label: nodeComponent?.title ?? nodeData.title ?? nodeData.type,
-        title: nodeComponent?.title ?? nodeData.title ?? nodeData.type,
-        type: nodeData.type,
-        description: nodeComponent?.description ?? "",
-        providerId,
-        icon: nodeComponent?.icon,
-        config: {},
-        isTrigger: nodeComponent?.isTrigger ?? false,
-        agentHighlights: [],
-      },
-    }
-
     const currentNodes = builder.nodes ?? []
     const currentEdges = builder.edges ?? []
 
-    builder.setNodes([...currentNodes, placeholderNode])
+    // Close panel immediately for better UX
     setIsIntegrationsPanelOpen(false)
 
     try {
+      // Add node directly without placeholder - this will show immediately
       await actions.addNode(nodeData.type, position)
     } catch (error: any) {
+      // Only rollback if it failed
       builder.setNodes(currentNodes)
       builder.setEdges(currentEdges)
       toast({
@@ -1555,11 +1537,6 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
     try {
       // Update the node with the new config
       actions.updateConfig(nodeId, config)
-
-      toast({
-        title: "Configuration saved",
-        description: "Node configuration has been updated successfully.",
-      })
     } catch (error: any) {
       console.error('💾 [WorkflowBuilder] Error saving config:', error)
       toast({
