@@ -20,6 +20,7 @@ interface ResultsTabProps {
     rawResponse?: any
   }
   onRunTest?: () => void
+  isTestingNode?: boolean
 }
 
 /**
@@ -38,6 +39,7 @@ export function ResultsTab({
   testData,
   testResult,
   onRunTest,
+  isTestingNode = false,
 }: ResultsTabProps) {
   const [showRawResponse, setShowRawResponse] = useState(false)
   const [expandedFields, setExpandedFields] = useState<Record<string, boolean>>({})
@@ -161,10 +163,20 @@ export function ResultsTab({
                   variant="default"
                   size="sm"
                   onClick={onRunTest}
+                  disabled={isTestingNode}
                   className="flex items-center gap-2 flex-shrink-0"
                 >
-                  <TestTube className="h-3.5 w-3.5" />
-                  Test Node
+                  {isTestingNode ? (
+                    <>
+                      <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white" />
+                      Testing...
+                    </>
+                  ) : (
+                    <>
+                      <TestTube className="h-3.5 w-3.5" />
+                      Test Node
+                    </>
+                  )}
                 </Button>
               )}
             </div>
@@ -241,10 +253,20 @@ export function ResultsTab({
                 variant="outline"
                 size="sm"
                 onClick={onRunTest}
+                disabled={isTestingNode}
                 className="flex items-center gap-2 flex-shrink-0"
               >
-                <RefreshCw className="h-3.5 w-3.5" />
-                Re-test
+                {isTestingNode ? (
+                  <>
+                    <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-current" />
+                    Testing...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    Re-test
+                  </>
+                )}
               </Button>
             )}
           </div>

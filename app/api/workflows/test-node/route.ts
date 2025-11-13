@@ -28,8 +28,9 @@ export async function POST(request: Request) {
       return errorResponse("Unknown node type" , 400)
     }
 
-    if (!nodeComponent.testable) {
-      return errorResponse("Node type is not testable" , 400)
+    // Only allow testing action nodes, not triggers
+    if (nodeComponent.isTrigger) {
+      return errorResponse("Cannot test trigger nodes directly. Trigger nodes activate when their event occurs." , 400)
     }
 
     // Create a test node object

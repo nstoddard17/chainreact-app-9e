@@ -127,6 +127,11 @@ export function resolveValue(
   if (singleMatch) {
     const key = singleMatch[1].trim()
 
+    // Handle {{NOW}} - return current timestamp as ISO string
+    if (key === 'NOW' || key === 'now') {
+      return new Date().toISOString()
+    }
+
     // Handle wildcard {{*}} - return all input data formatted nicely
     if (key === '*') {
       return formatAllInputData(input)
@@ -310,6 +315,11 @@ export function resolveValue(
     let resolvedValue = value
     resolvedValue = resolvedValue.replace(/{{([^}]+)}}/g, (match, key) => {
       const trimmedKey = key.trim()
+
+      // Handle {{NOW}} - replace with current timestamp as ISO string
+      if (trimmedKey === 'NOW' || trimmedKey === 'now') {
+        return new Date().toISOString()
+      }
 
       // Handle wildcard {{*}} - replace with formatted input data
       if (trimmedKey === '*') {

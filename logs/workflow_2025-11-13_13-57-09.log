@@ -2421,3 +2421,30 @@ ReferenceError: airtableBubbleSuggestions is not defined
 [2025-11-13T20:34:34.213Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 5.3s (6774 modules)
 [2025-11-13T20:34:34.740Z] [INFO   ] 2025-11-13T20:34:34.739Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/daa03b7c-4120-46e6-83c2-0de620bdacb4","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14499387340}
 [2025-11-13T20:34:35.257Z] [INFO   ] 2025-11-13T20:34:35.257Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-13T20:35:38.155Z] [INFO   ] 2025-11-13T20:35:38.155Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/daa03b7c-4120-46e6-83c2-0de620bdacb4/apply-edits","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14499450756}
+[2025-11-13T20:35:39.025Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/v2/api/flows/[flowId]/apply-edits ...
+[2025-11-13T20:35:42.487Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/apply-edits in 4s (6765 modules)
+[2025-11-13T20:35:45.131Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/workflows/[id]/chat in 444ms (4974 modules)
+[2025-11-13T20:36:08.545Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 355ms (4977 modules)
+[2025-11-13T20:39:36.413Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 6.3s (6774 modules)
+[2025-11-13T20:39:37.598Z] [INFO   ] 2025-11-13T20:39:37.598Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/daa03b7c-4120-46e6-83c2-0de620bdacb4","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14499690199}
+[2025-11-13T20:39:38.033Z] [INFO   ] 2025-11-13T20:39:38.032Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-13T20:39:43.483Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 918ms (6774 modules)
+[2025-11-13T20:39:43.729Z] [INFO   ] 2025-11-13T20:39:43.728Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/daa03b7c-4120-46e6-83c2-0de620bdacb4","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14499696329}
+[2025-11-13T20:39:44.058Z] [INFO   ] 2025-11-13T20:39:44.057Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-13T20:39:49.990Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1469ms (6774 modules)
+[2025-11-13T20:39:51.307Z] [INFO   ] 2025-11-13T20:39:51.306Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/daa03b7c-4120-46e6-83c2-0de620bdacb4","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14499703907}
+[2025-11-13T20:39:51.889Z] [INFO   ] 2025-11-13T20:39:51.889Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-13T20:39:54.067Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 935ms (6774 modules)
+[2025-11-13T20:39:54.279Z] [INFO   ] 2025-11-13T20:39:54.279Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/daa03b7c-4120-46e6-83c2-0de620bdacb4","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14499706880}
+[2025-11-13T20:39:54.583Z] [INFO   ] 2025-11-13T20:39:54.583Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-13T20:40:01.525Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1023ms (6774 modules)
+[2025-11-13T20:40:02.633Z] [INFO   ] 2025-11-13T20:40:02.633Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/daa03b7c-4120-46e6-83c2-0de620bdacb4","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14499715234}
+[2025-11-13T20:40:02.889Z] [INFO   ] 2025-11-13T20:40:02.888Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-13T20:40:07.789Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 848ms (6774 modules)
+[2025-11-13T20:40:08.029Z] [INFO   ] 2025-11-13T20:40:08.029Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/daa03b7c-4120-46e6-83c2-0de620bdacb4","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14499720630}
+[2025-11-13T20:40:08.305Z] [INFO   ] 2025-11-13T20:40:08.305Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-13T20:41:11.781Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-11-13T20:41:14.099Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 2.8s (4972 modules)
+
+=== Log Session Ended: 2025-11-13T20:43:51.087Z ===
