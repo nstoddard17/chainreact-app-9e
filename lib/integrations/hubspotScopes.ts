@@ -19,27 +19,7 @@ const DEFAULT_HUBSPOT_SCOPES = [
   "tickets",
 ];
 
-const ENV_SCOPE_KEYS = ["HUBSPOT_OAUTH_SCOPES", "HUBSPOT_SCOPES"] as const;
-
-type EnvScopeKey = (typeof ENV_SCOPE_KEYS)[number];
-
-function parseEnvScopes(raw?: string | null): string[] | null {
-  if (!raw) return null;
-  const scopes = raw
-    .split(/[\s,]+/)
-    .map((scope) => scope.trim())
-    .filter(Boolean);
-  return scopes.length > 0 ? scopes : null;
-}
-
 export function getHubSpotScopes(): string[] {
-  for (const key of ENV_SCOPE_KEYS) {
-    const value = process.env[key as EnvScopeKey];
-    const parsed = parseEnvScopes(value);
-    if (parsed) {
-      return parsed;
-    }
-  }
   return DEFAULT_HUBSPOT_SCOPES;
 }
 
