@@ -189,6 +189,8 @@ interface FieldProps {
   setFieldValue?: (field: string, value: any) => void; // Update other form fields
   aiToggleButton?: React.ReactNode; // AI toggle button to render alongside label
   airtableTableSchema?: any; // Airtable table schema for dynamic field rendering
+  airtableBubbleSuggestions?: any[]; // Bubble metadata for Airtable fields
+  onAirtableBubbleRemove?: (index: number, suggestion?: any) => void; // Remove persisted Airtable attachment bubble
 }
 
 /**
@@ -294,6 +296,8 @@ export function FieldRenderer({
   setFieldValue,
   aiToggleButton,
   airtableTableSchema,
+  airtableBubbleSuggestions = [],
+  onAirtableBubbleRemove,
 }: FieldProps) {
   // State for file-with-toggle mode - moved outside of render function to prevent infinite loop
   const [inputMode, setInputMode] = useState(() => {
@@ -323,6 +327,17 @@ export function FieldRenderer({
   useEffect(() => {
     onDynamicLoadRef.current = onDynamicLoad;
   }, [onDynamicLoad]);
+
+  // Process Airtable bubble suggestions for image fields
+  const airtableBubbleData = useMemo(
+    () => (Array.isArray(airtableBubbleSuggestions) ? airtableBubbleSuggestions : []),
+    [airtableBubbleSuggestions]
+  );
+
+  const airtableImageSuggestions = useMemo(
+    () => airtableBubbleData.filter((suggestion: any) => suggestion?.isImage),
+    [airtableBubbleData]
+  );
 
   // Helper to detect runtime "now" placeholder regardless of casing
   const isRuntimeNowValue = (val: any) => {
@@ -1188,6 +1203,28 @@ export function FieldRenderer({
           );
         }
 
+        // Special handling for Airtable attachment/image fields
+        if (integrationProvider === 'airtable' && field.name?.startsWith('airtable_field_')) {
+          const airtableFieldType = (field as any).airtableFieldType;
+
+          if (airtableFieldType === 'multipleAttachments' ||
+              airtableFieldType === 'attachment' ||
+              airtableFieldType === 'image') {
+            return (
+              <AirtableImageField
+                field={field}
+                value={value}
+                onChange={onChange}
+                error={error}
+                aiFields={aiFields}
+                setAiFields={setAiFields}
+                persistedImages={airtableImageSuggestions}
+                onPersistedImageRemove={onAirtableBubbleRemove}
+              />
+            );
+          }
+        }
+
         // Default file upload for all other file fields (Facebook video, Teams attachments, etc.)
         return (
           <FileUpload
@@ -1247,6 +1284,8 @@ export function FieldRenderer({
                 error={error}
                 aiFields={aiFields}
                 setAiFields={setAiFields}
+                persistedImages={airtableImageSuggestions}
+                onPersistedImageRemove={onAirtableBubbleRemove}
               />
             );
           }

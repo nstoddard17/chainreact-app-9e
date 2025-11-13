@@ -619,6 +619,20 @@ export function MultiCombobox({
   const uniqueId = React.useId()
   const [isDragOver, setIsDragOver] = React.useState(false)
 
+  const normalizeOptionValue = React.useCallback((val: string) => {
+    if (typeof val === 'string' && val.includes('::')) {
+      return val.split('::')[0]
+    }
+    return val
+  }, [])
+
+  const getCurrentValues = React.useCallback(() => {
+    if (value.length === 0 && Array.isArray(selectedValues) && selectedValues.length > 0) {
+      return selectedValues
+    }
+    return value
+  }, [value, selectedValues])
+
   React.useEffect(() => {
     setOptions(initialOptions)
   }, [initialOptions])
@@ -669,16 +683,29 @@ export function MultiCombobox({
   }, [options, value, selectedValues, placeholder, hideSelectedBadges])
 
   const handleSelect = (currentValue: string) => {
-    const newValue = value.includes(currentValue)
-      ? value.filter((v) => v !== currentValue)
-      : [...value, currentValue]
+    const baseValues = getCurrentValues()
+    const normalizedCurrent = normalizeOptionValue(currentValue)
+
+    const isSelected = baseValues.some(
+      (val) => normalizeOptionValue(val) === normalizedCurrent
+    )
+
+    const newValue = isSelected
+      ? baseValues.filter((val) => normalizeOptionValue(val) !== normalizedCurrent)
+      : [...baseValues, currentValue]
+
     onChange(newValue)
     // Don't close the dropdown for multi-select
     // The dropdown stays open so users can select multiple items
   }
 
   const handleRemove = (valueToRemove: string) => {
-    onChange(value.filter((v) => v !== valueToRemove))
+    const baseValues = getCurrentValues()
+    const normalizedTarget = normalizeOptionValue(valueToRemove)
+    const newValue = baseValues.filter(
+      (val) => normalizeOptionValue(val) !== normalizedTarget
+    )
+    onChange(newValue)
   }
 
   const handleClearAll = (e: React.MouseEvent) => {
