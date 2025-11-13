@@ -103,3 +103,16 @@ Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
 [2025-11-12T22:19:59.553Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/all-connections in 409ms (5485 modules)
 [2025-11-12T22:19:59.717Z] [INFO   ] 2025-11-12T22:19:59.717Z [DEBUG] [AllConnections] Fetching all connections for provider: hubspot {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"hubspot"}
 [2025-11-12T22:20:00.118Z] [INFO   ] 2025-11-12T22:20:00.118Z [DEBUG] [AllConnections] Found 1 accessible connections {"provider":"hubspot","connectionIds":["6f959e59-18c3-47f0-a20f-cc8a268ceb21"]}
+[2025-11-12T22:23:03.836Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-11-12T22:23:04.209Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 924ms (4274 modules)
+[2025-11-12T23:21:10.282Z] [INFO   ] 2025-11-12T23:21:10.281Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-12T23:21:10.341Z] [INFO   ] 2025-11-12T23:21:10.341Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-11-12T23:21:10.690Z] [INFO   ] 2025-11-12T23:21:10.689Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-12T23:21:10.691Z] [INFO   ] 2025-11-12T23:21:10.691Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-13T00:54:58.747Z] [INFO   ] 2025-11-13T00:54:58.747Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-13T00:54:58.806Z] [INFO   ] 2025-11-13T00:54:58.806Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-11-13T00:54:59.165Z] [INFO   ] 2025-11-13T00:54:59.165Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-13T00:54:59.165Z] [INFO   ] 2025-11-13T00:54:59.165Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-13T00:56:22.250Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1416ms (5335 modules)
+[2025-11-13T00:56:38.562Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 297ms (1180 modules)
+[2025-11-13T00:56:43.509Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 298ms (1180 modules)
