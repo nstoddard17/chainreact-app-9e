@@ -43,6 +43,13 @@ const nextConfig = {
       '@radix-ui/react-tooltip',
     ],
   },
+  // Mark optional native dependencies as external to skip bundling
+  serverExternalPackages: [
+    'puppeteer',
+    'puppeteer-core',
+    '@sparticuz/chromium',
+    'pyodide'
+  ],
   // Optimize production builds
   compress: true,
   poweredByHeader: false,

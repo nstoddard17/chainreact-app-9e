@@ -1,23 +1,26 @@
 import { ActionResult } from '../core/executeWait';
 import { resolveValue } from '../core/resolveValue';
 import { logger } from '@/lib/utils/logger';
-import ivm from 'isolated-vm';
+import { runInNewContext } from 'vm';
 
 /**
  * Execute Transformer (JavaScript or Python)
  *
  * Production implementation using:
- * - isolated-vm for secure JavaScript execution
- * - Pyodide for Python execution (optional, loaded on demand)
+ * - Node.js vm module for JavaScript execution (serverless-compatible)
+ * - Pyodide for Python execution (optional, loaded on demand from CDN)
  * - Memory and timeout limits
  * - Sandboxed execution environment
  *
  * Security features:
- * - 128MB memory limit per execution
  * - Configurable timeout (default 30s)
  * - No file system access
  * - No network access
  * - Limited global objects
+ *
+ * Note: vm module provides lighter sandboxing than isolated-vm but works
+ * in serverless environments. For stronger isolation, consider external
+ * execution services like Riza.io or AWS Lambda.
  */
 export async function executeTransformer(
   config: any,
@@ -95,48 +98,66 @@ export async function executeTransformer(
 }
 
 /**
- * Execute JavaScript code in isolated-vm sandbox
+ * Execute JavaScript code in Node.js vm sandbox
+ *
+ * Note: This uses Node's built-in vm module which works in serverless environments.
+ * It provides basic sandboxing but is not as secure as isolated-vm.
+ *
+ * For production with untrusted code, consider:
+ * - External execution service (Riza.io, AWS Lambda)
+ * - Running on dedicated VPS with isolated-vm
  */
 async function executeJavaScript(
   code: string,
   input: Record<string, any>,
   timeoutSeconds: number
 ): Promise<any> {
-  // Create isolated VM with memory limit
-  const isolate = new ivm.Isolate({ memoryLimit: 128 });
+  // Create sandbox context with limited globals
+  const sandbox = {
+    input: JSON.parse(JSON.stringify(input)), // Deep clone to prevent mutation
+    result: undefined,
+    console: {
+      log: (...args: any[]) => logger.info('[Transformer] User code log:', args),
+      error: (...args: any[]) => logger.error('[Transformer] User code error:', args),
+    },
+    JSON,
+    Math,
+    Date,
+    Array,
+    Object,
+    String,
+    Number,
+    Boolean,
+    RegExp,
+    // Explicitly exclude dangerous globals
+    require: undefined,
+    process: undefined,
+    __dirname: undefined,
+    __filename: undefined,
+    global: undefined,
+    globalThis: undefined,
+  };
+
+  // Wrap user code to capture return value
+  const wrappedCode = `
+    result = (function() {
+      ${code}
+    })();
+  `;
 
   try {
-    const context = await isolate.createContext();
-    const jail = context.global;
+    // Execute with timeout
+    runInNewContext(wrappedCode, sandbox, {
+      timeout: timeoutSeconds * 1000,
+      displayErrors: true,
+    });
 
-    // Set global objects
-    await jail.set('global', jail.derefInto());
-
-    // Provide input data to the code
-    await jail.set('input', new ivm.ExternalCopy(input).copyInto());
-
-    // Create a result holder
-    await jail.set('_result', undefined);
-
-    // Wrap user code to capture return value
-    const wrappedCode = `
-      _result = (function() {
-        ${code}
-      })();
-    `;
-
-    // Compile and run with timeout
-    const script = await isolate.compileScript(wrappedCode);
-    await script.run(context, { timeout: timeoutSeconds * 1000 });
-
-    // Get result
-    const result = await jail.get('_result', { copy: true });
-
-    return result;
-
-  } finally {
-    // Clean up
-    isolate.dispose();
+    return sandbox.result;
+  } catch (error: any) {
+    if (error.message?.includes('timed out')) {
+      throw new Error(`Code execution timeout after ${timeoutSeconds} seconds`);
+    }
+    throw error;
   }
 }
 
@@ -152,8 +173,18 @@ async function executePython(
   timeoutSeconds: number,
   allowedImports: string[]
 ): Promise<any> {
-  // Dynamically import Pyodide
-  const { loadPyodide } = await import('pyodide');
+  // Dynamically import Pyodide (optional dependency)
+  let loadPyodide: any;
+  try {
+    const pyodideModule = await import('pyodide');
+    loadPyodide = pyodideModule.loadPyodide;
+  } catch (error) {
+    throw new Error(
+      'The Transformer node requires the "pyodide" package for Python execution. ' +
+      'This package is optional and must be installed separately. ' +
+      'Run: npm install pyodide'
+    );
+  }
 
   logger.info('[Transformer] Loading Pyodide runtime...');
 

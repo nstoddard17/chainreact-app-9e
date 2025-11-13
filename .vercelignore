@@ -1,0 +1,40 @@
+# Test files and directories
+test/
+tests/
+*.test.ts
+*.test.tsx
+*.test.js
+*.test.mjs
+*.spec.ts
+*.spec.tsx
+*.spec.js
+
+# Scripts
+scripts/
+
+# Documentation
+docs/
+learning/
+*.md
+!README.md
+
+# Playwright
+.playwright/
+playwright-report/
+test-results/
+
+# Development files
+.git/
+.github/
+.vscode/
+*.log
+.env.local
+.env.development
+.env.test
+
+# Jest
+coverage/
+jest.config.*
+
+# TypeScript
+tsconfig.tsbuildinfo
