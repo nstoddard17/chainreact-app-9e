@@ -842,11 +842,6 @@ export function useWorkflowBuilder() {
 
     if (!node) {
       console.error('[handleTestNode] Node not found!')
-      toast({
-        title: "Node not found",
-        description: "Could not find the node to test",
-        variant: "destructive",
-      })
       return
     }
 
@@ -866,11 +861,6 @@ export function useWorkflowBuilder() {
       }
       return n
     }))
-
-    toast({
-      title: "Testing Node",
-      description: `Running "${node.data.title}"...`,
-    })
 
     try {
       // Call the test-node API
@@ -914,11 +904,6 @@ export function useWorkflowBuilder() {
           }
           return n
         }))
-
-        toast({
-          title: "Test Completed",
-          description: result.testResult?.message || `"${node.data.title}" executed successfully`,
-        })
       } else {
         throw new Error(result.error || 'Test failed')
       }
@@ -939,47 +924,27 @@ export function useWorkflowBuilder() {
         }
         return n
       }))
-
-      toast({
-        title: "Test Failed",
-        description: error.message || `Failed to test "${node.data.title}"`,
-        variant: "destructive",
-      })
     }
-  }, [toast, getNodes, setNodes])
+  }, [getNodes, setNodes])
 
   const handleTestFlowFromHere = useCallback((nodeId: string) => {
     const node = getNodes().find(n => n.id === nodeId)
     if (!node) {
-      toast({
-        title: "Node not found",
-        description: "Could not find the starting node",
-        variant: "destructive",
-      })
+      console.error('Test flow: Node not found', nodeId)
       return
     }
-
-    // Test workflow starting from this node
-    toast({
-      title: "Test Flow from Here",
-      description: `Testing workflow starting from "${node.data.title}"`,
-    })
 
     // TODO: Integrate with workflow execution system
     // This should execute the workflow starting from this node
     console.log('Test flow from node:', nodeId, node.data.type)
-  }, [toast, getNodes])
+  }, [getNodes])
 
   const handleFreezeNode = useCallback((nodeId: string) => {
     const currentNodes = getNodes()
     const node = currentNodes.find(n => n.id === nodeId)
 
     if (!node) {
-      toast({
-        title: "Node not found",
-        description: "Could not find the node to freeze",
-        variant: "destructive",
-      })
+      console.error('Freeze: Node not found', nodeId)
       return
     }
 
@@ -1000,26 +965,14 @@ export function useWorkflowBuilder() {
     })
 
     setNodes(updatedNodes)
-
-    toast({
-      title: isFrozen ? "Node Unfrozen" : "Node Frozen",
-      description: isFrozen
-        ? `"${node.data.title}" will now execute normally`
-        : `"${node.data.title}" will be skipped during execution`,
-    })
-
     console.log(isFrozen ? 'Unfroze node:' : 'Froze node:', nodeId)
-  }, [toast, getNodes, setNodes])
+  }, [getNodes, setNodes])
 
   const handleStopNode = useCallback((nodeId: string) => {
     const node = getNodes().find(n => n.id === nodeId)
 
     if (!node) {
-      toast({
-        title: "Node not found",
-        description: "Could not find the node to stop",
-        variant: "destructive",
-      })
+      console.error('Stop: Node not found', nodeId)
       return
     }
 
@@ -1027,11 +980,7 @@ export function useWorkflowBuilder() {
     const isExecuting = node.data.executionStatus === 'running'
 
     if (!isExecuting) {
-      toast({
-        title: "Node not running",
-        description: `"${node.data.title}" is not currently executing`,
-        variant: "destructive",
-      })
+      console.warn('Stop: Node not currently running', nodeId)
       return
     }
 
@@ -1051,14 +1000,8 @@ export function useWorkflowBuilder() {
     })
 
     setNodes(updatedNodes)
-
-    toast({
-      title: "Node Stopped",
-      description: `Stopped execution of "${node.data.title}"`,
-    })
-
     console.log('Stopped node:', nodeId)
-  }, [toast, getNodes, setNodes])
+  }, [getNodes, setNodes])
 
   const runPreflightCheck = useCallback((options: RunPreflightOptions = {}) => {
     const { openOnSuccess = false, openOnFailure = true } = options

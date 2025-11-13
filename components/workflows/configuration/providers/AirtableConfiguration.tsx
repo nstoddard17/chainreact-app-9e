@@ -1630,30 +1630,50 @@ export function AirtableConfiguration({
         setValue(fieldName, null);
       } else if (field.airtableFieldType === 'multipleAttachments' || field.type === 'file') {
         // Handle image/attachment fields
+        // Note: AirtableImageField already converts Files to base64 before calling onChange
         logger.debug('🖼️ [BUBBLE CREATION] Image/attachment field detected:', {
           fieldName,
           value,
           valueType: typeof value,
-          isArray: Array.isArray(value)
+          isArray: Array.isArray(value),
+          hasUrl: value?.url,
+          filename: value?.filename
         });
 
         const attachments = Array.isArray(value) ? value : [value];
 
         // Create bubbles for each attachment
         const newBubbles = attachments.filter(Boolean).map((attachment: any) => {
-          const isImageAttachment = attachment?.url || attachment?.thumbnails;
-          return {
-            value: attachment?.url || attachment,
-            label: attachment?.filename || attachment?.name || 'Image',
-            fieldName: field.name,
-            isImage: isImageAttachment,
-            thumbnailUrl: attachment?.thumbnails?.small?.url || attachment?.thumbnails?.large?.url || attachment?.url,
-            fullUrl: attachment?.url,
-            filename: attachment?.filename || attachment?.name,
-            size: attachment?.size,
-            isNewUpload: true
-          };
-        });
+          // AirtableImageField provides base64 in the url field
+          if (attachment?.url) {
+            return {
+              value: attachment.url,
+              label: attachment.filename || 'Image',
+              fieldName: field.name,
+              isImage: true,
+              thumbnailUrl: attachment.url, // Use base64 URL for thumbnail
+              fullUrl: attachment.url,
+              filename: attachment.filename,
+              size: attachment.size,
+              type: attachment.type,
+              isNewUpload: attachment.isLocal || false
+            };
+          }
+          // Handle base64 strings directly
+          else if (typeof attachment === 'string' && attachment.startsWith('data:')) {
+            return {
+              value: attachment,
+              label: 'Image',
+              fieldName: field.name,
+              isImage: true,
+              thumbnailUrl: attachment,
+              fullUrl: attachment,
+              filename: 'Image',
+              isNewUpload: true
+            };
+          }
+          return null;
+        }).filter(Boolean);
 
         if (newBubbles.length > 0) {
           setFieldSuggestions(prev => ({
@@ -1663,11 +1683,11 @@ export function AirtableConfiguration({
 
           // Auto-activate all image bubbles
           setActiveBubbles(prev => {
-            const currentCount = (prev[fieldName] as number[] || []).length;
+            const currentCount = Array.isArray(prev[fieldName]) ? (prev[fieldName] as number[]).length : 0;
             const newIndices = newBubbles.map((_, idx) => currentCount + idx);
             return {
               ...prev,
-              [fieldName]: [...(Array.isArray(prev[fieldName]) ? prev[fieldName] : []), ...newIndices]
+              [fieldName]: [...(Array.isArray(prev[fieldName]) ? prev[fieldName] as number[] : []), ...newIndices]
             };
           });
 
@@ -1693,11 +1713,11 @@ export function AirtableConfiguration({
             hasDoubleColon: val?.includes('::'),
             valueLength: val?.length
           });
-          
+
           // Parse the id::name format from the dropdown
           let recordId = val;
           let recordName = val;
-          
+
           if (val && val.includes('::')) {
             const parts = val.split('::');
             recordId = parts[0]; // The actual record ID for the API
@@ -1708,9 +1728,21 @@ export function AirtableConfiguration({
               partsCount: parts.length
             });
           } else {
-            logger.debug('⚠️ [BUBBLE CREATION] No :: separator found, using raw value:', val);
+            // No :: separator - value is just the ID
+            // Look up the label from dynamic options
+            const options = dynamicOptions[fieldName] || [];
+            const option = options.find((opt: any) => opt.value === val);
+            if (option?.label) {
+              recordName = option.label;
+              logger.debug('🔵 [BUBBLE CREATION] Found label in options:', {
+                recordId: val,
+                recordName: option.label
+              });
+            } else {
+              logger.debug('⚠️ [BUBBLE CREATION] No label found in options, using ID as label:', val);
+            }
           }
-          
+
           // Check if bubble already exists (by ID)
           const exists = fieldSuggestions[fieldName]?.some(s => s.value === recordId);
           if (!exists) {
@@ -1719,9 +1751,9 @@ export function AirtableConfiguration({
               label: recordName, // Use name as label (for display)
               fieldName: field.name
             };
-            
+
             logger.debug('🔵 [BUBBLE CREATION] Creating new bubble:', newBubble);
-            
+
             setFieldSuggestions(prev => ({
               ...prev,
               [fieldName]: [...(prev[fieldName] || []), newBubble]
@@ -2282,15 +2314,59 @@ export function AirtableConfiguration({
               fieldName: field.name
             }]
           }));
-          
+
           setActiveBubbles(prev => ({
             ...prev,
             [actualFieldName]: 0
           }));
         }
+        // Handle image/attachment fields
+        else if ((field.airtableFieldType === 'multipleAttachments' || field.type === 'file') && existingValue) {
+          // Check for saved bubble metadata first (includes image data)
+          const bubbleMetadataKey = `${actualFieldName}_bubbles`;
+          const savedBubbles = values[bubbleMetadataKey] as any[] | undefined;
+
+          if (savedBubbles && savedBubbles.length > 0) {
+            logger.debug('🖼️ [BUBBLE INIT] Restoring image bubbles from saved metadata:', savedBubbles);
+            setFieldSuggestions(prev => ({
+              ...prev,
+              [actualFieldName]: savedBubbles
+            }));
+
+            setActiveBubbles(prev => ({
+              ...prev,
+              [actualFieldName]: savedBubbles.map((_, idx) => idx)
+            }));
+          } else {
+            // Fallback: create bubbles from the field value itself
+            const attachments = Array.isArray(existingValue) ? existingValue : [existingValue];
+            const imageBubbles = attachments.filter(Boolean).map((attachment: any) => ({
+              value: attachment.url || attachment,
+              label: attachment.filename || 'Image',
+              fieldName: field.name,
+              isImage: true,
+              thumbnailUrl: attachment.url,
+              fullUrl: attachment.url,
+              filename: attachment.filename,
+              size: attachment.size
+            }));
+
+            if (imageBubbles.length > 0) {
+              setFieldSuggestions(prev => ({
+                ...prev,
+                [actualFieldName]: imageBubbles
+              }));
+
+              setActiveBubbles(prev => ({
+                ...prev,
+                [actualFieldName]: imageBubbles.map((_, idx) => idx)
+              }));
+            }
+          }
+        }
       }
     });
-  }, [dynamicFields, values.recordId]); // Run when record is selected - removed dynamicOptions to avoid re-running
+  }, [dynamicFields, values.recordId, values]); // Added values to detect changes in saved bubble metadata
   
   // Update bubble labels when linked record options load
   useEffect(() => {
@@ -2525,12 +2601,16 @@ export function AirtableConfiguration({
 
           if (!suggestions) return null;
 
-          // Don't show pills for single-select fields (they're already shown inline in the field)
-          // For multi-select fields, only show pills when there are 2+ selections
-          const isSingleSelect = field.airtableFieldType === 'singleSelect';
-          const isMultiSelectWithOnlyOne = field.airtableFieldType === 'multipleSelects' && suggestions.length === 1;
+          // Check if this field has image bubbles (they need to always be shown for preview)
+          const hasImages = suggestions.some((s: any) => s.isImage);
 
-          if (isSingleSelect || isMultiSelectWithOnlyOne) {
+          // Don't show pills for single-select fields (they're already shown inline in the field)
+          // For fields with only 1 selection, hide pills (show inline instead)
+          // Exception: Always show image bubbles regardless of count (they provide the preview)
+          const isSingleSelect = field.airtableFieldType === 'singleSelect' || field.airtableFieldType === 'singleRecordLink';
+          const hasOnlyOne = suggestions.length === 1;
+
+          if (!hasImages && (isSingleSelect || hasOnlyOne)) {
             return null;
           }
 
