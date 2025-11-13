@@ -4,6 +4,7 @@ import { logger } from '@/lib/utils/logger';
 import * as cheerio from 'cheerio';
 import OpenAI from 'openai';
 import { createClient } from '@supabase/supabase-js';
+import { optionalImport } from '@/lib/utils/optionalImport';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -405,20 +406,27 @@ async function fetchWithPuppeteer(
     logger.info('[ExtractWebsiteData] Launching Puppeteer', { isProduction });
 
     if (isProduction) {
-      // Production: Use puppeteer-core with @sparticuz/chromium (Vercel-compatible)
-      const puppeteerCore = await import('puppeteer-core');
-      const chromium = await import('@sparticuz/chromium');
+      const puppeteerCoreModule = await optionalImport<typeof import('puppeteer-core')>('puppeteer-core');
+      const chromiumModule = await optionalImport<typeof import('@sparticuz/chromium')>('@sparticuz/chromium');
 
-      browser = await puppeteerCore.default.launch({
-        args: chromium.default.args,
-        defaultViewport: chromium.default.defaultViewport,
-        executablePath: await chromium.default.executablePath(),
-        headless: chromium.default.headless,
-      });
-    } else {
-      // Development: Use regular puppeteer (bundled Chrome)
-      const puppeteer = await import('puppeteer');
-      browser = await puppeteer.default.launch({
+      if (puppeteerCoreModule?.default && chromiumModule?.default) {
+        browser = await puppeteerCoreModule.default.launch({
+          args: chromiumModule.default.args,
+          defaultViewport: chromiumModule.default.defaultViewport,
+          executablePath: await chromiumModule.default.executablePath(),
+          headless: chromiumModule.default.headless,
+        });
+      } else {
+        logger.warn('[ExtractWebsiteData] Optional Chromium dependencies missing, falling back to bundled Puppeteer');
+      }
+    }
+
+    if (!browser) {
+      const puppeteerModule = await optionalImport<typeof import('puppeteer')>('puppeteer');
+      if (!puppeteerModule?.default) {
+        throw new Error('Puppeteer is not available. Install "puppeteer" or "@sparticuz/chromium" to enable dynamic content capture.');
+      }
+      browser = await puppeteerModule.default.launch({
         headless: true,
         args: [
           '--no-sandbox',

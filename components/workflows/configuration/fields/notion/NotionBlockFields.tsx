@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Textarea } from '@/components/ui/textarea'
-import { Loader2, FolderOpen, FileText, FileSpreadsheet, FileImage, File, Grid, List, Check, ChevronDown } from 'lucide-react'
+import { Loader2, FolderOpen, FileText, FileSpreadsheet, FileImage, File, Grid, List, Check, ChevronDown, Search } from 'lucide-react'
 import { useIntegrationStore } from '@/stores/integrationStore'
 import { 
   Dialog,

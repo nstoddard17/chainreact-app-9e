@@ -13,6 +13,7 @@ import { useAuthStore } from "@/stores/authStore"
 import { useWorkflowStore } from "@/stores/workflowStore"
 import { TemplatePreviewWithProvider } from "./TemplatePreview"
 import { TemplatePreviewModal } from "./TemplatePreviewModal"
+import { Input } from "@/components/ui/input"
 
 import {
   Dialog,

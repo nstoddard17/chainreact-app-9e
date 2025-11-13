@@ -26,6 +26,22 @@ const INTERNAL_BASE_URL = (() => {
   return 'http://localhost:3000'
 })()
 
+class IntegrationTestError extends Error {
+  details?: Record<string, any>
+
+  constructor(message: string, details?: Record<string, any>) {
+    super(message)
+    this.name = 'IntegrationTestError'
+    this.details = details
+  }
+}
+
+interface TestExecutionDetails {
+  message?: string
+  output?: any
+  logs?: string[]
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Get admin client
@@ -88,6 +104,8 @@ export async function POST(request: NextRequest) {
           // Test actions
           if (runActions) {
             for (const action of actionsToTest) {
+              const startTime = Date.now()
+
               // Send running status
               sendUpdate({
                 type: 'action',
@@ -96,10 +114,8 @@ export async function POST(request: NextRequest) {
               })
 
               try {
-                const startTime = Date.now()
-
                 // Run the action test
-                await testAction(user.id, config.provider, action, testData)
+                const resultDetails = await testAction(user.id, config.provider, action, testData)
 
                 const duration = Date.now() - startTime
 
@@ -109,6 +125,9 @@ export async function POST(request: NextRequest) {
                   name: action.actionName,
                   status: 'passed',
                   duration,
+                  message: resultDetails?.message,
+                  output: resultDetails?.output,
+                  logs: resultDetails?.logs,
                 })
               } catch (error: any) {
                 const duration = Date.now() - startTime
@@ -126,6 +145,8 @@ export async function POST(request: NextRequest) {
                   status: 'failed',
                   error: error.message,
                   duration,
+                  logs: error?.details?.logs,
+                  output: error?.details?.output,
                 })
               }
             }
@@ -134,6 +155,8 @@ export async function POST(request: NextRequest) {
           // Test triggers
           if (runTriggers) {
             for (const trigger of triggersToTest) {
+              const startTime = Date.now()
+
               // Send running status
               sendUpdate({
                 type: 'trigger',
@@ -142,10 +165,8 @@ export async function POST(request: NextRequest) {
               })
 
               try {
-                const startTime = Date.now()
-
                 // Run the trigger test
-                await testTrigger(user.id, config.provider, trigger, testData)
+                const triggerResult = await testTrigger(user.id, config.provider, trigger, testData)
 
                 const duration = Date.now() - startTime
 
@@ -155,6 +176,7 @@ export async function POST(request: NextRequest) {
                   name: trigger.triggerName,
                   status: 'passed',
                   duration,
+                  message: triggerResult?.message,
                 })
               } catch (error: any) {
                 const duration = Date.now() - startTime
@@ -172,6 +194,8 @@ export async function POST(request: NextRequest) {
                   status: 'failed',
                   error: error.message,
                   duration,
+                  logs: error?.details?.logs,
+                  output: error?.details?.output,
                 })
               }
             }
@@ -223,7 +247,7 @@ async function testAction(
   provider: string,
   action: any,
   testData: Record<string, any>
-): Promise<void> {
+): Promise<TestExecutionDetails> {
   const supabase = createAdminClient()
 
   // Get the node definition
@@ -313,14 +337,24 @@ async function testAction(
     )
 
     if (!actionExecution) {
-      throw new Error('Action did not execute')
+      throw new IntegrationTestError('Action did not execute')
     }
 
     if (actionExecution.status === 'failed' || actionExecution.status === 'error') {
-      throw new Error(actionExecution.error || 'Action execution failed')
+      throw new IntegrationTestError(
+        actionExecution.error || 'Action execution failed',
+        {
+          logs: normalizeExecutionLogs(actionExecution.logs),
+          output: sanitizeExecutionOutput(actionExecution.output),
+        }
+      )
     }
 
-    // Success!
+    return {
+      message: actionExecution.output?.message || 'Action executed successfully',
+      output: sanitizeExecutionOutput(actionExecution.output),
+      logs: normalizeExecutionLogs(actionExecution.logs),
+    }
   } finally {
     // Cleanup: Delete test workflow
     await supabase
@@ -338,7 +372,7 @@ async function testTrigger(
   provider: string,
   trigger: any,
   testData: Record<string, any>
-): Promise<void> {
+): Promise<TestExecutionDetails> {
   const supabase = createAdminClient()
 
   // Get the node definition
@@ -409,7 +443,7 @@ async function testTrigger(
       .eq('id', workflow.id)
 
     if (activateError) {
-      throw new Error(`Failed to activate workflow: ${activateError.message}`)
+      throw new IntegrationTestError(`Failed to activate workflow: ${activateError.message}`)
     }
 
     // Wait for webhook setup
@@ -420,6 +454,9 @@ async function testTrigger(
     // In a real implementation, you would also verify webhook resources in trigger_resources table
 
     // Success if we got here without errors
+    return {
+      message: 'Trigger activated successfully',
+    }
   } finally {
     // Cleanup: Deactivate and delete test workflow
     await supabase
@@ -511,7 +548,7 @@ async function buildTestConfig(
     } else if (field.dynamic) {
       // Try to load dynamic options from the connected account
       try {
-        const dynamicValue = await loadDynamicFieldValue(field, userId, provider)
+        const dynamicValue = await loadDynamicFieldValue(field, userId, provider, config)
         config[field.name] = dynamicValue
       } catch (error: any) {
         logger.warn(`[TestIntegration] Failed to load dynamic field ${field.name}:`, error.message)
@@ -533,37 +570,113 @@ async function buildTestConfig(
 async function loadDynamicFieldValue(
   field: any,
   userId: string,
-  provider: string
+  provider: string,
+  currentConfig: Record<string, any>
 ): Promise<any> {
   const baseUrl = INTERNAL_BASE_URL
 
-  // Call the integration data API to load options
-  const response = await fetch(`${baseUrl}/api/integrations/${provider}/data?type=${field.dynamic}`, {
-    method: 'GET',
+  if (typeof field.dynamic !== 'string') {
+    throw new Error(`Dynamic field "${field.name}" is missing a data type identifier`)
+  }
+
+  const supabase = createAdminClient()
+  const { data: integration, error } = await supabase
+    .from('integrations')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('provider', provider)
+    .in('status', ['connected', 'active', 'authorized', 'ready', 'valid'])
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error || !integration) {
+    throw new Error(`No connected ${provider} integration found for dynamic field "${field.name}"`)
+  }
+
+  const dependencyOptions: Record<string, any> = {}
+  if (field.dependsOn) {
+    const dependencies = Array.isArray(field.dependsOn) ? field.dependsOn : [field.dependsOn]
+    for (const dependency of dependencies) {
+      if (currentConfig[dependency]) {
+        dependencyOptions[dependency] = currentConfig[dependency]
+      }
+    }
+  }
+
+  const response = await fetch(`${baseUrl}/api/integrations/fetch-user-data`, {
+    method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-user-id': userId, // Pass user ID for authentication
     },
+    body: JSON.stringify({
+      integrationId: integration.id,
+      dataType: field.dynamic,
+      options: dependencyOptions,
+    }),
   })
 
   if (!response.ok) {
-    throw new Error(`Failed to load dynamic options for ${field.name}`)
+    const errorText = await response.text().catch(() => '')
+    throw new Error(errorText || `Failed to load dynamic options for ${field.name}`)
   }
 
-  const options = await response.json()
+  const payload = await response.json()
+  const options = Array.isArray(payload?.data) ? payload.data : payload
 
-  if (!options || options.length === 0) {
+  if (!Array.isArray(options) || options.length === 0) {
     throw new Error(`No options available for ${field.name}`)
   }
 
-  // Return the first available option
-  if (field.type === 'multi-select') {
-    // For multi-select, return first 2 options
-    return options.slice(0, 2).map((opt: any) => opt.value)
-  } else {
-    // For single select, return first option
-    return options[0].value
+  const pickValue = (option: any) => {
+    if (option == null) return undefined
+    if (typeof option === 'string') return option
+    return option.value ?? option.id ?? option.key ?? option.tableId ?? option.name
   }
+
+  if (field.type === 'multi-select') {
+    return options
+      .slice(0, 2)
+      .map(pickValue)
+      .filter(Boolean)
+  }
+
+  return pickValue(options[0])
+}
+
+function sanitizeExecutionOutput(output: any) {
+  if (output == null) {
+    return undefined
+  }
+
+  if (typeof output === 'string') {
+    return output.length > 4000 ? `${output.slice(0, 4000)}…` : output
+  }
+
+  try {
+    const serialized = JSON.stringify(output)
+    if (serialized.length > 4000) {
+      return serialized.slice(0, 4000) + '…'
+    }
+    return output
+  } catch {
+    return output
+  }
+}
+
+function normalizeExecutionLogs(logs: any): string[] | undefined {
+  if (!logs) return undefined
+  const entries = Array.isArray(logs) ? logs : [logs]
+  return entries
+    .map(entry => {
+      if (typeof entry === 'string') return entry
+      try {
+        return JSON.stringify(entry)
+      } catch {
+        return String(entry)
+      }
+    })
+    .slice(0, 20)
 }
 
 /**

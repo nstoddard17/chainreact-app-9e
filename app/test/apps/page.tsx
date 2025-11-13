@@ -37,6 +37,7 @@ import {
   Loader2,
   Link2,
   Link2Off,
+  ChevronDown,
   Edit3,
   CheckSquare,
   Square,
@@ -65,6 +66,8 @@ interface TestResult {
   error?: string
   duration?: number
   logs?: string[]
+  message?: string
+  output?: any
 }
 
 interface TestSession {
@@ -471,6 +474,9 @@ export default function IntegrationTestsPage() {
         type: test.type,
         name: test.name,
         status: 'pending' as const,
+        logs: [],
+        message: undefined,
+        output: undefined,
       })),
     }
 
@@ -557,7 +563,9 @@ export default function IntegrationTestsPage() {
                     status: data.status,
                     error: data.error,
                     duration: data.duration,
-                    logs: data.logs,
+                    logs: data.logs ?? r.logs,
+                    message: data.message ?? r.message,
+                    output: data.output ?? r.output,
                   }
                 }
                 return r
@@ -1483,7 +1491,7 @@ function TestResultsList({ results }: { results: TestResult[] }) {
     <ScrollArea className="h-[500px] pr-4">
       <div className="space-y-2">
         {results.map((result, index) => (
-          <TestResultItem key={index} result={result} />
+          <TestResultItem key={`${result.type}-${result.name}-${index}`} result={result} />
         ))}
       </div>
     </ScrollArea>
@@ -1492,61 +1500,130 @@ function TestResultsList({ results }: { results: TestResult[] }) {
 
 // Test Result Item Component
 function TestResultItem({ result }: { result: TestResult }) {
-  const statusIcon = {
-    pending: <Clock className="h-4 w-4 text-gray-400" />,
-    running: <RefreshCw className="h-4 w-4 text-blue-600 animate-spin" />,
-    passed: <CheckCircle className="h-4 w-4 text-green-600" />,
-    failed: <XCircle className="h-4 w-4 text-red-600" />,
-    skipped: <AlertCircle className="h-4 w-4 text-amber-600" />,
+  const [isOpen, setIsOpen] = useState(false)
+
+  const statusConfig = {
+    pending: {
+      icon: <Clock className="h-4 w-4 text-gray-400" />,
+      container: 'border-gray-200 dark:border-gray-800',
+      badge: 'bg-gray-100 text-gray-600 dark:bg-gray-900/50 dark:text-gray-100',
+      label: 'Waiting to start',
+    },
+    running: {
+      icon: <RefreshCw className="h-4 w-4 text-blue-600 animate-spin" />,
+      container: 'border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/20',
+      badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200',
+      label: 'Running now',
+    },
+    passed: {
+      icon: <CheckCircle className="h-4 w-4 text-green-600" />,
+      container: 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/20',
+      badge: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-200',
+      label: 'Completed successfully',
+    },
+    failed: {
+      icon: <XCircle className="h-4 w-4 text-red-600" />,
+      container: 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20',
+      badge: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-200',
+      label: 'Execution failed',
+    },
+    skipped: {
+      icon: <AlertCircle className="h-4 w-4 text-amber-600" />,
+      container: 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20',
+      badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200',
+      label: 'Skipped',
+    },
   }[result.status]
 
-  const statusColor = {
-    pending: 'border-gray-200 dark:border-gray-800',
-    running: 'border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/20',
-    passed: 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/20',
-    failed: 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20',
-    skipped: 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20',
-  }[result.status]
+  const formattedOutput = (() => {
+    if (result.output == null || result.output === '') return ''
+    if (typeof result.output === 'string') return result.output
+    try {
+      return JSON.stringify(result.output, null, 2)
+    } catch {
+      return String(result.output)
+    }
+  })()
 
   return (
-    <div className={cn("border rounded-lg p-4 transition-colors", statusColor)}>
-      <div className="flex items-start justify-between">
-        <div className="flex items-start gap-3 flex-1">
-          <div className="mt-0.5">{statusIcon}</div>
+    <div className={cn("border rounded-xl transition-colors", statusConfig.container)}>
+      <button
+        type="button"
+        className="w-full flex items-center gap-3 px-4 py-3 text-left"
+        onClick={() => setIsOpen(prev => !prev)}
+        aria-expanded={isOpen}
+      >
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <span className={cn("flex h-7 w-7 items-center justify-center rounded-full", statusConfig.badge)}>
+            {statusConfig.icon}
+          </span>
           <div className="flex-1 min-w-0">
-            <div className="font-medium">{result.name}</div>
-            <div className="flex items-center gap-2 mt-1">
-              <Badge variant="outline" className="text-xs">
-                {result.type}
-              </Badge>
-              {result.duration && (
-                <span className="text-xs text-muted-foreground">
-                  {result.duration}ms
-                </span>
-              )}
+            <div className="font-medium truncate">{result.name}</div>
+            <div className="text-xs text-muted-foreground truncate">
+              {result.message || statusConfig.label}
             </div>
-            {result.error && (
-              <div className="mt-2 text-sm text-red-600 dark:text-red-400 font-mono">
-                {result.error}
-              </div>
-            )}
-            {result.logs && result.logs.length > 0 && (
-              <details className="mt-2">
-                <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
-                  View Logs ({result.logs.length})
-                </summary>
-                <div className="mt-2 space-y-1">
-                  {result.logs.map((log, i) => (
-                    <div key={i} className="text-xs font-mono text-muted-foreground">
-                      {log}
-                    </div>
-                  ))}
-                </div>
-              </details>
-            )}
           </div>
         </div>
-      </div>
+        <div className="flex items-center gap-2">
+          {result.duration && (
+            <span className="text-xs text-muted-foreground whitespace-nowrap">{result.duration}ms</span>
+          )}
+          <Badge variant="outline" className="text-xs capitalize">
+            {result.type}
+          </Badge>
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 text-muted-foreground transition-transform",
+              isOpen && "rotate-180"
+            )}
+          />
+        </div>
+      </button>
+
+      {isOpen && (
+        <div className="border-t px-4 py-3 space-y-3 text-sm">
+          {result.error && (
+            <Alert className="bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800">
+              <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+              <AlertDescription className="text-red-900 dark:text-red-100">
+                {result.error}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {result.message && !result.error && (
+            <div className="text-green-700 dark:text-green-300 font-medium">
+              {result.message}
+            </div>
+          )}
+
+          {formattedOutput && (
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+                Output
+              </div>
+              <pre className="bg-muted/60 rounded-md p-3 text-xs whitespace-pre-wrap break-all font-mono">
+                {formattedOutput}
+              </pre>
+            </div>
+          )}
+
+          {result.logs && result.logs.length > 0 && (
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+                Logs
+              </div>
+              <div className="space-y-1">
+                {result.logs.slice(0, 5).map((log, index) => (
+                  <div key={index} className="text-xs font-mono text-muted-foreground bg-muted/40 rounded px-2 py-1">
+                    {log}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

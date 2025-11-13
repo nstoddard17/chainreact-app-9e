@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Zap, Info, Clock, AlertCircle } from 'lucide-react';
 
 interface ConditionalTriggerConfigurationProps {
   values: Record<string, any>;

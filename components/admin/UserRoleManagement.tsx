@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { RoleBadge } from "@/components/ui/role-badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Input } from "@/components/ui/input"
 import { Search, Users, Crown, Loader2, Circle, RefreshCw, Wifi, WifiOff, Plus, Edit, Trash2, UserPlus, Eye, EyeOff, AlertTriangle } from "lucide-react"
 import { type UserRole, getRoleInfo, ROLES } from "@/lib/utils/roles"
 import {

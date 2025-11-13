@@ -117,3 +117,4 @@ Error: ENOENT: no such file or directory, stat '/Users/nathanielstoddard/chainre
 [2025-11-13T02:08:41.223Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 453ms (793 modules)
 [2025-11-13T02:09:17.621Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 349ms (3887 modules)
 [2025-11-13T02:27:17.741Z] [INFO   ] 2025-11-13T02:27:17.741Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-11-13T02:40:45.675Z] [WARN   ]  [33m[1m⚠[22m[39m Found a change in next.config.mjs. Restarting the server to apply the changes...
