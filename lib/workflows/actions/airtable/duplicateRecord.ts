@@ -76,6 +76,71 @@ export async function duplicateAirtableRecord(
 
     logger.debug(`📋 [Airtable] Source record fetched. Fields: ${Object.keys(sourceFields).join(', ')}`);
 
+    // Fetch table schema to get field types and date formats
+    let tableSchema: any = null
+    try {
+      const schemaUrl = `https://api.airtable.com/v0/meta/bases/${baseId}/tables`
+      const schemaResponse = await fetch(schemaUrl, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (schemaResponse.ok) {
+        const schemaResult = await schemaResponse.json()
+        tableSchema = schemaResult.tables?.find((t: any) => t.name === tableName)
+        if (tableSchema) {
+          logger.debug(`📊 [Airtable] Retrieved table schema with ${tableSchema.fields?.length || 0} fields`)
+        }
+      }
+    } catch (error) {
+      logger.debug('📊 [Airtable] Could not fetch table schema, proceeding without field type information')
+    }
+
+    // Helper function to format date/datetime values based on field schema
+    const formatDateForAirtable = (value: any, fieldInfo: any): any => {
+      if (!fieldInfo || !value) return value
+
+      const fieldType = fieldInfo.type
+
+      // Only process date and dateTime fields
+      if (fieldType !== 'date' && fieldType !== 'dateTime') {
+        return value
+      }
+
+      // Convert to Date object if it's a string
+      let date: Date
+      if (typeof value === 'string') {
+        date = new Date(value)
+        if (isNaN(date.getTime())) {
+          logger.debug(`📊 [Airtable] Invalid date value for field "${fieldInfo.name}": ${value}`)
+          return value
+        }
+      } else if (value instanceof Date) {
+        date = value
+      } else {
+        return value
+      }
+
+      // Format based on field type
+      if (fieldType === 'date') {
+        const year = date.getFullYear()
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const day = String(date.getDate()).padStart(2, '0')
+        const formatted = `${year}-${month}-${day}`
+        logger.debug(`📊 [Airtable] Formatted date field "${fieldInfo.name}": ${formatted}`)
+        return formatted
+      } else if (fieldType === 'dateTime') {
+        const formatted = date.toISOString()
+        logger.debug(`📊 [Airtable] Formatted datetime field "${fieldInfo.name}": ${formatted}`)
+        return formatted
+      }
+
+      return value
+    }
+
     // Step 2: Build new record fields
     const newFields: Record<string, any> = {};
 
@@ -85,7 +150,15 @@ export async function duplicateAirtableRecord(
     } else {
       fieldsToCopy.forEach((fieldName: string) => {
         if (sourceFields.hasOwnProperty(fieldName)) {
-          newFields[fieldName] = sourceFields[fieldName];
+          let fieldValue = sourceFields[fieldName];
+
+          // Format date/datetime fields based on schema
+          const fieldInfo = tableSchema?.fields?.find((f: any) => f.id === fieldName || f.name === fieldName)
+          if (fieldInfo && (fieldInfo.type === 'date' || fieldInfo.type === 'dateTime')) {
+            fieldValue = formatDateForAirtable(fieldValue, fieldInfo)
+          }
+
+          newFields[fieldName] = fieldValue;
           logger.debug(`✅ [Airtable] Copying field: ${fieldName}`);
         } else {
           logger.debug(`⚠️ [Airtable] Field not found in source record: ${fieldName}`);
@@ -95,7 +168,26 @@ export async function duplicateAirtableRecord(
 
     // Apply overrides
     Object.entries(fieldsToOverride).forEach(([fieldName, overrideValue]) => {
-      const resolved = resolveValue(overrideValue, input);
+      let resolved = resolveValue(overrideValue, input);
+
+      // Format date/datetime fields based on schema
+      const fieldInfo = tableSchema?.fields?.find((f: any) => f.id === fieldName || f.name === fieldName)
+      if (fieldInfo && (fieldInfo.type === 'date' || fieldInfo.type === 'dateTime')) {
+        resolved = formatDateForAirtable(resolved, fieldInfo)
+      }
+
+      // Check if this field should remain as array (linked records)
+      const shouldStayArray = Array.isArray(resolved) && (
+        resolved.length > 1 ||
+        (resolved.length > 0 && resolved.every((v: any) => typeof v === 'string' && v.startsWith('rec')))
+      )
+
+      // Don't unwrap arrays for linked record fields
+      if (Array.isArray(resolved) && resolved.length === 1 && !shouldStayArray) {
+        resolved = resolved[0]
+        logger.debug(`📊 [Airtable] Unwrapped single-element array for field "${fieldName}"`)
+      }
+
       newFields[fieldName] = resolved;
       logger.debug(`🔄 [Airtable] Overriding field: ${fieldName} = ${JSON.stringify(resolved)}`);
     });
