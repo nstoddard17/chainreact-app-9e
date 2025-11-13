@@ -15,7 +15,6 @@ interface AirtableImageFieldProps {
   aiFields?: Record<string, boolean>;
   setAiFields?: (fields: Record<string, boolean>) => void;
   persistedImages?: any[];
-  onPersistedImageRemove?: (index: number, image?: any) => void;
 }
 
 /**
@@ -30,7 +29,6 @@ export function AirtableImageField({
   aiFields,
   setAiFields,
   persistedImages = [],
-  onPersistedImageRemove,
 }: AirtableImageFieldProps) {
   const [uploadingFile, setUploadingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -203,10 +201,24 @@ export function AirtableImageField({
     }
   };
 
-  const handleRemoveImage = (index: number) => {
+  const valueImages = React.useMemo(
+    () => images.filter(img => img.origin === 'value'),
+    [images]
+  );
+
+  const handleRemoveImage = (image: any) => {
     if (Array.isArray(value)) {
-      const newValue = value.filter((_, i) => i !== index);
-      onChange(newValue.length > 0 ? newValue : null);
+      const targetIndex = typeof image?.sourceIndex === 'number'
+        ? image.sourceIndex
+        : value.findIndex((entry: any) => entry === image?.raw);
+
+      if (targetIndex >= 0) {
+        const newValue = value.filter((_: any, i: number) => i !== targetIndex);
+        onChange(newValue.length > 0 ? newValue : null);
+        return;
+      }
+      const filtered = value.filter((entry: any) => entry?.url !== image?.url);
+      onChange(filtered.length > 0 ? filtered : null);
     } else {
       onChange(null);
     }
@@ -215,9 +227,9 @@ export function AirtableImageField({
   return (
     <div className="space-y-3">
       {/* Compact preview rows */}
-      {images.length > 0 && (
+      {valueImages.length > 0 && (
         <div className="space-y-2">
-          {images.map((img, index) => {
+          {valueImages.map((img, index) => {
             const sizeInKb = img.size ? (img.size / 1024).toFixed(1) : null;
             return (
               <div
@@ -259,13 +271,7 @@ export function AirtableImageField({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={() => {
-                    if (img.origin === 'persisted') {
-                      onPersistedImageRemove?.(img.sourceIndex ?? index, img.raw);
-                    } else {
-                      handleRemoveImage(img.sourceIndex ?? index);
-                    }
-                  }}
+                  onClick={() => handleRemoveImage(img)}
                   className="text-muted-foreground hover:text-destructive"
                 >
                   <X className="h-4 w-4" />
@@ -305,12 +311,12 @@ export function AirtableImageField({
           ) : (
             <>
               <Upload className="h-4 w-4" />
-              {images.length > 0 ? 'Replace Image' : 'Upload Image'}
+              {valueImages.length > 0 ? 'Replace Image' : 'Upload Image'}
             </>
           )}
         </Button>
 
-        {images.length === 0 && (
+        {valueImages.length === 0 && (
           <p className="text-xs text-slate-500">
             {field.multiple
               ? `Select multiple images to upload. Supported formats: JPG, PNG, GIF, WebP`
