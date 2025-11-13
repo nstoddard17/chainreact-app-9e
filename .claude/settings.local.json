@@ -82,7 +82,9 @@
       "Bash(del \"c:\\Users\\marcu\\source\\repos\\nstoddard17\\chainreact-app-9e\\app\\api\\integrations\\shopify\\callback\\route.ts\")",
       "Bash(test:*)",
       "Bash(where:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(npm audit:*)",
+      "Bash(npm view:*)"
     ],
     "edit": [
       "*"
