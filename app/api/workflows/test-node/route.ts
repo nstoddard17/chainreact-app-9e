@@ -65,157 +65,67 @@ export async function POST(request: Request) {
     let testResult: any
 
     try {
-      // Handle different node types for testing
-      switch (nodeType) {
-        case "gmail_action_send_email":
-          testResult = {
-            success: true,
-            output: {
-              messageId: `test_message_${ Date.now()}`,
-              to: [config?.to || "test@example.com"],
-              subject: config?.subject || "Test Email",
-              timestamp: new Date().toISOString(),
-              success: true
-            },
-            message: "✅ Test mode: Email would be sent successfully"
-          }
-          break
+      // Execute all nodes using the real executeAction function
+      logger.debug('[test-node] Executing real action:', {
+        nodeType,
+        hasConfig: !!config,
+        configKeys: Object.keys(config || {})
+      })
 
-        case "google_sheets_action_read_data":
-          testResult = {
-            success: true,
-            output: {
-              data: config?.outputFormat === "array" ? [
-                ["Name", "Email", "Status"],
-                ["John Doe", "john@example.com", "Active"],
-                ["Jane Smith", "jane@example.com", "Inactive"],
-                ["Bob Johnson", "bob@example.com", "Active"]
-              ] : config?.outputFormat === "csv" ? 
-                "Name,Email,Status\nJohn Doe,john@example.com,Active\nJane Smith,jane@example.com,Inactive\nBob Johnson,bob@example.com,Active" :
-                [
-                  { "Name": "John Doe", "Email": "john@example.com", "Status": "Active" },
-                  { "Name": "Jane Smith", "Email": "jane@example.com", "Status": "Inactive" },
-                  { "Name": "Bob Johnson", "Email": "bob@example.com", "Status": "Active" }
-                ],
-              headers: ["Name", "Email", "Status"],
-              rowsRead: 3,
-              format: config?.outputFormat || "objects",
-              spreadsheetId: config?.spreadsheetId || "test-spreadsheet-id",
-              sheetName: config?.sheetName || "Sheet1"
-            },
-            message: "✅ Test mode: Would read 3 rows from Google Sheets"
-          }
-          break
+      testResult = await executeAction({
+        node: testNode,
+        input: testContext.data,
+        userId: user.id,
+        workflowId: "test-workflow",
+        executionMode: 'live' // Execute real API calls
+      })
 
-        case "google_sheets_unified_action":
-          testResult = {
-            success: true,
-            output: {
-              action: config?.action || "add",
-              spreadsheetId: config?.spreadsheetId || "test-spreadsheet-id",
-              sheetName: config?.sheetName || "Sheet1",
-              range: "Sheet1!A2:D2",
-              updatedRows: 1,
-              success: true
-            },
-            message: `✅ Test mode: Would ${config?.action || "add"} data in Google Sheets`
-          }
-          break
-
-        case "if_then_condition":
-          // Simulate condition evaluation
-          const conditionResult = config?.conditionType === "advanced" ? true : 
-            Math.random() > 0.5 // Random result for demo
-          
-          testResult = {
-            success: true,
-            output: {
-              conditionMet: conditionResult,
-              conditionType: config?.conditionType || "simple",
-              evaluatedExpression: config?.advancedExpression || `${config?.field || "status"} ${config?.operator || "equals"} ${config?.value || "active"}`,
-              success: true
-            },
-            message: `✅ Test mode: Condition would evaluate to ${conditionResult ? "TRUE" : "FALSE"}`
-          }
-          break
-
-        case "delay":
-          testResult = {
-            success: true,
-            output: {
-              delayDuration: parseInt(config?.duration) || 60,
-              startTime: new Date().toISOString(),
-              endTime: new Date(Date.now() + ((parseInt(config?.duration) || 60) * 1000)).toISOString(),
-              success: true
-            },
-            message: `✅ Test mode: Would delay for ${config?.duration || 60} seconds`
-          }
-          break
-
-        default:
-          // For other testable nodes, try to use the actual executeAction function in test mode
-          try {
-            testResult = await executeAction({
-              node: testNode,
-              input: testContext.data,
-              userId: user.id,
-              workflowId: "test-workflow"
-            })
-            if (testResult.success) {
-              testResult.message = `✅ Test mode: ${testResult.message || "Action executed successfully"}`
-            }
-          } catch (error: any) {
-            // If the actual execution fails, provide a mock result
-            testResult = {
-              success: true,
-              output: {
-                test: true,
-                mockResult: true,
-                nodeType: nodeType,
-                timestamp: new Date().toISOString()
-              },
-              message: `✅ Test mode: ${nodeComponent.title} would execute successfully`
-            }
-          }
-          break
+      // Add success indicator to message if not already present
+      if (testResult.success && testResult.message) {
+        if (!testResult.message.includes('✅')) {
+          testResult.message = `✅ ${testResult.message}`
+        }
+      } else if (testResult.success) {
+        testResult.message = `✅ ${nodeComponent.title} executed successfully`
       }
 
-      return jsonResponse({
-        success: true,
-        testResult,
-        nodeInfo: {
-          type: nodeType,
-          title: nodeComponent.title,
-          description: nodeComponent.description,
-          outputSchema: nodeComponent.outputSchema
-        }
+      logger.debug('[test-node] Execution completed:', {
+        success: testResult.success,
+        hasOutput: !!testResult.output,
+        outputKeys: testResult.output ? Object.keys(testResult.output) : []
+      })
+    } catch (error: any) {
+      logger.error('[test-node] Execution failed:', {
+        error: error.message,
+        stack: error.stack,
+        nodeType
       })
 
-    } catch (error: any) {
-      logger.error("Test execution error:", error)
-      
-      // Return a mock success result even if the test fails
-      return jsonResponse({
-        success: true,
-        testResult: {
-          success: true,
-          output: {
-            test: true,
-            mockResult: true,
-            nodeType: nodeType,
-            timestamp: new Date().toISOString(),
-            note: "Mock test result - actual execution may vary"
-          },
-          message: `✅ Test mode: ${nodeComponent.title} would execute successfully (mock result)`
+      // Return the actual error to the user
+      testResult = {
+        success: false,
+        output: {
+          error: true,
+          errorMessage: error.message,
+          errorDetails: error.stack,
+          nodeType: nodeType,
+          timestamp: new Date().toISOString()
         },
-        nodeInfo: {
-          type: nodeType,
-          title: nodeComponent.title,
-          description: nodeComponent.description,
-          outputSchema: nodeComponent.outputSchema
-        }
-      })
+        message: `❌ Error: ${error.message}`,
+        error: error.message
+      }
     }
+
+    return jsonResponse({
+      success: testResult.success !== false, // Return actual success/failure
+      testResult,
+      nodeInfo: {
+        type: nodeType,
+        title: nodeComponent.title,
+        description: nodeComponent.description,
+        outputSchema: nodeComponent.outputSchema
+      }
+    })
 
   } catch (error: any) {
     logger.error("Node test error:", error)

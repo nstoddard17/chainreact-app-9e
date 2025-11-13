@@ -39,7 +39,9 @@ describe('HubSpot Webhook Utils', () => {
       objectId: 'note-1',
       properties: {
         hs_note_body: 'hello',
-        hubspot_owner_id: 'user_1'
+        hubspot_owner_id: 'user_1',
+        hubspot_owner_id__label: 'Owner Name',
+        custom_flag: 'yes'
       },
       associations: {
         contacts: ['1', '2'],
@@ -50,6 +52,8 @@ describe('HubSpot Webhook Utils', () => {
     const data = buildHubSpotTriggerData(payload, 'note.creation')
     expect(data.associatedContactIds).toEqual(['1', '2'])
     expect(data.associatedCompanyIds).toEqual(['3'])
+    expect(data.customProperties?.custom_flag).toBe('yes')
+    expect(data.hubspot_owner_name).toBe('Owner Name')
   })
 
   it('filters workflows with shouldSkipByConfig', () => {
@@ -85,6 +89,106 @@ describe('HubSpot Webhook Utils', () => {
     const data = { formId: 'abc' }
     const config = { formId: 'xyz' }
     expect(shouldSkipByConfig('hubspot_trigger_form_submission', config, data)).toBe('form filter mismatch')
+  })
+
+  it('flattens form submission fields into fieldValues', () => {
+    const payload = {
+      objectId: 'sub-1',
+      formId: 'form-1',
+      values: [
+        { name: 'email', value: 'demo@example.com' },
+        { name: 'firstname', value: 'Demo' }
+      ],
+      properties: {
+        formName: 'Demo Form'
+      }
+    }
+
+    const data = buildHubSpotTriggerData(payload, 'form.submission')
+    expect(data.fields?.email).toBe('demo@example.com')
+    expect(data.fieldValues?.firstname).toBe('Demo')
+    expect(data.submissionValues).toHaveLength(2)
+    expect(data.contactEmail).toBe('demo@example.com')
+  })
+
+  it('filters engagement triggers when values exist only in properties blob', () => {
+    const ownerFilter = {
+      filterByOwner: 'owner-1'
+    }
+    const taskData = {
+      properties: {
+        hubspot_owner_id: 'owner-1',
+        hs_task_priority: 'HIGH',
+        hs_task_type: 'CALL'
+      }
+    }
+
+    expect(shouldSkipByConfig('hubspot_trigger_task_created', ownerFilter, taskData)).toBeNull()
+    expect(shouldSkipByConfig('hubspot_trigger_task_created', { filterByPriority: 'HIGH' }, taskData)).toBeNull()
+    expect(shouldSkipByConfig('hubspot_trigger_task_created', { filterByType: 'CALL' }, taskData)).toBeNull()
+
+    const callData = {
+      properties: {
+        hs_call_direction: 'INBOUND',
+        hs_call_disposition: 'CONNECTED'
+      }
+    }
+
+    expect(shouldSkipByConfig('hubspot_trigger_call_created', { filterByDirection: 'INBOUND' }, callData)).toBeNull()
+    expect(shouldSkipByConfig('hubspot_trigger_call_created', { filterByDisposition: 'CONNECTED' }, callData)).toBeNull()
+
+    const meetingData = {
+      properties: {
+        hs_meeting_outcome: 'COMPLETED'
+      }
+    }
+    expect(shouldSkipByConfig('hubspot_trigger_meeting_created', { filterByOutcome: 'COMPLETED' }, meetingData)).toBeNull()
+  })
+
+  it('returns mismatch reasons for engagement filters when values differ', () => {
+    const taskData = {
+      hs_task_priority: 'LOW',
+      hs_task_type: 'EMAIL',
+      hubspot_owner_id: 'owner-2'
+    }
+
+    expect(shouldSkipByConfig('hubspot_trigger_task_created', { filterByPriority: 'HIGH' }, taskData)).toBe('task priority mismatch')
+    expect(shouldSkipByConfig('hubspot_trigger_task_created', { filterByType: 'CALL' }, taskData)).toBe('task type mismatch')
+    expect(shouldSkipByConfig('hubspot_trigger_note_created', { filterByOwner: 'owner-1' }, taskData)).toBe('owner filter mismatch')
+
+    const callData = {
+      hs_call_direction: 'INBOUND',
+      hs_call_disposition: 'NO_ANSWER'
+    }
+
+    expect(shouldSkipByConfig('hubspot_trigger_call_created', { filterByDirection: 'OUTBOUND' }, callData)).toBe('call direction mismatch')
+    expect(shouldSkipByConfig('hubspot_trigger_call_created', { filterByDisposition: 'CONNECTED' }, callData)).toBe('call disposition mismatch')
+
+    const meetingData = {
+      hs_meeting_outcome: 'CANCELED'
+    }
+    expect(shouldSkipByConfig('hubspot_trigger_meeting_created', { filterByOutcome: 'COMPLETED' }, meetingData)).toBe('meeting outcome mismatch')
+  })
+
+  it('builds call payload with owner name and custom properties', () => {
+    const payload = {
+      objectId: 'call-1',
+      properties: {
+        hs_call_title: 'Check-in',
+        hubspot_owner_id: 'owner-3',
+        hubspot_owner_id__label: 'Owner Three',
+        custom_field: 'value'
+      },
+      associations: {
+        contacts: ['10']
+      }
+    }
+
+    const data = buildHubSpotTriggerData(payload, 'call.creation')
+    expect(data.callId).toBe('call-1')
+    expect(data.hubspot_owner_name).toBe('Owner Three')
+    expect(data.customProperties?.custom_field).toBe('value')
+    expect(data.associatedContactIds).toEqual(['10'])
   })
 
   it('normalizes mixed id lists', () => {

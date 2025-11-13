@@ -54,7 +54,10 @@ export function NodeContextMenu({
           </ContextMenuItem>
         ) : (
           <>
-            <ContextMenuItem onClick={() => onTestNode?.(nodeId)}>
+            <ContextMenuItem onClick={() => {
+              console.log('[NodeContextMenu] Test Node clicked:', nodeId, 'Handler exists:', !!onTestNode)
+              onTestNode?.(nodeId)
+            }}>
               <TestTube className="w-4 h-4 mr-2" />
               Test Node
             </ContextMenuItem>

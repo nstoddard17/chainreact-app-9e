@@ -93,6 +93,12 @@ export const hubspotTriggerFormSubmission: NodeComponent = {
       description: "Object containing all submitted form field values"
     },
     {
+      name: "fieldValues",
+      label: "Field Values",
+      type: "object",
+      description: "Flattened map of field names to values for quick mapping"
+    },
+    {
       name: "submissionValues",
       label: "Submission Values",
       type: "array",

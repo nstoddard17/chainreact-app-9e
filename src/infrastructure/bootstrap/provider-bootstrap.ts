@@ -26,6 +26,21 @@ import { SalesforceAdapter } from '../providers/salesforce-adapter'
 import { healthMonitor } from '../health/provider-health-monitor'
 
 import { logger } from '@/lib/utils/logger'
+import {
+  addAirtableAttachment,
+  createAirtableRecord,
+  createMultipleAirtableRecords,
+  deleteAirtableRecord,
+  duplicateAirtableRecord,
+  findAirtableRecord,
+  getAirtableBaseSchema,
+  getAirtableRecord,
+  getAirtableTableSchema,
+  listAirtableRecords,
+  moveAirtableRecord,
+  updateAirtableRecord,
+  updateMultipleAirtableRecords,
+} from '@/lib/workflows/actions/airtable'
 
 /**
  * Bootstrap all integration providers and actions
@@ -366,78 +381,210 @@ function registerDiscordProvider(): void {
 function registerAirtableProvider(): void {
   const airtableAdapter = new AirtableAdapter()
   
-  // Register provider with capabilities
   providerRegistry.register(
     airtableAdapter,
-    ['database'], // capability types
+    ['database'],
     { name: 'Airtable', version: '1.0.0' }
   )
 
-  // Register Airtable actions
-  actionRegistry.registerProvider('airtable', [
+  const extractParameters = (config: any) => {
+    if (config && typeof config === 'object' && 'parameters' in config) {
+      return (config as any).parameters || {}
+    }
+    return config || {}
+  }
+
+  const wrapAirtableAction = (
+    fn: (config: any, userId: string, input: Record<string, any>) => Promise<any>
+  ) => {
+    return async (config: any, context: any) => {
+      const params = extractParameters(config)
+      const result = await fn(params, context.userId, context.input || {})
+      if (result && typeof result === 'object' && 'success' in result) {
+        return result
+      }
+      return {
+        success: true,
+        data: result,
+      }
+    }
+  }
+
+  interface AirtableActionDef {
+    actionType: string
+    handler: (config: any, context: any) => Promise<any>
+    metadata: {
+      name: string
+      description: string
+      version: string
+      category: string
+    }
+    aliases?: string[]
+  }
+
+  const airtableActions: AirtableActionDef[] = [
     {
       actionType: 'create_record',
-      handler: async (config, context) => {
-        const provider = providerRegistry.getDatabaseProvider('airtable')
-        if (!provider) throw new Error('Airtable provider not available')
-        
-        return provider.createRecord({
-          baseId: config.parameters.baseId,
-          tableName: config.parameters.tableName,
-          fields: config.parameters.fields,
-          userId: context.userId
-        })
-      },
+      handler: wrapAirtableAction(createAirtableRecord),
       metadata: {
         name: 'Create Record',
         description: 'Create a record in Airtable',
         version: '1.0.0',
         category: 'database'
-      }
+      },
+      aliases: ['airtable_action_create_record']
     },
     {
       actionType: 'update_record',
-      handler: async (config, context) => {
-        const provider = providerRegistry.getDatabaseProvider('airtable')
-        if (!provider) throw new Error('Airtable provider not available')
-        
-        return provider.updateRecord({
-          baseId: config.parameters.baseId,
-          tableName: config.parameters.tableName,
-          id: config.parameters.recordId,
-          fields: config.parameters.fields,
-          userId: context.userId
-        })
-      },
+      handler: wrapAirtableAction(updateAirtableRecord),
       metadata: {
         name: 'Update Record',
-        description: 'Update a record in Airtable',
+        description: 'Update an existing Airtable record',
         version: '1.0.0',
         category: 'database'
-      }
+      },
+      aliases: ['airtable_action_update_record']
     },
     {
       actionType: 'list_records',
-      handler: async (config, context) => {
-        const provider = providerRegistry.getDatabaseProvider('airtable')
-        if (!provider) throw new Error('Airtable provider not available')
-        
-        return provider.getRecords({
-          baseId: config.parameters.baseId,
-          tableName: config.parameters.tableName,
-          maxRecords: config.parameters.maxRecords || 100,
-          filterByFormula: config.parameters.filterByFormula,
-          userId: context.userId
-        })
-      },
+      handler: wrapAirtableAction(listAirtableRecords),
       metadata: {
         name: 'List Records',
-        description: 'Get records from Airtable',
+        description: 'List records from an Airtable table',
         version: '1.0.0',
         category: 'database'
-      }
+      },
+      aliases: ['airtable_action_list_records']
+    },
+    {
+      actionType: 'find_record',
+      handler: wrapAirtableAction(findAirtableRecord),
+      metadata: {
+        name: 'Find Record',
+        description: 'Find a record using filters',
+        version: '1.0.0',
+        category: 'database'
+      },
+      aliases: ['airtable_action_find_record']
+    },
+    {
+      actionType: 'delete_record',
+      handler: wrapAirtableAction(deleteAirtableRecord),
+      metadata: {
+        name: 'Delete Record',
+        description: 'Delete a record from Airtable',
+        version: '1.0.0',
+        category: 'database'
+      },
+      aliases: ['airtable_action_delete_record']
+    },
+    {
+      actionType: 'add_attachment',
+      handler: wrapAirtableAction(addAirtableAttachment),
+      metadata: {
+        name: 'Add Attachment',
+        description: 'Upload attachments to an Airtable record',
+        version: '1.0.0',
+        category: 'database'
+      },
+      aliases: ['airtable_action_add_attachment']
+    },
+    {
+      actionType: 'duplicate_record',
+      handler: wrapAirtableAction(duplicateAirtableRecord),
+      metadata: {
+        name: 'Duplicate Record',
+        description: 'Duplicate an Airtable record',
+        version: '1.0.0',
+        category: 'database'
+      },
+      aliases: ['airtable_action_duplicate_record']
+    },
+    {
+      actionType: 'get_table_schema',
+      handler: wrapAirtableAction(getAirtableTableSchema),
+      metadata: {
+        name: 'Get Table Schema',
+        description: 'Retrieve Airtable table schema',
+        version: '1.0.0',
+        category: 'database'
+      },
+      aliases: ['airtable_action_get_table_schema']
+    },
+    {
+      actionType: 'get_base_schema',
+      handler: wrapAirtableAction(getAirtableBaseSchema),
+      metadata: {
+        name: 'Get Base Schema',
+        description: 'Retrieve Airtable base schema',
+        version: '1.0.0',
+        category: 'database'
+      },
+      aliases: ['airtable_action_get_base_schema']
+    },
+    {
+      actionType: 'get_record',
+      handler: wrapAirtableAction(getAirtableRecord),
+      metadata: {
+        name: 'Get Record',
+        description: 'Retrieve a single Airtable record by ID',
+        version: '1.0.0',
+        category: 'database'
+      },
+      aliases: ['airtable_action_get_record']
+    },
+    {
+      actionType: 'create_multiple_records',
+      handler: wrapAirtableAction(createMultipleAirtableRecords),
+      metadata: {
+        name: 'Create Multiple Records',
+        description: 'Create up to 10 records in a single run',
+        version: '1.0.0',
+        category: 'database'
+      },
+      aliases: ['airtable_action_create_multiple_records']
+    },
+    {
+      actionType: 'update_multiple_records',
+      handler: wrapAirtableAction(updateMultipleAirtableRecords),
+      metadata: {
+        name: 'Update Multiple Records',
+        description: 'Update several records at once',
+        version: '1.0.0',
+        category: 'database'
+      },
+      aliases: ['airtable_action_update_multiple_records']
+    },
+    {
+      actionType: 'move_record',
+      handler: wrapAirtableAction(moveAirtableRecord),
+      metadata: {
+        name: 'Move Record',
+        description: 'Move a record between tables',
+        version: '1.0.0',
+        category: 'database'
+      },
+      aliases: ['airtable_action_move_record']
     }
-  ])
+  ]
+
+  airtableActions.forEach(action => {
+    actionRegistry.register({
+      providerId: 'airtable',
+      actionType: action.actionType,
+      handler: action.handler,
+      metadata: action.metadata
+    })
+
+    action.aliases?.forEach(alias => {
+      actionRegistry.register({
+        providerId: 'airtable',
+        actionType: alias,
+        handler: action.handler,
+        metadata: action.metadata
+      })
+    })
+  })
 
   logger.debug('✅ Airtable provider registered with database capabilities')
 }

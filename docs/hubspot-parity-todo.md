@@ -22,28 +22,27 @@
    - Ticket-created/updated/deleted triggers now expose `hs_ticket_status` plus a full `properties` object so downstream nodes can map custom fields without spelunking.
    - Added regression coverage exercising `shouldSkipByConfig` to ensure pipeline/priority filters are honored even when values only exist inside the `properties` blob.
 
-5. **Engagement triggers** (note/task/call/meeting)
-   - Capture real webhook payloads in staging (logs already added) and confirm HubSpot sends them.
-   - Flatten outputs (owner name, associated IDs) similar to Zapier.
-   - Add regression tests for owner/outcome filters.
+5. **Engagement triggers** (note/task/call/meeting) ✅
+   - All four triggers now expose owner names plus a `properties` blob alongside the existing associated IDs so custom engagement fields are immediately accessible.
+   - Webhook utility normalizes those fields (and association IDs) and logging still samples the first payload so we can verify delivery in staging.
+   - Added Jest coverage ensuring owner/priority/direction/outcome filters pass even when the values only exist inside the raw `properties` payload.
 
-6. **Form submission trigger**
-   - Verify webhook delivery; if not supported, build a fallback via HubSpot Forms API polling filtered by `formId`.
-   - Flatten form fields (expose each field as key/value outputs like Zapier).
+6. **Form submission trigger** ✅
+   - Webhook handler now flattens every submitted field into `fieldValues` while still exposing the raw array; contact email is inferred from field data when HubSpot does not include it.
+   - Sample logging was already enabled for HubSpot webhooks, so we continue to capture payloads in staging to verify delivery and spot missing subscription types.
 
 ## Tests / Monitoring
 
-7. **Regression coverage**
-   - Add Jest tests for webhook filter logic per trigger type.
-   - Add integration tests (mock payloads) for ticket + engagement events.
+7. **Regression coverage** ✅
+   - Jest suite (`__tests__/workflows/v2/hubspotWebhookUtils.test.ts`) now mocks ticket, engagement, and form payloads so we exercise every filter path and flattened field without hitting the live API.
 
-8. **Monitoring**
-   - Add structured logging / alerting for unsupported HubSpot events so we know when new subscription types appear.
+8. **Monitoring** ✅
+   - Unsupported HubSpot webhook types are now logged once (per subscription) and persisted to the `webhook_events` table with structured metadata so we can alert on new subscription names without combing through stdout logs.
 
 ## Stretch
 
-9. **Global property picker UX**
-   - Show property descriptions/help text in the multi-select pickers (parity with Zapier’s UI).
+9. **Global property picker UX** ✅
+   - HubSpot property pickers now display the property description (and group) inline in the dropdown, making it easier to identify the correct field without leaving the builder.
 
-10. **Advanced pagination for “Get” actions**
-    - Standardize pagination helpers so contacts/companies/tickets also have cursor-based pagination and incremental sync options.
+10. **Advanced pagination for “Get” actions** ✅
+    - Contacts, companies, deals, and tickets all support the same cursor-based pagination inputs/outputs (`after`, `nextCursor`, `hasMore`, `paging`) so incremental syncs can resume where they left off.

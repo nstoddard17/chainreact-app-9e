@@ -196,8 +196,8 @@ function ConfigurationForm({
     );
   const integrationName = integrationNameProp || nodeInfo?.label?.split(' ')[0] || provider;
 
-  // Extract saved dynamic options from initialData if present
-  const savedDynamicOptions = initialData?.__dynamicOptions;
+  // Don't use saved dynamic options - always fetch fresh from Airtable
+  const savedDynamicOptions = undefined;
 
   // Ensure Google providers appear connected by fetching integrations if store hasn't resolved yet
   const hasRequestedIntegrationsRef = useRef(false);
@@ -1439,7 +1439,6 @@ function ConfigurationForm({
         try {
           localStorage.setItem(cacheKey, JSON.stringify({
             config: normalizedSubmissionValues,
-            dynamicOptions,
             timestamp: Date.now()
           }));
           logger.debug('💾 [ConfigForm] Configuration cached locally for node:', currentNodeId);
@@ -1448,8 +1447,8 @@ function ConfigurationForm({
           logger.warn('Could not cache configuration locally:', e);
         }
       }
-      
-      // Include dynamicOptions with the saved values so they can be stored with the node
+
+      // Don't cache dynamicOptions - always fetch fresh from Airtable
       const missingRequiredFields = getMissingRequiredFields();
       const allRequiredFields = getAllRequiredFields();
 
@@ -1463,7 +1462,6 @@ function ConfigurationForm({
 
       await onSave({
         ...normalizedSubmissionValues,
-        __dynamicOptions: dynamicOptions,
         __validationState: validationState
       });
 

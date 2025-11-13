@@ -276,6 +276,8 @@ export const hubspotOptionsLoader: ProviderOptionsLoader = {
         properties.map((property: any) => ({
           value: property.name,
           label: property.label || property.name,
+          description: property.description || (property.fieldType ? `Type: ${property.fieldType}` : undefined),
+          group: property.group || property.groupName,
           raw: property
         }))
 
