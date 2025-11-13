@@ -15,6 +15,17 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300 // 5 minutes for long test runs
 
+const INTERNAL_BASE_URL = (() => {
+  const explicit = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_APP_URL
+  if (explicit) {
+    return explicit.replace(/\/$/, '')
+  }
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`
+  }
+  return 'http://localhost:3000'
+})()
+
 export async function POST(request: NextRequest) {
   try {
     // Get admin client
@@ -172,7 +183,14 @@ export async function POST(request: NextRequest) {
           controller.close()
         } catch (error: any) {
           logger.error('[TestIntegration] Stream error:', error)
-          controller.error(error)
+          const message = typeof error?.message === 'string' ? error.message : 'Unknown error'
+          const fallback = JSON.stringify({
+            error: message,
+            status: 'failed',
+            completed: true,
+          })
+          controller.enqueue(encoder.encode(`data: ${fallback}\n\n`))
+          controller.close()
         }
       },
     })
@@ -420,7 +438,7 @@ async function testTrigger(
  * Execute a workflow
  */
 async function executeWorkflow(workflowId: string, userId: string): Promise<any> {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const baseUrl = INTERNAL_BASE_URL
 
   const response = await fetch(`${baseUrl}/api/workflows/${workflowId}/execute`, {
     method: 'POST',
@@ -517,7 +535,7 @@ async function loadDynamicFieldValue(
   userId: string,
   provider: string
 ): Promise<any> {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const baseUrl = INTERNAL_BASE_URL
 
   // Call the integration data API to load options
   const response = await fetch(`${baseUrl}/api/integrations/${provider}/data?type=${field.dynamic}`, {
