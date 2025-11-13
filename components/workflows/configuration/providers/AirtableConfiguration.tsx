@@ -2778,6 +2778,7 @@ export function AirtableConfiguration({
           setAiFields={setAiFields}
           airtableTableSchema={airtableTableSchema}
           airtableBubbleSuggestions={displaySuggestions || suggestionsForField}
+          onAirtableBubbleRemove={handleBubbleRemove}
         />
         
         {/* Bubble display for multi-select fields */}

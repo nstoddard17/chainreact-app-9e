@@ -190,6 +190,7 @@ interface FieldProps {
   aiToggleButton?: React.ReactNode; // AI toggle button to render alongside label
   airtableTableSchema?: any; // Airtable table schema for dynamic field rendering
   airtableBubbleSuggestions?: any[]; // Bubble metadata for Airtable fields
+  onAirtableBubbleRemove?: (index: number, suggestion?: any) => void; // Remove persisted Airtable attachment bubble
 }
 
 /**
@@ -296,6 +297,7 @@ export function FieldRenderer({
   aiToggleButton,
   airtableTableSchema,
   airtableBubbleSuggestions = [],
+  onAirtableBubbleRemove,
 }: FieldProps) {
   // State for file-with-toggle mode - moved outside of render function to prevent infinite loop
   const [inputMode, setInputMode] = useState(() => {
@@ -1217,6 +1219,7 @@ export function FieldRenderer({
                 aiFields={aiFields}
                 setAiFields={setAiFields}
                 persistedImages={airtableImageSuggestions}
+                onPersistedImageRemove={onAirtableBubbleRemove}
               />
             );
           }
@@ -1282,6 +1285,7 @@ export function FieldRenderer({
                 aiFields={aiFields}
                 setAiFields={setAiFields}
                 persistedImages={airtableImageSuggestions}
+                onPersistedImageRemove={onAirtableBubbleRemove}
               />
             );
           }

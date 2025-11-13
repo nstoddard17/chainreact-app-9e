@@ -2,7 +2,7 @@
 
 import React, { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Upload, X, Bot } from "lucide-react";
+import { Upload, Bot, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import { logger } from '@/lib/utils/logger'
@@ -15,6 +15,7 @@ interface AirtableImageFieldProps {
   aiFields?: Record<string, boolean>;
   setAiFields?: (fields: Record<string, boolean>) => void;
   persistedImages?: any[];
+  onPersistedImageRemove?: (index: number, suggestion?: any) => void;
 }
 
 /**
@@ -29,6 +30,7 @@ export function AirtableImageField({
   aiFields,
   setAiFields,
   persistedImages = [],
+  onPersistedImageRemove,
 }: AirtableImageFieldProps) {
   const [uploadingFile, setUploadingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -36,16 +38,8 @@ export function AirtableImageField({
   // Check if field is in AI mode
   const isAIMode = aiFields?.[field.name] || (typeof value === 'string' && value.startsWith('{{AI_FIELD:'));
 
-  // Parse the value - must be called before any conditional returns to maintain hook order
-  // This could be:
-  // 1. Array of attachment objects from Airtable
-  // 2. A file object from local upload
-  // 3. A base64 string
-  // 4. null/undefined
-  const images = React.useMemo(() => {
-    const normalized: Array<any> = [];
-
-    const pushNormalized = (img: any, source: 'value' | 'persisted', sourceIndex: number) => {
+  const { localImages, savedImages } = React.useMemo(() => {
+    const makeRecord = (img: any, origin: 'value' | 'persisted', sourceIndex: number) => {
       if (!img) return;
       let url: string | undefined;
       if (typeof img === 'string') {
@@ -60,37 +54,46 @@ export function AirtableImageField({
           img.value;
       }
 
-      if (!url) return;
+      if (!url) return undefined;
 
-      normalized.push({
+      return {
         url,
         filename: img.filename || img.label || img.name || 'Image',
         id: img.id,
         size: img.size,
         type: img.type,
-        isLocal: img.isLocal,
-        origin: source,
+        isLocal: origin === 'value' || img.isLocal,
+        origin,
         sourceIndex,
         raw: img
-      });
+      };
     };
 
+    const locals: any[] = [];
+    const saved: any[] = [];
+
     if (Array.isArray(value)) {
-      value.forEach((img, idx) => pushNormalized(img, 'value', idx));
+      value.forEach((img, idx) => {
+        const record = makeRecord(img, 'value', idx);
+        if (record) locals.push(record);
+      });
     } else if (value) {
-      pushNormalized(value, 'value', 0);
+      const record = makeRecord(value, 'value', 0);
+      if (record) locals.push(record);
     }
 
-    if (normalized.length === 0 && typeof value === 'string' && value.startsWith('data:')) {
-      pushNormalized(value, 'value', 0);
+    if (Array.isArray(persistedImages)) {
+      persistedImages.forEach((img, idx) => {
+        const record = makeRecord(img, 'persisted', idx);
+        if (record) saved.push(record);
+      });
     }
 
-    if (Array.isArray(persistedImages) && persistedImages.length > 0) {
-      persistedImages.forEach((img, idx) => pushNormalized(img, 'persisted', idx));
-    }
-
-    return normalized;
+    return { localImages: locals, savedImages: saved };
   }, [value, persistedImages]);
+
+  const previewImages = savedImages.length > 0 ? savedImages : localImages;
+  const hasLocalImage = localImages.length > 0;
 
   // If in AI mode, show the AI UI
   if (isAIMode) {
@@ -134,7 +137,7 @@ export function AirtableImageField({
 
   const handleFileSelect = () => {
     // When replacing an image (images already exist), ensure we're ready for a clean replacement
-    if (images.length > 0 && !field.multiple) {
+    if (hasLocalImage && !field.multiple) {
       logger.debug('🔄 [AirtableImageField] Replacing existing image...');
     }
     fileInputRef.current?.click();
@@ -201,24 +204,15 @@ export function AirtableImageField({
     }
   };
 
-  const valueImages = React.useMemo(
-    () => images.filter(img => img.origin === 'value'),
-    [images]
-  );
-
   const handleRemoveImage = (image: any) => {
-    if (Array.isArray(value)) {
-      const targetIndex = typeof image?.sourceIndex === 'number'
-        ? image.sourceIndex
-        : value.findIndex((entry: any) => entry === image?.raw);
+    if (image.origin === 'persisted') {
+      onPersistedImageRemove?.(image.sourceIndex, image.raw);
+      return;
+    }
 
-      if (targetIndex >= 0) {
-        const newValue = value.filter((_: any, i: number) => i !== targetIndex);
-        onChange(newValue.length > 0 ? newValue : null);
-        return;
-      }
-      const filtered = value.filter((entry: any) => entry?.url !== image?.url);
-      onChange(filtered.length > 0 ? filtered : null);
+    if (Array.isArray(value)) {
+      const newValue = value.filter((_, idx) => idx !== image.sourceIndex);
+      onChange(newValue.length > 0 ? newValue : null);
     } else {
       onChange(null);
     }
@@ -226,14 +220,13 @@ export function AirtableImageField({
 
   return (
     <div className="space-y-3">
-      {/* Compact preview rows */}
-      {valueImages.length > 0 && (
+      {previewImages.length > 0 && (
         <div className="space-y-2">
-          {valueImages.map((img, index) => {
+          {previewImages.map((img, index) => {
             const sizeInKb = img.size ? (img.size / 1024).toFixed(1) : null;
             return (
               <div
-                key={`${img.id || img.filename || 'image'}-${index}`}
+                key={`${img.origin}-${img.id || img.filename || img.url}-${index}`}
                 className="flex items-center gap-3 rounded-lg border border-slate-200 bg-card px-3 py-2"
               >
                 <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-md border border-slate-200 bg-slate-50">
@@ -262,7 +255,7 @@ export function AirtableImageField({
                         {img.type.split("/")[1]}
                       </span>
                     )}
-                    {img.isLocal && (
+                    {img.origin === 'value' && (
                       <span className="text-blue-600 font-medium">New Upload</span>
                     )}
                   </div>
@@ -309,14 +302,14 @@ export function AirtableImageField({
               Uploading...
             </>
           ) : (
-            <>
-              <Upload className="h-4 w-4" />
-              {valueImages.length > 0 ? 'Replace Image' : 'Upload Image'}
-            </>
+              <>
+                <Upload className="h-4 w-4" />
+                {hasLocalImage ? 'Replace Image' : 'Upload Image'}
+              </>
           )}
         </Button>
 
-        {valueImages.length === 0 && (
+        {previewImages.length === 0 && (
           <p className="text-xs text-slate-500">
             {field.multiple
               ? `Select multiple images to upload. Supported formats: JPG, PNG, GIF, WebP`
