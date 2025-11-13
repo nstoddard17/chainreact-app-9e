@@ -353,8 +353,8 @@ export function AIAgentModal({
                       <AlertTitle>Prompt Tips</AlertTitle>
                       <AlertDescription className="space-y-1 mt-2 text-xs">
                         <p>• Use <code className="bg-muted px-1 py-0.5 rounded">[name]</code> for simple replacements.</p>
-                        <p>• Reference upstream data like <code className="bg-muted px-1 py-0.5 rounded">{{'{{trigger.email.from}}'}}</code>.</p>
-                        <p>• Use <code className="bg-muted px-1 py-0.5 rounded">{{'{{AI:summarize}}'}}</code> for AI-generated actions.</p>
+                        <p>• Reference upstream data like <code className="bg-muted px-1 py-0.5 rounded">{'{{trigger.email.from}}'}</code>.</p>
+                        <p>• Use <code className="bg-muted px-1 py-0.5 rounded">{'{{AI:summarize}}'}</code> for AI-generated actions.</p>
                       </AlertDescription>
                     </Alert>
                   </CardContent>
