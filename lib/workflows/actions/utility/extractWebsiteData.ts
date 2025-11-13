@@ -3,7 +3,6 @@ import { resolveValue } from '../core/resolveValue';
 import { logger } from '@/lib/utils/logger';
 import * as cheerio from 'cheerio';
 import OpenAI from 'openai';
-import puppeteer from 'puppeteer';
 import { createClient } from '@supabase/supabase-js';
 
 const openai = new OpenAI({
@@ -389,7 +388,7 @@ export async function executeExtractWebsiteData(
 
 /**
  * Fetch webpage using Puppeteer for dynamic content
- * Supports both local Puppeteer and remote Browserless.io
+ * Supports both local development (puppeteer) and production serverless (@sparticuz/chromium)
  */
 async function fetchWithPuppeteer(
   url: string,
@@ -400,23 +399,39 @@ async function fetchWithPuppeteer(
   includeScreenshot: boolean = false
 ): Promise<{ html: string; screenshot: string | null }> {
   let browser = null;
+  const isProduction = process.env.NODE_ENV === 'production';
 
   try {
-    // Launch local Puppeteer (works on VPS and local development)
-    logger.info('[ExtractWebsiteData] Launching Puppeteer');
-    browser = await puppeteer.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--disable-gpu',
-        '--no-first-run',
-        '--no-zygote',
-        '--single-process'
-      ]
-    });
+    logger.info('[ExtractWebsiteData] Launching Puppeteer', { isProduction });
+
+    if (isProduction) {
+      // Production: Use puppeteer-core with @sparticuz/chromium (Vercel-compatible)
+      const puppeteerCore = await import('puppeteer-core');
+      const chromium = await import('@sparticuz/chromium');
+
+      browser = await puppeteerCore.default.launch({
+        args: chromium.default.args,
+        defaultViewport: chromium.default.defaultViewport,
+        executablePath: await chromium.default.executablePath(),
+        headless: chromium.default.headless,
+      });
+    } else {
+      // Development: Use regular puppeteer (bundled Chrome)
+      const puppeteer = await import('puppeteer');
+      browser = await puppeteer.default.launch({
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--disable-gpu',
+          '--no-first-run',
+          '--no-zygote',
+          '--single-process'
+        ]
+      });
+    }
 
     const page = await browser.newPage();
 
