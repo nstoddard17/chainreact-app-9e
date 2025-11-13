@@ -1,7 +1,7 @@
 import type React from "react"
 import type { Metadata } from "next"
 import "./globals.css"
-import { Space_Grotesk } from "next/font/google"
+import localFont from "next/font/local"
 import { ThemeProvider } from "@/components/theme-provider"
 import SupabaseProvider from "@/components/providers/SupabaseProvider"
 import AuthInitializer from "@/components/auth/AuthInitializer"
@@ -19,11 +19,27 @@ import { GlobalAdminDebugPanel } from "@/components/debug/GlobalAdminDebugPanel"
 // import ArchitectureProvider from "@/components/providers/ArchitectureProvider"
 
 // Optimize font loading with display: swap for better LCP
-const spaceGrotesk = Space_Grotesk({ 
-  subsets: ["latin"],
-  display: 'swap',
+const spaceGrotesk = localFont({
+  src: [
+    {
+      path: "../public/fonts/SpaceGrotesk-Latin.woff2",
+      weight: "300 700",
+      style: "normal",
+    },
+    {
+      path: "../public/fonts/SpaceGrotesk-LatinExt.woff2",
+      weight: "300 700",
+      style: "normal",
+    },
+    {
+      path: "../public/fonts/SpaceGrotesk-Vietnamese.woff2",
+      weight: "300 700",
+      style: "normal",
+    },
+  ],
+  display: "swap",
   preload: true,
-  variable: '--font-space-grotesk',
+  variable: "--font-space-grotesk",
 })
 
 export const metadata: Metadata = {
@@ -101,11 +117,6 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Preload critical resources */}
-        <link rel="dns-prefetch" href="//fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" crossOrigin="anonymous" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        
         {/* Performance hints */}
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="theme-color" content="#1e293b" />
