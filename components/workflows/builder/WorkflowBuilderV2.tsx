@@ -1544,20 +1544,59 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
 
     const position = nodeData.position || { x: 400, y: 300 }
     const nodeComponent = nodeComponentMap.get(nodeData.type)
+    const providerId = nodeComponent?.providerId ?? nodeData.providerId
+
+    // Generate a temporary ID that will be replaced by the real one from DB
+    const tempId = `node-${Date.now()}`
+
+    // Create the node immediately for instant UI feedback
+    const optimisticNode = {
+      id: tempId,
+      type: "custom",
+      position,
+      data: {
+        label: nodeComponent?.title ?? nodeData.title ?? nodeData.type,
+        title: nodeComponent?.title ?? nodeData.title ?? nodeData.type,
+        type: nodeData.type,
+        description: nodeComponent?.description ?? "",
+        providerId,
+        icon: nodeComponent?.icon,
+        config: {},
+        isTrigger: nodeComponent?.isTrigger ?? false,
+        _optimistic: true, // Mark as optimistic so we know to replace it
+      },
+    }
 
     const currentNodes = builder.nodes ?? []
     const currentEdges = builder.edges ?? []
 
+    // Add node to canvas immediately
+    builder.setNodes([...currentNodes, optimisticNode])
+
     // Close panel immediately for better UX
     setIsIntegrationsPanelOpen(false)
 
+    // Open config modal immediately for instant configuration
+    setConfiguringNode(optimisticNode)
+
     try {
-      // Add node directly without placeholder - this will show immediately
-      await actions.addNode(nodeData.type, position)
+      // Persist to database in background
+      const newNode = await actions.addNode(nodeData.type, position)
+
+      // Update the configuring node with the real node ID from DB
+      if (newNode) {
+        setConfiguringNode((current: any) => {
+          if (current && current.id === tempId) {
+            return { ...current, id: newNode.id, data: { ...current.data, _optimistic: false } }
+          }
+          return current
+        })
+      }
     } catch (error: any) {
       // Only rollback if it failed
       builder.setNodes(currentNodes)
       builder.setEdges(currentEdges)
+      setConfiguringNode(null)
       toast({
         title: "Failed to add node",
         description: error?.message ?? "Unable to add node",

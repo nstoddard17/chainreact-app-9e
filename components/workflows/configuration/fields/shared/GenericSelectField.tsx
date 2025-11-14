@@ -96,15 +96,7 @@ export function GenericSelectField({
   // All hooks must be at the top level before any conditional returns
   // Store the display label for the selected value
   // Initialize with the current value if it exists (for instant display of saved values)
-  const [displayLabel, setDisplayLabel] = React.useState<string | null>(() => {
-    // If we have a value but no options yet, use the value as the display label
-    // This ensures saved values appear immediately while options load in background
-    // Only do this for primitive values (strings/numbers), not objects/arrays
-    if (value && (!options || options.length === 0) && (typeof value === 'string' || typeof value === 'number')) {
-      return String(value);
-    }
-    return null;
-  });
+  const [displayLabel, setDisplayLabel] = React.useState<string | null>(null);
   const [isDragOver, setIsDragOver] = React.useState(false);
 
   // State for refresh button - must be at top level before any returns
@@ -521,6 +513,16 @@ export function GenericSelectField({
       }
     }
   }, [value, options, getFriendlyVariableLabel, workflowNodes, loadCachedLabel, saveLabelToCache]);
+
+  // Load cached label immediately on mount for instant display
+  React.useEffect(() => {
+    if (value && !displayLabel && (typeof value === 'string' || typeof value === 'number')) {
+      const cached = loadCachedLabel(String(value));
+      if (cached) {
+        setDisplayLabel(cached);
+      }
+    }
+  }, []); // Run only once on mount
 
   // Auto-select single option for disabled fields (e.g., monetization eligibility status)
   React.useEffect(() => {
@@ -1041,8 +1043,8 @@ export function GenericSelectField({
             placeholder={placeholderText}
             emptyPlaceholder={isLoading ? loadingPlaceholder : getEmptyMessage(field.name, field.label, (field as any).emptyMessage)}
             searchPlaceholder="Search options..."
-            disabled={isLoading}
-            loading={isLoading}
+            disabled={isLoading && !displayLabel}
+            loading={isLoading && !displayLabel}
             creatable={(field as any).creatable || isAirtableRecordField} // Allow custom option creation for Airtable fields or if specified in field schema
             onOpenChange={handleFieldOpen}
             selectedValues={effectiveSelectedValues} // Pass selected values for checkmarks
@@ -1119,8 +1121,8 @@ export function GenericSelectField({
             placeholder={placeholderText}
             searchPlaceholder="Search options..."
             emptyPlaceholder={isLoading || isSearching ? loadingPlaceholder : ((field as any).emptyMessage || "No options found")}
-            disabled={isLoading}
-            loading={isLoading || isSearching}
+            disabled={isLoading && !displayLabel}
+            loading={(isLoading || isSearching) && !displayLabel}
             creatable={(field as any).creatable || isAirtableRecordField} // Allow custom option creation for Airtable fields or if specified in field schema
             onOpenChange={handleFieldOpen} // Add missing onOpenChange handler
             onSearchChange={handleSearchChange} // Handle debounced search

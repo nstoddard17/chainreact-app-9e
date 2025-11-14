@@ -295,6 +295,51 @@ function ConfigurationForm({
   // Ref to track which fields have already loaded options to prevent infinite loops
   const loadedFieldsWithValues = useRef<Set<string>>(new Set());
 
+  // Ref to track if we've auto-loaded fields to prevent duplicate loads
+  const hasAutoLoadedRef = useRef(false);
+
+  // Auto-load all dynamic dropdown fields when modal opens
+  useEffect(() => {
+    if (!nodeInfo?.configSchema || hasAutoLoadedRef.current) return;
+
+    // Mark as loaded to prevent duplicate calls
+    hasAutoLoadedRef.current = true;
+
+    // Find all dynamic fields that don't depend on other fields (can be loaded immediately)
+    const fieldsToLoad: Array<{ fieldName: string; dependsOn?: string; dependsOnValue?: any }> = [];
+
+    nodeInfo.configSchema.forEach((field: any) => {
+      // Only load dynamic fields
+      if (!field.dynamic) return;
+
+      // Skip fields that depend on other fields (they'll load when dependencies are met)
+      if (field.dependsOn) {
+        // Check if dependency value exists in initial data
+        const dependencyValue = values[field.dependsOn] || initialData?.[field.dependsOn];
+        if (dependencyValue) {
+          fieldsToLoad.push({
+            fieldName: field.name,
+            dependsOn: field.dependsOn,
+            dependsOnValue: dependencyValue
+          });
+        }
+        return;
+      }
+
+      // Add independent fields
+      fieldsToLoad.push({ fieldName: field.name });
+    });
+
+    // Load all fields in parallel for instant UX
+    if (fieldsToLoad.length > 0) {
+      logger.debug(`🚀 [ConfigForm] Auto-loading ${fieldsToLoad.length} dynamic fields on modal open:`,
+        fieldsToLoad.map(f => f.fieldName));
+      loadOptionsParallel(fieldsToLoad).catch(error => {
+        logger.error('[ConfigForm] Auto-load failed:', error);
+      });
+    }
+  }, [nodeInfo?.configSchema, loadOptionsParallel, values, initialData]);
+
   // Consolidated field change handler hook
   const { handleFieldChange } = useFieldChangeHandler({
     nodeInfo,
@@ -1238,6 +1283,7 @@ function ConfigurationForm({
     onBack,
     isEditMode,
     workflowData,
+    workflowId: workflowData?.id,
     currentNodeId,
     dynamicOptions,
     loadingDynamic,

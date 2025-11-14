@@ -345,7 +345,8 @@ export const airtableNodes: NodeComponent[] = [
         required: true,
         placeholder: "Enter record ID or use a variable",
         description: "The ID of the record to update (e.g., recXXXXXXXXXXXXXX)",
-        supportsVariables: true
+        supportsVariables: true,
+        dependsOn: "tableName"
       }
     ]
   },
