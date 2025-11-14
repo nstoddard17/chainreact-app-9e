@@ -972,8 +972,13 @@ export function AirtableConfiguration({
     // Check dependsOn for all fields (not just hidden ones)
     if (field.dependsOn) {
       const dependencyValue = values[field.dependsOn];
-      if (!dependencyValue) {
-        return false; // Hide if dependency is not satisfied
+      const fieldHasSavedValue = values[field.name] !== undefined && values[field.name] !== null && values[field.name] !== '';
+
+      // Show field if:
+      // 1. Dependency is satisfied, OR
+      // 2. Field already has a saved value (from reopening a saved config)
+      if (!dependencyValue && !fieldHasSavedValue) {
+        return false; // Hide if dependency is not satisfied AND no saved value
       }
     }
 
@@ -1017,8 +1022,10 @@ export function AirtableConfiguration({
 
     // Progressive disclosure for Find Record
     if (isFindRecord) {
-      // Step 1: Only show baseId initially
-      if (field.name !== 'baseId' && (!values.baseId || values.baseId === '')) {
+      const fieldHasSavedValue = values[field.name] !== undefined && values[field.name] !== null && values[field.name] !== '';
+
+      // Step 1: Only show baseId initially (unless field has saved value)
+      if (field.name !== 'baseId' && (!values.baseId || values.baseId === '') && !fieldHasSavedValue) {
         if (isSearchRelated) {
           console.log(`❌ [shouldShowField] ${field.name}: Progressive disclosure - no baseId (value: ${values.baseId})`);
         }
@@ -1028,7 +1035,8 @@ export function AirtableConfiguration({
       // Step 2: After baseId selected, show tableName
       // Step 3: After tableName selected, show all other fields
       // IMPORTANT: Treat empty string as falsy - it means table hasn't been selected yet
-      if (field.name !== 'baseId' && field.name !== 'tableName' && (!values.tableName || values.tableName === '')) {
+      // BUT: Show field if it already has a saved value (for reopening saved configs)
+      if (field.name !== 'baseId' && field.name !== 'tableName' && (!values.tableName || values.tableName === '') && !fieldHasSavedValue) {
         if (isSearchRelated) {
           console.log(`❌ [shouldShowField] ${field.name}: Progressive disclosure - no tableName (value: '${values.tableName}')`);
         }
@@ -1039,6 +1047,7 @@ export function AirtableConfiguration({
     // Progressive disclosure for Delete Record
     if (isDeleteRecord) {
       const isDeleteRelated = ['recordId', 'deleteMode', 'searchMode', 'searchField', 'searchValue', 'matchType', 'caseSensitive', 'filterFormula', 'maxRecords'].includes(field.name);
+      const fieldHasSavedValue = values[field.name] !== undefined && values[field.name] !== null && values[field.name] !== '';
 
       if (isDeleteRelated) {
         console.log(`🗑️ [shouldShowField] Checking ${field.name}:`, {
@@ -1046,19 +1055,20 @@ export function AirtableConfiguration({
           baseId: values.baseId,
           tableName: values.tableName,
           deleteMode: values.deleteMode,
+          hasSavedValue: fieldHasSavedValue
         });
       }
 
-      // Step 1: Only show baseId initially
-      if (field.name !== 'baseId' && (!values.baseId || values.baseId === '')) {
+      // Step 1: Only show baseId initially (unless field has saved value)
+      if (field.name !== 'baseId' && (!values.baseId || values.baseId === '') && !fieldHasSavedValue) {
         if (isDeleteRelated) {
           console.log(`❌ [shouldShowField] ${field.name}: Progressive disclosure - no baseId`);
         }
         return false;
       }
 
-      // Step 2: After baseId selected, show tableName
-      if (field.name !== 'baseId' && field.name !== 'tableName' && (!values.tableName || values.tableName === '')) {
+      // Step 2: After baseId selected, show tableName (unless field has saved value)
+      if (field.name !== 'baseId' && field.name !== 'tableName' && (!values.tableName || values.tableName === '') && !fieldHasSavedValue) {
         if (isDeleteRelated) {
           console.log(`❌ [shouldShowField] ${field.name}: Progressive disclosure - no tableName`);
         }
@@ -1127,6 +1137,22 @@ export function AirtableConfiguration({
 
   const dynamicFields = getDynamicFields();
 
+  // For Update Record nodes: Add any saved airtable_field_* values that aren't in the schema yet
+  // This ensures previously configured fields are visible when reopening the modal
+  // For most cases, just use dynamicFields directly
+  // We don't need to add saved fields that aren't in the schema - the schema loading will handle that
+  const allDynamicFields = dynamicFields;
+
+  // Create a stable flag for whether to show the dynamic fields section
+  // This prevents flashing as fields load/unload
+  const shouldShowDynamicFieldsSection = useMemo(() => {
+    const hasTableSelected = !!values.tableName;
+    if (isCreateRecord) return hasTableSelected;
+    if (isUpdateRecord) return hasTableSelected && (!!selectedRecord || !!values.recordId);
+    if (isUpdateMultipleRecords) return selectedMultipleRecords.length > 0;
+    return false;
+  }, [isCreateRecord, isUpdateRecord, isUpdateMultipleRecords, values.tableName, values.recordId, selectedRecord, selectedMultipleRecords.length]);
+
   // Track which loadOnMount fields have been loaded
   const loadedOnMountRef = React.useRef<Set<string>>(new Set());
 
@@ -1173,7 +1199,7 @@ export function AirtableConfiguration({
 
       // Check if it's a dynamic Airtable field (linked records, etc.)
       if (fieldName.startsWith('airtable_field_')) {
-        const dynamicField = dynamicFields.find((f: any) => f.name === fieldName);
+        const dynamicField = allDynamicFields.find((f: any) => f.name === fieldName);
         if (dynamicField) {
           console.log('[AirtableConfig] Loading dynamic field:', fieldName, dynamicField.airtableFieldType);
           await loadOptions(fieldName, undefined, undefined, forceReload, false, extraOptions);
@@ -1623,7 +1649,7 @@ export function AirtableConfiguration({
 
     // For Airtable fields, handle bubble creation
     if (fieldName.startsWith('airtable_field_') && !skipBubbleCreation && value) {
-      const field = dynamicFields.find(f => f.name === fieldName);
+      const field = allDynamicFields.find(f => f.name === fieldName);
       if (!field) return;
 
       // Handle multi-select fields
@@ -1871,7 +1897,7 @@ export function AirtableConfiguration({
         }
       }
     }
-  }, [dynamicFields, fieldSuggestions, setValue, getLabelFromValue, getOptionLabelForValue]);
+  }, [allDynamicFields, fieldSuggestions, setValue, getLabelFromValue, getOptionLabelForValue]);
   
   // Track loaded linked fields to avoid reloading
   const [loadedLinkedFields, setLoadedLinkedFields] = useState<Set<string>>(new Set());
@@ -1889,16 +1915,16 @@ export function AirtableConfiguration({
     // Only for create/update/find record actions
     if (!isCreateRecord && !isUpdateRecord && !isUpdateMultipleRecords && !isFindRecord) return;
     if (!values.tableName || !values.baseId) return;
-    if (dynamicFields.length === 0) return;
+    if (allDynamicFields.length === 0) return;
 
     logger.debug('🚀 [AUTO-LOAD] Checking for fields to auto-load', {
-      totalFields: dynamicFields.length,
+      totalFields: allDynamicFields.length,
       tableName: values.tableName,
       baseId: values.baseId
     });
 
     // Find all dropdown fields that haven't been auto-loaded yet
-    const fieldsToAutoLoad = dynamicFields.filter(field => {
+    const fieldsToAutoLoad = allDynamicFields.filter(field => {
       // Skip if already auto-loaded
       if (autoLoadedFields.has(field.name)) {
         return false;
@@ -1983,7 +2009,7 @@ export function AirtableConfiguration({
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dynamicFields, values.tableName, values.baseId, isCreateRecord, isUpdateRecord, isUpdateMultipleRecords, isFindRecord,
+  }, [allDynamicFields, values.tableName, values.baseId, isCreateRecord, isUpdateRecord, isUpdateMultipleRecords, isFindRecord,
       dynamicOptions, batchLoadedOptions, autoLoadedFields, airtableTableSchema]); // Don't include loadOptions
 
   // Clear auto-loaded fields and invalidate dynamic field cache when table changes
@@ -2145,12 +2171,12 @@ export function AirtableConfiguration({
 
   // Load linked record options when a record is selected
   useEffect(() => {
-    if (!values.recordId || !dynamicFields.length) return;
+    if (!values.recordId || !allDynamicFields.length) return;
 
     logger.debug('🟢 [LINKED FIELDS] Record selected, checking for linked fields to load');
 
     // Find linked fields that haven't been loaded yet
-    const linkedFieldsToLoad = dynamicFields.filter(field =>
+    const linkedFieldsToLoad = allDynamicFields.filter(field =>
       (field.airtableFieldType === 'multipleRecordLinks' || field.airtableFieldType === 'singleRecordLink') &&
       !loadedLinkedFields.has(field.name)
     );
@@ -2185,12 +2211,12 @@ export function AirtableConfiguration({
         loadOptions(field.name, undefined, undefined, true, false, extraOptions);
       });
     }
-  }, [values.recordId, values.baseId, values.tableName, dynamicFields.length, loadOptions, loadedLinkedFields, airtableTableSchema]); // Include all dependencies
+  }, [values.recordId, values.baseId, values.tableName, allDynamicFields.length, loadOptions, loadedLinkedFields, airtableTableSchema]); // Include all dependencies
 
   // Load dropdown options for dynamic fields only when user interacts with them
   // This prevents auto-expansion when table is loaded
   const loadDropdownOptionsForField = useCallback(async (fieldName: string) => {
-    if (!dynamicFields.length || !values.tableName || !values.baseId) return;
+    if (!allDynamicFields.length || !values.tableName || !values.baseId) return;
 
     // Skip if already loaded
     if (loadedDropdownFields.has(fieldName)) return;
@@ -3326,7 +3352,7 @@ export function AirtableConfiguration({
             )}
 
             {/* Dynamic fields for create/update */}
-            {(isCreateRecord || (isUpdateRecord && selectedRecord) || (isUpdateMultipleRecords && selectedMultipleRecords.length > 0)) && dynamicFields.length > 0 && (
+            {shouldShowDynamicFieldsSection && (
               <div className="space-y-3" data-dynamic-fields>
                 <div className="mt-6 border-t border-slate-200 pt-4">
                   <div className="space-y-1 mb-4">
@@ -3337,7 +3363,13 @@ export function AirtableConfiguration({
                   </div>
                 </div>
                 <div className="space-y-3">
-                  {renderFields(dynamicFields, true)}
+                  {allDynamicFields.length > 0 ? (
+                    renderFields(allDynamicFields, true)
+                  ) : (
+                    <div className="text-sm text-slate-500 py-4">
+                      Loading table fields...
+                    </div>
+                  )}
                 </div>
               </div>
             )}

@@ -42,6 +42,7 @@ import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 import type { NodeComponent } from "@/lib/workflows/nodes/types"
 import { getNodeByType } from "@/lib/workflows/nodes/registry"
 import { ConfigurationModal } from "@/components/workflows/configuration"
+import { usePrefetchConfig } from "@/components/workflows/configuration/hooks/usePrefetchConfig"
 import "./styles/FlowBuilder.anim.css"
 import { Sparkles } from "lucide-react"
 import { FlowV2BuilderContent } from "./FlowV2BuilderContent"
@@ -301,6 +302,7 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
   const { toast } = useToast()
   const { initialized: authInitialized, user } = useAuthStore()
   const { isIntegrationConnected } = useIntegrationSelection()
+  const { prefetchNodeConfig } = usePrefetchConfig()
 
   // State management
   const [workflowName, setWorkflowName] = useState(adapter.state.flowName)
@@ -1611,15 +1613,30 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
   }, [handleDeleteNodes])
 
   // Handle node configuration (double-click or manual trigger)
-  const handleNodeConfigure = useCallback((nodeId: string) => {
+  const handleNodeConfigure = useCallback(async (nodeId: string) => {
     const node = reactFlowProps?.nodes?.find((n: any) => n.id === nodeId)
     if (node) {
       console.log('🔧 [WorkflowBuilder] Opening configuration for node:', nodeId, node)
+
+      // Prefetch config data before opening modal for instant UX
+      const nodeInfo = getNodeByType(node.data?.nodeType || node.type)
+      if (nodeInfo && nodeInfo.configSchema) {
+        console.log('🚀 [WorkflowBuilder] Prefetching config data for:', node.data?.nodeType)
+        // Don't await - let it load in parallel with modal opening
+        prefetchNodeConfig(
+          node.data?.nodeType || node.type,
+          nodeInfo.providerId || '',
+          nodeInfo.configSchema
+        ).catch(err => {
+          console.warn('⚠️ [WorkflowBuilder] Prefetch failed (non-critical):', err)
+        })
+      }
+
       setConfiguringNode(node)
     } else {
       console.warn('🔧 [WorkflowBuilder] Node not found for configuration:', nodeId)
     }
-  }, [reactFlowProps?.nodes])
+  }, [reactFlowProps?.nodes, prefetchNodeConfig])
 
   // Handle saving node configuration
   const handleSaveNodeConfig = useCallback(async (nodeId: string, config: Record<string, any>) => {

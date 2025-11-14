@@ -95,7 +95,16 @@ export function GenericSelectField({
 
   // All hooks must be at the top level before any conditional returns
   // Store the display label for the selected value
-  const [displayLabel, setDisplayLabel] = React.useState<string | null>(null);
+  // Initialize with the current value if it exists (for instant display of saved values)
+  const [displayLabel, setDisplayLabel] = React.useState<string | null>(() => {
+    // If we have a value but no options yet, use the value as the display label
+    // This ensures saved values appear immediately while options load in background
+    // Only do this for primitive values (strings/numbers), not objects/arrays
+    if (value && (!options || options.length === 0) && (typeof value === 'string' || typeof value === 'number')) {
+      return String(value);
+    }
+    return null;
+  });
   const [isDragOver, setIsDragOver] = React.useState(false);
 
   // State for refresh button - must be at top level before any returns
@@ -116,6 +125,12 @@ export function GenericSelectField({
   // State for search functionality (for fields like gmail-recent-emails)
   const [isSearching, setIsSearching] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
+
+  // Check if this is an Airtable create/update record field that should support custom input
+  const isAirtableRecordField = nodeInfo?.providerId === 'airtable' &&
+    (nodeInfo?.type === 'airtable_action_create_record' ||
+     nodeInfo?.type === 'airtable_action_update_record') &&
+    field.name?.startsWith('airtable_field_');
 
   // Cached dynamic load wrapper - checks cache before calling onDynamicLoad
   const cachedDynamicLoad = React.useCallback(async (
@@ -795,6 +810,18 @@ export function GenericSelectField({
     const processed = processOptions(options);
     const duration = performance.now() - startTime;
 
+    // If we have a saved value but it's not in the options yet, add it as a temporary option
+    // This allows fields to display their saved value immediately while options load in background
+    // Only do this for primitive values (strings/numbers), not objects/arrays
+    if (value && !processed.some(opt => opt.value === value) && (typeof value === 'string' || typeof value === 'number')) {
+      const tempLabel = displayLabel || loadCachedLabel(String(value)) || String(value);
+      processed.unshift({
+        value,
+        label: tempLabel,
+        isTemporal: true // Mark as temporary so we know to replace it when real options load
+      });
+    }
+
     // Debug logging for HubSpot listId field
     if (nodeInfo?.providerId === 'hubspot' && field.name === 'listId') {
       console.log('🟠 [GenericSelectField] listId processedOptions:', {
@@ -812,7 +839,7 @@ export function GenericSelectField({
     }
 
     return processed;
-  }, [options, processOptions, field.name, nodeInfo?.providerId]);
+  }, [options, processOptions, field.name, nodeInfo?.providerId, value, displayLabel, loadCachedLabel]);
 
   // Track when options change for performance monitoring
   React.useEffect(() => {
@@ -1016,7 +1043,7 @@ export function GenericSelectField({
             searchPlaceholder="Search options..."
             disabled={isLoading}
             loading={isLoading}
-            creatable={(field as any).creatable || false} // Allow custom option creation if specified in field schema
+            creatable={(field as any).creatable || isAirtableRecordField} // Allow custom option creation for Airtable fields or if specified in field schema
             onOpenChange={handleFieldOpen}
             selectedValues={effectiveSelectedValues} // Pass selected values for checkmarks
             hideSelectedBadges={isAirtableLinkedField || isDisabledStatusField} // Hide badges for Airtable fields with bubbles and disabled status fields
@@ -1057,12 +1084,6 @@ export function GenericSelectField({
     );
   }
 
-  // Check if this is an Airtable create/update record field that should support custom input
-  const isAirtableRecordField = nodeInfo?.providerId === 'airtable' &&
-    (nodeInfo?.type === 'airtable_action_create_record' ||
-     nodeInfo?.type === 'airtable_action_update_record') &&
-    field.name?.startsWith('airtable_field_');
-
   // Use Combobox for all select fields to support variables
   // Variables can be entered using {{variable_name}} syntax
   if (field.type === 'select' && !field.multiple) {
@@ -1100,7 +1121,7 @@ export function GenericSelectField({
             emptyPlaceholder={isLoading || isSearching ? loadingPlaceholder : ((field as any).emptyMessage || "No options found")}
             disabled={isLoading}
             loading={isLoading || isSearching}
-            creatable={(field as any).creatable || false} // Allow custom option creation if specified in field schema
+            creatable={(field as any).creatable || isAirtableRecordField} // Allow custom option creation for Airtable fields or if specified in field schema
             onOpenChange={handleFieldOpen} // Add missing onOpenChange handler
             onSearchChange={handleSearchChange} // Handle debounced search
             selectedValues={effectiveSelectedValues} // Pass selected values for checkmarks
@@ -1180,7 +1201,7 @@ export function GenericSelectField({
           emptyPlaceholder={isLoading || isSearching ? loadingPlaceholder : getEmptyMessage(field.name, field.label, (field as any).emptyMessage)}
           disabled={isLoading}
           loading={isLoading || isSearching}
-          creatable={(field as any).creatable || false} // Allow custom option creation if specified in field schema
+          creatable={(field as any).creatable || isAirtableRecordField} // Allow custom option creation for Airtable fields or if specified in field schema
           onOpenChange={handleFieldOpen}
           onSearchChange={handleSearchChange} // Handle debounced search
           selectedValues={effectiveSelectedValues}
