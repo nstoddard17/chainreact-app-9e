@@ -218,6 +218,7 @@ function ConfigurationForm({
     loading: loadingDynamic,
     isInitialLoading: isLoadingDynamicOptions,
     loadOptions,
+    loadOptionsParallel,
     resetOptions
   } = useDynamicOptions({
     nodeType: nodeInfo?.type,
@@ -679,17 +680,12 @@ function ConfigurationForm({
       return;
     }
 
-    // Debounce the integration fetch - wait 500ms to see if component stays mounted
+    // Load integrations immediately for instant UX - no artificial delay
     const loadIntegrations = async () => {
-      // Wait a bit to see if component stays mounted
-      timeoutId = setTimeout(async () => {
-        if (mounted) {
-          logger.debug('🔄 [ConfigForm] Component stayed mounted, loading integrations', { componentId });
-          await fetchIntegrations(); // Regular fetch - concurrent calls are now handled properly
-        } else {
-          logger.debug('⏭️ [ConfigForm] Component unmounted quickly, skipping integration fetch', { componentId });
-        }
-      }, 500); // Wait 500ms before fetching
+      if (mounted) {
+        logger.debug('🔄 [ConfigForm] Loading integrations immediately', { componentId });
+        await fetchIntegrations(); // Regular fetch - concurrent calls are now handled properly
+      }
     };
 
     loadIntegrations();
@@ -826,303 +822,21 @@ function ConfigurationForm({
     console.log(`📋 [ConfigForm] ALL configSchema fields:`, nodeInfo.configSchema.map((f: any) => ({ name: f.name, type: f.type, dynamic: f.dynamic, loadOnMount: f.loadOnMount })));
 
     if (fieldsToLoad.length > 0) {
-      logger.debug('🚀 [ConfigForm] Loading fields on mount:', fieldsToLoad.map((f: any) => f.name));
+      logger.debug('🚀 [ConfigForm] Loading fields on mount IN PARALLEL:', fieldsToLoad.map((f: any) => f.name));
       hasLoadedOnMount.current = true; // Mark that we've loaded
 
-      // Load immediately for boardId if it has a saved value (no delay)
-      const boardIdField = fieldsToLoad.find((f: any) => f.name === 'boardId');
-      if (boardIdField && values.boardId) {
-        logger.debug(`🚀 [ConfigForm] Loading boardId immediately since it has a saved value`);
-        loadOptions('boardId', undefined, undefined, true); // Force refresh immediately
-      }
-
-      // Load immediately for Airtable baseId (no delay, use cache)
-      const baseIdField = fieldsToLoad.find((f: any) => f.name === 'baseId');
-      if (baseIdField && nodeInfo?.providerId === 'airtable') {
-        logger.debug(`🚀 [ConfigForm] Loading Airtable baseId immediately with cache`);
-        loadOptions('baseId', undefined, undefined, false); // Don't force refresh - use cache
-      }
-
-      // Load immediately for Google Calendar fields
-      const calendarIdField = fieldsToLoad.find((f: any) => f.name === 'calendarId');
-      if (calendarIdField && nodeInfo?.providerId === 'google-calendar') {
-        logger.debug(`🚀 [ConfigForm] Loading Google Calendar calendarId immediately`);
-        loadOptions('calendarId', undefined, undefined, false); // Use cache for better performance
-      }
-
-      const calendarsField = fieldsToLoad.find((f: any) => f.name === 'calendars');
-      if (calendarsField && nodeInfo?.providerId === 'google-calendar') {
-        logger.debug(`🚀 [ConfigForm] Loading Google Calendar calendars immediately`);
-        loadOptions('calendars', undefined, undefined, false);
-      }
-
-      // Load immediately for Google Sheets spreadsheetId
-      const spreadsheetIdField = fieldsToLoad.find((f: any) => f.name === 'spreadsheetId');
-      if (spreadsheetIdField && nodeInfo?.providerId === 'google-sheets') {
-        logger.debug(`🚀 [ConfigForm] Loading Google Sheets spreadsheetId immediately with cache`);
-        loadOptions('spreadsheetId', undefined, undefined, false); // Use cache for better performance
-      }
-
-      // Load immediately for Microsoft Excel workbookId
-      const workbookIdField = fieldsToLoad.find((f: any) => f.name === 'workbookId');
-      if (workbookIdField && nodeInfo?.providerId === 'microsoft-excel') {
-        logger.debug(`🚀 [ConfigForm] Loading Microsoft Excel workbookId immediately with cache`);
-        loadOptions('workbookId', undefined, undefined, false); // Use cache for better performance
-      }
-
-      // Load immediately for Dropbox path field
-      const dropboxPathField = fieldsToLoad.find((f: any) => f.name === 'path');
-      if (dropboxPathField && nodeInfo?.providerId === 'dropbox') {
-        logger.debug(`🚀 [ConfigForm] Loading Dropbox path (folders) immediately with cache`);
-        loadOptions('path', undefined, undefined, false); // Use cache for better performance
-      }
-
-      // Load immediately for Dropbox filePath field (loads files from root)
-      const dropboxFilePathField = fieldsToLoad.find((f: any) => f.name === 'filePath');
-      if (dropboxFilePathField && nodeInfo?.providerId === 'dropbox') {
-        logger.debug(`🚀 [ConfigForm] Loading Dropbox filePath (files from root) immediately with cache`);
-        loadOptions('filePath', undefined, undefined, false); // Use cache for better performance
-      }
-
-      // Load immediately for Box folderId
-      const boxFolderIdField = fieldsToLoad.find((f: any) => f.name === 'folderId');
-      if (boxFolderIdField && nodeInfo?.providerId === 'box') {
-        logger.debug(`🚀 [ConfigForm] Loading Box folderId immediately with cache`);
-        loadOptions('folderId', undefined, undefined, false); // Use cache for better performance
-      }
-
-      // Load immediately for Box fileId field (loads files from root)
-      const boxFileIdField = fieldsToLoad.find((f: any) => f.name === 'fileId');
-      if (boxFileIdField && nodeInfo?.providerId === 'box') {
-        logger.debug(`🚀 [ConfigForm] Loading Box fileId (files from root) immediately with cache`);
-        loadOptions('fileId', undefined, undefined, false); // Use cache for better performance
-      }
-
-      // Load immediately for OneDrive folderId
-      const onedriveFolderIdField = fieldsToLoad.find((f: any) => f.name === 'folderId');
-      if (onedriveFolderIdField && nodeInfo?.providerId === 'onedrive') {
-        logger.debug(`🚀 [ConfigForm] Loading OneDrive folderId immediately with cache`);
-        loadOptions('folderId', undefined, undefined, false); // Use cache for better performance
-      }
-
-      // Load immediately for OneDrive fileId field (loads files from root)
-      const onedriveFileIdField = fieldsToLoad.find((f: any) => f.name === 'fileId');
-      if (onedriveFileIdField && nodeInfo?.providerId === 'onedrive') {
-        logger.debug(`🚀 [ConfigForm] Loading OneDrive fileId (files from root) immediately with cache`);
-        loadOptions('fileId', undefined, undefined, false); // Use cache for better performance
-      }
-
-      // Load immediately for Notion databaseId
-      const notionDatabaseIdField = fieldsToLoad.find((f: any) => f.name === 'databaseId');
-      if (notionDatabaseIdField && nodeInfo?.providerId === 'notion') {
-        logger.debug(`🚀 [ConfigForm] Loading Notion databaseId immediately with cache`);
-        loadOptions('databaseId', undefined, undefined, false); // Use cache for better performance
-      }
-
-      // Load immediately for Slack channel
-      const slackChannelField = fieldsToLoad.find((f: any) => f.name === 'channel');
-      if (slackChannelField && nodeInfo?.providerId === 'slack') {
-        logger.debug(`🚀 [ConfigForm] Loading Slack channel immediately with cache`);
-        loadOptions('channel', undefined, undefined, false); // Use cache for better performance
-      }
-
-      // Load immediately for Gmail "from" field
-      const gmailFromField = fieldsToLoad.find((f: any) => f.name === 'from');
-      logger.debug(`🔍 [ConfigForm] Gmail "from" field check:`, {
-        found: !!gmailFromField,
-        providerId: nodeInfo?.providerId,
-        isGmail: nodeInfo?.providerId === 'gmail',
-        fieldConfig: gmailFromField ? { name: gmailFromField.name, type: gmailFromField.type, dynamic: gmailFromField.dynamic } : null
+      // Load ALL fields in parallel for instant UX
+      loadOptionsParallel(
+        fieldsToLoad.map((field: any) => ({
+          fieldName: field.name,
+          dependsOn: field.dependsOn,
+          dependsOnValue: field.dependsOn ? values[field.dependsOn] : undefined
+        }))
+      ).catch(err => {
+        logger.error('❌ [ConfigForm] Parallel load failed:', err);
       });
-      if (gmailFromField && nodeInfo?.providerId === 'gmail') {
-        logger.debug(`🚀 [ConfigForm] Loading Gmail "from" field (${gmailFromField.dynamic}) immediately with cache`);
-        loadOptions('from', undefined, undefined, false); // Use cache for better performance
-      }
-
-      // Load immediately for Gmail "to" field
-      const gmailToField = fieldsToLoad.find((f: any) => f.name === 'to');
-      if (gmailToField && nodeInfo?.providerId === 'gmail') {
-        logger.debug(`🚀 [ConfigForm] Loading Gmail "to" field (recipients) immediately with cache`);
-        loadOptions('to', undefined, undefined, false); // Use cache for better performance
-      }
-
-      // Load immediately for Gmail "cc" field
-      const gmailCcField = fieldsToLoad.find((f: any) => f.name === 'cc');
-      if (gmailCcField && nodeInfo?.providerId === 'gmail') {
-        logger.debug(`🚀 [ConfigForm] Loading Gmail "cc" field (recipients) immediately with cache`);
-        loadOptions('cc', undefined, undefined, false); // Use cache for better performance
-      }
-
-      // Load immediately for Gmail "bcc" field
-      const gmailBccField = fieldsToLoad.find((f: any) => f.name === 'bcc');
-      if (gmailBccField && nodeInfo?.providerId === 'gmail') {
-        logger.debug(`🚀 [ConfigForm] Loading Gmail "bcc" field (recipients) immediately with cache`);
-        loadOptions('bcc', undefined, undefined, false); // Use cache for better performance
-      }
-
-      // Load immediately for Gmail "labelIds" field (labels/folders)
-      const gmailLabelIdsField = fieldsToLoad.find((f: any) => f.name === 'labelIds');
-      if (gmailLabelIdsField && nodeInfo?.providerId === 'gmail') {
-        logger.debug(`🚀 [ConfigForm] Loading Gmail "labelIds" field (labels) immediately with cache`);
-        loadOptions('labelIds', undefined, undefined, false); // Use cache for better performance
-      }
-
-      // Load immediately for Outlook "from" field (recent recipients)
-      const outlookFromField = fieldsToLoad.find((f: any) => f.name === 'from');
-      if (outlookFromField && nodeInfo?.providerId === 'microsoft-outlook') {
-        logger.debug(`🚀 [ConfigForm] Loading Outlook "from" field (recent recipients) immediately with cache`);
-        loadOptions('from', undefined, undefined, false); // Use cache for better performance
-      }
-
-      // Load immediately for Outlook "folder" field (folders)
-      const outlookFolderField = fieldsToLoad.find((f: any) => f.name === 'folder');
-      if (outlookFolderField && nodeInfo?.providerId === 'microsoft-outlook') {
-        logger.debug(`🚀 [ConfigForm] Loading Outlook "folder" field (folders) immediately with cache`);
-        loadOptions('folder', undefined, undefined, false); // Use cache for better performance
-      }
-
-      // Load immediately for HubSpot pipeline field
-      const hubspotPipelineField = fieldsToLoad.find((f: any) => f.name === 'hs_pipeline');
-      if (hubspotPipelineField && nodeInfo?.providerId === 'hubspot') {
-        logger.debug(`🚀 [ConfigForm] Loading HubSpot pipeline immediately with cache`);
-        loadOptions('hs_pipeline', undefined, undefined, false); // Use cache for better performance
-      }
-
-      // Load immediately for HITL Discord server field
-      logger.debug(`🔍 [ConfigForm] Checking for HITL Discord field...`, {
-        nodeType: nodeInfo?.type,
-        providerId: nodeInfo?.providerId,
-        fieldsToLoad: fieldsToLoad.map((f: any) => f.name),
-        hasDiscordGuildId: fieldsToLoad.some((f: any) => f.name === 'discordGuildId')
-      });
-
-      const hitlDiscordGuildField = fieldsToLoad.find((f: any) => f.name === 'discordGuildId');
-
-      logger.debug(`🔍 [ConfigForm] HITL field search result:`, {
-        found: !!hitlDiscordGuildField,
-        fieldName: hitlDiscordGuildField?.name,
-        isHITL: nodeInfo?.type === 'hitl_conversation',
-        nodeType: nodeInfo?.type
-      });
-
-      if (hitlDiscordGuildField && nodeInfo?.type === 'hitl_conversation') {
-        logger.debug(`🚀 [ConfigForm] Loading HITL Discord server (discordGuildId) immediately with cache`);
-        loadOptions('discordGuildId', undefined, undefined, false); // Use cache for better performance
-      } else if (nodeInfo?.type === 'hitl_conversation') {
-        logger.warn(`⚠️ [ConfigForm] HITL node but discordGuildId field not in fieldsToLoad!`, {
-          allFields: nodeInfo?.configSchema?.map((f: any) => ({
-            name: f.name,
-            dynamic: f.dynamic,
-            loadOnMount: f.loadOnMount,
-            type: f.type
-          }))
-        });
-      }
-
-      // Add a small delay for other fields to ensure options are cleared first
-      const timeoutId = setTimeout(() => {
-        // Filter out fields that were already loaded above
-        const alreadyLoadedFields = [
-          { name: 'boardId', condition: values.boardId },
-          { name: 'baseId', condition: nodeInfo?.providerId === 'airtable' },
-          { name: 'calendarId', condition: nodeInfo?.providerId === 'google-calendar' },
-          { name: 'calendars', condition: nodeInfo?.providerId === 'google-calendar' },
-          { name: 'spreadsheetId', condition: nodeInfo?.providerId === 'google-sheets' },
-          { name: 'workbookId', condition: nodeInfo?.providerId === 'microsoft-excel' },
-          { name: 'path', condition: nodeInfo?.providerId === 'dropbox' },
-          { name: 'filePath', condition: nodeInfo?.providerId === 'dropbox' },
-          { name: 'folderId', condition: nodeInfo?.providerId === 'box' },
-          { name: 'fileId', condition: nodeInfo?.providerId === 'box' },
-          { name: 'folderId', condition: nodeInfo?.providerId === 'onedrive' },
-          { name: 'fileId', condition: nodeInfo?.providerId === 'onedrive' },
-          { name: 'databaseId', condition: nodeInfo?.providerId === 'notion' },
-          { name: 'channel', condition: nodeInfo?.providerId === 'slack' },
-          { name: 'from', condition: nodeInfo?.providerId === 'gmail' },
-          { name: 'labelIds', condition: nodeInfo?.providerId === 'gmail' },
-          { name: 'hs_pipeline', condition: nodeInfo?.providerId === 'hubspot' },
-          { name: 'discordGuildId', condition: nodeInfo?.type === 'hitl_conversation' }
-        ];
-
-        const remainingFields = fieldsToLoad.filter((field: any) => {
-          return !alreadyLoadedFields.some(
-            loaded => loaded.name === field.name && loaded.condition
-          );
-        });
-
-        if (remainingFields.length === 0) {
-          logger.debug('⏭️ [ConfigForm] All loadOnMount fields already loaded');
-          return;
-        }
-
-        logger.debug(`🚀 [ConfigForm] Loading ${remainingFields.length} fields in parallel:`, remainingFields.map((f: any) => f.name));
-
-        // Mark all fields as loading upfront
-        setLoadingFields(prev => {
-          const newSet = new Set(prev);
-          remainingFields.forEach((field: any) => newSet.add(field.name));
-          return newSet;
-        });
-
-        // Load all fields in parallel with Promise.all
-        const loadPromises = remainingFields.map((field: any) => {
-          logger.debug(`🔄 [ConfigForm] Auto-loading field: ${field.name}`);
-
-          // Special handling for Google Drive folders
-          if (nodeInfo?.providerId === 'google-drive' && field.name === 'folderId') {
-            const hasSavedOptions = dynamicOptions['folderId'] && dynamicOptions['folderId'].length > 0;
-            const savedValue = values['folderId'];
-
-            let valueExistsInOptions = false;
-            if (hasSavedOptions && savedValue) {
-              valueExistsInOptions = dynamicOptions['folderId'].some((opt: any) =>
-                (opt.value === savedValue) || (opt.id === savedValue)
-              );
-            }
-
-            const shouldForceRefresh = !hasSavedOptions || (savedValue && !valueExistsInOptions);
-            logger.debug(`🔍 [ConfigForm] Google Drive folderId check:`, {
-              hasSavedOptions,
-              savedValue,
-              valueExistsInOptions,
-              shouldForceRefresh
-            });
-            return loadOptions('folderId', undefined, undefined, shouldForceRefresh)
-              .finally(() => {
-                setLoadingFields(prev => {
-                  const newSet = new Set(prev);
-                  newSet.delete(field.name);
-                  return newSet;
-                });
-              });
-          }
-
-          // Always force refresh for loadOnMount fields to ensure fresh data
-          const forceRefresh = true;
-          logger.debug(`🔄 [ConfigForm] Loading ${field.name} on mount with forceRefresh to ensure fresh data`, {
-            fieldType: field.type,
-            dynamic: field.dynamic,
-            provider: nodeInfo?.providerId
-          });
-
-          return loadOptions(field.name, undefined, undefined, forceRefresh)
-            .finally(() => {
-              setLoadingFields(prev => {
-                const newSet = new Set(prev);
-                newSet.delete(field.name);
-                return newSet;
-              });
-            });
-        });
-
-        // Wait for all fields to load (or fail) in parallel
-        Promise.all(loadPromises).catch(err => {
-          logger.error('❌ [ConfigForm] Error loading fields in parallel:', err);
-        });
-      }, 150); // Slightly longer delay to ensure reset has completed
-
-      return () => clearTimeout(timeoutId);
     }
-  }, [nodeInfo?.id, nodeInfo?.type, currentNodeId, isInitialLoading, loadOptions, needsConnection]); // Track node identity changes and connection state
+  }, [nodeInfo?.id, nodeInfo?.type, currentNodeId, isInitialLoading, loadOptionsParallel, needsConnection]); // Track node identity changes and connection state
 
   // Load options for dynamic fields with saved values
   useEffect(() => {

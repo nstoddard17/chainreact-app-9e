@@ -153,16 +153,7 @@ const createNodeIconElement = (nodeInfo?: NodeComponent) => {
 }
 
 const renderNodeBadge = (nodeInfo?: NodeComponent) => {
-  const iconElement = createNodeIconElement(nodeInfo)
-
-  if (iconElement) {
-    return (
-      <div className="p-1.5 bg-slate-100 dark:bg-slate-900 rounded-lg flex items-center justify-center">
-        {iconElement}
-      </div>
-    )
-  }
-
+  // Prioritize provider logo when providerId exists (for integrations like Airtable, Gmail, etc.)
   if (nodeInfo?.providerId) {
     return (
       <StaticIntegrationLogo
@@ -172,6 +163,17 @@ const renderNodeBadge = (nodeInfo?: NodeComponent) => {
     )
   }
 
+  // Fallback to custom icon element if no providerId
+  const iconElement = createNodeIconElement(nodeInfo)
+  if (iconElement) {
+    return (
+      <div className="p-1.5 bg-slate-100 dark:bg-slate-900 rounded-lg flex items-center justify-center">
+        {iconElement}
+      </div>
+    )
+  }
+
+  // Final fallback
   return (
     <div className="p-1.5 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg text-white flex-shrink-0">
       {getFallbackNodeIcon(nodeInfo?.type || '')}

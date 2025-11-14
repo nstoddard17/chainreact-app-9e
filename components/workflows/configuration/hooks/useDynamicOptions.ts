@@ -7,6 +7,7 @@ import { getResourceTypeForField } from '../config/fieldMappings';
 import { formatOptionsForField } from '../utils/fieldFormatters';
 import { useConfigCacheStore } from "@/stores/configCacheStore"
 import { buildCacheKey, getFieldTTL, shouldCacheField } from "@/lib/workflows/configuration/cache-utils"
+import { deduplicateRequest } from "@/lib/utils/requestDeduplication"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -2378,11 +2379,45 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
     }
   }, [dynamicOptions]);
 
+  /**
+   * Load multiple fields in parallel
+   * Used for instant loading optimization
+   */
+  const loadOptionsParallel = useCallback(async (
+    fields: Array<{ fieldName: string; dependsOn?: string; dependsOnValue?: any }>
+  ): Promise<void> => {
+    logger.debug(`🚀 [useDynamicOptions] Parallel load started for ${fields.length} fields`)
+
+    // Load all fields in parallel using Promise.allSettled
+    const results = await Promise.allSettled(
+      fields.map(({ fieldName, dependsOn, dependsOnValue }) =>
+        deduplicateRequest(
+          `load_${providerId}_${nodeType}_${fieldName}_${dependsOnValue || ''}`,
+          () => loadOptions(fieldName, dependsOn, dependsOnValue, false, true)
+        )
+      )
+    )
+
+    // Log results
+    const succeeded = results.filter(r => r.status === 'fulfilled').length
+    const failed = results.filter(r => r.status === 'rejected').length
+
+    logger.debug(`✅ [useDynamicOptions] Parallel load completed: ${succeeded} succeeded, ${failed} failed`)
+
+    if (failed > 0) {
+      const errors = results
+        .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
+        .map(r => r.reason)
+      logger.warn('⚠️ [useDynamicOptions] Some parallel loads failed:', errors)
+    }
+  }, [loadOptions, providerId, nodeType])
+
   return {
     dynamicOptions,
     loading,
     isInitialLoading,
     loadOptions,
+    loadOptionsParallel,
     resetOptions,
     setDynamicOptions
   };

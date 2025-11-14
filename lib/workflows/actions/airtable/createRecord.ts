@@ -457,9 +457,11 @@ export async function createAirtableRecord(
     try {
       for (const [key, value] of Object.entries(config)) {
         if (key.startsWith('airtable_field_')) {
-          // Remove the airtable_field_ prefix to get the actual field name
-          // The field name includes spaces (e.g., "Draft Name" not "Draft_Name")
-          const fieldName = key.replace('airtable_field_', '')
+          // Remove the airtable_field_ prefix and convert underscores back to spaces
+          // Field names like "Tasks labels" become "Tasks_labels" in form keys, so we need to restore spaces
+          let fieldName = key.replace('airtable_field_', '')
+          fieldName = fieldName.replace(/_/g, ' ')
+
           // Only store primitive values or simple objects, not functions or complex objects
           if (value !== undefined && typeof value !== 'function') {
             fields[fieldName] = value

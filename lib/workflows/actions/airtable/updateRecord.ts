@@ -36,7 +36,11 @@ export async function updateAirtableRecord(
     try {
       for (const [key, value] of Object.entries(config || {})) {
         if (key.startsWith('airtable_field_')) {
-          const fieldName = key.replace('airtable_field_', '')
+          // Extract field name and convert underscores back to spaces
+          // (field names like "Tasks labels" become "Tasks_labels" in form keys)
+          let fieldName = key.replace('airtable_field_', '')
+          fieldName = fieldName.replace(/_/g, ' ')
+
           if (value !== undefined && typeof value !== 'function') {
             fields[fieldName] = value
           }
