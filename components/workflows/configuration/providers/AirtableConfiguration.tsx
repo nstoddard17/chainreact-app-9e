@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useCallback, useState, useEffect, useMemo } from 'react';
+import React, { useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, Database, RefreshCw, ChevronDown } from "lucide-react";
@@ -27,6 +27,7 @@ interface AirtableConfigurationProps {
   onBack?: () => void;
   isEditMode?: boolean;
   workflowData?: any;
+  workflowId?: string;
   currentNodeId?: string;
   dynamicOptions: Record<string, any[]>;
   loadingDynamic: boolean;
@@ -63,6 +64,7 @@ export function AirtableConfiguration({
   onBack,
   isEditMode,
   workflowData,
+  workflowId,
   currentNodeId,
   dynamicOptions,
   loadingDynamic,
@@ -1986,9 +1988,10 @@ export function AirtableConfiguration({
           dependsOn: field.dependsOn
         });
 
-        // Load the options (use cache for better UX - don't force refresh)
+        // Load the options silently in background (use cache, don't force refresh, silent mode)
+        // This allows fields with cached labels to show instantly while options refresh
         if (field.dependsOn === 'tableName') {
-          loadOptions(field.name, 'tableName', values.tableName, false, false, extraOptions)
+          loadOptions(field.name, 'tableName', values.tableName, false, true, extraOptions)
             .finally(() => {
               setLocalLoadingFields(prev => {
                 const newSet = new Set(prev);
@@ -1997,7 +2000,7 @@ export function AirtableConfiguration({
               });
             });
         } else {
-          loadOptions(field.name, undefined, undefined, false, false, extraOptions)
+          loadOptions(field.name, undefined, undefined, false, true, extraOptions)
             .finally(() => {
               setLocalLoadingFields(prev => {
                 const newSet = new Set(prev);
@@ -2104,8 +2107,9 @@ export function AirtableConfiguration({
           dependsOn: field.dependsOn
         });
 
+        // Load silently in background to allow cached labels to show instantly
         if (field.dependsOn === 'tableName') {
-          loadOptions(field.name, 'tableName', values.tableName, false, false, extraOptions)
+          loadOptions(field.name, 'tableName', values.tableName, false, true, extraOptions)
             .finally(() => {
               setLocalLoadingFields(prev => {
                 const newSet = new Set(prev);
@@ -2114,7 +2118,7 @@ export function AirtableConfiguration({
               });
             });
         } else {
-          loadOptions(field.name, undefined, undefined, false, false, extraOptions)
+          loadOptions(field.name, undefined, undefined, false, true, extraOptions)
             .finally(() => {
               setLocalLoadingFields(prev => {
                 const newSet = new Set(prev);
@@ -2156,8 +2160,8 @@ export function AirtableConfiguration({
 
         logger.debug(`🔄 [LOAD ON MOUNT] Loading field: ${field.name}`);
 
-        // Load the field options
-        loadOptions(field.name, undefined, undefined, false, false)
+        // Load the field options silently to allow cached labels to show instantly
+        loadOptions(field.name, undefined, undefined, false, true)
           .finally(() => {
             setLocalLoadingFields(prev => {
               const newSet = new Set(prev);
@@ -2168,6 +2172,38 @@ export function AirtableConfiguration({
       });
     }
   }, []); // Only run on mount
+
+  // INSTANT PARALLEL LOADING: Load base, table, and all field options immediately on mount
+  // This ensures reopened modals show all data instantly without waiting for sequential loads
+  const hasTriggeredParallelLoad = useRef(false);
+  useEffect(() => {
+    // Only run once
+    if (hasTriggeredParallelLoad.current) return;
+
+    // Only run if we have saved base and table values (reopening saved config)
+    if (!values.baseId || !values.tableName) return;
+    if (!isEditMode && !Object.keys(values).some(k => k.startsWith('airtable_field_'))) return;
+
+    hasTriggeredParallelLoad.current = true;
+
+    logger.debug('🚀 [PARALLEL LOAD] Triggering instant parallel load for saved config', {
+      baseId: values.baseId,
+      tableName: values.tableName,
+      savedFieldCount: Object.keys(values).filter(k => k.startsWith('airtable_field_')).length
+    });
+
+    // Load base options (silent, in background)
+    loadOptions('baseId', undefined, undefined, false, true).catch(err => {
+      logger.error('Failed to load base options:', err);
+    });
+
+    // Load table options (silent, in background)
+    loadOptions('tableName', 'baseId', values.baseId, false, true).catch(err => {
+      logger.error('Failed to load table options:', err);
+    });
+
+    // The auto-load effects will handle loading field options once they detect the table
+  }, [values.baseId, values.tableName, isEditMode, loadOptions]); // Dependencies for checking conditions
 
   // Load linked record options when a record is selected
   useEffect(() => {
@@ -3363,13 +3399,7 @@ export function AirtableConfiguration({
                   </div>
                 </div>
                 <div className="space-y-3">
-                  {allDynamicFields.length > 0 ? (
-                    renderFields(allDynamicFields, true)
-                  ) : (
-                    <div className="text-sm text-slate-500 py-4">
-                      Loading table fields...
-                    </div>
-                  )}
+                  {renderFields(allDynamicFields, true)}
                 </div>
               </div>
             )}

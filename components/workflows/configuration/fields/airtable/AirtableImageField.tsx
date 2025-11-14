@@ -34,6 +34,7 @@ export function AirtableImageField({
 }: AirtableImageFieldProps) {
   const [uploadingFile, setUploadingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isFileChooserOpen = useRef(false);
 
   // Check if field is in AI mode
   const isAIMode = aiFields?.[field.name] || (typeof value === 'string' && value.startsWith('{{AI_FIELD:'));
@@ -136,6 +137,14 @@ export function AirtableImageField({
   }
 
   const handleFileSelect = () => {
+    // Prevent multiple simultaneous file choosers from opening
+    if (isFileChooserOpen.current) {
+      logger.debug('🚫 [AirtableImageField] File chooser already open, ignoring click');
+      return;
+    }
+
+    isFileChooserOpen.current = true;
+
     // When replacing an image (images already exist), ensure we're ready for a clean replacement
     if (hasLocalImage && !field.multiple) {
       logger.debug('🔄 [AirtableImageField] Replacing existing image...');
@@ -145,6 +154,10 @@ export function AirtableImageField({
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
+
+    // Reset the flag when file chooser closes
+    isFileChooserOpen.current = false;
+
     if (!files || files.length === 0) return;
 
     setUploadingFile(true);

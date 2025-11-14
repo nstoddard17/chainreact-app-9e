@@ -8,6 +8,8 @@ import { formatOptionsForField } from '../utils/fieldFormatters';
 import { useConfigCacheStore } from "@/stores/configCacheStore"
 import { buildCacheKey, getFieldTTL, shouldCacheField } from "@/lib/workflows/configuration/cache-utils"
 import { deduplicateRequest } from "@/lib/utils/requestDeduplication"
+import { getCachedProviderData, cacheProviderData, shouldRefreshProviderCache } from "@/lib/utils/field-cache"
+import { useAuthStore } from "@/stores/authStore"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -85,6 +87,10 @@ function setCachedOptions(providerId: string, nodeType: string, options: Dynamic
 }
 
 export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingChange, onOptionsUpdated, getFormValues, initialOptions }: UseDynamicOptionsProps) => {
+  // Get user ID for provider-level caching
+  const { user } = useAuthStore()
+  const userId = user?.id
+
   // Cache store for field-level caching
   const { get: getCache, set: setCache } = useConfigCacheStore()
 
@@ -387,6 +393,52 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
     }
     // Determine data to load based on field name (moved outside try block for error handling)
     const resourceType = getResourceTypeForField(fieldName, nodeType);
+
+    // PHASE 1: Stale-While-Revalidate for bases/tables
+    // Show cached data instantly, refresh in background
+    const isProviderLevelField = resourceType === 'airtable_bases' || resourceType === 'airtable_tables';
+
+    if (isProviderLevelField && userId && !forceRefresh) {
+      const dataType = resourceType === 'airtable_bases' ? 'bases' : 'tables';
+      const parentId = dataType === 'tables' ? dependsOnValue : undefined;
+
+      // Try to get cached provider data
+      const cachedData = getCachedProviderData(providerId, userId, dataType, parentId);
+
+      if (cachedData && cachedData.length > 0) {
+        logger.debug(`⚡ [STALE-WHILE-REVALIDATE] Showing cached ${dataType} instantly`, {
+          fieldName,
+          count: cachedData.length,
+          parentId
+        });
+
+        // Format and show cached data IMMEDIATELY
+        const formattedOptions = formatOptionsForField(fieldName, cachedData, providerId);
+        setDynamicOptions(prev => ({
+          ...prev,
+          [fieldName]: formattedOptions,
+          ...(dependsOn && dependsOnValue ? { [`${fieldName}_${dependsOnValue}`]: formattedOptions } : {})
+        }));
+
+        // Clear loading state
+        setLoading(false);
+        if (!silent) {
+          onLoadingChangeRef.current?.(fieldName, false);
+        }
+
+        // Check if we need to refresh in background
+        const needsRefresh = shouldRefreshProviderCache(providerId, userId, dataType, parentId);
+
+        if (!needsRefresh) {
+          logger.debug(`✅ [STALE-WHILE-REVALIDATE] Cache is fresh, no refresh needed`);
+          return; // Data is fresh enough, don't refresh
+        }
+
+        // Continue to fetch fresh data in background (silent mode)
+        logger.debug(`🔄 [STALE-WHILE-REVALIDATE] Refreshing ${dataType} in background`);
+        silent = true; // Make the refresh silent
+      }
+    }
 
     // Debug logging for Gmail "from" field
     if (fieldName === 'from' && providerId === 'gmail') {
@@ -1976,6 +2028,40 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
           const dataArray = result.data || result;
 
           formattedOptions = formatOptionsForField(fieldName, dataArray);
+
+          // PHASE 1: Cache provider-level data (bases/tables) for instant reuse
+          if (isProviderLevelField && userId && dataArray && dataArray.length > 0) {
+            const dataType = resourceType === 'airtable_bases' ? 'bases' : 'tables';
+            const parentId = dataType === 'tables' ? dependsOnValue : undefined;
+
+            logger.debug(`💾 [PROVIDER CACHE] Caching ${dataType}`, {
+              fieldName,
+              count: dataArray.length,
+              parentId
+            });
+
+            cacheProviderData(providerId, userId, dataType, dataArray, parentId);
+
+            // PHASE 3: Predictive prefetching - when bases load, prefetch tables for first base
+            if (dataType === 'bases' && dataArray.length > 0 && getFormValues) {
+              const currentFormValues = getFormValues();
+              const selectedBaseId = currentFormValues?.baseId;
+
+              // If a base is already selected, prefetch its tables
+              if (selectedBaseId) {
+                logger.debug(`🔮 [PREDICTIVE PREFETCH] Base is selected, prefetching tables`, {
+                  baseId: selectedBaseId
+                });
+
+                // Prefetch tables silently in background
+                setTimeout(() => {
+                  loadOptions('tableName', 'baseId', selectedBaseId, false, true).catch(err => {
+                    logger.debug(`[PREDICTIVE PREFETCH] Tables prefetch failed (silent):`, err);
+                  });
+                }, 100); // Small delay to not block UI
+              }
+            }
+          }
 
           // Log for watchedTables / airtable_tables
           if (fieldName === 'watchedTables' || resourceType === 'airtable_tables') {
