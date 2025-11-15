@@ -292,6 +292,7 @@ import {
   executeIfThenCondition,
   executeWaitForTime
 } from './core'
+import { executeWaitForEvent } from './automation/waitForEvent'
 
 // Logic control actions
 import { executePath } from './logic/executePath'
@@ -969,6 +970,19 @@ export const actionHandlerRegistry: Record<string, Function> = {
 export function getWaitForTimeHandler(workflowId: string, nodeId: string) {
   return (cfg: any, uid: string, inp: any) =>
     executeWaitForTime(cfg, uid, inp, { workflowId, nodeId })
+}
+
+/**
+ * Special handler for wait_for_event that needs workflow and execution context
+ */
+export function getWaitForEventHandler(workflowId: string, nodeId: string, executionId?: string) {
+  return (cfg: any, uid: string, inp: any, context?: any) =>
+    executeWaitForEvent(cfg, uid, inp, {
+      workflowId,
+      nodeId,
+      executionId: executionId || context?.executionId,
+      allPreviousData: context?.allPreviousData
+    })
 }
 
 // Export Notion unified handlers for use in IntegrationHandlers

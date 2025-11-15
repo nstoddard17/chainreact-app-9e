@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { WaitlistForm } from './WaitlistForm'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Footer } from '@/components/homepage/Footer'
 import {
   Sparkles,
   Globe,
@@ -56,13 +57,15 @@ export function WaitlistLanding() {
         <div className="max-w-7xl mx-auto">
           {/* Hero Section */}
           <div className="text-center mb-16 sm:mb-24 space-y-8">
-            <Badge
-              variant="outline"
-              className="px-4 py-2 text-sm border-blue-400/50 text-blue-300 bg-blue-500/10 backdrop-blur-sm"
-            >
-              <Sparkles className="h-4 w-4 mr-2 inline" />
-              Early Access Program
-            </Badge>
+            <div className="inline-block animate-pulse">
+              <Badge
+                variant="outline"
+                className="px-6 py-3 text-base sm:text-lg font-semibold border-2 border-blue-400 text-white bg-gradient-to-r from-blue-500/30 to-purple-500/30 backdrop-blur-sm shadow-lg shadow-blue-500/20"
+              >
+                <Sparkles className="h-5 w-5 mr-2 inline animate-spin" style={{ animationDuration: '3s' }} />
+                Early Access Program
+              </Badge>
+            </div>
 
             <div className="space-y-6">
               <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold text-white leading-tight">
@@ -175,48 +178,21 @@ export function WaitlistLanding() {
             </p>
             <Button
               size="lg"
-              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white text-lg px-8 py-6 h-auto"
+              className="group relative bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white text-lg sm:text-xl font-bold px-8 py-6 h-auto shadow-2xl shadow-purple-500/30 hover:shadow-purple-500/50 transition-all duration-300 hover:scale-105"
               onClick={() => {
                 document.querySelector('form')?.scrollIntoView({ behavior: 'smooth' })
               }}
             >
+              <Sparkles className="mr-2 h-5 w-5" />
               Join the Waitlist
-              <ArrowRight className="ml-2 h-5 w-5" />
+              <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
             </Button>
           </div>
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="relative z-10 border-t border-white/10 bg-black/20 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-slate-400 text-sm">
-              © {new Date().getFullYear()} ChainReact. All rights reserved.
-            </p>
-            <div className="flex gap-6">
-              <Link
-                href="/privacy"
-                className="text-slate-400 hover:text-white text-sm transition-colors"
-              >
-                Privacy
-              </Link>
-              <Link
-                href="/terms"
-                className="text-slate-400 hover:text-white text-sm transition-colors"
-              >
-                Terms
-              </Link>
-              <Link
-                href="/contact"
-                className="text-slate-400 hover:text-white text-sm transition-colors"
-              >
-                Contact
-              </Link>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   )
 }

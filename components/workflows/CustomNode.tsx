@@ -543,7 +543,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
   const nodeHasConfiguration = (): boolean => {
     if (!component) return false
 
-    // Manual triggers don't show configuration button - they open trigger selection on double-click
+    // Manual triggers don't show configuration button - they open trigger selection on click
     if (type === 'manual') {
       return false
     }
@@ -574,16 +574,16 @@ function CustomNode({ id, data, selected }: NodeProps) {
     }
   }
 
-  const handleDoubleClick = (e: React.MouseEvent) => {
+  const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation()
-    console.log('🔍 [CustomNode] Double-click detected:', {
+    console.log('🔍 [CustomNode] Click detected:', {
       nodeId: id,
       type,
       hasOnConfigure: !!onConfigure,
       nodeHasConfiguration: nodeHasConfiguration()
     })
 
-    // Manual triggers open the trigger selection dialog on double-click
+    // Manual triggers open the trigger selection dialog on click
     if (type === 'manual' && onConfigure) {
       console.log('🔍 [CustomNode] Opening manual trigger dialog')
       // For manual triggers, onConfigure should open the trigger selection dialog
@@ -1459,7 +1459,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
             nodeState === 'failed' ? 'node-failed' : ''
           }`}
           data-testid={`node-${id}`}
-          onDoubleClick={handleDoubleClick}
+          onClick={handleClick}
           style={{
             opacity: nodeState === 'skeleton' ? 0.5 : 1,
             width: '450px',
@@ -1475,7 +1475,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
         <div
           className={statusBadge.className}
           onClick={(e) => {
-            e.stopPropagation() // Prevent double-click from opening config
+            e.stopPropagation() // Prevent click from opening config
             if (nodeState === 'passed' || nodeState === 'failed' || nodeState === 'running') {
               setIsPreviewExpanded(!isPreviewExpanded)
             }

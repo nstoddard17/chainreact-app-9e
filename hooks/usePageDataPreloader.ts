@@ -59,7 +59,7 @@ export function usePageDataPreloader(
   // Helper to check if data is fresh in store
   const shouldSkipLoad = useCallback((loaderName: string): boolean => {
     const now = Date.now()
-    const CACHE_THRESHOLD = 5000 // 5 seconds
+    const CACHE_THRESHOLD = 30000 // 30 seconds - increased for faster back navigation
 
     if (loaderName === 'integrations') {
       const integrationStore = useIntegrationStore.getState()
@@ -92,6 +92,19 @@ export function usePageDataPreloader(
     }
 
     isRunningRef.current = true
+
+    // Check if we have fresh cached data - if so, show page immediately!
+    const hasWorkflowCache = options.skipWorkflows || !["workflows", "templates", "analytics"].includes(pageType) || shouldSkipLoad('workflows')
+    const hasIntegrationCache = options.skipIntegrations || shouldSkipLoad('integrations')
+
+    if (hasWorkflowCache && hasIntegrationCache) {
+      logger.info('usePageDataPreloader', `All data cached for ${pageType} - showing page immediately!`)
+      hasRunRef.current = true
+      isRunningRef.current = false
+      setIsReady(true)
+      setIsLoading(false)
+      return
+    }
 
     setIsLoading(true)
     setError(null)

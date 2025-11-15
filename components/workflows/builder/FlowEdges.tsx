@@ -87,7 +87,7 @@ export function FlowEdge({
   sourceHandle,
   data
 }: EdgeProps) {
-  const sourceNode = useStore((state) => state.nodeInternals.get(source) ?? null)
+  const sourceNode = useStore((state) => state.nodeInternals?.get(source) ?? null, (a, b) => a?.id === b?.id)
   const explicitColor = data?.edgeColor || style?.stroke
   const handleColor = explicitColor || getHandleColor(sourceNode, sourceHandle)
   const baseStroke = handleColor || '#d0d6e0'
@@ -149,14 +149,23 @@ export function FlowEdge({
           }}
           className="nodrag nopan"
         >
-          <Button
-            variant="ghost"
-            size="sm"
-            className="rounded-full h-6 w-6 p-0 bg-background hover:bg-primary/10 border-2 border-dashed border-muted-foreground/30 hover:border-primary transition-all shadow-sm"
+          <button
             onClick={onEdgeClick}
+            className="
+              group flex items-center justify-center
+              w-8 h-8 rounded-full
+              bg-white dark:bg-gray-800
+              border-2 border-gray-300 dark:border-gray-600
+              hover:border-blue-500 dark:hover:border-blue-400
+              hover:bg-blue-50 dark:hover:bg-blue-900/20
+              transition-all duration-200
+              shadow-md hover:shadow-lg
+              cursor-pointer
+            "
+            aria-label="Add node"
           >
-            <Plus className="w-3.5 h-3.5 text-muted-foreground" />
-          </Button>
+            <Plus className="w-4 h-4 text-gray-600 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400" />
+          </button>
         </div>
       </EdgeLabelRenderer>
     </>
