@@ -210,11 +210,55 @@ export function AirtableConfiguration({
   const [selectedDuplicateRecord, setSelectedDuplicateRecord] = useState<any>(null);
   const [duplicateFieldChecklist, setDuplicateFieldChecklist] = useState<any[]>([]);
 
-  const [localAirtableTableSchema, setLocalAirtableTableSchema] = useState<any>(null);
+  const [localAirtableTableSchema, setLocalAirtableTableSchema] = useState<any>(() => {
+    // INSTANT DISPLAY: Load cached schema synchronously on initialization
+    // This enables dynamic fields to appear immediately (Zapier-like UX)
+    if (values.baseId && values.tableName && typeof window !== 'undefined') {
+      // Try database cache first (from initialConfig)
+      const dbCacheKey = `_cached_schema_${values.baseId}_${values.tableName}`;
+      const cachedFromDb = initialConfig?.[dbCacheKey];
+      if (cachedFromDb) {
+        logger.debug('⚡ [INSTANT SCHEMA] Loaded from database cache:', {
+          baseId: values.baseId,
+          tableName: values.tableName,
+          fieldsCount: cachedFromDb.fields?.length
+        });
+        return cachedFromDb;
+      }
+
+      // Fallback to localStorage cache
+      try {
+        const localCacheKey = `airtable_schema:${values.baseId}:${values.tableName}`;
+        const cached = localStorage.getItem(localCacheKey);
+        if (cached) {
+          const { schema, timestamp } = JSON.parse(cached);
+          // Use cache if less than 24 hours old
+          const age = Date.now() - timestamp;
+          if (age < 24 * 60 * 60 * 1000) {
+            logger.debug('⚡ [INSTANT SCHEMA] Loaded from localStorage cache:', {
+              baseId: values.baseId,
+              tableName: values.tableName,
+              fieldsCount: schema.fields?.length,
+              ageMinutes: Math.round(age / 60000)
+            });
+            return schema;
+          }
+        }
+      } catch (err) {
+        logger.warn('[INSTANT SCHEMA] Failed to load from localStorage:', err);
+      }
+    }
+    return null;
+  });
   const airtableTableSchema = parentAirtableTableSchema ?? localAirtableTableSchema;
   const setAirtableTableSchema = parentSetAirtableTableSchema ?? setLocalAirtableTableSchema;
-  
+
   const [isLoadingTableSchema, setIsLoadingTableSchema] = useState(false);
+
+  // Track if schema was loaded from cache (for background refresh)
+  const [schemaLoadedFromCache] = useState(() => {
+    return !!localAirtableTableSchema; // true if initialized with cached schema
+  });
 
   const [localShowPreviewData, setLocalShowPreviewData] = useState(false);
   const showPreviewData = parentShowPreviewData ?? localShowPreviewData;
@@ -776,13 +820,36 @@ export function AirtableConfiguration({
 
       // Set schema AFTER batch loading completes
       setAirtableTableSchema(fallbackSchema);
+
+      // Cache schema for instant display on reopen (Zapier-like UX)
+      // Save both to form values (for database persistence) and localStorage (for instant access)
+      if (fallbackSchema) {
+        const schemaCacheKey = `_cached_schema_${baseId}_${tableName}`;
+        setValue(schemaCacheKey, fallbackSchema);
+
+        // Also save to localStorage for instant synchronous access
+        try {
+          const localCacheKey = `airtable_schema:${baseId}:${tableName}`;
+          localStorage.setItem(localCacheKey, JSON.stringify({
+            schema: fallbackSchema,
+            timestamp: Date.now()
+          }));
+          logger.debug('[AirtableConfig] Cached table schema:', {
+            baseId,
+            tableName,
+            fieldsCount: fallbackSchema.fields?.length
+          });
+        } catch (err) {
+          logger.warn('[AirtableConfig] Failed to cache schema to localStorage:', err);
+        }
+      }
     } catch (error) {
       logger.error('Error fetching table schema:', error);
       setAirtableTableSchema(null);
     } finally {
       setIsLoadingTableSchema(false);
     }
-  }, [airtableIntegration, isCreateMultipleRecords, isCreateRecord, isUpdateRecord, isUpdateMultipleRecords, batchLoadFieldValues]);
+  }, [airtableIntegration, isCreateMultipleRecords, isCreateRecord, isUpdateRecord, isUpdateMultipleRecords, batchLoadFieldValues, setValue]);
 
   // Load Airtable records
   const loadAirtableRecords = useCallback(async (baseId: string, tableName: string) => {
@@ -1616,6 +1683,22 @@ export function AirtableConfiguration({
     }
   }, [isFindRecord, values]);
 
+  // Background refresh when schema loaded from cache
+  // This ensures fresh data is fetched silently while user sees instant cached display
+  const hasTriggeredBackgroundRefresh = React.useRef(false);
+  useEffect(() => {
+    if (schemaLoadedFromCache && values.baseId && values.tableName && !hasTriggeredBackgroundRefresh.current) {
+      hasTriggeredBackgroundRefresh.current = true;
+      logger.debug('🔄 [BACKGROUND REFRESH] Schema was loaded from cache, refreshing in background:', {
+        baseId: values.baseId,
+        tableName: values.tableName
+      });
+
+      // Fetch fresh schema in background (won't block UI since cached version already showing)
+      fetchAirtableTableSchema(values.baseId, values.tableName);
+    }
+  }, [schemaLoadedFromCache, values.baseId, values.tableName]);
+
   // Combine loading logic to prevent duplicate API calls
   // Use refs to track previous values and prevent infinite loops
   const prevTableName = React.useRef(values.tableName);
@@ -1832,26 +1915,17 @@ export function AirtableConfiguration({
         }));
 
       } else if (field.airtableFieldType === 'singleSelect') {
-        // For single select, replace existing bubble
-        const newBubble = {
-          value: value,
-          label: getLabelFromValue(value, fieldName),
-          fieldName: field.name
+        // For single select, store label metadata for instant display on reopen
+        const friendlyLabel = getLabelFromValue(value, fieldName);
+        const labelMetadata: Record<string, string> = {
+          [value]: friendlyLabel
         };
-        
-        setFieldSuggestions(prev => ({
-          ...prev,
-          [fieldName]: [newBubble]
-        }));
-        
-        // Auto-activate for single select
-        setActiveBubbles(prev => ({
-          ...prev,
-          [fieldName]: 0
-        }));
-        
-        // Clear the dropdown
-        setValue(fieldName, null);
+
+        // Save label metadata to form values for persistence
+        setValue(`${fieldName}_labels`, labelMetadata);
+
+        // Don't create bubbles or clear the value for singleSelect
+        // The value should stay in the dropdown for instant display on reopen
       } else if (field.airtableFieldType === 'multipleAttachments' || field.type === 'file') {
         // Handle image/attachment fields
         // Note: AirtableImageField already converts Files to base64 before calling onChange
@@ -2085,12 +2159,8 @@ export function AirtableConfiguration({
 
       // Load options for each field
       fieldsToAutoLoad.forEach(field => {
-        // Set loading state for the field
-        setLocalLoadingFields(prev => {
-          const newSet = new Set(prev);
-          newSet.add(field.name);
-          return newSet;
-        });
+        // DON'T set loading state - we're loading silently in the background
+        // This prevents loading placeholders from appearing while we have cached labels
 
         // Prepare extra options for context
         const extraOptions = {
@@ -2099,7 +2169,7 @@ export function AirtableConfiguration({
           tableFields: airtableTableSchema?.fields || []
         };
 
-        logger.debug(`🔄 [AUTO-LOAD] Loading options for: ${field.label}`, {
+        logger.debug(`🔄 [AUTO-LOAD] Loading options silently in background for: ${field.label}`, {
           fieldName: field.name,
           dynamic: field.dynamic,
           dependsOn: field.dependsOn
@@ -2108,23 +2178,9 @@ export function AirtableConfiguration({
         // Load the options silently in background (use cache, don't force refresh, silent mode)
         // This allows fields with cached labels to show instantly while options refresh
         if (field.dependsOn === 'tableName') {
-          loadOptions(field.name, 'tableName', values.tableName, false, true, extraOptions)
-            .finally(() => {
-              setLocalLoadingFields(prev => {
-                const newSet = new Set(prev);
-                newSet.delete(field.name);
-                return newSet;
-              });
-            });
+          loadOptions(field.name, 'tableName', values.tableName, false, true, extraOptions);
         } else {
-          loadOptions(field.name, undefined, undefined, false, true, extraOptions)
-            .finally(() => {
-              setLocalLoadingFields(prev => {
-                const newSet = new Set(prev);
-                newSet.delete(field.name);
-                return newSet;
-              });
-            });
+          loadOptions(field.name, undefined, undefined, false, true, extraOptions);
         }
       });
     }
@@ -2206,11 +2262,8 @@ export function AirtableConfiguration({
 
       // Load each field
       autoLoadFields.forEach((field: any) => {
-        setLocalLoadingFields(prev => {
-          const newSet = new Set(prev);
-          newSet.add(field.name);
-          return newSet;
-        });
+        // DON'T set loading state - we're loading silently in the background
+        // This prevents loading placeholders from appearing while we have cached labels
 
         const extraOptions = {
           baseId: values.baseId,
@@ -2218,7 +2271,7 @@ export function AirtableConfiguration({
           tableFields: airtableTableSchema?.fields || []
         };
 
-        logger.debug(`🔄 [AUTO-LOAD CONFIG] Loading options for: ${field.label}`, {
+        logger.debug(`🔄 [AUTO-LOAD CONFIG] Loading options silently in background for: ${field.label}`, {
           fieldName: field.name,
           dynamic: field.dynamic,
           dependsOn: field.dependsOn
@@ -2226,23 +2279,9 @@ export function AirtableConfiguration({
 
         // Load silently in background to allow cached labels to show instantly
         if (field.dependsOn === 'tableName') {
-          loadOptions(field.name, 'tableName', values.tableName, false, true, extraOptions)
-            .finally(() => {
-              setLocalLoadingFields(prev => {
-                const newSet = new Set(prev);
-                newSet.delete(field.name);
-                return newSet;
-              });
-            });
+          loadOptions(field.name, 'tableName', values.tableName, false, true, extraOptions);
         } else {
-          loadOptions(field.name, undefined, undefined, false, true, extraOptions)
-            .finally(() => {
-              setLocalLoadingFields(prev => {
-                const newSet = new Set(prev);
-                newSet.delete(field.name);
-                return newSet;
-              });
-            });
+          loadOptions(field.name, undefined, undefined, false, true, extraOptions);
         }
       });
     }
@@ -2423,7 +2462,78 @@ export function AirtableConfiguration({
       logger.error('❌ [DROPDOWN FIELDS] Error loading field:', fieldName, error);
     }
   }, [dynamicFields, values.tableName, values.baseId, loadOptions, loadedDropdownFields, dynamicOptions]);
-  
+
+  // INSTANT DISPLAY: Initialize bubbles from saved label metadata BEFORE waiting for API
+  // This enables the "Zapier experience" - show saved values immediately
+  useEffect(() => {
+    if (!dynamicFields.length || !values) return;
+
+    // Only initialize from saved metadata on first mount or when dynamic fields change
+    const hasSavedData = Object.keys(values).some(key =>
+      (key.startsWith('airtable_field_') && values[key]) ||
+      key.endsWith('_labels')
+    );
+
+    if (!hasSavedData) return;
+
+    logger.debug('⚡ [INSTANT DISPLAY] Initializing bubbles from saved label metadata');
+
+    dynamicFields.forEach(field => {
+      const fieldName = field.name;
+      const altFieldName = `airtable_field_${field.label}`;
+      const existingValue = values[fieldName] || values[altFieldName];
+      const actualFieldName = values[fieldName] ? fieldName : altFieldName;
+
+      if (!existingValue) return;
+
+      // Skip if bubbles already initialized
+      if (fieldSuggestions[actualFieldName]?.length > 0) return;
+
+      // Handle linked record fields with saved label metadata
+      if (field.airtableFieldType === 'multipleRecordLinks' ||
+          field.airtableFieldType === 'singleRecordLink' ||
+          (field.multiple && field.dynamic && typeof field.dynamic === 'string')) {
+
+        const labelMetadataKey = `${actualFieldName}_labels`;
+        const savedLabels = values[labelMetadataKey] as Record<string, string> | undefined;
+
+        if (!savedLabels) return; // No saved labels, will be handled by regular bubble init
+
+        const recordIds = Array.isArray(existingValue) ? existingValue : [existingValue];
+
+        const bubbles = recordIds.map(recordId => ({
+          value: recordId,
+          label: savedLabels[recordId] || recordId, // Use saved label or fallback to ID
+          fieldName: field.name
+        }));
+
+        logger.debug('⚡ [INSTANT DISPLAY] Loaded bubbles from saved labels:', {
+          fieldName: actualFieldName,
+          bubbleCount: bubbles.length,
+          bubbles
+        });
+
+        setFieldSuggestions(prev => ({
+          ...prev,
+          [actualFieldName]: bubbles
+        }));
+
+        // Auto-activate all existing bubbles
+        if (field.airtableFieldType === 'multipleRecordLinks' || field.multiple) {
+          setActiveBubbles(prev => ({
+            ...prev,
+            [actualFieldName]: bubbles.map((_, idx) => idx)
+          }));
+        } else {
+          setActiveBubbles(prev => ({
+            ...prev,
+            [actualFieldName]: 0
+          }));
+        }
+      }
+    });
+  }, [dynamicFields]); // Only run when dynamic fields are available (table schema loaded)
+
   // Initialize bubbles from existing values (for editing existing workflows)
   useEffect(() => {
     if (!dynamicFields.length || !values) return;
@@ -2884,20 +2994,6 @@ export function AirtableConfiguration({
         }
       }
 
-      // Debug loading state for watchedTables field
-      // Check if this specific field is loading
-      const fieldIsLoading = isFieldLoading(field.name);
-
-      // Debug log for watchedTables field
-      if (field.name === 'watchedTables') {
-        console.log('[AirtableConfig] 🎯 Rendering watchedTables:', {
-          isLoading: fieldIsLoading,
-          hasOptions: !!dynamicOptions.watchedTables,
-          optionsCount: dynamicOptions.watchedTables?.length || 0,
-          loadingFieldsArray: Array.from(loadingFields)
-        });
-      }
-
       // For linked record fields, enhance options to ensure proper display
       let enhancedDynamicOptions = mergedDynamicOptions;
       if (field.airtableFieldType === 'multipleRecordLinks' || field.airtableFieldType === 'singleRecordLink') {
@@ -2925,17 +3021,31 @@ export function AirtableConfiguration({
           };
         }
         // If we have saved labels but no loaded options, create temporary options from saved labels
-        else if (savedLabels && existingOptions.length === 0) {
+        // ALSO: If we have a field value with a saved label, ensure it's in the options
+        else if (savedLabels && (existingOptions.length === 0 || (fieldValue && !existingOptions.find((opt: any) => opt.value === fieldValue)))) {
+          // Create options from saved labels
           const tempOptions = Object.entries(savedLabels).map(([id, label]) => ({
             value: id,
             label: label
           }));
+
+          // If we have existing options, merge them (preserving both saved labels and loaded options)
+          const mergedOptions = existingOptions.length > 0
+            ? [...existingOptions, ...tempOptions.filter(temp => !existingOptions.find((opt: any) => opt.value === temp.value))]
+            : tempOptions;
+
           enhancedDynamicOptions = {
             ...mergedDynamicOptions,
-            [field.name]: tempOptions
+            [field.name]: mergedOptions
           };
         }
       }
+
+      // CRITICAL: Check if this specific field is loading
+      // BUT: Don't show loading state if we already have options (from batch load or cache)
+      // This prevents "Loading..." placeholders from appearing when reopening saved configs
+      const hasExistingOptions = enhancedDynamicOptions[field.name]?.length > 0;
+      const fieldIsLoading = isFieldLoading(field.name) && !hasExistingOptions;
 
       return (
       <React.Fragment key={`field-${field.name}-${index}`}>

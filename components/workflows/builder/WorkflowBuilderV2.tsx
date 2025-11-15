@@ -1687,7 +1687,21 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
     }
 
     try {
-      // Update the node with the new config
+      // INSTANT UPDATE: Update the config in localStorage immediately for instant reopen
+      if (typeof window !== 'undefined' && flowId) {
+        const cacheKey = `workflow_${flowId}_node_${nodeId}_config`;
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify({
+            config: config,
+            timestamp: Date.now()
+          }));
+          console.log('💾 [WorkflowBuilder] Cached config locally for instant reopen');
+        } catch (e) {
+          console.warn('Could not cache configuration locally:', e);
+        }
+      }
+
+      // Update the node with the new config (debounced 600ms)
       actions.updateConfig(nodeId, config)
     } catch (error: any) {
       console.error('💾 [WorkflowBuilder] Error saving config:', error)
@@ -1697,7 +1711,7 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
         variant: "destructive",
       })
     }
-  }, [actions, toast])
+  }, [actions, toast, flowId])
 
   // Placeholder handlers (to be implemented)
   const comingSoon = useCallback(
@@ -3176,6 +3190,32 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
           nodeData: configuringNode?.data,
         })
 
+        // INSTANT REOPEN: Calculate initial data with stable reference
+        // NOTE: We rely on ConfigurationModal's internal effectiveInitialData useMemo
+        // to maintain stable reference, not on this calculation
+        let initialData = configuringNode?.data?.config || {};
+
+        // If we don't have config from the node, try localStorage cache
+        if (!initialData || Object.keys(initialData).length === 0) {
+          if (typeof window !== 'undefined' && flowId && configuringNode?.id) {
+            try {
+              const cacheKey = `workflow_${flowId}_node_${configuringNode.id}_config`;
+              const cached = localStorage.getItem(cacheKey);
+              if (cached) {
+                const { config, timestamp } = JSON.parse(cached);
+                const age = Date.now() - timestamp;
+                // Use cache if less than 5 minutes old
+                if (age < 5 * 60 * 1000) {
+                  console.log('⚡ [WorkflowBuilder] Loaded config from cache for instant reopen');
+                  initialData = config;
+                }
+              }
+            } catch (e) {
+              console.warn('Failed to load cached config:', e);
+            }
+          }
+        }
+
         return (
           <ConfigurationModal
             isOpen={!!configuringNode}
@@ -3186,7 +3226,7 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
             }}
             nodeInfo={nodeInfo}
             integrationName={configuringNode?.data?.providerId || nodeType || 'Unknown'}
-            initialData={configuringNode?.data?.config || {}}
+            initialData={initialData}
             workflowData={{
               nodes: reactFlowProps?.nodes ?? [],
               edges: reactFlowProps?.edges ?? [],

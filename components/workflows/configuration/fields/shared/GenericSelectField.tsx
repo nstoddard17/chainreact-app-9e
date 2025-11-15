@@ -93,10 +93,44 @@ export function GenericSelectField({
   // Cache store - must be at top level
   const { get: getCache, set: setCache, invalidate: invalidateCache } = useConfigCacheStore()
 
+  // Cache key for persisting display labels across modal reopen
+  const labelCacheKeyForInit = React.useMemo(() => {
+    const provider = nodeInfo?.providerId || 'generic';
+    const nodeType = nodeInfo?.type || 'unknown';
+    return `workflow-field-label:${provider}:${nodeType}:${field.name}`;
+  }, [nodeInfo?.providerId, nodeInfo?.type, field.name]);
+
   // All hooks must be at the top level before any conditional returns
   // Store the display label for the selected value
-  // Initialize with the current value if it exists (for instant display of saved values)
-  const [displayLabel, setDisplayLabel] = React.useState<string | null>(null);
+  // Initialize with cached label for instant display of saved values (Zapier-like UX)
+  const [displayLabel, setDisplayLabel] = React.useState<string | null>(() => {
+    // PRIORITY 1: Check for saved labels in parentValues (for Airtable linked record fields)
+    // This ensures linked record fields NEVER show IDs, always labels
+    if (value && field.name?.startsWith('airtable_field_')) {
+      const labelMetadataKey = `${field.name}_labels`;
+      const savedLabels = parentValues?.[labelMetadataKey] as Record<string, string> | undefined;
+      if (savedLabels && savedLabels[String(value)]) {
+        return savedLabels[String(value)];
+      }
+    }
+
+    // PRIORITY 2: Try to load cached label from localStorage
+    if (typeof window !== 'undefined' && value) {
+      try {
+        const raw = window.localStorage.getItem(labelCacheKeyForInit);
+        if (raw) {
+          const cache = JSON.parse(raw) as Record<string, string>;
+          const cached = cache?.[String(value)];
+          if (cached) {
+            return cached;
+          }
+        }
+      } catch (error) {
+        // Ignore errors, will fallback to null
+      }
+    }
+    return null;
+  });
   const [isDragOver, setIsDragOver] = React.useState(false);
 
   // State for refresh button - must be at top level before any returns
@@ -853,6 +887,23 @@ export function GenericSelectField({
       });
     }
   }, [processedOptions, field.name]);
+
+  // Update displayLabel when parentValues labels are updated (for Airtable linked record fields)
+  // This ensures we NEVER show IDs, always labels - even when labels load after initial render
+  React.useEffect(() => {
+    if (!value || !field.name?.startsWith('airtable_field_')) return;
+
+    const labelMetadataKey = `${field.name}_labels`;
+    const savedLabels = parentValues?.[labelMetadataKey] as Record<string, string> | undefined;
+    if (savedLabels && savedLabels[String(value)]) {
+      const newLabel = savedLabels[String(value)];
+      if (newLabel !== displayLabel) {
+        setDisplayLabel(newLabel);
+        // Also save to localStorage cache for future reopens
+        saveLabelToCache(String(value), newLabel);
+      }
+    }
+  }, [value, field.name, parentValues, displayLabel, saveLabelToCache]);
 
   // If dynamic options were loaded elsewhere (e.g., auto-load), mark as attempted to prevent duplicate fetches on dropdown open
   React.useEffect(() => {
