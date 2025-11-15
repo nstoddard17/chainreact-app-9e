@@ -79,6 +79,7 @@ interface ConfigurationFormProps {
   isConnectedToAIAgent?: boolean;
   isTemplateEditing?: boolean;
   templateDefaults?: Record<string, any>;
+  isReopen?: boolean;
 }
 
 function ConfigurationForm({
@@ -96,6 +97,7 @@ function ConfigurationForm({
   isConnectedToAIAgent,
   isTemplateEditing = false,
   templateDefaults,
+  isReopen = false,
 }: ConfigurationFormProps) {
   // FIRST: All hooks must be called before any conditional returns
 
@@ -1338,6 +1340,7 @@ function ConfigurationForm({
     aiFields,
     setAiFields,
     isConnectedToAIAgent,
+    isReopen,
     // Provider-specific state
     selectedRecord,
     setSelectedRecord,

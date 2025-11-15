@@ -53,6 +53,7 @@ interface AirtableConfigurationProps {
   isTemplateEditing?: boolean;
   templateDefaults?: Record<string, any> | undefined;
   initialConfig?: Record<string, any>;
+  isReopen?: boolean;
 }
 
 export function AirtableConfiguration({
@@ -90,6 +91,7 @@ export function AirtableConfiguration({
   isTemplateEditing = false,
   templateDefaults,
   initialConfig,
+  isReopen = false,
 }: AirtableConfigurationProps) {
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
@@ -146,9 +148,11 @@ export function AirtableConfiguration({
   }, [parentLoadingFields, localLoadingFields]);
 
   // Helper function to check if a field is currently loading
+  // CRITICAL: When reopening modal, NEVER show loading state - just show saved values
   const isFieldLoading = useCallback((fieldName: string) => {
+    if (isReopen) return false; // Suppress all loading placeholders when reopening
     return loadingFields.has(fieldName);
-  }, [loadingFields]);
+  }, [loadingFields, isReopen]);
 
   // Track which dropdown fields have been loaded to prevent reloading
   const [loadedDropdownFields, setLoadedDropdownFields] = useState<Set<string>>(new Set());

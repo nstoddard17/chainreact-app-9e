@@ -313,6 +313,21 @@ export function ConfigurationModal({
     [initialOverride, initialData]
   )
 
+  // Detect if this is a reopen (has existing config) vs fresh open (empty config)
+  // When reopening, we suppress all loading placeholders and show saved values instantly
+  const isReopen = React.useMemo(() => {
+    if (!effectiveInitialData) return false;
+
+    // Check if there are any actual config values (excluding metadata keys)
+    const configKeys = Object.keys(effectiveInitialData).filter(key =>
+      !key.startsWith('__') && // Exclude __dynamicOptions, __validationState, etc.
+      !key.startsWith('_') &&  // Exclude _label_, _cached_, etc.
+      key !== 'workflowId'      // Exclude workflowId (always present)
+    );
+
+    return configKeys.length > 0;
+  }, [effectiveInitialData])
+
   const autoMappingEntries = React.useMemo(
     () =>
       computeAutoMappingEntries({
@@ -798,6 +813,7 @@ export function ConfigurationModal({
                     isConnectedToAIAgent={isConnectedToAIAgent}
                     isTemplateEditing={isTemplateEditing}
                     templateDefaults={templateDefaults}
+                    isReopen={isReopen}
                   />
                 </TabsContent>
 
