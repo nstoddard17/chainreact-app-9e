@@ -29,7 +29,7 @@ export default async function FlowBuilderV2Page({ params }: BuilderPageProps) {
   return (
     <TooltipProvider>
       <ReactFlowProvider>
-        <WorkflowBuilderV2 flowId={flowId} />
+        <WorkflowBuilderV2 flowId={flowId} initialRevision={revision} />
       </ReactFlowProvider>
     </TooltipProvider>
   )

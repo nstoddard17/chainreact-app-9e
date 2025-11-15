@@ -11,6 +11,7 @@ import { ALL_NODE_COMPONENTS } from "../../../../lib/workflows/nodes"
 export interface UseFlowV2BuilderOptions {
   initialPrompt?: string
   autoOpenAgentPanel?: boolean
+  initialRevision?: any // Pre-fetched revision data from server
 }
 
 type PlannerEdit =
@@ -253,10 +254,13 @@ function flowToReactFlowEdges(flow: Flow): ReactFlowEdge[] {
   }))
 }
 
-export function useFlowV2Builder(flowId: string, _options?: UseFlowV2BuilderOptions): UseFlowV2BuilderResult | null {
+export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptions): UseFlowV2BuilderResult | null {
   const builder = useWorkflowBuilder()
 
   const { setNodes, setEdges, setWorkflowName, setHasUnsavedChanges, getNodes } = builder
+
+  // Track if we've used the initial revision
+  const initialRevisionUsedRef = useRef(false)
 
   const [flowState, setFlowState] = useState<FlowV2BuilderState>(() => ({
     flowId,
@@ -350,6 +354,37 @@ export function useFlowV2Builder(flowId: string, _options?: UseFlowV2BuilderOpti
 
   const load = useCallback(async () => {
     if (!flowId) return
+
+    // If we have initialRevision and haven't used it yet, use it instead of fetching
+    if (options?.initialRevision && !initialRevisionUsedRef.current) {
+      initialRevisionUsedRef.current = true
+      setLoading(true)
+      try {
+        const flow = FlowSchema.parse(options.initialRevision.graph)
+        flowRef.current = flow
+        revisionIdRef.current = options.initialRevision.id
+        updateReactFlowGraph(flow)
+
+        setFlowState((prev) => ({
+          ...prev,
+          flow,
+          revisionId: options.initialRevision.id,
+          version: flow.version,
+          revisionCount: 1, // We don't have revision count from server, set to 1
+          error: undefined,
+        }))
+      } catch (error: any) {
+        setFlowState((prev) => ({
+          ...prev,
+          error: error.message ?? String(error),
+        }))
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
+
+    // Otherwise, fetch from API as usual
     setLoading(true)
     try {
       const revisionsPayload = await fetchJson<{ revisions?: Array<{ id: string; version: number }> }>(

@@ -4,6 +4,7 @@ import { IntegrationError, ErrorType } from "@/src/domains/integrations/entities
 
 import { logger } from '@/lib/utils/logger'
 import { useDebugStore } from '@/stores/debugStore'
+import { fetchWithRetry } from '@/lib/utils/fetch-with-retry'
 
 export interface Integration {
   id: string
@@ -89,71 +90,46 @@ export class IntegrationService {
   ): Promise<Integration[]> {
     const { user, session } = await SessionManager.getSecureUserAndSession()
 
-    // Retry logic
-    const maxRetries = 2
-    let lastError: any = null
-
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      // Add timeout to prevent hanging requests (increased to 45 seconds for slower connections)
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 45000) // 45 second timeout
-
-      try {
-        // Build query parameters
-        const params = new URLSearchParams({
-          workspace_type: workspaceType
-        })
-        if (workspaceId) {
-          params.append('workspace_id', workspaceId)
-        }
-
-        const url = `/api/integrations?${params.toString()}`
-        const response = await fetch(url, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          signal: controller.signal,
-        })
-
-        clearTimeout(timeoutId)
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch integrations: ${response.statusText}`)
-        }
-
-        const data = await response.json()
-        const integrations = data.data || []
-
-        return integrations
-      } catch (error: any) {
-        clearTimeout(timeoutId)
-        lastError = error
-
-        // If it's a timeout and we have retries left, try again
-        if (error.name === 'AbortError' && attempt < maxRetries) {
-          logger.debug(`Integration fetch timeout, retrying... (attempt ${attempt + 1}/${maxRetries})`)
-          // Wait a bit before retrying
-          await new Promise(resolve => setTimeout(resolve, 1000))
-          continue
-        }
-
-        // If it's the last attempt or not a timeout, throw the error
-        if (error.name === 'AbortError') {
-          logger.warn('Integration fetch timed out after all retries - returning empty array')
-          // Return empty array instead of throwing to prevent page from getting stuck
-          // The page can still function with cached data or show a non-blocking error
-          return []
-        }
-        throw error
-      }
+    // Build query parameters
+    const params = new URLSearchParams({
+      workspace_type: workspaceType
+    })
+    if (workspaceId) {
+      params.append('workspace_id', workspaceId)
     }
 
-    // If we get here, all retries failed
-    // Return empty array instead of throwing to prevent page from getting stuck
-    logger.warn('All integration fetch retries failed - returning empty array', lastError)
-    return []
+    const url = `/api/integrations?${params.toString()}`
+
+    try {
+      const response = await fetchWithRetry(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      }, {
+        maxRetries: 2,
+        timeoutMs: 45000,
+        useExponentialBackoff: true,
+        onRetry: (attempt) => {
+          logger.debug(`[IntegrationService] Retrying... (attempt ${attempt})`)
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch integrations: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      const integrations = data.data || []
+
+      return integrations
+    } catch (error: any) {
+      logger.warn('[IntegrationService] Fetch failed - returning empty array', error)
+      // Return empty array instead of throwing to prevent page from getting stuck
+      // The page can still function with cached data or show a non-blocking error
+      return []
+    }
   }
 
   /**

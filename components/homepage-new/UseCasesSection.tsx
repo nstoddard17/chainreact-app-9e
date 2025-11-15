@@ -232,7 +232,7 @@ export function UseCasesSection() {
             <div className="mt-10 text-center">
               <Button
                 onClick={() => window.location.href = '/waitlist'}
-                className="bg-white hover:bg-gray-50 dark:bg-white dark:hover:bg-gray-50 text-gray-900 dark:text-white hover:text-gray-900 dark:hover:text-gray-900 border border-gray-200 dark:border-gray-200 shadow-sm"
+                className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white shadow-lg shadow-blue-500/20"
               >
                 Build This Workflow
                 <ArrowRight className="w-4 h-4 ml-2" />

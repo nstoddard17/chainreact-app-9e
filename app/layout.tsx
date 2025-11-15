@@ -14,6 +14,7 @@ import { LoadingDetector } from "@/components/LoadingDetector"
 import { IconPrefetcher } from "@/components/integrations/IconPrefetcher"
 import { ChunkErrorHandler } from "@/components/ChunkErrorHandler"
 import { GlobalAdminDebugPanel } from "@/components/debug/GlobalAdminDebugPanel"
+import { AppContextProvider } from "@/lib/contexts/AppContext"
 // Discord bot now initialized server-side via instrumentation.ts
 // import DiscordBotProvider from "@/components/providers/DiscordBotProvider"
 // import ArchitectureProvider from "@/components/providers/ArchitectureProvider"
@@ -127,15 +128,17 @@ export default function RootLayout({
             <AuthErrorBoundary>
               <GlobalErrorHandler />
               <AuthInitializer />
-              <LoadingDetector />
-              <ChunkErrorHandler />
-              <IconPrefetcher />
-              <LightweightPresenceProvider>
-                <Toaster />
-                <SonnerToaster position="top-right" />
-                <GlobalAdminDebugPanel />
-                {children}
-              </LightweightPresenceProvider>
+              <AppContextProvider>
+                <LoadingDetector />
+                <ChunkErrorHandler />
+                <IconPrefetcher />
+                <LightweightPresenceProvider>
+                  <Toaster />
+                  <SonnerToaster position="top-right" />
+                  <GlobalAdminDebugPanel />
+                  {children}
+                </LightweightPresenceProvider>
+              </AppContextProvider>
             </AuthErrorBoundary>
           </SupabaseProvider>
         </ThemeProvider>

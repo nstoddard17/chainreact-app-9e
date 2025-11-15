@@ -2,6 +2,7 @@ import { SessionManager } from "@/lib/auth/session"
 import { logger } from '@/lib/utils/logger'
 import { useDebugStore } from '@/stores/debugStore'
 import type { Workflow } from '@/stores/workflowStore'
+import { fetchWithRetry } from '@/lib/utils/fetch-with-retry'
 
 export interface ApiResponse<T = any> {
   success: boolean
@@ -31,94 +32,47 @@ export class WorkflowService {
   ): Promise<Workflow[]> {
     const { user, session } = await SessionManager.getSecureUserAndSession()
 
-    // Retry logic
-    const maxRetries = 2
-    let lastError: any = null
+    logger.debug('🌐 [WorkflowService] Making API call (unified view)', {
+      force,
+      filterContext: filterContext || 'ALL (unified)',
+      workspaceId,
+      timestamp: new Date().toISOString()
+    });
 
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      // Add timeout to prevent hanging requests
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 45000) // 45 second timeout
-
-      try {
-        logger.debug('🌐 [WorkflowService] Making API call (unified view)', {
-          attempt: attempt + 1,
-          force,
-          filterContext: filterContext || 'ALL (unified)',
-          workspaceId,
-          timestamp: new Date().toISOString()
-        });
-
-        // Build query parameters - OPTIONAL filtering
-        const params = new URLSearchParams()
-        if (filterContext) {
-          params.append('filter_context', filterContext)
-        }
-        if (workspaceId) {
-          params.append('workspace_id', workspaceId)
-        }
-
-        const url = `/api/workflows${params.toString() ? '?' + params.toString() : ''}`
-
-        const response = await fetch(url, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          signal: controller.signal,
-        })
-
-        clearTimeout(timeoutId)
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch workflows: ${response.statusText}`)
-        }
-
-        const data = await response.json()
-        const workflows = data.data || []
-
-        return workflows
-
-      } catch (error: any) {
-        lastError = error
-
-        // Handle abort (timeout) errors
-        if (error.name === 'AbortError') {
-          logger.warn(`[WorkflowService] Request timeout on attempt ${attempt + 1}/${maxRetries + 1}`)
-
-          // Don't retry on last attempt
-          if (attempt === maxRetries) {
-            logger.error('[WorkflowService] All retry attempts exhausted (timeout)')
-            throw new Error('Request timeout - please try again')
-          }
-
-          // Wait before retrying (exponential backoff)
-          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)))
-          continue
-        }
-
-        // Handle network errors
-        if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
-          logger.warn(`[WorkflowService] Network error on attempt ${attempt + 1}/${maxRetries + 1}: ${error.message}`)
-
-          if (attempt === maxRetries) {
-            logger.error('[WorkflowService] All retry attempts exhausted (network error)')
-            throw new Error('Network error - please check your connection')
-          }
-
-          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)))
-          continue
-        }
-
-        // For other errors, throw immediately
-        logger.error('[WorkflowService] Fetch failed:', error)
-        throw error
-      }
+    // Build query parameters - OPTIONAL filtering
+    const params = new URLSearchParams()
+    if (filterContext) {
+      params.append('filter_context', filterContext)
+    }
+    if (workspaceId) {
+      params.append('workspace_id', workspaceId)
     }
 
-    // If we get here, all retries failed
-    throw lastError || new Error('Failed to fetch workflows after retries')
+    const url = `/api/workflows${params.toString() ? '?' + params.toString() : ''}`
+
+    const response = await fetchWithRetry(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    }, {
+      maxRetries: 2,
+      timeoutMs: 45000,
+      useExponentialBackoff: true,
+      onRetry: (attempt) => {
+        logger.warn(`[WorkflowService] Retrying... (attempt ${attempt})`)
+      }
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch workflows: ${response.statusText}`)
+    }
+
+    const data = await response.json()
+    const workflows = data.data || []
+
+    return workflows
   }
 
   /**
@@ -141,58 +95,44 @@ export class WorkflowService {
   ): Promise<Workflow> {
     const { session } = await SessionManager.getSecureUserAndSession()
 
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+    logger.debug('🌐 [WorkflowService] Creating workflow', {
+      name,
+      workspaceType,
+      workspaceId,
+      timestamp: new Date().toISOString()
+    });
 
-    try {
-      logger.debug('🌐 [WorkflowService] Creating workflow', {
+    const response = await fetchWithRetry('/api/workflows', {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
         name,
-        workspaceType,
-        workspaceId,
-        timestamp: new Date().toISOString()
-      });
+        description,
+        workspace_type: workspaceType,
+        workspace_id: workspaceId,
+        organization_id: organizationId,
+        folder_id: folderId,
+      }),
+    }, {
+      maxRetries: 1, // Don't retry creates to avoid duplicates
+      timeoutMs: 30000,
+    })
 
-      const response = await fetch('/api/workflows', {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          name,
-          description,
-          workspace_type: workspaceType,
-          workspace_id: workspaceId,
-          organization_id: organizationId,
-          folder_id: folderId,
-        }),
-        signal: controller.signal,
-      })
-
-      clearTimeout(timeoutId)
-
-      if (!response.ok) {
-        throw new Error(`Failed to create workflow: ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      const workflow = data.data?.workflow
-
-      if (!workflow) {
-        throw new Error('No workflow returned from API')
-      }
-
-      return workflow
-
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
-        throw new Error('Request timeout - please try again')
-      }
-      logger.error('[WorkflowService] Create workflow failed:', error)
-      throw error
-    } finally {
-      clearTimeout(timeoutId)
+    if (!response.ok) {
+      throw new Error(`Failed to create workflow: ${response.statusText}`)
     }
+
+    const data = await response.json()
+    const workflow = data.data?.workflow
+
+    if (!workflow) {
+      throw new Error('No workflow returned from API')
+    }
+
+    return workflow
   }
 
   /**
@@ -207,43 +147,29 @@ export class WorkflowService {
   ): Promise<void> {
     const { session } = await SessionManager.getSecureUserAndSession()
 
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 30000)
+    logger.debug('🌐 [WorkflowService] Updating workflow', {
+      id,
+      updates: Object.keys(updates),
+      timestamp: new Date().toISOString()
+    });
 
-    try {
-      logger.debug('🌐 [WorkflowService] Updating workflow', {
-        id,
-        updates: Object.keys(updates),
-        timestamp: new Date().toISOString()
-      });
+    const response = await fetchWithRetry(`/api/workflows/${id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify(updates),
+    }, {
+      maxRetries: 1, // Don't retry updates to avoid conflicts
+      timeoutMs: 30000,
+    })
 
-      const response = await fetch(`/api/workflows/${id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify(updates),
-        signal: controller.signal,
-      })
-
-      clearTimeout(timeoutId)
-
-      if (!response.ok) {
-        throw new Error(`Failed to update workflow: ${response.statusText}`)
-      }
-
-      logger.debug('✅ [WorkflowService] Successfully updated workflow', { id });
-
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
-        throw new Error('Request timeout - please try again')
-      }
-      logger.error('[WorkflowService] Update workflow failed:', error)
-      throw error
-    } finally {
-      clearTimeout(timeoutId)
+    if (!response.ok) {
+      throw new Error(`Failed to update workflow: ${response.statusText}`)
     }
+
+    logger.debug('✅ [WorkflowService] Successfully updated workflow', { id });
   }
 
   /**
@@ -254,39 +180,25 @@ export class WorkflowService {
   static async deleteWorkflow(id: string): Promise<void> {
     const { session } = await SessionManager.getSecureUserAndSession()
 
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 30000)
+    logger.debug('🌐 [WorkflowService] Deleting workflow', {
+      id,
+      timestamp: new Date().toISOString()
+    });
 
-    try {
-      logger.debug('🌐 [WorkflowService] Deleting workflow', {
-        id,
-        timestamp: new Date().toISOString()
-      });
+    const response = await fetchWithRetry(`/api/workflows/${id}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    }, {
+      maxRetries: 1, // Don't retry deletes to avoid confusion
+      timeoutMs: 30000,
+    })
 
-      const response = await fetch(`/api/workflows/${id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        signal: controller.signal,
-      })
-
-      clearTimeout(timeoutId)
-
-      if (!response.ok) {
-        throw new Error(`Failed to delete workflow: ${response.statusText}`)
-      }
-
-      logger.debug('✅ [WorkflowService] Successfully deleted workflow', { id });
-
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
-        throw new Error('Request timeout - please try again')
-      }
-      logger.error('[WorkflowService] Delete workflow failed:', error)
-      throw error
-    } finally {
-      clearTimeout(timeoutId)
+    if (!response.ok) {
+      throw new Error(`Failed to delete workflow: ${response.statusText}`)
     }
+
+    logger.debug('✅ [WorkflowService] Successfully deleted workflow', { id });
   }
 }

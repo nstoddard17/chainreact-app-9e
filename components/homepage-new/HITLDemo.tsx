@@ -245,7 +245,7 @@ export function HITLDemo() {
               <Button
                 onClick={startDemo}
                 disabled={isPlaying}
-                className="bg-white hover:bg-gray-50 dark:bg-white dark:hover:bg-gray-50 text-gray-900 dark:text-white hover:text-gray-900 dark:hover:text-gray-900 border border-gray-200 dark:border-gray-200 shadow-sm py-6 text-base disabled:opacity-50"
+                className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white shadow-lg shadow-blue-500/20 py-6 text-base disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <PlayCircle className="w-5 h-5 mr-2" />
                 {isPlaying ? 'Playing...' : 'Start Demo'}
