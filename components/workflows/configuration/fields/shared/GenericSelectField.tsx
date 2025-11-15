@@ -1111,8 +1111,8 @@ export function GenericSelectField({
             placeholder={placeholderText}
             emptyPlaceholder={isLoading ? loadingPlaceholder : getEmptyMessage(field.name, field.label, (field as any).emptyMessage)}
             searchPlaceholder="Search options..."
-            disabled={isLoading && !displayLabel}
-            loading={isLoading && !displayLabel}
+            disabled={isLoading && !displayLabel && processedOptions.length === 0}
+            loading={isLoading && !displayLabel && processedOptions.length === 0}
             creatable={(field as any).creatable || isAirtableRecordField} // Allow custom option creation for Airtable fields or if specified in field schema
             onOpenChange={handleFieldOpen}
             selectedValues={effectiveSelectedValues} // Pass selected values for checkmarks
@@ -1203,8 +1203,8 @@ export function GenericSelectField({
             placeholder={placeholderText}
             searchPlaceholder="Search options..."
             emptyPlaceholder={isLoading || isSearching ? loadingPlaceholder : ((field as any).emptyMessage || "No options found")}
-            disabled={isLoading && !displayLabel}
-            loading={(isLoading || isSearching) && !displayLabel}
+            disabled={isLoading && !displayLabel && processedOptions.length === 0}
+            loading={(isLoading || isSearching) && !displayLabel && processedOptions.length === 0}
             creatable={(field as any).creatable || isAirtableRecordField} // Allow custom option creation for Airtable fields or if specified in field schema
             onOpenChange={handleFieldOpen} // Add missing onOpenChange handler
             onSearchChange={handleSearchChange} // Handle debounced search
@@ -1297,8 +1297,8 @@ export function GenericSelectField({
           placeholder={placeholderText}
           searchPlaceholder="Search options..."
           emptyPlaceholder={isLoading || isSearching ? loadingPlaceholder : getEmptyMessage(field.name, field.label, (field as any).emptyMessage)}
-          disabled={isLoading}
-          loading={isLoading || isSearching}
+          disabled={isLoading && !displayLabel && processedOptions.length === 0}
+          loading={(isLoading || isSearching) && !displayLabel && processedOptions.length === 0}
           creatable={(field as any).creatable || isAirtableRecordField} // Allow custom option creation for Airtable fields or if specified in field schema
           onOpenChange={handleFieldOpen}
           onSearchChange={handleSearchChange} // Handle debounced search

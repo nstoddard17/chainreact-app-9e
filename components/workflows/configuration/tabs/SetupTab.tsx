@@ -21,6 +21,7 @@ interface SetupTabProps {
   isConnectedToAIAgent?: boolean
   isTemplateEditing?: boolean
   templateDefaults?: Record<string, any>
+  isReopen?: boolean
 }
 
 /**
