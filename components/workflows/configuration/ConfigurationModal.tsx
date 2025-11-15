@@ -626,7 +626,9 @@ export function ConfigurationModal({
           }`}
         style={{
           transition: 'transform 700ms cubic-bezier(0.4, 0, 0.2, 1)',
-          willChange: 'transform',
+          willChange: isOpen ? 'auto' : 'transform', // Only use will-change during animation
+          transform: 'translateZ(0)', // Force GPU acceleration for smooth rendering
+          backfaceVisibility: 'hidden', // Prevent flickering during scroll
           top: `${headerHeight}px`,
           width: viewportWidth === 0 ? '90vw' : viewportWidth < 640 ? '100vw' : viewportWidth < 1024 ? '95vw' : '90vw',
           maxWidth: viewportWidth === 0 ? '1200px' : viewportWidth < 640 ? '100vw' : '1200px',

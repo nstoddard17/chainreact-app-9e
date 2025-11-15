@@ -170,7 +170,14 @@ export function AdvancedTab({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto">
+      <div
+        className="flex-1 overflow-y-auto"
+        style={{
+          transform: 'translateZ(0)', // Force GPU acceleration
+          backfaceVisibility: 'hidden', // Prevent flickering
+          WebkitOverflowScrolling: 'touch', // Smooth scrolling on iOS
+        }}
+      >
         <div className="px-6 py-6 space-y-6">
           {/* Run Behavior Section */}
           <div className="space-y-3">

@@ -16,6 +16,7 @@ interface AirtableRecordsTableProps {
   tableName?: string;
   multiSelect?: boolean; // Enable multi-select mode
   onRecordSelected?: () => void; // Callback after selection animation completes
+  cachedRecords?: any[]; // Cached records for instant display on reopen
 }
 
 export function AirtableRecordsTable({
@@ -29,22 +30,28 @@ export function AirtableRecordsTable({
   isPreview = false,
   tableName = '',
   multiSelect = false,
-  onRecordSelected
+  onRecordSelected,
+  cachedRecords
 }: AirtableRecordsTableProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [recordsPerPage, setRecordsPerPage] = useState(20);
   const [showAll, setShowAll] = useState(false);
   const tableRef = useRef<HTMLDivElement>(null);
 
+  // Use cached records if available and no fresh records loaded yet
+  // This enables instant display when reopening saved configs
+  const displayedRecords = records.length > 0 ? records : (cachedRecords || []);
+  const isShowingCachedData = records.length === 0 && cachedRecords && cachedRecords.length > 0;
+
   // Filter records based on search query
   const filteredRecords = useMemo(() => {
-    if (!searchQuery) return records;
-    
+    if (!searchQuery) return displayedRecords;
+
     const query = searchQuery.toLowerCase();
-    return records.filter(record => {
+    return displayedRecords.filter(record => {
       // Search in ID
       if (record.id?.toLowerCase().includes(query)) return true;
-      
+
       // Search in all field values
       if (record.fields) {
         return Object.values(record.fields).some(value => {
@@ -54,7 +61,7 @@ export function AirtableRecordsTable({
       }
       return false;
     });
-  }, [records, searchQuery]);
+  }, [displayedRecords, searchQuery]);
 
   // Get records to display based on showAll state
   const displayRecords = useMemo(() => {
@@ -67,7 +74,7 @@ export function AirtableRecordsTable({
 
   // Get all unique field names from ALL records (not just displayed ones)
   const allFields = new Set<string>();
-  records.forEach(record => {
+  displayedRecords.forEach(record => {
     Object.keys(record.fields || {}).forEach(field => allFields.add(field));
   });
   const fieldNames = Array.from(allFields);
@@ -98,8 +105,17 @@ export function AirtableRecordsTable({
     }
   };
 
-  // Show loading state if explicitly loading OR if we have no records yet (to prevent flash of "no records")
-  if (loading || records.length === 0) {
+  // Check if we have saved selection to display (for instant reopen UX)
+  const hasSavedSelection = multiSelect
+    ? (selectedRecords && selectedRecords.length > 0)
+    : !!selectedRecord;
+
+  // Show loading state ONLY if:
+  // 1. Explicitly loading AND
+  // 2. We have no FRESH records yet (not counting cached) AND
+  // 3. We don't have cached records to show
+  // This prevents showing "Loading..." when reopening saved configs with cached data
+  if (loading && records.length === 0 && !cachedRecords) {
     return (
       <div className="bg-white rounded-lg overflow-hidden w-full max-w-full border border-gray-300" style={{ minWidth: 0 }}>
         {/* Header Section - Same as loaded state */}
@@ -164,6 +180,7 @@ export function AirtableRecordsTable({
                 ? `${filteredRecords.length} record${filteredRecords.length !== 1 ? 's' : ''}`
                 : `Showing ${displayRecords.length} of ${filteredRecords.length} records`}
               {multiSelect ? ' • Click to select (max 10)' : ' • Click to select'}
+              {isShowingCachedData && loading && ' • Refreshing...'}
             </p>
           </div>
 
@@ -201,8 +218,9 @@ export function AirtableRecordsTable({
                 size="sm"
                 onClick={onRefresh}
                 className="text-gray-600 hover:text-gray-900 p-1"
+                disabled={loading}
               >
-                <RefreshCw className="h-4 w-4" />
+                <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
               </Button>
             )}
           </div>

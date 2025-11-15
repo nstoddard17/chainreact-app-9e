@@ -14,6 +14,7 @@ import { getAirtableFieldTypeFromSchema, isEditableFieldType } from '../utils/ai
 import { BubbleDisplay } from '../components/BubbleDisplay';
 import { ConfigurationSectionHeader } from '../components/ConfigurationSectionHeader';
 import { getProviderDisplayName } from '@/lib/utils/provider-names';
+import { saveInstantReopenSnapshot, loadInstantReopenSnapshot } from '@/lib/utils/field-cache';
 
 import { logger } from '@/lib/utils/logger'
 
@@ -278,6 +279,104 @@ export function AirtableConfiguration({
   const isFindRecord = nodeInfo?.type === 'airtable_action_find_record';
   const isDeleteRecord = nodeInfo?.type === 'airtable_action_delete_record';
   const isDuplicateRecord = nodeInfo?.type === 'airtable_action_duplicate_record';
+
+  // Restore selectedRecord from saved recordId for instant display on modal reopen
+  React.useEffect(() => {
+    // Only run for update record mode
+    if (!isUpdateRecord) return;
+
+    // If we have a saved recordId but no selectedRecord yet, create a minimal record object
+    if (values.recordId && !selectedRecord && airtableRecords.length === 0) {
+      // Create a minimal record object with just the ID
+      // The full record data will be populated when records load
+      const minimalRecord = {
+        id: values.recordId,
+        fields: {} // Empty for now, will be populated when actual records load
+      };
+      setSelectedRecord(minimalRecord);
+      logger.debug('🔄 [INSTANT REOPEN] Restored selectedRecord from saved recordId:', values.recordId);
+    }
+
+    // Once records are loaded, find and set the full record object
+    if (values.recordId && airtableRecords.length > 0) {
+      const fullRecord = airtableRecords.find(r => r.id === values.recordId);
+      if (fullRecord && (!selectedRecord || selectedRecord.id === values.recordId && Object.keys(selectedRecord.fields || {}).length === 0)) {
+        setSelectedRecord(fullRecord);
+        logger.debug('✅ [INSTANT REOPEN] Updated selectedRecord with full data');
+      }
+    }
+  }, [values.recordId, airtableRecords, selectedRecord, isUpdateRecord, setSelectedRecord]);
+
+  // INSTANT REOPEN: Restore complete snapshot if available
+  // This provides ZERO latency when reopening saved configs
+  const [isRestoringSnapshot, setIsRestoringSnapshot] = React.useState(false);
+  const hasRestoredSnapshot = React.useRef(false);
+
+  React.useEffect(() => {
+    // Only run once on mount
+    if (hasRestoredSnapshot.current || !workflowId || !currentNodeId) return;
+
+    // Try to load saved snapshot
+    const snapshot = loadInstantReopenSnapshot(workflowId, currentNodeId);
+
+    if (snapshot) {
+      hasRestoredSnapshot.current = true;
+      setIsRestoringSnapshot(true);
+
+      logger.debug('⚡ [INSTANT REOPEN] Restoring complete snapshot...');
+
+      // Restore ALL state instantly
+      try {
+        // 1. Restore field suggestions (bubbles)
+        if (snapshot.bubbles && Object.keys(snapshot.bubbles).length > 0) {
+          setFieldSuggestions(snapshot.bubbles);
+          logger.debug('✅ [INSTANT REOPEN] Restored bubbles:', Object.keys(snapshot.bubbles).length);
+        }
+
+        // 2. Restore active bubbles
+        if (snapshot.activeBubbles && Object.keys(snapshot.activeBubbles).length > 0) {
+          setActiveBubbles(snapshot.activeBubbles);
+          logger.debug('✅ [INSTANT REOPEN] Restored active bubbles');
+        }
+
+        // 3. Restore dynamic options
+        if (snapshot.dynamicOptions && Object.keys(snapshot.dynamicOptions).length > 0) {
+          setDynamicOptions(snapshot.dynamicOptions);
+          logger.debug('✅ [INSTANT REOPEN] Restored dynamic options:', Object.keys(snapshot.dynamicOptions).length);
+        }
+
+        // 4. Restore selected record
+        if (snapshot.selectedRecord) {
+          setSelectedRecord(snapshot.selectedRecord);
+          logger.debug('✅ [INSTANT REOPEN] Restored selected record');
+        }
+
+        // 5. Restore selected records (for multi-select)
+        if (snapshot.selectedRecords && snapshot.selectedRecords.length > 0) {
+          setSelectedMultipleRecords(snapshot.selectedRecords);
+          logger.debug('✅ [INSTANT REOPEN] Restored selected records');
+        }
+
+        // 6. Restore table schema
+        if (snapshot.tableSchema) {
+          setAirtableTableSchema(snapshot.tableSchema);
+          logger.debug('✅ [INSTANT REOPEN] Restored table schema');
+        }
+
+        // 7. Restore records
+        if (snapshot.records && snapshot.records.length > 0) {
+          setAirtableRecords(snapshot.records);
+          logger.debug('✅ [INSTANT REOPEN] Restored records:', snapshot.records.length);
+        }
+
+        logger.debug('🎉 [INSTANT REOPEN] Snapshot restoration complete - ZERO LATENCY!');
+      } catch (error) {
+        logger.error('[INSTANT REOPEN] Failed to restore snapshot:', error);
+      } finally {
+        setIsRestoringSnapshot(false);
+      }
+    }
+  }, []); // Run only once on mount
 
   // Initialize bubble handler
   const airtableBubbleHandler = useAirtableBubbleHandler({
@@ -688,7 +787,7 @@ export function AirtableConfiguration({
   // Load Airtable records
   const loadAirtableRecords = useCallback(async (baseId: string, tableName: string) => {
     if (!baseId || !tableName) return;
-    
+
     // Check if integration exists
     if (!airtableIntegration) {
       logger.error('Airtable integration not found');
@@ -696,15 +795,15 @@ export function AirtableConfiguration({
       setAirtableRecords([]);
       return;
     }
-    
+
     setLoadingRecords(true);
-    
+
     try {
       // Ensure schema is loaded first
       if (!airtableTableSchema || airtableTableSchema.table?.name !== tableName) {
         await fetchAirtableTableSchema(baseId, tableName);
       }
-      
+
       const response = await fetch('/api/integrations/airtable/data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -718,22 +817,34 @@ export function AirtableConfiguration({
           }
         })
       });
-      
+
       if (!response.ok) {
         logger.error('Failed to fetch records');
         setAirtableRecords([]);
         return;
       }
-      
+
       const result = await response.json();
-      setAirtableRecords(result.data || []);
+      const fetchedRecords = result.data || [];
+      setAirtableRecords(fetchedRecords);
+
+      // Cache records for instant display on reopen (Zapier-like UX)
+      // Store in form values with special key
+      if (fetchedRecords.length > 0) {
+        setValue('_cached_records', fetchedRecords);
+        logger.debug('[AirtableConfig] Cached records for instant display:', {
+          count: fetchedRecords.length,
+          baseId,
+          tableName
+        });
+      }
     } catch (error) {
       logger.error('Error loading records:', error);
       setAirtableRecords([]);
     } finally {
       setLoadingRecords(false);
     }
-  }, [airtableIntegration, airtableTableSchema, fetchAirtableTableSchema]);
+  }, [airtableIntegration, airtableTableSchema, fetchAirtableTableSchema, setValue]);
 
   // Handle record selection for duplicate record
   const handleDuplicateRecordSelection = useCallback((record: any) => {
@@ -1521,6 +1632,12 @@ export function AirtableConfiguration({
 
     // Skip if base changed (table will be cleared and reselected)
     if (baseChanged && !values.tableName) {
+      return;
+    }
+
+    // Skip loading if we just restored from snapshot (everything is already loaded)
+    if (hasRestoredSnapshot.current && !tableChanged) {
+      logger.debug('⚡ [INSTANT REOPEN] Skipping initial load - snapshot restored');
       return;
     }
 
@@ -2384,7 +2501,12 @@ export function AirtableConfiguration({
               return savedBubble;
             }
 
-            // Otherwise, try to find the option in loaded options
+            // Check for saved label metadata FIRST (instant, no API call needed)
+            const labelMetadataKey = `${actualFieldName}_labels`;
+            const savedLabels = values[labelMetadataKey] as Record<string, string> | undefined;
+            const savedLabel = savedLabels?.[recordId];
+
+            // Then try to find the option in loaded options (if they've loaded)
             const option = options.find((opt: any) => {
               // Options might be in "id::name" format or just "id"
               if (opt.value?.includes('::')) {
@@ -2392,11 +2514,6 @@ export function AirtableConfiguration({
               }
               return opt.value === recordId;
             });
-
-            // Check for saved label metadata
-            const labelMetadataKey = `${actualFieldName}_labels`;
-            const savedLabels = values[labelMetadataKey] as Record<string, string> | undefined;
-            const savedLabel = savedLabels?.[recordId];
 
             logger.debug('🟢 [BUBBLE INIT] Mapping record ID to bubble:', {
               recordId,
@@ -2408,7 +2525,7 @@ export function AirtableConfiguration({
 
             return {
               value: recordId,
-              label: option?.label || savedLabel || recordId, // Use option label, then saved label, then ID
+              label: savedLabel || option?.label || recordId, // PRIORITIZE saved label (instant), then option label, then ID
               fieldName: field.name
             };
           });
@@ -2959,7 +3076,42 @@ export function AirtableConfiguration({
         }
       });
     }
-    
+
+    // Save instant reopen snapshot for zero-latency modal reopening
+    if (workflowId && currentNodeId) {
+      try {
+        // Collect ALL display labels from _labels metadata fields
+        const displayLabels: Record<string, Record<string, string>> = {};
+        Object.keys(submissionValues).forEach(key => {
+          if (key.endsWith('_labels')) {
+            const fieldName = key.replace('_labels', '');
+            displayLabels[fieldName] = submissionValues[key] || {};
+          }
+        });
+
+        saveInstantReopenSnapshot({
+          workflowId,
+          nodeId: currentNodeId,
+          providerId: nodeInfo?.providerId || 'airtable',
+          nodeType: nodeInfo?.type || 'unknown',
+          values: submissionValues,
+          displayLabels,
+          bubbles: fieldSuggestions,
+          activeBubbles,
+          dynamicOptions,
+          selectedRecord,
+          selectedRecords: selectedMultipleRecords,
+          tableSchema: airtableTableSchema,
+          records: airtableRecords,
+          timestamp: Date.now()
+        });
+
+        logger.debug('💾 [INSTANT REOPEN] Snapshot saved on form submit');
+      } catch (error) {
+        logger.warn('[INSTANT REOPEN] Failed to save snapshot:', error);
+      }
+    }
+
     await onSubmit(submissionValues);
   };
 
@@ -3020,6 +3172,7 @@ export function AirtableConfiguration({
                 loading={loadingRecords}
                 selectedRecord={selectedRecord}
                 tableName={values.tableName}
+                cachedRecords={initialConfig?._cached_records}
                 onSelectRecord={(record) => {
                   setSelectedRecord(record);
                   setValue('recordId', record.id);
@@ -3092,14 +3245,14 @@ export function AirtableConfiguration({
                               return opt.value === recordId;
                             });
 
-                            // Check for saved label metadata
+                            // Check for saved label metadata FIRST (instant, no API call needed)
                             const labelMetadataKey = `${actualFieldName}_labels`;
                             const savedLabels = values[labelMetadataKey] as Record<string, string> | undefined;
                             const savedLabel = savedLabels?.[recordId];
 
                             const bubble = {
                               value: recordId,
-                              label: option?.label || savedLabel || recordId, // Use option label, saved label, or ID
+                              label: savedLabel || option?.label || recordId, // PRIORITIZE saved label (instant), then option label, then ID
                               fieldName: field.name
                             };
 
@@ -3326,6 +3479,7 @@ export function AirtableConfiguration({
                   selectedRecords={selectedMultipleRecords}
                   multiSelect={true}
                   tableName={values.tableName}
+                  cachedRecords={initialConfig?._cached_records}
                   onSelectRecords={(records) => {
                     setSelectedMultipleRecords(records);
                     // Store record IDs as comma-separated string
@@ -3361,6 +3515,7 @@ export function AirtableConfiguration({
                     loading={loadingRecords}
                     selectedRecord={selectedDuplicateRecord}
                     tableName={values.tableName}
+                    cachedRecords={initialConfig?._cached_records}
                     onSelectRecord={handleDuplicateRecordSelection}
                     onRefresh={() => loadAirtableRecords(values.baseId, values.tableName)}
                   />

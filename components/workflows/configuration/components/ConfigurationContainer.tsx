@@ -52,7 +52,14 @@ export function ConfigurationContainer({
     <form onSubmit={handleFormSubmit} className="flex flex-col h-full overflow-hidden">
       {/* Main content area with vertical scroll only */}
       <div className="flex-1 min-h-0 overflow-hidden">
-        <div className="h-full overflow-y-auto overflow-x-hidden px-6 py-4">
+        <div
+          className="h-full overflow-y-auto overflow-x-hidden px-6 py-4"
+          style={{
+            transform: 'translateZ(0)', // Force GPU acceleration
+            backfaceVisibility: 'hidden', // Prevent flickering
+            WebkitOverflowScrolling: 'touch', // Smooth scrolling on iOS
+          }}
+        >
           <div className="space-y-3 pb-4 pr-4">
             {children}
           </div>

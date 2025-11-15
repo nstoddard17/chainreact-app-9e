@@ -61,6 +61,7 @@ import { GoogleSearchConfiguration } from './providers/utility/GoogleSearchConfi
 import { TavilySearchConfiguration } from './providers/utility/TavilySearchConfiguration';
 
 import { logger } from '@/lib/utils/logger'
+import { collectFieldLabelsFromCache, loadLabelsIntoCache } from '@/lib/workflows/configuration/collect-labels'
 import { isNodeTypeConnectionExempt, isProviderConnectionExempt } from './utils/connectionExemptions'
 
 interface ConfigurationFormProps {
@@ -108,8 +109,18 @@ function ConfigurationForm({
 
   // Common state and hooks
   const [values, setValues] = useState<Record<string, any>>(() => {
-    // Extract real config values, excluding the reserved keys
-    const { __dynamicOptions, __validationState, ...configValues } = initialData || {};
+    // Extract real config values, excluding the reserved keys and metadata
+    const { __dynamicOptions, __validationState, ...allValues } = initialData || {};
+
+    // Filter out label keys (_label_*) and cached data (_cached_*)
+    // These are metadata for instant display, not actual field values
+    const configValues: Record<string, any> = {};
+    for (const [key, value] of Object.entries(allValues)) {
+      if (!key.startsWith('_label_') && !key.startsWith('_cached_')) {
+        configValues[key] = value;
+      }
+    }
+
     logger.debug('🔄 [ConfigForm] Initializing values with initialData:', {
       nodeType: nodeInfo?.type,
       providerId: nodeInfo?.providerId,
@@ -198,6 +209,21 @@ function ConfigurationForm({
 
   // Don't use saved dynamic options - always fetch fresh from Airtable
   const savedDynamicOptions = undefined;
+
+  // Load saved labels from config into localStorage cache for instant display
+  // This enables the "Zapier experience" where fields show saved values immediately
+  useEffect(() => {
+    if (!nodeInfo?.providerId || !nodeInfo?.type || !initialData) return;
+
+    // Load labels from saved config into localStorage
+    loadLabelsIntoCache(nodeInfo.providerId, nodeInfo.type, initialData);
+
+    logger.debug('[ConfigForm] Loaded saved labels into cache:', {
+      providerId: nodeInfo.providerId,
+      nodeType: nodeInfo.type,
+      hasLabels: Object.keys(initialData).some(k => k.startsWith('_label_'))
+    });
+  }, [nodeInfo?.providerId, nodeInfo?.type, initialData]);
 
   // Ensure Google providers appear connected by fetching integrations if store hasn't resolved yet
   const hasRequestedIntegrationsRef = useRef(false);
@@ -1175,10 +1201,25 @@ function ConfigurationForm({
   // Handle form submission
   const handleSubmit = async (submissionValues: Record<string, any>) => {
     const normalizedSubmissionValues = normalizeAllVariablesInObject({ ...submissionValues });
+
+    // Collect field labels from localStorage cache to persist to database
+    // This enables instant display when modal reopens (Zapier-like UX)
+    const fieldLabels = nodeInfo?.providerId && nodeInfo?.type
+      ? collectFieldLabelsFromCache(nodeInfo.providerId, nodeInfo.type, normalizedSubmissionValues)
+      : {};
+
+    // Merge labels into submission values
+    const submissionWithLabels = {
+      ...normalizedSubmissionValues,
+      ...fieldLabels
+    };
+
     logger.debug('🎯 [ConfigForm] handleSubmit called with values:', {
-      allValues: normalizedSubmissionValues,
-      pageFieldsValue: normalizedSubmissionValues.pageFields,
-      hasPageFields: 'pageFields' in normalizedSubmissionValues
+      allValues: submissionWithLabels,
+      pageFieldsValue: submissionWithLabels.pageFields,
+      hasPageFields: 'pageFields' in submissionWithLabels,
+      labelCount: Object.keys(fieldLabels).length,
+      labels: fieldLabels
     });
     setIsLoading(true);
     try {
@@ -1198,7 +1239,7 @@ function ConfigurationForm({
         const cacheKey = `workflow_${workflowData.id}_node_${currentNodeId}_config`;
         try {
           localStorage.setItem(cacheKey, JSON.stringify({
-            config: normalizedSubmissionValues,
+            config: submissionWithLabels,
             timestamp: Date.now()
           }));
           logger.debug('💾 [ConfigForm] Configuration cached locally for node:', currentNodeId);
@@ -1221,7 +1262,7 @@ function ConfigurationForm({
       };
 
       await onSave({
-        ...normalizedSubmissionValues,
+        ...submissionWithLabels,
         __validationState: validationState
       });
 

@@ -148,7 +148,14 @@ export function ResultsTab({
   if (!hasTestData && !hasTestResult && showOutputSchema) {
     return (
       <div className="flex flex-col h-full">
-        <div className="flex-1 overflow-y-auto">
+        <div
+          className="flex-1 overflow-y-auto"
+          style={{
+            transform: 'translateZ(0)', // Force GPU acceleration
+            backfaceVisibility: 'hidden', // Prevent flickering
+            WebkitOverflowScrolling: 'touch', // Smooth scrolling on iOS
+          }}
+        >
           <div className="px-6 py-6 space-y-6">
             {/* Header */}
             <div className="flex items-start justify-between gap-4">
@@ -238,7 +245,14 @@ export function ResultsTab({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto">
+      <div
+        className="flex-1 overflow-y-auto"
+        style={{
+          transform: 'translateZ(0)', // Force GPU acceleration
+          backfaceVisibility: 'hidden', // Prevent flickering
+          WebkitOverflowScrolling: 'touch', // Smooth scrolling on iOS
+        }}
+      >
         <div className="px-6 py-6 space-y-6">
           {/* Header */}
           <div className="flex items-start justify-between gap-4">
