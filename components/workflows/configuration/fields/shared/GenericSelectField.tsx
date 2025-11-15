@@ -846,10 +846,27 @@ export function GenericSelectField({
     const processed = processOptions(options);
     const duration = performance.now() - startTime;
 
-    // If we have a saved value but it's not in the options yet, add it as a temporary option
+    // For multi-select fields with arrays, add temporary options for ALL selected values
+    // This ensures multi-select linked record fields ALWAYS show labels, never IDs
+    if (Array.isArray(value) && value.length > 0 && field.name?.startsWith('airtable_field_')) {
+      const labelMetadataKey = `${field.name}_labels`;
+      const savedLabels = parentValues?.[labelMetadataKey] as Record<string, string> | undefined;
+
+      value.forEach((val: any) => {
+        if (val && !processed.some(opt => opt.value === val)) {
+          const tempLabel = savedLabels?.[String(val)] || loadCachedLabel(String(val)) || String(val);
+          processed.push({
+            value: val,
+            label: tempLabel,
+            isTemporal: true // Mark as temporary so we know to replace it when real options load
+          });
+        }
+      });
+    }
+    // If we have a saved single value but it's not in the options yet, add it as a temporary option
     // This allows fields to display their saved value immediately while options load in background
     // Only do this for primitive values (strings/numbers), not objects/arrays
-    if (value && !processed.some(opt => opt.value === value) && (typeof value === 'string' || typeof value === 'number')) {
+    else if (value && !processed.some(opt => opt.value === value) && (typeof value === 'string' || typeof value === 'number')) {
       const tempLabel = displayLabel || loadCachedLabel(String(value)) || String(value);
       processed.unshift({
         value,
@@ -875,7 +892,7 @@ export function GenericSelectField({
     }
 
     return processed;
-  }, [options, processOptions, field.name, nodeInfo?.providerId, value, displayLabel, loadCachedLabel]);
+  }, [options, processOptions, field.name, nodeInfo?.providerId, value, displayLabel, loadCachedLabel, parentValues]);
 
   // Track when options change for performance monitoring
   React.useEffect(() => {

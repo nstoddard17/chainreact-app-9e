@@ -371,3 +371,115 @@ Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
 [2025-11-15T15:03:35.399Z] [INFO   ] 2025-11-15T15:03:35.399Z [DEBUG] 📝 [Record 5/5] Using "Task Name": {"rawValue":"Fix Login Page Bugs","extractedLabel":"Fix Login Page Bugs"}
 [2025-11-15T15:03:35.399Z] [INFO   ] 2025-11-15T15:03:35.399Z [DEBUG] ✅ Fetched 5 records from linked table Tasks
 [2025-11-15T15:03:35.399Z] [INFO   ] 2025-11-15T15:03:35.399Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"eb6b29ff-8086-4df6-b16a-f4e3e4242679","resultCount":5}
+[2025-11-15T15:05:24.347Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.2s (6784 modules)
+[2025-11-15T15:05:24.673Z] [INFO   ] 2025-11-15T15:05:24.672Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/f84be028-8c33-4051-b8ab-70c9201bb5db","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14652437273}
+[2025-11-15T15:05:25.080Z] [INFO   ] 2025-11-15T15:05:25.080Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-15T15:05:28.257Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 641ms (6784 modules)
+[2025-11-15T15:05:28.457Z] [INFO   ] 2025-11-15T15:05:28.457Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/f84be028-8c33-4051-b8ab-70c9201bb5db","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14652441057}
+[2025-11-15T15:05:28.742Z] [INFO   ] 2025-11-15T15:05:28.741Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-15T15:07:09.207Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-11-15T15:07:09.439Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 732ms (4977 modules)
+[2025-11-15T15:53:43.669Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/airtable/data ...
+[2025-11-15T15:53:43.720Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/airtable/data in 1034ms (4979 modules)
+[2025-11-15T15:53:44.282Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (5001 modules)
+[2025-11-15T15:53:44.448Z] [INFO   ] 2025-11-15T15:53:44.447Z [DEBUG] Metadata API called with: {"integrationId":"eb6b29ff-8086-4df6-b16a-f4e3e4242679","baseId":"app2KiMxZofDhMOmZ","tableName":"Design Drafts"}
+[2025-11-15T15:53:44.613Z] [INFO   ] 2025-11-15T15:53:44.613Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"eb6b29ff-8086-4df6-b16a-f4e3e4242679","dataType":"airtable_draft_names","status":"connected","hasToken":true}
+[2025-11-15T15:53:44.614Z] [INFO   ] 2025-11-15T15:53:44.614Z [DEBUG] 🔍 Airtable draft names fetcher called with: {"integrationId":"eb6b29ff-8086-4df6-b16a-f4e3e4242679","baseId":"app2KiMxZofDhMOmZ","tableName":"Design Drafts","hasToken":true}
+[2025-11-15T15:53:44.614Z] [INFO   ] 2025-11-15T15:53:44.614Z [DEBUG] 🔍 Fetching Airtable draft names from API...
+[2025-11-15T15:53:44.663Z] [INFO   ] 2025-11-15T15:53:44.663Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"eb6b29ff-8086-4df6-b16a-f4e3e4242679","dataType":"airtable_draft_names","status":"connected","hasToken":true}
+[2025-11-15T15:53:44.664Z] [INFO   ] 2025-11-15T15:53:44.664Z [DEBUG] 🔍 Airtable draft names fetcher called with: {"integrationId":"eb6b29ff-8086-4df6-b16a-f4e3e4242679","baseId":"app2KiMxZofDhMOmZ","tableName":"Design Drafts","hasToken":true}
+[2025-11-15T15:53:44.664Z] [INFO   ] 2025-11-15T15:53:44.664Z [DEBUG] 🔍 Fetching Airtable draft names from API...
+[2025-11-15T15:53:44.679Z] [INFO   ] 2025-11-15T15:53:44.679Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"eb6b29ff-8086-4df6-b16a-f4e3e4242679","dataType":"airtable_designers","status":"connected","hasToken":true}
+[2025-11-15T15:53:44.680Z] [INFO   ] 2025-11-15T15:53:44.680Z [DEBUG] 🔍 Airtable designers fetcher called with: {"integrationId":"eb6b29ff-8086-4df6-b16a-f4e3e4242679","baseId":"app2KiMxZofDhMOmZ","tableName":"Design Drafts","hasToken":true}
+[2025-11-15T15:53:44.680Z] [INFO   ] 2025-11-15T15:53:44.680Z [DEBUG] 🔍 Fetching Airtable designers from API...
+[2025-11-15T15:53:44.699Z] [INFO   ] 2025-11-15T15:53:44.699Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"eb6b29ff-8086-4df6-b16a-f4e3e4242679","dataType":"airtable_designers","status":"connected","hasToken":true}
+[2025-11-15T15:53:44.699Z] [INFO   ] 2025-11-15T15:53:44.699Z [DEBUG] 🔍 Airtable designers fetcher called with: {"integrationId":"eb6b29ff-8086-4df6-b16a-f4e3e4242679","baseId":"app2KiMxZofDhMOmZ","tableName":"Design Drafts","hasToken":true}
+[2025-11-15T15:53:44.699Z] [INFO   ] 2025-11-15T15:53:44.699Z [DEBUG] 🔍 Fetching Airtable designers from API...
+[2025-11-15T15:53:44.718Z] [INFO   ] 2025-11-15T15:53:44.718Z [DEBUG] Access token decrypted successfully
+[2025-11-15T15:53:44.719Z] [INFO   ] 2025-11-15T15:53:44.719Z [DEBUG] Fetching metadata from Airtable: https://api.airtable.com/v0/meta/bases/app2KiMxZofDhMOmZ/tables
+[2025-11-15T15:53:47.053Z] [INFO   ] 2025-11-15T15:53:47.053Z [DEBUG] Airtable metadata response received: {"hasData":true,"tableCount":5,"baseId":"app2KiMxZofDhMOmZ","requestedTable":"Design Drafts"}
+[2025-11-15T15:53:47.054Z] [INFO   ] 2025-11-15T15:53:47.054Z [DEBUG] Table fields found: [{"name":"Draft Name","type":"singleLineText","id":"fldpeH75nEzotVaIz"},{"name":"Designer","type":"singleLineText","id":"fldHwBT4DpJNynoDs"},{"name":"Upload Date","type":"date","id":"fldeyYCl5huNfhp00"},{"name":"Draft Image","type":"multipleAttachments","id":"fldGgF9IiZev9ifPo"},{"name":"Status","type":"singleSelect","id":"fldvgqaHX9d378Hr6"},{"name":"Associated Project","type":"multipleRecordLinks","id":"fldUDIP1gDZA1jozK"},{"name":"Feedback","type":"multipleRecordLinks","id":"fldSoktSheZaqPQ7j"},{"name":"Tasks","type":"multipleRecordLinks","id":"fldYEXb0ggEwxMsfJ"}]
+[2025-11-15T15:53:47.117Z] [INFO   ] 2025-11-15T15:53:47.117Z [DEBUG] 📊 [Airtable] Sample record fields: ["Draft Name"]
+[2025-11-15T15:53:47.117Z] [INFO   ] 2025-11-15T15:53:47.117Z [DEBUG] 📊 [Airtable] Found matching field 'Draft Name' for draft names
+[2025-11-15T15:53:47.117Z] [INFO   ] 2025-11-15T15:53:47.117Z [DEBUG] 📊 [Airtable] Found matching field 'Draft Name' for draft names
+[2025-11-15T15:53:47.117Z] [INFO   ] 2025-11-15T15:53:47.117Z [DEBUG] 📊 [Airtable] Found matching field 'Draft Name' for draft names
+[2025-11-15T15:53:47.117Z] [INFO   ] 2025-11-15T15:53:47.117Z [DEBUG] 📊 [Airtable] Found matching field 'Draft Name' for draft names
+[2025-11-15T15:53:47.117Z] [INFO   ] 2025-11-15T15:53:47.117Z [DEBUG] 📊 [Airtable] Found matching field 'Draft Name' for draft names
+[2025-11-15T15:53:47.117Z] [INFO   ] 2025-11-15T15:53:47.117Z [DEBUG] 📊 [Airtable] Found matching field 'Draft Name' for draft names
+[2025-11-15T15:53:47.117Z] [INFO   ] 2025-11-15T15:53:47.117Z [DEBUG] ✅ Airtable draft names fetched successfully: 5 unique names
+[2025-11-15T15:53:47.117Z] [INFO   ] 2025-11-15T15:53:47.117Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_draft_names: {"integrationId":"eb6b29ff-8086-4df6-b16a-f4e3e4242679","resultCount":5}
+[2025-11-15T15:53:47.161Z] [INFO   ] 2025-11-15T15:53:47.161Z [DEBUG] 📊 [Airtable] Sample record fields: ["Draft Name"]
+[2025-11-15T15:53:47.161Z] [INFO   ] 2025-11-15T15:53:47.161Z [DEBUG] 📊 [Airtable] Found matching field 'Draft Name' for draft names
+[2025-11-15T15:53:47.161Z] [INFO   ] 2025-11-15T15:53:47.161Z [DEBUG] 📊 [Airtable] Found matching field 'Draft Name' for draft names
+[2025-11-15T15:53:47.161Z] [INFO   ] 2025-11-15T15:53:47.161Z [DEBUG] 📊 [Airtable] Found matching field 'Draft Name' for draft names
+[2025-11-15T15:53:47.161Z] [INFO   ] 2025-11-15T15:53:47.161Z [DEBUG] 📊 [Airtable] Found matching field 'Draft Name' for draft names
+[2025-11-15T15:53:47.161Z] [INFO   ] 2025-11-15T15:53:47.161Z [DEBUG] 📊 [Airtable] Found matching field 'Draft Name' for draft names
+[2025-11-15T15:53:47.161Z] [INFO   ] 2025-11-15T15:53:47.161Z [DEBUG] 📊 [Airtable] Found matching field 'Draft Name' for draft names
+[2025-11-15T15:53:47.161Z] [INFO   ] 2025-11-15T15:53:47.161Z [DEBUG] ✅ Airtable draft names fetched successfully: 5 unique names
+[2025-11-15T15:53:47.161Z] [INFO   ] 2025-11-15T15:53:47.161Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_draft_names: {"integrationId":"eb6b29ff-8086-4df6-b16a-f4e3e4242679","resultCount":5}
+[2025-11-15T15:53:47.178Z] [INFO   ] 2025-11-15T15:53:47.178Z [DEBUG] ✅ Airtable designers fetched successfully: 4 unique designers
+[2025-11-15T15:53:47.178Z] [INFO   ] 2025-11-15T15:53:47.178Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_designers: {"integrationId":"eb6b29ff-8086-4df6-b16a-f4e3e4242679","resultCount":4}
+[2025-11-15T15:53:47.207Z] [INFO   ] 2025-11-15T15:53:47.207Z [DEBUG] ✅ Airtable designers fetched successfully: 4 unique designers
+[2025-11-15T15:53:47.207Z] [INFO   ] 2025-11-15T15:53:47.207Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_designers: {"integrationId":"eb6b29ff-8086-4df6-b16a-f4e3e4242679","resultCount":4}
+[2025-11-15T15:53:47.286Z] [INFO   ] 2025-11-15T15:53:47.286Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"eb6b29ff-8086-4df6-b16a-f4e3e4242679","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-15T15:53:47.286Z] [INFO   ] 2025-11-15T15:53:47.286Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"eb6b29ff-8086-4df6-b16a-f4e3e4242679","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"tblbW3PQQkNW88hMY","hasToken":true}
+[2025-11-15T15:53:47.286Z] [INFO   ] 2025-11-15T15:53:47.286Z [DEBUG] 🔍 Fetching records from linked table: tblbW3PQQkNW88hMY
+[2025-11-15T15:53:47.360Z] [INFO   ] 2025-11-15T15:53:47.360Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"eb6b29ff-8086-4df6-b16a-f4e3e4242679","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-15T15:53:47.360Z] [INFO   ] 2025-11-15T15:53:47.360Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"eb6b29ff-8086-4df6-b16a-f4e3e4242679","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"tblwRsE3U48r4EB8J","hasToken":true}
+[2025-11-15T15:53:47.360Z] [INFO   ] 2025-11-15T15:53:47.360Z [DEBUG] 🔍 Fetching records from linked table: tblwRsE3U48r4EB8J
+[2025-11-15T15:53:47.366Z] [INFO   ] 2025-11-15T15:53:47.366Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"eb6b29ff-8086-4df6-b16a-f4e3e4242679","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-15T15:53:47.366Z] [INFO   ] 2025-11-15T15:53:47.366Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"eb6b29ff-8086-4df6-b16a-f4e3e4242679","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"tbl5J3AgOjpwad7ql","hasToken":true}
+[2025-11-15T15:53:47.366Z] [INFO   ] 2025-11-15T15:53:47.366Z [DEBUG] 🔍 Fetching records from linked table: tbl5J3AgOjpwad7ql
+[2025-11-15T15:53:48.429Z] [INFO   ] 2025-11-15T15:53:48.429Z [DEBUG] 📝 [Record 1/5] Using first text field "Project Name": {"value":"Internal Dashboard Optimization"}
+[2025-11-15T15:53:48.430Z] [INFO   ] 2025-11-15T15:53:48.430Z [DEBUG] 📝 [Record 2/5] Using first text field "Project Name": {"value":"React Native App Redesign"}
+[2025-11-15T15:53:48.430Z] [INFO   ] 2025-11-15T15:53:48.430Z [DEBUG] 📝 [Record 3/5] Using first text field "Project Name": {"value":"Marketing Website Revamp"}
+[2025-11-15T15:53:48.430Z] [INFO   ] 2025-11-15T15:53:48.430Z [DEBUG] 📝 [Record 4/5] Using first text field "Project Name": {"value":"New Feature Rollout - Dark Mode"}
+[2025-11-15T15:53:48.430Z] [INFO   ] 2025-11-15T15:53:48.430Z [DEBUG] 📝 [Record 5/5] Using first text field "Project Name": {"value":"Customer Feedback Portal"}
+[2025-11-15T15:53:48.431Z] [INFO   ] 2025-11-15T15:53:48.431Z [DEBUG] ✅ Fetched 5 records from linked table tblbW3PQQkNW88hMY
+[2025-11-15T15:53:48.431Z] [INFO   ] 2025-11-15T15:53:48.431Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"eb6b29ff-8086-4df6-b16a-f4e3e4242679","resultCount":5}
+[2025-11-15T15:53:48.496Z] [INFO   ] 2025-11-15T15:53:48.495Z [DEBUG] 📝 [Record 1/6] Using first text field "Feedback ID": {"value":"FB-005"}
+[2025-11-15T15:53:48.497Z] [INFO   ] 2025-11-15T15:53:48.497Z [DEBUG] 📝 [Record 2/6] Using first text field "Feedback ID": {"value":"FB-002"}
+[2025-11-15T15:53:48.498Z] [INFO   ] 2025-11-15T15:53:48.497Z [DEBUG] 📝 [Record 3/6] Using first text field "Feedback ID": {"value":"FB-001"}
+[2025-11-15T15:53:48.498Z] [INFO   ] 2025-11-15T15:53:48.498Z [DEBUG] 📝 [Record 4/6] Using first text field "Feedback ID": {"value":"FB-006"}
+[2025-11-15T15:53:48.498Z] [INFO   ] 2025-11-15T15:53:48.498Z [DEBUG] 📝 [Record 5/6] Using first text field "Feedback ID": {"value":"FB-003"}
+[2025-11-15T15:53:48.498Z] [INFO   ] 2025-11-15T15:53:48.498Z [DEBUG] 📝 [Record 6/6] Using first text field "Feedback ID": {"value":"FB-004"}
+[2025-11-15T15:53:48.498Z] [INFO   ] 2025-11-15T15:53:48.498Z [DEBUG] ✅ Fetched 6 records from linked table tblwRsE3U48r4EB8J
+[2025-11-15T15:53:48.498Z] [INFO   ] 2025-11-15T15:53:48.498Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"eb6b29ff-8086-4df6-b16a-f4e3e4242679","resultCount":6}
+[2025-11-15T15:53:48.531Z] [INFO   ] 2025-11-15T15:53:48.530Z [DEBUG] 📝 [Record 1/5] Using "Task Name": {"rawValue":"Implement Dark Mode Feature","extractedLabel":"Implement Dark Mode Feature"}
+[2025-11-15T15:53:48.531Z] [INFO   ] 2025-11-15T15:53:48.531Z [DEBUG] 📝 [Record 2/5] Using "Task Name": {"rawValue":"Update Design System Documentation","extractedLabel":"Update Design System Documentation"}
+[2025-11-15T15:53:48.531Z] [INFO   ] 2025-11-15T15:53:48.531Z [DEBUG] 📝 [Record 3/5] Using "Task Name": {"rawValue":"Design User Flow for Onboarding","extractedLabel":"Design User Flow for Onboarding"}
+[2025-11-15T15:53:48.531Z] [INFO   ] 2025-11-15T15:53:48.531Z [DEBUG] 📝 [Record 4/5] Using "Task Name": {"rawValue":"Conduct Usability Testing","extractedLabel":"Conduct Usability Testing"}
+[2025-11-15T15:53:48.531Z] [INFO   ] 2025-11-15T15:53:48.531Z [DEBUG] 📝 [Record 5/5] Using "Task Name": {"rawValue":"Fix Login Page Bugs","extractedLabel":"Fix Login Page Bugs"}
+[2025-11-15T15:53:48.531Z] [INFO   ] 2025-11-15T15:53:48.531Z [DEBUG] ✅ Fetched 5 records from linked table tbl5J3AgOjpwad7ql
+[2025-11-15T15:53:48.531Z] [INFO   ] 2025-11-15T15:53:48.531Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"eb6b29ff-8086-4df6-b16a-f4e3e4242679","resultCount":5}
+[2025-11-15T15:53:48.779Z] [INFO   ] 2025-11-15T15:53:48.779Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"eb6b29ff-8086-4df6-b16a-f4e3e4242679","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-15T15:53:48.779Z] [INFO   ] 2025-11-15T15:53:48.779Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"eb6b29ff-8086-4df6-b16a-f4e3e4242679","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Projects","hasToken":true}
+[2025-11-15T15:53:48.779Z] [INFO   ] 2025-11-15T15:53:48.779Z [DEBUG] 🔍 Fetching records from linked table: Projects
+[2025-11-15T15:53:48.804Z] [INFO   ] 2025-11-15T15:53:48.803Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"eb6b29ff-8086-4df6-b16a-f4e3e4242679","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-15T15:53:48.804Z] [INFO   ] 2025-11-15T15:53:48.804Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"eb6b29ff-8086-4df6-b16a-f4e3e4242679","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Tasks","hasToken":true}
+[2025-11-15T15:53:48.804Z] [INFO   ] 2025-11-15T15:53:48.804Z [DEBUG] 🔍 Fetching records from linked table: Tasks
+[2025-11-15T15:53:48.841Z] [INFO   ] 2025-11-15T15:53:48.841Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"eb6b29ff-8086-4df6-b16a-f4e3e4242679","dataType":"airtable_linked_records","status":"connected","hasToken":true}
+[2025-11-15T15:53:48.841Z] [INFO   ] 2025-11-15T15:53:48.841Z [DEBUG] 🔍 Airtable linked records fetcher called with: {"integrationId":"eb6b29ff-8086-4df6-b16a-f4e3e4242679","baseId":"app2KiMxZofDhMOmZ","linkedTableName":"Feedback","hasToken":true}
+[2025-11-15T15:53:48.841Z] [INFO   ] 2025-11-15T15:53:48.841Z [DEBUG] 🔍 Fetching records from linked table: Feedback
+[2025-11-15T15:53:49.920Z] [INFO   ] 2025-11-15T15:53:49.920Z [DEBUG] 📝 [Record 1/5] Using first text field "Project Name": {"value":"Internal Dashboard Optimization"}
+[2025-11-15T15:53:49.921Z] [INFO   ] 2025-11-15T15:53:49.921Z [DEBUG] 📝 [Record 2/5] Using first text field "Project Name": {"value":"React Native App Redesign"}
+[2025-11-15T15:53:49.921Z] [INFO   ] 2025-11-15T15:53:49.921Z [DEBUG] 📝 [Record 3/5] Using first text field "Project Name": {"value":"Marketing Website Revamp"}
+[2025-11-15T15:53:49.921Z] [INFO   ] 2025-11-15T15:53:49.921Z [DEBUG] 📝 [Record 4/5] Using first text field "Project Name": {"value":"New Feature Rollout - Dark Mode"}
+[2025-11-15T15:53:49.921Z] [INFO   ] 2025-11-15T15:53:49.921Z [DEBUG] 📝 [Record 5/5] Using first text field "Project Name": {"value":"Customer Feedback Portal"}
+[2025-11-15T15:53:49.921Z] [INFO   ] 2025-11-15T15:53:49.921Z [DEBUG] ✅ Fetched 5 records from linked table Projects
+[2025-11-15T15:53:49.921Z] [INFO   ] 2025-11-15T15:53:49.921Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"eb6b29ff-8086-4df6-b16a-f4e3e4242679","resultCount":5}
+[2025-11-15T15:53:49.946Z] [INFO   ] 2025-11-15T15:53:49.946Z [DEBUG] 📝 [Record 1/5] Using "Task Name": {"rawValue":"Implement Dark Mode Feature","extractedLabel":"Implement Dark Mode Feature"}
+[2025-11-15T15:53:49.946Z] [INFO   ] 2025-11-15T15:53:49.946Z [DEBUG] 📝 [Record 2/5] Using "Task Name": {"rawValue":"Update Design System Documentation","extractedLabel":"Update Design System Documentation"}
+[2025-11-15T15:53:49.946Z] [INFO   ] 2025-11-15T15:53:49.946Z [DEBUG] 📝 [Record 3/5] Using "Task Name": {"rawValue":"Design User Flow for Onboarding","extractedLabel":"Design User Flow for Onboarding"}
+[2025-11-15T15:53:49.946Z] [INFO   ] 2025-11-15T15:53:49.946Z [DEBUG] 📝 [Record 4/5] Using "Task Name": {"rawValue":"Conduct Usability Testing","extractedLabel":"Conduct Usability Testing"}
+[2025-11-15T15:53:49.946Z] [INFO   ] 2025-11-15T15:53:49.946Z [DEBUG] 📝 [Record 5/5] Using "Task Name": {"rawValue":"Fix Login Page Bugs","extractedLabel":"Fix Login Page Bugs"}
+[2025-11-15T15:53:49.946Z] [INFO   ] 2025-11-15T15:53:49.946Z [DEBUG] ✅ Fetched 5 records from linked table Tasks
+[2025-11-15T15:53:49.946Z] [INFO   ] 2025-11-15T15:53:49.946Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"eb6b29ff-8086-4df6-b16a-f4e3e4242679","resultCount":5}
+[2025-11-15T15:53:49.981Z] [INFO   ] 2025-11-15T15:53:49.981Z [DEBUG] 📝 [Record 1/6] Using first text field "Feedback ID": {"value":"FB-005"}
+[2025-11-15T15:53:49.982Z] [INFO   ] 2025-11-15T15:53:49.982Z [DEBUG] 📝 [Record 2/6] Using first text field "Feedback ID": {"value":"FB-002"}
+[2025-11-15T15:53:49.982Z] [INFO   ] 2025-11-15T15:53:49.982Z [DEBUG] 📝 [Record 3/6] Using first text field "Feedback ID": {"value":"FB-001"}
+[2025-11-15T15:53:49.982Z] [INFO   ] 2025-11-15T15:53:49.982Z [DEBUG] 📝 [Record 4/6] Using first text field "Feedback ID": {"value":"FB-006"}
+[2025-11-15T15:53:49.982Z] [INFO   ] 2025-11-15T15:53:49.982Z [DEBUG] 📝 [Record 5/6] Using first text field "Feedback ID": {"value":"FB-003"}
+[2025-11-15T15:53:49.982Z] [INFO   ] 2025-11-15T15:53:49.982Z [DEBUG] 📝 [Record 6/6] Using first text field "Feedback ID": {"value":"FB-004"}
+[2025-11-15T15:53:49.982Z] [INFO   ] 2025-11-15T15:53:49.982Z [DEBUG] ✅ Fetched 6 records from linked table Feedback
+[2025-11-15T15:53:49.982Z] [INFO   ] 2025-11-15T15:53:49.982Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_linked_records: {"integrationId":"eb6b29ff-8086-4df6-b16a-f4e3e4242679","resultCount":6}
