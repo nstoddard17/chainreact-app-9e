@@ -1,96 +1,298 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import { useTheme } from "next-themes"
 import { ProfessionalSearch } from "@/components/ui/professional-search"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import {
-  X,
-  Zap,
-  Play,
-  Database,
-  Sparkles,
-  Grid3x3,
   ArrowRight,
+  ArrowLeft,
+  Sparkles,
+  Brain,
+  Workflow,
+  GitBranch,
+  Clock,
+  Database as DatabaseIcon,
+  Code2,
+  Webhook,
+  ChevronRight,
 } from "lucide-react"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 import type { NodeComponent } from "@/lib/workflows/nodes/types"
+import { getIntegrationLogoClasses } from "@/lib/integrations/logoStyles"
 
 interface IntegrationsSidePanelProps {
   isOpen: boolean
   onClose: () => void
   onNodeSelect: (node: NodeComponent) => void
+  mode?: 'trigger' | 'action' // Determines if we show only triggers or only actions
 }
 
-type Category = 'all' | 'trigger' | 'action' | 'integration' | 'data-enrichment' | 'database'
+type Category = 'all' | 'apps' | 'logic' | 'ai' | 'data'
 
-export function IntegrationsSidePanel({ isOpen, onClose, onNodeSelect }: IntegrationsSidePanelProps) {
+interface Integration {
+  id: string
+  name: string
+  description: string
+  logo: string | null
+}
+
+export function IntegrationsSidePanel({ isOpen, onClose, onNodeSelect, mode = 'action' }: IntegrationsSidePanelProps) {
+  const { theme } = useTheme()
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<Category>('all')
+  const [selectedIntegration, setSelectedIntegration] = useState<string | null>(null)
 
-  // Filter and categorize nodes
-  const filteredNodes = useMemo(() => {
-    let nodes = ALL_NODE_COMPONENTS.filter(node =>
-      node.providerId &&
-      node.providerId !== 'generic' &&
-      node.type !== 'path_condition' // Path Condition nodes are auto-created by Path Router
-    )
+  // Group nodes by provider to create integrations list
+  // Filter based on mode (triggers vs actions)
+  const integrations = useMemo(() => {
+    const integrationMap = new Map<string, Integration>()
 
-    // Filter by category
-    if (selectedCategory === 'trigger') {
-      nodes = nodes.filter(n => n.isTrigger)
-    } else if (selectedCategory === 'action') {
-      nodes = nodes.filter(n => !n.isTrigger)
-    } else if (selectedCategory === 'integration') {
-      nodes = nodes.filter(n => !['ai', 'logic', 'automation', 'misc'].includes(n.providerId || ''))
-    } else if (selectedCategory === 'data-enrichment') {
-      nodes = nodes.filter(n =>
-        n.type.includes('enrich') ||
-        n.type.includes('extract') ||
-        n.type.includes('ai_') ||
-        n.providerId === 'ai'
+    ALL_NODE_COMPONENTS
+      .filter(node =>
+        node.providerId &&
+        node.providerId !== 'generic' &&
+        node.type !== 'path_condition' &&
+        !['logic', 'ai', 'automation', 'misc', 'utility'].includes(node.providerId) &&
+        // Filter by mode: only include integrations that have triggers/actions matching the mode
+        (mode === 'trigger' ? node.isTrigger : !node.isTrigger)
       )
-    } else if (selectedCategory === 'database') {
-      nodes = nodes.filter(n =>
-        n.providerId === 'airtable' ||
-        n.providerId === 'google-sheets' ||
-        n.type.includes('database') ||
-        n.type.includes('query')
-      )
-    }
+      .forEach(node => {
+        const providerId = node.providerId!
+        if (!integrationMap.has(providerId)) {
+          integrationMap.set(providerId, {
+            id: providerId,
+            name: providerId.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+            description: `Automate ${providerId.replace(/-/g, ' ')} workflows`,
+            logo: `/integrations/${providerId}.svg`,
+          })
+        }
+      })
 
-    // Filter by search query
+    return Array.from(integrationMap.values()).sort((a, b) => a.name.localeCompare(b.name))
+  }, [mode])
+
+  // Get logic nodes
+  const logicNodes = useMemo(() =>
+    ALL_NODE_COMPONENTS.filter(node =>
+      node.providerId === 'logic' ||
+      node.providerId === 'automation'
+    ),
+    []
+  )
+
+  // Get AI nodes
+  const aiNodes = useMemo(() =>
+    ALL_NODE_COMPONENTS.filter(node => node.providerId === 'ai'),
+    []
+  )
+
+  // Get data/utility nodes
+  const dataNodes = useMemo(() =>
+    ALL_NODE_COMPONENTS.filter(node =>
+      node.providerId === 'misc' ||
+      node.providerId === 'utility' ||
+      node.type === 'http_request' ||
+      node.type === 'webhook'
+    ),
+    []
+  )
+
+  // Get nodes for selected integration
+  // Filter by mode to show only triggers or actions
+  const selectedIntegrationNodes = useMemo(() => {
+    if (!selectedIntegration) return []
+
+    return ALL_NODE_COMPONENTS
+      .filter(node =>
+        node.providerId === selectedIntegration &&
+        (mode === 'trigger' ? node.isTrigger : !node.isTrigger)
+      )
+      .sort((a, b) => {
+        // Sort triggers first, then actions (though with mode filtering, they should all be the same type)
+        if (a.isTrigger && !b.isTrigger) return -1
+        if (!a.isTrigger && b.isTrigger) return 1
+        return a.title.localeCompare(b.title)
+      })
+  }, [selectedIntegration, mode])
+
+  // Filter integrations based on search and category
+  const filteredIntegrations = useMemo(() => {
+    let filtered = integrations
+
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
-      nodes = nodes.filter(n =>
-        n.title.toLowerCase().includes(query) ||
-        n.providerId?.toLowerCase().includes(query) ||
-        (n.description && n.description.toLowerCase().includes(query))
+      filtered = filtered.filter(int =>
+        int.name.toLowerCase().includes(query) ||
+        int.id.toLowerCase().includes(query)
       )
     }
 
-    return nodes
-  }, [selectedCategory, searchQuery])
+    return filtered
+  }, [integrations, searchQuery])
+
+  // Filter nodes based on search (when viewing integration details or standalone nodes)
+  const filterNodesBySearch = (nodes: NodeComponent[]) => {
+    if (!searchQuery) return nodes
+    const query = searchQuery.toLowerCase()
+    return nodes.filter(n =>
+      n.title.toLowerCase().includes(query) ||
+      n.description?.toLowerCase().includes(query)
+    )
+  }
 
   const categories = [
-    { id: 'all' as Category, label: 'All', icon: Grid3x3 },
-    { id: 'trigger' as Category, label: 'Trigger', icon: Play },
-    { id: 'action' as Category, label: 'Action', icon: Zap },
-    { id: 'integration' as Category, label: 'Integration', icon: Sparkles },
-    { id: 'data-enrichment' as Category, label: 'Data Enrichment', icon: Sparkles },
-    { id: 'database' as Category, label: 'Database', icon: Database },
+    { id: 'all' as Category, label: 'All', icon: Workflow },
+    { id: 'apps' as Category, label: 'Apps', icon: Sparkles },
+    { id: 'logic' as Category, label: 'Logic', icon: GitBranch },
+    { id: 'ai' as Category, label: 'AI', icon: Brain },
+    { id: 'data' as Category, label: 'Data', icon: DatabaseIcon },
   ]
+
+  // Render node drag item
+  const renderNode = (node: NodeComponent) => {
+    const NodeIcon = node.icon
+    const shouldUseNodeIcon = ['logic', 'ai', 'automation', 'misc', 'utility'].includes(node.providerId || '')
+    const providerLogo = !shouldUseNodeIcon && node.providerId ? `/integrations/${node.providerId}.svg` : null
+
+    const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
+      e.dataTransfer.effectAllowed = 'copy'
+      e.dataTransfer.setData('application/reactflow', JSON.stringify({
+        type: 'node',
+        nodeData: node
+      }))
+
+      // Create drag preview
+      const dragElement = document.createElement('div')
+      dragElement.style.position = 'absolute'
+      dragElement.style.top = '-1000px'
+      dragElement.style.padding = '8px 16px'
+      dragElement.style.background = 'rgba(255, 255, 255, 0.95)'
+      dragElement.style.border = '2px solid #e5e7eb'
+      dragElement.style.borderRadius = '24px'
+      dragElement.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)'
+      dragElement.style.display = 'flex'
+      dragElement.style.alignItems = 'center'
+      dragElement.style.gap = '8px'
+      dragElement.style.fontSize = '14px'
+      dragElement.style.fontWeight = '500'
+      dragElement.style.color = '#1f2937'
+      dragElement.style.whiteSpace = 'nowrap'
+      dragElement.style.pointerEvents = 'none'
+
+      // Add icon
+      if (providerLogo) {
+        const iconImg = document.createElement('img')
+        iconImg.src = providerLogo
+        iconImg.style.width = '20px'
+        iconImg.style.height = '20px'
+        iconImg.style.objectFit = 'contain'
+        dragElement.appendChild(iconImg)
+      }
+
+      // Add text
+      const text = document.createElement('span')
+      text.textContent = node.title
+      dragElement.appendChild(text)
+
+      document.body.appendChild(dragElement)
+      e.dataTransfer.setDragImage(dragElement, 40, 20)
+      setTimeout(() => document.body.removeChild(dragElement), 0)
+    }
+
+    return (
+      <div
+        key={node.type}
+        draggable
+        onDragStart={handleDragStart}
+        className="w-full flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-900 transition-colors cursor-grab active:cursor-grabbing group border border-transparent hover:border-gray-200 dark:hover:border-slate-800"
+      >
+        {/* Icon */}
+        <div className="shrink-0 w-10 h-10 rounded-lg bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-800 flex items-center justify-center p-1.5">
+          {providerLogo ? (
+            <img
+              src={providerLogo}
+              alt={node.providerId || ''}
+              className={getIntegrationLogoClasses(node.providerId || '', 'object-contain')}
+              style={{ width: '28px', height: 'auto' }}
+            />
+          ) : NodeIcon ? (
+            <NodeIcon className="w-5 h-5 text-foreground" />
+          ) : null}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <h3 className="font-medium text-sm leading-tight mb-0.5">
+            {node.title}
+          </h3>
+          <p className="text-xs text-muted-foreground line-clamp-2">
+            {node.description || 'No description available'}
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // Render integration list item
+  const renderIntegration = (integration: Integration) => (
+    <div
+      key={integration.id}
+      onClick={() => setSelectedIntegration(integration.id)}
+      className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-900 transition-colors cursor-pointer group border border-transparent hover:border-gray-200 dark:hover:border-slate-800"
+    >
+      {/* Icon */}
+      <div className="shrink-0 w-10 h-10 rounded-lg bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-800 flex items-center justify-center p-1.5">
+        <img
+          src={integration.logo || ''}
+          alt={integration.name}
+          className={getIntegrationLogoClasses(integration.id, 'object-contain')}
+          style={{ width: '28px', height: 'auto' }}
+        />
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 min-w-0">
+        <h3 className="font-medium text-sm leading-tight">
+          {integration.name}
+        </h3>
+      </div>
+
+      {/* Arrow */}
+      <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+    </div>
+  )
 
   return (
     <div className="h-full w-full bg-white dark:bg-slate-950 border-l border-border shadow-lg z-50 flex flex-col">
       {/* Header with Search */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-border/50">
-        <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 text-muted-foreground hover:text-foreground">
-          <ArrowRight className="w-4 h-4" />
-        </Button>
-        <h2 className="text-base font-semibold whitespace-nowrap">Nodes Catalog</h2>
+        {selectedIntegration ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSelectedIntegration(null)}
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+          >
+            <ArrowRight className="w-4 h-4" />
+          </Button>
+        )}
         <div className="flex-1 relative">
           <ProfessionalSearch
-            placeholder="Search for node or functionality"
+            placeholder={selectedIntegration
+              ? mode === 'trigger' ? "Search triggers..." : "Search actions..."
+              : mode === 'trigger' ? "Search apps and triggers..." : "Search apps and actions..."
+            }
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onClear={() => setSearchQuery("")}
@@ -99,141 +301,84 @@ export function IntegrationsSidePanel({ isOpen, onClose, onNodeSelect }: Integra
         </div>
       </div>
 
-      {/* Categories */}
-      <div className="border-b">
-        <div className="flex items-center justify-between px-4 py-2">
-          {categories.map((cat) => {
-            const Icon = cat.icon
-            return (
-              <Button
-                key={cat.id}
-                variant={selectedCategory === cat.id ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setSelectedCategory(cat.id)}
-                className="flex-1 h-8 text-xs"
-              >
-                {cat.label}
-              </Button>
-            )
-          })}
+      {/* Categories - Only show when not viewing integration details */}
+      {!selectedIntegration && (
+        <div className="border-b">
+          <div className="flex items-center gap-1 px-4 py-2">
+            {categories.map((cat) => {
+              const Icon = cat.icon
+              return (
+                <Button
+                  key={cat.id}
+                  variant={selectedCategory === cat.id ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setSelectedCategory(cat.id)}
+                  className="h-8 text-xs whitespace-nowrap flex-1"
+                >
+                  <Icon className="w-3.5 h-3.5 mr-1.5" />
+                  {cat.label}
+                </Button>
+              )
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Nodes List */}
+      {/* Content */}
       <div className="flex-1 overflow-y-auto">
         <div className="p-4 space-y-1">
-          {filteredNodes.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <p className="text-sm">No nodes found</p>
-              <p className="text-xs mt-1">Try adjusting your search or category</p>
-            </div>
+          {/* Viewing integration details */}
+          {selectedIntegration ? (
+            filterNodesBySearch(selectedIntegrationNodes).length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <p className="text-sm">No actions found</p>
+                <p className="text-xs mt-1">Try adjusting your search</p>
+              </div>
+            ) : (
+              filterNodesBySearch(selectedIntegrationNodes).map(renderNode)
+            )
           ) : (
-            filteredNodes.map((node) => {
-              const NodeIcon = node.icon
-              // For logic and AI nodes, use the unique node icon instead of provider logo
-              const shouldUseNodeIcon = ['logic', 'ai'].includes(node.providerId || '')
-              const providerLogo = !shouldUseNodeIcon && node.providerId ? `/integrations/${node.providerId}.svg` : null
+            /* Viewing top-level list */
+            <>
+              {/* Apps Category */}
+              {(selectedCategory === 'all' || selectedCategory === 'apps') && (
+                <>
+                  {!searchQuery && <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-3 py-2 mt-2">Apps</h3>}
+                  {filteredIntegrations.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p className="text-sm">No apps found</p>
+                      <p className="text-xs mt-1">Try adjusting your search</p>
+                    </div>
+                  ) : (
+                    filteredIntegrations.map(renderIntegration)
+                  )}
+                </>
+              )}
 
-              const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
-                e.dataTransfer.effectAllowed = 'copy'
-                e.dataTransfer.setData('application/reactflow', JSON.stringify({
-                  type: 'node',
-                  nodeData: node
-                }))
+              {/* Logic Nodes */}
+              {(selectedCategory === 'all' || selectedCategory === 'logic') && (
+                <>
+                  {!searchQuery && <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-3 py-2 mt-4">Logic & Flow Control</h3>}
+                  {filterNodesBySearch(logicNodes).map(renderNode)}
+                </>
+              )}
 
-                // Create a pill-style drag preview
-                const dragElement = document.createElement('div')
-                dragElement.style.position = 'absolute'
-                dragElement.style.top = '-1000px'
-                dragElement.style.padding = '8px 16px'
-                dragElement.style.background = 'rgba(255, 255, 255, 0.95)'
-                dragElement.style.border = '2px solid #e5e7eb'
-                dragElement.style.borderRadius = '24px'
-                dragElement.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)'
-                dragElement.style.display = 'flex'
-                dragElement.style.alignItems = 'center'
-                dragElement.style.gap = '8px'
-                dragElement.style.fontSize = '14px'
-                dragElement.style.fontWeight = '500'
-                dragElement.style.color = '#1f2937'
-                dragElement.style.whiteSpace = 'nowrap'
-                dragElement.style.pointerEvents = 'none'
+              {/* AI Nodes */}
+              {(selectedCategory === 'all' || selectedCategory === 'ai') && (
+                <>
+                  {!searchQuery && <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-3 py-2 mt-4">AI & Intelligence</h3>}
+                  {filterNodesBySearch(aiNodes).map(renderNode)}
+                </>
+              )}
 
-                // Add icon
-                if (providerLogo) {
-                  const iconImg = document.createElement('img')
-                  iconImg.src = providerLogo
-                  iconImg.style.width = '20px'
-                  iconImg.style.height = '20px'
-                  iconImg.style.objectFit = 'contain'
-                  dragElement.appendChild(iconImg)
-                } else if (NodeIcon) {
-                  const iconSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
-                  iconSvg.setAttribute('width', '20')
-                  iconSvg.setAttribute('height', '20')
-                  iconSvg.setAttribute('viewBox', '0 0 24 24')
-                  iconSvg.setAttribute('fill', 'none')
-                  iconSvg.setAttribute('stroke', 'currentColor')
-                  iconSvg.setAttribute('stroke-width', '2')
-                  dragElement.appendChild(iconSvg)
-                }
-
-                // Add text
-                const text = document.createElement('span')
-                text.textContent = node.title
-                dragElement.appendChild(text)
-
-                document.body.appendChild(dragElement)
-
-                e.dataTransfer.setDragImage(dragElement, 40, 20)
-
-                // Clean up the temporary element after drag starts
-                setTimeout(() => document.body.removeChild(dragElement), 0)
-              }
-
-              return (
-                <div
-                  key={node.type}
-                  draggable
-                  onDragStart={handleDragStart}
-                  className="w-full flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-900 transition-colors cursor-grab active:cursor-grabbing group border border-transparent hover:border-gray-200 dark:hover:border-slate-800"
-                >
-                  {/* Icon */}
-                  <div className="shrink-0 w-10 h-10 rounded-lg bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-800 flex items-center justify-center p-1.5">
-                    {providerLogo ? (
-                      <img
-                        src={providerLogo}
-                        alt={node.providerId || ''}
-                        className="object-contain"
-                        style={{ width: '28px', height: 'auto' }}
-                      />
-                    ) : NodeIcon ? (
-                      <NodeIcon className="w-5 h-5 text-foreground" />
-                    ) : null}
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-medium text-sm leading-tight mb-0.5">
-                      {node.title}
-                    </h3>
-                    {/* Provider/Category subtitle */}
-                    {(node.providerId || node.category) && (
-                      <div className="text-xs text-muted-foreground/70 mb-1 capitalize">
-                        {node.providerId ?
-                          node.providerId.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) :
-                          node.category
-                        }
-                        {node.isTrigger ? ' • Trigger' : ' • Action'}
-                      </div>
-                    )}
-                    <p className="text-xs text-muted-foreground line-clamp-2">
-                      {node.description || 'No description available'}
-                    </p>
-                  </div>
-                </div>
-              )
-            })
+              {/* Data Nodes */}
+              {(selectedCategory === 'all' || selectedCategory === 'data') && (
+                <>
+                  {!searchQuery && <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-3 py-2 mt-4">Data & Utilities</h3>}
+                  {filterNodesBySearch(dataNodes).map(renderNode)}
+                </>
+              )}
+            </>
           )}
         </div>
       </div>

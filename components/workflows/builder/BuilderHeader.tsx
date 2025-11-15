@@ -68,6 +68,7 @@ interface BuilderHeaderProps {
   handleSave?: () => Promise<void>
   handleToggleLive?: () => Promise<void>
   isUpdatingStatus?: boolean
+  hasPlaceholders?: boolean
   currentWorkflow?: any
   workflowId?: string | null
   editTemplateId?: string | null
@@ -97,6 +98,7 @@ const BuilderHeaderComponent = ({
   handleSave,
   handleToggleLive,
   isUpdatingStatus = false,
+  hasPlaceholders = false,
   currentWorkflow,
   workflowId,
   editTemplateId,
@@ -138,6 +140,11 @@ const BuilderHeaderComponent = ({
 
   const isSavingRef = useRef(false)
   const isNavigatingRef = useRef(false)
+
+  // Prefetch workflows page for instant back navigation
+  useEffect(() => {
+    router.prefetch('/workflows')
+  }, [router])
 
   const isLiveTestingDisabled = isExecuting || isSaving
 
@@ -546,7 +553,7 @@ const BuilderHeaderComponent = ({
                 variant="outline"
                 size="sm"
                 onClick={handleExecuteLive}
-                disabled={isLiveTestingDisabled}
+                disabled={isLiveTestingDisabled || hasPlaceholders}
                 className="flex items-center gap-2"
               >
                 <Play className="w-4 h-4" />
@@ -560,7 +567,7 @@ const BuilderHeaderComponent = ({
                 variant="default"
                 size="sm"
                 onClick={handleToggleLive}
-                disabled={isUpdatingStatus}
+                disabled={isUpdatingStatus || hasPlaceholders}
                 className={cn(
                   "flex items-center gap-2",
                   isActive

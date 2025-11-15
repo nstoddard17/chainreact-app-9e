@@ -279,9 +279,9 @@ export function AppsContent() {
                                   <div className="flex items-center gap-3 flex-1 min-w-0">
                                     <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
                                       <img
-                                        src={getIntegrationLogoPath(provider.id, 'light')}
+                                        src={getIntegrationLogoPath(provider.id, theme)}
                                         alt={provider.name}
-                                        className="w-10 h-10 object-contain"
+                                        className={getIntegrationLogoClasses(provider.id, "w-10 h-10 object-contain")}
                                         onError={(e) => {
                                           e.currentTarget.style.display = 'none'
                                         }}
@@ -324,9 +324,9 @@ export function AppsContent() {
                                   <div className="flex items-center gap-3 flex-1 min-w-0">
                                     <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
                                       <img
-                                        src={getIntegrationLogoPath(provider.id, 'light')}
+                                        src={getIntegrationLogoPath(provider.id, theme)}
                                         alt={provider.name}
-                                        className="w-10 h-10 object-contain"
+                                        className={getIntegrationLogoClasses(provider.id, "w-10 h-10 object-contain")}
                                         onError={(e) => {
                                           e.currentTarget.style.display = 'none'
                                         }}
@@ -365,9 +365,9 @@ export function AppsContent() {
                                 <div className="flex items-center gap-3 flex-1 min-w-0">
                                   <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
                                     <img
-                                      src={getIntegrationLogoPath(provider.id, 'light')}
+                                      src={getIntegrationLogoPath(provider.id, theme)}
                                       alt={provider.name}
-                                      className="w-10 h-10 object-contain"
+                                      className={getIntegrationLogoClasses(provider.id, "w-10 h-10 object-contain")}
                                       onError={(e) => {
                                         e.currentTarget.style.display = 'none'
                                       }}

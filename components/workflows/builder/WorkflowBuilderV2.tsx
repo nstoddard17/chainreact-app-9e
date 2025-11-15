@@ -315,6 +315,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   const [nameDirty, setNameDirty] = useState(false)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [isIntegrationsPanelOpen, setIsIntegrationsPanelOpen] = useState(false)
+  const [integrationsPanelMode, setIntegrationsPanelMode] = useState<'trigger' | 'action'>('action')
   const [configuringNode, setConfiguringNode] = useState<any>(null)
 
   // Agent panel state
@@ -1302,31 +1303,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     const afterNode = builder.nodes.find((n: any) => n.id === afterNodeId)
     if (!afterNode) return
 
-    // For Path Condition nodes from Path Router, position horizontally
-    let position = {
-      x: afterNode.position.x,
-      y: afterNode.position.y + 200
-    }
-
-    if (nodeType === 'path_condition' && afterNode.data?.type === 'path') {
-      // Count existing Path Condition nodes connected to this router
-      const connectedPathNodes = builder.nodes.filter((node: any) => {
-        const edges = builder.edges || []
-        return edges.some((edge: any) =>
-          edge.source === afterNodeId &&
-          edge.target === node.id &&
-          node.data?.type === 'path_condition'
-        )
-      })
-
-      const pathIndex = connectedPathNodes.length
-      const horizontalSpacing = 500 // Zapier-style horizontal spacing
-
-      // Position horizontally: first path at original x, subsequent paths to the right
-      position = {
-        x: afterNode.position.x + (pathIndex * horizontalSpacing),
-        y: afterNode.position.y + 200
-      }
+    // Position will be auto-corrected by the vertical stacking effect
+    // Just use a placeholder position for now
+    const position = {
+      x: 400,
+      y: afterNode.position.y + 180
     }
 
     try {
@@ -1493,9 +1474,13 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
     // Handler for inserting a node in the middle of an edge
     const handleInsertNodeOnEdge = (edgeId: string, position: { x: number; y: number }) => {
-      // Open integrations panel at the edge position
-      // TODO: Implement node insertion at edge midpoint
-      console.log('Insert node on edge:', edgeId, 'at position:', position)
+      // Find the edge to get the source node
+      const edge = builder.edges.find((e: any) => e.id === edgeId)
+      if (!edge) return
+
+      // Store the source node ID and open integrations panel
+      setSelectedNodeId(edge.source)
+      openIntegrationsPanel('action')
     }
 
     // Enhance edges with onInsertNode handler
@@ -1564,11 +1549,46 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     setSelectedNodeId(first?.id ?? null)
   }, [])
 
+  // Helper to open integrations panel with the correct mode (trigger vs action)
+  const openIntegrationsPanel = useCallback((forceMode?: 'trigger' | 'action') => {
+    let mode: 'trigger' | 'action'
+
+    if (forceMode) {
+      // If a specific mode is requested (e.g., when clicking a trigger node to change it), use that
+      mode = forceMode
+    } else {
+      // Otherwise, determine automatically based on whether a trigger already exists
+      const hasTrigger = builder.nodes.some((node: any) => {
+        const component = ALL_NODE_COMPONENTS.find(c => c.type === node.data?.type)
+        return component?.isTrigger
+      })
+      mode = hasTrigger ? 'action' : 'trigger'
+    }
+
+    setIntegrationsPanelMode(mode)
+    setIsIntegrationsPanelOpen(true)
+  }, [builder.nodes])
+
   // Node selection from panel
   const handleNodeSelectFromPanel = useCallback(async (nodeData: any) => {
     if (!actions || !builder) return
 
-    const position = nodeData.position || { x: 400, y: 300 }
+    const currentNodes = builder.nodes ?? []
+    const currentEdges = builder.edges ?? []
+
+    // Check if we're replacing a placeholder node
+    const replacingPlaceholder = currentNodes.find((n: any) =>
+      n.id === selectedNodeId && n.data?.isPlaceholder
+    )
+
+    let position = nodeData.position || { x: 400, y: 300 }
+
+    // If replacing placeholder, use its position
+    if (replacingPlaceholder) {
+      position = replacingPlaceholder.position
+      console.log('📌 [WorkflowBuilder] Replacing placeholder:', selectedNodeId, 'with:', nodeData.type)
+    }
+
     const nodeComponent = nodeComponentMap.get(nodeData.type)
     const providerId = nodeComponent?.providerId ?? nodeData.providerId
 
@@ -1593,17 +1613,65 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       },
     }
 
-    const currentNodes = builder.nodes ?? []
-    const currentEdges = builder.edges ?? []
+    let updatedNodes = currentNodes
+    let updatedEdges = currentEdges
 
-    // Add node to canvas immediately
-    builder.setNodes([...currentNodes, optimisticNode])
+    if (replacingPlaceholder) {
+      // Remove placeholder and add new node
+      updatedNodes = currentNodes
+        .filter((n: any) => n.id !== selectedNodeId)
+        .concat(optimisticNode)
+
+      // Update edges that connected to the placeholder
+      updatedEdges = currentEdges.map((e: any) => {
+        if (e.source === selectedNodeId) {
+          return { ...e, source: tempId }
+        }
+        if (e.target === selectedNodeId) {
+          return { ...e, target: tempId }
+        }
+        return e
+      }).filter((e: any) => e.id !== 'placeholder-edge') // Remove placeholder edge
+
+      // Check if all placeholders are replaced
+      const remainingPlaceholders = updatedNodes.filter((n: any) => n.data?.isPlaceholder)
+      console.log('📌 [WorkflowBuilder] Remaining placeholders:', remainingPlaceholders.length)
+    } else {
+      // Normal node addition - add node and potentially connect it
+      updatedNodes = [...currentNodes, optimisticNode]
+
+      // If adding after a specific node (from plus button), create edge
+      if (selectedNodeId) {
+        const afterNode = currentNodes.find((n: any) => n.id === selectedNodeId)
+        if (afterNode) {
+          console.log('🔗 [WorkflowBuilder] Adding node after:', selectedNodeId)
+
+          // Create edge from the selected node to the new node
+          const newEdge = {
+            id: `${selectedNodeId}-${tempId}`,
+            source: selectedNodeId,
+            target: tempId,
+            type: 'custom',
+            sourceHandle: 'source',
+            targetHandle: 'target',
+          }
+          updatedEdges = [...currentEdges, newEdge]
+        }
+      }
+    }
+
+    // Update canvas immediately
+    builder.setNodes(updatedNodes)
+    builder.setEdges(updatedEdges)
 
     // Close panel immediately for better UX
     setIsIntegrationsPanelOpen(false)
 
     // Open config modal immediately for instant configuration
     setConfiguringNode(optimisticNode)
+
+    // Clear selected node ID
+    setSelectedNodeId(null)
 
     try {
       // Persist to database in background
@@ -1617,6 +1685,16 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           }
           return current
         })
+
+        // If we added an edge (adding after a node), persist it too
+        if (selectedNodeId && !replacingPlaceholder) {
+          console.log('🔗 [WorkflowBuilder] Persisting edge connection')
+          await actions.connectEdge({
+            sourceId: selectedNodeId,
+            targetId: newNode.id,
+            sourceHandle: 'source'
+          })
+        }
       }
     } catch (error: any) {
       // Only rollback if it failed
@@ -1628,9 +1706,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         description: error?.message ?? "Unable to add node",
         variant: "destructive",
       })
-      setIsIntegrationsPanelOpen(true)
+      openIntegrationsPanel()
     }
-  }, [actions, builder, nodeComponentMap, toast])
+  }, [actions, builder, nodeComponentMap, toast, selectedNodeId, openIntegrationsPanel])
 
   // Node deletion with optimistic update for instant feedback
   const handleDeleteNodes = useCallback(async (nodeIds: string[]) => {
@@ -1651,8 +1729,73 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       (edge: any) => !nodeIdSet.has(edge.source) && !nodeIdSet.has(edge.target)
     )
 
-    builder.setNodes(updatedNodes)
-    builder.setEdges(updatedEdges)
+    // Check if all real (non-placeholder) nodes are being deleted
+    const realNodes = updatedNodes.filter((n: any) => !n.data?.isPlaceholder)
+    const shouldResetToPlaceholders = realNodes.length === 0 && updatedNodes.length === 0
+
+    if (shouldResetToPlaceholders) {
+      console.log('🔄 [WorkflowBuilder] All nodes deleted, resetting to placeholder state')
+
+      // Calculate center position based on viewport and agent panel
+      const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920
+      const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 1080
+      const panelWidth = agentOpen ? agentPanelWidth : 0
+      const availableWidth = viewportWidth - panelWidth
+      const centerX = panelWidth + (availableWidth / 2) - 180 // 180 = half of 360px node width
+      const centerY = (viewportHeight / 2) - 150
+
+      // Reset to placeholder state (Zapier-style, centered)
+      const placeholderNodes = [
+        {
+          id: 'trigger-placeholder',
+          type: 'trigger_placeholder',
+          position: { x: centerX, y: centerY },
+          data: {
+            type: 'trigger_placeholder',
+            isPlaceholder: true,
+            title: 'Trigger',
+          },
+        },
+        {
+          id: 'action-placeholder',
+          type: 'action_placeholder',
+          position: { x: centerX, y: centerY + 180 },
+          data: {
+            type: 'action_placeholder',
+            isPlaceholder: true,
+            title: 'Action',
+          },
+        },
+      ]
+
+      const placeholderEdge = {
+        id: 'placeholder-edge',
+        source: 'trigger-placeholder',
+        target: 'action-placeholder',
+        type: 'default',
+        style: {
+          strokeDasharray: '5,5',
+          stroke: '#9CA3AF',
+        },
+      }
+
+      builder.setNodes(placeholderNodes as any)
+      builder.setEdges([placeholderEdge] as any)
+
+      // Center view on placeholders after a brief delay
+      setTimeout(() => {
+        if (reactFlowInstanceRef.current) {
+          reactFlowInstanceRef.current.fitView({
+            padding: 0.2,
+            duration: 400,
+            maxZoom: 1,
+          })
+        }
+      }, 100)
+    } else {
+      builder.setNodes(updatedNodes)
+      builder.setEdges(updatedEdges)
+    }
 
     // Clear selection when deleting current node(s)
     setSelectedNodeId(prev => (prev && nodeIdSet.has(prev) ? null : prev))
@@ -1677,12 +1820,219 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     await handleDeleteNodes([nodeId])
   }, [handleDeleteNodes])
 
-  // Handle node configuration (double-click or manual trigger)
+  // Handle node rename
+  const handleNodeRename = useCallback(async (nodeId: string, newTitle: string) => {
+    if (!actions || !builder) return
+
+    const currentNodes = builder.nodes
+    const updatedNodes = currentNodes.map((node: any) =>
+      node.id === nodeId
+        ? { ...node, data: { ...node.data, title: newTitle } }
+        : node
+    )
+
+    // Optimistically update UI
+    builder.setNodes(updatedNodes)
+
+    try {
+      // Persist the rename to backend
+      await actions.applyEdits([{
+        op: "updateNode",
+        nodeId,
+        updates: { title: newTitle }
+      }])
+    } catch (error: any) {
+      // Rollback on error
+      builder.setNodes(currentNodes)
+      toast({
+        title: "Failed to rename node",
+        description: error?.message ?? "Unable to rename node",
+        variant: "destructive",
+      })
+    }
+  }, [actions, builder, toast])
+
+  // Handle node duplication
+  const handleNodeDuplicate = useCallback(async (nodeId: string) => {
+    if (!actions || !builder) return
+
+    const currentNodes = builder.nodes
+    const currentEdges = builder.edges
+
+    // Find the node to duplicate
+    const nodeToDuplicate = currentNodes.find((n: any) => n.id === nodeId)
+    if (!nodeToDuplicate) {
+      toast({
+        title: "Cannot duplicate node",
+        description: "Node not found",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Generate a temporary ID for the duplicate
+    const tempId = `node-${Date.now()}`
+
+    // Position will be auto-corrected by the vertical stacking effect
+    // Place it just below the original for now
+    const newPosition = {
+      x: 400,
+      y: nodeToDuplicate.position.y + 180,
+    }
+
+    // Create duplicate with "(Copy)" suffix
+    const originalTitle = nodeToDuplicate.data?.title || 'Node'
+    const duplicateTitle = `${originalTitle} (Copy)`
+
+    // Create optimistic duplicate node
+    const duplicateNode = {
+      ...nodeToDuplicate,
+      id: tempId,
+      position: newPosition,
+      data: {
+        ...nodeToDuplicate.data,
+        title: duplicateTitle,
+        _optimistic: true,
+      },
+    }
+
+    // Update UI optimistically
+    const updatedNodes = [...currentNodes, duplicateNode]
+    builder.setNodes(updatedNodes)
+
+    try {
+      // Add the node to backend
+      const newNode = await actions.addNode(nodeToDuplicate.data?.type, newPosition)
+
+      if (newNode) {
+        // Update with real ID from backend
+        const finalNodes = builder.nodes.map((n: any) =>
+          n.id === tempId
+            ? { ...n, id: newNode.id, data: { ...n.data, _optimistic: false } }
+            : n
+        )
+        builder.setNodes(finalNodes)
+
+        // Apply configuration if the original node had config
+        if (nodeToDuplicate.data?.config && Object.keys(nodeToDuplicate.data.config).length > 0) {
+          await actions.updateConfig(newNode.id, nodeToDuplicate.data.config)
+        }
+
+        // Apply the title
+        await actions.applyEdits([{
+          op: "updateNode",
+          nodeId: newNode.id,
+          updates: { title: duplicateTitle }
+        }])
+
+        toast({
+          title: "Node duplicated",
+          description: `Created duplicate: ${duplicateTitle}`,
+        })
+      }
+    } catch (error: any) {
+      // Rollback on error
+      builder.setNodes(currentNodes)
+      builder.setEdges(currentEdges)
+      toast({
+        title: "Failed to duplicate node",
+        description: error?.message ?? "Unable to duplicate node",
+        variant: "destructive",
+      })
+    }
+  }, [actions, builder, toast])
+
+  // Handle add note to node
+  const handleAddNote = useCallback(async (nodeId: string) => {
+    if (!actions || !builder) return
+
+    const currentNodes = builder.nodes
+    const node = currentNodes.find((n: any) => n.id === nodeId)
+
+    if (!node) {
+      toast({
+        title: "Cannot add note",
+        description: "Node not found",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Prompt for note text
+    const currentNote = node.data?.note || ''
+    const noteText = prompt(
+      currentNote ? 'Edit note:' : 'Add a note to this node:',
+      currentNote
+    )
+
+    // If user cancelled or entered empty string, don't update
+    if (noteText === null) return
+
+    // Update node with note
+    const updatedNodes = currentNodes.map((n: any) =>
+      n.id === nodeId
+        ? { ...n, data: { ...n.data, note: noteText.trim() || undefined } }
+        : n
+    )
+
+    // Optimistically update UI
+    builder.setNodes(updatedNodes)
+
+    try {
+      // Persist the note to backend
+      await actions.applyEdits([{
+        op: "updateNode",
+        nodeId,
+        updates: { note: noteText.trim() || null }
+      }])
+
+      if (noteText.trim()) {
+        toast({
+          title: "Note added",
+          description: "Node note has been saved",
+        })
+      } else {
+        toast({
+          title: "Note removed",
+          description: "Node note has been cleared",
+        })
+      }
+    } catch (error: any) {
+      // Rollback on error
+      builder.setNodes(currentNodes)
+      toast({
+        title: "Failed to save note",
+        description: error?.message ?? "Unable to save node note",
+        variant: "destructive",
+      })
+    }
+  }, [actions, builder, toast])
+
+  // Handle node configuration (click or manual trigger)
   const handleNodeConfigure = useCallback(async (nodeId: string) => {
     const node = reactFlowProps?.nodes?.find((n: any) => n.id === nodeId)
     if (node) {
       console.log('🔧 [WorkflowBuilder] Opening configuration for node:', nodeId, node)
 
+      // Check if this is a placeholder node
+      if (node.data?.isPlaceholder) {
+        console.log('📌 [WorkflowBuilder] Placeholder node clicked, opening integrations panel')
+
+        // Check if this is the first node in the workflow (trigger position)
+        // First node has no incoming edges
+        const isFirstNode = !reactFlowProps?.edges?.some((edge: any) => edge.target === nodeId)
+
+        // First node always opens trigger menu, all others open action menu
+        const mode = isFirstNode ? 'trigger' : 'action'
+
+        // Open integrations panel with the correct mode
+        openIntegrationsPanel(mode)
+        // Store which placeholder we're replacing
+        setSelectedNodeId(nodeId)
+        return
+      }
+
+      // For regular (configured) nodes, open their configuration modal
       // Prefetch config data before opening modal for instant UX
       const nodeInfo = getNodeByType(node.data?.nodeType || node.type)
       if (nodeInfo && nodeInfo.configSchema) {
@@ -1701,7 +2051,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     } else {
       console.warn('🔧 [WorkflowBuilder] Node not found for configuration:', nodeId)
     }
-  }, [reactFlowProps?.nodes, prefetchNodeConfig])
+  }, [reactFlowProps?.nodes, reactFlowProps?.edges, prefetchNodeConfig, openIntegrationsPanel, setSelectedNodeId])
 
   // Handle saving node configuration
   const handleSaveNodeConfig = useCallback(async (nodeId: string, config: Record<string, any>) => {
@@ -1738,6 +2088,253 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       })
     }
   }, [actions, toast, flowId])
+
+  // Validation: Check if workflow has placeholders
+  const hasPlaceholders = useCallback(() => {
+    if (!builder?.nodes) return false
+    return builder.nodes.some((n: any) => n.data?.isPlaceholder)
+  }, [builder?.nodes])
+
+  // Handle workflow activation with placeholder validation
+  const handleToggleLiveWithValidation = useCallback(() => {
+    // Check for placeholders - button should be disabled, but just in case
+    if (hasPlaceholders()) {
+      return
+    }
+
+    // If no placeholders, show coming soon (activation not implemented yet for Flow V2)
+    toast({
+      title: "Coming soon",
+      description: "This action is not yet wired to the Flow v2 backend.",
+    })
+  }, [hasPlaceholders, toast])
+
+  // Handle test workflow - run from start to finish
+  const handleTestWorkflow = useCallback(async () => {
+    if (!builder?.nodes || hasPlaceholders()) {
+      return
+    }
+
+    const nodes = builder.nodes
+    const triggerNode = nodes.find((n: any) => n.data?.isTrigger && !n.data?.isPlaceholder)
+    const hasTrigger = Boolean(triggerNode)
+
+    // If there's a trigger, ask user if they want to include it
+    let includeTrigger = false
+    if (hasTrigger) {
+      const userChoice = window.confirm(
+        "Do you want to test the trigger?\n\n" +
+        "• Yes: Wait for trigger event (webhook/scheduled)\n" +
+        "• No: Skip trigger and test actions only"
+      )
+      includeTrigger = userChoice
+    }
+
+    try {
+      // Find the first action node if we're skipping trigger
+      let startNodeId: string | undefined
+      if (!includeTrigger && hasTrigger) {
+        const firstActionNode = nodes.find((n: any) =>
+          !n.data?.isPlaceholder && n.data?.nodeType && !n.data?.isTrigger
+        )
+
+        if (!firstActionNode) {
+          toast({
+            title: "No action nodes",
+            description: "Add at least one action node to test the workflow.",
+            variant: "destructive",
+          })
+          return
+        }
+        startNodeId = firstActionNode.id
+      }
+
+      // Set all nodes to running state
+      const updatedNodes = nodes.map((n: any) => ({
+        ...n,
+        data: {
+          ...n.data,
+          state: 'running',
+        }
+      }))
+      builder.setNodes(updatedNodes)
+
+      const testingMessage = includeTrigger
+        ? "Waiting for trigger event..."
+        : "Testing workflow actions..."
+
+      toast({
+        title: "Testing workflow",
+        description: testingMessage,
+      })
+
+      // If testing with trigger, we need to register webhook/wait for event
+      let triggerData = {}
+      if (includeTrigger && triggerNode) {
+        try {
+          // Call test-trigger API to activate trigger and wait for event
+          const triggerResponse = await fetch('/api/workflows/test-trigger', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              workflowId: flowId,
+              nodeId: triggerNode.id,
+            }),
+          })
+
+          if (!triggerResponse.ok) {
+            throw new Error(`Trigger test failed: ${triggerResponse.statusText}`)
+          }
+
+          const triggerResult = await triggerResponse.json()
+
+          if (triggerResult.eventReceived) {
+            // Event received! Use this data for workflow execution
+            triggerData = triggerResult.data
+            toast({
+              title: "Trigger event received",
+              description: "Now executing workflow with trigger data...",
+            })
+          } else {
+            // Timeout - show webhook URL and give option to continue
+            const shouldContinue = window.confirm(
+              `No trigger event received within 60 seconds.\n\n` +
+              `Webhook URL: ${triggerResult.webhookUrl || 'N/A'}\n\n` +
+              `Do you want to continue testing without trigger data?`
+            )
+
+            if (!shouldContinue) {
+              // User cancelled - clear running states
+              const clearedNodes = nodes.map((n: any) => ({
+                ...n,
+                data: {
+                  ...n.data,
+                  state: undefined,
+                }
+              }))
+              builder.setNodes(clearedNodes)
+              return
+            }
+
+            // User wants to continue - skip trigger
+            const firstActionNode = nodes.find((n: any) =>
+              !n.data?.isPlaceholder && n.data?.nodeType && !n.data?.isTrigger
+            )
+            if (firstActionNode) {
+              startNodeId = firstActionNode.id
+            }
+          }
+        } catch (error: any) {
+          logger.error('Trigger test failed:', error)
+          toast({
+            title: "Trigger test failed",
+            description: error.message || "Unable to test trigger. Testing actions only...",
+            variant: "destructive",
+          })
+
+          // Fall back to testing without trigger
+          const firstActionNode = nodes.find((n: any) =>
+            !n.data?.isPlaceholder && n.data?.nodeType && !n.data?.isTrigger
+          )
+          if (firstActionNode) {
+            startNodeId = firstActionNode.id
+          }
+        }
+      }
+
+      // Call the execute-advanced API
+      const response = await fetch('/api/workflows/execute-advanced', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          workflowId: flowId,
+          inputData: triggerData, // Use trigger data if available, empty object otherwise
+          options: {
+            mode: 'test', // Test mode
+            startNodeId, // undefined = start from trigger, nodeId = start from that node
+          }
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Test failed: ${response.statusText}`)
+      }
+
+      const result = await response.json()
+
+      // Result structure: { success: true, sessionId, result: { mainResult: { nodeId: data, ... } } }
+      const nodeResults = result.result?.mainResult || {}
+
+      // Update nodes based on test results
+      const finalNodes = nodes.map((n: any) => {
+        // Find result for this node in the mainResult
+        const nodeOutput = nodeResults[n.id]
+
+        if (!nodeOutput) {
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              state: undefined, // Clear running state for nodes that didn't execute
+            }
+          }
+        }
+
+        // Node executed successfully if it has output
+        const hasError = nodeOutput?.error || nodeOutput?.success === false
+
+        return {
+          ...n,
+          data: {
+            ...n.data,
+            state: hasError ? 'failed' : 'passed',
+            testResult: nodeOutput,
+          }
+        }
+      })
+
+      builder.setNodes(finalNodes)
+
+      // Check if any nodes failed
+      const failedNodes = finalNodes.filter((n: any) => n.data?.state === 'failed')
+
+      if (failedNodes.length > 0) {
+        toast({
+          title: "Test completed with errors",
+          description: `${failedNodes.length} node(s) failed during execution.`,
+          variant: "destructive",
+        })
+      } else {
+        toast({
+          title: "Test completed",
+          description: "Workflow executed successfully!",
+        })
+      }
+
+    } catch (error: any) {
+      console.error('❌ [WorkflowBuilder] Test workflow error:', error)
+
+      // Clear running states
+      const clearedNodes = builder.nodes.map((n: any) => ({
+        ...n,
+        data: {
+          ...n.data,
+          state: undefined,
+        }
+      }))
+      builder.setNodes(clearedNodes)
+
+      toast({
+        title: "Test failed",
+        description: error?.message ?? "Unable to test workflow",
+        variant: "destructive",
+      })
+    }
+  }, [builder, flowId, hasPlaceholders, toast])
 
   // Placeholder handlers (to be implemented)
   const comingSoon = useCallback(
@@ -2025,7 +2622,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           return
         }
 
-        // Clear canvas
+        // Clear canvas (including any placeholder nodes if present)
         builder.setNodes([])
         builder.setEdges([])
 
@@ -2928,61 +3525,89 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     }
   }, [builder?.nodes, builder?.edges, actions])
 
-  // Auto-center Path Router nodes (Zapier-style 300ms animation)
+  // Auto-center Path Router nodes - DISABLED for linear Zapier-style stacking
+  // Nodes are now always positioned vertically at x=400
+  // useEffect(() => {
+  //   ... router centering logic disabled ...
+  // }, [builder?.nodes, builder?.edges, builder?.setNodes])
+
+  // Auto-position nodes vertically in a linear stack (Zapier-style)
   useEffect(() => {
-    if (!builder?.nodes || !builder?.edges || !builder.setNodes) return
+    if (!builder?.nodes || !builder?.setNodes) {
+      return
+    }
 
-    // Find all Path Router nodes
-    const routerNodes = builder.nodes.filter((node: any) => node.data?.type === 'path')
-    if (routerNodes.length === 0) return
+    const VERTICAL_SPACING = 180 // Match initial placeholder spacing
+    const CENTER_X = 400 // Consistent horizontal center
 
-    let needsUpdate = false
+    // Build a map of connections to understand node order
+    const edges = builder.edges || []
+    const nodeOrder: string[] = []
+    const visited = new Set<string>()
+
+    // Find the first node (trigger or node with no incoming edges)
+    const incomingEdges = new Map<string, number>()
+    edges.forEach((edge: any) => {
+      incomingEdges.set(edge.target, (incomingEdges.get(edge.target) || 0) + 1)
+    })
+
+    const firstNode = builder.nodes.find((n: any) => {
+      const hasNoIncoming = !incomingEdges.has(n.id)
+      const isTrigger = n.data?.isTrigger
+      return hasNoIncoming || isTrigger
+    })
+
+    // Traverse from first node to build linear order
+    const traverse = (nodeId: string) => {
+      if (visited.has(nodeId)) return
+      visited.add(nodeId)
+      nodeOrder.push(nodeId)
+
+      // Find nodes connected from this one
+      const outgoingEdges = edges.filter((e: any) => e.source === nodeId)
+      outgoingEdges.forEach((edge: any) => {
+        traverse(edge.target)
+      })
+    }
+
+    if (firstNode) {
+      traverse(firstNode.id)
+    }
+
+    // Add any orphaned nodes at the end
+    builder.nodes.forEach((n: any) => {
+      if (!visited.has(n.id)) {
+        nodeOrder.push(n.id)
+      }
+    })
+
+    // Calculate positions based on order
     const updatedNodes = builder.nodes.map((node: any) => {
-      if (node.data?.type === 'path') {
-        // Find all connected Path Condition nodes
-        const connectedEdges = builder.edges.filter((e: any) => e.source === node.id)
-        const pathConditionNodes = connectedEdges
-          .map((edge: any) => builder.nodes.find((n: any) => n.id === edge.target))
-          .filter((n: any) => n && n.data?.type === 'path_condition')
+      const orderIndex = nodeOrder.indexOf(node.id)
+      const newY = orderIndex * VERTICAL_SPACING
 
-        if (pathConditionNodes.length === 0) return node
-
-        // Calculate center X position of all path nodes
-        const totalX = pathConditionNodes.reduce((sum: number, n: any) => sum + n.position.x, 0)
-        const centerX = totalX / pathConditionNodes.length
-
-        // Calculate desired router X position (centered above paths)
-        const desiredX = centerX
-
-        // Only update if position changed significantly (>5px to avoid jitter)
-        const currentX = node.position.x
-        if (Math.abs(desiredX - currentX) > 5) {
-          needsUpdate = true
-          return {
-            ...node,
-            position: {
-              ...node.position,
-              x: desiredX,
-            },
-            // Add style for smooth animation
-            style: {
-              ...node.style,
-              transition: 'transform 300ms cubic-bezier(0.4, 0, 0.2, 1)',
-            },
-          }
+      // Only update if position changed to avoid unnecessary re-renders
+      if (node.position.x !== CENTER_X || node.position.y !== newY) {
+        return {
+          ...node,
+          position: {
+            x: CENTER_X,
+            y: newY,
+          },
         }
       }
+
       return node
     })
 
-    // Only update if we actually need to move a router
-    if (needsUpdate) {
-      // Use requestAnimationFrame for smooth animation
-      requestAnimationFrame(() => {
-        if (builder.setNodes) {
-          builder.setNodes(updatedNodes)
-        }
-      })
+    // Check if any positions changed
+    const hasChanges = updatedNodes.some((node: any, i: number) =>
+      node.position.x !== builder.nodes[i].position.x ||
+      node.position.y !== builder.nodes[i].position.y
+    )
+
+    if (hasChanges) {
+      builder.setNodes(updatedNodes)
     }
   }, [builder?.nodes, builder?.edges, builder?.setNodes])
 
@@ -3074,8 +3699,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     handleSave: nameDirty
       ? () => persistName(workflowName.trim())
       : async () => {},
-    handleToggleLive: comingSoon,
+    handleToggleLive: handleToggleLiveWithValidation,
     isUpdatingStatus: false,
+    hasPlaceholders: hasPlaceholders(),
     currentWorkflow: null,
     workflowId: flowId,
     editTemplateId: null,
@@ -3083,7 +3709,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     onOpenTemplateSettings: undefined,
     templateSettingsLabel: undefined,
     handleTestSandbox: comingSoon,
-    handleExecuteLive: comingSoon,
+    handleExecuteLive: handleTestWorkflow,
     handleExecuteLiveSequential: comingSoon,
     handleRunPreflight: comingSoon,
     isRunningPreflight: false,
@@ -3094,7 +3720,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     canUndo: builder?.canUndo ?? false,
     canRedo: builder?.canRedo ?? false,
     setShowExecutionHistory: () => {},
-  }), [builder, comingSoon, flowId, flowState?.hasUnsavedChanges, flowState?.isSaving, handleNameChange, nameDirty, persistName, workflowName])
+  }), [builder, comingSoon, flowId, flowState?.hasUnsavedChanges, flowState?.isSaving, handleNameChange, handleTestWorkflow, handleToggleLiveWithValidation, hasPlaceholders, nameDirty, persistName, workflowName])
 
   if (!builder || !actions || flowState?.isLoading) {
     return <WorkflowLoadingScreen />
@@ -3130,6 +3756,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
             onSelectionChange={handleSelectionChange}
             onNodeDelete={handleNodeDelete}
             onDeleteNodes={handleDeleteNodes}
+            onNodeRename={handleNodeRename}
+            onNodeDuplicate={handleNodeDuplicate}
+            onAddNote={handleAddNote}
             onInit={(instance) => { reactFlowInstanceRef.current = instance }}
             agentPanelWidth={agentPanelWidth}
             isAgentPanelOpen={agentOpen}
@@ -3137,10 +3766,19 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
             badge={buildMachine.badge}
             isIntegrationsPanelOpen={isIntegrationsPanelOpen}
             setIsIntegrationsPanelOpen={setIsIntegrationsPanelOpen}
+            integrationsPanelMode={integrationsPanelMode}
             onNodeSelect={handleNodeSelectFromPanel}
             onNodeConfigure={handleNodeConfigure}
             onUndoToPreviousStage={handleUndoToPreviousStage}
             onCancelBuild={handleCancelBuild}
+            onAddNodeAfter={(afterNodeId) => {
+              // Store the node to add after
+              if (afterNodeId) {
+                setSelectedNodeId(afterNodeId)
+              }
+              // Open integrations panel in action mode (we're always adding actions in linear flow)
+              openIntegrationsPanel('action')
+            }}
           >
             {/* Path Labels Overlay - Zapier-style floating pills */}
             <PathLabelsOverlay

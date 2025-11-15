@@ -305,7 +305,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
           consumed: false,
         }))
 
-      const graphNodes = flowToReactFlowNodes(flow, deleteNodeRef.current ?? undefined).map(node => {
+      let graphNodes = flowToReactFlowNodes(flow, deleteNodeRef.current ?? undefined).map(node => {
         const existing = existingNodeMap.get(node.id)
         if (existing) {
           return {
@@ -329,7 +329,62 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
         return node
       })
 
-      const edges = flowToReactFlowEdges(flow)
+      let edges = flowToReactFlowEdges(flow)
+
+      // Zapier-style placeholder nodes: If workflow is empty, add trigger + action placeholders
+      // Note: onConfigure handler will be added by WorkflowBuilderV2 when it enriches nodes
+      if (flow.nodes.length === 0) {
+        // Calculate center position based on viewport
+        // Account for agent panel if it's open (default is open on first load)
+        const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920
+        const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 1080
+
+        // Assume agent panel is 420px (will be adjusted by fitView later)
+        const agentPanelWidth = 420
+        const availableWidth = viewportWidth - agentPanelWidth
+
+        // Center in the available space
+        const centerX = agentPanelWidth + (availableWidth / 2) - 180 // 180 = half of node width (360px)
+        const centerY = (viewportHeight / 2) - 150 // Start a bit above center for vertical spacing
+
+        graphNodes = [
+          {
+            id: 'trigger-placeholder',
+            type: 'trigger_placeholder',
+            position: { x: centerX, y: centerY },
+            data: {
+              type: 'trigger_placeholder',
+              isPlaceholder: true,
+              title: 'Trigger',
+              // onConfigure will be added by FlowV2BuilderContent via enrichedNodes
+            },
+          },
+          {
+            id: 'action-placeholder',
+            type: 'action_placeholder',
+            position: { x: centerX, y: centerY + 180 }, // 180px vertical spacing + plus button
+            data: {
+              type: 'action_placeholder',
+              isPlaceholder: true,
+              title: 'Action',
+              // onConfigure will be added by FlowV2BuilderContent via enrichedNodes
+            },
+          },
+        ] as ReactFlowNode[]
+
+        edges = [
+          {
+            id: 'placeholder-edge',
+            source: 'trigger-placeholder',
+            target: 'action-placeholder',
+            type: 'custom', // Use custom type to get FlowEdge with plus button
+            style: {
+              stroke: '#d0d6e0', // Match FlowEdge default color
+            },
+          },
+        ] as ReactFlowEdge[]
+      }
+
       setNodes(graphNodes)
       setEdges(edges)
       setWorkflowName(flow.name ?? "Untitled Flow")

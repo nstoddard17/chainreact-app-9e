@@ -11,14 +11,12 @@ import React, { useRef, useCallback, useState, useMemo, useLayoutEffect } from "
 import {
   ReactFlow,
   Background,
-  Controls,
-  Panel,
   BackgroundVariant,
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
-import { Button } from "@/components/ui/button"
-import { Plus, ArrowRight, Trash2 } from "lucide-react"
+import { Trash2 } from "lucide-react"
 import { IntegrationsSidePanel } from "./IntegrationsSidePanel"
+import { PhantomEdgeOverlay } from "./PhantomEdgeOverlay"
 import { Copy } from "./ui/copy"
 import { BuildState, type BadgeInfo } from "@/src/lib/workflows/builder/BuildState"
 import { defaultEdgeOptions } from "./FlowEdges"
@@ -44,6 +42,9 @@ interface FlowV2BuilderContentProps {
   onSelectionChange?: (params: any) => void
   onNodeDelete?: (nodeId: string) => void
   onDeleteNodes?: (nodeIds: string[]) => void
+  onNodeRename?: (nodeId: string, newTitle: string) => void
+  onNodeDuplicate?: (nodeId: string) => void
+  onAddNote?: (nodeId: string) => void
   onInit?: (instance: any) => void
   agentPanelWidth: number
   isAgentPanelOpen: boolean
@@ -55,6 +56,7 @@ interface FlowV2BuilderContentProps {
   // Integrations panel
   isIntegrationsPanelOpen: boolean
   setIsIntegrationsPanelOpen: (open: boolean) => void
+  integrationsPanelMode?: 'trigger' | 'action'
   onNodeSelect?: (nodeData: any) => void
 
   // Configuration panel
@@ -63,6 +65,9 @@ interface FlowV2BuilderContentProps {
   // Toolbar actions
   onUndoToPreviousStage?: () => void
   onCancelBuild?: () => void
+
+  // Add node between/after
+  onAddNodeAfter?: (afterNodeId: string | null) => void
 
   // Children for overlays (e.g., PathLabelsOverlay)
   children?: React.ReactNode
@@ -79,6 +84,9 @@ export function FlowV2BuilderContent({
   onSelectionChange,
   onNodeDelete,
   onDeleteNodes,
+  onNodeRename,
+  onNodeDuplicate,
+  onAddNote,
   onInit,
   agentPanelWidth,
   isAgentPanelOpen,
@@ -86,10 +94,12 @@ export function FlowV2BuilderContent({
   badge,
   isIntegrationsPanelOpen,
   setIsIntegrationsPanelOpen,
+  integrationsPanelMode,
   onNodeSelect,
   onNodeConfigure,
   onUndoToPreviousStage,
   onCancelBuild,
+  onAddNodeAfter,
   children,
 }: FlowV2BuilderContentProps) {
   const reactFlowInstance = useRef<any>(null)
@@ -227,19 +237,24 @@ export function FlowV2BuilderContent({
     }
   }, [onNodeSelect])
 
-  // Enrich nodes with multi-select delete handler, selection info, and configure callback
+  // Enrich nodes with multi-select delete handler, selection info, configure callback, rename callback, duplicate callback, and add note callback
+  // Also make nodes non-draggable to match Zapier's linear UX
   const enrichedNodes = useMemo(() => {
     return nodes.map(node => ({
       ...node,
+      draggable: false, // Disable node dragging
       data: {
         ...node.data,
         onDelete: handleDeleteFromContextMenu,
         onDeleteSelected: handleDeleteSelectedNodes,
         onConfigure: onNodeConfigure,
+        onRename: onNodeRename,
+        onDuplicate: onNodeDuplicate,
+        onAddNote: onAddNote,
         selectedNodeIds,
       }
     }))
-  }, [nodes, handleDeleteFromContextMenu, handleDeleteSelectedNodes, onNodeConfigure, selectedNodeIds])
+  }, [nodes, handleDeleteFromContextMenu, handleDeleteSelectedNodes, onNodeConfigure, onNodeRename, onNodeDuplicate, onAddNote, selectedNodeIds])
 
   // Get ARIA announcement text based on build state
   const getAriaAnnouncement = () => {
@@ -309,7 +324,14 @@ export function FlowV2BuilderContent({
             className="bg-background"
             proOptions={{ hideAttribution: true }}
             defaultEdgeOptions={defaultEdgeOptions}
-            defaultViewport={{ x: 0, y: 0, zoom: 0.85 }}
+            defaultViewport={{ x: 0, y: 0, zoom: 0.65 }}
+            zoomOnScroll={false}
+            zoomOnDoubleClick={false}
+            panOnScroll={true}
+            panOnScrollMode="vertical"
+            nodesDraggable={false}
+            nodesConnectable={false}
+            elementsSelectable={true}
           >
         <Background
           variant={BackgroundVariant.Dots}
@@ -318,12 +340,15 @@ export function FlowV2BuilderContent({
           color="hsl(var(--muted-foreground))"
           style={{ opacity: 0.5 }}
         />
-        <Controls
+        {/* Zoom/Pan Controls - Removed to match Zapier's linear workflow UX
+            Keeping code commented in case we want to re-enable later */}
+        {/* <Controls
           style={{
             position: 'absolute',
             bottom: '60px',
-            left: '4px',
+            left: isAgentPanelOpen ? `${agentPanelWidth + 16}px` : '4px',
             top: 'auto',
+            transition: 'left 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           }}
           fitViewOptions={{
             padding: 0.2,
@@ -331,22 +356,22 @@ export function FlowV2BuilderContent({
             minZoom: 0.5,
             maxZoom: 2,
           }}
-        />
-
-        {/* Add Node Button - Top right */}
-        <Panel position="top-right" style={{ marginTop: '24px', marginRight: '24px' }}>
-          <Button
-            onClick={() => setIsIntegrationsPanelOpen(true)}
-            size="sm"
-            className="shadow-lg"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add Node
-          </Button>
-        </Panel>
+        /> */}
 
         {/* Render children (e.g., PathLabelsOverlay) */}
         {children}
+
+        {/* Phantom Edge Overlay - Dashed line after last node with plus button */}
+        {onAddNodeAfter && (
+          <PhantomEdgeOverlay
+            nodes={enrichedNodes}
+            onAddNode={(afterNodeId) => {
+              if (onAddNodeAfter) {
+                onAddNodeAfter(afterNodeId)
+              }
+            }}
+          />
+        )}
           </ReactFlow>
 
 
@@ -363,6 +388,7 @@ export function FlowV2BuilderContent({
               isOpen={isIntegrationsPanelOpen}
               onClose={() => setIsIntegrationsPanelOpen(false)}
               onNodeSelect={onNodeSelect}
+              mode={integrationsPanelMode}
             />
           </div>
 

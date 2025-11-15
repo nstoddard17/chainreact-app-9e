@@ -782,14 +782,12 @@ export function FlowV2AgentPanel({
 
   return (
     <div
-      className={`absolute top-0 left-0 bg-white border-r border-border shadow-xl z-40 transition-transform duration-300 ease-in-out max-w-full overflow-hidden ${
+      className={`absolute top-0 bottom-0 left-0 bg-white border-r border-border shadow-xl z-40 transition-transform duration-300 ease-in-out max-w-full overflow-hidden ${
         isOpen ? 'translate-x-0' : '-translate-x-full'
       }`}
       style={{
         width: `${safeWidth}px`,
         maxWidth: '100vw',
-        height: safeHeight ? `${safeHeight}px` : '100%',
-        maxHeight: safeHeight ? `${safeHeight}px` : '100%',
       }}
     >
       <div className="h-full flex flex-col min-w-0">

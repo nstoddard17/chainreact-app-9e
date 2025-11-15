@@ -163,6 +163,9 @@ export async function POST(
       .eq('status', 'active')
       .single();
 
+    // Check if this is a test mode trigger
+    const isTestMode = triggerResource?.config?.testMode === true
+
     if (triggerResource?.config?.hmacSecret && triggerResource?.config?.requireSignature) {
       const signature = headers['x-webhook-signature'] || headers['x-hub-signature-256'];
 
@@ -179,6 +182,23 @@ export async function POST(
       }
 
       logger.debug(`✅ Webhook signature verified for workflow ${workflowId}`);
+    }
+
+    // If in test mode, store the event data in trigger_resources for polling
+    if (isTestMode && triggerResource) {
+      logger.debug(`🧪 Test mode detected, storing event data for polling`)
+      await supabase
+        .from('trigger_resources')
+        .update({
+          config: {
+            ...triggerResource.config,
+            lastTestEvent: payload,
+            lastTestEventTime: new Date().toISOString()
+          }
+        })
+        .eq('workflow_id', workflowId)
+        .eq('provider_id', 'webhook')
+        .eq('status', 'active')
     }
 
     // Validate payload against the trigger node's payload schema

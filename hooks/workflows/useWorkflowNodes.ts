@@ -18,6 +18,8 @@ import { AddActionNode } from '@/components/workflows/AddActionNode'
 import { ChainPlaceholderNode } from '@/components/workflows/ChainPlaceholderNode'
 import InsertActionNode from '@/components/workflows/InsertActionNode'
 import { FlowEdge } from '@/components/workflows/builder/FlowEdges'
+import { TriggerPlaceholderNode } from '@/components/workflows/nodes/TriggerPlaceholderNode'
+import { ActionPlaceholderNode } from '@/components/workflows/nodes/ActionPlaceholderNode'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { logger } from '@/lib/utils/logger'
 
@@ -161,6 +163,8 @@ export function useWorkflowNodes() {
     addAction: AddActionNode,
     insertAction: InsertActionNode as any,
     chainPlaceholder: ChainPlaceholderNode,
+    trigger_placeholder: TriggerPlaceholderNode,
+    action_placeholder: ActionPlaceholderNode,
   }), [])
 
   /**
