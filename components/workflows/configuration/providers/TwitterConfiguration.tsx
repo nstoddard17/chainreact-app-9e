@@ -113,11 +113,13 @@ export function TwitterConfiguration({
       }
     }
     
+    // Handle hidden fields with dependencies - show if dependency satisfied OR field has saved value
     if (field.hidden && field.dependsOn) {
       const dependencyValue = values[field.dependsOn];
-      return !!dependencyValue;
+      const fieldHasSavedValue = values[field.name] !== undefined && values[field.name] !== null && values[field.name] !== '';
+      return !!dependencyValue || fieldHasSavedValue; // Show if dependency has value OR field has saved value
     }
-    
+
     if (field.hidden) return false;
     
     return true;

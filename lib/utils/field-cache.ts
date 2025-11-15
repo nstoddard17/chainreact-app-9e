@@ -460,3 +460,125 @@ export function clearProviderCache(
     console.warn('Failed to clear provider cache:', error);
   }
 }
+
+// ============================================================================
+// INSTANT REOPEN CACHE (Complete Node Snapshot)
+// Stores EVERYTHING needed to instantly restore a saved config
+// ============================================================================
+
+export interface InstantReopenSnapshot {
+  workflowId: string;
+  nodeId: string;
+  providerId: string;
+  nodeType: string;
+
+  // All form values
+  values: Record<string, any>;
+
+  // Display labels for all fields (especially for linked records)
+  displayLabels: Record<string, Record<string, string>>; // fieldName -> { value -> label }
+
+  // Bubble suggestions (for multi-select fields)
+  bubbles: Record<string, Array<{ value: any; label: string; fieldName?: string }>>;
+
+  // Active bubbles (which bubbles are currently selected)
+  activeBubbles: Record<string, number | number[]>;
+
+  // Dynamic options that were loaded
+  dynamicOptions: Record<string, Array<{ value: any; label: string }>>;
+
+  // Selected records (for update/delete operations)
+  selectedRecord?: any;
+  selectedRecords?: any[];
+
+  // Table schema (if loaded)
+  tableSchema?: any;
+
+  // Records (if loaded)
+  records?: any[];
+
+  timestamp: number;
+}
+
+const INSTANT_REOPEN_PREFIX = 'instant_reopen_snapshot_';
+const INSTANT_REOPEN_VERSION = 1;
+
+/**
+ * Generate cache key for instant reopen snapshot
+ */
+function getInstantReopenKey(workflowId: string, nodeId: string): string {
+  return `${INSTANT_REOPEN_PREFIX}v${INSTANT_REOPEN_VERSION}_${workflowId}_${nodeId}`;
+}
+
+/**
+ * Save complete snapshot for instant reopen
+ * Call this when user saves/closes config modal
+ */
+export function saveInstantReopenSnapshot(snapshot: InstantReopenSnapshot): void {
+  try {
+    const key = getInstantReopenKey(snapshot.workflowId, snapshot.nodeId);
+    const data = {
+      ...snapshot,
+      timestamp: Date.now()
+    };
+    localStorage.setItem(key, JSON.stringify(data));
+    console.log('💾 [INSTANT REOPEN] Saved snapshot:', {
+      workflowId: snapshot.workflowId,
+      nodeId: snapshot.nodeId,
+      valuesCount: Object.keys(snapshot.values).length,
+      bubblesCount: Object.keys(snapshot.bubbles).length
+    });
+  } catch (error) {
+    console.warn('[INSTANT REOPEN] Failed to save snapshot:', error);
+  }
+}
+
+/**
+ * Load complete snapshot for instant reopen
+ * Call this when opening config modal
+ */
+export function loadInstantReopenSnapshot(
+  workflowId: string,
+  nodeId: string
+): InstantReopenSnapshot | null {
+  try {
+    const key = getInstantReopenKey(workflowId, nodeId);
+    const cached = localStorage.getItem(key);
+
+    if (!cached) return null;
+
+    const snapshot: InstantReopenSnapshot = JSON.parse(cached);
+
+    // Check if cache is still valid (30 days)
+    const expiryMs = 30 * 24 * 60 * 60 * 1000;
+    if (Date.now() - snapshot.timestamp > expiryMs) {
+      localStorage.removeItem(key);
+      return null;
+    }
+
+    console.log('⚡ [INSTANT REOPEN] Loaded snapshot:', {
+      workflowId,
+      nodeId,
+      valuesCount: Object.keys(snapshot.values).length,
+      bubblesCount: Object.keys(snapshot.bubbles).length,
+      age: Math.round((Date.now() - snapshot.timestamp) / 1000 / 60) + ' minutes'
+    });
+
+    return snapshot;
+  } catch (error) {
+    console.warn('[INSTANT REOPEN] Failed to load snapshot:', error);
+    return null;
+  }
+}
+
+/**
+ * Clear snapshot for a specific node
+ */
+export function clearInstantReopenSnapshot(workflowId: string, nodeId: string): void {
+  try {
+    const key = getInstantReopenKey(workflowId, nodeId);
+    localStorage.removeItem(key);
+  } catch (error) {
+    console.warn('[INSTANT REOPEN] Failed to clear snapshot:', error);
+  }
+}

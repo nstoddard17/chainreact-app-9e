@@ -394,13 +394,24 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
     // Determine data to load based on field name (moved outside try block for error handling)
     const resourceType = getResourceTypeForField(fieldName, nodeType);
 
-    // PHASE 1: Stale-While-Revalidate for bases/tables
+    // PHASE 1: Stale-While-Revalidate for ALL dynamic fields
     // Show cached data instantly, refresh in background
-    const isProviderLevelField = resourceType === 'airtable_bases' || resourceType === 'airtable_tables';
+    const isProviderLevelField = resourceType === 'airtable_bases' || resourceType === 'airtable_tables' || resourceType === 'airtable_fields';
 
     if (isProviderLevelField && userId && !forceRefresh) {
-      const dataType = resourceType === 'airtable_bases' ? 'bases' : 'tables';
-      const parentId = dataType === 'tables' ? dependsOnValue : undefined;
+      let dataType: 'bases' | 'tables' | 'fields';
+      let parentId: string | undefined;
+
+      if (resourceType === 'airtable_bases') {
+        dataType = 'bases';
+        parentId = undefined;
+      } else if (resourceType === 'airtable_tables') {
+        dataType = 'tables';
+        parentId = dependsOnValue; // baseId
+      } else {
+        dataType = 'fields';
+        parentId = dependsOnValue; // tableId or tableName
+      }
 
       // Try to get cached provider data
       const cachedData = getCachedProviderData(providerId, userId, dataType, parentId);
@@ -2029,10 +2040,12 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
           formattedOptions = formatOptionsForField(fieldName, dataArray);
 
-          // PHASE 1: Cache provider-level data (bases/tables) for instant reuse
+          // PHASE 1: Cache provider-level data (bases/tables/fields) for instant reuse
           if (isProviderLevelField && userId && dataArray && dataArray.length > 0) {
-            const dataType = resourceType === 'airtable_bases' ? 'bases' : 'tables';
-            const parentId = dataType === 'tables' ? dependsOnValue : undefined;
+            const dataType = resourceType === 'airtable_bases' ? 'bases' :
+                           resourceType === 'airtable_tables' ? 'tables' : 'fields';
+            const parentId = dataType === 'tables' ? dependsOnValue :
+                           dataType === 'fields' ? dependsOnValue : undefined;
 
             logger.debug(`💾 [PROVIDER CACHE] Caching ${dataType}`, {
               fieldName,
@@ -2042,7 +2055,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
             cacheProviderData(providerId, userId, dataType, dataArray, parentId);
 
-            // PHASE 3: Predictive prefetching - when bases load, prefetch tables for first base
+            // PHASE 3: Predictive prefetching - when bases/tables load, prefetch next level
             if (dataType === 'bases' && dataArray.length > 0 && getFormValues) {
               const currentFormValues = getFormValues();
               const selectedBaseId = currentFormValues?.baseId;
@@ -2057,6 +2070,27 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
                 setTimeout(() => {
                   loadOptions('tableName', 'baseId', selectedBaseId, false, true).catch(err => {
                     logger.debug(`[PREDICTIVE PREFETCH] Tables prefetch failed (silent):`, err);
+                  });
+                }, 100); // Small delay to not block UI
+              }
+            } else if (dataType === 'tables' && dataArray.length > 0 && getFormValues) {
+              const currentFormValues = getFormValues();
+              const selectedTableName = currentFormValues?.tableName;
+
+              // If a table is already selected, prefetch its fields
+              if (selectedTableName) {
+                logger.debug(`🔮 [PREDICTIVE PREFETCH] Table is selected, prefetching fields`, {
+                  tableName: selectedTableName
+                });
+
+                // Prefetch fields silently in background
+                setTimeout(() => {
+                  // Check which field types need fields (like fieldName, statusFieldName, etc.)
+                  const fieldsToPreload = ['fieldName', 'statusFieldName', 'assigneeFieldName', 'dueDateFieldName'];
+                  fieldsToPreload.forEach(fieldToLoad => {
+                    loadOptions(fieldToLoad, 'tableName', selectedTableName, false, true).catch(err => {
+                      logger.debug(`[PREDICTIVE PREFETCH] Fields prefetch failed for ${fieldToLoad} (silent):`, err);
+                    });
                   });
                 }, 100); // Small delay to not block UI
               }

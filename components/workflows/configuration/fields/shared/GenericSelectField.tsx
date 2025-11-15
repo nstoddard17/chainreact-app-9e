@@ -1115,6 +1115,20 @@ export function GenericSelectField({
                 // Set friendly label for variables
                 const friendlyLabel = getFriendlyVariableLabel(newValue, workflowNodes);
                 setDisplayLabel(friendlyLabel);
+                if (friendlyLabel) {
+                  saveLabelToCache(newValue, friendlyLabel);
+                }
+              } else {
+                // For regular options, find the label and cache it immediately
+                const option = processedOptions.find((opt: any) => {
+                  const optValue = opt.value || opt.id;
+                  return String(optValue) === String(newValue);
+                });
+                if (option) {
+                  const label = option.label || option.name || option.value || option.id;
+                  setDisplayLabel(label);
+                  saveLabelToCache(String(newValue), label);
+                }
               }
             }}
             options={processedOptions}
@@ -1195,6 +1209,20 @@ export function GenericSelectField({
               // Set friendly label for variables
               const friendlyLabel = getFriendlyVariableLabel(newValue, workflowNodes);
               setDisplayLabel(friendlyLabel);
+              if (friendlyLabel) {
+                saveLabelToCache(newValue, friendlyLabel);
+              }
+            } else {
+              // For regular options, find the label and cache it immediately
+              const option = processedOptions.find((opt: any) => {
+                const optValue = opt.value || opt.id;
+                return String(optValue) === String(newValue);
+              });
+              if (option) {
+                const label = option.label || option.name || option.value || option.id;
+                setDisplayLabel(label);
+                saveLabelToCache(String(newValue), label);
+              }
             }
           }}
           options={processedOptions}
