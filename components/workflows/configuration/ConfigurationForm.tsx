@@ -212,17 +212,18 @@ function ConfigurationForm({
 
   // Load saved labels from config into localStorage cache for instant display
   // This enables the "Zapier experience" where fields show saved values immediately
-  useEffect(() => {
-    if (!nodeInfo?.providerId || !nodeInfo?.type || !initialData) return;
+  // IMPORTANT: Run synchronously on initialization so labels are available before first render
+  React.useMemo(() => {
+    if (nodeInfo?.providerId && nodeInfo?.type && initialData) {
+      // Load labels from saved config into localStorage SYNCHRONOUSLY
+      loadLabelsIntoCache(nodeInfo.providerId, nodeInfo.type, initialData);
 
-    // Load labels from saved config into localStorage
-    loadLabelsIntoCache(nodeInfo.providerId, nodeInfo.type, initialData);
-
-    logger.debug('[ConfigForm] Loaded saved labels into cache:', {
-      providerId: nodeInfo.providerId,
-      nodeType: nodeInfo.type,
-      hasLabels: Object.keys(initialData).some(k => k.startsWith('_label_'))
-    });
+      logger.debug('[ConfigForm] Loaded saved labels into cache:', {
+        providerId: nodeInfo.providerId,
+        nodeType: nodeInfo.type,
+        hasLabels: Object.keys(initialData).some(k => k.startsWith('_label_'))
+      });
+    }
   }, [nodeInfo?.providerId, nodeInfo?.type, initialData]);
 
   // Ensure Google providers appear connected by fetching integrations if store hasn't resolved yet

@@ -286,10 +286,27 @@ export function ConfigurationModal({
     }
   }, [])
 
+  // Only reset form when the node ID changes, not when initialData object reference changes
+  // This prevents form resets when selecting fields (which can trigger re-renders with new initialData objects)
+  const prevNodeIdRef = useRef(currentNodeId)
+  const prevIsOpenRef = useRef(isOpen)
   useEffect(() => {
-    setInitialOverride(null)
-    setFormSeedVersion(0)
-  }, [initialData, currentNodeId])
+    // Reset when node ID changes
+    if (prevNodeIdRef.current !== currentNodeId) {
+      prevNodeIdRef.current = currentNodeId
+      setInitialOverride(null)
+      setFormSeedVersion(0)
+    }
+
+    // Reset when modal opens (to show fresh data from initialData)
+    // This ensures saved config is displayed when reopening
+    if (!prevIsOpenRef.current && isOpen) {
+      setInitialOverride(null)
+      setFormSeedVersion(prev => prev + 1) // Increment to force form remount with new data
+    }
+
+    prevIsOpenRef.current = isOpen
+  }, [currentNodeId, isOpen])
 
   const effectiveInitialData = React.useMemo(
     () => initialOverride ?? initialData ?? {},
