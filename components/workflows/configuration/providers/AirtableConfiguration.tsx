@@ -150,8 +150,18 @@ export function AirtableConfiguration({
   // Helper function to check if a field is currently loading
   // CRITICAL: When reopening modal, NEVER show loading state - just show saved values
   const isFieldLoading = useCallback((fieldName: string) => {
-    if (isReopen) return false; // Suppress all loading placeholders when reopening
-    return loadingFields.has(fieldName);
+    const wouldBeLoading = loadingFields.has(fieldName);
+    const actuallyLoading = isReopen ? false : wouldBeLoading;
+
+    if (wouldBeLoading) {
+      logger.debug(`🔍 [isFieldLoading] ${fieldName}:`, {
+        isReopen,
+        wouldBeLoading,
+        actuallyLoading
+      });
+    }
+
+    return actuallyLoading;
   }, [loadingFields, isReopen]);
 
   // Track which dropdown fields have been loaded to prevent reloading
@@ -1431,6 +1441,30 @@ export function AirtableConfiguration({
       });
     }
   }, []); // Only run on mount
+
+  // When reopening modal, trigger silent batch loading to refresh options in background
+  React.useEffect(() => {
+    if (!isReopen || !values.baseId || !values.tableName || !airtableTableSchema) {
+      return;
+    }
+
+    // Only batch load if it's a creation or update action that needs field options
+    const shouldBatchLoad = isCreateMultipleRecords || isCreateRecord || isUpdateRecord || isUpdateMultipleRecords;
+    if (!shouldBatchLoad) {
+      return;
+    }
+
+    logger.debug('🔄 [Reopen] Silently batch loading field values in background...');
+
+    // Batch load in background without showing loading states
+    batchLoadFieldValues(values.baseId, values.tableName, airtableTableSchema)
+      .then(() => {
+        logger.debug('✅ [Reopen] Background batch loading complete');
+      })
+      .catch((error) => {
+        logger.error('❌ [Reopen] Background batch loading failed:', error);
+      });
+  }, [isReopen, values.baseId, values.tableName, airtableTableSchema, isCreateMultipleRecords, isCreateRecord, isUpdateRecord, isUpdateMultipleRecords, batchLoadFieldValues]);
 
   // Track if we've already set AI fields for this schema to prevent duplicate processing
   const processedSchemaRef = React.useRef<string | null>(null);

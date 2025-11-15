@@ -696,9 +696,8 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       lastWorkspaceKey: null // Clear workspace key to force new fetch
     })
 
-    // Refetch workflows for new workspace context (force=true to bypass cache)
-    // Return the promise so callers can await completion if needed
-    return get().fetchWorkflows(true, workspaceType, newWorkspaceId || undefined)
+    // DON'T auto-fetch here - let the caller decide when to fetch
+    // This prevents infinite loops when called from AppContext
   },
 
   addNode: (node: WorkflowNode) => {

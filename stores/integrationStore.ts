@@ -198,10 +198,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
         lastWorkspaceKey: null // Clear workspace key to force new fetch
       })
 
-      // Refetch integrations when workspace context changes (force=true to bypass cache)
-      // IMPORTANT: Don't pass workspaceType/workspaceId params - let it read from updated store state
-      // This prevents race conditions where get() returns stale state
-      return get().fetchIntegrations(true)
+      // DON'T auto-fetch here - let the caller decide when to fetch
+      // This prevents infinite loops when called from AppContext
     },
 
     setLoading: (key: string, loading: boolean) => {
@@ -311,8 +309,9 @@ export const useIntegrationStore = create<IntegrationStore>()(
         }
       }
 
-        // Reduced cache duration to 5 seconds (matching workflow store) - integrations change frequently
-        const CACHE_DURATION = 5000 // 5 seconds (reduced from 60)
+        // Cache duration: 30 seconds - integrations don't change that frequently
+        // Increased from 5s to reduce unnecessary API calls
+        const CACHE_DURATION = 30000 // 30 seconds
         if (!force && lastFetchTime && Date.now() - lastFetchTime < CACHE_DURATION) {
           logger.debug('[IntegrationStore] Using cached integrations (age: ' + Math.round((Date.now() - lastFetchTime) / 1000) + 's)')
           return integrations

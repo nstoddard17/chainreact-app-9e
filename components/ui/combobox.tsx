@@ -134,6 +134,9 @@ export function Combobox({
   // Debounced search timer
   const searchTimerRef = React.useRef<NodeJS.Timeout | null>(null)
 
+  // Ref for the search input to enable auto-select on open
+  const inputRef = React.useRef<HTMLInputElement>(null)
+
   React.useEffect(() => {
     setLocalOptions(options)
   }, [options])
@@ -168,17 +171,28 @@ export function Combobox({
     return filtered
   }, [localOptions, inputValue])
 
-  React.useEffect(() => {
-    // Clear input value when dropdown opens to show all options
-    if (open) {
-      setInputValue("")
-    }
-  }, [open])
-  
   // Fix selectedOption logic - check if value exists in options or is a custom value
+  // MUST be defined before the useEffect that references it
   const selectedOption = localOptions.find((option) => option.value === value) ||
     (value && displayLabel ? { value, label: displayLabel } : null) ||
     (value && creatable ? { value, label: value } : null);
+
+  React.useEffect(() => {
+    // Smart input mode: When dropdown opens, pre-fill with current value and select it
+    // This allows users to easily edit (type to replace) or search (clear and type)
+    if (open && selectedOption) {
+      const currentValue = String(selectedOption.label)
+      setInputValue(currentValue)
+
+      // Auto-select the text so user can type to replace or click to edit
+      setTimeout(() => {
+        inputRef.current?.select()
+      }, 0)
+    } else if (!open) {
+      // Clear when dropdown closes
+      setInputValue("")
+    }
+  }, [open, selectedOption])
 
   const handleSelect = (currentValue: string) => {
     // Allow clearing when empty string is passed
@@ -397,6 +411,7 @@ export function Combobox({
         <Command shouldFilter={false}>
           {!disableSearch && (
             <CommandInput
+              ref={inputRef}
               placeholder={searchPlaceholder || "Search..."}
               value={inputValue}
               onValueChange={handleCommandInputChange}
@@ -618,6 +633,9 @@ export function MultiCombobox({
   const [options, setOptions] = React.useState<ComboboxOption[]>(initialOptions)
   const uniqueId = React.useId()
   const [isDragOver, setIsDragOver] = React.useState(false)
+
+  // Ref for the search input
+  const inputRef = React.useRef<HTMLInputElement>(null)
 
   const normalizeOptionValue = React.useCallback((val: string) => {
     if (typeof val === 'string' && val.includes('::')) {
@@ -1120,6 +1138,7 @@ export function HierarchicalCombobox({
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[9999]" align="start" sideOffset={4}>
         <Command>
           <CommandInput
+            ref={inputRef}
             placeholder={searchPlaceholder || "Search..."}
             value={inputValue}
             onValueChange={handleCommandInputChange}

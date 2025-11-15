@@ -319,13 +319,21 @@ export function ConfigurationModal({
     if (!effectiveInitialData) return false;
 
     // Check if there are any actual config values (excluding metadata keys)
+    // IMPORTANT: Also exclude fields that start with "airtable_field_" + "_labels" suffix
     const configKeys = Object.keys(effectiveInitialData).filter(key =>
       !key.startsWith('__') && // Exclude __dynamicOptions, __validationState, etc.
-      !key.startsWith('_') &&  // Exclude _label_, _cached_, etc.
+      !key.endsWith('_labels') && // Exclude airtable_field_X_labels
       key !== 'workflowId'      // Exclude workflowId (always present)
     );
 
-    return configKeys.length > 0;
+    const isReopenValue = configKeys.length > 0;
+    console.log('🔍 [ConfigModal] isReopen check:', {
+      isReopenValue,
+      configKeys,
+      allKeys: Object.keys(effectiveInitialData || {})
+    });
+
+    return isReopenValue;
   }, [effectiveInitialData])
 
   const autoMappingEntries = React.useMemo(

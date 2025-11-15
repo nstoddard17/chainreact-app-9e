@@ -182,21 +182,21 @@ export function SocialProofSection() {
             <Button
               size="lg"
               onClick={() => router.push('/waitlist')}
-              className="bg-white hover:bg-gray-50 dark:bg-white dark:hover:bg-gray-50 text-gray-900 dark:text-white hover:text-gray-900 dark:hover:text-gray-900 border border-gray-200 dark:border-gray-200 shadow-sm px-6 py-3 rounded-lg font-medium"
+              className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white shadow-lg shadow-blue-500/20 px-6 py-3 rounded-lg font-medium"
             >
               Get Early Access
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
             <Button
               size="lg"
-              variant="ghost"
+              variant="outline"
               onClick={() => {
                 const demoSection = document.getElementById('demo')
                 if (demoSection) {
                   demoSection.scrollIntoView({ behavior: 'smooth' })
                 }
               }}
-              className="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white px-6 py-3"
+              className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white px-6 py-3"
             >
               Watch Demo Again
             </Button>

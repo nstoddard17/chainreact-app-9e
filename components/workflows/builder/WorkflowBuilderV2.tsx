@@ -80,6 +80,7 @@ import { swapProviderInPlan, canSwapProviders } from "@/lib/workflows/ai-agent/p
 import { matchTemplate, logTemplateMatch, logTemplateMiss } from "@/lib/workflows/ai-agent/templateMatching"
 import { logPrompt, updatePrompt } from "@/lib/workflows/ai-agent/promptAnalytics"
 import { logger } from '@/lib/utils/logger'
+import { useAppContext } from "@/lib/contexts/AppContext"
 
 type PendingChatMessage = {
   localId: string
@@ -288,13 +289,18 @@ async function planWorkflowWithTemplates(
 
 interface WorkflowBuilderV2Props {
   flowId: string
+  initialRevision?: any
 }
 
-export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
+export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2Props) {
   const searchParams = useSearchParams()
   const promptParam = searchParams?.get("prompt") ?? searchParams?.get("initialPrompt") ?? null
 
-  const adapter = useFlowV2LegacyAdapter(flowId)
+  // Use unified app context
+  const appContext = useAppContext()
+  const { isReady: appReady } = appContext
+
+  const adapter = useFlowV2LegacyAdapter(flowId, { initialRevision })
   const { integrations, fetchIntegrations } = useIntegrationStore()
   const builder = adapter.flowState
   const actions = adapter.actions
@@ -420,14 +426,34 @@ export function WorkflowBuilderV2({ flowId }: WorkflowBuilderV2Props) {
     costTrackerRef.current = new CostTracker()
   }, [])
 
-  // Fetch integrations once on mount (cached for 5 seconds per integrationStore)
-  // This prevents repeated force fetches throughout the session
-  useEffect(() => {
-    if (!authInitialized) return
+  // Batch initial loads when app context is ready (only once)
+  const hasInitializedRef = useRef(false)
 
-    console.log('[Integration Cache] Fetching integrations on mount (uses cache if <5s old)')
-    fetchIntegrations(false) // Don't force - use cache if available
-  }, [flowId, authInitialized, fetchIntegrations])
+  useEffect(() => {
+    if (!appReady) {
+      return
+    }
+
+    // Only run once when appReady becomes true
+    if (hasInitializedRef.current) {
+      return
+    }
+    hasInitializedRef.current = true
+
+    console.log('[WorkflowBuilder] App context ready, batching initial loads')
+
+    // Batch all initial data loads in parallel
+    Promise.all([
+      // Integrations (cached for 30 seconds)
+      fetchIntegrations(false).catch(error => {
+        logger.error('[WorkflowBuilder] Failed to fetch integrations:', error)
+      })
+    ]).then(() => {
+      console.log('[WorkflowBuilder] Initial data loads complete')
+    }).catch(error => {
+      logger.error('[WorkflowBuilder] Error during initial loads:', error)
+    })
+  }, [appReady, fetchIntegrations])
 
   // Cleanup: Clear pending messages on unmount if workflow was never saved
   useEffect(() => {
