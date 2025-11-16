@@ -1859,6 +1859,100 @@ export function AirtableConfiguration({
     // First, set the actual field value
     setValue(fieldName, value);
 
+    // Auto-populate filename and contentType fields when file is uploaded or URL is provided
+    if (isAddAttachment) {
+      if (fieldName === 'uploadedFile' && value) {
+        // Extract filename from uploaded file
+        const file = Array.isArray(value) ? value[0] : value;
+        if (file && file.name) {
+          setValue('filename', file.name);
+
+          // Auto-detect content type from file type
+          if (file.type && !values.contentType) {
+            setValue('contentType', file.type);
+          }
+        }
+      } else if (fieldName === 'fileUrl' && value && typeof value === 'string') {
+        // Extract filename from URL
+        try {
+          const url = new URL(value);
+          const pathname = url.pathname;
+          const filename = pathname.substring(pathname.lastIndexOf('/') + 1);
+          if (filename && !values.filename) {
+            // Only set if filename field is empty
+            const decodedFilename = decodeURIComponent(filename);
+            setValue('filename', decodedFilename);
+
+            // Auto-detect content type from file extension
+            if (!values.contentType) {
+              const ext = decodedFilename.substring(decodedFilename.lastIndexOf('.')).toLowerCase();
+              const mimeTypes: Record<string, string> = {
+                '.png': 'image/png',
+                '.jpg': 'image/jpeg',
+                '.jpeg': 'image/jpeg',
+                '.gif': 'image/gif',
+                '.svg': 'image/svg+xml',
+                '.webp': 'image/webp',
+                '.pdf': 'application/pdf',
+                '.doc': 'application/msword',
+                '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                '.xls': 'application/vnd.ms-excel',
+                '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                '.ppt': 'application/vnd.ms-powerpoint',
+                '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                '.txt': 'text/plain',
+                '.csv': 'text/csv',
+                '.html': 'text/html',
+                '.json': 'application/json',
+                '.xml': 'application/xml',
+                '.zip': 'application/zip',
+                '.mp4': 'video/mp4',
+                '.mp3': 'audio/mpeg',
+                '.wav': 'audio/wav'
+              };
+
+              if (mimeTypes[ext]) {
+                setValue('contentType', mimeTypes[ext]);
+              }
+            }
+          }
+        } catch (error) {
+          // Invalid URL, ignore
+        }
+      } else if (fieldName === 'filename' && value && typeof value === 'string' && !values.contentType) {
+        // Auto-detect content type when filename is manually entered
+        const ext = value.substring(value.lastIndexOf('.')).toLowerCase();
+        const mimeTypes: Record<string, string> = {
+          '.png': 'image/png',
+          '.jpg': 'image/jpeg',
+          '.jpeg': 'image/jpeg',
+          '.gif': 'image/gif',
+          '.svg': 'image/svg+xml',
+          '.webp': 'image/webp',
+          '.pdf': 'application/pdf',
+          '.doc': 'application/msword',
+          '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          '.xls': 'application/vnd.ms-excel',
+          '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          '.ppt': 'application/vnd.ms-powerpoint',
+          '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+          '.txt': 'text/plain',
+          '.csv': 'text/csv',
+          '.html': 'text/html',
+          '.json': 'application/json',
+          '.xml': 'application/xml',
+          '.zip': 'application/zip',
+          '.mp4': 'video/mp4',
+          '.mp3': 'audio/mpeg',
+          '.wav': 'audio/wav'
+        };
+
+        if (mimeTypes[ext]) {
+          setValue('contentType', mimeTypes[ext]);
+        }
+      }
+    }
+
     // For Airtable fields, handle bubble creation
     if (fieldName.startsWith('airtable_field_') && !skipBubbleCreation && value) {
       const field = allDynamicFields.find(f => f.name === fieldName);
@@ -2100,7 +2194,7 @@ export function AirtableConfiguration({
         }
       }
     }
-  }, [allDynamicFields, fieldSuggestions, setValue, getLabelFromValue, getOptionLabelForValue]);
+  }, [allDynamicFields, fieldSuggestions, setValue, getLabelFromValue, getOptionLabelForValue, isAddAttachment, values.filename, values.contentType]);
   
   // Track loaded linked fields to avoid reloading
   const [loadedLinkedFields, setLoadedLinkedFields] = useState<Set<string>>(new Set());
@@ -3058,6 +3152,7 @@ export function AirtableConfiguration({
           airtableTableSchema={airtableTableSchema}
           airtableBubbleSuggestions={displaySuggestions || suggestionsForField}
           onAirtableBubbleRemove={handleBubbleRemove}
+          setFieldValue={setValue}
         />
         
         {/* Bubble display for multi-select fields */}
