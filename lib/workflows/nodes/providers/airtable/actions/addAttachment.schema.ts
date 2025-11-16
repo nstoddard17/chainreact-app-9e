@@ -41,7 +41,7 @@ export const addAttachmentActionSchema: NodeComponent = {
       label: "Record ID",
       type: "text",
       required: true,
-      placeholder: "{{trigger.recordId}}",
+      placeholder: "Click a row below or paste: {{trigger.recordId}}",
       supportsAI: true,
       description: "The ID of the record to add attachment to",
       dependsOn: "tableName"

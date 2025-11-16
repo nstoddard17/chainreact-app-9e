@@ -12,6 +12,10 @@ import { Button } from '@/components/ui/button'
 
 const ELSE_HANDLE_COLOR = '#64748B'
 const DEFAULT_PATH_COLORS = ['#2563EB', '#EA580C', '#059669', '#9333EA', '#BE123C', '#14B8A6']
+const DEFAULT_COLUMN_X = 400
+const DEFAULT_NODE_WIDTH = 360
+const DEFAULT_NODE_HEIGHT = 120
+const DEFAULT_VERTICAL_SPACING = 180
 
 function hexToRgba(hex: string, alpha: number): string {
   let normalized = hex.replace('#', '')
@@ -91,21 +95,46 @@ export function FlowEdge({
   const sourceNode = useStore((state) => state.nodeInternals?.get(source) ?? null, (a, b) => a?.id === b?.id)
   const targetNode = useStore((state) => state.nodeInternals?.get(target) ?? null, (a, b) => a?.id === b?.id)
 
-const DEFAULT_COLUMN_X = 400
-
   const getNodeWidth = (node: any) => {
-    if (!node) return 360
+    if (!node) return DEFAULT_NODE_WIDTH
     const widths = [node.width, node.measured?.width, node.__rf?.width, (node.data as any)?.dimensions?.width]
     for (const value of widths) {
       const numeric = Number(value)
       if (Number.isFinite(numeric) && numeric > 0) return numeric
     }
-    const type = (node.data as any)?.type
-    if (type === 'trigger_placeholder' || type === 'action_placeholder') return 360
-    return 360
+    return DEFAULT_NODE_WIDTH
   }
 
-  const getStoredPosition = (node: any) => node?.position ?? node?.positionAbsolute ?? null
+  const getNodeHeight = (node: any) => {
+    if (!node) return DEFAULT_NODE_HEIGHT
+
+    // Try to get height from various React Flow node properties
+    const heights = [
+      node.height,
+      node.measured?.height,
+      node.__rf?.height,
+      (node.data as any)?.dimensions?.height,
+      node.computed?.height
+    ]
+
+    for (const value of heights) {
+      const numeric = Number(value)
+      if (Number.isFinite(numeric) && numeric > 0) return numeric
+    }
+
+    // Fallback: try to get from DOM if available
+    if (typeof document !== 'undefined') {
+      const domNode = document.querySelector(`[data-id="${node.id}"]`)
+      if (domNode) {
+        const rect = domNode.getBoundingClientRect()
+        if (rect.height > 0) return rect.height
+      }
+    }
+
+    return DEFAULT_NODE_HEIGHT
+  }
+
+  const getStoredPosition = (node: any) => node?.positionAbsolute ?? node?.position ?? null
   const correctedSource = { x: sourceX, y: sourceY }
   const correctedTarget = { x: targetX, y: targetY }
   const isVerticalEdge = sourcePosition === Position.Bottom && targetPosition === Position.Top
@@ -113,25 +142,24 @@ const DEFAULT_COLUMN_X = 400
   if (isVerticalEdge) {
     const sourceBase = getStoredPosition(sourceNode)
     const targetBase = getStoredPosition(targetNode)
+    const width = getNodeWidth(sourceNode ?? targetNode)
+    const columnCenter = (sourceBase?.x ?? targetBase?.x ?? DEFAULT_COLUMN_X) + width / 2
 
-    if (sourceBase) {
-      const fallbackX = (typeof sourceBase.x === 'number' ? sourceBase.x : DEFAULT_COLUMN_X)
-      correctedSource.x = fallbackX + getNodeWidth(sourceNode) / 2
+    correctedSource.x = columnCenter
+    correctedTarget.x = columnCenter
+
+    // Calculate correct Y positions based on actual node positions and heights
+    if (sourceBase && typeof sourceBase.y === 'number') {
+      const sourceHeight = getNodeHeight(sourceNode)
+      correctedSource.y = sourceBase.y + sourceHeight
+    } else {
+      correctedSource.y = sourceY
     }
 
-    if (targetBase) {
-      const fallbackX = (typeof targetBase.x === 'number' ? targetBase.x : DEFAULT_COLUMN_X)
-      correctedTarget.x = fallbackX + getNodeWidth(targetNode) / 2
-    }
-
-    if (!sourceBase && !targetBase) {
-      const fallbackCenter = DEFAULT_COLUMN_X + getNodeWidth(sourceNode ?? targetNode) / 2
-      correctedSource.x = fallbackCenter
-      correctedTarget.x = fallbackCenter
-    } else if (!sourceBase && targetBase) {
-      correctedSource.x = correctedTarget.x
-    } else if (!targetBase && sourceBase) {
-      correctedTarget.x = correctedSource.x
+    if (targetBase && typeof targetBase.y === 'number') {
+      correctedTarget.y = targetBase.y
+    } else {
+      correctedTarget.y = targetY
     }
   }
 
@@ -140,8 +168,8 @@ const DEFAULT_COLUMN_X = 400
   const baseStroke = handleColor || '#d0d6e0'
   const strokeColor = selected ? emphasizeColor(baseStroke, 0.85) : baseStroke
 
-  // Create a simple horizontal line directly from source to target
-  // This ensures the line goes straight from half-moon to half-moon
+  // Use the actual corrected positions to connect directly from node to node
+  // This ensures the edge connects properly from trigger to action placeholders
   const edgePath = `M ${correctedSource.x},${correctedSource.y} L ${correctedTarget.x},${correctedTarget.y}`
 
   // Calculate midpoint for + button positioning

@@ -18,7 +18,8 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     'designer',
     'associatedProject',
     'feedback',
-    'tasks'
+    'tasks',
+    'selectedRecord'
   ];
 
   canHandle(fieldName: string, providerId: string): boolean {
@@ -101,6 +102,9 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
 
       case 'tasks':
         return this.loadDynamicFieldOptions(params, 'airtable_tasks');
+
+      case 'selectedRecord':
+        return this.loadRecordsForSelection(params);
 
       default:
         return [];
@@ -578,6 +582,102 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     }
   }
 
+  private async loadRecordsForSelection(params: LoadOptionsParams): Promise<FormattedOption[]> {
+    const { extraOptions, integrationId, signal, forceRefresh } = params;
+
+    if (!integrationId) {
+      logger.debug('🔍 [Airtable] Cannot load records without integrationId');
+      return [];
+    }
+
+    const baseId = extraOptions?.baseId;
+    const tableName = extraOptions?.tableName;
+
+    if (!baseId || !tableName) {
+      logger.debug('🔍 [Airtable] Cannot load records without baseId and tableName');
+      return [];
+    }
+
+    // Build cache key
+    const cacheKey = buildCacheKey('airtable', integrationId, 'selectedRecord', { baseId, tableName });
+    const cacheStore = useConfigCacheStore.getState();
+
+    // Force refresh handling
+    if (forceRefresh) {
+      logger.debug(`🔄 [Airtable] Force refresh - invalidating cache:`, cacheKey);
+      cacheStore.invalidate(cacheKey);
+    }
+
+    // Try cache first
+    if (!forceRefresh) {
+      const cached = cacheStore.get(cacheKey);
+      if (cached) {
+        logger.debug(`💾 [Airtable] Cache HIT for selectedRecord:`, { cacheKey, count: cached.length });
+        return cached;
+      }
+      logger.debug(`❌ [Airtable] Cache MISS for selectedRecord:`, { cacheKey });
+    }
+
+    try {
+      // Load records from the table
+      const response = await fetch('/api/integrations/airtable/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          integrationId,
+          dataType: 'airtable_records',
+          options: {
+            baseId,
+            tableName,
+            maxRecords: 100 // Load up to 100 records for selection
+          },
+          forceRefresh
+        }),
+        signal
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to load records: ${response.status}`);
+      }
+
+      const result = await response.json();
+      const records = result.data || [];
+
+      // Find the best display field (name, title, or first text field)
+      const displayField = this.findDisplayField(records);
+
+      const formattedRecords = records.map((record: any) => {
+        let label = record.id; // Fallback to ID
+
+        if (displayField && record.fields?.[displayField]) {
+          const displayValue = record.fields[displayField];
+          // Create human-readable label with the display field value
+          label = `${displayValue}`;
+
+          // Truncate if too long
+          if (label.length > 60) {
+            label = `${label.substring(0, 57)}...`;
+          }
+        }
+
+        return {
+          value: record.id,
+          label: label,
+        };
+      });
+
+      // Store in cache
+      const ttl = getFieldTTL('selectedRecord');
+      cacheStore.set(cacheKey, formattedRecords, ttl);
+      logger.debug(`💾 [Airtable] Cached ${formattedRecords.length} options for selectedRecord (TTL: ${ttl / 1000}s)`);
+
+      return formattedRecords;
+    } catch (error) {
+      logger.error('❌ [Airtable] Error loading records for selection:', error);
+      return [];
+    }
+  }
+
   private async loadLinkedRecords(params: LoadOptionsParams): Promise<FormattedOption[]> {
     const { fieldName, extraOptions, integrationId, signal, forceRefresh } = params;
 
@@ -814,6 +914,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
       case 'associatedProject':
       case 'feedback':
       case 'tasks':
+      case 'selectedRecord':
         return ['tableName'];
 
       default:

@@ -230,6 +230,22 @@ if (error) {
 - **ALWAYS use ConfigurationContainer**
 - See `/learning/docs/modal-column-overflow-solution.md`
 
+### Workflow Builder Edge Alignment - DO NOT CHANGE
+**CRITICAL: Edge positioning logic prevents lines from appearing under nodes**
+
+**Problem:** React Flow sometimes renders edges before node positions exist, causing edges to fall back to X=0 and snap far left, with the + button appearing directly under the previous node instead of centered in the gap.
+
+**Solution Implemented in `/components/workflows/builder/FlowEdges.tsx`:**
+- Added `DEFAULT_COLUMN_X` constant (400) for fallback positioning
+- Created robust `getNodeWidth` helper that handles missing position data
+- For vertical edges: Compute center from whichever node has a known stored position
+- If both nodes are missing positions: Fall back to linear column layout
+- Ensure both edge endpoints share the same X coordinate for vertical alignment
+
+**Result:** Connector stays vertical and centered between nodes even immediately after page refresh.
+
+**DO NOT MODIFY:** This alignment logic is critical for preventing visual bugs. Any changes to edge positioning must preserve the fallback logic for missing `positionAbsolute` data.
+
 ---
 
 ## 🐛 DEBUGGING & LOGGING
