@@ -1225,13 +1225,11 @@ function CustomNode({ id, data, selected }: NodeProps) {
                 bottom: "0px",
                 transform: "translateX(-50%)",
                 zIndex: 6,
-                background: handleBackground,
-                borderTop: `1.5px solid ${accentColor}`,
-                borderBottom: 'none',
-                borderLeft: 'none',
-                borderRight: 'none',
-                boxShadow: handleShadow,
-                backdropFilter: 'blur(2px)',
+                background: 'transparent',
+                border: 'none',
+                boxShadow: 'none',
+                opacity: 0,
+                pointerEvents: 'none',
               }}
             />
             <div
@@ -1299,13 +1297,11 @@ function CustomNode({ id, data, selected }: NodeProps) {
             bottom: "0px",
             transform: "translateX(-50%)",
             zIndex: 5,
-            background: handleStyle.background,
-            borderTop: `1.5px solid ${handleStyle.borderColor}`,
-            borderBottom: 'none',
-            borderLeft: 'none',
-            borderRight: 'none',
-            boxShadow: handleStyle.boxShadow,
-            backdropFilter: 'blur(2px)',
+            background: 'transparent',
+            border: 'none',
+            boxShadow: 'none',
+            opacity: 0,
+            pointerEvents: 'none',
           }}
         />
         {/* Integrate plus button into bottom handle for last nodes */}
@@ -2128,13 +2124,11 @@ function CustomNode({ id, data, selected }: NodeProps) {
             top: "0px",
             transform: "translateX(-50%)",
             zIndex: 5,
-            background: handleStyle.background,
-            borderBottom: `1.5px solid ${handleStyle.borderColor}`,
-            borderTop: 'none',
-            borderLeft: 'none',
-            borderRight: 'none',
-            boxShadow: handleStyle.boxShadow,
-            backdropFilter: 'blur(2px)',
+            background: 'transparent',
+            border: 'none',
+            boxShadow: 'none',
+            opacity: 0,
+            pointerEvents: 'none',
           }}
         />
       )}
