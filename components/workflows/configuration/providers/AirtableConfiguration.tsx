@@ -3337,7 +3337,7 @@ export function AirtableConfiguration({
 
                     {/* Attachment field creation UI */}
                     {(() => {
-                      const attachmentFieldOptions = mergedDynamicOptions['attachmentField'] || [];
+                      const attachmentFieldOptions = mergedDynamicOptions['airtable_attachment_fields'] || [];
                       const hasAttachmentFields = attachmentFieldOptions.length > 0;
 
                       if (!hasAttachmentFields && !showCreateAttachmentField) {
