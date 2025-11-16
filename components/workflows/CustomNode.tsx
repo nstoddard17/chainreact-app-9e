@@ -1304,38 +1304,6 @@ function CustomNode({ id, data, selected }: NodeProps) {
             pointerEvents: 'none',
           }}
         />
-        {/* Integrate plus button into bottom handle for last nodes */}
-        {isLastNode && onAddNodeAfter && (
-          <div
-            className="absolute left-1/2 -translate-x-1/2 noDrag noPan pointer-events-auto"
-            style={{
-              top: 'calc(100% - 6px)',
-              zIndex: 6
-            }}
-          >
-            <InlineNodePicker
-              open={isNodePickerOpen}
-              onOpenChange={setIsNodePickerOpen}
-              onSelectNode={(nodeType: string, component: NodeComponent) => {
-                onAddNodeAfter(id, nodeType, component)
-                setIsNodePickerOpen(false)
-              }}
-              filterTriggers={true}
-            >
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-full h-7 w-7 p-0 bg-background shadow-md border-2 hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all hover:scale-110 noDrag noPan"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setIsNodePickerOpen(true)
-                }}
-              >
-                <PlusCircle className="h-3.5 w-3.5" />
-              </Button>
-            </InlineNodePicker>
-          </div>
-        )}
       </div>
     )
   }
