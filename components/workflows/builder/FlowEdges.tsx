@@ -162,8 +162,8 @@ export function FlowEdge({
 
     const sourceAnchor =
       sourceBase && typeof sourceBase.y === 'number'
-        ? sourceBase.y + sourceHeight
-        : sourceY + HANDLE_OFFSET
+        ? sourceBase.y + sourceHeight - HANDLE_OFFSET / 2
+        : sourceY + HANDLE_OFFSET / 2
 
     const targetAnchor =
       targetBase && typeof targetBase.y === 'number'
