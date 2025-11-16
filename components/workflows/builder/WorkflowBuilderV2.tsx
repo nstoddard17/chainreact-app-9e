@@ -1617,7 +1617,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     let updatedEdges = currentEdges
 
     if (replacingPlaceholder) {
-      // Remove placeholder and add new node
+      // Remove the specific placeholder and add new node
       updatedNodes = currentNodes
         .filter((n: any) => n.id !== selectedNodeId)
         .concat(optimisticNode)
@@ -1631,11 +1631,17 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           return { ...e, target: tempId }
         }
         return e
-      }).filter((e: any) => e.id !== 'placeholder-edge') // Remove placeholder edge
+      })
 
-      // Check if all placeholders are replaced
+      // Check if there are any remaining placeholders
       const remainingPlaceholders = updatedNodes.filter((n: any) => n.data?.isPlaceholder)
       console.log('📌 [WorkflowBuilder] Remaining placeholders:', remainingPlaceholders.length)
+
+      // Only remove the placeholder edge if both placeholders have been replaced
+      if (remainingPlaceholders.length === 0) {
+        console.log('📌 [WorkflowBuilder] All placeholders replaced, removing placeholder edge')
+        updatedEdges = updatedEdges.filter((e: any) => e.id !== 'placeholder-edge')
+      }
     } else {
       // Normal node addition - add node and potentially connect it
       updatedNodes = [...currentNodes, optimisticNode]
