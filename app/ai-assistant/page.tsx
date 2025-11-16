@@ -1,4 +1,4 @@
-import AIAssistantContent from "@/components/ai/AIAssistantContent"
+import { AIAssistantContentLazy } from "@/components/ai/AIAssistantContentLazy"
 import { NewSidebar } from "@/components/new-design/layout/NewSidebar"
 import { NewHeader } from "@/components/new-design/layout/NewHeader"
 import { NewFooter } from "@/components/new-design/layout/NewFooter"
@@ -30,7 +30,7 @@ export default async function AIAssistantPage() {
 
           {/* Page Content - Full height without padding/max-width */}
           <main className="flex-1 overflow-hidden">
-            <AIAssistantContent />
+            <AIAssistantContentLazy />
           </main>
 
           {/* Footer */}

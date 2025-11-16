@@ -15,6 +15,7 @@ import { IconPrefetcher } from "@/components/integrations/IconPrefetcher"
 import { ChunkErrorHandler } from "@/components/ChunkErrorHandler"
 import { GlobalAdminDebugPanel } from "@/components/debug/GlobalAdminDebugPanel"
 import { AppContextProvider } from "@/lib/contexts/AppContext"
+import { WebVitalsReporter } from "@/components/monitoring/WebVitalsReporter"
 // Discord bot now initialized server-side via instrumentation.ts
 // import DiscordBotProvider from "@/components/providers/DiscordBotProvider"
 // import ArchitectureProvider from "@/components/providers/ArchitectureProvider"
@@ -121,6 +122,19 @@ export default function RootLayout({
         {/* Performance hints */}
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="theme-color" content="#1e293b" />
+
+        {/* PWA Configuration */}
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="ChainReact" />
+        <link rel="apple-touch-icon" href="/logo_transparent.png" />
+
+        {/* Preconnect to important domains for faster loading */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://xzwsdwllmrnrgbltibxt.supabase.co" />
       </head>
       <body className={spaceGrotesk.className} suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
@@ -128,6 +142,7 @@ export default function RootLayout({
             <AuthErrorBoundary>
               <GlobalErrorHandler />
               <AuthInitializer />
+              <WebVitalsReporter />
               <AppContextProvider>
                 <LoadingDetector />
                 <ChunkErrorHandler />

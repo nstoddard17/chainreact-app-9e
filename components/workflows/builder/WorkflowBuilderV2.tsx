@@ -1571,10 +1571,16 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
   // Node selection from panel
   const handleNodeSelectFromPanel = useCallback(async (nodeData: any) => {
+    console.log('🎯 [WorkflowBuilder] handleNodeSelectFromPanel called:', {
+      nodeData: nodeData?.type || nodeData,
+      selectedNodeId,
+      hasActions: !!actions,
+      hasBuilder: !!builder
+    })
+
     if (!actions || !builder) return
 
     const currentNodes = builder.nodes ?? []
-    const currentEdges = builder.edges ?? []
 
     // Check if we're replacing a placeholder node
     const replacingPlaceholder = currentNodes.find((n: any) =>
@@ -1592,10 +1598,10 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     const nodeComponent = nodeComponentMap.get(nodeData.type)
     const providerId = nodeComponent?.providerId ?? nodeData.providerId
 
-    // Generate a temporary ID that will be replaced by the real one from DB
-    const tempId = `node-${Date.now()}`
+    // Generate a temporary ID for the config modal
+    const tempId = `temp-${Date.now()}`
 
-    // Create the node immediately for instant UI feedback
+    // Create optimistic node for config modal only
     const optimisticNode = {
       id: tempId,
       type: "custom",
@@ -1609,79 +1615,25 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         icon: nodeComponent?.icon,
         config: {},
         isTrigger: nodeComponent?.isTrigger ?? false,
-        _optimistic: true, // Mark as optimistic so we know to replace it
+        _optimistic: true,
       },
     }
-
-    let updatedNodes = currentNodes
-    let updatedEdges = currentEdges
-
-    if (replacingPlaceholder) {
-      // Remove the specific placeholder and add new node
-      updatedNodes = currentNodes
-        .filter((n: any) => n.id !== selectedNodeId)
-        .concat(optimisticNode)
-
-      // Update edges that connected to the placeholder
-      updatedEdges = currentEdges.map((e: any) => {
-        if (e.source === selectedNodeId) {
-          return { ...e, source: tempId }
-        }
-        if (e.target === selectedNodeId) {
-          return { ...e, target: tempId }
-        }
-        return e
-      })
-
-      // Check if there are any remaining placeholders
-      const remainingPlaceholders = updatedNodes.filter((n: any) => n.data?.isPlaceholder)
-      console.log('📌 [WorkflowBuilder] Remaining placeholders:', remainingPlaceholders.length)
-
-      // Only remove the placeholder edge if both placeholders have been replaced
-      if (remainingPlaceholders.length === 0) {
-        console.log('📌 [WorkflowBuilder] All placeholders replaced, removing placeholder edge')
-        updatedEdges = updatedEdges.filter((e: any) => e.id !== 'placeholder-edge')
-      }
-    } else {
-      // Normal node addition - add node and potentially connect it
-      updatedNodes = [...currentNodes, optimisticNode]
-
-      // If adding after a specific node (from plus button), create edge
-      if (selectedNodeId) {
-        const afterNode = currentNodes.find((n: any) => n.id === selectedNodeId)
-        if (afterNode) {
-          console.log('🔗 [WorkflowBuilder] Adding node after:', selectedNodeId)
-
-          // Create edge from the selected node to the new node
-          const newEdge = {
-            id: `${selectedNodeId}-${tempId}`,
-            source: selectedNodeId,
-            target: tempId,
-            type: 'custom',
-            sourceHandle: 'source',
-            targetHandle: 'target',
-          }
-          updatedEdges = [...currentEdges, newEdge]
-        }
-      }
-    }
-
-    // Update canvas immediately
-    builder.setNodes(updatedNodes)
-    builder.setEdges(updatedEdges)
 
     // Close panel immediately for better UX
     setIsIntegrationsPanelOpen(false)
 
-    // Open config modal immediately for instant configuration
+    // Open config modal immediately
     setConfiguringNode(optimisticNode)
 
     // Clear selected node ID
     setSelectedNodeId(null)
 
     try {
-      // Persist to database in background
+      // Save node to database - updateReactFlowGraph will handle UI updates including action placeholder
+      console.log('📌 [WorkflowBuilder] Saving node:', nodeData.type, 'at position:', position)
       const newNode = await actions.addNode(nodeData.type, position)
+
+      console.log('📌 [WorkflowBuilder] Node saved successfully, updateReactFlowGraph will handle placeholder')
 
       // Update the configuring node with the real node ID from DB
       if (newNode) {
@@ -1692,7 +1644,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           return current
         })
 
-        // If we added an edge (adding after a node), persist it too
+        // If adding after a node (not replacing placeholder), create edge
         if (selectedNodeId && !replacingPlaceholder) {
           console.log('🔗 [WorkflowBuilder] Persisting edge connection')
           await actions.connectEdge({
@@ -1703,9 +1655,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         }
       }
     } catch (error: any) {
-      // Only rollback if it failed
-      builder.setNodes(currentNodes)
-      builder.setEdges(currentEdges)
       setConfiguringNode(null)
       toast({
         title: "Failed to add node",
@@ -3692,7 +3641,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
   // Get cost breakdown for CostDisplay
   const costBreakdown = useMemo(() => {
-    return costTrackerRef.current?.getCostBreakdown() ?? []
+    return costTrackerRef.current?.getCostBreakdown?.() ?? []
   }, [costActual])
 
   // Header props matching legacy structure

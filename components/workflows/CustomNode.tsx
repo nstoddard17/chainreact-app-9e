@@ -3,7 +3,7 @@
 import React, { memo, useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { Handle, Position, type NodeProps, useUpdateNodeInternals, useReactFlow } from "@xyflow/react"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
-import { Trash2, TestTube, Plus, Edit2, Layers, Unplug, Sparkles, ChevronDown, ChevronUp, Loader2, CheckCircle2, AlertTriangle, Info, GitFork, ArrowRight, PlusCircle } from "lucide-react"
+import { Trash2, TestTube, Plus, Edit2, Layers, Unplug, Sparkles, ChevronDown, ChevronUp, Loader2, CheckCircle2, AlertTriangle, Info, GitFork, ArrowRight, PlusCircle, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -179,7 +179,16 @@ function CustomNode({ id, data, selected }: NodeProps) {
   const nodeState = nodeData.state || 'ready'
   const isSkeletonState = nodeState === 'skeleton'
 
-  const getStatusBadge = (state: NodeState): { text: string; className: string } => {
+  const getStatusBadge = (state: NodeState, hasRequiredFieldsMissing: boolean): { text: string; className: string; icon?: React.ReactNode } => {
+    // For ready nodes, check if required fields are missing
+    if (state === 'ready' && hasRequiredFieldsMissing) {
+      return {
+        text: 'Incomplete',
+        className: 'badge-incomplete',
+        icon: <AlertCircle className="w-3 h-3" />
+      }
+    }
+
     switch (state) {
       case 'skeleton':
         return { text: 'Setup Required', className: 'badge-skeleton' }
@@ -194,8 +203,6 @@ function CustomNode({ id, data, selected }: NodeProps) {
         return { text: 'Ready', className: 'badge-ready' }
     }
   }
-
-  const statusBadge = getStatusBadge(nodeState)
 
   // Helper function to get handle styling based on node state
   const getHandleStyle = (state: NodeState) => {
@@ -301,6 +308,21 @@ function CustomNode({ id, data, selected }: NodeProps) {
   const isPathNode = type === 'path'
   const isAIRouterNode = type === 'ai_router'
   const isPathConditionNode = type === 'path_condition'
+
+  // Check if all required fields are filled
+  const hasRequiredFieldsMissing = useMemo(() => {
+    if (!component?.configSchema || !config) return false
+
+    return component.configSchema.some((field: any) => {
+      if (!field.required) return false
+      const value = config[field.name]
+
+      // Check if value is missing or empty
+      return value === undefined || value === null || value === ''
+    })
+  }, [component?.configSchema, config])
+
+  const statusBadge = getStatusBadge(nodeState, hasRequiredFieldsMissing)
 
   type OutputHandleConfig = {
     id: string
@@ -1335,13 +1357,13 @@ function CustomNode({ id, data, selected }: NodeProps) {
         onDeleteSelected={onDeleteSelected}
       >
         <div
-          className="relative w-[450px] bg-slate-50/80 rounded-lg shadow-sm border-2 border-slate-200 group transition-all duration-200 overflow-hidden"
+          className="relative w-[360px] bg-slate-50/80 rounded-lg shadow-sm border-2 border-slate-200 group transition-all duration-200 overflow-hidden"
           data-testid={`node-${id}-skeleton`}
           style={{
             opacity: 0.95,
-            width: '450px',
-            maxWidth: '450px',
-            minWidth: '450px',
+            width: '360px',
+            maxWidth: '360px',
+            minWidth: '360px',
             boxSizing: 'border-box',
             flex: 'none',
           }}
@@ -1380,7 +1402,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
                       </span>
                     </div>
                     {(description || (component && component.description)) && (
-                      <p className="text-sm text-slate-400 leading-tight whitespace-pre-line break-words">
+                      <p className="text-sm text-slate-400 leading-tight line-clamp-1">
                         {description || (component && component.description)}
                       </p>
                     )}
@@ -1449,9 +1471,9 @@ function CustomNode({ id, data, selected }: NodeProps) {
       onDeleteSelected={onDeleteSelected}
     >
       {/* Wrapper div to contain both node and plus button */}
-      <div className="relative" style={{ width: '450px' }}>
+      <div className="relative" style={{ width: '360px' }}>
         <div
-          className={`relative w-[450px] ${backgroundClass} rounded-lg shadow-sm border-2 group ${borderClass} ${shadowClass} ${ringClass} transition-all duration-200 overflow-hidden ${
+          className={`relative w-[360px] ${backgroundClass} rounded-lg shadow-sm border-2 group ${borderClass} ${shadowClass} ${ringClass} transition-all duration-200 overflow-hidden ${
             nodeHasConfiguration() ? "cursor-pointer" : ""
           } ${getExecutionStatusStyle()} ${
             nodeState === 'running' ? 'node-running' :
@@ -1462,9 +1484,9 @@ function CustomNode({ id, data, selected }: NodeProps) {
           onClick={handleClick}
           style={{
             opacity: nodeState === 'skeleton' ? 0.5 : 1,
-            width: '450px',
-            maxWidth: '450px',
-            minWidth: '450px',
+            width: '360px',
+            maxWidth: '360px',
+            minWidth: '360px',
             boxSizing: 'border-box',
             flex: 'none',
           }}
@@ -1496,6 +1518,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
           title={(nodeState === 'passed' || nodeState === 'failed' || nodeState === 'running') ?
             (isPreviewExpanded ? 'Click to hide details' : 'Click to show details') : undefined}
         >
+          {statusBadge.icon && <span className="mr-1">{statusBadge.icon}</span>}
           {statusBadge.text}
         </div>
       )}
@@ -1675,7 +1698,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
                     )}
                   </div>
                   {description && (
-                    <p className="text-sm text-muted-foreground leading-snug line-clamp-2">{description || (component && component.description)}</p>
+                    <p className="text-sm text-muted-foreground leading-snug line-clamp-1">{description || (component && component.description)}</p>
                   )}
                 </div>
               )}

@@ -2,7 +2,7 @@
 
 import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
 import ProfileSettings from "@/components/settings/ProfileSettings"
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { useUserProfileStore, loadUserProfile, UserProfile } from "@/stores/userProfileStore"
 import { useAuthStore } from "@/stores/authStore"
 import { useRouter } from "next/navigation"
@@ -11,21 +11,25 @@ import { Loader2 } from "lucide-react"
 import { logger } from '@/lib/utils/logger'
 
 export default function ProfileContent() {
-  
+
   // Get auth state and profile from stores
   const { user, isAuthenticated } = useAuthStore()
   const { data: profile, loading, error } = useUserProfileStore()
   const router = useRouter()
-  
+
+  // Prevent double-fetch in React Strict Mode
+  const hasFetchedRef = useRef(false)
+
   useEffect(() => {
     // Redirect to login if not authenticated
     if (!isAuthenticated && !user) {
       router.push('/auth/login')
       return
     }
-    
-    // Load profile from API when authenticated
-    if (user) {
+
+    // Load profile from API when authenticated (only once)
+    if (user && !hasFetchedRef.current) {
+      hasFetchedRef.current = true
       loadUserProfile()
     }
   }, [user, isAuthenticated, router])

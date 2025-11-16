@@ -157,6 +157,7 @@ export function IntegrationsSidePanel({ isOpen, onClose, onNodeSelect, mode = 'a
     const providerLogo = !shouldUseNodeIcon && node.providerId ? `/integrations/${node.providerId}.svg` : null
 
     const handleClick = () => {
+      console.log('🔘 [IntegrationsSidePanel] Node clicked:', node.type, node.title)
       onNodeSelect(node)
     }
 

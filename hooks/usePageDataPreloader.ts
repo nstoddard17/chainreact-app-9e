@@ -42,11 +42,6 @@ export function usePageDataPreloader(
   pageType: PageType,
   options: PreloadOptions = {}
 ): UsePageDataPreloaderResult {
-  const [isLoading, setIsLoading] = useState(true)
-  const [isReady, setIsReady] = useState(false)
-  const [error, setError] = useState<Error | null>(null)
-  const [loadingMessage, setLoadingMessage] = useState("Initializing...")
-
   // Use ref instead of state to prevent re-renders
   const hasRunRef = useRef(false)
   const isRunningRef = useRef(false)
@@ -55,6 +50,30 @@ export function usePageDataPreloader(
   const { user, initialized: authInitialized } = useAuthStore()
   const { fetchIntegrations } = useIntegrationStore()
   const { fetchOrganizations } = useOrganizationStore()
+
+  // Check if we have cached data IMMEDIATELY to avoid flash of loading screen
+  const hasCachedData = useCallback(() => {
+    const workflowStore = useWorkflowStore.getState()
+    const integrationStore = useIntegrationStore.getState()
+    const now = Date.now()
+    const CACHE_THRESHOLD = 30000
+
+    const hasWorkflows = options.skipWorkflows ||
+      !["workflows", "templates", "analytics"].includes(pageType) ||
+      (workflowStore.workflows && workflowStore.workflows.length > 0) ||
+      (workflowStore.lastFetchTime && (now - workflowStore.lastFetchTime) < CACHE_THRESHOLD)
+
+    const hasIntegrations = options.skipIntegrations ||
+      (integrationStore.lastFetchTime && (now - integrationStore.lastFetchTime) < CACHE_THRESHOLD)
+
+    return hasWorkflows && hasIntegrations
+  }, [pageType, options.skipWorkflows, options.skipIntegrations])
+
+  // Initialize state based on cache - prevents loading screen flash
+  const [isLoading, setIsLoading] = useState(() => !hasCachedData())
+  const [isReady, setIsReady] = useState(() => hasCachedData())
+  const [error, setError] = useState<Error | null>(null)
+  const [loadingMessage, setLoadingMessage] = useState("Initializing...")
 
   // Helper to check if data is fresh in store
   const shouldSkipLoad = useCallback((loaderName: string): boolean => {
@@ -71,8 +90,14 @@ export function usePageDataPreloader(
 
     if (loaderName === 'workflows') {
       const workflowStore = useWorkflowStore.getState()
+      // Skip if we have fresh data OR if we have workflows in the store already
       if (workflowStore.lastFetchTime && (now - workflowStore.lastFetchTime) < CACHE_THRESHOLD) {
         logger.debug('usePageDataPreloader', 'Skipping workflows load - data is fresh')
+        return true
+      }
+      // Also skip if we have workflows in the store (user just came from builder)
+      if (workflowStore.workflows && workflowStore.workflows.length > 0) {
+        logger.debug('usePageDataPreloader', 'Skipping workflows load - workflows already in store')
         return true
       }
     }
@@ -91,20 +116,20 @@ export function usePageDataPreloader(
       return
     }
 
-    isRunningRef.current = true
-
-    // Check if we have fresh cached data - if so, show page immediately!
+    // CRITICAL: Check cache IMMEDIATELY before setting isRunningRef
+    // This prevents the loading screen from showing when we have cached data
     const hasWorkflowCache = options.skipWorkflows || !["workflows", "templates", "analytics"].includes(pageType) || shouldSkipLoad('workflows')
     const hasIntegrationCache = options.skipIntegrations || shouldSkipLoad('integrations')
 
     if (hasWorkflowCache && hasIntegrationCache) {
       logger.info('usePageDataPreloader', `All data cached for ${pageType} - showing page immediately!`)
       hasRunRef.current = true
-      isRunningRef.current = false
       setIsReady(true)
       setIsLoading(false)
       return
     }
+
+    isRunningRef.current = true
 
     setIsLoading(true)
     setError(null)
@@ -220,8 +245,8 @@ export function usePageDataPreloader(
         logger.info('usePageDataPreloader', `Parallel loading complete: ${successes.length} succeeded, ${failures.length} failed`)
 
         setLoadingMessage("Finalizing...")
-        // Small delay to ensure all state updates are processed
-        await new Promise(resolve => setTimeout(resolve, 150))
+        // REMOVED: Artificial 150ms delay that was slowing down page transitions
+        // State updates are processed synchronously, no delay needed
 
         // All loaders succeeded (or failed gracefully)!
         success = true
@@ -267,11 +292,14 @@ export function usePageDataPreloader(
   ])
 
   useEffect(() => {
-    // Only run once when auth is ready
-    if (authInitialized && user && !hasRunRef.current && !isRunningRef.current) {
+    // Only run once when auth is ready AND we don't have cached data
+    if (authInitialized && user && !hasRunRef.current && !isRunningRef.current && !isReady) {
       preloadData()
+    } else if (isReady && !hasRunRef.current) {
+      // Mark as run if we started with cached data
+      hasRunRef.current = true
     }
-  }, [authInitialized, user, preloadData])
+  }, [authInitialized, user, preloadData, isReady])
 
   return {
     isLoading,

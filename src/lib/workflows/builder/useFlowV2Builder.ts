@@ -332,7 +332,18 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       let edges = flowToReactFlowEdges(flow)
 
       // Zapier-style placeholder nodes: If workflow is empty, add trigger + action placeholders
+      // If workflow has only a trigger, add just the action placeholder
       // Note: onConfigure handler will be added by WorkflowBuilderV2 when it enriches nodes
+      console.log('🔍 [updateReactFlowGraph] flow.nodes.length:', flow.nodes.length)
+      if (flow.nodes.length > 0) {
+        console.log('🔍 [updateReactFlowGraph] First node:', {
+          id: flow.nodes[0].id,
+          type: flow.nodes[0].type,
+          metadata: flow.nodes[0].metadata,
+          isTrigger: flow.nodes[0].metadata?.isTrigger
+        })
+      }
+
       if (flow.nodes.length === 0) {
         // Calculate center position based on viewport
         // Account for agent panel if it's open (default is open on first load)
@@ -383,6 +394,40 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
             },
           },
         ] as ReactFlowEdge[]
+      } else if (flow.nodes.length === 1 && flow.nodes[0].metadata?.isTrigger) {
+        // If we have only a trigger node, add an action placeholder after it
+        const triggerNode = graphNodes[0]
+        if (triggerNode) {
+          const actionPlaceholder: ReactFlowNode = {
+            id: 'action-placeholder',
+            type: 'action_placeholder',
+            position: {
+              x: triggerNode.position.x,
+              y: triggerNode.position.y + 180 // 180px vertical spacing
+            },
+            data: {
+              type: 'action_placeholder',
+              isPlaceholder: true,
+              title: 'Action',
+              // onConfigure will be added by FlowV2BuilderContent via enrichedNodes
+            },
+          }
+
+          graphNodes.push(actionPlaceholder)
+
+          // Add edge from trigger to action placeholder
+          edges.push({
+            id: `${triggerNode.id}-action-placeholder`,
+            source: triggerNode.id,
+            target: 'action-placeholder',
+            sourceHandle: 'source',
+            targetHandle: 'target',
+            type: 'custom',
+            style: {
+              stroke: '#d0d6e0',
+            },
+          } as ReactFlowEdge)
+        }
       }
 
       setNodes(graphNodes)
