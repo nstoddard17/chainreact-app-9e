@@ -75,12 +75,12 @@ export function TeamsPublicView() {
   useEffect(() => {
     if (user && !hasFetchedRef.current) {
       hasFetchedRef.current = true
-      fetchUserTeams()
-      fetchInvitations()
+      fetchTeamsOverview()
     }
   }, [user])
 
-  const fetchUserTeams = async () => {
+  // Combined fetch for teams and invitations in ONE API call (performance optimization)
+  const fetchTeamsOverview = async () => {
     setLoading(true)
     const MAX_RETRIES = 2
     const INITIAL_TIMEOUT = 8000
@@ -90,22 +90,21 @@ export function TeamsPublicView() {
       const isRetry = attempt > 0
       const timeoutMs = INITIAL_TIMEOUT + (attempt * 2000) // Increase timeout on retries: 8s, 10s, 12s
       const startTime = Date.now()
-      const requestId = logApiCall('GET', '/api/teams/my-teams')
+      const requestId = logApiCall('GET', '/api/teams/overview')
 
       try {
         if (isRetry) {
           logEvent('info', 'Teams', `Retry attempt ${attempt}/${MAX_RETRIES} (timeout: ${timeoutMs}ms)`)
-          // Small delay before retry (exponential backoff)
-          await new Promise(resolve => setTimeout(resolve, attempt * 1000)) // 1s, 2s
+          await new Promise(resolve => setTimeout(resolve, attempt * 1000))
         } else {
-          logEvent('info', 'Teams', 'Fetching user teams...')
+          logEvent('info', 'Teams', 'Fetching teams overview (teams + invitations)...')
         }
 
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
 
         try {
-          const response = await fetch('/api/teams/my-teams', { signal: controller.signal })
+          const response = await fetch('/api/teams/overview', { signal: controller.signal })
           const duration = Date.now() - startTime
 
           logEvent('info', 'Teams', `Response status: ${response.status}`, {
@@ -118,28 +117,30 @@ export function TeamsPublicView() {
             logApiError(requestId, new Error(errorData.error || 'Failed to fetch teams'), duration)
             logEvent('error', 'Teams', 'API error response', errorData)
 
-            // Don't retry on 4xx errors (client errors)
             if (response.status >= 400 && response.status < 500 && response.status !== 408) {
               throw new Error(errorData.error || `Failed to fetch teams (${response.status})`)
             }
 
-            // Retry on 5xx (server errors) or 408 (timeout)
             lastError = new Error(errorData.error || `Server error (${response.status})`)
             throw lastError
           }
 
           const data = await response.json()
-          logApiResponse(requestId, response.status, { count: data.teams?.length || 0 }, duration)
+          logApiResponse(requestId, response.status, {
+            teamsCount: data.teams?.length || 0,
+            invitationsCount: data.invitations?.length || 0
+          }, duration)
 
           if (isRetry) {
-            logEvent('info', 'Teams', `✓ Retry successful! Fetched ${data.teams?.length || 0} teams on attempt ${attempt + 1}`)
+            logEvent('info', 'Teams', `✓ Retry successful! Fetched ${data.teams?.length || 0} teams and ${data.invitations?.length || 0} invitations on attempt ${attempt + 1}`)
           } else {
-            logEvent('info', 'Teams', `Successfully fetched ${data.teams?.length || 0} teams`)
+            logEvent('info', 'Teams', `Successfully fetched ${data.teams?.length || 0} teams and ${data.invitations?.length || 0} invitations`)
           }
 
           setTeams(data.teams || [])
+          setInvitations(data.invitations || [])
           setLoading(false)
-          return // Success! Exit the retry loop
+          return // Success!
 
         } catch (error: any) {
           const duration = Date.now() - startTime
@@ -158,16 +159,13 @@ export function TeamsPublicView() {
             lastError = error
           }
 
-          // If this was the last attempt, throw
           if (attempt === MAX_RETRIES) {
             throw lastError
           }
-          // Otherwise, continue to next retry
         } finally {
           clearTimeout(timeoutId)
         }
       } catch (error: any) {
-        // Only show error on final attempt
         if (attempt === MAX_RETRIES) {
           logEvent('error', 'Teams', `All ${MAX_RETRIES + 1} attempts failed`, {
             message: error?.message,
@@ -175,15 +173,22 @@ export function TeamsPublicView() {
           })
           toast.error(error.message || 'Failed to load teams after multiple attempts')
           setTeams([])
+          setInvitations([])
           setLoading(false)
           return
         }
-        // Continue to next retry
       }
     }
   }
 
+  // Keep old function for backward compatibility (now calls overview endpoint)
+  const fetchUserTeams = async () => {
+    await fetchTeamsOverview()
+  }
+
   const fetchInvitations = async () => {
+    // No-op - invitations are now fetched with teams in fetchTeamsOverview()
+    // Kept for backward compatibility with callbacks
     try {
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 8000) // 8 second timeout
@@ -232,9 +237,8 @@ export function TeamsPublicView() {
       const { team } = await response.json()
       toast.success(`Welcome to ${team.name}!`)
 
-      // Refresh both lists
-      fetchUserTeams()
-      fetchInvitations()
+      // Refresh overview (teams + invitations)
+      fetchTeamsOverview()
     } catch (error) {
       logger.error('Error accepting invitation:', error)
       toast.error(error instanceof Error ? error.message : 'Failed to accept invitation')
@@ -261,8 +265,8 @@ export function TeamsPublicView() {
 
       toast.success('Invitation declined')
 
-      // Refresh invitations list
-      fetchInvitations()
+      // Refresh overview (teams + invitations)
+      fetchTeamsOverview()
     } catch (error) {
       logger.error('Error declining invitation:', error)
       toast.error(error instanceof Error ? error.message : 'Failed to decline invitation')

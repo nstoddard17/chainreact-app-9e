@@ -2,7 +2,7 @@
 
 import React, { useMemo } from "react"
 import { Plus } from "lucide-react"
-import { EdgeLabelRenderer } from "@xyflow/react"
+import { EdgeLabelRenderer, Panel } from "@xyflow/react"
 
 interface PhantomEdgeOverlayProps {
   nodes: any[]
@@ -45,11 +45,13 @@ export function PhantomEdgeOverlay({ nodes, onAddNode }: PhantomEdgeOverlayProps
   }
 
   // Calculate line positioning
-  const nodeHeight = 140 // Approximate node height for placeholder nodes (they're taller ~120-140px)
-  const lineLength = 100 // Length of the phantom edge (matching typical edge length)
+  // Placeholder nodes are approximately 120px tall (measured from your screenshot)
+  const nodeHeight = 120
+  // Match the vertical distance between nodes (same as the spacing between trigger and action)
+  const lineLength = 120
   const lineStartY = lastNodeInfo.y + nodeHeight
   const lineEndY = lineStartY + lineLength
-  const buttonY = lineEndY
+  const buttonY = (lineStartY + lineEndY) / 2 // Position button at midpoint of line
 
   // Calculate center X - nodes are positioned from their top-left corner
   // Placeholder nodes are 360px wide, so center is at x + 180
@@ -67,31 +69,32 @@ export function PhantomEdgeOverlay({ nodes, onAddNode }: PhantomEdgeOverlayProps
 
   return (
     <>
-      {/* SVG for the dashed line - positioned in flow coordinates */}
-      <svg
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          pointerEvents: 'none',
-          overflow: 'visible',
-          zIndex: 1,
-        }}
-      >
-        {/* Dashed line extending from last node - matches FlowEdge style */}
-        <line
-          x1={centerX}
-          y1={lineStartY}
-          x2={centerX}
-          y2={lineEndY}
-          stroke="#d0d6e0"
-          strokeWidth="2"
-          strokeDasharray="5,5"
-          strokeLinecap="round"
-        />
-      </svg>
+      {/* SVG for the dashed line - positioned in flow coordinates using Panel */}
+      <Panel position="top-left">
+        <svg
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            pointerEvents: 'none',
+            overflow: 'visible',
+          }}
+        >
+          {/* Dashed line extending from last node - matches FlowEdge style */}
+          <line
+            x1={centerX}
+            y1={lineStartY}
+            x2={centerX}
+            y2={lineEndY}
+            stroke="#d0d6e0"
+            strokeWidth="1.5"
+            strokeDasharray="5,5"
+            strokeLinecap="round"
+          />
+        </svg>
+      </Panel>
 
       {/* Plus button using EdgeLabelRenderer for proper positioning (same as FlowEdge) */}
       <EdgeLabelRenderer>
