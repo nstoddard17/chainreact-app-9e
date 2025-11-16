@@ -645,6 +645,7 @@ export function AirtableConfiguration({
           const visibilityByFieldId: Record<string, string> = {};
 
           if (Array.isArray(metadata.views)) {
+            logger.debug(`📋 [Visibility] Processing ${metadata.views.length} views for visibility info`);
             metadata.views.forEach((view: any) => {
               const visibleFieldIdsFromOrder: string[] =
                 view?.fieldOrder?.visibleFieldIds ||
@@ -659,6 +660,8 @@ export function AirtableConfiguration({
                 view?.fieldIds ||
                 view?.field_ids ||
                 [];
+
+              logger.debug(`📋 [Visibility] View "${view.name || view.id}": ${visibleFieldIdsFromOrder.length} visible fields, ${allFieldIdsFromOrder.length} total fields`);
 
               const visibleFieldSet = new Set<string>();
               visibleFieldIdsFromOrder?.forEach((fieldId: string) => {
@@ -716,6 +719,15 @@ export function AirtableConfiguration({
               }
             });
           }
+
+          // Log the final visibility map with field names for debugging
+          const visibilityDebug = metadata.fields.map((f: any) => ({
+            name: f.name,
+            type: f.type,
+            id: f.id,
+            visibility: visibilityByFieldId[f.id] || 'unknown'
+          }));
+          logger.debug(`📋 [Visibility] Final visibility map:`, visibilityDebug);
 
           const newSchema = {
             table: { name: tableName, id: metadata.id },
@@ -1003,7 +1015,12 @@ export function AirtableConfiguration({
             const isHidden = visibilitySetting.toLowerCase() !== 'visible' &&
                            visibilitySetting.toLowerCase() !== 'shown';
             if (isHidden) {
-              logger.debug('🚫 [AirtableConfig] Excluding hidden field for create action:', field.name, visibilitySetting);
+              logger.debug('🚫 [AirtableConfig] Excluding hidden field for create action:', {
+                fieldName: field.name,
+                fieldType: field.type,
+                fieldId: field.id,
+                visibilitySetting
+              });
               return false;
             }
           }
@@ -1859,6 +1876,13 @@ export function AirtableConfiguration({
     // First, set the actual field value
     setValue(fieldName, value);
 
+    // Clear dependent fields when tableName changes
+    if (fieldName === 'tableName' && isAddAttachment) {
+      // Clear attachment field when table changes
+      setValue('attachmentField', '');
+      logger.debug('[AirtableConfig] Cleared attachmentField due to table change');
+    }
+
     // Auto-populate filename and contentType fields when file is uploaded or URL is provided
     if (isAddAttachment) {
       if (fieldName === 'uploadedFile' && value) {
@@ -2282,6 +2306,19 @@ export function AirtableConfiguration({
 
   // Clear auto-loaded fields and invalidate dynamic field cache when table changes
   useEffect(() => {
+    // Skip on initial mount
+    if (!prevTableName.current) {
+      prevTableName.current = values.tableName;
+      return;
+    }
+
+    // Only run if table actually changed
+    if (prevTableName.current === values.tableName) {
+      return;
+    }
+
+    prevTableName.current = values.tableName;
+
     setAutoLoadedFields(new Set());
 
     // Invalidate cached options for dynamic fields when table changes
@@ -2290,13 +2327,16 @@ export function AirtableConfiguration({
       const { useConfigCacheStore } = require('@/stores/configCacheStore');
       const cacheStore = useConfigCacheStore.getState();
 
-      // Invalidate only airtable_field_* options, keep baseId and tableName cache
+      // Invalidate airtable_field_* options and attachmentField, keep baseId and tableName cache
       Object.keys(cacheStore.cache).forEach(key => {
-        if (key.includes('airtable_field_')) {
+        if (key.includes('airtable_field_') || key.includes('attachmentField')) {
           cacheStore.invalidate(key);
         }
       });
+
+      logger.debug('[AirtableConfig] Table changed, invalidated cache for attachment fields');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [values.tableName]);
 
   // Auto-load config schema fields with autoLoad: true when they become visible
@@ -3367,6 +3407,7 @@ export function AirtableConfiguration({
                         loading={loadingRecords}
                         selectedRecord={selectedRecord}
                         tableName={values.tableName}
+                        tableSchema={airtableTableSchema}
                         cachedRecords={initialConfig?._cached_records}
                         onSelectRecord={(record) => {
                           setSelectedRecord(record);
@@ -3380,8 +3421,15 @@ export function AirtableConfiguration({
                     {(() => {
                       const attachmentFieldOptions = mergedDynamicOptions['attachmentField'] || [];
                       const hasAttachmentFields = attachmentFieldOptions.length > 0;
+                      const isLoadingAttachmentFields = isFieldLoading('attachmentField');
 
-                      if (!hasAttachmentFields && !showCreateAttachmentField) {
+                      // Only show "no attachment fields" message if:
+                      // 1. We've finished loading (not currently loading)
+                      // 2. We have no attachment fields
+                      // 3. User hasn't clicked to create a field yet
+                      const shouldShowNoFieldsWarning = !isLoadingAttachmentFields && !hasAttachmentFields && !showCreateAttachmentField;
+
+                      if (shouldShowNoFieldsWarning) {
                         return (
                           <div className="border border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4">
                             <div className="flex items-start gap-3">
@@ -3526,6 +3574,7 @@ export function AirtableConfiguration({
                 loading={loadingRecords}
                 selectedRecord={selectedRecord}
                 tableName={values.tableName}
+                tableSchema={airtableTableSchema}
                 cachedRecords={initialConfig?._cached_records}
                 onSelectRecord={(record) => {
                   setSelectedRecord(record);
@@ -3833,6 +3882,7 @@ export function AirtableConfiguration({
                   selectedRecords={selectedMultipleRecords}
                   multiSelect={true}
                   tableName={values.tableName}
+                  tableSchema={airtableTableSchema}
                   cachedRecords={initialConfig?._cached_records}
                   onSelectRecords={(records) => {
                     setSelectedMultipleRecords(records);
@@ -3869,6 +3919,7 @@ export function AirtableConfiguration({
                     loading={loadingRecords}
                     selectedRecord={selectedDuplicateRecord}
                     tableName={values.tableName}
+                    tableSchema={airtableTableSchema}
                     cachedRecords={initialConfig?._cached_records}
                     onSelectRecord={handleDuplicateRecordSelection}
                     onRefresh={() => loadAirtableRecords(values.baseId, values.tableName)}

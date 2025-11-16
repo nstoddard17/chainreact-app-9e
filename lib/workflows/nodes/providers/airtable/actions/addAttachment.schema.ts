@@ -53,6 +53,7 @@ export const addAttachmentActionSchema: NodeComponent = {
       dynamic: "airtable_attachment_fields",
       required: true,
       dependsOn: "tableName",
+      loadOnChange: true,
       placeholder: "Select attachment field...",
       description: "The attachment-type field to add the file to"
     },

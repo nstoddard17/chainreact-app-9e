@@ -17,6 +17,7 @@ interface AirtableRecordsTableProps {
   multiSelect?: boolean; // Enable multi-select mode
   onRecordSelected?: () => void; // Callback after selection animation completes
   cachedRecords?: any[]; // Cached records for instant display on reopen
+  tableSchema?: any; // Table schema with field definitions
 }
 
 export function AirtableRecordsTable({
@@ -31,7 +32,8 @@ export function AirtableRecordsTable({
   tableName = '',
   multiSelect = false,
   onRecordSelected,
-  cachedRecords
+  cachedRecords,
+  tableSchema
 }: AirtableRecordsTableProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [recordsPerPage, setRecordsPerPage] = useState(20);
@@ -72,11 +74,24 @@ export function AirtableRecordsTable({
   // Determine if we should show the "Show All" button
   const shouldShowToggle = filteredRecords.length > recordsPerPage && filteredRecords.length <= 50;
 
-  // Get all unique field names from ALL records (not just displayed ones)
+  // Get all unique field names from schema first (if available), then from records
+  // This ensures we show ALL fields, even if they're empty in all displayed records
   const allFields = new Set<string>();
+
+  // First, add all fields from schema (if available)
+  if (tableSchema?.fields && Array.isArray(tableSchema.fields)) {
+    tableSchema.fields.forEach((field: any) => {
+      if (field.name) {
+        allFields.add(field.name);
+      }
+    });
+  }
+
+  // Then add any additional fields from actual records (in case schema is incomplete)
   displayedRecords.forEach(record => {
     Object.keys(record.fields || {}).forEach(field => allFields.add(field));
   });
+
   const fieldNames = Array.from(allFields);
 
   // Handle record selection
