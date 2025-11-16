@@ -8,6 +8,8 @@ import { FlowSchema, type Flow, type FlowInterface, type Node as FlowNode, type 
 import { addNodeEdit, oldConnectToEdge } from "../compat/v2Adapter"
 import { ALL_NODE_COMPONENTS } from "../../../../lib/workflows/nodes"
 
+const LINEAR_STACK_X = 400
+
 export interface UseFlowV2BuilderOptions {
   initialPrompt?: string
   autoOpenAgentPanel?: boolean
@@ -254,6 +256,37 @@ function flowToReactFlowEdges(flow: Flow): ReactFlowEdge[] {
   }))
 }
 
+const ALIGNMENT_LOG_PREFIX = "[WorkflowAlign]"
+
+function debugLog(label: string, payload?: any) {
+  if (typeof window === "undefined") return
+  if (payload === undefined) {
+    console.log(`${ALIGNMENT_LOG_PREFIX} ${label}`)
+    return
+  }
+  console.log(`${ALIGNMENT_LOG_PREFIX} ${label}: ${JSON.stringify(payload, null, 2)}`)
+}
+
+function debugLogNodes(label: string, nodes: ReactFlowNode[]) {
+  if (typeof window === "undefined") return
+  const payload = nodes.map(node => ({
+    id: node.id,
+    type: (node.data as any)?.type,
+    position: node.position,
+  }))
+  debugLog(label, payload)
+}
+
+function shouldAlignToLinearColumn(node: ReactFlowNode): boolean {
+  const dataType = (node.data as any)?.type
+  if (typeof node.id === "string" && node.id.startsWith("temp-")) return false
+  if (node.type === "addAction" || node.type === "insertAction" || node.type === "chainPlaceholder") {
+    return false
+  }
+  if (dataType === "chain_placeholder") return false
+  return true
+}
+
 export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptions): UseFlowV2BuilderResult | null {
   const builder = useWorkflowBuilder()
 
@@ -320,6 +353,11 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
 
         if (placeholder) {
           placeholder.consumed = true
+          debugLog("Placeholder consumed", {
+            nodeId: node.id,
+            matchedType: (node.data as any)?.type,
+            placeholderPosition: placeholder.position,
+          })
           return {
             ...node,
             position: placeholder.position ?? node.position,
@@ -327,6 +365,51 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
         }
 
         return node
+      })
+
+      if (typeof window !== "undefined") {
+        console.clear()
+      }
+      debugLog("updateReactFlowGraph", {
+        nodesReceived: flow.nodes.length,
+        placeholdersReused: placeholderQueue.filter(entry => entry.consumed).length,
+      })
+      debugLogNodes("Before alignment", graphNodes)
+
+      // Normalize horizontal alignment so nodes stay in a single vertical stack.
+      graphNodes = graphNodes.map(node => {
+        if (!shouldAlignToLinearColumn(node)) {
+          return node
+        }
+
+        return {
+          ...node,
+          position: {
+            ...node.position,
+            x: LINEAR_STACK_X,
+          },
+        }
+      })
+      debugLogNodes("After alignment", graphNodes)
+      debugLog("Alignment snapshot", {
+        linearX: LINEAR_STACK_X,
+        nodePositions: graphNodes.map(node => ({
+          id: node.id,
+          type: (node.data as any)?.type,
+          x: node.position.x,
+          y: node.position.y,
+        })),
+      })
+      const placeholderId = graphNodes.find(node => (node.data as any)?.isTrigger)?.id
+      debugLog("Flow alignment debug", {
+        placeholderId,
+        targetX: LINEAR_STACK_X,
+        nodes: graphNodes.map(node => ({
+          id: node.id,
+          type: (node.data as any)?.type,
+          x: node.position.x,
+          y: node.position.y,
+        })),
       })
 
       let edges = flowToReactFlowEdges(flow)

@@ -117,6 +117,10 @@ export function ActionPlaceholderNode({ id, data, selected }: ActionPlaceholderN
         position={Position.Top}
         className="!bg-blue-500 !w-3 !h-3 !border-2 !border-white dark:!border-gray-900"
         id="target"
+        style={{
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+        }}
       />
 
       {/* Header with icon and title */}
@@ -197,6 +201,10 @@ export function ActionPlaceholderNode({ id, data, selected }: ActionPlaceholderN
         position={Position.Bottom}
         className="!bg-blue-500 !w-3 !h-3 !border-2 !border-white dark:!border-gray-900"
         id="source"
+        style={{
+          left: "50%",
+          transform: "translate(-50%, 50%)",
+        }}
       />
     </div>
   )
