@@ -94,7 +94,7 @@ export function ActionPlaceholderNode({ id, data, selected }: ActionPlaceholderN
       className={`
         relative bg-white dark:bg-gray-900
         border-2 border-dashed border-gray-300 dark:border-gray-600
-        rounded-lg p-5 w-[360px]
+        rounded-lg p-3 w-[360px]
         shadow-sm hover:shadow-md hover:border-gray-400 dark:hover:border-gray-500
         transition-all duration-200
         cursor-pointer
