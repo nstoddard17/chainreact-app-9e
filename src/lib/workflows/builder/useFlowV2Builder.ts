@@ -509,6 +509,32 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
             style: {
               stroke: '#d0d6e0',
             },
+      } as ReactFlowEdge)
+        }
+      }
+
+      if (edges.length === 0 && graphNodes.length >= 2) {
+        const sortedLinearNodes = [...graphNodes]
+          .filter((node) => node.type !== 'action_placeholder' && node.type !== 'trigger_placeholder')
+          .sort((a, b) => a.position.y - b.position.y)
+
+        for (let i = 0; i < sortedLinearNodes.length - 1; i++) {
+          const current = sortedLinearNodes[i]
+          const next = sortedLinearNodes[i + 1]
+
+          edges.push({
+            id: `${current.id}-${next.id}-synthetic`,
+            source: current.id,
+            target: next.id,
+            sourceHandle: 'source',
+            targetHandle: 'target',
+            type: 'custom',
+            style: {
+              stroke: '#d0d6e0',
+            },
+            data: {
+              synthetic: true,
+            },
           } as ReactFlowEdge)
         }
       }
