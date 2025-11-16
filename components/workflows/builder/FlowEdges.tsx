@@ -162,13 +162,13 @@ export function FlowEdge({
 
     const sourceAnchor =
       sourceBase && typeof sourceBase.y === 'number'
-        ? sourceBase.y + sourceHeight - HANDLE_OFFSET
+        ? sourceBase.y + sourceHeight
         : sourceY + HANDLE_OFFSET
 
     const targetAnchor =
       targetBase && typeof targetBase.y === 'number'
-        ? targetBase.y + HANDLE_OFFSET
-        : targetY - HANDLE_OFFSET
+        ? targetBase.y + HANDLE_OFFSET / 2
+        : targetY - HANDLE_OFFSET / 2
 
     const { nodeGapY } = getCanvasDimensions()
     const visibleGap = Math.max((Number.isFinite(nodeGapY) ? nodeGapY : LAYOUT.nodeGapY) - HANDLE_OFFSET * 2, 0)
