@@ -91,32 +91,48 @@ export function FlowEdge({
   const sourceNode = useStore((state) => state.nodeInternals?.get(source) ?? null, (a, b) => a?.id === b?.id)
   const targetNode = useStore((state) => state.nodeInternals?.get(target) ?? null, (a, b) => a?.id === b?.id)
 
-  const ensureNodeWidth = (node: any) => {
-    const measured = Number(node?.width)
-    if (Number.isFinite(measured) && measured > 0) {
-      return measured
-    }
+const DEFAULT_COLUMN_X = 400
 
-    const type = (node?.data as any)?.type
-    if (type === 'trigger_placeholder' || type === 'action_placeholder') {
-      return 360
+  const getNodeWidth = (node: any) => {
+    if (!node) return 360
+    const widths = [node.width, node.measured?.width, node.__rf?.width, (node.data as any)?.dimensions?.width]
+    for (const value of widths) {
+      const numeric = Number(value)
+      if (Number.isFinite(numeric) && numeric > 0) return numeric
     }
+    const type = (node.data as any)?.type
+    if (type === 'trigger_placeholder' || type === 'action_placeholder') return 360
     return 360
   }
 
-  const getAbsolutePosition = (node: any) => node?.positionAbsolute ?? node?.position ?? { x: 0, y: 0 }
+  const getStoredPosition = (node: any) => node?.position ?? node?.positionAbsolute ?? null
   const correctedSource = { x: sourceX, y: sourceY }
   const correctedTarget = { x: targetX, y: targetY }
   const isVerticalEdge = sourcePosition === Position.Bottom && targetPosition === Position.Top
 
   if (isVerticalEdge) {
-    const sourceBase = getAbsolutePosition(sourceNode)
-    const targetBase = getAbsolutePosition(targetNode)
-    const sourceWidth = ensureNodeWidth(sourceNode)
-    const targetWidth = ensureNodeWidth(targetNode)
+    const sourceBase = getStoredPosition(sourceNode)
+    const targetBase = getStoredPosition(targetNode)
 
-    correctedSource.x = sourceBase.x + sourceWidth / 2
-    correctedTarget.x = targetBase.x + targetWidth / 2
+    if (sourceBase) {
+      const fallbackX = (typeof sourceBase.x === 'number' ? sourceBase.x : DEFAULT_COLUMN_X)
+      correctedSource.x = fallbackX + getNodeWidth(sourceNode) / 2
+    }
+
+    if (targetBase) {
+      const fallbackX = (typeof targetBase.x === 'number' ? targetBase.x : DEFAULT_COLUMN_X)
+      correctedTarget.x = fallbackX + getNodeWidth(targetNode) / 2
+    }
+
+    if (!sourceBase && !targetBase) {
+      const fallbackCenter = DEFAULT_COLUMN_X + getNodeWidth(sourceNode ?? targetNode) / 2
+      correctedSource.x = fallbackCenter
+      correctedTarget.x = fallbackCenter
+    } else if (!sourceBase && targetBase) {
+      correctedSource.x = correctedTarget.x
+    } else if (!targetBase && sourceBase) {
+      correctedTarget.x = correctedSource.x
+    }
   }
 
   const explicitColor = data?.edgeColor || style?.stroke
