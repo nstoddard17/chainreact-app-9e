@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { ProfessionalSearch } from "@/components/ui/professional-search"
@@ -40,8 +40,14 @@ export function LibraryContent() {
 
   const categories = ["all", "AI Automation", "Customer Service", "Sales & CRM", "Social Media", "Productivity"]
 
+  // Prevent React 18 Strict Mode double-fetch
+  const hasFetchedRef = useRef(false)
+
   useEffect(() => {
-    fetchTemplates()
+    if (!hasFetchedRef.current) {
+      hasFetchedRef.current = true
+      fetchTemplates()
+    }
   }, [])
 
   const fetchTemplates = async () => {

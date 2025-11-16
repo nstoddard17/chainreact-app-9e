@@ -181,8 +181,6 @@ function WorkflowsContent() {
   } = useWorkflowCreation()
 
   // Version update: No dropdowns, tabs properly aligned - v4
-  // Prevent React 18 Strict Mode double-fetch
-  const hasFetchedRef = useRef(false)
   const statsLastFetchRef = useRef<number>(0)
   const foldersLastFetchRef = useRef<number>(0)
   const CACHE_DURATION = 30000 // 30 seconds cache
@@ -191,25 +189,9 @@ function WorkflowsContent() {
     console.log('🎯 WorkflowsContent mounted - Version: No dropdowns, tabs properly aligned - v4')
   }, [])
 
-  useEffect(() => {
-    // Always try to fetch when user is present - the store handles caching
-    // Use ref to prevent React 18 Strict Mode from double-fetching
-    logger.debug('[WorkflowsPageContent] useEffect triggered', {
-      hasUser: !!user,
-      hasFetched: hasFetchedRef.current,
-      willFetch: !!(user && !hasFetchedRef.current)
-    })
-
-    if (user && !hasFetchedRef.current) {
-      hasFetchedRef.current = true
-      logger.info('[WorkflowsPageContent] Fetching workflows on mount')
-      fetchWorkflows().catch((error) => {
-        logger.error('[WorkflowsPageContent] Failed to fetch workflows on mount', error)
-      })
-    } else if (!user) {
-      logger.debug('[WorkflowsPageContent] User not ready yet, skipping fetch')
-    }
-  }, [user, fetchWorkflows])
+  // REMOVED: Duplicate fetchWorkflows call on mount
+  // PagePreloader already fetches workflows before this component renders
+  // This was causing unnecessary duplicate API calls and slowing down page load
 
   const [activeTab, setActiveTab] = useState<ViewTab>('workflows')
   const [workflowsViewMode, setWorkflowsViewMode] = useState<ViewMode>('list')

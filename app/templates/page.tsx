@@ -13,6 +13,7 @@ export default async function LibraryPage() {
       pageType="templates"
       loadingTitle="Loading Templates"
       loadingDescription="Loading workflow templates and your connected apps..."
+      skipWorkflows={true}
     >
       <NewAppLayout title="Template Library" subtitle="Pre-built workflows ready to use">
         <LibraryContent />

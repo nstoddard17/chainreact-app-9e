@@ -79,23 +79,22 @@ export function SettingsContent() {
 
   useEffect(() => {
     setMounted(true)
-    check2FAStatus()
-    // Only fetch workspace if user is viewing workspace section
-    if (sectionParam === 'workspace') {
-      fetchWorkspace()
-    } else {
-      // Set workspace loading to false if not viewing workspace section
-      setWorkspaceLoading(false)
-    }
+    // Defer data loading - only load when section is active
+    // Don't load anything on mount to improve initial page load performance
+    setWorkspaceLoading(false)
+    setTwoFactorLoading(false)
   }, [])
 
   // Update active section when URL parameter changes
   useEffect(() => {
     if (sectionParam && ['profile', 'workspace', 'billing', 'notifications', 'security', 'appearance'].includes(sectionParam)) {
       setActiveSection(sectionParam)
-      // Fetch workspace data when user navigates to workspace section
-      if (sectionParam === 'workspace') {
+      // Lazy load data when user navigates to specific sections
+      if (sectionParam === 'workspace' && !workspace) {
         fetchWorkspace()
+      }
+      if (sectionParam === 'security' && !twoFactorLoading && twoFactorEnabled === false) {
+        check2FAStatus()
       }
     }
   }, [sectionParam])
@@ -459,6 +458,13 @@ export function SettingsContent() {
                 onClick={() => {
                   setActiveSection(item.id)
                   router.push(`/settings?section=${item.id}`)
+                  // Lazy load data when user clicks on specific sections
+                  if (item.id === 'workspace' && !workspace) {
+                    fetchWorkspace()
+                  }
+                  if (item.id === 'security' && !twoFactorLoading && twoFactorEnabled === false) {
+                    check2FAStatus()
+                  }
                 }}
                 className={cn(
                   "w-full text-left px-4 py-3 rounded-xl transition-all duration-200 group",
