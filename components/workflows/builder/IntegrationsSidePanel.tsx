@@ -150,63 +150,21 @@ export function IntegrationsSidePanel({ isOpen, onClose, onNodeSelect, mode = 'a
     { id: 'data' as Category, label: 'Data', icon: DatabaseIcon },
   ]
 
-  // Render node drag item
+  // Render node item (now clickable instead of draggable)
   const renderNode = (node: NodeComponent) => {
     const NodeIcon = node.icon
     const shouldUseNodeIcon = ['logic', 'ai', 'automation', 'misc', 'utility'].includes(node.providerId || '')
     const providerLogo = !shouldUseNodeIcon && node.providerId ? `/integrations/${node.providerId}.svg` : null
 
-    const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
-      e.dataTransfer.effectAllowed = 'copy'
-      e.dataTransfer.setData('application/reactflow', JSON.stringify({
-        type: 'node',
-        nodeData: node
-      }))
-
-      // Create drag preview
-      const dragElement = document.createElement('div')
-      dragElement.style.position = 'absolute'
-      dragElement.style.top = '-1000px'
-      dragElement.style.padding = '8px 16px'
-      dragElement.style.background = 'rgba(255, 255, 255, 0.95)'
-      dragElement.style.border = '2px solid #e5e7eb'
-      dragElement.style.borderRadius = '24px'
-      dragElement.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)'
-      dragElement.style.display = 'flex'
-      dragElement.style.alignItems = 'center'
-      dragElement.style.gap = '8px'
-      dragElement.style.fontSize = '14px'
-      dragElement.style.fontWeight = '500'
-      dragElement.style.color = '#1f2937'
-      dragElement.style.whiteSpace = 'nowrap'
-      dragElement.style.pointerEvents = 'none'
-
-      // Add icon
-      if (providerLogo) {
-        const iconImg = document.createElement('img')
-        iconImg.src = providerLogo
-        iconImg.style.width = '20px'
-        iconImg.style.height = '20px'
-        iconImg.style.objectFit = 'contain'
-        dragElement.appendChild(iconImg)
-      }
-
-      // Add text
-      const text = document.createElement('span')
-      text.textContent = node.title
-      dragElement.appendChild(text)
-
-      document.body.appendChild(dragElement)
-      e.dataTransfer.setDragImage(dragElement, 40, 20)
-      setTimeout(() => document.body.removeChild(dragElement), 0)
+    const handleClick = () => {
+      onNodeSelect(node)
     }
 
     return (
       <div
         key={node.type}
-        draggable
-        onDragStart={handleDragStart}
-        className="w-full flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-900 transition-colors cursor-grab active:cursor-grabbing group border border-transparent hover:border-gray-200 dark:hover:border-slate-800"
+        onClick={handleClick}
+        className="w-full flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-900 transition-colors cursor-pointer group border border-transparent hover:border-gray-200 dark:hover:border-slate-800"
       >
         {/* Icon */}
         <div className="shrink-0 w-10 h-10 rounded-lg bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-800 flex items-center justify-center p-1.5">

@@ -202,41 +202,6 @@ export function FlowV2BuilderContent({
     }
   }, [onInit])
 
-  // Handle drag over canvas
-  const handleDragOver = useCallback((event: React.DragEvent) => {
-    event.preventDefault()
-    event.dataTransfer.dropEffect = 'copy'
-  }, [])
-
-  // Handle drop on canvas
-  const handleDrop = useCallback((event: React.DragEvent) => {
-    event.preventDefault()
-
-    if (!onNodeSelect || !reactFlowInstance.current) {
-      return
-    }
-
-    try {
-      const data = event.dataTransfer.getData('application/reactflow')
-      if (!data) return
-
-      const { type, nodeData } = JSON.parse(data)
-      if (type !== 'node' || !nodeData) return
-
-      // Convert screen coordinates to flow coordinates
-      const position = reactFlowInstance.current.screenToFlowPosition({
-        x: event.clientX,
-        y: event.clientY,
-      })
-
-      // Call the node select handler with position
-      onNodeSelect({ ...nodeData, position })
-
-    } catch (error) {
-      console.error('Error handling node drop:', error)
-    }
-  }, [onNodeSelect])
-
   // Enrich nodes with multi-select delete handler, selection info, configure callback, rename callback, duplicate callback, and add note callback
   // Also make nodes non-draggable to match Zapier's linear UX
   const enrichedNodes = useMemo(() => {
@@ -305,8 +270,6 @@ export function FlowV2BuilderContent({
             edgeTypes={edgeTypes}
             onSelectionChange={handleSelectionChangeInternal}
             onInit={handleInit}
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
             deleteKeyCode={["Delete", "Backspace"]}
             fitView={
               buildState !== BuildState.BUILDING_SKELETON &&
