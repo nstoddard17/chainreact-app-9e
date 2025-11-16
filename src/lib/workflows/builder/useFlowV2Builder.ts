@@ -212,9 +212,11 @@ const NODE_COMPONENT_MAP = new Map(ALL_NODE_COMPONENTS.map((node) => [node.type,
 function flowToReactFlowNodes(flow: Flow, onDelete?: (nodeId: string) => void): ReactFlowNode[] {
   return flow.nodes.map((node, index) => {
     const metadata = (node.metadata ?? {}) as any
-    const position = metadata.position ?? {
-      x: 120 + index * 260,
-      y: 120,
+    const defaultY = 120 + index * 180
+    const rawPosition = metadata.position ?? { x: LINEAR_STACK_X, y: defaultY }
+    const position = {
+      x: LINEAR_STACK_X,
+      y: rawPosition.y ?? defaultY,
     }
 
     const catalogNode = NODE_COMPONENT_MAP.get(node.type)
