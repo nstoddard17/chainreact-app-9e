@@ -834,19 +834,19 @@ function ConfigurationForm({
       providerId: nodeInfo?.providerId,
       configSchemaLength: nodeInfo?.configSchema?.length
     };
-    console.log('🔵 [ConfigForm] loadOnMount useEffect fired', logData);
+    // console.log('🔵 [ConfigForm] loadOnMount useEffect fired', logData);
 
     // Also log to window for debugging
     if (nodeInfo?.providerId === 'hubspot') {
       window.__HUBSPOT_LOAD_DEBUG = logData;
-      console.warn('🔴 HUBSPOT CONFIG FORM LOAD EFFECT', logData);
+      // console.warn('🔴 HUBSPOT CONFIG FORM LOAD EFFECT', logData);
     }
 
     if (!nodeInfo?.configSchema || isInitialLoading) {
-      console.log('⏭️ [ConfigForm] Skipping loadOnMount - missing configSchema or still loading', {
-        hasConfigSchema: !!nodeInfo?.configSchema,
-        isInitialLoading
-      });
+      // console.log('⏭️ [ConfigForm] Skipping loadOnMount - missing configSchema or still loading', {
+      //   hasConfigSchema: !!nodeInfo?.configSchema,
+      //   isInitialLoading
+      // });
       return;
     }
 
@@ -862,13 +862,13 @@ function ConfigurationForm({
     // Use a combination of nodeId, nodeType, and currentNodeId to ensure uniqueness
     const nodeInstanceKey = `${nodeInfo?.id}-${nodeInfo?.type}-${currentNodeId}`;
 
-    console.log('🚀 [ConfigForm] Checking for loadOnMount fields...', {
-      nodeInstanceKey,
-      hasLoadedOnMount: hasLoadedOnMount.current,
-      isInitialLoading,
-      hasBoardIdValue: !!values.boardId,
-      nodeType: nodeInfo?.type
-    });
+    // console.log('🚀 [ConfigForm] Checking for loadOnMount fields...', {
+    //   nodeInstanceKey,
+    //   hasLoadedOnMount: hasLoadedOnMount.current,
+    //   isInitialLoading,
+    //   hasBoardIdValue: !!values.boardId,
+    //   nodeType: nodeInfo?.type
+    // });
 
     // Find fields that should load on mount
     const fieldsToLoad = nodeInfo.configSchema.filter((field: any) => {
@@ -881,19 +881,19 @@ function ConfigurationForm({
         // Don't check dynamicOptions or values here as it causes dependency issues
         const shouldLoad = !hasLoadedOnMount.current;
 
-        console.log(`🔄 [ConfigForm] Field ${field.name} has loadOnMount, shouldLoad: ${shouldLoad}`, {
-          fieldType: field.type,
-          dynamic: field.dynamic,
-          loadOnMount: field.loadOnMount,
-          hasLoadedOnMount: hasLoadedOnMount.current
-        });
+        // console.log(`🔄 [ConfigForm] Field ${field.name} has loadOnMount, shouldLoad: ${shouldLoad}`, {
+        //   fieldType: field.type,
+        //   dynamic: field.dynamic,
+        //   loadOnMount: field.loadOnMount,
+        //   hasLoadedOnMount: hasLoadedOnMount.current
+        // });
         return shouldLoad;
       }
       return false;
     });
 
-    console.log(`📋 [ConfigForm] Fields to load on mount:`, fieldsToLoad.map((f: any) => ({ name: f.name, type: f.type, dynamic: f.dynamic })));
-    console.log(`📋 [ConfigForm] ALL configSchema fields:`, nodeInfo.configSchema.map((f: any) => ({ name: f.name, type: f.type, dynamic: f.dynamic, loadOnMount: f.loadOnMount })));
+    // console.log(`📋 [ConfigForm] Fields to load on mount:`, fieldsToLoad.map((f: any) => ({ name: f.name, type: f.type, dynamic: f.dynamic })));
+    // console.log(`📋 [ConfigForm] ALL configSchema fields:`, nodeInfo.configSchema.map((f: any) => ({ name: f.name, type: f.type, dynamic: f.dynamic, loadOnMount: f.loadOnMount })));
 
     if (fieldsToLoad.length > 0) {
       logger.debug('🚀 [ConfigForm] Loading fields on mount IN PARALLEL:', fieldsToLoad.map((f: any) => f.name));

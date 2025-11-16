@@ -7,7 +7,7 @@
  * Contains ReactFlow, floating badge, and integrations panel.
  */
 
-import React, { useRef, useCallback, useState, useMemo, useLayoutEffect } from "react"
+import React, { useRef, useCallback, useState, useMemo, useLayoutEffect, useEffect } from "react"
 import {
   ReactFlow,
   Background,
@@ -243,6 +243,41 @@ export function FlowV2BuilderContent({
   const leftInset = isAgentPanelOpen ? Math.min(agentPanelWidth, containerWidth) : 0
   const availableWidth = Math.max(containerWidth - leftInset - rightPanelWidth, 0)
 
+  const shouldAutoFit = useMemo(() => (
+    buildState !== BuildState.BUILDING_SKELETON &&
+    buildState !== BuildState.WAITING_USER &&
+    buildState !== BuildState.PREPARING_NODE &&
+    buildState !== BuildState.TESTING_NODE &&
+    buildState !== BuildState.COMPLETE
+  ), [buildState])
+
+  useEffect(() => {
+    const instance = reactFlowInstance.current
+    if (!instance || nodes.length === 0) return
+
+    const frame = requestAnimationFrame(() => {
+      instance.fitView({
+        padding: 0.12,
+        includeHiddenNodes: false,
+        minZoom: 0.6,
+        maxZoom: 1.5,
+        duration: 0,
+      })
+
+      if (leftInset > 0) {
+        const viewport = instance.getViewport()
+        const delta = (leftInset / 2) / viewport.zoom
+        instance.setViewport({
+          x: viewport.x - delta,
+          y: viewport.y,
+          zoom: viewport.zoom,
+        })
+      }
+    })
+
+    return () => cancelAnimationFrame(frame)
+  }, [nodes.length, leftInset])
+
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
@@ -271,23 +306,11 @@ export function FlowV2BuilderContent({
             onSelectionChange={handleSelectionChangeInternal}
             onInit={handleInit}
             deleteKeyCode={["Delete", "Backspace"]}
-            fitView={
-              buildState !== BuildState.BUILDING_SKELETON &&
-              buildState !== BuildState.WAITING_USER &&
-              buildState !== BuildState.PREPARING_NODE &&
-              buildState !== BuildState.TESTING_NODE &&
-              buildState !== BuildState.COMPLETE  // Don't auto-fit when workflow completes
-            }
-            fitViewOptions={{
-              padding: 0.15,
-              includeHiddenNodes: false,
-              minZoom: 0.5,
-              maxZoom: 1.5,
-            }}
+            fitView={false}
             className="bg-background"
             proOptions={{ hideAttribution: true }}
             defaultEdgeOptions={defaultEdgeOptions}
-            defaultViewport={{ x: 0, y: 0, zoom: 0.65 }}
+            defaultViewport={{ x: 0, y: 0, zoom: 0.8 }}
             zoomOnScroll={false}
             zoomOnDoubleClick={false}
             panOnScroll={true}

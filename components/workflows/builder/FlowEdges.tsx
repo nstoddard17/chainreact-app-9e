@@ -255,7 +255,7 @@ export function FlowEdge({
         : null,
     }
 
-    console.log('[FlowEdge:length-debug]\n', JSON.stringify(debugPayload, null, 2))
+    // console.log('[FlowEdge:length-debug]\n', JSON.stringify(debugPayload, null, 2))
   }
 
   const onEdgeClick = (e: React.MouseEvent) => {

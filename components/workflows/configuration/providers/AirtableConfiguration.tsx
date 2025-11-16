@@ -185,16 +185,10 @@ export function AirtableConfiguration({
       }
     });
 
-    console.log('[AirtableConfig] 🔍 Merged dynamic options:', {
-      parentOptionsKeys: Object.keys(dynamicOptions),
-      batchOptionsKeys: Object.keys(batchLoadedOptions),
-      mergedKeys: Object.keys(merged),
-      mergedOptionsSample: Object.entries(merged).map(([key, val]) => ({
-        key,
-        count: Array.isArray(val) ? val.length : 'not array',
-        sample: Array.isArray(val) ? val.slice(0, 2) : val
-      }))
-    });
+    const optionCounts = Object.entries(merged).map(([key, val]) =>
+      `${key}(${Array.isArray(val) ? val.length : 0})`
+    ).join(', ');
+    console.log(`[AirtableConfig] 🔍 Merged dynamic options: ${optionCounts}`);
     return merged;
   }, [dynamicOptions, batchLoadedOptions]);
 
@@ -643,20 +637,10 @@ export function AirtableConfiguration({
 
       if (metaResponse.ok) {
         const metadata = await metaResponse.json();
-        logger.debug('📋 Fetched Airtable table metadata:', metadata);
-
-        // Log specific fields we care about
-        const linkedFields = metadata.fields?.filter((f: any) =>
-          f.type === 'multipleRecordLinks' || f.type === 'singleRecordLink'
-        );
-        logger.debug('🔗 Linked record fields found in metadata:', linkedFields);
+        logger.debug(`📋 Fetched Airtable table metadata: ${metadata.fields?.length || 0} fields, ${metadata.views?.length || 0} views`);
 
         if (metadata.fields && metadata.fields.length > 0) {
-          logger.debug('📋 Setting table schema with fields:', metadata.fields.map((f: any) => ({
-            name: f.name,
-            type: f.type,
-            id: f.id
-          })));
+          logger.debug(`📋 Setting table schema with ${metadata.fields.length} fields`);
 
           const visibilityByFieldId: Record<string, string> = {};
 
@@ -1684,32 +1668,14 @@ export function AirtableConfiguration({
 
   // Initialize default values for Find Record when table is selected
   useEffect(() => {
-    console.log('🔍 [Find Record] searchMode check:', {
-      isFindRecord,
-      tableName: values.tableName,
-      searchMode: values.searchMode,
-      searchModeType: typeof values.searchMode,
-      willSet: isFindRecord && values.tableName && !values.searchMode
-    });
-
     if (isFindRecord && values.tableName && !values.searchMode) {
-      console.log('🔍 [Find Record] Setting default searchMode to field_match');
       setValue('searchMode', 'field_match');
     }
   }, [isFindRecord, values.tableName, values.searchMode, setValue]);
 
   // Initialize default values for Delete Record when table is selected
   useEffect(() => {
-    console.log('🗑️ [Delete Record] deleteMode check:', {
-      isDeleteRecord,
-      tableName: values.tableName,
-      deleteMode: values.deleteMode,
-      deleteModeType: typeof values.deleteMode,
-      willSet: isDeleteRecord && values.tableName && !values.deleteMode
-    });
-
     if (isDeleteRecord && values.tableName && !values.deleteMode) {
-      console.log('🗑️ [Delete Record] Setting default deleteMode to single_record');
       setValue('deleteMode', 'single_record');
     }
   }, [isDeleteRecord, values.tableName, values.deleteMode, setValue]);
@@ -2150,15 +2116,11 @@ export function AirtableConfiguration({
   // Auto-load all dynamic dropdown fields when they become visible
   useEffect(() => {
     // Only for create/update/find record actions
-    if (!isCreateRecord && !isUpdateRecord && !isUpdateMultipleRecords && !isFindRecord) return;
+    if (!isCreateRecord && !isUpdateRecord && !isUpdateMultipleRecords && !isFindRecord && !isAddAttachment) return;
     if (!values.tableName || !values.baseId) return;
     if (allDynamicFields.length === 0) return;
 
-    logger.debug('🚀 [AUTO-LOAD] Checking for fields to auto-load', {
-      totalFields: allDynamicFields.length,
-      tableName: values.tableName,
-      baseId: values.baseId
-    });
+    logger.debug(`🚀 [AUTO-LOAD] Checking ${allDynamicFields.length} fields for ${values.tableName}`);
 
     // Find all dropdown fields that haven't been auto-loaded yet
     const fieldsToAutoLoad = allDynamicFields.filter(field => {
@@ -2188,11 +2150,7 @@ export function AirtableConfiguration({
     });
 
     if (fieldsToAutoLoad.length > 0) {
-      logger.debug('🚀 [AUTO-LOAD] Auto-loading fields:', fieldsToAutoLoad.map(f => ({
-        name: f.name,
-        label: f.label,
-        dynamic: f.dynamic
-      })));
+      logger.debug(`🚀 [AUTO-LOAD] Auto-loading ${fieldsToAutoLoad.length} fields: ${fieldsToAutoLoad.map(f => f.label).join(', ')}`);
 
       // Mark these fields as auto-loaded
       setAutoLoadedFields(prev => {
@@ -2213,11 +2171,7 @@ export function AirtableConfiguration({
           tableFields: airtableTableSchema?.fields || []
         };
 
-        logger.debug(`🔄 [AUTO-LOAD] Loading options silently in background for: ${field.label}`, {
-          fieldName: field.name,
-          dynamic: field.dynamic,
-          dependsOn: field.dependsOn
-        });
+        logger.debug(`🔄 [AUTO-LOAD] Loading ${field.label} (${field.dynamic})`);
 
         // Load the options silently in background (use cache, don't force refresh, silent mode)
         // This allows fields with cached labels to show instantly while options refresh
@@ -2229,7 +2183,7 @@ export function AirtableConfiguration({
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allDynamicFields, values.tableName, values.baseId, isCreateRecord, isUpdateRecord, isUpdateMultipleRecords, isFindRecord,
+  }, [allDynamicFields, values.tableName, values.baseId, isCreateRecord, isUpdateRecord, isUpdateMultipleRecords, isFindRecord, isAddAttachment,
       dynamicOptions, batchLoadedOptions, autoLoadedFields, airtableTableSchema]); // Don't include loadOptions
 
   // Clear auto-loaded fields and invalidate dynamic field cache when table changes
@@ -2291,11 +2245,7 @@ export function AirtableConfiguration({
     }) || [];
 
     if (autoLoadFields.length > 0) {
-      logger.debug('🚀 [AUTO-LOAD CONFIG] Auto-loading config schema fields:', autoLoadFields.map((f: any) => ({
-        name: f.name,
-        label: f.label,
-        dynamic: f.dynamic
-      })));
+      logger.debug(`🚀 [AUTO-LOAD CONFIG] Auto-loading ${autoLoadFields.length} config fields: ${autoLoadFields.map((f: any) => f.label).join(', ')}`);
 
       // Mark as auto-loaded
       setAutoLoadedFields(prev => {
@@ -2315,11 +2265,7 @@ export function AirtableConfiguration({
           tableFields: airtableTableSchema?.fields || []
         };
 
-        logger.debug(`🔄 [AUTO-LOAD CONFIG] Loading options silently in background for: ${field.label}`, {
-          fieldName: field.name,
-          dynamic: field.dynamic,
-          dependsOn: field.dependsOn
-        });
+        logger.debug(`🔄 [AUTO-LOAD CONFIG] Loading ${field.label} (${field.dynamic})`);
 
         // Load silently in background to allow cached labels to show instantly
         if (field.dependsOn === 'tableName') {
@@ -3337,7 +3283,7 @@ export function AirtableConfiguration({
 
                     {/* Attachment field creation UI */}
                     {(() => {
-                      const attachmentFieldOptions = mergedDynamicOptions['airtable_attachment_fields'] || [];
+                      const attachmentFieldOptions = mergedDynamicOptions['attachmentField'] || [];
                       const hasAttachmentFields = attachmentFieldOptions.length > 0;
 
                       if (!hasAttachmentFields && !showCreateAttachmentField) {

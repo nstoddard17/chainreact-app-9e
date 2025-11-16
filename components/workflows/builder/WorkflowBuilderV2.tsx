@@ -3714,7 +3714,44 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
             onNodeRename={handleNodeRename}
             onNodeDuplicate={handleNodeDuplicate}
             onAddNote={handleAddNote}
-            onInit={(instance) => { reactFlowInstanceRef.current = instance }}
+            onInit={(instance) => {
+              reactFlowInstanceRef.current = instance
+              // Center view after React Flow initializes
+              setTimeout(() => {
+                if (instance && builder?.nodes && builder.nodes.length > 0) {
+                  const nodes = builder.nodes
+                  const currentZoom = instance.getZoom()
+
+                  // Calculate bounds of all nodes
+                  let minX = Infinity, minY = Infinity
+                  let maxX = -Infinity, maxY = -Infinity
+
+                  nodes.forEach((node: any) => {
+                    const x = node.position?.x ?? 0
+                    const y = node.position?.y ?? 0
+                    const width = 360
+                    const height = 140
+
+                    minX = Math.min(minX, x)
+                    minY = Math.min(minY, y)
+                    maxX = Math.max(maxX, x + width)
+                    maxY = Math.max(maxY, y + height)
+                  })
+
+                  const centerX = (minX + maxX) / 2
+                  const centerY = (minY + maxY) / 2
+
+                  // Account for agent panel
+                  const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920
+                  const offsetX = agentPanelWidth / 2
+
+                  instance.setCenter(centerX + offsetX, centerY, {
+                    zoom: currentZoom,
+                    duration: 400
+                  })
+                }
+              }, 600)
+            }}
             agentPanelWidth={agentPanelWidth}
             isAgentPanelOpen={agentOpen}
             buildState={buildMachine.state}

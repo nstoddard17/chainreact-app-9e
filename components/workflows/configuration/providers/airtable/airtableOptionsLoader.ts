@@ -19,7 +19,8 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     'associatedProject',
     'feedback',
     'tasks',
-    'selectedRecord'
+    'selectedRecord',
+    'attachmentField'
   ];
 
   canHandle(fieldName: string, providerId: string): boolean {
@@ -105,6 +106,9 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
 
       case 'selectedRecord':
         return this.loadRecordsForSelection(params);
+
+      case 'attachmentField':
+        return this.loadAttachmentFields(params);
 
       default:
         return [];
@@ -678,6 +682,82 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     }
   }
 
+  private async loadAttachmentFields(params: LoadOptionsParams): Promise<FormattedOption[]> {
+    const { extraOptions, integrationId, signal, forceRefresh } = params;
+
+    if (!integrationId) {
+      logger.debug('🔍 [Airtable] Cannot load attachment fields without integrationId');
+      return [];
+    }
+
+    const baseId = extraOptions?.baseId;
+    const tableName = extraOptions?.tableName;
+
+    if (!baseId || !tableName) {
+      logger.debug('🔍 [Airtable] Cannot load attachment fields without baseId and tableName');
+      return [];
+    }
+
+    // Build cache key
+    const cacheKey = buildCacheKey('airtable', integrationId, 'attachmentField', { baseId, tableName });
+    const cacheStore = useConfigCacheStore.getState();
+
+    // Force refresh handling
+    if (forceRefresh) {
+      logger.debug(`🔄 [Airtable] Force refresh - invalidating cache:`, cacheKey);
+      cacheStore.invalidate(cacheKey);
+    }
+
+    // Try cache first
+    if (!forceRefresh) {
+      const cached = cacheStore.get(cacheKey);
+      if (cached) {
+        logger.debug(`💾 [Airtable] Cache HIT for attachmentField:`, { cacheKey, count: cached.length });
+        return cached;
+      }
+      logger.debug(`❌ [Airtable] Cache MISS for attachmentField:`, { cacheKey });
+    }
+
+    try {
+      const response = await fetch('/api/integrations/airtable/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          integrationId,
+          dataType: 'airtable_attachment_fields',
+          options: {
+            baseId,
+            tableName
+          },
+          forceRefresh
+        }),
+        signal
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to load attachment fields: ${response.status}`);
+      }
+
+      const result = await response.json();
+      const fields = result.data || [];
+
+      const formattedFields = fields.map((field: any) => ({
+        value: field.value || field.name || field.id,
+        label: field.label || field.name || field.value,
+      }));
+
+      // Store in cache
+      const ttl = getFieldTTL('attachmentField');
+      cacheStore.set(cacheKey, formattedFields, ttl);
+      logger.debug(`💾 [Airtable] Cached ${formattedFields.length} options for attachmentField (TTL: ${ttl / 1000}s)`);
+
+      return formattedFields;
+    } catch (error) {
+      logger.error('❌ [Airtable] Error loading attachment fields:', error);
+      return [];
+    }
+  }
+
   private async loadLinkedRecords(params: LoadOptionsParams): Promise<FormattedOption[]> {
     const { fieldName, extraOptions, integrationId, signal, forceRefresh } = params;
 
@@ -915,6 +995,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
       case 'feedback':
       case 'tasks':
       case 'selectedRecord':
+      case 'attachmentField':
         return ['tableName'];
 
       default:
