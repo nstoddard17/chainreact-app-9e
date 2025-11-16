@@ -3,6 +3,9 @@
 import React, { useMemo } from "react"
 import { Plus } from "lucide-react"
 import { EdgeLabelRenderer } from "@xyflow/react"
+import { getCanvasDimensions, LAYOUT } from "./layout"
+
+const DEFAULT_NODE_HEIGHT = 120
 
 interface PhantomEdgeOverlayProps {
   nodes: any[]
@@ -32,10 +35,31 @@ export function PhantomEdgeOverlay({ nodes, onAddNode }: PhantomEdgeOverlayProps
       position: lastNode.position
     })
 
+    const widthCandidates = [
+      lastNode.width,
+      lastNode.measured?.width,
+      lastNode.__rf?.width,
+      (lastNode.data as any)?.dimensions?.width,
+    ]
+    const heightCandidates = [
+      lastNode.height,
+      lastNode.measured?.height,
+      lastNode.__rf?.height,
+      (lastNode.data as any)?.dimensions?.height,
+    ]
+
+    const nodeWidth = widthCandidates.find((value) => Number.isFinite(value) && Number(value) > 0)
+      ?? LAYOUT.nodeWidth
+    const nodeHeight = heightCandidates.find((value) => Number.isFinite(value) && Number(value) > 0)
+      ?? DEFAULT_NODE_HEIGHT
+
     return {
       id: lastNode.id,
+      position: { ...lastNode.position },
       x: lastNode.position.x,
       y: lastNode.position.y,
+      width: Number(nodeWidth),
+      height: Number(nodeHeight),
     }
   }, [nodes])
 
@@ -44,25 +68,20 @@ export function PhantomEdgeOverlay({ nodes, onAddNode }: PhantomEdgeOverlayProps
     return null
   }
 
-  // Calculate line positioning
-  // Placeholder nodes are approximately 120px tall (measured from your screenshot)
-  const nodeHeight = 120
-  // Match the vertical distance between nodes (same as the spacing between trigger and action)
-  const verticalSpacing = 120
-  const lineStartY = lastNodeInfo.y + nodeHeight
-  const buttonY = lineStartY + (verticalSpacing / 2) // Position button at midpoint
-  const lineLength = buttonY - lineStartY // Line goes from node to button only
+  const { nodeGapY } = getCanvasDimensions()
+  const verticalSpacing = Number.isFinite(nodeGapY) && nodeGapY > 0 ? nodeGapY : LAYOUT.nodeGapY
 
-  // Calculate center X - nodes are positioned from their top-left corner
-  // Placeholder nodes are 360px wide, so center is at x + 180
-  const centerX = lastNodeInfo.x + 180
+  const lineStartY = lastNodeInfo.y + lastNodeInfo.height
+  const lineLength = verticalSpacing
+  const buttonOffset = Math.min(24, lineLength / 2)
+  const buttonY = lineStartY + lineLength - buttonOffset
+  const centerX = lastNodeInfo.x + lastNodeInfo.width / 2
 
   console.log('[PhantomEdgeOverlay] Rendering:', {
     nodePos: lastNodeInfo,
     centerX,
     lineStartY,
     buttonY,
-    nodeHeight,
     lineLength
   })
 
