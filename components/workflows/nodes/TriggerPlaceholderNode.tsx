@@ -204,6 +204,10 @@ export function TriggerPlaceholderNode({ id, data, selected }: TriggerPlaceholde
         position={Position.Bottom}
         className="!bg-blue-500 !w-3 !h-3 !border-2 !border-white dark:!border-gray-900"
         id="source"
+        style={{
+          left: "50%",
+          transform: "translate(-50%, 50%)",
+        }}
       />
     </div>
   )

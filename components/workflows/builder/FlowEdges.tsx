@@ -6,7 +6,7 @@
  */
 
 import React from 'react'
-import { type EdgeProps, useStore, EdgeLabelRenderer } from '@xyflow/react'
+import { type EdgeProps, useStore, EdgeLabelRenderer, Position } from '@xyflow/react'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -84,10 +84,41 @@ export function FlowEdge({
   markerEnd,
   selected,
   source,
+  target,
   sourceHandle,
   data
 }: EdgeProps) {
   const sourceNode = useStore((state) => state.nodeInternals?.get(source) ?? null, (a, b) => a?.id === b?.id)
+  const targetNode = useStore((state) => state.nodeInternals?.get(target) ?? null, (a, b) => a?.id === b?.id)
+
+  const ensureNodeWidth = (node: any) => {
+    const measured = Number(node?.width)
+    if (Number.isFinite(measured) && measured > 0) {
+      return measured
+    }
+
+    const type = (node?.data as any)?.type
+    if (type === 'trigger_placeholder' || type === 'action_placeholder') {
+      return 360
+    }
+    return 360
+  }
+
+  const getAbsolutePosition = (node: any) => node?.positionAbsolute ?? node?.position ?? { x: 0, y: 0 }
+  const correctedSource = { x: sourceX, y: sourceY }
+  const correctedTarget = { x: targetX, y: targetY }
+  const isVerticalEdge = sourcePosition === Position.Bottom && targetPosition === Position.Top
+
+  if (isVerticalEdge) {
+    const sourceBase = getAbsolutePosition(sourceNode)
+    const targetBase = getAbsolutePosition(targetNode)
+    const sourceWidth = ensureNodeWidth(sourceNode)
+    const targetWidth = ensureNodeWidth(targetNode)
+
+    correctedSource.x = sourceBase.x + sourceWidth / 2
+    correctedTarget.x = targetBase.x + targetWidth / 2
+  }
+
   const explicitColor = data?.edgeColor || style?.stroke
   const handleColor = explicitColor || getHandleColor(sourceNode, sourceHandle)
   const baseStroke = handleColor || '#d0d6e0'
@@ -95,11 +126,11 @@ export function FlowEdge({
 
   // Create a simple horizontal line directly from source to target
   // This ensures the line goes straight from half-moon to half-moon
-  const edgePath = `M ${sourceX},${sourceY} L ${targetX},${targetY}`
+  const edgePath = `M ${correctedSource.x},${correctedSource.y} L ${correctedTarget.x},${correctedTarget.y}`
 
   // Calculate midpoint for + button positioning
-  const labelX = (sourceX + targetX) / 2
-  const labelY = (sourceY + targetY) / 2
+  const labelX = (correctedSource.x + correctedTarget.x) / 2
+  const labelY = (correctedSource.y + correctedTarget.y) / 2
 
   const onEdgeClick = (e: React.MouseEvent) => {
     e.stopPropagation()
