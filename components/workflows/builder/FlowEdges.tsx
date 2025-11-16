@@ -209,11 +209,9 @@ export function FlowEdge({
   const midLabelX = correctedSource.x + edgeVectorX / 2
   const midLabelY = correctedSource.y + edgeVectorY / 2
 
-  // Place the + button near the end of the line (just before the target node)
-  const buttonOffset = edgeLength > 0 ? Math.min(24, edgeLength / 2) : 0
-  const buttonT = edgeLength > 0 ? (edgeLength - buttonOffset) / edgeLength : 0.5
-  const buttonX = correctedSource.x + edgeVectorX * buttonT
-  const buttonY = correctedSource.y + edgeVectorY * buttonT
+  // Place the + button at the midpoint of the line
+  const buttonX = midLabelX
+  const buttonY = midLabelY
 
   if (process.env.NODE_ENV !== 'production') {
     const length = Math.sqrt(
