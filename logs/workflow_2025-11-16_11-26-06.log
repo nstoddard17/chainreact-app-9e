@@ -26,3 +26,7 @@ Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
 [2025-11-16T19:43:21.586Z] [INFO   ] 2025-11-16T19:43:21.586Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
 [2025-11-16T19:43:22.027Z] [INFO   ] 2025-11-16T19:43:22.027Z [DEBUG] Discord Gateway WebSocket connection established
 [2025-11-16T19:43:22.029Z] [INFO   ] 2025-11-16T19:43:22.029Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-16T21:18:45.235Z] [INFO   ] 2025-11-16T21:18:45.234Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-16T21:18:45.293Z] [INFO   ] 2025-11-16T21:18:45.293Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-11-16T21:18:45.657Z] [INFO   ] 2025-11-16T21:18:45.656Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-16T21:18:45.658Z] [INFO   ] 2025-11-16T21:18:45.658Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}

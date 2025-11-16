@@ -178,9 +178,10 @@ export function Combobox({
     (value && creatable ? { value, label: value } : null);
 
   React.useEffect(() => {
-    // Smart input mode: When dropdown opens, pre-fill with current value and select it
+    // Smart input mode: Only pre-fill for creatable fields (fields that allow custom input)
+    // For searchable fields, keep the input empty to allow searching through options
     // This allows users to easily edit (type to replace) or search (clear and type)
-    if (open && selectedOption) {
+    if (open && selectedOption && creatable) {
       const currentValue = String(selectedOption.label)
       setInputValue(currentValue)
 
@@ -192,7 +193,7 @@ export function Combobox({
       // Clear when dropdown closes
       setInputValue("")
     }
-  }, [open, selectedOption])
+  }, [open, selectedOption, creatable])
 
   const handleSelect = (currentValue: string) => {
     // Allow clearing when empty string is passed

@@ -3716,11 +3716,10 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
             onAddNote={handleAddNote}
             onInit={(instance) => {
               reactFlowInstanceRef.current = instance
-              // Center view after React Flow initializes
+              // Center view accounting for agent panel (Zapier-style)
               setTimeout(() => {
                 if (instance && builder?.nodes && builder.nodes.length > 0) {
                   const nodes = builder.nodes
-                  const currentZoom = instance.getZoom()
 
                   // Calculate bounds of all nodes
                   let minX = Infinity, minY = Infinity
@@ -3738,17 +3737,35 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
                     maxY = Math.max(maxY, y + height)
                   })
 
-                  const centerX = (minX + maxX) / 2
-                  const centerY = (minY + maxY) / 2
+                  // Calculate center of all nodes
+                  const nodesCenterX = (minX + maxX) / 2
+                  const nodesCenterY = (minY + maxY) / 2
 
-                  // Account for agent panel
+                  // Calculate available viewport (excluding agent panel)
                   const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920
-                  const offsetX = agentPanelWidth / 2
+                  const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 1080
+                  const availableWidth = viewportWidth - agentPanelWidth
 
-                  instance.setCenter(centerX + offsetX, centerY, {
-                    zoom: currentZoom,
+                  // Position nodes in center of available space (to the right of panel)
+                  const viewportCenterX = agentPanelWidth + (availableWidth / 2)
+                  const viewportCenterY = viewportHeight / 2
+
+                  instance.setCenter(nodesCenterX, nodesCenterY, {
+                    zoom: 1,
                     duration: 400
                   })
+
+                  // Shift viewport to account for agent panel
+                  setTimeout(() => {
+                    const viewport = instance.getViewport()
+                    const shiftAmount = agentPanelWidth / 2
+
+                    instance.setViewport({
+                      x: viewport.x + shiftAmount,
+                      y: viewport.y,
+                      zoom: viewport.zoom
+                    }, { duration: 200 })
+                  }, 450)
                 }
               }, 600)
             }}
