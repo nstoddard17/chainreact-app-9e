@@ -345,9 +345,14 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       let graphNodes = flowToReactFlowNodes(flow, deleteNodeRef.current ?? undefined).map(node => {
         const existing = existingNodeMap.get(node.id)
         if (existing) {
+          const alignedPosition = {
+            x: LINEAR_STACK_X,
+            y: existing.position?.y ?? node.position.y,
+          }
           return {
             ...node,
-            position: existing.position ?? node.position,
+            position: alignedPosition,
+            positionAbsolute: alignedPosition,
           }
         }
 
@@ -364,7 +369,14 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
           })
           return {
             ...node,
-            position: placeholder.position ?? node.position,
+            position: {
+              x: LINEAR_STACK_X,
+              y: placeholder.position?.y ?? node.position.y,
+            },
+            positionAbsolute: {
+              x: LINEAR_STACK_X,
+              y: placeholder.position?.y ?? node.position.y,
+            },
           }
         }
 

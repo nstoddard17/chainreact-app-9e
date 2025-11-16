@@ -1144,15 +1144,15 @@ function CustomNode({ id, data, selected }: NodeProps) {
   ])
 
   useEffect(() => {
-    console.log('[CUSTOMNODE STATUS]', {
-      nodeId: id,
-      aiStatus,
-      aiBadgeText,
-      aiBadgeVariant,
-      executionStatus,
-      needsSetup,
-      fallbackFields
-    })
+    // console.log('[CUSTOMNODE STATUS]', {
+    //   nodeId: id,
+    //   aiStatus,
+    //   aiBadgeText,
+    //   aiBadgeVariant,
+    //   executionStatus,
+    //   needsSetup,
+    //   fallbackFields
+    // })
   }, [id, aiStatus, aiBadgeText, aiBadgeVariant, executionStatus, needsSetup, fallbackFields])
 
   const renderPathRouterAddButton = () => {
