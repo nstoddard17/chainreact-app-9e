@@ -5572,3 +5572,5 @@ Make sure to install the same version of the package in both locations.
 [2025-11-16T17:08:30.186Z] [INFO   ] 2025-11-16T17:08:30.186Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
 [2025-11-16T17:08:30.186Z] [INFO   ] 2025-11-16T17:08:30.186Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","permission":"admin","reason":"connected_by"}
 [2025-11-16T17:08:30.187Z] [INFO   ] 2025-11-16T17:08:30.186Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":15,"workspaceType":"personal"}
+[2025-11-16T17:10:09.173Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 296ms
+[2025-11-16T17:11:51.812Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 365ms
