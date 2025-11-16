@@ -1881,6 +1881,22 @@ export function AirtableConfiguration({
       // Clear attachment field when table changes
       setValue('attachmentField', '');
       logger.debug('[AirtableConfig] Cleared attachmentField due to table change');
+
+      // Trigger reload of attachment field options
+      if (value) {
+        const extraOptions = {
+          baseId: values.baseId,
+          tableName: value,
+          tableFields: airtableTableSchema?.fields || []
+        };
+
+        logger.debug('[AirtableConfig] Triggering reload of attachmentField for new table:', value);
+
+        // Force refresh to get new attachment fields for the new table
+        setTimeout(() => {
+          loadOptions('attachmentField', 'tableName', value, true, false, extraOptions);
+        }, 50);
+      }
     }
 
     // Auto-populate filename and contentType fields when file is uploaded or URL is provided
