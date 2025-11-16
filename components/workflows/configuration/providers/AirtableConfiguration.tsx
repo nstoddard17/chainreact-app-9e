@@ -879,6 +879,19 @@ export function AirtableConfiguration({
       return;
     }
 
+    // Cancel any ongoing fetch requests
+    if (recordsFetchAbortController.current) {
+      logger.debug('[AirtableConfig] Cancelling previous records fetch for:', {
+        previousRequest: 'in-flight'
+      });
+      recordsFetchAbortController.current.abort();
+      recordsFetchAbortController.current = null;
+    }
+
+    // Create new abort controller for this request
+    const abortController = new AbortController();
+    recordsFetchAbortController.current = abortController;
+
     setLoadingRecords(true);
 
     try {
@@ -886,6 +899,8 @@ export function AirtableConfiguration({
       if (!airtableTableSchema || airtableTableSchema.table?.name !== tableName) {
         await fetchAirtableTableSchema(baseId, tableName);
       }
+
+      logger.debug('[AirtableConfig] Fetching records for:', { baseId, tableName });
 
       const response = await fetch('/api/integrations/airtable/data', {
         method: 'POST',
@@ -898,8 +913,15 @@ export function AirtableConfiguration({
             tableName,
             maxRecords: 100
           }
-        })
+        }),
+        signal: abortController.signal
       });
+
+      // Check if this request was aborted
+      if (abortController.signal.aborted) {
+        logger.debug('[AirtableConfig] Records fetch was cancelled');
+        return;
+      }
 
       if (!response.ok) {
         logger.error('Failed to fetch records');
@@ -908,7 +930,21 @@ export function AirtableConfiguration({
       }
 
       const result = await response.json();
+
+      // Double-check we weren't aborted during JSON parsing
+      if (abortController.signal.aborted) {
+        logger.debug('[AirtableConfig] Records fetch was cancelled after response');
+        return;
+      }
+
       const fetchedRecords = result.data || [];
+
+      logger.debug('[AirtableConfig] Successfully loaded records:', {
+        count: fetchedRecords.length,
+        baseId,
+        tableName
+      });
+
       setAirtableRecords(fetchedRecords);
 
       // Cache records for instant display on reopen (Zapier-like UX)
@@ -921,11 +957,25 @@ export function AirtableConfiguration({
           tableName
         });
       }
-    } catch (error) {
+
+      // Clear the abort controller ref since this request completed successfully
+      if (recordsFetchAbortController.current === abortController) {
+        recordsFetchAbortController.current = null;
+      }
+    } catch (error: any) {
+      // Don't log errors for aborted requests
+      if (error.name === 'AbortError') {
+        logger.debug('[AirtableConfig] Records fetch aborted (expected)');
+        return;
+      }
+
       logger.error('Error loading records:', error);
       setAirtableRecords([]);
     } finally {
-      setLoadingRecords(false);
+      // Only clear loading state if this request wasn't aborted
+      if (!abortController.signal.aborted) {
+        setLoadingRecords(false);
+      }
     }
   }, [airtableIntegration, airtableTableSchema, fetchAirtableTableSchema, setValue]);
 
@@ -1730,6 +1780,9 @@ export function AirtableConfiguration({
   // Use refs to track previous values and prevent infinite loops
   const prevTableName = React.useRef(values.tableName);
   const prevBaseId = React.useRef(values.baseId);
+
+  // Abort controller for cancelling in-flight record fetches when table/base changes
+  const recordsFetchAbortController = React.useRef<AbortController | null>(null);
 
   useEffect(() => {
     // Only trigger if values actually changed
