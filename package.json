@@ -6,7 +6,10 @@
   "scripts": {
     "build": "next build",
     "build:analyze": "ANALYZE=true next build",
+    "build:local": "node scripts/build-local.js",
+    "build:local:watch": "node scripts/build-local.js --watch",
     "dev": "next dev",
+    "dev:fast": "node scripts/dev-fast.js",
     "dev:turbo": "next dev --turbo",
     "lint": "next lint",
     "refresh-tokens": "node scripts/test-token-refresh.js",
@@ -69,6 +72,7 @@
     "@react-email/components": "^0.5.0",
     "@react-email/render": "^1.2.0",
     "@slack/web-api": "latest",
+    "@sparticuz/chromium": "^133.0.0",
     "@stripe/stripe-js": "^7.8.0",
     "@supabase/auth-helpers-nextjs": "latest",
     "@supabase/ssr": "latest",
@@ -108,6 +112,7 @@
     "openai": "latest",
     "papaparse": "^5.5.3",
     "pdf-parse": "^1.1.1",
+    "puppeteer-core": "^24.18.0",
     "qrcode": "^1.5.4",
     "react": "^19",
     "react-day-picker": "latest",
@@ -126,12 +131,11 @@
     "turndown": "^7.2.2",
     "twilio": "^5.3.7",
     "vaul": "latest",
+    "web-vitals": "^5.1.0",
     "ws": "^8.18.3",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "zod": "^3.25.76",
-    "zustand": "latest",
-    "puppeteer-core": "^24.18.0",
-    "@sparticuz/chromium": "^133.0.0"
+    "zustand": "latest"
   },
   "optionalDependencies": {
     "puppeteer": "^24.18.0",

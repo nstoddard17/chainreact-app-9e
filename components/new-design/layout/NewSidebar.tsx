@@ -13,6 +13,7 @@ import { useSignedAvatarUrl } from "@/hooks/useSignedAvatarUrl"
 import { useWorkspaceContext } from "@/hooks/useWorkspaceContext"
 import { useWorkflowCreation } from "@/hooks/useWorkflowCreation"
 import { WorkspaceSelectionModal } from "@/components/workflows/WorkspaceSelectionModal"
+import { useRoutePrefetch, useSmartPrefetch } from "@/hooks/useRoutePrefetch"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -80,6 +81,10 @@ export function NewSidebar() {
   const [socialPostUrl, setSocialPostUrl] = useState("")
   const { toast } = useToast()
   const [isMounted, setIsMounted] = useState(false)
+
+  // Route prefetching for better navigation performance
+  const { prefetchRoute } = useRoutePrefetch()
+  useSmartPrefetch(pathname || "/")
 
   // Task quota state - switches between personal and organization
   const [tasksUsed, setTasksUsed] = useState(0)
@@ -250,6 +255,8 @@ export function NewSidebar() {
               <button
                 key={item.href}
                 onClick={() => router.push(item.href)}
+                onMouseEnter={() => prefetchRoute(item.href)}
+                onFocus={() => prefetchRoute(item.href)}
                 className={cn(
                   "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                   active
@@ -279,6 +286,8 @@ export function NewSidebar() {
               <button
                 key={item.href}
                 onClick={() => router.push(item.href)}
+                onMouseEnter={() => prefetchRoute(item.href)}
+                onFocus={() => prefetchRoute(item.href)}
                 className={cn(
                   "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                   active

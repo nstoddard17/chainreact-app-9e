@@ -300,37 +300,43 @@ function WorkflowsContent() {
       // Don't fetch workflows here - PagePreloader already did it
       // This prevents race conditions and duplicate fetches
 
-      const now = Date.now()
-      const promises: Promise<any>[] = []
+      // Defer non-critical data fetching to after initial render
+      // This makes page navigation feel instant
+      const deferredFetchTimer = setTimeout(() => {
+        const now = Date.now()
+        const promises: Promise<any>[] = []
 
-      // Only fetch stats if cache is stale
-      if (now - statsLastFetchRef.current > CACHE_DURATION) {
-        promises.push(fetchExecutionStats())
-      } else {
-        logger.debug('[WorkflowsPageContent] Using cached execution stats')
-      }
+        // Only fetch stats if cache is stale
+        if (now - statsLastFetchRef.current > CACHE_DURATION) {
+          promises.push(fetchExecutionStats())
+        } else {
+          logger.debug('[WorkflowsPageContent] Using cached execution stats')
+        }
 
-      // Only fetch folders if cache is stale
-      if (now - foldersLastFetchRef.current > CACHE_DURATION) {
-        promises.push(fetchFolders())
-      } else {
-        logger.debug('[WorkflowsPageContent] Using cached folders')
-      }
+        // Only fetch folders if cache is stale
+        if (now - foldersLastFetchRef.current > CACHE_DURATION) {
+          promises.push(fetchFolders())
+        } else {
+          logger.debug('[WorkflowsPageContent] Using cached folders')
+        }
 
-      // Only fetch if we have uncached data
-      if (promises.length > 0) {
-        // Fetch stats and folders in parallel for faster loading
-        // Using Promise.allSettled to allow partial success
-        Promise.allSettled(promises).then((results) => {
-          const failures = results.filter(r => r.status === 'rejected')
-          if (failures.length > 0) {
-            logger.warn('[WorkflowsPageContent] Some initial data fetches failed:', {
-              failureCount: failures.length,
-              totalCount: results.length
-            })
-          }
-        })
-      }
+        // Only fetch if we have uncached data
+        if (promises.length > 0) {
+          // Fetch stats and folders in parallel for faster loading
+          // Using Promise.allSettled to allow partial success
+          Promise.allSettled(promises).then((results) => {
+            const failures = results.filter(r => r.status === 'rejected')
+            if (failures.length > 0) {
+              logger.warn('[WorkflowsPageContent] Some initial data fetches failed:', {
+                failureCount: failures.length,
+                totalCount: results.length
+              })
+            }
+          })
+        }
+      }, 100) // Defer by 100ms to let the page render first
+
+      return () => clearTimeout(deferredFetchTimer)
     }
   }, [user])
 
@@ -3462,6 +3468,7 @@ export function WorkflowsPageContent() {
       pageType="workflows"
       loadingTitle="Loading Workflows"
       loadingDescription="Fetching your workflows and execution stats..."
+      skipIntegrations={true}
     >
       <WorkflowsContent />
     </PagePreloader>

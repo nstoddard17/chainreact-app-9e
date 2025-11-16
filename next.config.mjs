@@ -41,7 +41,12 @@ const nextConfig = {
       '@radix-ui/react-dialog',
       '@radix-ui/react-dropdown-menu',
       '@radix-ui/react-tooltip',
+      'date-fns', // Date utilities
+      'zod', // Validation library
+      '@xyflow/react', // Workflow builder
     ],
+    // Optimize CSS (Next.js 15+)
+    optimizeCss: true,
   },
   // Mark optional native dependencies as external to skip bundling
   serverExternalPackages: [

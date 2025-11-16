@@ -48,10 +48,10 @@ export function PhantomEdgeOverlay({ nodes, onAddNode }: PhantomEdgeOverlayProps
   // Placeholder nodes are approximately 120px tall (measured from your screenshot)
   const nodeHeight = 120
   // Match the vertical distance between nodes (same as the spacing between trigger and action)
-  const lineLength = 120
+  const verticalSpacing = 120
   const lineStartY = lastNodeInfo.y + nodeHeight
-  const lineEndY = lineStartY + lineLength
-  const buttonY = (lineStartY + lineEndY) / 2 // Position button at midpoint of line
+  const buttonY = lineStartY + (verticalSpacing / 2) // Position button at midpoint
+  const lineLength = buttonY - lineStartY // Line goes from node to button only
 
   // Calculate center X - nodes are positioned from their top-left corner
   // Placeholder nodes are 360px wide, so center is at x + 180
@@ -61,7 +61,6 @@ export function PhantomEdgeOverlay({ nodes, onAddNode }: PhantomEdgeOverlayProps
     nodePos: lastNodeInfo,
     centerX,
     lineStartY,
-    lineEndY,
     buttonY,
     nodeHeight,
     lineLength

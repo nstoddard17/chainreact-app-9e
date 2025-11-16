@@ -1,0 +1,65 @@
+{
+  "name": "ChainReact - AI Workflow Automation",
+  "short_name": "ChainReact",
+  "description": "Connect your favorite apps and create powerful AI-driven automation workflows",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3b82f6",
+  "orientation": "portrait-primary",
+  "categories": ["productivity", "business", "utilities"],
+  "icons": [
+    {
+      "src": "/logo_transparent.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo_transparent.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "New Workflow",
+      "short_name": "New",
+      "description": "Create a new workflow",
+      "url": "/workflows/ai-agent",
+      "icons": [
+        {
+          "src": "/logo_transparent.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Workflows",
+      "short_name": "Workflows",
+      "description": "View all workflows",
+      "url": "/workflows",
+      "icons": [
+        {
+          "src": "/logo_transparent.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Templates",
+      "short_name": "Templates",
+      "description": "Browse workflow templates",
+      "url": "/templates",
+      "icons": [
+        {
+          "src": "/logo_transparent.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false
+}

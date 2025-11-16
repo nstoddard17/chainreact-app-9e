@@ -8,6 +8,7 @@ import { ScopeValidator } from "@/lib/integrations/scope-validator"
 import { OAuthConnectionFlow } from "@/lib/oauth/connection-flow"
 import { useWorkflowStore } from "./workflowStore"
 import { getCrossTabSync } from "@/lib/utils/cross-tab-sync"
+import { requestDeduplicator } from "@/lib/utils/request-deduplication"
 
 import { logger } from '@/lib/utils/logger'
 
