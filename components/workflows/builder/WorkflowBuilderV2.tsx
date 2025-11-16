@@ -443,18 +443,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
     console.log('[WorkflowBuilder] App context ready, batching initial loads')
 
-    // Batch all initial data loads in parallel
-    Promise.all([
-      // Integrations (cached for 30 seconds)
-      fetchIntegrations(false).catch(error => {
-        logger.error('[WorkflowBuilder] Failed to fetch integrations:', error)
-      })
-    ]).then(() => {
-      console.log('[WorkflowBuilder] Initial data loads complete')
-    }).catch(error => {
-      logger.error('[WorkflowBuilder] Error during initial loads:', error)
-    })
-  }, [appReady, fetchIntegrations])
+    // REMOVED: Eager fetchIntegrations on mount
+    // Integrations are now lazy-loaded when user opens the integrations panel
+    // This significantly improves initial page load performance
+    console.log('[WorkflowBuilder] Initial mount complete - integrations will load on demand')
+  }, [appReady])
 
   // Cleanup: Clear pending messages on unmount if workflow was never saved
   useEffect(() => {
@@ -1565,9 +1558,16 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       mode = hasTrigger ? 'action' : 'trigger'
     }
 
+    // Lazy load integrations when panel opens (only if not already loaded)
+    if (integrations.length === 0) {
+      fetchIntegrations(false).catch(error => {
+        logger.error('[WorkflowBuilder] Failed to lazy-load integrations on panel open:', error)
+      })
+    }
+
     setIntegrationsPanelMode(mode)
     setIsIntegrationsPanelOpen(true)
-  }, [builder.nodes])
+  }, [builder.nodes, integrations.length, fetchIntegrations])
 
   // Node selection from panel
   const handleNodeSelectFromPanel = useCallback(async (nodeData: any) => {

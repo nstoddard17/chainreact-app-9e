@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { useAuthStore } from "@/stores/authStore"
 import { Button } from "@/components/ui/button"
@@ -55,10 +55,14 @@ export function AppsContent() {
     }
   }, [workspaceContext, setStoreWorkspaceContext])
 
-  // PagePreloader already fetches integrations and providers
-  // We just need to initialize providers once when component mounts
+  // Prevent React 18 Strict Mode double-fetch
+  const hasInitializedRef = useRef(false)
+
+  // PagePreloader already fetches user integrations
+  // We just need to initialize providers (available apps) once when component mounts
   useEffect(() => {
-    if (user) {
+    if (user && !hasInitializedRef.current) {
+      hasInitializedRef.current = true
       const loadProviders = async () => {
         await initializeProviders()
         setInitialLoadComplete(true)

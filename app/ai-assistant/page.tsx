@@ -16,6 +16,8 @@ export default async function AIAssistantPage() {
       loadingTitle="Loading AI Assistant"
       loadingDescription="Setting up your AI assistant..."
       skipConversations={true}
+      skipIntegrations={true}
+      skipWorkflows={true}
     >
       <div className="flex h-screen overflow-hidden bg-background">
         {/* Sidebar */}

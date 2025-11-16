@@ -2,7 +2,7 @@
 
 import React, { useMemo } from "react"
 import { Plus } from "lucide-react"
-import { EdgeLabelRenderer, Panel } from "@xyflow/react"
+import { EdgeLabelRenderer } from "@xyflow/react"
 
 interface PhantomEdgeOverlayProps {
   nodes: any[]
@@ -69,35 +69,29 @@ export function PhantomEdgeOverlay({ nodes, onAddNode }: PhantomEdgeOverlayProps
 
   return (
     <>
-      {/* SVG for the dashed line - positioned in flow coordinates using Panel */}
-      <Panel position="top-left">
-        <svg
+      {/* Dashed line using EdgeLabelRenderer positioned in flow coordinates */}
+      <EdgeLabelRenderer>
+        {/* Render line as a styled div instead of SVG */}
+        <div
           style={{
             position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
+            left: `${centerX}px`,
+            top: `${lineStartY}px`,
+            width: '2px',
+            height: `${lineLength}px`,
+            background: `repeating-linear-gradient(
+              to bottom,
+              #d0d6e0 0px,
+              #d0d6e0 5px,
+              transparent 5px,
+              transparent 10px
+            )`,
             pointerEvents: 'none',
-            overflow: 'visible',
+            transform: 'translateX(-50%)',
           }}
-        >
-          {/* Dashed line extending from last node - matches FlowEdge style */}
-          <line
-            x1={centerX}
-            y1={lineStartY}
-            x2={centerX}
-            y2={lineEndY}
-            stroke="#d0d6e0"
-            strokeWidth="1.5"
-            strokeDasharray="5,5"
-            strokeLinecap="round"
-          />
-        </svg>
-      </Panel>
+        />
 
-      {/* Plus button using EdgeLabelRenderer for proper positioning (same as FlowEdge) */}
-      <EdgeLabelRenderer>
+        {/* Plus button */}
         <div
           style={{
             position: 'absolute',
