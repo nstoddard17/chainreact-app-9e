@@ -3300,8 +3300,167 @@ export function AirtableConfiguration({
       <div className="flex-1 min-h-0 overflow-hidden">
         <div className="h-full overflow-y-auto overflow-x-hidden px-6 py-4">
           <div className="space-y-3 pb-4 pr-4">
-            {/* Base fields */}
-            {renderFields(baseFields)}
+            {/* Base fields - For addAttachment, render recordId separately to inject table after it */}
+            {isAddAttachment ? (
+              <>
+                {/* Render fields up to and including recordId */}
+                {renderFields(baseFields.filter((f: any) =>
+                  ['baseId', 'tableName', 'recordId'].includes(f.name)
+                ))}
+
+                {/* Records table directly after recordId */}
+                {values.tableName && values.baseId && (
+                  <div className="w-full space-y-4 overflow-hidden">
+                    <div className="overflow-hidden">
+                      <div className="mb-3 space-y-1">
+                        <ConfigurationSectionHeader
+                          label="Select Record"
+                          className="border-none pb-0"
+                        />
+                        <p className="text-xs text-gray-600 dark:text-gray-400">
+                          Click a row to select the record you want to add the attachment to, or paste a record ID above
+                        </p>
+                      </div>
+                      <AirtableRecordsTable
+                        records={airtableRecords}
+                        loading={loadingRecords}
+                        selectedRecord={selectedRecord}
+                        tableName={values.tableName}
+                        cachedRecords={initialConfig?._cached_records}
+                        onSelectRecord={(record) => {
+                          setSelectedRecord(record);
+                          setValue('recordId', record.id);
+                        }}
+                        onRefresh={() => loadAirtableRecords(values.baseId, values.tableName)}
+                      />
+                    </div>
+
+                    {/* Attachment field creation UI */}
+                    {(() => {
+                      const attachmentFieldOptions = mergedDynamicOptions['attachmentField'] || [];
+                      const hasAttachmentFields = attachmentFieldOptions.length > 0;
+
+                      if (!hasAttachmentFields && !showCreateAttachmentField) {
+                        return (
+                          <div className="border border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4">
+                            <div className="flex items-start gap-3">
+                              <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mt-0.5 flex-shrink-0" />
+                              <div className="flex-1 space-y-3">
+                                <div>
+                                  <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                                    No Attachment Fields Found
+                                  </p>
+                                  <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
+                                    This table doesn't have any attachment fields yet. You can create one now to continue.
+                                  </p>
+                                </div>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setShowCreateAttachmentField(true)}
+                                  className="border-yellow-300 dark:border-yellow-700 hover:bg-yellow-100 dark:hover:bg-yellow-900/40"
+                                >
+                                  Create Attachment Field
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      if (showCreateAttachmentField && !hasAttachmentFields) {
+                        return (
+                          <div className="border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between">
+                                <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                                  Create New Attachment Field
+                                </p>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => setShowCreateAttachmentField(false)}
+                                  disabled={creatingAttachmentField}
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-xs text-blue-700 dark:text-blue-300">
+                                  Field Name
+                                </label>
+                                <input
+                                  type="text"
+                                  value={newAttachmentFieldName}
+                                  onChange={(e) => setNewAttachmentFieldName(e.target.value)}
+                                  placeholder="Attachments"
+                                  disabled={creatingAttachmentField}
+                                  className="w-full px-3 py-2 text-sm border border-blue-300 dark:border-blue-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 disabled:opacity-50"
+                                />
+                              </div>
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={async () => {
+                                  if (!newAttachmentFieldName.trim()) return;
+
+                                  setCreatingAttachmentField(true);
+                                  try {
+                                    const response = await fetch('/api/integrations/airtable/create-field', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({
+                                        integrationId: airtableIntegration?.id,
+                                        baseId: values.baseId,
+                                        tableName: values.tableName,
+                                        fieldName: newAttachmentFieldName.trim(),
+                                        fieldType: 'multipleAttachments'
+                                      })
+                                    });
+
+                                    if (!response.ok) {
+                                      throw new Error('Failed to create field');
+                                    }
+
+                                    // Reload attachment fields
+                                    await loadOptions('attachmentField', 'tableName', values.tableName, true);
+
+                                    // Set the new field as selected
+                                    setValue('attachmentField', newAttachmentFieldName.trim());
+
+                                    setShowCreateAttachmentField(false);
+                                    setNewAttachmentFieldName('Attachments');
+                                  } catch (error) {
+                                    logger.error('Failed to create attachment field:', error);
+                                    alert('Failed to create attachment field. Please try again.');
+                                  } finally {
+                                    setCreatingAttachmentField(false);
+                                  }
+                                }}
+                                disabled={!newAttachmentFieldName.trim() || creatingAttachmentField}
+                              >
+                                {creatingAttachmentField ? 'Creating...' : 'Create Field'}
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      return null;
+                    })()}
+                  </div>
+                )}
+
+                {/* Render remaining base fields after recordId */}
+                {renderFields(baseFields.filter((f: any) =>
+                  !['baseId', 'tableName', 'recordId'].includes(f.name)
+                ))}
+              </>
+            ) : (
+              renderFields(baseFields)
+            )}
 
             {/* Advanced fields - Always visible section */}
             {advancedFields.length > 0 && (
@@ -3693,151 +3852,6 @@ export function AirtableConfiguration({
                     />
                   </div>
                 )}
-              </div>
-            )}
-
-            {/* Records table for add attachment */}
-            {isAddAttachment && values.tableName && values.baseId && (
-              <div className="w-full space-y-4 overflow-hidden">
-                <div className="overflow-hidden">
-                  <div className="mb-3 space-y-1">
-                    <ConfigurationSectionHeader
-                      label="Select Record"
-                      className="border-none pb-0"
-                    />
-                    <p className="text-xs text-gray-600 dark:text-gray-400">
-                      Click a row to select the record you want to add the attachment to, or paste a record ID above
-                    </p>
-                  </div>
-                  <AirtableRecordsTable
-                    records={airtableRecords}
-                    loading={loadingRecords}
-                    selectedRecord={selectedRecord}
-                    tableName={values.tableName}
-                    cachedRecords={initialConfig?._cached_records}
-                    onSelectRecord={(record) => {
-                      setSelectedRecord(record);
-                      setValue('recordId', record.id);
-                    }}
-                    onRefresh={() => loadAirtableRecords(values.baseId, values.tableName)}
-                  />
-                </div>
-
-                {/* Attachment field creation UI */}
-                {(() => {
-                  const attachmentFieldOptions = mergedDynamicOptions['attachmentField'] || [];
-                  const hasAttachmentFields = attachmentFieldOptions.length > 0;
-
-                  if (!hasAttachmentFields && !showCreateAttachmentField) {
-                    return (
-                      <div className="border border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4">
-                        <div className="flex items-start gap-3">
-                          <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mt-0.5 flex-shrink-0" />
-                          <div className="flex-1 space-y-3">
-                            <div>
-                              <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-                                No Attachment Fields Found
-                              </p>
-                              <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
-                                This table doesn't have any attachment fields yet. You can create one now to continue.
-                              </p>
-                            </div>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setShowCreateAttachmentField(true)}
-                              className="border-yellow-300 dark:border-yellow-700 hover:bg-yellow-100 dark:hover:bg-yellow-900/40"
-                            >
-                              Create Attachment Field
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  if (showCreateAttachmentField && !hasAttachmentFields) {
-                    return (
-                      <div className="border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                              Create New Attachment Field
-                            </p>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => setShowCreateAttachmentField(false)}
-                              disabled={creatingAttachmentField}
-                            >
-                              Cancel
-                            </Button>
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-xs text-blue-700 dark:text-blue-300">
-                              Field Name
-                            </label>
-                            <input
-                              type="text"
-                              value={newAttachmentFieldName}
-                              onChange={(e) => setNewAttachmentFieldName(e.target.value)}
-                              placeholder="Attachments"
-                              disabled={creatingAttachmentField}
-                              className="w-full px-3 py-2 text-sm border border-blue-300 dark:border-blue-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 disabled:opacity-50"
-                            />
-                          </div>
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={async () => {
-                              if (!newAttachmentFieldName.trim()) return;
-
-                              setCreatingAttachmentField(true);
-                              try {
-                                const response = await fetch('/api/integrations/airtable/create-field', {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({
-                                    integrationId: airtableIntegration?.id,
-                                    baseId: values.baseId,
-                                    tableName: values.tableName,
-                                    fieldName: newAttachmentFieldName.trim(),
-                                    fieldType: 'multipleAttachments'
-                                  })
-                                });
-
-                                if (!response.ok) {
-                                  throw new Error('Failed to create field');
-                                }
-
-                                // Reload attachment fields
-                                await loadOptions('attachmentField', 'tableName', values.tableName, true);
-
-                                // Set the new field as selected
-                                setValue('attachmentField', newAttachmentFieldName.trim());
-
-                                setShowCreateAttachmentField(false);
-                                setNewAttachmentFieldName('Attachments');
-                              } catch (error) {
-                                logger.error('Failed to create attachment field:', error);
-                                alert('Failed to create attachment field. Please try again.');
-                              } finally {
-                                setCreatingAttachmentField(false);
-                              }
-                            }}
-                            disabled={!newAttachmentFieldName.trim() || creatingAttachmentField}
-                          >
-                            {creatingAttachmentField ? 'Creating...' : 'Create Field'}
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  return null;
-                })()}
               </div>
             )}
 

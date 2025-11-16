@@ -170,16 +170,19 @@ export function FlowEdge({
         ? targetBase.y + HANDLE_OFFSET / 2
         : targetY - HANDLE_OFFSET / 2
 
+    const fallbackSourceY = sourceY + HANDLE_OFFSET / 2
+    const fallbackTargetY = targetY - HANDLE_OFFSET / 2
+
     const { nodeGapY } = getCanvasDimensions()
     const visibleGap = Math.max((Number.isFinite(nodeGapY) ? nodeGapY : LAYOUT.nodeGapY) - HANDLE_OFFSET * 2, 0)
 
     const actualGap = targetAnchor - sourceAnchor
 
-    if (actualGap <= 0) {
-      correctedSource.y = sourceAnchor
-      correctedTarget.y = sourceAnchor
-      desiredVerticalLength = 0
-      availableVerticalGap = 0
+    if (!Number.isFinite(actualGap) || actualGap <= 0) {
+      correctedSource.y = fallbackSourceY
+      correctedTarget.y = Math.max(fallbackTargetY, fallbackSourceY)
+      desiredVerticalLength = Math.max(correctedTarget.y - correctedSource.y, 0)
+      availableVerticalGap = desiredVerticalLength
     } else if (actualGap >= visibleGap) {
       correctedTarget.y = targetAnchor
       correctedSource.y = targetAnchor - visibleGap
