@@ -1157,14 +1157,20 @@ export function FieldRenderer({
           const handleFileUpload = (files: FileList | File[]) => {
             onChange(files);
 
-            // Auto-populate filename field with the uploaded file's name
-            if (files && files.length > 0) {
+            // Auto-populate filename and contentType fields with the uploaded file's data
+            if (files && files.length > 0 && setFieldValue) {
               const uploadedFile = files[0];
               const fileName = uploadedFile instanceof File ? uploadedFile.name : (uploadedFile as any).name;
+              const fileType = uploadedFile instanceof File ? uploadedFile.type : (uploadedFile as any).type;
 
-              if (fileName && setFieldValue) {
+              if (fileName) {
                 logger.debug('[FieldRenderer] Auto-populating filename field:', fileName);
                 setFieldValue('filename', fileName);
+              }
+
+              if (fileType) {
+                logger.debug('[FieldRenderer] Auto-populating contentType field:', fileType);
+                setFieldValue('contentType', fileType);
               }
             }
           };
