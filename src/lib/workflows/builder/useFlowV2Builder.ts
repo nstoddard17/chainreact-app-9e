@@ -214,9 +214,10 @@ function flowToReactFlowNodes(flow: Flow, onDelete?: (nodeId: string) => void): 
     const metadata = (node.metadata ?? {}) as any
     const defaultY = 120 + index * 180
     const rawPosition = metadata.position ?? { x: LINEAR_STACK_X, y: defaultY }
+    const positionY = rawPosition.y ?? defaultY
     const position = {
       x: LINEAR_STACK_X,
-      y: rawPosition.y ?? defaultY,
+      y: positionY,
     }
 
     const catalogNode = NODE_COMPONENT_MAP.get(node.type)
@@ -228,6 +229,7 @@ function flowToReactFlowNodes(flow: Flow, onDelete?: (nodeId: string) => void): 
       id: node.id,
       type: metadata.reactFlowType ?? "custom",
       position,
+      positionAbsolute: position,
       data: {
         label: node.label ?? node.type,
         title: node.label ?? node.type,

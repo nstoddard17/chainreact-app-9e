@@ -1,5 +1,6 @@
 import { getAirtableFields, type AirtableFieldOption } from './fields'
 import type { AirtableDataHandler } from '../types'
+import { logger } from '@/lib/utils/logger'
 
 const ATTACHMENT_FIELD_TYPES = new Set(['multipleAttachments', 'singleAttachment'])
 
@@ -9,5 +10,17 @@ export const getAirtableAttachmentFields: AirtableDataHandler<AirtableFieldOptio
 ) => {
   const fields = await getAirtableFields(integration, options)
 
-  return fields.filter(field => ATTACHMENT_FIELD_TYPES.has(field.type))
+  logger.debug('[getAirtableAttachmentFields] All fields:', {
+    totalFields: fields.length,
+    fieldTypes: fields.map(f => ({ name: f.label, type: f.type }))
+  })
+
+  const attachmentFields = fields.filter(field => ATTACHMENT_FIELD_TYPES.has(field.type))
+
+  logger.debug('[getAirtableAttachmentFields] Filtered attachment fields:', {
+    attachmentFieldsFound: attachmentFields.length,
+    attachmentFields: attachmentFields.map(f => ({ name: f.label, type: f.type }))
+  })
+
+  return attachmentFields
 }
