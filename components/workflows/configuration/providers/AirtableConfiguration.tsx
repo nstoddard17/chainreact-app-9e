@@ -134,6 +134,10 @@ export function AirtableConfiguration({
   const [isBatchLoading, setIsBatchLoading] = useState(false);
 
   // Combine all loading states for display
+  const hasSearchFieldData = searchFieldOptions.length > 0 ||
+    (Array.isArray(dynamicOptions?.searchField) && dynamicOptions.searchField.length > 0) ||
+    (Array.isArray(dynamicOptions?.airtable_fields) && dynamicOptions.airtable_fields.length > 0);
+
   const loadingFields = React.useMemo(() => {
     const combined = new Set<string>();
 
@@ -145,8 +149,13 @@ export function AirtableConfiguration({
     // Add local loading fields
     localLoadingFields.forEach(field => combined.add(field));
 
+    // If we already have searchField options, prevent the spinner from reappearing
+    if (hasSearchFieldData) {
+      combined.delete('searchField');
+    }
+
     return combined;
-  }, [parentLoadingFields, localLoadingFields]);
+  }, [parentLoadingFields, localLoadingFields, hasSearchFieldData]);
 
   // Helper function to check if a field is currently loading
   // CRITICAL: When reopening modal, NEVER show loading state - just show saved values
@@ -1437,6 +1446,12 @@ export function AirtableConfiguration({
 
     // Progressive disclosure for Find Record
     if (isFindRecord) {
+      console.log(`🔍 [FIND RECORD] Progressive disclosure check for ${field.name}:`, {
+        nodeType: nodeInfo?.type,
+        isFindRecord,
+        fieldName: field.name
+      });
+
       const fieldHasSavedValue = values[field.name] !== undefined && values[field.name] !== null && values[field.name] !== '';
 
       // Step 1: Only show baseId initially (unless field has saved value)
@@ -1461,18 +1476,50 @@ export function AirtableConfiguration({
       // Step 4: After tableName selected, only show searchMode field
       // Hide search-related fields until searchMode is explicitly selected
       const searchDependentFields = ['searchField', 'searchValue', 'matchType', 'caseSensitive', 'filterFormula'];
-      if (searchDependentFields.includes(field.name) && !fieldHasSavedValue) {
-        // For fresh modals: hide until user explicitly selects searchMode
-        // Check both if searchMode is empty AND if it matches the schema default (not user-selected)
-        const searchModeField = nodeInfo?.configSchema?.find((f: any) => f.name === 'searchMode');
-        const searchModeIsDefault = values.searchMode === searchModeField?.defaultValue;
-        const searchModeEmpty = !values.searchMode;
+      if (searchDependentFields.includes(field.name)) {
+        // Check if this field's value is actually from a saved config or just the default
+        // A field has a "real" saved value if it exists in initialConfig (saved node config)
+        const fieldExistsInSavedConfig = initialConfig && initialConfig.hasOwnProperty(field.name);
+        const hasActualSavedValue = fieldHasSavedValue && fieldExistsInSavedConfig;
 
-        if (searchModeEmpty || searchModeIsDefault) {
-          if (isSearchRelated) {
+        console.log(`🔍 [FIND RECORD DEBUG] Checking ${field.name}:`, {
+          fieldName: field.name,
+          fieldHasSavedValue,
+          fieldExistsInSavedConfig,
+          hasActualSavedValue,
+          'values.searchMode': values.searchMode,
+          'values.matchType': values.matchType,
+          'values.caseSensitive': values.caseSensitive,
+          'values[field.name]': values[field.name],
+          'initialConfig': initialConfig,
+          'initialConfig[field.name]': initialConfig?.[field.name],
+          isReopen,
+          allValues: values
+        });
+
+        if (!hasActualSavedValue) {
+          // For fresh modals: hide until user explicitly selects searchMode
+          // Check both if searchMode is empty AND if it matches the schema default (not user-selected)
+          const searchModeField = nodeInfo?.configSchema?.find((f: any) => f.name === 'searchMode');
+          const searchModeIsDefault = values.searchMode === searchModeField?.defaultValue;
+          const searchModeEmpty = !values.searchMode;
+
+          console.log(`🔍 [FIND RECORD DEBUG] ${field.name} decision:`, {
+            searchModeField_defaultValue: searchModeField?.defaultValue,
+            searchModeIsDefault,
+            searchModeEmpty,
+            willHide: searchModeEmpty || searchModeIsDefault
+          });
+
+          if (searchModeEmpty || searchModeIsDefault) {
             console.log(`❌ [shouldShowField] ${field.name}: Progressive disclosure - searchMode not explicitly selected (empty: ${searchModeEmpty}, isDefault: ${searchModeIsDefault})`);
+            return false;
           }
-          return false;
+        } else {
+          console.log(`✅ [FIND RECORD DEBUG] ${field.name}: Has saved value, showing`, {
+            fieldValue: values[field.name],
+            fieldValueType: typeof values[field.name]
+          });
         }
       }
     }

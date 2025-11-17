@@ -510,6 +510,20 @@ export class FieldVisibilityEngine {
       })
       .map(field => field.name);
 
+    // Debug logging for Get Record
+    if (nodeInfo?.type === 'airtable_action_get_record') {
+      console.log('🔍 [Get Record Validation]', {
+        allFields: schema.map(f => f.name),
+        visibleFields: visibleFields.map(f => f.name),
+        visibleRequiredFields: visibleFields.filter(f => f.required).map(f => f.name),
+        formValues: Object.keys(formValues).reduce((acc, key) => {
+          acc[key] = typeof formValues[key] === 'object' ? JSON.stringify(formValues[key]) : formValues[key];
+          return acc;
+        }, {} as Record<string, any>),
+        missingFields
+      });
+    }
+
     // Debug logging for Add Attachment
     if (nodeInfo?.type === 'airtable_action_add_attachment') {
       console.log('🔍 [Add Attachment Validation]', {
