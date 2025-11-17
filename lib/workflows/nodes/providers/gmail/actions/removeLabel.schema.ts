@@ -54,7 +54,7 @@ export const removeLabelActionSchema: NodeComponent = {
       label: "Labels to Remove",
       type: "multiselect",
       required: true,
-      dynamic: "gmail-labels",
+      dynamic: true,
       loadOnMount: true,
       placeholder: "Select labels to remove...",
       description: "Choose which labels to remove from the email"

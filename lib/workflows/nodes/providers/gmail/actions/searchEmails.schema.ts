@@ -75,8 +75,11 @@ export const searchEmailsActionSchema: NodeComponent = {
       label: "Max Messages to Fetch",
       type: "number",
       required: false,
+      min: 1,
+      max: 100,
       placeholder: "10",
-      description: "Maximum number of messages to retrieve (between 1-15)",
+      description: "Maximum number of messages to retrieve (1-100)",
+      tooltip: "Fetching many emails may hit Gmail API rate limits. Recommended: 10-50.",
       defaultValue: 10
     },
     {

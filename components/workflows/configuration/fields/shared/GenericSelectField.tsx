@@ -206,20 +206,36 @@ export function GenericSelectField({
 
   // Refresh handler - must be at top level before any conditional returns
   const handleRefresh = React.useCallback(async () => {
-    if (!field.dynamic || !onDynamicLoad || isRefreshing) return;
+    if (!field.dynamic || !onDynamicLoad) return;
+
+    // Use ref to check if already refreshing to avoid stale closure
+    if (isRefreshing) {
+      logger.debug('[GenericSelectField] Refresh already in progress, skipping');
+      return;
+    }
 
     setIsRefreshing(true);
     try {
       const dependencyValue = field.dependsOn ? parentValues[field.dependsOn] : undefined;
+      logger.debug('[GenericSelectField] Refreshing field:', {
+        fieldName: field.name,
+        dependsOn: field.dependsOn,
+        dependencyValue
+      });
+
       if (field.dependsOn && dependencyValue) {
         await cachedDynamicLoad(field.name, field.dependsOn, dependencyValue, true);
       } else if (!field.dependsOn) {
         await cachedDynamicLoad(field.name, undefined, undefined, true);
+      } else {
+        logger.debug('[GenericSelectField] Skipping refresh - dependent field missing parent value');
       }
+    } catch (error) {
+      logger.error('[GenericSelectField] Refresh failed:', error);
     } finally {
       setIsRefreshing(false);
     }
-  }, [field.dynamic, field.name, field.dependsOn, parentValues, cachedDynamicLoad, isRefreshing]);
+  }, [field.dynamic, field.name, field.dependsOn, parentValues, cachedDynamicLoad, onDynamicLoad, isRefreshing]);
 
   // Handle search query changes (debounced search for fields like gmail-recent-emails)
   const handleSearchChange = React.useCallback(async (query: string) => {

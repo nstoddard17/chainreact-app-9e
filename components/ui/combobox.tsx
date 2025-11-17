@@ -30,6 +30,7 @@ export interface ComboboxOption {
   disabled?: boolean;
   searchValue?: string; // Additional searchable text for enhanced search
   group?: string; // Optional group name for grouped display
+  groupIcon?: string; // Optional icon URL/path for group header
   color?: string; // Optional hex color for color preview ball
 }
 
@@ -508,6 +509,8 @@ export function Combobox({
               // Render groups with collapsible headers
               const groupElements = Object.entries(grouped).map(([groupName, groupOptions]) => {
                 const isCollapsed = collapsedGroups.has(groupName);
+                // Get the group icon from the first option in the group
+                const groupIcon = groupOptions[0]?.groupIcon;
                 return (
                   <CommandGroup key={groupName}>
                     {/* Collapsible Group Header */}
@@ -529,6 +532,13 @@ export function Combobox({
                           !isCollapsed && "rotate-90"
                         )}
                       />
+                      {groupIcon && (
+                        <img
+                          src={groupIcon}
+                          alt=""
+                          className="w-4 h-4 flex-shrink-0"
+                        />
+                      )}
                       <span>{groupName}</span>
                       <span className="ml-auto text-muted-foreground">
                         {groupOptions.length}

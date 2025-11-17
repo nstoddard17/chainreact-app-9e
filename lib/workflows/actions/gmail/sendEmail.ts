@@ -35,46 +35,46 @@ export async function sendGmailEmail(
 
     logger.debug('📧 [sendGmailEmail] Needs resolution:', needsResolution)
 
-    // IMPORTANT: Pass input directly, not wrapped in { input }
-    const resolvedConfig = needsResolution ? resolveValue(config, input) : config
+    // Resolve each field individually (like createDraft does) to ensure all fields are properly resolved
+    const from = resolveValue(config.from, input)
+    const to = resolveValue(config.to, input)
+    const cc = resolveValue(config.cc, input)
+    const bcc = resolveValue(config.bcc, input)
+    const rawSubject = resolveValue(config.subject, input)
+    const rawBody = resolveValue(config.body, input)
+    const signature = resolveValue(config.signature, input)
+    const attachments = resolveValue(config.attachments, input)
+    const sourceType = resolveValue(config.sourceType, input)
+    const uploadedFiles = resolveValue(config.uploadedFiles, input)
+    const fileUrl = resolveValue(config.fileUrl, input)
+    const fileFromNode = resolveValue(config.fileFromNode, input)
+    const replyTo = resolveValue(config.replyTo, input)
+    const priority = resolveValue(config.priority, input) || 'normal'
+    const readReceipt = resolveValue(config.readReceipt, input) || false
+    const labels = resolveValue(config.labels, input) || []
+    const scheduleSend = resolveValue(config.scheduleSend, input)
+    const trackOpens = resolveValue(config.trackOpens, input) || false
+    const trackClicks = resolveValue(config.trackClicks, input) || false
+    const isHtml = resolveValue(config.isHtml, input) || false
 
-    logger.debug('📧 [sendGmailEmail] Resolved config.to:', resolvedConfig.to)
-    logger.debug('📧 [sendGmailEmail] Resolved config.body:', resolvedConfig.body)
+    logger.debug('📧 [sendGmailEmail] Resolved to:', to)
+    logger.debug('📧 [sendGmailEmail] Resolved cc:', cc)
+    logger.debug('📧 [sendGmailEmail] Resolved bcc:', bcc)
+    logger.debug('📧 [sendGmailEmail] Resolved body:', rawBody)
 
     // Apply meta-variable resolution to subject and body
     // This resolves {{recipient_name}}, {{sender_email}}, etc. based on To/From fields
     const { subject: resolvedSubject, body: resolvedBody } = await applyEmailMetaVariables(
       {
-        to: resolvedConfig.to,
-        from: resolvedConfig.from,
-        cc: resolvedConfig.cc,
-        bcc: resolvedConfig.bcc,
-        subject: resolvedConfig.subject,
-        body: resolvedConfig.body
+        to,
+        from,
+        cc,
+        bcc,
+        subject: rawSubject,
+        body: rawBody
       },
       userId
     )
-
-    const {
-      from,
-      to,
-      cc,
-      bcc,
-      signature,
-      attachments,
-      sourceType,
-      uploadedFiles,
-      fileUrl,
-      fileFromNode,
-      replyTo,
-      priority = 'normal',
-      readReceipt = false,
-      labels = [],
-      scheduleSend,
-      trackOpens = false,
-      trackClicks = false,
-      isHtml = false
-    } = resolvedConfig
 
     // Use the meta-variable resolved subject and body
     const subject = resolvedSubject
@@ -93,6 +93,8 @@ export async function sendGmailEmail(
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client })
 
     // Build email headers
+    logger.debug('📧 [sendGmailEmail] Building headers with cc:', cc, 'type:', typeof cc, 'isArray:', Array.isArray(cc))
+
     const headers: Record<string, string> = {
       'To': Array.isArray(to) ? to.join(', ') : to,
       'Subject': subject,
@@ -101,6 +103,9 @@ export async function sendGmailEmail(
 
     if (cc) {
       headers['Cc'] = Array.isArray(cc) ? cc.join(', ') : cc
+      logger.debug('📧 [sendGmailEmail] CC header set to:', headers['Cc'])
+    } else {
+      logger.debug('📧 [sendGmailEmail] CC is falsy, not adding CC header')
     }
 
     if (bcc) {
@@ -145,9 +150,11 @@ export async function sendGmailEmail(
     const messageParts = []
 
     // Add headers
+    logger.debug('📧 [sendGmailEmail] All headers before adding to message:', JSON.stringify(headers, null, 2))
     for (const [key, value] of Object.entries(headers)) {
       messageParts.push(`${key}: ${value}`)
     }
+    logger.debug('📧 [sendGmailEmail] Message parts after adding headers:', messageParts.slice(0, 10))
     messageParts.push(`Content-Type: multipart/mixed; boundary="${boundary}"`)
     messageParts.push('')
     messageParts.push(`--${boundary}`)

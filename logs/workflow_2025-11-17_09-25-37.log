@@ -33,3 +33,119 @@ Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
 [2025-11-17T17:36:58.962Z] [INFO   ] 2025-11-17T17:36:58.962Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
 [2025-11-17T17:36:59.485Z] [INFO   ] 2025-11-17T17:36:59.485Z [DEBUG] Discord Gateway WebSocket connection established
 [2025-11-17T17:36:59.486Z] [INFO   ] 2025-11-17T17:36:59.486Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-17T18:04:29.001Z] [INFO   ]  ✓ Compiled in 1566ms (2827 modules)
+[2025-11-17T18:05:18.825Z] [INFO   ]  ✓ Compiled in 626ms (2827 modules)
+[2025-11-17T18:08:55.681Z] [INFO   ]  ✓ Compiled in 609ms (2827 modules)
+[2025-11-17T18:44:10.788Z] [INFO   ]  ✓ Compiled in 1618ms (2827 modules)
+[2025-11-17T18:50:22.004Z] [INFO   ]  ✓ Compiled in 1537ms (2827 modules)
+[2025-11-17T18:57:49.106Z] [INFO   ]  ✓ Compiled in 1003ms (2827 modules)
+[2025-11-17T18:57:56.455Z] [INFO   ]  ✓ Compiled in 701ms (2828 modules)
+[2025-11-17T19:13:15.075Z] [INFO   ]  ✓ Compiled in 1516ms (2830 modules)
+[2025-11-17T19:13:33.979Z] [INFO   ]  ✓ Compiled in 322ms (2830 modules)
+[2025-11-17T19:13:46.029Z] [INFO   ]  ✓ Compiled in 535ms (2830 modules)
+[2025-11-17T19:56:18.183Z] [INFO   ]  ✓ Compiled in 816ms (2830 modules)
+[2025-11-17T19:56:27.936Z] [INFO   ]  ✓ Compiled in 1120ms (2831 modules)
+[2025-11-17T19:57:45.669Z] [INFO   ]  ✓ Compiled in 874ms (2831 modules)
+[2025-11-17T19:58:01.952Z] [INFO   ]  ✓ Compiled in 608ms (2831 modules)
+[2025-11-17T19:58:42.915Z] [INFO   ]  ✓ Compiled in 889ms (2831 modules)
+[2025-11-17T19:58:50.635Z] [INFO   ]  ✓ Compiled in 1037ms (2832 modules)
+[2025-11-17T20:04:42.585Z] [INFO   ]  ✓ Compiled in 1597ms (2832 modules)
+[2025-11-17T20:04:52.261Z] [INFO   ]  ✓ Compiled in 229ms (2832 modules)
+[2025-11-17T20:05:49.445Z] [INFO   ]  ✓ Compiled in 626ms (2832 modules)
+[2025-11-17T20:05:54.274Z] [INFO   ]  ✓ Compiled in 222ms (2832 modules)
+[2025-11-17T20:08:00.960Z] [INFO   ]  ✓ Compiled in 945ms (2832 modules)
+[2025-11-17T20:08:10.121Z] [INFO   ]  ✓ Compiled in 971ms (2840 modules)
+[2025-11-17T20:15:56.024Z] [INFO   ]  ✓ Compiled in 968ms (2840 modules)
+[2025-11-17T20:18:32.134Z] [INFO   ]  ✓ Compiled in 631ms (2840 modules)
+[2025-11-17T20:18:35.341Z] [INFO   ]  ✓ Compiled in 646ms (2840 modules)
+[2025-11-17T20:18:45.060Z] [INFO   ]  ✓ Compiled in 1373ms (2840 modules)
+[2025-11-17T20:26:21.715Z] [INFO   ]  ✓ Compiled in 737ms (2840 modules)
+[2025-11-17T20:26:30.546Z] [INFO   ]  ✓ Compiled in 435ms (2840 modules)
+[2025-11-17T20:26:39.608Z] [INFO   ]  ✓ Compiled in 586ms (2840 modules)
+[2025-11-17T20:30:14.122Z] [INFO   ]  ✓ Compiled in 716ms (2840 modules)
+[2025-11-17T20:30:22.142Z] [INFO   ]  ✓ Compiled in 354ms (2840 modules)
+[2025-11-17T20:35:59.223Z] [INFO   ]  ✓ Compiled in 1403ms (2840 modules)
+[2025-11-17T20:36:08.395Z] [INFO   ]  ✓ Compiled in 241ms (2840 modules)
+[2025-11-17T20:36:17.672Z] [INFO   ]  ✓ Compiled in 444ms (2840 modules)
+[2025-11-17T20:36:25.534Z] [INFO   ]  ✓ Compiled in 1033ms (2840 modules)
+[2025-11-17T20:39:05.946Z] [INFO   ]  ✓ Compiled in 998ms (2840 modules)
+[2025-11-17T20:39:19.763Z] [INFO   ]  ✓ Compiled in 1202ms (2841 modules)
+[2025-11-17T20:39:43.586Z] [ERROR  ]  ⨯ ./lib/workflows/actions/gmail/searchEmails.ts
+Error:   [31mx[0m A 'continue' statement can only jump to a label of an enclosing iteration statement
+     ,-[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/actions/gmail/searchEmails.ts[0m:159:1]
+ [2m156[0m |         
+ [2m157[0m |         if (!messageResponse.ok) {
+ [2m158[0m |           logger.error(`Failed to fetch message ${messageId}: ${messageResponse.status}`)
+ [2m159[0m |           continue
+     : [35;1m          ^^^^^^^^[0m
+ [2m160[0m |         }
+ [2m161[0m |         
+ [2m162[0m |         const message = await messageResponse.json()
+     `----
+  [31mx[0m Expected ',', got 'const'
+     ,-[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/actions/gmail/searchEmails.ts[0m:257:1]
+ [2m254[0m |     // Return emails array and metadata
+ [2m255[0m |     // For single email scenarios, users can access emails[0]
+ [2m256[0m |     // For multiple emails, they have the full array to work with
+ [2m257[0m |     const result = {
+     : [35;1m    ^^^^^[0m
+ [2m258[0m |       success: true,
+ [2m259[0m |       output: {
+ [2m260[0m |         ...input,
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./lib/workflows/actions/gmail/searchEmails.ts
+./lib/workflows/actions/gmail/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-17T20:39:50.034Z] [ERROR  ]  ⨯ ./lib/workflows/actions/gmail/searchEmails.ts
+Error:   [31mx[0m Expected ',', got 'const'
+     ,-[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/actions/gmail/searchEmails.ts[0m:261:1]
+ [2m258[0m |     // Return emails array and metadata
+ [2m259[0m |     // For single email scenarios, users can access emails[0]
+ [2m260[0m |     // For multiple emails, they have the full array to work with
+ [2m261[0m |     const result = {
+     : [35;1m    ^^^^^[0m
+ [2m262[0m |       success: true,
+ [2m263[0m |       output: {
+ [2m264[0m |         ...input,
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./lib/workflows/actions/gmail/searchEmails.ts
+./lib/workflows/actions/gmail/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-17T20:39:59.315Z] [INFO   ]  ✓ Compiled in 723ms (2841 modules)
+[2025-11-17T20:40:19.282Z] [INFO   ]  ✓ Compiled in 558ms (2841 modules)
+[2025-11-17T20:40:43.304Z] [INFO   ]  ✓ Compiled in 765ms (2841 modules)
+[2025-11-17T20:47:54.420Z] [INFO   ]  ✓ Compiled in 734ms (2841 modules)
+[2025-11-17T20:48:31.240Z] [INFO   ]  ✓ Compiled in 587ms (2841 modules)
+[2025-11-17T20:48:46.476Z] [INFO   ]  ✓ Compiled in 443ms (2841 modules)
+[2025-11-17T20:49:13.515Z] [INFO   ]  ✓ Compiled in 1201ms (2841 modules)
+[2025-11-17T20:49:49.654Z] [INFO   ]  ✓ Compiled in 1041ms (2841 modules)
+[2025-11-17T20:50:19.326Z] [INFO   ]  ✓ Compiled in 1744ms (2841 modules)
+[2025-11-17T20:51:59.722Z] [INFO   ]  ✓ Compiled in 1005ms (2841 modules)
+[2025-11-17T20:52:05.160Z] [INFO   ]  ✓ Compiled in 374ms (2841 modules)
+[2025-11-17T20:52:13.623Z] [INFO   ]  ✓ Compiled in 259ms (2841 modules)
+[2025-11-17T20:52:20.047Z] [INFO   ]  ✓ Compiled in 261ms (2841 modules)
+[2025-11-17T21:13:45.761Z] [INFO   ]  ✓ Compiled in 850ms (2841 modules)
+[2025-11-17T21:13:58.220Z] [INFO   ]  ✓ Compiled in 697ms (2841 modules)
+[2025-11-17T21:14:16.461Z] [INFO   ]  ✓ Compiled in 1358ms (2841 modules)
+[2025-11-17T21:15:18.207Z] [INFO   ] 2025-11-17T21:15:18.206Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-17T21:15:18.282Z] [INFO   ] 2025-11-17T21:15:18.282Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-11-17T21:15:18.688Z] [INFO   ] 2025-11-17T21:15:18.687Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-17T21:15:18.689Z] [INFO   ] 2025-11-17T21:15:18.689Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-17T21:18:19.718Z] [INFO   ]  ✓ Compiled in 909ms (2841 modules)
+[2025-11-17T21:18:29.315Z] [INFO   ]  ✓ Compiled in 507ms (2841 modules)

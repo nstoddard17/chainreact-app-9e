@@ -15,8 +15,21 @@ import {
 import { sendGmailEmail } from './gmail/sendEmail'
 import { applyGmailLabels } from './gmail/applyLabels'
 import { searchGmailEmails } from './gmail'
+import { advancedGmailSearch } from './gmail/advancedSearch'
 import { fetchGmailMessage } from './gmail/fetchMessage'
 import { fetchGmailTriggerEmail } from './gmail/fetchTriggerEmail'
+import { markGmailAsRead } from './gmail/markAsRead'
+import { markGmailAsUnread } from './gmail/markAsUnread'
+import { archiveGmailEmail } from './gmail/archiveEmail'
+import { deleteGmailEmail } from './gmail/deleteEmail'
+import { removeGmailLabel } from './gmail/removeLabel'
+import { createGmailDraft } from './gmail/createDraft'
+import { createGmailDraftReply } from './gmail/createDraftReply'
+import { createGmailLabel } from './gmail/createLabel'
+import { replyToGmailEmail } from './gmail/replyToEmail'
+import { getGmailAttachment } from './gmail/getAttachment'
+import { downloadGmailAttachment } from './gmail/downloadAttachment'
+import { updateGmailSignature } from './gmail/updateSignature'
 
 // Google Sheets actions
 import { readGoogleSheetsData, exportGoogleSheetsData, createGoogleSheetsRow, updateGoogleSheetsRow, deleteGoogleSheetsRow, findGoogleSheetsRow, clearGoogleSheetsRange, formatGoogleSheetsRange, batchUpdateGoogleSheets } from './googleSheets'
@@ -455,8 +468,34 @@ export const actionHandlerRegistry: Record<string, Function> = {
     applyGmailLabels(params.config, params.userId, params.input),
   "gmail_action_search_email": (params: { config: any; userId: string; input: Record<string, any> }) =>
     searchGmailEmails(params.config, params.userId, params.input),
+  "gmail_action_advanced_search": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    advancedGmailSearch(params.config, params.userId, params.input),
   "gmail_action_fetch_message": (params: { config: any; userId: string; input: Record<string, any> }) =>
     fetchGmailMessage(params.config, params.userId, params.input),
+  "gmail_action_mark_as_read": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    markGmailAsRead(params.config, params.userId, params.input),
+  "gmail_action_mark_as_unread": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    markGmailAsUnread(params.config, params.userId, params.input),
+  "gmail_action_archive_email": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    archiveGmailEmail(params.config, params.userId, params.input),
+  "gmail_action_delete_email": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    deleteGmailEmail(params.config, params.userId, params.input),
+  "gmail_action_remove_label": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    removeGmailLabel(params.config, params.userId, params.input),
+  "gmail_action_create_draft": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createGmailDraft(params.config, params.userId, params.input),
+  "gmail_action_create_draft_reply": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createGmailDraftReply(params.config, params.userId, params.input),
+  "gmail_action_create_label": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createGmailLabel(params.config, params.userId, params.input),
+  "gmail_action_reply_to_email": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    replyToGmailEmail(params.config, params.userId, params.input),
+  "gmail_action_get_attachment": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    getGmailAttachment(params.config, params.userId, params.input),
+  "gmail_action_download_attachment": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    downloadGmailAttachment(params.config, params.userId, params.input),
+  "gmail_action_update_signature": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    updateGmailSignature(params.config, params.userId, params.input),
 
   // Gmail trigger handler - fetches real email data for testing
   "gmail_trigger_new_email": (params: { config: any; userId: string; input: Record<string, any> }) =>

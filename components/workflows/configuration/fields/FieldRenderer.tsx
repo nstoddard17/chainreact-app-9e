@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ConfigField, NodeField } from "@/lib/workflows/nodes";
+import { ConfigField, NodeField, ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { HelpCircle, Mail, Hash, Calendar, FileText, Link, User, MessageSquare, Bell, Zap, Bot, X, RefreshCw, Sparkles, Loader2 } from "lucide-react";
@@ -1155,21 +1155,59 @@ export function FieldRenderer({
         // Generic file upload handling - render FileUpload component for all file fields
         // unless they have specific custom implementations below
 
-        // Special handling for Gmail attachments (field name is uploadedFiles)
-        if (integrationProvider === 'gmail' && field.name === 'uploadedFiles') {
+        // Special handling for Gmail attachments - convert to base64 for persistence
+        if (integrationProvider === 'gmail' && (field.name === 'uploadedFiles' || field.name === 'attachments')) {
+          const handleFileUpload = async (files: FileList | File[]) => {
+            if (files && files.length > 0) {
+              const fileArray = Array.from(files);
+              const fileObjects = await Promise.all(
+                fileArray.map(async (uploadedFile) => {
+                  if (uploadedFile instanceof File) {
+                    try {
+                      const base64 = await new Promise<string>((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result as string);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(uploadedFile);
+                      });
+
+                      return {
+                        name: uploadedFile.name,
+                        fileName: uploadedFile.name,
+                        size: uploadedFile.size,
+                        fileSize: uploadedFile.size,
+                        type: uploadedFile.type,
+                        fileType: uploadedFile.type,
+                        mimeType: uploadedFile.type,
+                        url: base64,
+                        content: base64.split(',')[1] // Store base64 without data URL prefix
+                      };
+                    } catch (error) {
+                      logger.error('[FieldRenderer] Error converting file to base64:', error);
+                      return null;
+                    }
+                  }
+                  return uploadedFile; // Already in object format
+                })
+              );
+
+              onChange(fileObjects.filter(Boolean));
+            } else {
+              onChange(files);
+            }
+          };
+
           return (
-            <GmailAttachmentField
-              field={field}
+            <FileUpload
               value={value}
-              onChange={onChange}
-              error={error}
-              sourceType="file"
-              workflowId={parentValues?.workflowId}
-              nodeId={nodeInfo?.id || currentNodeId}
-              workflowData={workflowData}
-              currentNodeId={currentNodeId}
-              parentValues={parentValues}
-              setFieldValue={setFieldValue}
+              onChange={handleFileUpload}
+              accept={field.accept || "*/*"}
+              placeholder={field.placeholder || "Choose files to upload..."}
+              disabled={field.disabled}
+              maxFiles={field.maxFiles || 10}
+              multiple={true}
+              maxSize={field.maxSize || 25 * 1024 * 1024}
+              className={cn(error && "border-red-500")}
             />
           );
         }
@@ -1501,23 +1539,98 @@ export function FieldRenderer({
         );
 
       case "select":
-        // If Connect mode is active, show text input for variable references
-        if (isConnectedMode) {
-          return (
-            <Input
-              type="text"
-              value={value || ''}
-              onChange={(e) => onChange(e.target.value)}
-              placeholder="{{trigger.fieldName}} or {{action.output}}"
-              className={cn(error && "border-red-500")}
-            />
-          );
-        }
-
         // Route to integration-specific select field or generic one
         const selectOptions = Array.isArray(field.options)
           ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
           : fieldOptions;
+
+        console.log('🔍 [FieldRenderer] Select field rendering:', {
+          fieldName: field.name,
+          isConnectedMode,
+          hasWorkflowData: !!workflowData,
+          currentNodeId,
+          willShowVariableDropdown: isConnectedMode && workflowData && currentNodeId
+        });
+
+        // If Connect mode is active, show GenericSelectField with upstream variables as options
+        if (isConnectedMode && workflowData && currentNodeId) {
+          console.log('🔌 [FieldRenderer] Connect mode ACTIVE - showing variable dropdown');
+
+          // Get upstream nodes (nodes that connect to the current node)
+          const nodeById = new Map(workflowData.nodes.map((n: any) => [n.id, n]))
+          const edges = workflowData.edges || []
+          const sourceIds = edges
+            .filter((e: any) => e.target === currentNodeId)
+            .map((e: any) => e.source)
+
+          const upstreamNodes = sourceIds
+            .map((id: string) => nodeById.get(id))
+            .filter(Boolean)
+            .map((node: any) => {
+              const nodeComponent = ALL_NODE_COMPONENTS.find((c: any) => c.type === node.data?.type)
+              return {
+                id: node.id,
+                title: node.data?.title || node.data?.label || nodeComponent?.title || 'Unnamed',
+                type: node.data?.type,
+                outputSchema: nodeComponent?.outputSchema || [],
+                providerId: node.data?.providerId
+              }
+            })
+
+          // Determine compatible types based on field type
+          const getCompatibleTypes = (fieldType: string) => {
+            switch (fieldType) {
+              case 'text':
+              case 'textarea':
+              case 'email':
+                return ['string', 'text', 'email', 'url', 'phone']
+              case 'number':
+                return ['number', 'integer', 'float']
+              case 'select':
+              case 'combobox':
+                return ['string', 'text', 'number', 'integer', 'array', 'object']
+              default:
+                return null // null means show all types
+            }
+          }
+
+          const compatibleTypes = getCompatibleTypes(field.type)
+
+          // Convert upstream variables to options format for GenericSelectField
+          const variableOptions = upstreamNodes.flatMap((node: any) =>
+            node.outputSchema
+              .filter((outputField: any) => {
+                // If no type filtering needed, show all
+                if (!compatibleTypes) return true
+                // Filter by compatible types
+                return compatibleTypes.includes(outputField.type?.toLowerCase())
+              })
+              .map((outputField: any) => ({
+                value: `{{${node.id}.${outputField.name}}}`,
+                label: outputField.label || outputField.name,
+                group: node.title,
+                groupIcon: node.providerId ? `/integrations/${node.providerId}.svg` : undefined
+              }))
+          )
+
+          console.log('📊 [FieldRenderer] Generated variable options:', {
+            upstreamNodesCount: upstreamNodes.length,
+            variableOptionsCount: variableOptions.length,
+            sampleOptions: variableOptions.slice(0, 3)
+          });
+
+          // In Connect mode, use VariableSelectionDropdown for proper styling
+          return (
+            <VariableSelectionDropdown
+              workflowData={workflowData}
+              currentNodeId={currentNodeId}
+              value={value}
+              onChange={onChange}
+              placeholder="Select a variable..."
+              disabled={false}
+            />
+          );
+        }
 
         // Debug logging for board field
         if (field.name === 'boardId') {
@@ -1595,47 +1708,215 @@ export function FieldRenderer({
         );
 
       case "combobox":
-        // Combobox: Searchable select with optional custom value input
+        // Combobox: Use GenericSelectField which handles both dropdown selection and variable references
         const comboboxOptions = Array.isArray(field.options)
           ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
           : fieldOptions;
 
+        // If Connect mode is active, show GenericSelectField with upstream variables as options
+        if (isConnectedMode && workflowData && currentNodeId) {
+          // Get upstream nodes (nodes that connect to the current node)
+          const nodeById = new Map(workflowData.nodes.map((n: any) => [n.id, n]))
+          const edges = workflowData.edges || []
+          const sourceIds = edges
+            .filter((e: any) => e.target === currentNodeId)
+            .map((e: any) => e.source)
+
+          const upstreamNodes = sourceIds
+            .map((id: string) => nodeById.get(id))
+            .filter(Boolean)
+            .map((node: any) => {
+              const nodeComponent = ALL_NODE_COMPONENTS.find((c: any) => c.type === node.data?.type)
+              return {
+                id: node.id,
+                title: node.data?.title || node.data?.label || nodeComponent?.title || 'Unnamed',
+                type: node.data?.type,
+                outputSchema: nodeComponent?.outputSchema || [],
+                providerId: node.data?.providerId
+              }
+            })
+
+          // Determine compatible types based on field type
+          const getCompatibleTypes = (fieldType: string) => {
+            switch (fieldType) {
+              case 'text':
+              case 'textarea':
+              case 'email':
+                return ['string', 'text', 'email', 'url', 'phone']
+              case 'number':
+                return ['number', 'integer', 'float']
+              case 'select':
+              case 'combobox':
+                return ['string', 'text', 'number', 'integer', 'array', 'object']
+              default:
+                return null // null means show all types
+            }
+          }
+
+          const compatibleTypes = getCompatibleTypes(field.type)
+
+          // Convert upstream variables to options format for GenericSelectField
+          const variableOptions = upstreamNodes.flatMap((node: any) =>
+            node.outputSchema
+              .filter((outputField: any) => {
+                // If no type filtering needed, show all
+                if (!compatibleTypes) return true
+                // Filter by compatible types
+                return compatibleTypes.includes(outputField.type?.toLowerCase())
+              })
+              .map((outputField: any) => ({
+                value: `{{${node.id}.${outputField.name}}}`,
+                label: outputField.label || outputField.name,
+                group: node.title,
+                groupIcon: node.providerId ? `/integrations/${node.providerId}.svg` : undefined
+              }))
+          )
+
+          // In Connect mode, only show value if it's already a variable reference (starts with {{)
+          // Otherwise, clear it so users only see upstream variables
+          const displayValue = (typeof value === 'string' && value.startsWith('{{')) ? value : '';
+
+          return (
+            <GenericSelectField
+              field={field}
+              value={displayValue}
+              onChange={onChange}
+              error={error}
+              options={variableOptions}
+              isLoading={false}
+              onDynamicLoad={onDynamicLoad}
+              nodeInfo={nodeInfo}
+              selectedValues={selectedValues}
+              parentValues={parentValues}
+              workflowNodes={workflowData?.nodes}
+              aiFields={aiFields}
+              setAiFields={setAiFields}
+              isConnectedToAIAgent={isConnectedToAIAgent}
+              workflowData={workflowData}
+              currentNodeId={currentNodeId}
+            />
+          );
+        }
+
         return (
-          <ComboboxField
-            value={value || ''}
+          <GenericSelectField
+            field={field}
+            value={value}
             onChange={onChange}
-            options={comboboxOptions}
-            placeholder={field.placeholder || 'Select or type...'}
-            emptyMessage={getComboboxEmptyMessage(field)}
-            searchPlaceholder="Search..."
-            disabled={field.disabled}
-            loading={fieldIsLoading}
-            allowCustomValue={(field as any).allowCustomValue !== false}
             error={error}
+            options={comboboxOptions}
+            isLoading={fieldIsLoading}
+            onDynamicLoad={onDynamicLoad}
+            nodeInfo={nodeInfo}
+            selectedValues={selectedValues}
+            parentValues={parentValues}
+            workflowNodes={workflowData?.nodes}
+            aiFields={aiFields}
+            setAiFields={setAiFields}
+            isConnectedToAIAgent={isConnectedToAIAgent}
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
           />
         );
 
       case "multi_select":
-        // If Connect mode is active, show text input for variable references
-        if (isConnectedMode) {
-          return (
-            <Input
-              type="text"
-              value={value || ''}
-              onChange={(e) => onChange(e.target.value)}
-              placeholder="{{trigger.fieldName}} or {{action.output}}"
-              className={cn(error && "border-red-500")}
-            />
-          );
-        }
+        console.log('🔍 [FieldRenderer] Multi-select field rendering:', {
+          fieldName: field.name,
+          isConnectedMode,
+          hasWorkflowData: !!workflowData,
+          workflowDataType: typeof workflowData,
+          workflowDataKeys: workflowData ? Object.keys(workflowData) : null,
+          currentNodeId,
+          currentNodeIdType: typeof currentNodeId,
+          willShowVariableDropdown: isConnectedMode && workflowData && currentNodeId,
+          checkResults: {
+            isConnectedMode: !!isConnectedMode,
+            hasWorkflowData: !!workflowData,
+            hasCurrentNodeId: !!currentNodeId
+          }
+        });
 
         // Multi-select fields (especially for Airtable)
         const multiSelectOptions = Array.isArray(field.options)
           ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
           : fieldOptions;
 
-        // Check if THIS specific field is loading (only show loading for the specific field being loaded)
+        // If Connect mode is active, show GenericSelectField with upstream variables as options
+        if (isConnectedMode && workflowData && currentNodeId) {
+          console.log('🔌 [FieldRenderer] Connect mode ACTIVE for multi-select - showing variable dropdown');
+          // Get upstream nodes (nodes that connect to the current node)
+          const nodeById = new Map(workflowData.nodes.map((n: any) => [n.id, n]))
+          const edges = workflowData.edges || []
+          const sourceIds = edges
+            .filter((e: any) => e.target === currentNodeId)
+            .map((e: any) => e.source)
+
+          const upstreamNodes = sourceIds
+            .map((id: string) => nodeById.get(id))
+            .filter(Boolean)
+            .map((node: any) => {
+              const nodeComponent = ALL_NODE_COMPONENTS.find((c: any) => c.type === node.data?.type)
+              return {
+                id: node.id,
+                title: node.data?.title || node.data?.label || nodeComponent?.title || 'Unnamed',
+                type: node.data?.type,
+                outputSchema: nodeComponent?.outputSchema || [],
+                providerId: node.data?.providerId
+              }
+            })
+
+          // Determine compatible types based on field type
+          const getCompatibleTypes = (fieldType: string) => {
+            switch (fieldType) {
+              case 'text':
+              case 'textarea':
+              case 'email':
+                return ['string', 'text', 'email', 'url', 'phone']
+              case 'number':
+                return ['number', 'integer', 'float']
+              case 'select':
+              case 'combobox':
+                return ['string', 'text', 'number', 'integer', 'array', 'object']
+              default:
+                return null // null means show all types
+            }
+          }
+
+          const compatibleTypes = getCompatibleTypes(field.type)
+
+          // Convert upstream variables to options format for GenericSelectField
+          const variableOptions = upstreamNodes.flatMap((node: any) =>
+            node.outputSchema
+              .filter((outputField: any) => {
+                // If no type filtering needed, show all
+                if (!compatibleTypes) return true
+                // Filter by compatible types
+                return compatibleTypes.includes(outputField.type?.toLowerCase())
+              })
+              .map((outputField: any) => ({
+                value: `{{${node.id}.${outputField.name}}}`,
+                label: outputField.label || outputField.name,
+                group: node.title,
+                groupIcon: node.providerId ? `/integrations/${node.providerId}.svg` : undefined
+              }))
+          )
+
+          // In Connect mode, use VariableSelectionDropdown for proper styling
           return (
+            <VariableSelectionDropdown
+              workflowData={workflowData}
+              currentNodeId={currentNodeId}
+              value={value}
+              onChange={onChange}
+              placeholder="Select a variable..."
+              disabled={false}
+            />
+          );
+        }
+
+        // If not in Connect mode, show the regular field with dynamic options
+        // Check if THIS specific field is loading (only show loading for the specific field being loaded)
+        return (
             <GenericSelectField
               field={{
               ...field,
@@ -1657,43 +1938,11 @@ export function FieldRenderer({
             isConnectedToAIAgent={isConnectedToAIAgent}
             workflowData={workflowData}
             currentNodeId={currentNodeId}
+            enableConnectMode={shouldUseConnectMode(field)}
+            isConnectedMode={isConnectedMode}
+            onConnectToggle={handleConnectToggle}
           />
         );
-
-      case "combobox":
-        // If Connect mode is active, show text input for variable references
-        if (isConnectedMode) {
-          return (
-            <Input
-              type="text"
-              value={value || ''}
-              onChange={(e) => onChange(e.target.value)}
-              placeholder="{{trigger.fieldName}} or {{action.output}}"
-              className={cn(error && "border-red-500")}
-            />
-          );
-        }
-
-        // Otherwise, use GenericSelectField for dropdown selection
-        return (
-          <GenericSelectField
-            field={field}
-            value={value}
-            onChange={onChange}
-            error={error}
-            options={fieldOptions}
-            isLoading={fieldIsLoading}
-            onDynamicLoad={onDynamicLoad}
-            nodeInfo={nodeInfo}
-            selectedValues={selectedValues}
-            workflowData={workflowData}
-            currentNodeId={currentNodeId}
-            aiFields={aiFields}
-            setAiFields={setAiFields}
-            isConnectedToAIAgent={isConnectedToAIAgent}
-          />
-        );
-
 
       case "toggle":
       case "boolean":

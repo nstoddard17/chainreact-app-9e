@@ -23,7 +23,34 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
   }
 
   const { version } = parsed.data
-  const flow = FlowSchema.parse({ ...parsed.data.flow, id: flowId })
+  const rawFlow = { ...parsed.data.flow, id: flowId }
+
+  // Log original size
+  const originalSize = JSON.stringify(rawFlow).length
+  console.log(`[apply-edits] Original flow size: ${originalSize} bytes (${(originalSize / 1024).toFixed(2)} KB)`)
+
+  // Sanitize flow: remove test data and validation results from node configs
+  const sanitizedFlow = {
+    ...rawFlow,
+    nodes: rawFlow.nodes?.map((node: any) => {
+      const sanitizedConfig = { ...node.config }
+      // Remove test-related fields that start with __test or __validation
+      Object.keys(sanitizedConfig).forEach(key => {
+        if (key.startsWith('__test') || key.startsWith('__validation') || key.startsWith('__options')) {
+          delete sanitizedConfig[key]
+        }
+      })
+      return {
+        ...node,
+        config: sanitizedConfig
+      }
+    }) || []
+  }
+
+  const sanitizedSize = JSON.stringify(sanitizedFlow).length
+  console.log(`[apply-edits] Sanitized flow size: ${sanitizedSize} bytes (${(sanitizedSize / 1024).toFixed(2)} KB), saved ${originalSize - sanitizedSize} bytes`)
+
+  const flow = FlowSchema.parse(sanitizedFlow)
 
   const supabase = await getRouteClient()
   const {
@@ -60,16 +87,25 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
     return NextResponse.json({ ok: false, error: definitionError.message }, { status: 500 })
   }
 
-  const revision = await repository.createRevision({
-    flowId,
-    flow,
-    version,
-  })
+  try {
+    const revision = await repository.createRevision({
+      flowId,
+      flow,
+      version,
+    })
 
-  return NextResponse.json({
-    ok: true,
-    flow: revision.graph,
-    revisionId: revision.id,
-    version: revision.version,
-  })
+    return NextResponse.json({
+      ok: true,
+      flow: revision.graph,
+      revisionId: revision.id,
+      version: revision.version,
+    })
+  } catch (error: any) {
+    console.error('[apply-edits] Failed to create revision:', error)
+    return NextResponse.json({
+      ok: false,
+      error: error.message || 'Failed to create revision',
+      details: error.toString()
+    }, { status: 500 })
+  }
 }

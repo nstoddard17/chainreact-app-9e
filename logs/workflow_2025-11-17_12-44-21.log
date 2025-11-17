@@ -1,0 +1,141 @@
+=== Log Session Started: 2025-11-17T18:44:21.305Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-11-17T18:44:21.305Z] [INFO   ] File logging initialized
+[2025-11-17T18:44:21.305Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-17_12-44-21.log
+[2025-11-17T18:44:21.329Z] [INFO   ] Deleted old log file: workflow_2025-11-10_11-59-29.log
+[2025-11-17T18:44:21.329Z] [INFO   ] 📁 File logging enabled
+[2025-11-17T18:44:21.329Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-17_12-44-21.log
+[2025-11-17T18:44:21.329Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-17_12-44-21.log
+[2025-11-17T18:44:21.329Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-17_12-44-21.log
+[2025-11-17T18:44:21.329Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-17_12-44-21.log
+[2025-11-17T18:44:21.329Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-11-17T18:44:21.329Z] [DEBUG  ] 📁 File logging system initialized
+[2025-11-17T18:44:21.346Z] [INFO   ]  ✓ Ready in 11s
+[2025-11-17T18:44:22.331Z] [INFO   ] 2025-11-17T18:44:22.331Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-11-17T18:44:24.658Z] [INFO   ] 2025-11-17T18:44:24.658Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-11-17T18:44:24.658Z] [INFO   ] 2025-11-17T18:44:24.658Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-17T18:44:25.721Z] [INFO   ] 2025-11-17T18:44:25.721Z [DEBUG] Discord Gateway initialization complete
+[2025-11-17T18:44:25.722Z] [INFO   ] 2025-11-17T18:44:25.722Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-11-17T18:44:25.937Z] [INFO   ] 2025-11-17T18:44:25.937Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-17T18:44:25.938Z] [INFO   ] 2025-11-17T18:44:25.938Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-17T18:50:22.193Z] [INFO   ]  ✓ Compiled in 1713ms (2827 modules)
+[2025-11-17T18:57:48.901Z] [INFO   ]  ✓ Compiled in 793ms (2827 modules)
+[2025-11-17T18:57:56.453Z] [INFO   ]  ✓ Compiled in 699ms (2828 modules)
+[2025-11-17T19:13:15.079Z] [INFO   ]  ✓ Compiled in 1505ms (2830 modules)
+[2025-11-17T19:13:33.928Z] [INFO   ]  ✓ Compiled in 270ms (2830 modules)
+[2025-11-17T19:13:45.960Z] [INFO   ]  ✓ Compiled in 467ms (2830 modules)
+[2025-11-17T19:56:18.252Z] [INFO   ]  ✓ Compiled in 865ms (2830 modules)
+[2025-11-17T19:56:27.953Z] [INFO   ]  ✓ Compiled in 1133ms (2831 modules)
+[2025-11-17T19:57:45.735Z] [INFO   ]  ✓ Compiled in 933ms (2831 modules)
+[2025-11-17T19:58:01.960Z] [INFO   ]  ✓ Compiled in 613ms (2831 modules)
+[2025-11-17T19:58:42.855Z] [INFO   ]  ✓ Compiled in 830ms (2831 modules)
+[2025-11-17T19:58:50.617Z] [INFO   ]  ✓ Compiled in 998ms (2832 modules)
+[2025-11-17T20:04:42.585Z] [INFO   ]  ✓ Compiled in 1592ms (2832 modules)
+[2025-11-17T20:04:52.249Z] [INFO   ]  ✓ Compiled in 217ms (2832 modules)
+[2025-11-17T20:05:49.289Z] [INFO   ]  ✓ Compiled in 470ms (2832 modules)
+[2025-11-17T20:05:54.279Z] [INFO   ]  ✓ Compiled in 228ms (2832 modules)
+[2025-11-17T20:08:00.951Z] [INFO   ]  ✓ Compiled in 941ms (2832 modules)
+[2025-11-17T20:08:10.178Z] [INFO   ]  ✓ Compiled in 1029ms (2840 modules)
+[2025-11-17T20:15:56.041Z] [INFO   ]  ✓ Compiled in 984ms (2840 modules)
+[2025-11-17T20:18:32.128Z] [INFO   ]  ✓ Compiled in 615ms (2840 modules)
+[2025-11-17T20:18:35.409Z] [INFO   ]  ✓ Compiled in 700ms (2840 modules)
+[2025-11-17T20:18:44.977Z] [INFO   ]  ✓ Compiled in 1286ms (2840 modules)
+[2025-11-17T20:21:07.915Z] [INFO   ] 2025-11-17T20:21:07.913Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-17T20:21:07.985Z] [INFO   ] 2025-11-17T20:21:07.984Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-11-17T20:21:08.419Z] [INFO   ] 2025-11-17T20:21:08.419Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-17T20:21:08.421Z] [INFO   ] 2025-11-17T20:21:08.421Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-17T20:26:21.707Z] [INFO   ]  ✓ Compiled in 731ms (2840 modules)
+[2025-11-17T20:26:30.554Z] [INFO   ]  ✓ Compiled in 443ms (2840 modules)
+[2025-11-17T20:26:39.597Z] [INFO   ]  ✓ Compiled in 572ms (2840 modules)
+[2025-11-17T20:30:14.115Z] [INFO   ]  ✓ Compiled in 704ms (2840 modules)
+[2025-11-17T20:30:22.146Z] [INFO   ]  ✓ Compiled in 358ms (2840 modules)
+[2025-11-17T20:35:59.274Z] [INFO   ]  ✓ Compiled in 1454ms (2840 modules)
+[2025-11-17T20:36:08.385Z] [INFO   ]  ✓ Compiled in 231ms (2840 modules)
+[2025-11-17T20:36:17.728Z] [INFO   ]  ✓ Compiled in 503ms (2840 modules)
+[2025-11-17T20:36:25.289Z] [INFO   ]  ✓ Compiled in 787ms (2840 modules)
+[2025-11-17T20:39:05.915Z] [INFO   ]  ✓ Compiled in 932ms (2840 modules)
+[2025-11-17T20:39:19.753Z] [INFO   ]  ✓ Compiled in 1189ms (2841 modules)
+[2025-11-17T20:39:43.585Z] [ERROR  ]  ⨯ ./lib/workflows/actions/gmail/searchEmails.ts
+Error:   [31mx[0m A 'continue' statement can only jump to a label of an enclosing iteration statement
+     ,-[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/actions/gmail/searchEmails.ts[0m:159:1]
+ [2m156[0m |         
+ [2m157[0m |         if (!messageResponse.ok) {
+ [2m158[0m |           logger.error(`Failed to fetch message ${messageId}: ${messageResponse.status}`)
+ [2m159[0m |           continue
+     : [35;1m          ^^^^^^^^[0m
+ [2m160[0m |         }
+ [2m161[0m |         
+ [2m162[0m |         const message = await messageResponse.json()
+     `----
+  [31mx[0m Expected ',', got 'const'
+     ,-[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/actions/gmail/searchEmails.ts[0m:257:1]
+ [2m254[0m |     // Return emails array and metadata
+ [2m255[0m |     // For single email scenarios, users can access emails[0]
+ [2m256[0m |     // For multiple emails, they have the full array to work with
+ [2m257[0m |     const result = {
+     : [35;1m    ^^^^^[0m
+ [2m258[0m |       success: true,
+ [2m259[0m |       output: {
+ [2m260[0m |         ...input,
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./lib/workflows/actions/gmail/searchEmails.ts
+./lib/workflows/actions/gmail/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-17T20:39:50.028Z] [ERROR  ]  ⨯ ./lib/workflows/actions/gmail/searchEmails.ts
+Error:   [31mx[0m Expected ',', got 'const'
+     ,-[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/actions/gmail/searchEmails.ts[0m:261:1]
+ [2m258[0m |     // Return emails array and metadata
+ [2m259[0m |     // For single email scenarios, users can access emails[0]
+ [2m260[0m |     // For multiple emails, they have the full array to work with
+ [2m261[0m |     const result = {
+     : [35;1m    ^^^^^[0m
+ [2m262[0m |       success: true,
+ [2m263[0m |       output: {
+ [2m264[0m |         ...input,
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./lib/workflows/actions/gmail/searchEmails.ts
+./lib/workflows/actions/gmail/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-17T20:39:59.338Z] [INFO   ]  ✓ Compiled in 746ms (2841 modules)
+[2025-11-17T20:40:19.264Z] [INFO   ]  ✓ Compiled in 540ms (2841 modules)
+[2025-11-17T20:40:42.888Z] [INFO   ]  ✓ Compiled in 374ms (2841 modules)
+[2025-11-17T20:47:54.603Z] [INFO   ]  ✓ Compiled in 896ms (2841 modules)
+[2025-11-17T20:48:31.187Z] [INFO   ]  ✓ Compiled in 553ms (2841 modules)
+[2025-11-17T20:48:46.484Z] [INFO   ]  ✓ Compiled in 451ms (2841 modules)
+[2025-11-17T20:49:14.628Z] [INFO   ]  ✓ Compiled in 2.3s (2841 modules)
+[2025-11-17T20:49:49.866Z] [INFO   ]  ✓ Compiled in 1238ms (2841 modules)
+[2025-11-17T20:50:18.632Z] [INFO   ]  ✓ Compiled in 1053ms (2841 modules)
+[2025-11-17T20:51:59.549Z] [INFO   ]  ✓ Compiled in 834ms (2841 modules)
+[2025-11-17T20:52:05.117Z] [INFO   ]  ✓ Compiled in 329ms (2841 modules)
+[2025-11-17T20:52:13.665Z] [INFO   ]  ✓ Compiled in 301ms (2841 modules)
+[2025-11-17T20:52:20.031Z] [INFO   ]  ✓ Compiled in 244ms (2841 modules)
+[2025-11-17T20:55:08.540Z] [INFO   ] 2025-11-17T20:55:08.539Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-17T20:55:08.603Z] [INFO   ] 2025-11-17T20:55:08.603Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-11-17T20:55:09.101Z] [INFO   ] 2025-11-17T20:55:09.101Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-17T20:55:09.104Z] [INFO   ] 2025-11-17T20:55:09.104Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-17T21:13:45.745Z] [INFO   ]  ✓ Compiled in 838ms (2841 modules)
+[2025-11-17T21:13:58.216Z] [INFO   ]  ✓ Compiled in 695ms (2841 modules)
+[2025-11-17T21:14:16.509Z] [INFO   ]  ✓ Compiled in 1412ms (2841 modules)
+[2025-11-17T21:18:19.666Z] [INFO   ]  ✓ Compiled in 857ms (2841 modules)
+[2025-11-17T21:18:29.328Z] [INFO   ]  ✓ Compiled in 518ms (2841 modules)
+[2025-11-17T21:25:55.572Z] [INFO   ] 2025-11-17T21:25:55.571Z [DEBUG] Discord Gateway closed, persistent reconnect disabled

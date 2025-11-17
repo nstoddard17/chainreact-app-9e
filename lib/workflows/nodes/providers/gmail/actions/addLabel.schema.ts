@@ -31,7 +31,7 @@ export const addLabelActionSchema: NodeComponent = {
       label: "Labels to Add",
       type: "multiselect",
       required: true,
-      dynamic: "gmail-labels",
+      dynamic: true,
       loadOnMount: true,
       placeholder: "Select labels to add...",
       description: "Choose which labels to add to the email"

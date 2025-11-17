@@ -682,6 +682,17 @@ export function ConfigurationModal({
         {/* Modal Container - Split Layout */}
         <div
           className="modal-container flex flex-col lg:flex-row h-full overflow-hidden"
+          onKeyDown={(e) => {
+            // Prevent Enter key from submitting the form/closing the modal
+            if (e.key === 'Enter' && !e.shiftKey) {
+              const target = e.target as HTMLElement;
+              // Allow Enter in textareas and when clicking buttons
+              if (target.tagName !== 'TEXTAREA' && target.tagName !== 'BUTTON') {
+                e.preventDefault();
+                e.stopPropagation();
+              }
+            }
+          }}
           onMouseDown={(e) => {
             // Prevent text selection in modal background but allow in form elements or draggable elements
             const target = e.target as HTMLElement;

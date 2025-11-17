@@ -391,12 +391,15 @@ export function formatOutputData(nodeType: string, output: any): string[] {
     
     // Handle array outputs (like list operations)
     if (Array.isArray(output)) {
-      formatted.push(`Found ${output.length} items:`)
-      output.slice(0, 5).forEach((item, i) => {
-        formatted.push(`  [${i + 1}] ${formatValue(item)}`)
-      })
-      if (output.length > 5) {
-        formatted.push(`  ... and ${output.length - 5} more`)
+      formatted.push(`Found ${output.length} items`)
+      // Don't log individual items for large arrays to avoid verbose logs
+      if (output.length > 10) {
+        formatted.push(`  (Details omitted for brevity - use Results tab to view all items)`)
+      } else {
+        // Only show details for small arrays (10 or fewer items)
+        output.forEach((item, i) => {
+          formatted.push(`  [${i + 1}] ${formatValue(item)}`)
+        })
       }
     }
     
@@ -405,7 +408,13 @@ export function formatOutputData(nodeType: string, output: any): string[] {
     Object.entries(output)
       .filter(([key]) => !handledFields.includes(key) && !key.startsWith('_'))
       .forEach(([key, value]) => {
-        formatted.push(`${formatFieldName(key)}: ${formatValue(value)}`)
+        // Special handling for large email/record arrays - don't log individual items
+        if (Array.isArray(value) && value.length > 10 &&
+            (key === 'emails' || key === 'records' || key === 'items' || key === 'results')) {
+          formatted.push(`${formatFieldName(key)}: ${value.length} items (details in Results tab)`)
+        } else {
+          formatted.push(`${formatFieldName(key)}: ${formatValue(value)}`)
+        }
       })
   }
   

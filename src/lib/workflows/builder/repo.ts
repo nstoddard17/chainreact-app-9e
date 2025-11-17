@@ -139,6 +139,10 @@ export class FlowRepository {
   }: CreateFlowRevisionParams): Promise<FlowRevisionRecord> {
     const validated = FlowSchema.parse(flow)
 
+    // Log size for debugging
+    const jsonSize = JSON.stringify(validated).length
+    console.log(`[FlowRepository] Creating revision for flow ${flowId}, JSON size: ${jsonSize} bytes (${(jsonSize / 1024).toFixed(2)} KB)`)
+
     // If version is explicitly provided, use the old insert method
     if (typeof version === "number") {
       const now = new Date().toISOString()
@@ -156,6 +160,7 @@ export class FlowRepository {
         .single()
 
       if (error) {
+        console.error(`[FlowRepository] Insert error for flow ${flowId}:`, error)
         throw new Error(`Failed to create flow revision: ${error.message}`)
       }
 
@@ -182,7 +187,49 @@ export class FlowRepository {
       .single()
 
     if (error) {
-      throw new Error(`Failed to create flow revision atomically: ${error.message}`)
+      // Fallback: If RPC function doesn't exist, manually get next version
+      console.warn('[FlowRepository] RPC function failed, using fallback:', error.message)
+
+      // Get the current max version
+      const { data: maxVersionData, error: maxVersionError } = await this.client
+        .from("flow_v2_revisions")
+        .select("version")
+        .eq("flow_id", flowId)
+        .order("version", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (maxVersionError) {
+        throw new Error(`Failed to get max version: ${maxVersionError.message}`)
+      }
+
+      const nextVersion = (maxVersionData?.version ?? -1) + 1
+
+      // Insert with the calculated version
+      const { data: insertData, error: insertError } = await this.client
+        .from("flow_v2_revisions")
+        .insert({
+          id,
+          flow_id: flowId,
+          version: nextVersion,
+          graph: validated,
+          created_at: now,
+        })
+        .select("id, flow_id, version, graph, created_at")
+        .single()
+
+      if (insertError) {
+        throw new Error(`Failed to create flow revision (fallback): ${insertError.message}`)
+      }
+
+      const parsed = FlowRevisionRowSchema.parse(insertData)
+      return {
+        id: parsed.id,
+        flowId: parsed.flow_id,
+        version: parsed.version,
+        graph: FlowSchema.parse(parsed.graph as JsonValue),
+        createdAt: parsed.created_at,
+      }
     }
 
     const parsed = FlowRevisionRowSchema.parse(data)
