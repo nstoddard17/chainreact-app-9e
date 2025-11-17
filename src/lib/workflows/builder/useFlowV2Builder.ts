@@ -151,7 +151,38 @@ function applyPlannerEdits(base: Flow, edits: PlannerEdit[]): Flow {
       case "addNode": {
         const exists = working.nodes.find((node) => node.id === edit.node.id)
         if (!exists) {
-          working.nodes.push(edit.node)
+          // Insert node at the correct position based on Y coordinate
+          const newNodeY = (edit.node.metadata as any)?.position?.y ?? Infinity
+          let insertIndex = working.nodes.length
+
+          // Find the correct insertion point based on Y position
+          for (let i = 0; i < working.nodes.length; i++) {
+            const nodeY = (working.nodes[i].metadata as any)?.position?.y ?? (120 + i * 180)
+            if (newNodeY <= nodeY) {
+              insertIndex = i
+              break
+            }
+          }
+
+          // Push down all nodes at or after the insertion point by 180px
+          for (let i = insertIndex; i < working.nodes.length; i++) {
+            const nodeMetadata = working.nodes[i].metadata as any
+            if (nodeMetadata?.position?.y !== undefined) {
+              nodeMetadata.position.y += 180
+            } else {
+              // If no position metadata, create it based on current index
+              if (!working.nodes[i].metadata) {
+                working.nodes[i].metadata = {}
+              }
+              ;(working.nodes[i].metadata as any).position = {
+                x: LINEAR_STACK_X,
+                y: (120 + i * 180) + 180
+              }
+            }
+          }
+
+          // Insert at the correct position
+          working.nodes.splice(insertIndex, 0, edit.node)
         }
         break
       }
@@ -356,8 +387,18 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
           }
         }
 
+        // Only try to match placeholders if the intended position is close to a placeholder position
+        // This ensures we only consume placeholders that are actually at the insertion point
         const placeholder = placeholderQueue.find(
-          entry => !entry.consumed && entry.type === (node.data as any)?.type
+          entry => {
+            if (entry.consumed) return false
+            if (entry.type !== (node.data as any)?.type) return false
+
+            // Only match if the node's position is within 50px of the placeholder position
+            // This ensures we only consume placeholders that are actually at the insertion point
+            const yDiff = Math.abs(entry.position.y - node.position.y)
+            return yDiff < 50
+          }
         )
 
         if (placeholder) {

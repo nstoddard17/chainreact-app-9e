@@ -310,7 +310,24 @@ function CustomNode({ id, data, selected }: NodeProps) {
   const isPathConditionNode = type === 'path_condition'
 
   // Check if all required fields are filled
+  // Use validationState from ConfigurationForm if available (smart check with visibility awareness)
+  // Otherwise fall back to simple config check
   const hasRequiredFieldsMissing = useMemo(() => {
+    // If we have validation state from the configuration form, use it
+    if (data.validationState) {
+      // Check if validation is recent and valid
+      const isValid = data.validationState.isValid
+      const hasMissingRequired = (data.validationState.missingRequired?.length ?? 0) > 0
+
+      // If explicitly marked as valid, trust it
+      if (isValid === true) return false
+      // If explicitly marked as invalid, trust it
+      if (isValid === false) return true
+      // Otherwise check missingRequired array
+      return hasMissingRequired
+    }
+
+    // Fallback to simple check if no validation state
     if (!component?.configSchema || !config) return false
 
     return component.configSchema.some((field: any) => {
@@ -320,7 +337,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
       // Check if value is missing or empty
       return value === undefined || value === null || value === ''
     })
-  }, [component?.configSchema, config])
+  }, [component?.configSchema, config, data.validationState])
 
   const statusBadge = getStatusBadge(nodeState, hasRequiredFieldsMissing)
 

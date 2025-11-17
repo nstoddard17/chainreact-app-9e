@@ -2,7 +2,7 @@
 
 import React, { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Upload, Bot, X } from "lucide-react";
+import { Upload, Bot, X, FileText, File as FileIcon, Image as ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import { logger } from '@/lib/utils/logger'
@@ -33,6 +33,7 @@ export function AirtableImageField({
   onPersistedImageRemove,
 }: AirtableImageFieldProps) {
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isFileChooserOpen = useRef(false);
 
@@ -94,7 +95,18 @@ export function AirtableImageField({
   }, [value, persistedImages]);
 
   const previewImages = savedImages.length > 0 ? savedImages : localImages;
-  const hasLocalImage = localImages.length > 0;
+  const hasLocalFile = localImages.length > 0;
+
+  // Determine if this is an image-only field or supports all file types
+  const isImageOnly = field.airtableFieldType === 'image' || field.name?.toLowerCase().includes('image');
+  const fileLabel = isImageOnly ? 'Image' : 'File';
+
+  // Airtable attachment fields (multipleAttachments) support multiple files
+  // For these fields, always show "Upload" instead of "Replace" since users can add more
+  const supportsMultiple = field.airtableFieldType === 'multipleAttachments' || field.multiple;
+  const uploadButtonText = supportsMultiple
+    ? `Upload ${fileLabel}${field.multiple ? 's' : ''}`
+    : (hasLocalFile ? `Replace ${fileLabel}` : `Upload ${fileLabel}`);
 
   // If in AI mode, show the AI UI
   if (isAIMode) {
@@ -145,9 +157,9 @@ export function AirtableImageField({
 
     isFileChooserOpen.current = true;
 
-    // When replacing an image (images already exist), ensure we're ready for a clean replacement
-    if (hasLocalImage && !field.multiple) {
-      logger.debug('🔄 [AirtableImageField] Replacing existing image...');
+    // When replacing a file (files already exist), ensure we're ready for a clean replacement
+    if (hasLocalFile && !field.multiple) {
+      logger.debug('🔄 [AirtableImageField] Replacing existing file...');
     }
     fileInputRef.current?.click();
   };
@@ -231,33 +243,75 @@ export function AirtableImageField({
     }
   };
 
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const fileChangeEvent = {
+        target: {
+          files: e.dataTransfer.files
+        }
+      } as React.ChangeEvent<HTMLInputElement>;
+      handleFileChange(fileChangeEvent);
+    }
+  };
+
   return (
     <div className="space-y-3">
       {previewImages.length > 0 && (
         <div className="space-y-2">
           {previewImages.map((img, index) => {
             const sizeInKb = img.size ? (img.size / 1024).toFixed(1) : null;
+            const isImage = img.type?.startsWith('image/') || img.url?.startsWith('data:image/');
+            const isPdf = img.type === 'application/pdf' || img.filename?.toLowerCase().endsWith('.pdf');
+            const isDoc = img.type?.includes('document') || img.type?.includes('word') ||
+                         img.filename?.toLowerCase().match(/\.(doc|docx|txt|rtf)$/);
+
             return (
               <div
                 key={`${img.origin}-${img.id || img.filename || img.url}-${index}`}
-                className="flex items-center gap-3 rounded-lg border border-slate-200 bg-card px-3 py-2"
+                className="flex items-center gap-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-card px-3 py-2"
               >
-                <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-md border border-slate-200 bg-slate-50">
-                  <img
-                    src={img.url}
-                    alt={img.filename}
-                    className="h-full w-full object-cover"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                      const parent = e.currentTarget.parentElement;
-                      if (parent && !parent.querySelector('.fallback-icon')) {
-                        const icon = document.createElement('div');
-                        icon.className = 'fallback-icon w-full h-full bg-muted rounded flex items-center justify-center';
-                        icon.innerHTML = '<svg class="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>';
-                        parent.appendChild(icon);
-                      }
-                    }}
-                  />
+                <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+                  {isImage ? (
+                    <img
+                      src={img.url}
+                      alt={img.filename}
+                      className="h-full w-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        const parent = e.currentTarget.parentElement;
+                        if (parent && !parent.querySelector('.fallback-icon')) {
+                          const icon = document.createElement('div');
+                          icon.className = 'fallback-icon w-full h-full bg-muted rounded flex items-center justify-center';
+                          icon.innerHTML = '<svg class="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>';
+                          parent.appendChild(icon);
+                        }
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-muted rounded flex items-center justify-center">
+                      {isPdf ? (
+                        <FileText className="w-6 h-6 text-red-500" />
+                      ) : isDoc ? (
+                        <FileText className="w-6 h-6 text-blue-500" />
+                      ) : (
+                        <FileIcon className="w-6 h-6 text-slate-500" />
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{img.filename}</p>
@@ -288,47 +342,59 @@ export function AirtableImageField({
         </div>
       )}
 
-      {/* Upload Button */}
-      <div className="space-y-2">
+      {/* Upload Dropzone Area */}
+      <div
+        className={cn(
+          "relative border-2 border-dashed rounded-lg p-6 transition-colors",
+          dragActive ? "border-primary bg-primary/5" : "border-border dark:border-slate-700",
+          uploadingFile || field.disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:border-primary/50",
+          error && "border-red-500"
+        )}
+        onDragEnter={handleDrag}
+        onDragLeave={handleDrag}
+        onDragOver={handleDrag}
+        onDrop={handleDrop}
+        onClick={handleFileSelect}
+      >
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept={isImageOnly ? "image/*" : "*"}
           multiple={field.multiple}
           onChange={handleFileChange}
           className="hidden"
+          disabled={uploadingFile || field.disabled}
         />
 
-        <Button
-          type="button"
-          variant="outline"
-          onClick={handleFileSelect}
-          disabled={uploadingFile || field.disabled}
-          className={cn(
-            "w-full flex items-center justify-center gap-2",
-            error && "border-red-500"
-          )}
-        >
+        <div className="flex flex-col items-center justify-center space-y-2 text-center pointer-events-none">
           {uploadingFile ? (
             <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500" />
-              Uploading...
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+              <p className="text-sm font-medium">Uploading...</p>
             </>
           ) : (
-              <>
-                <Upload className="h-4 w-4" />
-                {hasLocalImage ? 'Replace Image' : 'Upload Image'}
-              </>
+            <>
+              <Upload className="h-8 w-8 text-muted-foreground" />
+              <div>
+                <p className="text-sm font-medium">
+                  {field.placeholder || (supportsMultiple ? `Choose ${fileLabel.toLowerCase()}s to upload...` : `Choose a ${fileLabel.toLowerCase()} to upload...`)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Drag and drop {supportsMultiple ? `${fileLabel.toLowerCase()}s` : `a ${fileLabel.toLowerCase()}`} here or click to browse
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {isImageOnly ? (
+                    field.multiple
+                      ? `Supported formats: JPG, PNG, GIF, WebP`
+                      : `Supported formats: JPG, PNG, GIF, WebP`
+                  ) : (
+                    `All file types supported`
+                  )}
+                </p>
+              </div>
+            </>
           )}
-        </Button>
-
-        {previewImages.length === 0 && (
-          <p className="text-xs text-slate-500">
-            {field.multiple
-              ? `Select multiple images to upload. Supported formats: JPG, PNG, GIF, WebP`
-              : `Select an image to upload. Supported formats: JPG, PNG, GIF, WebP`}
-          </p>
-        )}
+        </div>
       </div>
 
       {error && (

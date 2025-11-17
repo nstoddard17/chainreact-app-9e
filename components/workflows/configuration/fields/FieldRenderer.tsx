@@ -62,6 +62,7 @@ import { GoogleSheetsFindRowPreview } from "../components/google-sheets/GoogleSh
 
 // Shared field components
 import { GenericSelectField } from "./shared/GenericSelectField";
+import { ComboboxField } from "./shared/ComboboxField";
 import { HubspotFilterBuilder } from "./hubspot/HubspotFilterBuilder";
 import { GenericTextInput } from "./shared/GenericTextInput";
 import { ConnectButton } from "./shared/ConnectButton";
@@ -1532,6 +1533,27 @@ export function FieldRenderer({
             isConnectedToAIAgent={isConnectedToAIAgent}
             workflowData={workflowData}
             currentNodeId={currentNodeId}
+          />
+        );
+
+      case "combobox":
+        // Combobox: Searchable select with optional custom value input
+        const comboboxOptions = Array.isArray(field.options)
+          ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
+          : fieldOptions;
+
+        return (
+          <ComboboxField
+            value={value || ''}
+            onChange={onChange}
+            options={comboboxOptions}
+            placeholder={field.placeholder || 'Select or type...'}
+            emptyMessage={getComboboxEmptyMessage(field)}
+            searchPlaceholder="Search..."
+            disabled={field.disabled}
+            loading={fieldIsLoading}
+            allowCustomValue={(field as any).allowCustomValue !== false}
+            error={error}
           />
         );
 
