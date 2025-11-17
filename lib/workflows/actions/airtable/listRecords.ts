@@ -172,35 +172,17 @@ export async function listAirtableRecords(
       url.searchParams.append('filterByFormula', combinedFilter)
     }
     
-    // Add sorting based on sort order option
-    if (sortOrder) {
-      let sortField = 'Created'
-      let sortDirection = 'desc'
-      
-      switch(sortOrder) {
-        case 'newest':
-          sortField = 'Created'
-          sortDirection = 'desc'
-          break
-        case 'oldest':
-          sortField = 'Created'
-          sortDirection = 'asc'
-          break
-        case 'recently_modified':
-          sortField = 'Last Modified'
-          sortDirection = 'desc'
-          break
-        case 'least_recently_modified':
-          sortField = 'Last Modified'
-          sortDirection = 'asc'
-          break
-        default:
-          sortField = 'Created'
-          sortDirection = 'desc'
-      }
-      
-      url.searchParams.append('sort[0][field]', sortField)
-      url.searchParams.append('sort[0][direction]', sortDirection)
+    // Note: Airtable's REST API does not support sorting by system fields (createdTime, lastModifiedTime)
+    // These are only available in formulas like CREATED_TIME() and LAST_MODIFIED_TIME()
+    // To sort by creation/modification time, users must add "Created time" or "Last modified time"
+    // field types to their Airtable table and reference those field names
+    //
+    // For now, we skip sorting by time-based options and return records in Airtable's default order
+    // Future enhancement: Allow users to specify a custom sort field name
+    if (sortOrder && sortOrder !== 'newest' && sortOrder !== 'oldest' &&
+        sortOrder !== 'recently_modified' && sortOrder !== 'least_recently_modified') {
+      // Custom sorting logic would go here if we add a sortField config option
+      // For now, we only skip the problematic time-based sorts
     }
 
 

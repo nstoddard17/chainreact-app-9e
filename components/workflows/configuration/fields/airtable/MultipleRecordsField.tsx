@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import {
@@ -48,8 +48,28 @@ export function MultipleRecordsField({
   const records = Array.isArray(value) ? value : (value ? [value] : [{}]);
 
   const [openItems, setOpenItems] = useState<string[]>(['record-0']);
+  const [pendingScrollIndex, setPendingScrollIndex] = useState<number | null>(null);
   const maxRecords = field.metadata?.maxRecords || 10;
-  const recordsFieldRef = useRef<HTMLDivElement | null>(null);
+  const recordItemRefs = useRef<Record<number, HTMLDivElement | null>>({});
+
+  const scrollRecordIntoView = useCallback((recordIndex: number) => {
+    const target = recordItemRefs.current[recordIndex];
+    if (!target) return;
+
+    const scrollParent = getScrollableParent(target);
+    if (!scrollParent) return;
+
+    const parentRect = scrollParent.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const currentScrollTop = scrollParent.scrollTop ?? document.documentElement.scrollTop;
+    const relativeTop = targetRect.top - parentRect.top;
+    const desiredTop = Math.max(currentScrollTop + relativeTop - 80, 0); // leave some breathing room at the top
+
+    scrollParent.scrollTo({
+      top: desiredTop,
+      behavior: 'smooth'
+    });
+  }, []);
 
   // Get editable fields from Airtable table schema - memoize to prevent unnecessary recalculations
   const editableFields = useMemo(() => {
@@ -115,16 +135,9 @@ export function MultipleRecordsField({
     const newRecords = [...records, newRecord];
     onChange(newRecords);
 
-    const newRecordId = `record-${newRecords.length - 1}`;
-    setOpenItems([newRecordId]);
-
-    if (recordsFieldRef.current) {
-      recordsFieldRef.current.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-        inline: 'nearest'
-      });
-    }
+    const newIndex = newRecords.length - 1;
+    setOpenItems([`record-${newIndex}`]);
+    setPendingScrollIndex(newIndex);
   }, [records, maxRecords, onChange]);
 
   // Remove a record
@@ -169,8 +182,19 @@ export function MultipleRecordsField({
   const hasTableSelected = !!parentValues?.tableName;
   const isLoading = hasTableSelected && !airtableTableSchema;
 
+  useEffect(() => {
+    if (pendingScrollIndex === null) return;
+
+    const raf = requestAnimationFrame(() => {
+      scrollRecordIntoView(pendingScrollIndex);
+      setPendingScrollIndex(null);
+    });
+
+    return () => cancelAnimationFrame(raf);
+  }, [pendingScrollIndex, scrollRecordIntoView]);
+
   return (
-    <div className="space-y-4" ref={recordsFieldRef}>
+    <div className="space-y-4">
       {isLoading ? (
         <div className="p-4 border border-dashed rounded-md flex justify-center">
           <LoadingFieldState message="Loading table schema..." />
@@ -198,6 +222,13 @@ export function MultipleRecordsField({
             key={`record-${index}`}
             value={`record-${index}`}
             className="border rounded-lg overflow-hidden"
+            ref={(el) => {
+              if (el) {
+                recordItemRefs.current[index] = el as HTMLDivElement;
+              } else {
+                delete recordItemRefs.current[index];
+              }
+            }}
           >
             <AccordionTrigger className="px-4 py-3 hover:bg-muted/50">
               <div className="flex items-center justify-between w-full">
@@ -348,4 +379,29 @@ function getFieldType(airtableType: string): string {
   };
 
   return typeMap[airtableType] || 'text';
+}
+
+function getScrollableParent(element: HTMLElement | null): HTMLElement | null {
+  if (!element || typeof window === 'undefined') {
+    return null;
+  }
+
+  let current: HTMLElement | null = element.parentElement;
+
+  while (current) {
+    const style = window.getComputedStyle(current);
+    const overflowY = style.overflowY;
+    const canScroll = current.scrollHeight > current.clientHeight;
+
+    if (
+      canScroll &&
+      (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay')
+    ) {
+      return current;
+    }
+
+    current = current.parentElement;
+  }
+
+  return document.scrollingElement as HTMLElement | null;
 }
