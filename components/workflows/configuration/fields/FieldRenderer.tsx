@@ -1154,15 +1154,14 @@ export function FieldRenderer({
 
         // Special handling for Airtable file uploads (field name is uploadedFile)
         if (integrationProvider === 'airtable' && field.name === 'uploadedFile') {
-          // Custom onChange that auto-populates the filename field
-          const handleFileUpload = (files: FileList | File[]) => {
-            onChange(files);
-
+          // Custom onChange that auto-populates the filename field and converts File to base64
+          const handleFileUpload = async (files: FileList | File[]) => {
             // Auto-populate filename and contentType fields with the uploaded file's data
             if (files && files.length > 0 && setFieldValue) {
               const uploadedFile = files[0];
               const fileName = uploadedFile instanceof File ? uploadedFile.name : (uploadedFile as any).name;
               const fileType = uploadedFile instanceof File ? uploadedFile.type : (uploadedFile as any).type;
+              const fileSize = uploadedFile instanceof File ? uploadedFile.size : (uploadedFile as any).size;
 
               if (fileName) {
                 logger.debug('[FieldRenderer] Auto-populating filename field:', fileName);
@@ -1173,6 +1172,43 @@ export function FieldRenderer({
                 logger.debug('[FieldRenderer] Auto-populating contentType field:', fileType);
                 setFieldValue('contentType', fileType);
               }
+
+              // Convert File to base64 for storage
+              if (uploadedFile instanceof File) {
+                try {
+                  const base64 = await new Promise<string>((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result as string);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(uploadedFile);
+                  });
+
+                  // Store as object with metadata that FileUpload can display
+                  const fileObject = {
+                    name: fileName,
+                    size: fileSize,
+                    type: fileType,
+                    url: base64
+                  };
+
+                  logger.debug('[FieldRenderer] Converted file to base64 for storage:', {
+                    name: fileName,
+                    size: fileSize,
+                    type: fileType,
+                    urlLength: base64.length
+                  });
+
+                  onChange([fileObject]);
+                } catch (error) {
+                  logger.error('[FieldRenderer] Error converting file to base64:', error);
+                  onChange(files); // Fallback to original behavior
+                }
+              } else {
+                // Already in the right format or not a File object
+                onChange(files);
+              }
+            } else {
+              onChange(files);
             }
           };
 

@@ -20,6 +20,7 @@ interface NodeContextMenuProps {
   onStop?: (nodeId: string) => void
   onDelete?: (nodeId: string) => void
   onDeleteSelected?: (nodeIds: string[]) => void
+  hasRequiredFieldsMissing?: boolean
 }
 
 export function NodeContextMenu({
@@ -32,6 +33,7 @@ export function NodeContextMenu({
   onStop,
   onDelete,
   onDeleteSelected,
+  hasRequiredFieldsMissing = false,
 }: NodeContextMenuProps) {
   // Check if multiple nodes are selected and this node is one of them
   const isMultiSelect = selectedNodeIds.length > 1 && selectedNodeIds.includes(nodeId)
@@ -54,23 +56,49 @@ export function NodeContextMenu({
           </ContextMenuItem>
         ) : (
           <>
-            <ContextMenuItem onClick={() => {
-              console.log('[NodeContextMenu] Test Node clicked:', nodeId, 'Handler exists:', !!onTestNode)
-              onTestNode?.(nodeId)
-            }}>
+            <ContextMenuItem
+              onClick={() => {
+                console.log('[NodeContextMenu] Test Node clicked:', nodeId, 'Handler exists:', !!onTestNode)
+                if (!hasRequiredFieldsMissing) {
+                  onTestNode?.(nodeId)
+                }
+              }}
+              disabled={hasRequiredFieldsMissing}
+            >
               <TestTube className="w-4 h-4 mr-2" />
               Test Node
             </ContextMenuItem>
-            <ContextMenuItem onClick={() => onTestFlowFromHere?.(nodeId)}>
+            <ContextMenuItem
+              onClick={() => {
+                if (!hasRequiredFieldsMissing) {
+                  onTestFlowFromHere?.(nodeId)
+                }
+              }}
+              disabled={hasRequiredFieldsMissing}
+            >
               <Play className="w-4 h-4 mr-2" />
               Test Flow from here
             </ContextMenuItem>
             <ContextMenuSeparator />
-            <ContextMenuItem onClick={() => onFreeze?.(nodeId)}>
+            <ContextMenuItem
+              onClick={() => {
+                if (!hasRequiredFieldsMissing) {
+                  onFreeze?.(nodeId)
+                }
+              }}
+              disabled={hasRequiredFieldsMissing}
+            >
               <Snowflake className="w-4 h-4 mr-2" />
               Freeze
             </ContextMenuItem>
-            <ContextMenuItem onClick={() => onStop?.(nodeId)}>
+            <ContextMenuItem
+              onClick={() => {
+                if (!hasRequiredFieldsMissing) {
+                  onStop?.(nodeId)
+                }
+              }}
+              disabled={hasRequiredFieldsMissing}
+            >
               <StopCircle className="w-4 h-4 mr-2" />
               Stop
             </ContextMenuItem>

@@ -202,7 +202,7 @@ export const shouldHideField = (
     const showWhen = (field as any).showWhen;
     for (const [conditionField, conditionValues] of Object.entries(showWhen)) {
       const currentValue = config[conditionField];
-      
+
       // Handle special cases
       if (conditionValues === "!empty") {
         // Field should show only when the condition field has a non-empty value
@@ -220,6 +220,19 @@ export const shouldHideField = (
           return true; // Hide if not matching
         }
       }
+    }
+  }
+
+  // Check visibleWhen property (used in Add Attachment and other nodes)
+  if ((field as any).visibleWhen) {
+    const visibleWhen = (field as any).visibleWhen;
+    const conditionField = visibleWhen.field;
+    const conditionValue = visibleWhen.value;
+    const currentValue = config[conditionField];
+
+    // Field should only show when the condition field equals the specified value
+    if (currentValue !== conditionValue) {
+      return true; // Hide if not matching
     }
   }
 

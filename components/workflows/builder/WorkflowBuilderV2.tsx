@@ -1454,7 +1454,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       }
     })
 
-    // Enhance nodes with isLastNode, onAddNodeAfter, and onTestNode
+    // Enhance nodes with isLastNode, onAddNodeAfter, onTestNode, and isBeingConfigured
     const enhancedNodes = builder.nodes.map((node: any) => ({
       ...node,
       data: {
@@ -1462,6 +1462,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         isLastNode: lastNodeIds.has(node.id),
         onAddNodeAfter: handleAddNodeAfter,
         onTestNode: handleTestNode,
+        isBeingConfigured: configuringNode?.id === node.id,
       }
     }))
 
@@ -1494,7 +1495,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       nodeTypes: builder.nodeTypes,
       edgeTypes: builder.edgeTypes,
     }
-  }, [builder, handleAddNodeAfter, handleTestNode])
+  }, [builder, handleAddNodeAfter, handleTestNode, configuringNode])
 
   // Name update handler
   const persistName = useCallback(
@@ -1773,9 +1774,33 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
     // Optimistically remove nodes from UI immediately
     const updatedNodes = currentNodes.filter((node: any) => !nodeIdSet.has(node.id))
-    const updatedEdges = currentEdges.filter(
-      (edge: any) => !nodeIdSet.has(edge.source) && !nodeIdSet.has(edge.target)
-    )
+
+    // For each deleted node, find incoming and outgoing edges and reconnect them
+    const newEdges: any[] = []
+    nodeIds.forEach(nodeId => {
+      const incomingEdge = currentEdges.find((e: any) => e.target === nodeId)
+      const outgoingEdge = currentEdges.find((e: any) => e.source === nodeId)
+
+      // If the deleted node was in the middle of a chain, reconnect the edges
+      if (incomingEdge && outgoingEdge) {
+        newEdges.push({
+          id: `${incomingEdge.source}-${outgoingEdge.target}`,
+          source: incomingEdge.source,
+          target: outgoingEdge.target,
+          sourceHandle: incomingEdge.sourceHandle || 'source',
+          targetHandle: outgoingEdge.targetHandle || 'target',
+          type: 'custom',
+        })
+      }
+    })
+
+    // Remove edges connected to deleted nodes and add reconnection edges
+    const updatedEdges = [
+      ...currentEdges.filter(
+        (edge: any) => !nodeIdSet.has(edge.source) && !nodeIdSet.has(edge.target)
+      ),
+      ...newEdges
+    ]
 
     // Check if all real (non-placeholder) nodes are being deleted
     const realNodes = updatedNodes.filter((n: any) => !n.data?.isPlaceholder)
