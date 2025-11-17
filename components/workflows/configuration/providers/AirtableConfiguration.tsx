@@ -15,6 +15,7 @@ import { BubbleDisplay } from '../components/BubbleDisplay';
 import { ConfigurationSectionHeader } from '../components/ConfigurationSectionHeader';
 import { getProviderDisplayName } from '@/lib/utils/provider-names';
 import { saveInstantReopenSnapshot, loadInstantReopenSnapshot } from '@/lib/utils/field-cache';
+import { FieldVisibilityEngine } from '@/lib/workflows/fields/visibility';
 
 import { logger } from '@/lib/utils/logger'
 
@@ -1222,14 +1223,14 @@ export function AirtableConfiguration({
       return false;
     }
 
-    // If field has hidden: true and dependsOn, only show if dependency is satisfied
-    if (field.hidden && field.dependsOn) {
-      const dependencyValue = values[field.dependsOn];
-      return !!dependencyValue; // Show only if dependency has a value
-    }
+    // Handle complex hidden conditions using FieldVisibilityEngine
+    if (field.hidden !== undefined) {
+      // Use the centralized visibility engine for complex $condition patterns
+      const isVisible = FieldVisibilityEngine.isFieldVisible(field, values, nodeInfo);
 
-    // If field has hidden: true but no dependsOn, don't show it
-    if (field.hidden) return false;
+      // If the visibility engine says it's not visible, return false
+      if (!isVisible) return false;
+    }
 
     // Check dependsOn for all fields (not just hidden ones)
     if (field.dependsOn) {

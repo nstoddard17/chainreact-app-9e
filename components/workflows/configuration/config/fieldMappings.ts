@@ -469,6 +469,15 @@ const airtableMappings: Record<string, FieldMapping> = {
     feedback: "airtable_feedback",
     tasks: "airtable_tasks",
   },
+  airtable_action_create_multiple_records: {
+    baseId: "airtable_bases",
+    tableName: "airtable_tables",
+    errorTableBase: "airtable_bases",
+    errorTable: "airtable_tables",
+    errorRecordNameField: "airtable_fields",
+    errorMessageField: "airtable_fields",
+    errorTimestampField: "airtable_fields",
+  },
   airtable_action_update_record: {
     baseId: "airtable_bases",
     tableName: "airtable_tables",

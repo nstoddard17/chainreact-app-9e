@@ -123,7 +123,11 @@ export const createMultipleRecordsActionSchema: NodeComponent = {
       dependsOn: "tableName",
       description: "Maximum number of records to create (Airtable API limit: 10)",
       tooltip: "Airtable allows a maximum of 10 records per API request. If your input has more items, only the first 10 will be created.",
-      advanced: true
+      advanced: true,
+      hidden: {
+        $deps: ["tableName"],
+        $condition: { tableName: { $exists: false } }
+      }
     },
     {
       name: "continueOnError",
@@ -134,7 +138,92 @@ export const createMultipleRecordsActionSchema: NodeComponent = {
       dependsOn: "tableName",
       description: "Continue creating remaining records if one fails",
       tooltip: "When enabled, individual record failures won't stop the entire batch. Successful creates will still be returned.",
-      advanced: true
+      advanced: true,
+      hidden: {
+        $deps: ["tableName"],
+        $condition: { tableName: { $exists: false } }
+      }
+    },
+    {
+      name: "errorTableBase",
+      label: "Error Log Base",
+      type: "select",
+      dynamic: "airtable_bases",
+      required: false,
+      loadOnMount: true,
+      placeholder: "Select a base for error logging",
+      description: "Base where failed records will be logged",
+      tooltip: "Select an Airtable base to store records that fail to create",
+      advanced: true,
+      dependsOn: "tableName",
+      hidden: {
+        $deps: ["tableName"],
+        $condition: { tableName: { $exists: false } }
+      }
+    },
+    {
+      name: "errorTable",
+      label: "Error Log Table",
+      type: "select",
+      dynamic: "airtable_tables",
+      required: false,
+      placeholder: "Select a table for error logging",
+      description: "Table where failed record details will be saved",
+      tooltip: "Failed records will be logged to this table with error information",
+      advanced: true,
+      dependsOn: "errorTableBase",
+      hidden: {
+        $deps: ["errorTableBase"],
+        $condition: { errorTableBase: { $exists: false } }
+      }
+    },
+    {
+      name: "errorRecordNameField",
+      label: "Record Name Field",
+      type: "select",
+      dynamic: "airtable_fields",
+      required: false,
+      placeholder: "Select field for record identifier",
+      description: "Field to store the name/identifier of the failed record",
+      tooltip: "This field will contain a reference to identify which record failed",
+      advanced: true,
+      dependsOn: "errorTable",
+      hidden: {
+        $deps: ["errorTable"],
+        $condition: { errorTable: { $exists: false } }
+      }
+    },
+    {
+      name: "errorMessageField",
+      label: "Error Message Field",
+      type: "select",
+      dynamic: "airtable_fields",
+      required: false,
+      placeholder: "Select field for error message",
+      description: "Field to store the error message details",
+      tooltip: "This field will contain the error message explaining why the record creation failed",
+      advanced: true,
+      dependsOn: "errorTable",
+      hidden: {
+        $deps: ["errorTable"],
+        $condition: { errorTable: { $exists: false } }
+      }
+    },
+    {
+      name: "errorTimestampField",
+      label: "Timestamp Field",
+      type: "select",
+      dynamic: "airtable_fields",
+      required: false,
+      placeholder: "Select field for timestamp",
+      description: "Field to store when the error occurred",
+      tooltip: "This field will contain the date/time when the error was logged",
+      advanced: true,
+      dependsOn: "errorTable",
+      hidden: {
+        $deps: ["errorTable"],
+        $condition: { errorTable: { $exists: false } }
+      }
     }
   ]
 }

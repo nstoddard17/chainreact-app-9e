@@ -588,6 +588,23 @@ export async function createAirtableRecord(
       if (fieldValue !== undefined && fieldValue !== null && fieldValue !== '') {
         let resolved = resolveValue(fieldValue, input)
 
+        // IMPORTANT: Clean up linked record fields FIRST, before any other processing
+        // Strip display values (format: "recXXX::Display Name" -> "recXXX")
+        if (Array.isArray(resolved)) {
+          resolved = resolved.map((v: any) => {
+            if (typeof v === 'string' && v.includes('::')) {
+              const cleaned = v.split('::')[0]
+              logger.debug(`📊 [Airtable] Cleaned linked record for "${fieldName}": "${v}" -> "${cleaned}"`)
+              return cleaned
+            }
+            return v
+          })
+        } else if (typeof resolved === 'string' && resolved.includes('::')) {
+          const original = resolved
+          resolved = resolved.split('::')[0]
+          logger.debug(`📊 [Airtable] Cleaned linked record for "${fieldName}": "${original}" -> "${resolved}"`)
+        }
+
         // Check if we have schema information for this field
         const fieldInfo = tableSchema?.fields?.find((f: any) => f.id === fieldName || f.name === fieldName)
 
