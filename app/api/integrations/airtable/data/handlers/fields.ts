@@ -29,8 +29,42 @@ const READ_ONLY_FIELD_TYPES = [
   'barcode',           // Barcode (scanned, typically read-only)
   'button',            // Button fields (action fields, not data fields)
   'computed',          // Computed/calculated fields (read-only)
-  'aiText'             // AI-generated text fields (read-only)
+  'aiText',            // AI-generated text fields (read-only)
+  'externalSyncSource' // External sync source fields (read-only)
 ]
+
+/**
+ * Check if a field should be filtered out based on type and metadata
+ * Filters out: read-only types, computed fields, locked fields, hidden fields, and AI-generated fields
+ */
+function isFieldEditable(field: any): boolean {
+  // Filter by field type
+  if (READ_ONLY_FIELD_TYPES.includes(field.type)) {
+    return false
+  }
+
+  // Filter by computed property (some fields may be marked as computed even if not in the type list)
+  if (field.computed === true) {
+    return false
+  }
+
+  // Filter by locked property (locked fields cannot be edited)
+  if (field.lock === true || field.locked === true) {
+    return false
+  }
+
+  // Filter by hidden property (hidden fields should not be shown in UI)
+  if (field.hidden === true) {
+    return false
+  }
+
+  // Filter fields with AI configuration (AI-generated content)
+  if (field.aiConfig || field.ai) {
+    return false
+  }
+
+  return true
+}
 
 export const getAirtableFields: AirtableDataHandler<AirtableFieldOption> = async (integration: AirtableIntegration, options: AirtableHandlerOptions = {}): Promise<AirtableFieldOption[]> => {
   const { baseId, tableName, filterReadOnly = false } = options
@@ -78,21 +112,29 @@ export const getAirtableFields: AirtableDataHandler<AirtableFieldOption> = async
       throw new Error(`Table "${tableName}" not found in base "${baseId}". Available tables: ${availableTableNames}`)
     }
 
-    // Extract field information
-    let fields: AirtableFieldOption[] = table.fields?.map((field: any) => ({
+    // Extract field information and filter out non-editable fields
+    const allFields = table.fields || []
+    const originalCount = allFields.length
+
+    // Map fields to options
+    let fields: AirtableFieldOption[] = allFields.map((field: any) => ({
       value: field.name,
       label: field.name,
       type: field.type,
       id: field.id
-    })) || []
+    }))
 
     // Filter out read-only fields if requested
     if (filterReadOnly) {
-      const originalCount = fields.length
-      fields = fields.filter(field => !READ_ONLY_FIELD_TYPES.includes(field.type))
+      // Use the full field object for checking editability
+      fields = fields.filter((fieldOption, index) => {
+        const fullField = allFields[index]
+        return isFieldEditable(fullField)
+      })
+
       const filteredCount = originalCount - fields.length
       if (filteredCount > 0) {
-        logger.debug(`🔍 Filtered out ${filteredCount} read-only fields (formula, count, rollup, etc.)`)
+        logger.debug(`🔍 Filtered out ${filteredCount} non-editable fields (formula, computed, locked, hidden, AI, etc.)`)
       }
     }
 

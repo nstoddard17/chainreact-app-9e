@@ -459,8 +459,20 @@ export function FieldRenderer({
   };
 
   // Prepare field options for select/combobox fields
+  const dynamicKey = typeof field.dynamic === 'string' ? field.dynamic : undefined;
+  const fieldSpecificOptions = Array.isArray(dynamicOptions?.[field.name]) ? dynamicOptions?.[field.name] : undefined;
+  const sharedDynamicOptions = dynamicKey && Array.isArray(dynamicOptions?.[dynamicKey])
+    ? dynamicOptions[dynamicKey]
+    : undefined;
+
+  const resolvedDynamicOptions = field.dynamic
+    ? (fieldSpecificOptions && fieldSpecificOptions.length > 0
+        ? fieldSpecificOptions
+        : (sharedDynamicOptions ?? fieldSpecificOptions))
+    : fieldSpecificOptions;
+
   let fieldOptions = field.options ||
-    (field.dynamic && dynamicOptions?.[field.name]) ||
+    resolvedDynamicOptions ||
     [];
 
   // Ensure HubSpot property selectors share the same option list

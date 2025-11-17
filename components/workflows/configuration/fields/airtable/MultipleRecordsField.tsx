@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import {
@@ -48,18 +48,58 @@ export function MultipleRecordsField({
   const records = Array.isArray(value) ? value : (value ? [value] : [{}]);
 
   const [openItems, setOpenItems] = useState<string[]>(['record-0']);
-  const [pendingScrollIndex, setPendingScrollIndex] = useState<number | null>(null);
   const maxRecords = field.metadata?.maxRecords || 10;
-  const recordContentRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  const recordsFieldRef = useRef<HTMLDivElement | null>(null);
 
   // Get editable fields from Airtable table schema - memoize to prevent unnecessary recalculations
   const editableFields = useMemo(() => {
     if (!airtableTableSchema?.fields) return [];
 
     const fields = airtableTableSchema.fields.filter((f: any) => {
-      // Filter out computed/read-only fields
-      const readOnlyTypes = ['formula', 'rollup', 'createdTime', 'lastModifiedTime', 'createdBy', 'lastModifiedBy', 'autoNumber'];
-      return !readOnlyTypes.includes(f.type);
+      // Filter out computed/read-only fields (matches backend filtering logic)
+      const readOnlyTypes = [
+        'formula',           // Formula fields (computed)
+        'rollup',            // Rollup fields (aggregated from linked records)
+        'count',             // Count fields (counts linked records)
+        'lookup',            // Lookup fields (pulls data from linked records)
+        'createdTime',       // Created time (auto-generated)
+        'lastModifiedTime',  // Last modified time (auto-generated)
+        'createdBy',         // Created by (auto-generated)
+        'lastModifiedBy',    // Last modified by (auto-generated)
+        'autoNumber',        // Auto number (auto-generated)
+        'barcode',           // Barcode (scanned, typically read-only)
+        'button',            // Button fields (action fields, not data fields)
+        'computed',          // Computed/calculated fields (read-only)
+        'aiText',            // AI-generated text fields (read-only)
+        'externalSyncSource' // External sync source fields (read-only)
+      ];
+
+      // Filter by field type
+      if (readOnlyTypes.includes(f.type)) {
+        return false;
+      }
+
+      // Filter by computed property
+      if (f.computed === true) {
+        return false;
+      }
+
+      // Filter by locked property
+      if (f.lock === true || f.locked === true) {
+        return false;
+      }
+
+      // Filter by hidden property
+      if (f.hidden === true) {
+        return false;
+      }
+
+      // Filter fields with AI configuration
+      if (f.aiConfig || f.ai) {
+        return false;
+      }
+
+      return true;
     });
 
     return fields;
@@ -75,9 +115,16 @@ export function MultipleRecordsField({
     const newRecords = [...records, newRecord];
     onChange(newRecords);
 
-    const newIndex = newRecords.length - 1;
-    setOpenItems([`record-${newIndex}`]);
-    setPendingScrollIndex(newIndex);
+    const newRecordId = `record-${newRecords.length - 1}`;
+    setOpenItems([newRecordId]);
+
+    if (recordsFieldRef.current) {
+      recordsFieldRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+        inline: 'nearest'
+      });
+    }
   }, [records, maxRecords, onChange]);
 
   // Remove a record
@@ -122,33 +169,8 @@ export function MultipleRecordsField({
   const hasTableSelected = !!parentValues?.tableName;
   const isLoading = hasTableSelected && !airtableTableSchema;
 
-  useEffect(() => {
-    if (pendingScrollIndex === null) return;
-
-    const raf = requestAnimationFrame(() => {
-      const container = recordContentRefs.current[pendingScrollIndex];
-      if (container) {
-        container.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start',
-          inline: 'nearest'
-        });
-
-        const firstInput = container.querySelector<HTMLElement>(
-          'input, textarea, select, [contenteditable="true"], [tabindex]:not([tabindex="-1"])'
-        );
-        if (firstInput) {
-          firstInput.focus();
-        }
-      }
-      setPendingScrollIndex(null);
-    });
-
-    return () => cancelAnimationFrame(raf);
-  }, [pendingScrollIndex]);
-
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" ref={recordsFieldRef}>
       {isLoading ? (
         <div className="p-4 border border-dashed rounded-md flex justify-center">
           <LoadingFieldState message="Loading table schema..." />
@@ -208,16 +230,7 @@ export function MultipleRecordsField({
               </div>
             </AccordionTrigger>
             <AccordionContent className="px-4 pb-4 pt-2">
-              <div
-                className="space-y-4"
-                ref={(el) => {
-                  if (el) {
-                    recordContentRefs.current[index] = el;
-                  } else {
-                    delete recordContentRefs.current[index];
-                  }
-                }}
-              >
+              <div className="space-y-4">
                 {editableFields.map((airtableField: any) => {
                   // Convert Airtable field to config field format
                   const fieldType = getFieldType(airtableField.type);
