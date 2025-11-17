@@ -186,12 +186,26 @@ export function AirtableConfiguration({
       }
     });
 
+    // Add searchField options if available (searchField uses 'airtable_fields' as dynamic key)
+    // Only add if we have searchField options AND parent doesn't already have airtable_fields
+    console.log('[AirtableConfig] 🔍 searchField pre-merge:', {
+      searchFieldOptionsLength: searchFieldOptions.length,
+      hasParentAirtableFields: !!merged.airtable_fields,
+      parentAirtableFieldsLength: merged.airtable_fields?.length || 0,
+      willAddSearchField: searchFieldOptions.length > 0 && !merged.airtable_fields
+    });
+
+    if (searchFieldOptions.length > 0 && !merged.airtable_fields) {
+      merged.airtable_fields = searchFieldOptions;
+      console.log('[AirtableConfig] ✅ Added searchFieldOptions to merged.airtable_fields:', searchFieldOptions.length);
+    }
+
     const optionCounts = Object.entries(merged).map(([key, val]) =>
       `${key}(${Array.isArray(val) ? val.length : 0})`
     ).join(', ');
     console.log(`[AirtableConfig] 🔍 Merged dynamic options: ${optionCounts}`);
     return merged;
-  }, [dynamicOptions, batchLoadedOptions]);
+  }, [dynamicOptions, batchLoadedOptions, searchFieldOptions]);
 
   // Debug: Log dynamicOptions changes for watchedTables
   React.useEffect(() => {
@@ -365,6 +379,89 @@ export function AirtableConfiguration({
       }
     }
   }, [values.recordId, airtableRecords, selectedRecord, isUpdateRecord, setSelectedRecord]);
+
+  // Restore selectedDuplicateRecord and field checklist from saved config for duplicate record
+  React.useEffect(() => {
+    // Only run for duplicate record mode
+    if (!isDuplicateRecord) return;
+
+    // If we have a saved recordId and duplicateConfig, restore the state
+    if (values.recordId && values.duplicateConfig && airtableTableSchema?.fields) {
+      // Try to get the cached record first, then fall back to loaded records
+      const cachedRecord = initialConfig?._cached_duplicate_record;
+
+      logger.debug('🔄 [DUPLICATE REOPEN] Starting restoration check:', {
+        hasRecordId: !!values.recordId,
+        hasDuplicateConfig: !!values.duplicateConfig,
+        hasSchema: !!airtableTableSchema?.fields,
+        hasCachedRecord: !!cachedRecord,
+        recordsLoaded: airtableRecords.length,
+        hasSelectedRecord: !!selectedDuplicateRecord,
+        checklistLength: duplicateFieldChecklist.length
+      });
+
+      // First, restore the selected record if we have it
+      if (!selectedDuplicateRecord) {
+        // Use cached record if available, otherwise create minimal record
+        const recordToRestore = cachedRecord || {
+          id: values.recordId,
+          fields: {}
+        };
+        setSelectedDuplicateRecord(recordToRestore);
+        logger.debug('🔄 [DUPLICATE REOPEN] Restored selectedDuplicateRecord:', {
+          fromCache: !!cachedRecord,
+          recordId: values.recordId,
+          hasFields: !!cachedRecord?.fields
+        });
+      }
+
+      // Restore the field checklist from duplicateConfig if we don't have it yet
+      if (duplicateFieldChecklist.length === 0) {
+        const { fieldsToCopy = [], fieldsToOverride = {} } = values.duplicateConfig;
+
+        logger.debug('🔄 [DUPLICATE REOPEN] Restoring field checklist from config:', {
+          fieldsToCopy: fieldsToCopy.length,
+          fieldsToOverride: Object.keys(fieldsToOverride).length
+        });
+
+        // Read-only field types that cannot be edited via the API
+        const readOnlyFieldTypes = new Set([
+          'formula', 'rollup', 'count', 'lookup', 'createdTime', 'lastModifiedTime',
+          'createdBy', 'lastModifiedBy', 'autoNumber', 'barcode', 'computed', 'aiText'
+        ]);
+
+        // Use cached record, then loaded records, then empty
+        const recordData = cachedRecord ||
+                          (airtableRecords.length > 0 ? airtableRecords.find(r => r.id === values.recordId) : null);
+
+        const checklist = airtableTableSchema.fields
+          .filter((field: any) => !readOnlyFieldTypes.has(field.type))
+          .map((field: any) => ({
+            name: field.name,
+            label: field.name,
+            value: recordData?.fields?.[field.name] ?? null,
+            type: field.type,
+            enabled: fieldsToCopy.includes(field.name),
+            override: fieldsToOverride.hasOwnProperty(field.name),
+            overrideValue: fieldsToOverride[field.name] || undefined
+          }));
+
+        setDuplicateFieldChecklist(checklist);
+        logger.debug('✅ [DUPLICATE REOPEN] Restored field checklist:', {
+          totalFields: checklist.length,
+          enabledFields: checklist.filter(f => f.enabled).length,
+          overriddenFields: checklist.filter(f => f.override).length,
+          fieldsWithValues: checklist.filter(f => f.value !== null).length
+        });
+
+        // Update the selected record with full data if we have it and current is minimal
+        if (recordData && selectedDuplicateRecord && Object.keys(selectedDuplicateRecord.fields || {}).length === 0) {
+          setSelectedDuplicateRecord(recordData);
+          logger.debug('✅ [DUPLICATE REOPEN] Updated selectedDuplicateRecord with full data');
+        }
+      }
+    }
+  }, [values.recordId, values.duplicateConfig, airtableRecords, airtableTableSchema, selectedDuplicateRecord, duplicateFieldChecklist.length, isDuplicateRecord, initialConfig]);
 
   // INSTANT REOPEN: Restore complete snapshot if available
   // This provides ZERO latency when reopening saved configs
@@ -987,19 +1084,31 @@ export function AirtableConfiguration({
     setSelectedDuplicateRecord(record);
     setValue('recordId', record.id);
 
+    // Cache the selected record for instant restoration (like update record)
+    setValue('_cached_duplicate_record', record);
+    logger.debug('[DuplicateRecord] Cached selected record for instant reopen');
+
     // Build field checklist from record data and schema
     if (record.fields && airtableTableSchema?.fields) {
-      const checklist = airtableTableSchema.fields.map((field: any) => ({
-        name: field.name,
-        label: field.name,
-        value: record.fields[field.name] ?? null,
-        type: field.type,
-        enabled: true, // Auto-select all fields by default
-        override: false, // Override disabled by default
-        overrideValue: undefined
-      }));
+      // Read-only field types that cannot be edited via the API
+      const readOnlyFieldTypes = new Set([
+        'formula', 'rollup', 'count', 'lookup', 'createdTime', 'lastModifiedTime',
+        'createdBy', 'lastModifiedBy', 'autoNumber', 'barcode', 'computed', 'aiText'
+      ]);
 
-      logger.debug('[DuplicateRecord] Created field checklist:', checklist);
+      const checklist = airtableTableSchema.fields
+        .filter((field: any) => !readOnlyFieldTypes.has(field.type)) // Filter out read-only fields
+        .map((field: any) => ({
+          name: field.name,
+          label: field.name,
+          value: record.fields[field.name] ?? null,
+          type: field.type,
+          enabled: true, // Auto-select all fields by default
+          override: false, // Override disabled by default
+          overrideValue: undefined
+        }));
+
+      logger.debug('[DuplicateRecord] Created field checklist (filtered read-only fields):', checklist);
       setDuplicateFieldChecklist(checklist);
 
       // Store in duplicateConfig hidden field
@@ -1044,6 +1153,22 @@ export function AirtableConfiguration({
     // Skip field types that we cannot meaningfully represent
     const unsupportedFieldTypes = new Set(['button']);
 
+    // Read-only field types that cannot be edited via the API
+    const readOnlyFieldTypes = new Set([
+      'formula',           // Formula fields (computed)
+      'rollup',            // Rollup fields (aggregated from linked records)
+      'count',             // Count fields (counts linked records)
+      'lookup',            // Lookup fields (pulls data from linked records)
+      'createdTime',       // Created time (auto-generated)
+      'lastModifiedTime',  // Last modified time (auto-generated)
+      'createdBy',         // Created by (auto-generated)
+      'lastModifiedBy',    // Last modified by (auto-generated)
+      'autoNumber',        // Auto number (auto-generated)
+      'barcode',           // Barcode (scanned, typically read-only)
+      'computed',          // Computed/calculated fields (read-only)
+      'aiText'             // AI-generated text fields (read-only)
+    ]);
+
     return airtableTableSchema.fields
       .filter((field: any) => {
         if (!field) return false;
@@ -1052,27 +1177,32 @@ export function AirtableConfiguration({
           return false;
         }
 
-        // For CREATE record or CREATE MULTIPLE records: filter out fields that can't be set during creation
-        if (isCreateRecord || isCreateMultipleRecords) {
-          // Always hide autoNumber fields - they're generated by Airtable on creation
-          if (field.type === 'autoNumber') {
-            logger.debug('🚫 [AirtableConfig] Excluding autoNumber field for create action:', field.name);
+        // For CREATE, UPDATE, or CREATE MULTIPLE records: filter out read-only fields
+        if (isCreateRecord || isCreateMultipleRecords || isUpdateRecord || isUpdateMultipleRecords) {
+          if (readOnlyFieldTypes.has(field.type)) {
+            logger.debug('🚫 [AirtableConfig] Excluding read-only field:', {
+              fieldName: field.name,
+              fieldType: field.type,
+              reason: 'Cannot be edited via API'
+            });
             return false;
           }
 
-          // Also filter out fields explicitly hidden in Airtable views
-          const visibilitySetting = visibilityByFieldId[field.id];
-          if (visibilitySetting && typeof visibilitySetting === 'string') {
-            const isHidden = visibilitySetting.toLowerCase() !== 'visible' &&
-                           visibilitySetting.toLowerCase() !== 'shown';
-            if (isHidden) {
-              logger.debug('🚫 [AirtableConfig] Excluding hidden field for create action:', {
-                fieldName: field.name,
-                fieldType: field.type,
-                fieldId: field.id,
-                visibilitySetting
-              });
-              return false;
+          // Also filter out fields explicitly hidden in Airtable views (for create actions)
+          if (isCreateRecord || isCreateMultipleRecords) {
+            const visibilitySetting = visibilityByFieldId[field.id];
+            if (visibilitySetting && typeof visibilitySetting === 'string') {
+              const isHidden = visibilitySetting.toLowerCase() !== 'visible' &&
+                             visibilitySetting.toLowerCase() !== 'shown';
+              if (isHidden) {
+                logger.debug('🚫 [AirtableConfig] Excluding hidden field for create action:', {
+                  fieldName: field.name,
+                  fieldType: field.type,
+                  fieldId: field.id,
+                  visibilitySetting
+                });
+                return false;
+              }
             }
           }
         }
@@ -1549,12 +1679,12 @@ export function AirtableConfiguration({
     logger.debug('✅ [AirtableConfig] Cleared schema to force reload for new table');
   }, [values.tableName, setAiFields, setAirtableTableSchema]);
 
-  // Pre-load searchField options for Find Record nodes so the dropdown never appears empty
+  // Pre-load searchField options for Find Record and Delete Record nodes so the dropdown never appears empty
   useEffect(() => {
-    if (!isFindRecord || !values.baseId || !values.tableName || !airtableIntegration?.id) {
+    if ((!isFindRecord && !isDeleteRecord) || !values.baseId || !values.tableName || !airtableIntegration?.id) {
       setSearchFieldOptions([]);
       setLocalLoadingFields(prev => {
-        if (!prev.has('searchField')) return prev;
+        // Always create a new Set and remove searchField if it exists
         const next = new Set(prev);
         next.delete('searchField');
         return next;
@@ -1565,12 +1695,26 @@ export function AirtableConfiguration({
     let isCancelled = false;
     const abortController = new AbortController();
 
-    setLocalLoadingFields(prev => {
-      if (prev.has('searchField')) return prev;
-      const next = new Set(prev);
-      next.add('searchField');
-      return next;
+    // CRITICAL: When reopening, don't show loading state - load silently in background
+    console.log('[AirtableConfig] 🔄 searchField useEffect triggered:', {
+      isReopen,
+      willSetLoading: !isReopen,
+      baseId: values.baseId,
+      tableName: values.tableName
     });
+    if (!isReopen) {
+      setLocalLoadingFields(prev => {
+        const alreadyLoading = prev.has('searchField');
+        if (alreadyLoading) {
+          console.log('[AirtableConfig] ⏭️  searchField already loading, skipping');
+          return prev;
+        }
+        const next = new Set(prev);
+        next.add('searchField');
+        console.log('[AirtableConfig] 📍 Adding searchField to loading state');
+        return next;
+      });
+    }
 
     (async () => {
       try {
@@ -1595,13 +1739,18 @@ export function AirtableConfiguration({
 
         const payload = await response.json();
         const fields = payload?.data || [];
+        console.log('[AirtableConfig] 📦 searchField API response:', {
+          fieldsCount: fields.length,
+          isCancelled,
+          sampleFields: fields.slice(0, 3)
+        });
         if (!isCancelled) {
-          setSearchFieldOptions(
-            fields.map((field: any) => ({
-              value: field.value || field.name || field.id,
-              label: field.label || field.name || field.id
-            }))
-          );
+          const mappedOptions = fields.map((field: any) => ({
+            value: field.value || field.name || field.id,
+            label: field.label || field.name || field.id
+          }));
+          console.log('[AirtableConfig] ✅ Setting searchField options:', mappedOptions.length);
+          setSearchFieldOptions(mappedOptions);
         }
       } catch (error) {
         if (!abortController.signal.aborted) {
@@ -1611,11 +1760,21 @@ export function AirtableConfiguration({
           }
         }
       } finally {
+        console.log('[AirtableConfig] 🏁 searchField load finally block:', {
+          isCancelled,
+          willClearLoading: !isCancelled
+        });
         if (!isCancelled) {
           setLocalLoadingFields(prev => {
-            if (!prev.has('searchField')) return prev;
+            // Always create a new Set and remove searchField if it exists
             const next = new Set(prev);
+            const hadSearchField = prev.has('searchField');
             next.delete('searchField');
+            console.log('[AirtableConfig] 🧹 Clearing searchField loading state:', {
+              hadSearchField,
+              prevSize: prev.size,
+              nextSize: next.size
+            });
             return next;
           });
         }
@@ -1626,13 +1785,13 @@ export function AirtableConfiguration({
       isCancelled = true;
       abortController.abort();
       setLocalLoadingFields(prev => {
-        if (!prev.has('searchField')) return prev;
+        // Always create a new Set and remove searchField if it exists
         const next = new Set(prev);
         next.delete('searchField');
         return next;
       });
     };
-  }, [airtableIntegration?.id, isFindRecord, values.baseId, values.tableName]);
+  }, [airtableIntegration?.id, isFindRecord, isDeleteRecord, values.baseId, values.tableName, isReopen]);
 
   // Log component mount and initial state
   useEffect(() => {
@@ -3213,12 +3372,7 @@ export function AirtableConfiguration({
       };
 
       let effectiveField = field;
-      if (field.name === 'searchField' && searchFieldOptions.length > 0) {
-        effectiveField = {
-          ...effectiveField,
-          options: searchFieldOptions
-        };
-      }
+
       if (shouldShowTemplateHints && field.name?.startsWith('airtable_field_')) {
         const rawKey = field.label || field.name.replace('airtable_field_', '');
         const normalizedKey = typeof rawKey === 'string' ? rawKey.trim() : rawKey;
@@ -3289,8 +3443,25 @@ export function AirtableConfiguration({
       // CRITICAL: Check if this specific field is loading
       // BUT: Don't show loading state if we already have options (from batch load or cache)
       // This prevents "Loading..." placeholders from appearing when reopening saved configs
-      const hasExistingOptions = enhancedDynamicOptions[field.name]?.length > 0;
+
+      // For fields with dynamic property, check the dynamic key instead of field name
+      const dynamicKey = field.dynamic || field.name;
+      const hasExistingOptions = enhancedDynamicOptions[dynamicKey]?.length > 0;
       const fieldIsLoading = isFieldLoading(field.name) && !hasExistingOptions;
+
+      if (field.name === 'searchField') {
+        console.log('[AirtableConfig] 🔍 searchField loading check:');
+        console.log('  - fieldName:', field.name);
+        console.log('  - field.dynamic:', field.dynamic);
+        console.log('  - dynamicKey:', dynamicKey);
+        console.log('  - hasExistingOptions:', hasExistingOptions);
+        console.log('  - isFieldLoading(field.name):', isFieldLoading(field.name));
+        console.log('  - fieldIsLoading:', fieldIsLoading);
+        console.log('  - enhancedOptionsKeys:', Object.keys(enhancedDynamicOptions));
+        console.log('  - enhancedDynamicOptions[dynamicKey]:', enhancedDynamicOptions[dynamicKey]);
+        console.log('  - airtableFieldsCount:', enhancedDynamicOptions['airtable_fields']?.length || 0);
+        console.log('  - searchFieldOptions.length:', searchFieldOptions.length);
+      }
 
       return (
       <React.Fragment key={`field-${field.name}-${index}`}>

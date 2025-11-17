@@ -113,6 +113,7 @@ export interface AirtableHandlerOptions {
   maxRecords?: number
   view?: string
   filterByFormula?: string
+  filterReadOnly?: boolean  // When true, filters out read-only fields (formula, count, rollup, etc.)
   sort?: Array<{
     field: string
     direction: 'asc' | 'desc'

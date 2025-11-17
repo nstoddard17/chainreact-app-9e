@@ -19,6 +19,13 @@ import { getAirtableFeedback } from './feedback'
 import { getAirtableTasks } from './tasks'
 import { getLinkedTableRecords } from './linkedRecords'
 import { getAirtableAttachmentFields } from './attachmentFields'
+import { AirtableIntegration, AirtableHandlerOptions } from '../types'
+import { AirtableFieldOption } from './fields'
+
+// Wrapper handler for editable fields only (filters out read-only fields)
+const getAirtableEditableFields = async (integration: AirtableIntegration, options: AirtableHandlerOptions = {}): Promise<AirtableFieldOption[]> => {
+  return getAirtableFields(integration, { ...options, filterReadOnly: true })
+}
 
 export const airtableHandlers = {
   'airtable_bases': getAirtableBases,
@@ -29,6 +36,7 @@ export const airtableHandlers = {
   'airtable_task_records': getAirtableTaskRecords,
   'airtable_project_records': getAirtableProjectRecords,
   'airtable_fields': getAirtableFields,
+  'airtable_editable_fields': getAirtableEditableFields,  // Only shows fields that can be edited (no formula, count, etc.)
   'airtable_field_values': getAirtableFieldValues,
   'airtable_attachment_fields': getAirtableAttachmentFields,
   'airtable_batch_field_values': getAirtableBatchFieldValues,

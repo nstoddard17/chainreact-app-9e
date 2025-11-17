@@ -152,9 +152,21 @@ export async function duplicateAirtableRecord(
         if (sourceFields.hasOwnProperty(fieldName)) {
           let fieldValue = sourceFields[fieldName];
 
-          // Format date/datetime fields based on schema
+          // Get field info from schema
           const fieldInfo = tableSchema?.fields?.find((f: any) => f.id === fieldName || f.name === fieldName)
-          if (fieldInfo && (fieldInfo.type === 'date' || fieldInfo.type === 'dateTime')) {
+
+          // Clean attachment fields - Airtable only accepts url and filename
+          if (fieldInfo && (fieldInfo.type === 'multipleAttachments' || fieldInfo.type === 'attachment')) {
+            if (Array.isArray(fieldValue)) {
+              fieldValue = fieldValue.map((att: any) => ({
+                url: att.url,
+                filename: att.filename
+              }));
+              logger.debug(`📎 [Airtable] Cleaned attachment field: ${fieldName} (${fieldValue.length} attachments)`);
+            }
+          }
+          // Format date/datetime fields based on schema
+          else if (fieldInfo && (fieldInfo.type === 'date' || fieldInfo.type === 'dateTime')) {
             fieldValue = formatDateForAirtable(fieldValue, fieldInfo)
           }
 

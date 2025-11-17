@@ -85,7 +85,10 @@ export const deleteRecordActionSchema: NodeComponent = {
       dependsOn: "tableName",
       placeholder: "Select field to search in...",
       description: "Field to search in",
-      visibleWhen: { field: "searchMode", value: "field_match" }
+      showWhen: {
+        deleteMode: "matching_records",
+        searchMode: "field_match"
+      }
     },
     {
       name: "searchValue",
@@ -96,7 +99,10 @@ export const deleteRecordActionSchema: NodeComponent = {
       supportsAI: true,
       description: "Keywords to match (records with these values will be deleted)",
       dependsOn: "tableName",
-      visibleWhen: { field: "searchMode", value: "field_match" }
+      showWhen: {
+        deleteMode: "matching_records",
+        searchMode: "field_match"
+      }
     },
     {
       name: "matchType",
@@ -111,7 +117,10 @@ export const deleteRecordActionSchema: NodeComponent = {
       defaultValue: "any",
       description: "How to match keywords",
       dependsOn: "tableName",
-      visibleWhen: { field: "searchMode", value: "field_match" }
+      showWhen: {
+        deleteMode: "matching_records",
+        searchMode: "field_match"
+      }
     },
     {
       name: "caseSensitive",
@@ -121,7 +130,10 @@ export const deleteRecordActionSchema: NodeComponent = {
       defaultValue: false,
       description: "Whether search should be case sensitive",
       dependsOn: "tableName",
-      visibleWhen: { field: "searchMode", value: "field_match" }
+      showWhen: {
+        deleteMode: "matching_records",
+        searchMode: "field_match"
+      }
     },
     {
       name: "filterFormula",
@@ -133,7 +145,10 @@ export const deleteRecordActionSchema: NodeComponent = {
       supportsAI: true,
       description: "Airtable formula to find records to delete",
       dependsOn: "tableName",
-      visibleWhen: { field: "searchMode", value: "formula" }
+      showWhen: {
+        deleteMode: "matching_records",
+        searchMode: "formula"
+      }
     },
     {
       name: "maxRecords",

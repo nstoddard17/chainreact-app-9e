@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import {
@@ -48,7 +48,9 @@ export function MultipleRecordsField({
   const records = Array.isArray(value) ? value : (value ? [value] : [{}]);
 
   const [openItems, setOpenItems] = useState<string[]>(['record-0']);
+  const [pendingScrollIndex, setPendingScrollIndex] = useState<number | null>(null);
   const maxRecords = field.metadata?.maxRecords || 10;
+  const recordContentRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
   // Get editable fields from Airtable table schema - memoize to prevent unnecessary recalculations
   const editableFields = useMemo(() => {
@@ -73,24 +75,9 @@ export function MultipleRecordsField({
     const newRecords = [...records, newRecord];
     onChange(newRecords);
 
-    // Open the newly added record and scroll to show it at the top
-    setTimeout(() => {
-      setOpenItems([`record-${newRecords.length - 1}`]);
-
-      // Wait for the accordion to expand, then scroll the new record into view
-      requestAnimationFrame(() => {
-        const newRecordElement = document.querySelector(`[value="record-${newRecords.length - 1}"]`);
-
-        if (newRecordElement) {
-          // Scroll so the new record's header is at the top of the viewport
-          newRecordElement.scrollIntoView({
-            behavior: 'smooth',
-            block: 'start',
-            inline: 'nearest'
-          });
-        }
-      });
-    }, 0);
+    const newIndex = newRecords.length - 1;
+    setOpenItems([`record-${newIndex}`]);
+    setPendingScrollIndex(newIndex);
   }, [records, maxRecords, onChange]);
 
   // Remove a record
@@ -134,6 +121,31 @@ export function MultipleRecordsField({
   const hasSchemaAndFields = !!(airtableTableSchema && editableFields.length > 0);
   const hasTableSelected = !!parentValues?.tableName;
   const isLoading = hasTableSelected && !airtableTableSchema;
+
+  useEffect(() => {
+    if (pendingScrollIndex === null) return;
+
+    const raf = requestAnimationFrame(() => {
+      const container = recordContentRefs.current[pendingScrollIndex];
+      if (container) {
+        container.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+          inline: 'nearest'
+        });
+
+        const firstInput = container.querySelector<HTMLElement>(
+          'input, textarea, select, [contenteditable="true"], [tabindex]:not([tabindex="-1"])'
+        );
+        if (firstInput) {
+          firstInput.focus();
+        }
+      }
+      setPendingScrollIndex(null);
+    });
+
+    return () => cancelAnimationFrame(raf);
+  }, [pendingScrollIndex]);
 
   return (
     <div className="space-y-4">
@@ -196,7 +208,16 @@ export function MultipleRecordsField({
               </div>
             </AccordionTrigger>
             <AccordionContent className="px-4 pb-4 pt-2">
-              <div className="space-y-4">
+              <div
+                className="space-y-4"
+                ref={(el) => {
+                  if (el) {
+                    recordContentRefs.current[index] = el;
+                  } else {
+                    delete recordContentRefs.current[index];
+                  }
+                }}
+              >
                 {editableFields.map((airtableField: any) => {
                   // Convert Airtable field to config field format
                   const fieldType = getFieldType(airtableField.type);
