@@ -219,12 +219,27 @@ function applyPlannerEdits(base: Flow, edits: PlannerEdit[]): Flow {
         break
       }
       case "deleteNode": {
+        // Find edges connected to this node before deletion
+        const incomingEdge = working.edges.find((edge) => edge.to.nodeId === edit.nodeId)
+        const outgoingEdge = working.edges.find((edge) => edge.from.nodeId === edit.nodeId)
+
         // Remove the node
         working.nodes = working.nodes.filter((node) => node.id !== edit.nodeId)
+
         // Remove any edges connected to this node
         working.edges = working.edges.filter(
           (edge) => edge.from.nodeId !== edit.nodeId && edge.to.nodeId !== edit.nodeId
         )
+
+        // If the deleted node was in the middle of a chain, reconnect the edges
+        if (incomingEdge && outgoingEdge) {
+          working.edges.push({
+            id: `${incomingEdge.from.nodeId}-${outgoingEdge.to.nodeId}`,
+            from: incomingEdge.from,
+            to: outgoingEdge.to,
+            mappings: [],
+          })
+        }
         break
       }
       default: {

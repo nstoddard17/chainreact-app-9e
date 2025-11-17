@@ -251,32 +251,33 @@ export function FlowV2BuilderContent({
     buildState !== BuildState.COMPLETE
   ), [buildState])
 
-  useEffect(() => {
-    const instance = reactFlowInstance.current
-    if (!instance || nodes.length === 0) return
+  // Disabled automatic fitView to keep zoom level constant when nodes are added/deleted
+  // useEffect(() => {
+  //   const instance = reactFlowInstance.current
+  //   if (!instance || nodes.length === 0) return
 
-    const frame = requestAnimationFrame(() => {
-      instance.fitView({
-        padding: 0.12,
-        includeHiddenNodes: false,
-        minZoom: 0.6,
-        maxZoom: 1.5,
-        duration: 0,
-      })
+  //   const frame = requestAnimationFrame(() => {
+  //     instance.fitView({
+  //       padding: 0.12,
+  //       includeHiddenNodes: false,
+  //       minZoom: 0.6,
+  //       maxZoom: 1.5,
+  //       duration: 0,
+  //     })
 
-      if (leftInset > 0) {
-        const viewport = instance.getViewport()
-        const delta = (leftInset / 2) / viewport.zoom
-        instance.setViewport({
-          x: viewport.x - delta,
-          y: viewport.y,
-          zoom: viewport.zoom,
-        })
-      }
-    })
+  //     if (leftInset > 0) {
+  //       const viewport = instance.getViewport()
+  //       const delta = (leftInset / 2) / viewport.zoom
+  //       instance.setViewport({
+  //         x: viewport.x - delta,
+  //         y: viewport.y,
+  //         zoom: viewport.zoom,
+  //       })
+  //     }
+  //   })
 
-    return () => cancelAnimationFrame(frame)
-  }, [nodes.length, leftInset])
+  //   return () => cancelAnimationFrame(frame)
+  // }, [nodes.length, leftInset])
 
   return (
     <ContextMenu>

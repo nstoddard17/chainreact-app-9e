@@ -3,10 +3,17 @@
 import React, { memo, useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { Handle, Position, type NodeProps, useUpdateNodeInternals, useReactFlow } from "@xyflow/react"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
-import { Trash2, TestTube, Plus, Edit2, Layers, Unplug, Sparkles, ChevronDown, ChevronUp, Loader2, CheckCircle2, AlertTriangle, Info, GitFork, ArrowRight, PlusCircle, AlertCircle } from "lucide-react"
+import { Trash2, TestTube, Plus, Edit2, Layers, Unplug, Sparkles, ChevronDown, ChevronUp, Loader2, CheckCircle2, AlertTriangle, Info, GitFork, ArrowRight, PlusCircle, AlertCircle, MoreVertical, Play, Snowflake, StopCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { useWorkflowTestStore } from "@/stores/workflowTestStore"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { NodeContextMenu } from "./NodeContextMenu"
@@ -19,6 +26,17 @@ import { InlineNodePicker } from './InlineNodePicker'
 import type { NodeComponent } from '@/lib/workflows/nodes/types'
 
 export type NodeState = 'skeleton' | 'ready' | 'running' | 'passed' | 'failed'
+
+const AI_STATUS_HIDE_BADGE_STATES = new Set([
+  'preparing',
+  'creating',
+  'configuring',
+  'configured',
+  'testing',
+  'retesting',
+  'fixing',
+  'testing_successful'
+])
 
 // The data object passed to the node will now contain these callbacks.
 type ConfigureOptions = {
@@ -87,6 +105,7 @@ export interface CustomNodeData {
   isLastNode?: boolean
   onAddNodeAfter?: (afterNodeId: string, nodeType: string, component: any, sourceHandle?: string) => void
   selectedNodeIds?: string[]
+  isBeingConfigured?: boolean // Highlight when this node is actively being edited
 }
 
 type SlackConfigSection = {
@@ -179,13 +198,14 @@ function CustomNode({ id, data, selected }: NodeProps) {
   const nodeState = nodeData.state || 'ready'
   const isSkeletonState = nodeState === 'skeleton'
 
-  const getStatusBadge = (state: NodeState, hasRequiredFieldsMissing: boolean): { text: string; className: string; icon?: React.ReactNode } => {
+  const getStatusBadge = (state: NodeState, hasRequiredFieldsMissing: boolean): { text: string; className: string; icon?: React.ReactNode; iconOnly?: boolean } => {
     // For ready nodes, check if required fields are missing
     if (state === 'ready' && hasRequiredFieldsMissing) {
       return {
         text: 'Incomplete',
         className: 'badge-incomplete',
-        icon: <AlertCircle className="w-3 h-3" />
+        icon: <AlertCircle className="w-4 h-4" />,
+        iconOnly: true // Only show the icon, not the text
       }
     }
 
@@ -302,6 +322,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
     selectedNodeIds,
     isLastNode,
     onAddNodeAfter,
+    isBeingConfigured,
   } = nodeData
 
   const component = ALL_NODE_COMPONENTS.find((c) => c.type === type)
@@ -340,6 +361,19 @@ function CustomNode({ id, data, selected }: NodeProps) {
   }, [component?.configSchema, config, data.validationState])
 
   const statusBadge = getStatusBadge(nodeState, hasRequiredFieldsMissing)
+
+  const shouldShowStatusBadge = useMemo(() => {
+    // Always show badges for explicit execution states or validation warnings
+    if (nodeState === 'running' || nodeState === 'passed' || nodeState === 'failed') {
+      return true
+    }
+    if (nodeState === 'ready' && hasRequiredFieldsMissing) {
+      return true
+    }
+
+    const normalizedStatus = (aiStatus || '').toLowerCase()
+    return !AI_STATUS_HIDE_BADGE_STATES.has(normalizedStatus)
+  }, [aiStatus, hasRequiredFieldsMissing, nodeState])
 
   type OutputHandleConfig = {
     id: string
@@ -544,11 +578,17 @@ function CustomNode({ id, data, selected }: NodeProps) {
       return ""
     }
 
+    // If nodeState is handling the styling (running/passed/failed), don't add conflicting styles
+    if (nodeState === 'running' || nodeState === 'passed' || nodeState === 'failed') {
+      return ""
+    }
+
     if (!executionStatus && !isListening) return ""
 
     switch (executionStatus) {
       case 'running':
-        return "border-2 border-yellow-500 shadow-lg shadow-yellow-200"
+        // Let nodeState handle running styling
+        return ""
       case 'success':
       case 'completed':
         return "border-2 border-green-500 shadow-lg shadow-green-200"
@@ -1056,6 +1096,14 @@ function CustomNode({ id, data, selected }: NodeProps) {
 
   const { borderClass, shadowClass, backgroundClass, ringClass } = aiOutline
 
+  // Override styling when node is being actively configured
+  const finalBackgroundClass = isBeingConfigured
+    ? 'bg-blue-50 dark:bg-blue-950/30'
+    : backgroundClass
+  const finalBorderClass = isBeingConfigured
+    ? 'border-blue-300 dark:border-blue-700'
+    : borderClass
+
   const idleStatus = React.useMemo(() => {
     // Never show status badges for skeleton nodes
     if (isSkeletonState) {
@@ -1336,6 +1384,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
         onStop={onStop}
         onDelete={onDelete}
         onDeleteSelected={onDeleteSelected}
+        hasRequiredFieldsMissing={hasRequiredFieldsMissing}
       >
         <div
           className="relative w-[360px] bg-slate-50/80 rounded-lg shadow-sm border-2 border-slate-200 group transition-all duration-200 overflow-hidden"
@@ -1450,11 +1499,12 @@ function CustomNode({ id, data, selected }: NodeProps) {
       onStop={onStop}
       onDelete={onDelete}
       onDeleteSelected={onDeleteSelected}
+      hasRequiredFieldsMissing={hasRequiredFieldsMissing}
     >
       {/* Wrapper div to contain both node and plus button */}
       <div className="relative" style={{ width: '360px' }}>
         <div
-          className={`relative w-[360px] ${backgroundClass} rounded-lg shadow-sm border-2 group ${borderClass} ${shadowClass} ${ringClass} transition-all duration-200 overflow-hidden ${
+          className={`relative w-[360px] ${finalBackgroundClass} rounded-lg shadow-sm border-2 group ${finalBorderClass} ${shadowClass} ${ringClass} transition-all duration-200 ${
             nodeHasConfiguration() ? "cursor-pointer" : ""
           } ${getExecutionStatusStyle()} ${
             nodeState === 'running' ? 'node-running' :
@@ -1474,35 +1524,153 @@ function CustomNode({ id, data, selected }: NodeProps) {
         >
       {/* Phase 1: Status Badge - Top Right Corner - Click to toggle preview details */}
       {/* Hide badge during AI configuration states - show inline status instead */}
-      {!['preparing', 'creating', 'configuring', 'configured', 'testing', 'retesting', 'fixing', 'testing_successful'].includes(aiStatus || '') && (
-        <div
-          className={statusBadge.className}
-          onClick={(e) => {
-            e.stopPropagation() // Prevent click from opening config
-            if (nodeState === 'passed' || nodeState === 'failed' || nodeState === 'running') {
-              setIsPreviewExpanded(!isPreviewExpanded)
-            }
-          }}
-          style={{
-            position: 'absolute',
-            top: '8px',
-            right: '8px',
-            fontSize: '10px',
-            padding: '4px 8px',
-            borderRadius: '4px',
-            fontWeight: 600,
-            textAlign: 'center',
-            lineHeight: 1,
-            zIndex: 10,
-            cursor: (nodeState === 'passed' || nodeState === 'failed' || nodeState === 'running') ? 'pointer' : 'default',
-          }}
-          title={(nodeState === 'passed' || nodeState === 'failed' || nodeState === 'running') ?
-            (isPreviewExpanded ? 'Click to hide details' : 'Click to show details') : undefined}
-        >
-          {statusBadge.icon && <span className="mr-1">{statusBadge.icon}</span>}
-          {statusBadge.text}
-        </div>
+      {shouldShowStatusBadge && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div
+                className={statusBadge.className}
+                onClick={(e) => {
+                  e.stopPropagation() // Prevent click from opening config
+                  if (nodeState === 'passed' || nodeState === 'failed' || nodeState === 'running') {
+                    setIsPreviewExpanded(!isPreviewExpanded)
+                  }
+                }}
+                style={{
+                  position: 'absolute',
+                  top: '8px',
+                  right: '40px',
+                  fontSize: '10px',
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  fontWeight: 600,
+                  textAlign: 'center',
+                  lineHeight: 1,
+                  zIndex: 10,
+                  cursor: (nodeState === 'passed' || nodeState === 'failed' || nodeState === 'running' || hasRequiredFieldsMissing) ? 'pointer' : 'default',
+                }}
+              >
+                {statusBadge.iconOnly ? (
+                  statusBadge.icon
+                ) : (
+                  <>
+                    {statusBadge.icon && <span className="mr-1">{statusBadge.icon}</span>}
+                    {statusBadge.text}
+                  </>
+                )}
+              </div>
+            </TooltipTrigger>
+            {hasRequiredFieldsMissing && (
+              <TooltipContent side="left" className="max-w-xs">
+                <div className="space-y-1">
+                  <p className="font-semibold">Missing required fields:</p>
+                  <ul className="list-disc list-inside text-sm">
+                    {data.validationState?.missingRequired?.map((field) => (
+                      <li key={field}>{field}</li>
+                    )) || <li>Some required fields are missing</li>}
+                  </ul>
+                  <p className="text-xs text-muted-foreground mt-2">Click the node to configure</p>
+                </div>
+              </TooltipContent>
+            )}
+            {(nodeState === 'passed' || nodeState === 'failed' || nodeState === 'running') && !hasRequiredFieldsMissing && (
+              <TooltipContent side="left">
+                {isPreviewExpanded ? 'Click to hide details' : 'Click to show details'}
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
       )}
+
+      {/* Three-dots menu - Always visible in top-right corner */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            className="absolute top-2 right-2 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors noDrag noPan z-20"
+            onClick={(e) => e.stopPropagation()}
+            aria-label="Node menu"
+          >
+            <MoreVertical className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-56" align="end">
+          {selectedNodeIds && selectedNodeIds.length > 1 && selectedNodeIds.includes(id) ? (
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                onDeleteSelected?.(selectedNodeIds)
+              }}
+              className="text-destructive focus:text-destructive"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              {`Delete ${selectedNodeIds.length} nodes`}
+            </DropdownMenuItem>
+          ) : (
+            <>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (!hasRequiredFieldsMissing) {
+                    onTestNode?.(id)
+                  }
+                }}
+                disabled={hasRequiredFieldsMissing}
+              >
+                <TestTube className="w-4 h-4 mr-2" />
+                Test Node
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (!hasRequiredFieldsMissing) {
+                    onTestFlowFromHere?.(id)
+                  }
+                }}
+                disabled={hasRequiredFieldsMissing}
+              >
+                <Play className="w-4 h-4 mr-2" />
+                Test Flow from here
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (!hasRequiredFieldsMissing) {
+                    onFreeze?.(id)
+                  }
+                }}
+                disabled={hasRequiredFieldsMissing}
+              >
+                <Snowflake className="w-4 h-4 mr-2" />
+                Freeze
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (!hasRequiredFieldsMissing) {
+                    onStop?.(id)
+                  }
+                }}
+                disabled={hasRequiredFieldsMissing}
+              >
+                <StopCircle className="w-4 h-4 mr-2" />
+                Stop
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onDelete?.(id)
+                }}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       {/* Execution status indicator */}
       {getExecutionStatusIndicator()}

@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseServiceRoleClient } from '@/utils/supabase/server'
+import { createSupabaseServiceClient } from '@/utils/supabase/server'
 import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const supabase = await createSupabaseServiceRoleClient()
+    const supabase = await createSupabaseServiceClient()
     const now = new Date().toISOString()
 
     logger.info('[Timeout Checker] Checking for timed-out waiting executions')

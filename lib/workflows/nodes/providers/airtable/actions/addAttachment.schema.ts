@@ -123,7 +123,13 @@ export const addAttachmentActionSchema: NodeComponent = {
       placeholder: "document.pdf",
       supportsAI: true,
       description: "Name for the attachment (include file extension)",
-      tooltip: "Used as the display name for the file in Airtable",
+      tooltip: "When uploading a file, the filename is taken from the file automatically. For URL/Base64, specify the filename here.",
+      visibilityCondition: {
+        or: [
+          { field: "fileSource", operator: "equals", value: "url" },
+          { field: "fileSource", operator: "equals", value: "base64" }
+        ]
+      },
       dependsOn: "tableName"
     },
     {
