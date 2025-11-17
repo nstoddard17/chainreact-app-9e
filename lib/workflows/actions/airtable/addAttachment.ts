@@ -1,5 +1,6 @@
 import { getDecryptedAccessToken, resolveValue, ActionResult } from '@/lib/workflows/actions/core'
 import { logger } from '@/lib/utils/logger'
+import { uploadTempAttachmentToSupabase, scheduleTempAttachmentCleanup } from './supabaseAttachment'
 
 /**
  * Adds an attachment to an Airtable record
@@ -19,7 +20,9 @@ export async function addAirtableAttachment(
     const recordId = resolveValue(config.recordId, input)
     const attachmentField = resolveValue(config.attachmentField, input)
     const fileSource = resolveValue(config.fileSource, input) || 'url'
-    const preserveExisting = resolveValue(config.preserveExisting, input) || false
+    const preserveExistingRaw = resolveValue(config.preserveExisting, input)
+    // Handle both boolean and string values (from select field: "true"/"false")
+    const preserveExisting = preserveExistingRaw === true || preserveExistingRaw === 'true'
     const filename = resolveValue(config.filename, input)
     const contentType = resolveValue(config.contentType, input)
 
@@ -65,23 +68,84 @@ export async function addAirtableAttachment(
         return { success: false, message: "Uploaded file is required when using upload source" }
       }
 
-      // The uploadedFile should already be a URL (from file upload handling)
-      // If it's an object with a url property, extract it
-      if (typeof uploadedFile === 'object' && uploadedFile.url) {
-        attachmentData.url = uploadedFile.url
-      } else if (typeof uploadedFile === 'string') {
-        attachmentData.url = uploadedFile
-      } else {
-        return { success: false, message: "Invalid uploaded file format" }
+      // The uploadedFile can be:
+      // 1. A string (direct URL)
+      // 2. An object with a url property
+      // 3. An array of file objects (take the first one)
+      let fileUrl: string | null = null
+
+      if (typeof uploadedFile === 'string') {
+        fileUrl = uploadedFile
+      } else if (Array.isArray(uploadedFile) && uploadedFile.length > 0) {
+        // Handle array of files - take the first one
+        const firstFile = uploadedFile[0]
+        if (typeof firstFile === 'string') {
+          fileUrl = firstFile
+        } else if (typeof firstFile === 'object' && firstFile.url) {
+          fileUrl = firstFile.url
+        }
+      } else if (typeof uploadedFile === 'object' && uploadedFile.url) {
+        fileUrl = uploadedFile.url
       }
+
+      if (!fileUrl) {
+        logger.error('[addAirtableAttachment] Invalid uploaded file format:', {
+          type: typeof uploadedFile,
+          isArray: Array.isArray(uploadedFile),
+          value: uploadedFile
+        })
+        return { success: false, message: "Invalid uploaded file format. Expected a URL string, file object with url property, or array of files." }
+      }
+
+      // IMPORTANT: If fileUrl is a data URL (base64), upload to Supabase first
+      // Airtable requires public URLs, not data URLs
+      if (fileUrl.startsWith('data:')) {
+        logger.debug('[addAirtableAttachment] Detected data URL, uploading to Supabase first')
+
+        try {
+          // Extract MIME type and base64 data from data URL
+          const matches = fileUrl.match(/^data:([^;]+);base64,(.+)$/)
+          if (!matches) {
+            return { success: false, message: "Invalid data URL format" }
+          }
+
+          const mimeType = matches[1]
+          const base64Data = matches[2]
+          const buffer = Buffer.from(base64Data, 'base64')
+
+          // Upload to Supabase and get public URL
+          const { url: publicUrl, filePath } = await uploadTempAttachmentToSupabase(
+            buffer,
+            filename,
+            mimeType
+          )
+
+          logger.debug('[addAirtableAttachment] Uploaded data URL to Supabase:', {
+            originalSize: fileUrl.length,
+            publicUrl,
+            filePath
+          })
+
+          // Schedule cleanup of temporary file (10 minutes after upload)
+          scheduleTempAttachmentCleanup([filePath])
+
+          fileUrl = publicUrl
+        } catch (error: any) {
+          logger.error('[addAirtableAttachment] Failed to upload data URL to Supabase:', error)
+          return {
+            success: false,
+            message: `Failed to upload file: ${error.message || 'Unknown error'}`
+          }
+        }
+      }
+
+      attachmentData.url = fileUrl
     } else {
       return { success: false, message: `Unknown file source: ${fileSource}` }
     }
 
-    // Add content type if specified
-    if (contentType) {
-      attachmentData.contentType = contentType
-    }
+    // NOTE: Airtable's API does NOT accept contentType in the attachment object
+    // It auto-detects from the URL/filename. We only use contentType for data URL conversion.
 
     logger.debug('[addAirtableAttachment] Processing attachment:', {
       baseId,

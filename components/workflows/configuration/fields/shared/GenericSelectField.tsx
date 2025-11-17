@@ -555,7 +555,9 @@ export function GenericSelectField({
       }
     }
     // If we have a displayLabel and options are empty/loading, KEEP the existing displayLabel
-  }, [value, options, getFriendlyVariableLabel, workflowNodes, loadCachedLabel, saveLabelToCache, displayLabel]);
+    // Note: displayLabel is intentionally NOT in dependencies to avoid infinite loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, options, getFriendlyVariableLabel, workflowNodes, loadCachedLabel, saveLabelToCache]);
 
   // Load cached label immediately on mount for instant display
   React.useEffect(() => {

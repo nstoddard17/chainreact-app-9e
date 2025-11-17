@@ -118,24 +118,34 @@ function TagsInput({ value, onChange, field, error }: TagsInputProps) {
         </div>
       )}
 
-      {/* Input field to add new tags */}
-      <Input
-        type="text"
-        value={tagInput}
-        onChange={(e) => setTagInput(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            const trimmedTag = tagInput.trim();
-            if (trimmedTag && !tagsValue.includes(trimmedTag)) {
-              onChange([...tagsValue, trimmedTag]);
-              setTagInput('');
+      {/* Input field to add new tags with Press Enter indicator */}
+      <div className="relative">
+        <Input
+          type="text"
+          value={tagInput}
+          onChange={(e) => setTagInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              const trimmedTag = tagInput.trim();
+              if (trimmedTag && !tagsValue.includes(trimmedTag)) {
+                onChange([...tagsValue, trimmedTag]);
+                setTagInput('');
+              }
             }
-          }
-        }}
-        placeholder={field.placeholder || "Type and press Enter to add..."}
-        className={cn(error && "border-red-500")}
-      />
+          }}
+          placeholder={field.placeholder || "Type and press Enter to add..."}
+          className={cn(error && "border-red-500", "pr-28")}
+        />
+
+        {/* Animated Press Enter indicator */}
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none">
+          <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">Press</span>
+          <kbd className="px-2 py-0.5 text-xs font-semibold text-gray-800 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded shadow-sm animate-pulse">
+            Enter
+          </kbd>
+        </div>
+      </div>
 
       {error && <p className="text-sm text-red-500 mt-1">{error}</p>}
 

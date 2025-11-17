@@ -552,7 +552,14 @@ export class FieldVisibilityEngine {
 
     missingFields.forEach(fieldName => {
       const field = schema.find(f => f.name === fieldName);
-      errors[fieldName] = `${field?.label || fieldName} is required`;
+      const fieldLabel = field?.label || fieldName;
+
+      // Special error message for tags fields to remind users to press Enter
+      if (field?.type === 'tags') {
+        errors[fieldName] = `${fieldLabel} is required. Please type in a keyword and press Enter.`;
+      } else {
+        errors[fieldName] = `${fieldLabel} is required`;
+      }
     });
 
     return {

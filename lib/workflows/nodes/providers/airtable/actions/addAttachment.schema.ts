@@ -59,12 +59,16 @@ export const addAttachmentActionSchema: NodeComponent = {
     },
     {
       name: "preserveExisting",
-      label: "Preserve Existing Attachments",
-      type: "boolean",
-      required: false,
-      defaultValue: false,
-      description: "Keep existing attachments and add this file to them",
-      tooltip: "When enabled, new file will be appended to existing attachments instead of replacing them",
+      label: "Append or Replace",
+      type: "select",
+      required: true,
+      options: [
+        { value: "true", label: "Append to existing attachments" },
+        { value: "false", label: "Replace all existing attachments" }
+      ],
+      defaultValue: "true",
+      description: "Choose whether to keep or replace existing attachments",
+      tooltip: "Append will add this file to existing attachments. Replace will remove all existing attachments and add only this file.",
       dependsOn: "tableName"
     },
     {
