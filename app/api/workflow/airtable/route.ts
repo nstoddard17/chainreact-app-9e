@@ -404,6 +404,12 @@ export async function POST(req: NextRequest) {
   const headers = Object.fromEntries(req.headers.entries())
   const raw = await req.text()
 
+  // Handle empty request body
+  if (!raw || raw.trim() === '') {
+    logger.error('❌ [Airtable API] Empty request body received')
+    return errorResponse('Empty request body', 400)
+  }
+
   try {
     const notification = JSON.parse(raw)
     // Don't log full notification - it's too verbose

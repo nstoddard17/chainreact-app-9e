@@ -266,6 +266,13 @@ function flowToReactFlowNodes(flow: Flow, onDelete?: (nodeId: string) => void): 
       y: positionY,
     }
 
+    console.log(`📍 [flowToReactFlowNodes] Node ${node.id}:`, {
+      index,
+      savedPosition: metadata.position,
+      defaultY,
+      finalY: positionY
+    })
+
     const catalogNode = NODE_COMPONENT_MAP.get(node.type)
     const providerId = metadata.providerId ?? catalogNode?.providerId
     const icon = catalogNode?.icon

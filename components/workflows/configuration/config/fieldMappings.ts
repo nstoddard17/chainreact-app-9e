@@ -492,6 +492,7 @@ const airtableMappings: Record<string, FieldMapping> = {
     baseId: "airtable_bases",
     tableName: "airtable_tables",
     searchField: "airtable_fields",
+    searchValue: "airtable_search_field_values",
   },
   airtable_trigger_new_record: {
     baseId: "airtable_bases",

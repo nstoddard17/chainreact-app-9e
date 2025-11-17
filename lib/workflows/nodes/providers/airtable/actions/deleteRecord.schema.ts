@@ -47,8 +47,7 @@ export const deleteRecordActionSchema: NodeComponent = {
         { value: "matching_records", label: "Delete all records matching criteria" }
       ],
       defaultValue: "single_record",
-      description: "Choose how to select records for deletion",
-      dependsOn: "tableName"
+      description: "Choose how to select records for deletion"
     },
     {
       name: "recordId",
@@ -59,7 +58,6 @@ export const deleteRecordActionSchema: NodeComponent = {
       supportsAI: true,
       description: "The ID of the record to delete",
       tooltip: "WARNING: This action permanently deletes the record and cannot be undone.",
-      dependsOn: "tableName",
       visibleWhen: { field: "deleteMode", value: "single_record" }
     },
     {
@@ -73,7 +71,6 @@ export const deleteRecordActionSchema: NodeComponent = {
       ],
       defaultValue: "field_match",
       description: "How to find records to delete",
-      dependsOn: "tableName",
       visibleWhen: { field: "deleteMode", value: "matching_records" }
     },
     {
@@ -98,7 +95,6 @@ export const deleteRecordActionSchema: NodeComponent = {
       placeholder: "Type keyword and press Enter...",
       supportsAI: true,
       description: "Keywords to match (records with these values will be deleted)",
-      dependsOn: "tableName",
       showWhen: {
         deleteMode: "matching_records",
         searchMode: "field_match"
@@ -116,7 +112,6 @@ export const deleteRecordActionSchema: NodeComponent = {
       ],
       defaultValue: "any",
       description: "How to match keywords",
-      dependsOn: "tableName",
       showWhen: {
         deleteMode: "matching_records",
         searchMode: "field_match"
@@ -129,7 +124,6 @@ export const deleteRecordActionSchema: NodeComponent = {
       required: false,
       defaultValue: false,
       description: "Whether search should be case sensitive",
-      dependsOn: "tableName",
       showWhen: {
         deleteMode: "matching_records",
         searchMode: "field_match"
@@ -144,7 +138,6 @@ export const deleteRecordActionSchema: NodeComponent = {
       placeholder: "AND({Status} = 'Archived', {Age} > 30)",
       supportsAI: true,
       description: "Airtable formula to find records to delete",
-      dependsOn: "tableName",
       showWhen: {
         deleteMode: "matching_records",
         searchMode: "formula"
@@ -160,7 +153,6 @@ export const deleteRecordActionSchema: NodeComponent = {
       max: 100,
       description: "Maximum number of records to delete (safety measure)",
       tooltip: "Prevents accidentally deleting too many records. Set to the maximum you expect to delete.",
-      dependsOn: "tableName",
       visibleWhen: { field: "deleteMode", value: "matching_records" }
     }
   ]

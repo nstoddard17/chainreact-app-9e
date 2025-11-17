@@ -269,7 +269,7 @@ export function AirtableRecordsTable({
                 className={cn(
                   "hover:bg-blue-50 transition-all cursor-pointer",
                   idx % 2 === 0 ? "bg-white" : "bg-gray-50",
-                  isSelected && "bg-blue-100 hover:bg-blue-100 border-l-4 border-blue-500"
+                  isSelected && "!bg-blue-100 hover:!bg-blue-100 !border-l-4 !border-l-blue-500"
                 )}
                 onClick={() => handleRecordClick(record)}
               >

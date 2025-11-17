@@ -1473,10 +1473,11 @@ export function AirtableConfiguration({
         return false;
       }
 
-      // Step 4: After tableName selected, only show searchMode field
-      // Hide search-related fields until searchMode is explicitly selected
-      const searchDependentFields = ['searchField', 'searchValue', 'matchType', 'caseSensitive', 'filterFormula'];
-      if (searchDependentFields.includes(field.name)) {
+      // Step 4: After tableName selected, show searchMode field
+      // Then after searchMode is selected, show the relevant fields
+      // Hide advanced search options (matchType, caseSensitive) until user explicitly selects searchMode
+      const advancedSearchFields = ['matchType', 'caseSensitive'];
+      if (advancedSearchFields.includes(field.name)) {
         // Check if this field's value is actually from a saved config or just the default
         // A field has a "real" saved value if it exists in initialConfig (saved node config)
         const fieldExistsInSavedConfig = initialConfig && initialConfig.hasOwnProperty(field.name);
@@ -1832,9 +1833,13 @@ export function AirtableConfiguration({
           sampleFields: fields.slice(0, 3)
         });
         if (!isCancelled) {
+          // Preserve all field metadata including type, id, and options for select fields
           const mappedOptions = fields.map((field: any) => ({
             value: field.value || field.name || field.id,
-            label: field.label || field.name || field.id
+            label: field.label || field.name || field.id,
+            type: field.type,
+            id: field.id,
+            options: field.options  // Preserve options for select fields
           }));
           console.log('[AirtableConfig] ✅ Setting searchField options:', mappedOptions.length);
           setSearchFieldOptions(mappedOptions);
@@ -3460,6 +3465,49 @@ export function AirtableConfiguration({
 
       let effectiveField = field;
 
+      // Special handling for searchValue in Find Record: Change to multiselect when searchField is a select type
+      if (field.name === 'searchValue' && nodeInfo?.type === 'airtable_action_find_record') {
+        const selectedSearchField = values.searchField;
+        const searchFieldOptions = mergedDynamicOptions.airtable_fields || mergedDynamicOptions.searchField || [];
+
+        console.log('🔍 [AirtableConfig] searchValue field check:', {
+          selectedSearchField,
+          searchFieldOptionsCount: searchFieldOptions.length,
+          searchFieldOptionsSample: searchFieldOptions.slice(0, 2),
+          mergedKeys: Object.keys(mergedDynamicOptions),
+          hasAirtableFields: !!mergedDynamicOptions.airtable_fields,
+          hasSearchField: !!mergedDynamicOptions.searchField,
+          usingWhichKey: mergedDynamicOptions.airtable_fields ? 'airtable_fields' : mergedDynamicOptions.searchField ? 'searchField' : 'none'
+        });
+
+        // Find the metadata for the selected search field
+        const searchFieldMetadata = searchFieldOptions.find((opt: any) =>
+          opt.value === selectedSearchField || opt.label === selectedSearchField
+        );
+
+        console.log('🔍 [AirtableConfig] searchFieldMetadata:', {
+          found: !!searchFieldMetadata,
+          fullMetadata: searchFieldMetadata,
+          type: searchFieldMetadata?.type,
+          hasOptions: !!searchFieldMetadata?.options,
+          optionsCount: searchFieldMetadata?.options?.length || 0,
+          optionsSample: searchFieldMetadata?.options?.slice(0, 3)
+        });
+
+        // If the search field is a select type (singleSelect or multipleSelects), show multiselect dropdown
+        if (searchFieldMetadata && (searchFieldMetadata.type === 'singleSelect' || searchFieldMetadata.type === 'multipleSelects')) {
+          effectiveField = {
+            ...field,
+            type: 'multiselect',
+            placeholder: 'Select option(s)...',
+            description: 'Select one or more options from this field'
+          };
+          console.log(`✅ [AirtableConfig] Changed searchValue to multiselect for ${searchFieldMetadata.type} field`);
+        } else {
+          console.log('❌ [AirtableConfig] Did not change searchValue field type');
+        }
+      }
+
       if (shouldShowTemplateHints && field.name?.startsWith('airtable_field_')) {
         const rawKey = field.label || field.name.replace('airtable_field_', '');
         const normalizedKey = typeof rawKey === 'string' ? rawKey.trim() : rawKey;
@@ -3758,7 +3806,7 @@ export function AirtableConfiguration({
   return (
     <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="flex flex-col h-full overflow-hidden">
       <div className="flex-1 min-h-0 overflow-hidden">
-        <div className="h-full overflow-y-auto overflow-x-hidden px-6 py-4">
+        <div className="h-full overflow-y-auto overflow-x-hidden px-6 py-4" data-config-scroll-container="true">
           <div className="space-y-3 pb-4 pr-4">
             {/* Base fields - For addAttachment, render recordId separately to inject table after it */}
             {isAddAttachment ? (
@@ -3956,6 +4004,14 @@ export function AirtableConfiguration({
                 tableSchema={airtableTableSchema}
                 cachedRecords={initialConfig?._cached_records}
                 onSelectRecord={(record) => {
+                  console.log('🎯 [RECORD SELECT] ===== RECORD SELECTED =====', {
+                    recordId: record.id,
+                    hasFields: !!record.fields,
+                    fieldCount: record.fields ? Object.keys(record.fields).length : 0,
+                    dynamicFieldsCount: dynamicFields.length,
+                    recordData: record
+                  });
+
                   setSelectedRecord(record);
                   setValue('recordId', record.id);
                   // Populate fields from record and create bubbles for select fields
@@ -3970,6 +4026,17 @@ export function AirtableConfiguration({
                       const field = dynamicFields.find(f =>
                         f.name === fieldName || f.airtableFieldId === key
                       );
+
+                      // Debug: Log all fields being processed
+                      logger.debug('🔍 [RECORD SELECT] Processing field:', {
+                        key,
+                        fieldName,
+                        fieldFound: !!field,
+                        airtableFieldType: field?.airtableFieldType,
+                        fieldType: field?.type,
+                        hasValue: !!value,
+                        valueType: Array.isArray(value) ? 'array' : typeof value
+                      });
 
                       if (field) {
                         // Use the field's actual name for consistency
@@ -4072,21 +4139,21 @@ export function AirtableConfiguration({
                             label: getLabelFromValue(v, actualFieldName),
                             fieldName: field.name
                           }));
-                          
+
                           setFieldSuggestions(prev => ({
                             ...prev,
                             [actualFieldName]: bubbles
                           }));
-                          
+
                           // Set all bubbles as active
                           setActiveBubbles(prev => ({
                             ...prev,
                             [actualFieldName]: bubbles.map((_, idx) => idx)
                           }));
-                          
-                          // Don't set the field value directly for multi-select
-                          setValue(actualFieldName, null);
-                          
+
+                          // Set the field value for form submission
+                          setValue(actualFieldName, value);
+
                         } else if (field.airtableFieldType === 'singleSelect' && value) {
                           // For single select, create one bubble
                           setFieldSuggestions(prev => ({
@@ -4097,14 +4164,14 @@ export function AirtableConfiguration({
                               fieldName: field.name
                             }]
                           }));
-                          
+
                           setActiveBubbles(prev => ({
                             ...prev,
                             [actualFieldName]: 0
                           }));
-                          
-                          // Don't set the field value directly
-                          setValue(actualFieldName, null);
+
+                          // Set the field value for form submission
+                          setValue(actualFieldName, value);
                           
                         } else if ((field.airtableFieldType === 'multipleAttachments' || field.type === 'file' ||
                                    (Array.isArray(value) && value[0]?.url) || value?.url) && value) {
@@ -4129,10 +4196,7 @@ export function AirtableConfiguration({
                               size: attachment.size
                             }));
 
-                            // Set the value to the attachments array
-                            setValue(actualFieldName, attachments);
-
-                            // Create bubbles for the images
+                            // Create bubbles for the images (these will be displayed by AirtableImageField via persistedImages)
                             const imageBubbles = attachments.map(attachment => ({
                               value: attachment.url,
                               label: attachment.filename || 'Image',
@@ -4141,7 +4205,9 @@ export function AirtableConfiguration({
                               thumbnailUrl: attachment.thumbnails?.small?.url || attachment.thumbnails?.large?.url || attachment.url,
                               fullUrl: attachment.url,
                               filename: attachment.filename,
-                              size: attachment.size
+                              size: attachment.size,
+                              type: attachment.type,
+                              id: attachment.id
                             }));
 
                             setFieldSuggestions(prev => ({
@@ -4154,9 +4220,12 @@ export function AirtableConfiguration({
                               [actualFieldName]: imageBubbles.map((_, idx) => idx)
                             }));
 
+                            // Set the value to null so AirtableImageField uses persistedImages instead
+                            setValue(actualFieldName, null);
+
                             logger.debug('🖼️ [RECORD SELECT] Set multiple attachments and created bubbles:', { attachments, imageBubbles });
                           } else if (!Array.isArray(value) && value.url) {
-                            // Single attachment (convert to array for consistency with AirtableImageField)
+                            // Single attachment
                             const attachment = {
                               url: value.url || value.thumbnails?.large?.url || value.thumbnails?.small?.url,
                               filename: value.filename || 'Image',
@@ -4165,9 +4234,8 @@ export function AirtableConfiguration({
                               id: value.id,
                               size: value.size
                             };
-                            setValue(actualFieldName, [attachment]);
 
-                            // Create bubble for the image
+                            // Create bubble for the image (this will be displayed by AirtableImageField via persistedImages)
                             const imageBubble = {
                               value: attachment.url,
                               label: attachment.filename || 'Image',
@@ -4176,7 +4244,9 @@ export function AirtableConfiguration({
                               thumbnailUrl: attachment.thumbnails?.small?.url || attachment.thumbnails?.large?.url || attachment.url,
                               fullUrl: attachment.url,
                               filename: attachment.filename,
-                              size: attachment.size
+                              size: attachment.size,
+                              type: attachment.type,
+                              id: attachment.id
                             };
 
                             setFieldSuggestions(prev => ({
@@ -4189,7 +4259,10 @@ export function AirtableConfiguration({
                               [actualFieldName]: 0
                             }));
 
-                            logger.debug('🖼️ [RECORD SELECT] Set single attachment as array and created bubble:', { attachment, imageBubble });
+                            // Set the value to null so AirtableImageField uses persistedImages instead
+                            setValue(actualFieldName, null);
+
+                            logger.debug('🖼️ [RECORD SELECT] Set single attachment and created bubble:', { attachment, imageBubble });
                           }
                         } else {
                           // For non-select fields, handle the value properly

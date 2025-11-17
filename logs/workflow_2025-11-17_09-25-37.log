@@ -1,0 +1,35 @@
+=== Log Session Started: 2025-11-17T15:25:37.739Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-11-17T15:25:37.740Z] [INFO   ] File logging initialized
+[2025-11-17T15:25:37.740Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-17_09-25-37.log
+[2025-11-17T15:25:37.764Z] [INFO   ] Deleted old log file: workflow_2025-11-10_08-38-27.log
+[2025-11-17T15:25:37.764Z] [INFO   ] 📁 File logging enabled
+[2025-11-17T15:25:37.764Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-17_09-25-37.log
+[2025-11-17T15:25:37.764Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-17_09-25-37.log
+[2025-11-17T15:25:37.764Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-17_09-25-37.log
+[2025-11-17T15:25:37.764Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-17_09-25-37.log
+[2025-11-17T15:25:37.764Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-11-17T15:25:37.764Z] [DEBUG  ] 📁 File logging system initialized
+[2025-11-17T15:25:37.774Z] [INFO   ]  ✓ Ready in 10.2s
+[2025-11-17T15:25:38.767Z] [INFO   ] 2025-11-17T15:25:38.767Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-11-17T15:25:42.006Z] [INFO   ] 2025-11-17T15:25:42.006Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-11-17T15:25:42.007Z] [INFO   ] 2025-11-17T15:25:42.007Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-17T15:25:43.760Z] [INFO   ] 2025-11-17T15:25:43.760Z [DEBUG] Discord Gateway initialization complete
+[2025-11-17T15:25:43.762Z] [INFO   ] 2025-11-17T15:25:43.762Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-11-17T15:25:43.989Z] [INFO   ] 2025-11-17T15:25:43.988Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-17T15:25:43.990Z] [INFO   ] 2025-11-17T15:25:43.989Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-17T16:32:58.780Z] [INFO   ] 2025-11-17T16:32:58.779Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-17T16:32:58.853Z] [INFO   ] 2025-11-17T16:32:58.852Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-11-17T16:32:59.249Z] [INFO   ] 2025-11-17T16:32:59.249Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-17T16:32:59.250Z] [INFO   ] 2025-11-17T16:32:59.250Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-17T17:16:35.285Z] [INFO   ]  ✓ Compiled in 1247ms (2840 modules)
+[2025-11-17T17:24:45.301Z] [INFO   ]  ✓ Compiled in 423ms (2840 modules)
+[2025-11-17T17:25:22.808Z] [INFO   ]  ✓ Compiled in 333ms (2840 modules)
+[2025-11-17T17:36:58.900Z] [INFO   ] 2025-11-17T17:36:58.896Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-17T17:36:58.962Z] [INFO   ] 2025-11-17T17:36:58.962Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-11-17T17:36:59.485Z] [INFO   ] 2025-11-17T17:36:59.485Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-17T17:36:59.486Z] [INFO   ] 2025-11-17T17:36:59.486Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}

@@ -336,10 +336,21 @@ function CustomNode({ id, data, selected }: NodeProps) {
   // Otherwise fall back to simple config check
   // Memo to check required fields - use validationState if available, otherwise check visibility-aware
   const hasRequiredFieldsMissing = useMemo(() => {
+    const isGetTableSchema = type === 'airtable_action_get_table_schema';
+
     // Path 1: If we have validation state from the configuration form, use it (most reliable)
     if (data.validationState) {
       const isValid = data.validationState.isValid
       const hasMissingRequired = (data.validationState.missingRequired?.length ?? 0) > 0
+
+      if (isGetTableSchema) {
+        console.log('[Get Table Schema Debug] Validation State:', {
+          isValid,
+          hasMissingRequired,
+          missingRequired: data.validationState.missingRequired,
+          config
+        });
+      }
 
       if (isValid === true) return false
       if (isValid === false) return true
@@ -362,6 +373,14 @@ function CustomNode({ id, data, selected }: NodeProps) {
         nodeInfo
       )
 
+      if (isGetTableSchema) {
+        console.log('[Get Table Schema Debug] FieldVisibilityEngine Check:', {
+          missingFields,
+          config,
+          configSchema: component.configSchema
+        });
+      }
+
       return missingFields.length > 0
     } catch (error) {
       // Path 3: Error fallback - use simple check (less accurate but safe)
@@ -374,7 +393,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
     }
     // IMPORTANT: Keep original dependencies to prevent infinite loops
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [component?.configSchema, config, data.validationState])
+  }, [component?.configSchema, config, data.validationState, type])
 
   const statusBadge = getStatusBadge(nodeState, hasRequiredFieldsMissing)
 
@@ -1061,7 +1080,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
       }
     }
 
-    // Check AI status for active states (preparing, configuring, testing, ready, etc.)
+    // Check AI status for active states (preparing, configuring, testing, etc.)
     switch (aiStatus) {
       case 'preparing':
       case 'creating':
@@ -1097,6 +1116,16 @@ function CustomNode({ id, data, selected }: NodeProps) {
           ringClass: selected ? 'ring-4 ring-red-100' : 'ring-4 ring-red-100'
         }
       default:
+        // Check if node has successful test results when no aiStatus (show success state)
+        if (testResult?.success && hasTestData) {
+          return {
+            borderClass: 'border-emerald-500',
+            shadowClass: 'shadow-[0_0_0_2px_rgba(16,185,129,0.2)]',
+            backgroundClass: 'bg-white',
+            ringClass: selected ? 'ring-4 ring-emerald-100' : ''
+          }
+        }
+
         // Default state - use primary border when selected, border when not
         if (selected) {
           return { borderClass: 'border-primary', shadowClass: '', backgroundClass: 'bg-white', ringClass: 'ring-4 ring-primary/20' }
@@ -1108,7 +1137,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
           ringClass: ''
         }
     }
-  }, [aiStatus, selected, isIntegrationDisconnected, error, hasValidationIssues])
+  }, [aiStatus, selected, isIntegrationDisconnected, error, hasValidationIssues, testResult, hasTestData])
 
   const { borderClass, shadowClass, backgroundClass, ringClass } = aiOutline
 
@@ -1768,7 +1797,19 @@ function CustomNode({ id, data, selected }: NodeProps) {
           </div>
         </div>
       )}
-      
+
+      {/* Success badge for nodes with successful test results */}
+      {testResult?.success && hasTestData && !isPathConditionNode && !aiStatus && (
+        <div className="absolute -top-2 -left-2 z-20 noDrag noPan">
+          <Badge
+            variant="outline"
+            className="px-1.5 py-0.5 text-[10px] font-semibold shadow-md bg-emerald-50 border-emerald-500 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+          >
+            <CheckCircle2 className="w-3 h-3 mr-0.5 inline" />
+            Success
+          </Badge>
+        </div>
+      )}
 
       {/* Path label badge for Path Condition nodes */}
       {isPathConditionNode && (

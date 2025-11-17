@@ -67,11 +67,14 @@ export const findRecordActionSchema: NodeComponent = {
       name: "searchValue",
       label: "Search Keywords",
       type: "tags",
+      dynamic: "airtable_search_field_values", // Provides autocomplete suggestions from field options
       required: true,
       placeholder: "Type keyword and press Enter...",
       supportsAI: true,
-      description: "Keywords to search for (type and press Enter to add multiple)",
-      visibleWhen: { field: "searchMode", value: "field_match" }
+      description: "Keywords to search for (type and press Enter to add multiple). For select fields, you can choose from existing options.",
+      visibleWhen: { field: "searchMode", value: "field_match" },
+      dependsOn: "searchField",
+      autoLoad: true
     },
     {
       name: "matchType",
