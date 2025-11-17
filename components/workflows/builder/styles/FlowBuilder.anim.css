@@ -32,7 +32,8 @@
 }
 
 .react-flow__node-custom {
-  animation: nodeBounce var(--fx-node-bounce-duration) cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  /* Disabled bounce animation for instant node appearance */
+  /* animation: nodeBounce var(--fx-node-bounce-duration) cubic-bezier(0.68, -0.55, 0.265, 1.55); */
 }
 
 /* Shimmer effect for staged chips */

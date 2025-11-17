@@ -1594,6 +1594,17 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       position = replacingPlaceholder.position
       console.log('📌 [WorkflowBuilder] Replacing placeholder:', selectedNodeId, 'with:', nodeData.type)
     }
+    // If adding after a specific node (from plus button), calculate position after that node
+    else if (selectedNodeId) {
+      const afterNode = currentNodes.find((n: any) => n.id === selectedNodeId)
+      if (afterNode) {
+        position = {
+          x: 400,
+          y: afterNode.position.y + 180 // Add 180px vertical spacing after the node
+        }
+        console.log('📌 [WorkflowBuilder] Adding node after:', selectedNodeId, 'at position:', position)
+      }
+    }
 
     const nodeComponent = nodeComponentMap.get(nodeData.type)
     const providerId = nodeComponent?.providerId ?? nodeData.providerId
@@ -1622,6 +1633,59 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     // Close panel immediately for better UX
     setIsIntegrationsPanelOpen(false)
 
+    // Add optimistic node to canvas immediately for instant feedback
+    builder.setNodes((nodes: any[]) => {
+      const insertIndex = nodes.findIndex(n => n.position.y > position.y)
+      const newNodes = [...nodes]
+      if (insertIndex === -1) {
+        newNodes.push(optimisticNode)
+      } else {
+        newNodes.splice(insertIndex, 0, optimisticNode)
+      }
+      return newNodes
+    })
+
+    // Add optimistic edges immediately
+    if (selectedNodeId && !replacingPlaceholder) {
+      builder.setEdges((edges: any[]) => {
+        const oldEdge = edges.find((e: any) => e.source === selectedNodeId)
+        if (oldEdge) {
+          // Inserting between two nodes
+          const nextNodeId = oldEdge.target
+          return [
+            ...edges.filter(e => e.id !== oldEdge.id),
+            {
+              id: `${selectedNodeId}-${tempId}`,
+              source: selectedNodeId,
+              target: tempId,
+              sourceHandle: oldEdge.sourceHandle || 'source',
+              type: 'custom'
+            },
+            {
+              id: `${tempId}-${nextNodeId}`,
+              source: tempId,
+              target: nextNodeId,
+              sourceHandle: 'source',
+              targetHandle: oldEdge.targetHandle,
+              type: 'custom'
+            }
+          ]
+        } else {
+          // Adding at the end
+          return [
+            ...edges,
+            {
+              id: `${selectedNodeId}-${tempId}`,
+              source: selectedNodeId,
+              target: tempId,
+              sourceHandle: 'source',
+              type: 'custom'
+            }
+          ]
+        }
+      })
+    }
+
     // Open config modal immediately
     setConfiguringNode(optimisticNode)
 
@@ -1644,14 +1708,43 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           return current
         })
 
-        // If adding after a node (not replacing placeholder), create edge
+        // If adding after a node (not replacing placeholder), create edge and handle insertion
         if (selectedNodeId && !replacingPlaceholder) {
-          console.log('🔗 [WorkflowBuilder] Persisting edge connection')
-          await actions.connectEdge({
-            sourceId: selectedNodeId,
-            targetId: newNode.id,
-            sourceHandle: 'source'
-          })
+          console.log('🔗 [WorkflowBuilder] Inserting node after:', selectedNodeId)
+
+          // Find what was connected after the selected node
+          const afterNode = currentNodes.find((n: any) => n.id === selectedNodeId)
+          const oldEdge = builder.edges.find((e: any) => e.source === selectedNodeId)
+
+          if (oldEdge) {
+            // We're inserting between two nodes
+            const nextNodeId = oldEdge.target
+
+            // Create edge from previous node to new node
+            await actions.connectEdge({
+              sourceId: selectedNodeId,
+              targetId: newNode.id,
+              sourceHandle: oldEdge.sourceHandle || 'source'
+            })
+
+            // Create edge from new node to next node
+            await actions.connectEdge({
+              sourceId: newNode.id,
+              targetId: nextNodeId,
+              sourceHandle: 'source',
+              targetHandle: oldEdge.targetHandle
+            })
+
+            console.log('🔗 [WorkflowBuilder] Inserted between', selectedNodeId, 'and', nextNodeId)
+          } else {
+            // We're adding at the end
+            await actions.connectEdge({
+              sourceId: selectedNodeId,
+              targetId: newNode.id,
+              sourceHandle: 'source'
+            })
+            console.log('🔗 [WorkflowBuilder] Added at end after', selectedNodeId)
+          }
         }
       }
     } catch (error: any) {

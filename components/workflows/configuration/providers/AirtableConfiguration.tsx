@@ -1147,9 +1147,20 @@ export function AirtableConfiguration({
             : 'This field is calculated by Airtable and cannot be edited.')
         : field.description;
 
-      const placeholder = isEditable
-        ? shouldUseDynamicDropdown ? `Select ${field.name}` : `Enter value`
-        : `${field.name} is managed by Airtable`;
+      // Determine appropriate placeholder
+      let placeholder: string;
+      if (!isEditable) {
+        placeholder = `${field.name} is managed by Airtable`;
+      } else if (shouldUseDynamicDropdown) {
+        placeholder = `Select ${field.name}`;
+      } else if (field.type === 'multipleAttachments' || field.type === 'singleAttachment') {
+        // For attachment fields, use a more descriptive placeholder
+        placeholder = field.type === 'multipleAttachments'
+          ? `Choose files to upload...`
+          : `Choose a file to upload...`;
+      } else {
+        placeholder = `Enter value`;
+      }
 
       return {
         name: `airtable_field_${field.name}`, // Use field name instead of ID for consistency
@@ -1925,7 +1936,7 @@ export function AirtableConfiguration({
   }, [mergedDynamicOptions]);
 
   // Handle field changes with bubble creation
-  const handleFieldChange = useCallback((fieldName: string, value: any, skipBubbleCreation = false) => {
+  const handleFieldChange = useCallback(async (fieldName: string, value: any, skipBubbleCreation = false) => {
     // First, set the actual field value
     setValue(fieldName, value);
 
@@ -2138,7 +2149,7 @@ export function AirtableConfiguration({
         const attachments = Array.isArray(value) ? value : [value];
 
         // Create bubbles for each attachment
-        const newBubbles = attachments.filter(Boolean).map((attachment: any) => {
+        const bubblePromises = attachments.filter(Boolean).map(async (attachment: any) => {
           // AirtableImageField provides base64 in the url field
           if (attachment?.url) {
             return {
@@ -2167,22 +2178,49 @@ export function AirtableConfiguration({
               isNewUpload: true
             };
           }
+          // Handle File objects from FileUpload component
+          else if (attachment instanceof File) {
+            // Convert File to base64 for storage
+            const base64 = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result as string);
+              reader.onerror = reject;
+              reader.readAsDataURL(attachment);
+            });
+
+            return {
+              value: base64,
+              label: attachment.name,
+              fieldName: field.name,
+              isImage: attachment.type.startsWith('image/'),
+              thumbnailUrl: base64,
+              fullUrl: base64,
+              filename: attachment.name,
+              size: attachment.size,
+              type: attachment.type,
+              isNewUpload: true
+            };
+          }
           return null;
-        }).filter(Boolean);
+        });
+
+        // Wait for all file conversions to complete
+        const newBubbles = (await Promise.all(bubblePromises)).filter(Boolean);
 
         if (newBubbles.length > 0) {
+          // IMPORTANT: Replace bubbles instead of appending
+          // The value array from AirtableImageField already contains ALL attachments,
+          // so we should replace the entire bubble array to match the value array
           setFieldSuggestions(prev => ({
             ...prev,
-            [fieldName]: [...(prev[fieldName] || []), ...newBubbles]
+            [fieldName]: newBubbles  // Replace, don't append
           }));
 
           // Auto-activate all image bubbles
           setActiveBubbles(prev => {
-            const currentCount = Array.isArray(prev[fieldName]) ? (prev[fieldName] as number[]).length : 0;
-            const newIndices = newBubbles.map((_, idx) => currentCount + idx);
             return {
               ...prev,
-              [fieldName]: [...(Array.isArray(prev[fieldName]) ? prev[fieldName] as number[] : []), ...newIndices]
+              [fieldName]: newBubbles.map((_, idx) => idx)  // All indices from 0 to length-1
             };
           });
 
@@ -2907,6 +2945,19 @@ export function AirtableConfiguration({
               ...prev,
               [actualFieldName]: savedBubbles.map((_, idx) => idx)
             }));
+
+            // For uploadedFile field in Add Attachment, convert bubbles to FileUpload format
+            if (actualFieldName === 'uploadedFile' && savedBubbles.length > 0) {
+              const fileObjects = savedBubbles.map(bubble => ({
+                url: bubble.value || bubble.fullUrl,
+                name: bubble.filename || bubble.label,
+                size: bubble.size || 0,
+                type: bubble.type || 'application/octet-stream'
+              }));
+
+              logger.debug('📸 [BUBBLE INIT] Setting uploadedFile value from bubbles:', fileObjects);
+              setValue(actualFieldName, fileObjects);
+            }
           } else {
             // Fallback: create bubbles from the field value itself
             const attachments = Array.isArray(existingValue) ? existingValue : [existingValue];

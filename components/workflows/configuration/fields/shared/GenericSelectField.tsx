@@ -21,7 +21,7 @@ interface GenericSelectFieldProps {
   error?: string;
   options: any[];
   isLoading?: boolean;
-  onDynamicLoad?: (fieldName: string, dependsOn?: string, dependsOnValue?: any, forceRefresh?: boolean) => Promise<void>;
+  onDynamicLoad?: (fieldName: string, dependsOn?: string, dependsOnValue?: any, forceRefresh?: boolean, silent?: boolean) => Promise<void>;
   nodeInfo?: any;
   selectedValues?: string[]; // Values that already have bubbles
   parentValues?: Record<string, any>; // Parent form values for dependency resolution
@@ -163,7 +163,8 @@ export function GenericSelectField({
     fieldName: string,
     dependsOn?: string,
     dependsOnValue?: any,
-    forceRefresh = false
+    forceRefresh = false,
+    silent = false
   ) => {
     if (!onDynamicLoad) return;
 
@@ -197,7 +198,7 @@ export function GenericSelectField({
 
     // Cache miss or no cache - load from API
     setIsFromCache(false)
-    await onDynamicLoad(fieldName, dependsOn, dependsOnValue, forceRefresh)
+    await onDynamicLoad(fieldName, dependsOn, dependsOnValue, forceRefresh, silent)
 
     // Note: We don't cache here because we don't have direct access to the options
     // The parent component (ConfigurationModal) will need to handle caching after receiving data
@@ -237,7 +238,8 @@ export function GenericSelectField({
 
       // Call onDynamicLoad with search parameter
       // The API handler will receive this as part of options
-      await onDynamicLoad(field.name, 'searchQuery', query, true);
+      // Search is always silent since we're filtering existing data
+      await onDynamicLoad(field.name, 'searchQuery', query, true, true);
     } catch (error) {
       logger.error('[GenericSelectField] Search error:', error);
     } finally {
@@ -508,7 +510,10 @@ export function GenericSelectField({
   const emptyPlaceholderText = (field as any).emptyPlaceholder || basePlaceholder;
 
   // Use dynamic placeholder: loading text, empty text when no options, or base placeholder
-  const placeholderText = field.dynamic && isLoading
+  // IMPORTANT: Only show loading placeholder if we DON'T have a saved value yet
+  // This ensures saved values display instantly when reopening modals (Zapier-like UX)
+  const hasDisplayableValue = !!(value || displayLabel);
+  const placeholderText = field.dynamic && isLoading && !hasDisplayableValue
     ? loadingPlaceholder
     : (!isLoading && options.length === 0 && (field as any).emptyPlaceholder)
       ? emptyPlaceholderText
@@ -539,14 +544,18 @@ export function GenericSelectField({
         setDisplayLabel(label);
         saveLabelToCache(String(value), label);
       }
-    } else {
-      // Attempt to hydrate from cached label while options load
+      // IMPORTANT: If options loaded but our value isn't in them, keep the existing displayLabel
+      // This prevents the label from disappearing when options reload for dependent fields
+    } else if (!displayLabel) {
+      // Only attempt to load from cache if we don't already have a displayLabel
+      // This prevents clearing the label when options are temporarily empty during reload
       const cached = loadCachedLabel(String(value));
       if (cached) {
         setDisplayLabel(cached);
       }
     }
-  }, [value, options, getFriendlyVariableLabel, workflowNodes, loadCachedLabel, saveLabelToCache]);
+    // If we have a displayLabel and options are empty/loading, KEEP the existing displayLabel
+  }, [value, options, getFriendlyVariableLabel, workflowNodes, loadCachedLabel, saveLabelToCache, displayLabel]);
 
   // Load cached label immediately on mount for instant display
   React.useEffect(() => {
@@ -793,14 +802,18 @@ export function GenericSelectField({
       setHasAttemptedLoad(true)
       setLastLoadTimestamp(Date.now())
 
+      // Determine if we should load silently (when field already has a value)
+      // This prevents showing "Loading..." placeholder when reopening saved configs
+      const shouldLoadSilently = !!(value || displayLabel);
+
       // Trigger load and clear loading flag when done
       // Always create a promise so finally() is guaranteed to run
       let loadPromise: Promise<void>;
 
       if (field.dependsOn && dependencyValue) {
-        loadPromise = cachedDynamicLoad(field.name, field.dependsOn, dependencyValue, forceRefresh);
+        loadPromise = cachedDynamicLoad(field.name, field.dependsOn, dependencyValue, forceRefresh, shouldLoadSilently);
       } else if (!field.dependsOn) {
-        loadPromise = cachedDynamicLoad(field.name, undefined, undefined, forceRefresh);
+        loadPromise = cachedDynamicLoad(field.name, undefined, undefined, forceRefresh, shouldLoadSilently);
       } else {
         // Dependency required but not provided - clear loading immediately
         isLoadingRef.current = false;
@@ -1203,8 +1216,8 @@ export function GenericSelectField({
             placeholder={placeholderText}
             searchPlaceholder="Search options..."
             emptyPlaceholder={isLoading || isSearching ? loadingPlaceholder : ((field as any).emptyMessage || "No options found")}
-            disabled={isLoading && !displayLabel && processedOptions.length === 0}
-            loading={(isLoading || isSearching) && !displayLabel && processedOptions.length === 0}
+            disabled={isLoading && !value && !displayLabel && processedOptions.length === 0}
+            loading={(isLoading || isSearching) && !value && !displayLabel && processedOptions.length === 0}
             creatable={(field as any).creatable || isAirtableRecordField} // Allow custom option creation for Airtable fields or if specified in field schema
             onOpenChange={handleFieldOpen} // Add missing onOpenChange handler
             onSearchChange={handleSearchChange} // Handle debounced search
@@ -1297,8 +1310,8 @@ export function GenericSelectField({
           placeholder={placeholderText}
           searchPlaceholder="Search options..."
           emptyPlaceholder={isLoading || isSearching ? loadingPlaceholder : getEmptyMessage(field.name, field.label, (field as any).emptyMessage)}
-          disabled={isLoading && !displayLabel && processedOptions.length === 0}
-          loading={(isLoading || isSearching) && !displayLabel && processedOptions.length === 0}
+          disabled={isLoading && !value && !displayLabel && processedOptions.length === 0}
+          loading={(isLoading || isSearching) && !value && !displayLabel && processedOptions.length === 0}
           creatable={(field as any).creatable || isAirtableRecordField} // Allow custom option creation for Airtable fields or if specified in field schema
           onOpenChange={handleFieldOpen}
           onSearchChange={handleSearchChange} // Handle debounced search
