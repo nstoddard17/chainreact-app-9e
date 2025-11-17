@@ -188,16 +188,28 @@ export function AirtableConfiguration({
 
     // Add searchField options if available (searchField uses 'airtable_fields' as dynamic key)
     // Only add if we have searchField options AND parent doesn't already have airtable_fields
+    const hasParentAirtableFields = Array.isArray(merged.airtable_fields) && merged.airtable_fields.length > 0;
+    const hasParentSearchField = Array.isArray(merged.searchField) && merged.searchField.length > 0;
+
     console.log('[AirtableConfig] 🔍 searchField pre-merge:', {
       searchFieldOptionsLength: searchFieldOptions.length,
-      hasParentAirtableFields: !!merged.airtable_fields,
+      hasParentAirtableFields,
       parentAirtableFieldsLength: merged.airtable_fields?.length || 0,
-      willAddSearchField: searchFieldOptions.length > 0 && !merged.airtable_fields
+      hasParentSearchField,
+      parentSearchFieldLength: merged.searchField?.length || 0,
+      willAddAirtableFields: searchFieldOptions.length > 0 && !hasParentAirtableFields,
+      willAddSearchField: searchFieldOptions.length > 0 && !hasParentSearchField
     });
 
-    if (searchFieldOptions.length > 0 && !merged.airtable_fields) {
-      merged.airtable_fields = searchFieldOptions;
-      console.log('[AirtableConfig] ✅ Added searchFieldOptions to merged.airtable_fields:', searchFieldOptions.length);
+    if (searchFieldOptions.length > 0) {
+      if (!hasParentAirtableFields) {
+        merged.airtable_fields = searchFieldOptions;
+        console.log('[AirtableConfig] ✅ Added searchFieldOptions to merged.airtable_fields:', searchFieldOptions.length);
+      }
+      if (!hasParentSearchField) {
+        merged.searchField = searchFieldOptions;
+        console.log('[AirtableConfig] ✅ Added searchFieldOptions to merged.searchField:', searchFieldOptions.length);
+      }
     }
 
     const optionCounts = Object.entries(merged).map(([key, val]) =>
@@ -1331,7 +1343,8 @@ export function AirtableConfiguration({
   };
 
   // Helper function to check if a field should be shown based on dependencies
-  const shouldShowField = (field: any) => {
+  // CRITICAL: Memoize with useCallback to prevent render loops
+  const shouldShowField = React.useCallback((field: any) => {
     // Debug logging for searchField and related fields
     const isSearchRelated = ['searchField', 'searchValue', 'matchType', 'caseSensitive'].includes(field.name);
     if (isSearchRelated) {
@@ -1389,13 +1402,22 @@ export function AirtableConfiguration({
         });
       }
 
+      // For Find Record, don't use default values - only show when user has explicitly selected
+      const shouldUseDefault = !isFindRecord;
+
       // If value is not set, check if the condition field has a defaultValue
       if (currentValue === undefined || currentValue === null || currentValue === '') {
-        const conditionFieldDef = nodeInfo?.configSchema?.find((f: any) => f.name === conditionField);
-        if (conditionFieldDef?.defaultValue !== undefined) {
-          currentValue = conditionFieldDef.defaultValue;
+        if (shouldUseDefault) {
+          const conditionFieldDef = nodeInfo?.configSchema?.find((f: any) => f.name === conditionField);
+          if (conditionFieldDef?.defaultValue !== undefined) {
+            currentValue = conditionFieldDef.defaultValue;
+            if (isSearchRelated) {
+              console.log(`🔍 [shouldShowField] ${field.name}: Using default value:`, currentValue);
+            }
+          }
+        } else {
           if (isSearchRelated) {
-            console.log(`🔍 [shouldShowField] ${field.name}: Using default value:`, currentValue);
+            console.log(`🔍 [shouldShowField] ${field.name}: Not using default value (progressive disclosure)`);
           }
         }
       }
@@ -1434,6 +1456,24 @@ export function AirtableConfiguration({
           console.log(`❌ [shouldShowField] ${field.name}: Progressive disclosure - no tableName (value: '${values.tableName}')`);
         }
         return false;
+      }
+
+      // Step 4: After tableName selected, only show searchMode field
+      // Hide search-related fields until searchMode is explicitly selected
+      const searchDependentFields = ['searchField', 'searchValue', 'matchType', 'caseSensitive', 'filterFormula'];
+      if (searchDependentFields.includes(field.name) && !fieldHasSavedValue) {
+        // For fresh modals: hide until user explicitly selects searchMode
+        // Check both if searchMode is empty AND if it matches the schema default (not user-selected)
+        const searchModeField = nodeInfo?.configSchema?.find((f: any) => f.name === 'searchMode');
+        const searchModeIsDefault = values.searchMode === searchModeField?.defaultValue;
+        const searchModeEmpty = !values.searchMode;
+
+        if (searchModeEmpty || searchModeIsDefault) {
+          if (isSearchRelated) {
+            console.log(`❌ [shouldShowField] ${field.name}: Progressive disclosure - searchMode not explicitly selected (empty: ${searchModeEmpty}, isDefault: ${searchModeIsDefault})`);
+          }
+          return false;
+        }
       }
     }
 
@@ -1517,7 +1557,7 @@ export function AirtableConfiguration({
 
     // Otherwise show the field
     return true;
-  };
+  }, [values, nodeInfo, isFindRecord, isDeleteRecord]); // Dependencies for shouldShowField
 
   // Separate base, advanced, and dynamic fields
   const baseFields = nodeInfo?.configSchema?.filter((field: any) =>

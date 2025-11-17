@@ -282,17 +282,17 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     }
 
     try {
-      // Load a few records to extract field names
+      // Load fields from table schema (includes type information and filters out read-only fields)
       const response = await fetch('/api/integrations/airtable/data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           integrationId,
-          dataType: 'airtable_records',
+          dataType: 'airtable_fields',
           options: {
             baseId,
             tableName,
-            maxRecords: 5
+            filterReadOnly: true // Filter out auto-generated, computed, locked, hidden, and AI fields
           },
           forceRefresh
         }),
@@ -300,26 +300,24 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to load records for field extraction: ${response.status}`);
+        throw new Error(`Failed to load fields: ${response.status}`);
       }
 
       const result = await response.json();
-      const records = result.data || [];
+      const fields = result.data || [];
 
-      // Extract field names from records
-      const fieldNames = records.length > 0 ? Object.keys(records[0]?.fields || {}) : [];
-
-      const formattedFields = fieldNames.map(name => ({
-        value: name,
-        label: name,
-        type: 'text',
-        id: name
+      // Fields are already formatted from the backend with proper type information
+      const formattedFields = fields.map((field: any) => ({
+        value: field.value || field.name,
+        label: field.label || field.name,
+        type: field.type || 'text',
+        id: field.id || field.value || field.name
       }));
 
       // Store in cache
       const ttl = getFieldTTL('filterField');
       cacheStore.set(cacheKey, formattedFields, ttl);
-      logger.debug(`💾 [Airtable] Cached ${formattedFields.length} options for filterField (TTL: ${ttl / 1000}s)`);
+      logger.debug(`💾 [Airtable] Cached ${formattedFields.length} editable fields for filterField (TTL: ${ttl / 1000}s)`);
 
       return formattedFields;
     } catch (error) {
@@ -727,7 +725,8 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
           dataType: 'airtable_attachment_fields',
           options: {
             baseId,
-            tableName
+            tableName,
+            filterReadOnly: true // Filter out non-editable attachment fields
           },
           forceRefresh
         }),

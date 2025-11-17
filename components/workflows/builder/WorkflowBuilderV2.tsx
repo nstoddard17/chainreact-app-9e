@@ -2130,8 +2130,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   const handleSaveNodeConfig = useCallback(async (nodeId: string, config: Record<string, any>) => {
     console.log('💾 [WorkflowBuilder] Saving configuration for node:', nodeId, config)
 
-    if (!actions) {
-      console.warn('💾 [WorkflowBuilder] No actions available to save config')
+    if (!actions || !builder) {
+      console.warn('💾 [WorkflowBuilder] No actions or builder available to save config')
       return
     }
 
@@ -2150,7 +2150,28 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         }
       }
 
-      // Update the node with the new config (debounced 600ms)
+      // INSTANT VALIDATION UPDATE: Update node data immediately with validation state
+      // This ensures the incomplete badge is removed instantly before the debounced API call
+      const currentNodes = builder.nodes || []
+      const updatedNodes = currentNodes.map((node: any) => {
+        if (node.id === nodeId) {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              config,
+              validationState: config.__validationState,
+              // Clear needsSetup if validation is now complete
+              needsSetup: config.__validationState?.isValid === false || (config.__validationState?.missingRequired?.length ?? 0) > 0
+            }
+          }
+        }
+        return node
+      })
+      builder.setNodes(updatedNodes)
+      console.log('✅ [WorkflowBuilder] Updated node validation state instantly')
+
+      // Update the node with the new config (debounced 600ms for API persistence)
       actions.updateConfig(nodeId, config)
     } catch (error: any) {
       console.error('💾 [WorkflowBuilder] Error saving config:', error)
@@ -2160,7 +2181,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         variant: "destructive",
       })
     }
-  }, [actions, toast, flowId])
+  }, [actions, builder, toast, flowId])
 
   // Validation: Check if workflow has placeholders
   const hasPlaceholders = useCallback(() => {
