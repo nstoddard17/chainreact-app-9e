@@ -100,6 +100,12 @@ export const newEmailTriggerSchema: NodeComponent = {
       description: "The unique ID of the email"
     },
     {
+      name: "messageId",
+      label: "Message ID",
+      type: "string",
+      description: "The unique message ID (same as id, provided for compatibility with Gmail actions)"
+    },
+    {
       name: "threadId",
       label: "Thread ID",
       type: "string",

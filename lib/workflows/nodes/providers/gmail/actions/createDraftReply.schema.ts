@@ -65,6 +65,26 @@ export const createDraftReplyActionSchema: NodeComponent = {
       tooltip: "Get this from a Gmail trigger or previous Gmail action. The draft reply will be part of the same conversation thread."
     },
     {
+      name: "cc",
+      label: "CC (Additional)",
+      type: "select",
+      dynamic: "gmail-enhanced-recipients",
+      loadOnMount: true,
+      required: false,
+      placeholder: "Select additional CC recipients...",
+      description: "Add additional CC recipients to the draft reply (optional)"
+    },
+    {
+      name: "bcc",
+      label: "BCC (Additional)",
+      type: "select",
+      dynamic: "gmail-enhanced-recipients",
+      loadOnMount: true,
+      required: false,
+      placeholder: "Select additional BCC recipients...",
+      description: "Add additional BCC recipients to the draft reply (optional)"
+    },
+    {
       name: "body",
       label: "Reply Message",
       type: "email-rich-text",

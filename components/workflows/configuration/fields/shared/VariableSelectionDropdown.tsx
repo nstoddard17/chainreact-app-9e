@@ -1,19 +1,24 @@
 "use client"
 
-import React, { useMemo } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { ChevronsUpDown, Check } from 'lucide-react'
 import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-  SelectSeparator,
-} from "@/components/ui/select"
+  Popover,
+  PopoverContent,
+  PopoverTrigger
+} from '@/components/ui/popover'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList
+} from '@/components/ui/command'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import { StaticIntegrationLogo } from '@/components/ui/static-integration-logo'
 
 interface VariableSelectionDropdownProps {
   workflowData: { nodes: any[]; edges: any[] }
@@ -36,6 +41,44 @@ export function VariableSelectionDropdown({
   placeholder = "Select a variable...",
   disabled = false
 }: VariableSelectionDropdownProps) {
+  const [open, setOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement | null>(null)
+  const [popoverWidth, setPopoverWidth] = useState<number>()
+
+  // Keep popover width in sync with trigger for polished alignment
+  useEffect(() => {
+    const button = triggerRef.current
+    if (!button) return
+
+    const updateWidth = () => {
+      if (triggerRef.current) {
+        setPopoverWidth(triggerRef.current.offsetWidth)
+      }
+    }
+
+    updateWidth()
+
+    let observer: ResizeObserver | null = null
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(() => updateWidth())
+      observer.observe(button)
+    } else {
+      window.addEventListener('resize', updateWidth)
+    }
+
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener('resize', updateWidth)
+    }
+  }, [])
+
+  // Close the popover when the control becomes disabled
+  useEffect(() => {
+    if (disabled && open) {
+      setOpen(false)
+    }
+  }, [disabled, open])
+
   // Get upstream nodes (nodes that connect to the current node)
   const upstreamNodes = useMemo(() => {
     const nodeById = new Map(workflowData.nodes.map(n => [n.id, n]))
@@ -56,7 +99,8 @@ export function VariableSelectionDropdown({
           id: node.id,
           title: node.data?.title || node.data?.label || nodeComponent?.title || 'Unnamed',
           type: node.data?.type,
-          outputSchema: nodeComponent?.outputSchema || []
+          outputSchema: nodeComponent?.outputSchema || [],
+          providerId: node.data?.providerId || nodeComponent?.providerId,
         }
       })
   }, [workflowData, currentNodeId])
@@ -88,13 +132,18 @@ export function VariableSelectionDropdown({
     return `${node.title} → ${field?.label || parsed.fieldName}`
   }
 
-  // Check if any upstream nodes have variables
-  const hasAnyVariables = upstreamNodes.some(node => node.outputSchema.length > 0)
-  const hasContent = upstreamNodes.length > 0 && hasAnyVariables
+  // Only show nodes that expose variables
+  const nodesWithVariables = useMemo(
+    () => upstreamNodes.filter(node => node.outputSchema.length > 0),
+    [upstreamNodes]
+  )
+
+  const hasUpstreamNodes = upstreamNodes.length > 0
+  const hasContent = nodesWithVariables.length > 0
 
   // If no variables, show message directly in the trigger
-  if (upstreamNodes.length === 0 || !hasAnyVariables) {
-    const emptyMessage = upstreamNodes.length === 0
+  if (!hasUpstreamNodes || !hasContent) {
+    const emptyMessage = !hasUpstreamNodes
       ? "No upstream nodes found. Connect nodes to this one to see available data."
       : "No variables available. The connected nodes don't output any data."
 
@@ -107,54 +156,112 @@ export function VariableSelectionDropdown({
     )
   }
 
+  const selectedLabel = value ? getDisplayValue() : ""
+  const contentWidth = popoverWidth ? Math.max(popoverWidth, 260) : undefined
+  const renderNodeIcon = (nodeTitle: string, providerId?: string) => {
+    if (providerId) {
+      return (
+        <div className="w-6 h-6 flex items-center justify-center">
+          <StaticIntegrationLogo providerId={providerId} providerName={nodeTitle} />
+        </div>
+      )
+    }
+
+    return (
+      <div className="w-6 h-6 rounded-md bg-muted text-muted-foreground text-[11px] font-semibold flex items-center justify-center uppercase">
+        {nodeTitle?.charAt(0)?.toUpperCase() || '#'}
+      </div>
+    )
+  }
+
   return (
-    <Select
-      value={value}
-      onValueChange={onChange}
-      disabled={disabled}
-    >
-      <SelectTrigger className="h-10 bg-white dark:bg-background">
-        <SelectValue placeholder={placeholder}>
-          {value && getDisplayValue()}
-        </SelectValue>
-      </SelectTrigger>
-      <SelectContent position="popper" className="w-full">
-        <>
-          {upstreamNodes.map((node, nodeIndex) => (
-              <React.Fragment key={node.id}>
-                {nodeIndex > 0 && <SelectSeparator />}
-                <SelectGroup>
-                  <SelectLabel className="flex items-center gap-2">
-                    {node.title}
-                    <Badge variant="outline" className="text-[10px] h-4 px-1">
-                      {node.outputSchema.length} field{node.outputSchema.length !== 1 ? 's' : ''}
-                    </Badge>
-                  </SelectLabel>
-                  {node.outputSchema.length === 0 ? (
-                    <div className="px-8 py-2 text-xs text-muted-foreground">
-                      No output fields available
+    <Popover open={open} onOpenChange={(nextOpen) => !disabled && setOpen(nextOpen)}>
+      <PopoverTrigger asChild>
+        <button
+          ref={triggerRef}
+          type="button"
+          disabled={disabled}
+          className={cn(
+            "flex h-10 w-full items-center justify-between rounded-md border border-input bg-white px-3 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background",
+            disabled && "cursor-not-allowed opacity-60"
+          )}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+        >
+          <span className={cn("truncate", selectedLabel ? "text-foreground" : "text-muted-foreground")}>
+            {selectedLabel || placeholder}
+          </span>
+          <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        sideOffset={4}
+        className="p-0 rounded-md border border-border bg-popover shadow-xl"
+        style={contentWidth ? { width: contentWidth } : undefined}
+      >
+        <Command>
+          <CommandInput placeholder="Search variables..." />
+          <CommandEmpty>No variables found.</CommandEmpty>
+          <CommandList className="max-h-64">
+            {nodesWithVariables.map((node) => (
+              <CommandGroup
+                key={node.id}
+                heading={
+                  <div className="flex items-center gap-3">
+                    {renderNodeIcon(node.title, node.providerId)}
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-foreground">{node.title}</span>
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 uppercase tracking-tight">
+                        {node.outputSchema.length} field{node.outputSchema.length === 1 ? '' : 's'}
+                      </Badge>
                     </div>
-                  ) : (
-                    node.outputSchema.map((field: any) => (
-                      <SelectItem
-                        key={`${node.id}.${field.name}`}
-                        value={`{{${node.id}.${field.name}}}`}
-                        className="pl-8"
-                      >
-                        <div className="flex items-center justify-between w-full gap-2">
-                          <span className="text-sm">{field.label}</span>
-                          <Badge variant="secondary" className="text-[10px] h-4 px-1">
-                            {field.type}
-                          </Badge>
+                  </div>
+                }
+              >
+                {node.outputSchema.map((field: any) => {
+                  const variableRef = `{{${node.id}.${field.name}}}`
+                  const isSelected = value === variableRef
+
+                  return (
+                    <CommandItem
+                      key={`${node.id}.${field.name}`}
+                      value={`${node.title} ${field.label || field.name} ${field.type || ''}`}
+                      onSelect={() => {
+                        onChange(variableRef)
+                        setOpen(false)
+                      }}
+                      className="px-2 py-2"
+                    >
+                      <div className="flex w-full items-center gap-3">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium leading-tight">
+                            {field.label || field.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            From {node.title}
+                          </p>
                         </div>
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectGroup>
-              </React.Fragment>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="text-[10px] uppercase tracking-tight">
+                            {field.type || 'text'}
+                          </Badge>
+                          <Check
+                            className={cn(
+                              "h-4 w-4 text-primary transition-opacity",
+                              isSelected ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                        </div>
+                      </div>
+                    </CommandItem>
+                  )
+                })}
+              </CommandGroup>
             ))}
-        </>
-      </SelectContent>
-    </Select>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   )
 }

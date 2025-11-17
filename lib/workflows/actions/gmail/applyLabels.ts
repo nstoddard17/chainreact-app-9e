@@ -93,9 +93,19 @@ export async function applyGmailLabels(
 
     // Determine target messages
     let targetMessages: string[] = []
-    
+
     if (messageId) {
-      targetMessages.push(messageId)
+      // Handle different messageId formats:
+      // 1. Array of objects with id property (e.g., from search results)
+      // 2. Array of strings (message IDs)
+      // 3. Single string (message ID)
+      if (Array.isArray(messageId)) {
+        targetMessages = messageId
+          .map(item => typeof item === 'object' && item?.id ? item.id : item)
+          .filter(Boolean)
+      } else {
+        targetMessages.push(messageId)
+      }
     } else if (searchQuery) {
       // Search for messages matching the query
       const searchResponse = await gmail.users.messages.list({

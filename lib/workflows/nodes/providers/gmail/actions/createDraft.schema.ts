@@ -57,27 +57,32 @@ export const createDraftActionSchema: NodeComponent = {
     {
       name: "to",
       label: "To",
-      type: "email-autocomplete",
-      dynamic: "gmail-recent-recipients",
+      type: "select",
+      dynamic: "gmail-enhanced-recipients",
+      loadOnMount: true,
       required: true,
       placeholder: "Select recipient email address...",
-      description: "Primary recipients for the draft"
+      description: "Choose recipient from your contacts and recent recipients"
     },
     {
       name: "cc",
       label: "CC",
-      type: "email-autocomplete",
-      dynamic: "gmail-recent-recipients",
+      type: "select",
+      dynamic: "gmail-enhanced-recipients",
+      loadOnMount: true,
+      required: false,
       placeholder: "Select CC email address...",
-      description: "Carbon copy recipients"
+      description: "Choose CC recipient from your contacts and recent recipients"
     },
     {
       name: "bcc",
       label: "BCC",
-      type: "email-autocomplete",
-      dynamic: "gmail-recent-recipients",
+      type: "select",
+      dynamic: "gmail-enhanced-recipients",
+      loadOnMount: true,
+      required: false,
       placeholder: "Select BCC email address...",
-      description: "Blind carbon copy recipients"
+      description: "Choose BCC recipient from your contacts and recent recipients"
     },
     {
       name: "subject",

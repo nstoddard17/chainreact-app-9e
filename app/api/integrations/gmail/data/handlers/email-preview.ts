@@ -20,7 +20,7 @@ interface PreviewOptions {
     searchMode?: 'filters' | 'query'
     from?: string
     to?: string
-    subject?: string
+    subject?: string | string[]  // Can be single keyword or array of keywords
     hasAttachment?: string
     attachmentName?: string
     isRead?: string
@@ -101,8 +101,16 @@ function buildAdvancedGmailQuery(config: any): string {
   if (config.to) {
     parts.push(`to:${config.to}`)
   }
+  // Handle subject keywords (can be string or array)
   if (config.subject) {
-    parts.push(`subject:${config.subject}`)
+    if (Array.isArray(config.subject) && config.subject.length > 0) {
+      // Multiple keywords: match ANY (OR logic)
+      const keywords = config.subject.map((kw: string) => `subject:${kw}`).join(' OR ')
+      parts.push(`(${keywords})`)
+    } else if (typeof config.subject === 'string' && config.subject.trim()) {
+      // Single keyword
+      parts.push(`subject:${config.subject}`)
+    }
   }
   if (config.hasAttachment === 'yes') {
     parts.push('has:attachment')

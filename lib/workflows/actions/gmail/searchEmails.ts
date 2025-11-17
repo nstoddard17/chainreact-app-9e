@@ -100,10 +100,20 @@ export async function searchGmailEmails(
     const format = resolveValue(config.format, input) || "full"
     const fieldsMask = resolveValue(config.fieldsMask, input) || "messages"
     
-    // Fetch details for each message
+    // Fetch details for each message with rate limiting
     const emails = []
-    
-    for (const messageId of messageIds) {
+    const BATCH_SIZE = 25
+    const DELAY_BETWEEN_BATCHES_MS = 500
+
+    for (let i = 0; i < messageIds.length; i += BATCH_SIZE) {
+      const batchIds = messageIds.slice(i, i + BATCH_SIZE)
+      const batchNumber = Math.floor(i / BATCH_SIZE) + 1
+      const totalBatches = Math.ceil(messageIds.length / BATCH_SIZE)
+
+      logger.debug(`[Gmail Search] Fetching batch ${batchNumber}/${totalBatches} (${batchIds.length} messages)`)
+
+      // Fetch messages in parallel within each batch
+      const batchPromises = batchIds.map(async (messageId) => {
       try {
         // Build message URL with appropriate parameters
         const messageUrl = new URL(`https://www.googleapis.com/gmail/v1/users/me/messages/${messageId}`)
@@ -145,8 +155,12 @@ export async function searchGmailEmails(
         })
         
         if (!messageResponse.ok) {
-          logger.error(`Failed to fetch message ${messageId}: ${messageResponse.status}`)
-          continue
+          if (messageResponse.status === 429) {
+            logger.warn(`[Gmail Search] Rate limit hit for message ${messageId}, skipping`)
+          } else {
+            logger.warn(`[Gmail Search] Failed to fetch message ${messageId}: ${messageResponse.status}`)
+          }
+          return null
         }
         
         const message = await messageResponse.json()
@@ -234,12 +248,28 @@ export async function searchGmailEmails(
           email.attachments = extractAttachments(message.payload.parts)
         }
         
-        emails.push(email)
+        return email
       } catch (error) {
-        logger.error(`Error fetching message ${messageId}:`, error)
-        // Continue with other messages
+        logger.error(`[Gmail Search] Error fetching message ${messageId}:`, error)
+        return null
       }
+    })
+
+    const batchResults = await Promise.all(batchPromises)
+    emails.push(...batchResults.filter((email): email is NonNullable<typeof email> => email !== null))
+
+    logger.debug(`[Gmail Search] Batch ${batchNumber}/${totalBatches} complete. Total emails fetched: ${emails.length}/${messageIds.length}`)
+
+    // Add delay between batches to avoid rate limiting (except for the last batch)
+    if (i + BATCH_SIZE < messageIds.length) {
+      await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_BATCHES_MS))
     }
+  }
+
+  const failedCount = messageIds.length - emails.length
+  if (failedCount > 0) {
+    logger.debug(`[Gmail Search] Finished: ${emails.length}/${messageIds.length} emails (${failedCount} failed due to rate limits)`)
+  }
     
     // Return emails array and metadata
     // For single email scenarios, users can access emails[0]
@@ -270,7 +300,9 @@ export async function searchGmailEmails(
           snippet: emails[0].snippet || ""
         } : {})
       },
-      message: `Found ${emails.length} emails matching the search criteria`
+      message: failedCount > 0
+        ? `Found ${emails.length} email(s). Note: ${failedCount} could not be fetched (likely Gmail API rate limits)`
+        : `Found ${emails.length} email(s) matching the search criteria`
     }
     
     return result

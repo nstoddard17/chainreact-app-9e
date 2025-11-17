@@ -36,6 +36,15 @@ const gmailMappings: Record<string, FieldMapping> = {
     messageId: "gmail-enhanced-recipients",
     labelIds: "gmail_labels",
   },
+  gmail_action_create_draft: {
+    to: "gmail-enhanced-recipients",
+    cc: "gmail-enhanced-recipients",
+    bcc: "gmail-enhanced-recipients",
+  },
+  gmail_action_create_draft_reply: {
+    cc: "gmail-enhanced-recipients",
+    bcc: "gmail-enhanced-recipients",
+  },
   gmail_action_add_label: {
     email: "gmail-enhanced-recipients",
     labelIds: "gmail_labels",

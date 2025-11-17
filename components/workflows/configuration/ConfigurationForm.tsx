@@ -702,6 +702,8 @@ function ConfigurationForm({
   // Track if we've already loaded on mount to prevent duplicate calls
   const hasLoadedOnMount = useRef(false);
   const previousNodeKeyRef = useRef<string | null>(null);
+  // Counter that increments when modal reopens to force reload
+  const [reloadCounter, setReloadCounter] = useState(0);
 
   // Ensure integrations are loaded on mount - WITH DEBOUNCE
   useEffect(() => {
@@ -795,6 +797,9 @@ function ConfigurationForm({
     });
     previousNodeKeyRef.current = prevNodeKey;
 
+    // Increment reload counter to force useEffect to re-run
+    setReloadCounter(prev => prev + 1);
+
     // Only clear specific fields that need fresh data on each modal open
     // For Trello, always clear boards to get fresh data
     if (nodeInfo?.providerId === 'trello' && isNewNode) {
@@ -834,7 +839,11 @@ function ConfigurationForm({
       providerId: nodeInfo?.providerId,
       configSchemaLength: nodeInfo?.configSchema?.length
     };
-    // console.log('🔵 [ConfigForm] loadOnMount useEffect fired', logData);
+
+    // Debug logging for Gmail
+    if (nodeInfo?.providerId === 'gmail') {
+      console.log('🔵 [ConfigForm] Gmail loadOnMount useEffect fired', logData);
+    }
 
     // Also log to window for debugging
     if (nodeInfo?.providerId === 'hubspot') {
@@ -843,14 +852,23 @@ function ConfigurationForm({
     }
 
     if (!nodeInfo?.configSchema || isInitialLoading) {
-      // console.log('⏭️ [ConfigForm] Skipping loadOnMount - missing configSchema or still loading', {
-      //   hasConfigSchema: !!nodeInfo?.configSchema,
-      //   isInitialLoading
-      // });
+      if (nodeInfo?.providerId === 'gmail') {
+        console.log('⏭️ [ConfigForm] Gmail - Skipping loadOnMount - missing configSchema or still loading', {
+          hasConfigSchema: !!nodeInfo?.configSchema,
+          isInitialLoading
+        });
+      }
       return;
     }
 
     if (needsConnection) {
+      if (nodeInfo?.providerId === 'gmail') {
+        console.log('⏭️ [ConfigForm] Gmail - Skipping loadOnMount - integration not connected yet', {
+          providerId: nodeInfo?.providerId,
+          nodeType: nodeInfo?.type,
+          needsConnection
+        });
+      }
       logger.debug('⏭️ [ConfigForm] Skipping loadOnMount - integration not connected yet', {
         providerId: nodeInfo?.providerId,
         nodeType: nodeInfo?.type
@@ -862,13 +880,20 @@ function ConfigurationForm({
     // Use a combination of nodeId, nodeType, and currentNodeId to ensure uniqueness
     const nodeInstanceKey = `${nodeInfo?.id}-${nodeInfo?.type}-${currentNodeId}`;
 
-    // console.log('🚀 [ConfigForm] Checking for loadOnMount fields...', {
-    //   nodeInstanceKey,
-    //   hasLoadedOnMount: hasLoadedOnMount.current,
-    //   isInitialLoading,
-    //   hasBoardIdValue: !!values.boardId,
-    //   nodeType: nodeInfo?.type
-    // });
+    if (nodeInfo?.providerId === 'gmail') {
+      console.log('🚀 [ConfigForm] Gmail - Checking for loadOnMount fields...', {
+        nodeInstanceKey,
+        hasLoadedOnMount: hasLoadedOnMount.current,
+        isInitialLoading,
+        nodeType: nodeInfo?.type,
+        allFields: nodeInfo.configSchema.map((f: any) => ({
+          name: f.name,
+          type: f.type,
+          dynamic: f.dynamic,
+          loadOnMount: f.loadOnMount
+        }))
+      });
+    }
 
     // Find fields that should load on mount
     const fieldsToLoad = nodeInfo.configSchema.filter((field: any) => {
@@ -881,21 +906,27 @@ function ConfigurationForm({
         // Don't check dynamicOptions or values here as it causes dependency issues
         const shouldLoad = !hasLoadedOnMount.current;
 
-        // console.log(`🔄 [ConfigForm] Field ${field.name} has loadOnMount, shouldLoad: ${shouldLoad}`, {
-        //   fieldType: field.type,
-        //   dynamic: field.dynamic,
-        //   loadOnMount: field.loadOnMount,
-        //   hasLoadedOnMount: hasLoadedOnMount.current
-        // });
+        if (nodeInfo?.providerId === 'gmail') {
+          console.log(`🔄 [ConfigForm] Gmail - Field ${field.name} has loadOnMount, shouldLoad: ${shouldLoad}`, {
+            fieldType: field.type,
+            dynamic: field.dynamic,
+            loadOnMount: field.loadOnMount,
+            hasLoadedOnMount: hasLoadedOnMount.current
+          });
+        }
         return shouldLoad;
       }
       return false;
     });
 
-    // console.log(`📋 [ConfigForm] Fields to load on mount:`, fieldsToLoad.map((f: any) => ({ name: f.name, type: f.type, dynamic: f.dynamic })));
-    // console.log(`📋 [ConfigForm] ALL configSchema fields:`, nodeInfo.configSchema.map((f: any) => ({ name: f.name, type: f.type, dynamic: f.dynamic, loadOnMount: f.loadOnMount })));
+    if (nodeInfo?.providerId === 'gmail') {
+      console.log(`📋 [ConfigForm] Gmail - Fields to load on mount:`, fieldsToLoad.map((f: any) => ({ name: f.name, type: f.type, dynamic: f.dynamic })));
+    }
 
     if (fieldsToLoad.length > 0) {
+      if (nodeInfo?.providerId === 'gmail') {
+        console.log('🚀 [ConfigForm] Gmail - Loading fields on mount IN PARALLEL:', fieldsToLoad.map((f: any) => f.name));
+      }
       logger.debug('🚀 [ConfigForm] Loading fields on mount IN PARALLEL:', fieldsToLoad.map((f: any) => f.name));
       hasLoadedOnMount.current = true; // Mark that we've loaded
 
@@ -907,10 +938,13 @@ function ConfigurationForm({
           dependsOnValue: field.dependsOn ? values[field.dependsOn] : undefined
         }))
       ).catch(err => {
+        console.error('❌ [ConfigForm] Gmail - Parallel load failed:', err);
         logger.error('❌ [ConfigForm] Parallel load failed:', err);
       });
+    } else if (nodeInfo?.providerId === 'gmail') {
+      console.log('⏭️ [ConfigForm] Gmail - No fields to load on mount');
     }
-  }, [nodeInfo?.id, nodeInfo?.type, currentNodeId, isInitialLoading, loadOptionsParallel, needsConnection]); // Track node identity changes and connection state
+  }, [nodeInfo?.id, nodeInfo?.type, currentNodeId, isInitialLoading, loadOptionsParallel, needsConnection, reloadCounter]); // Track node identity changes, connection state, and reload trigger
 
   // Load options for dynamic fields with saved values
   useEffect(() => {

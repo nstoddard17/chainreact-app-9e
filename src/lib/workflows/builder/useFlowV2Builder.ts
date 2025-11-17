@@ -151,38 +151,10 @@ function applyPlannerEdits(base: Flow, edits: PlannerEdit[]): Flow {
       case "addNode": {
         const exists = working.nodes.find((node) => node.id === edit.node.id)
         if (!exists) {
-          // Insert node at the correct position based on Y coordinate
-          const newNodeY = (edit.node.metadata as any)?.position?.y ?? Infinity
-          let insertIndex = working.nodes.length
-
-          // Find the correct insertion point based on Y position
-          for (let i = 0; i < working.nodes.length; i++) {
-            const nodeY = (working.nodes[i].metadata as any)?.position?.y ?? (120 + i * 180)
-            if (newNodeY <= nodeY) {
-              insertIndex = i
-              break
-            }
-          }
-
-          // Push down all nodes at or after the insertion point by 180px
-          for (let i = insertIndex; i < working.nodes.length; i++) {
-            const nodeMetadata = working.nodes[i].metadata as any
-            if (nodeMetadata?.position?.y !== undefined) {
-              nodeMetadata.position.y += 180
-            } else {
-              // If no position metadata, create it based on current index
-              if (!working.nodes[i].metadata) {
-                working.nodes[i].metadata = {}
-              }
-              ;(working.nodes[i].metadata as any).position = {
-                x: LINEAR_STACK_X,
-                y: (120 + i * 180) + 180
-              }
-            }
-          }
-
-          // Insert at the correct position
-          working.nodes.splice(insertIndex, 0, edit.node)
+          // Simply append the node to the end
+          // React Flow handles visual positioning based on metadata.position
+          // Don't try to sort or reposition existing nodes as it causes visual jumps
+          working.nodes.push(edit.node)
         }
         break
       }
@@ -725,48 +697,62 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
     return flowRef.current
   }, [load])
 
+  // Queue to ensure only one applyEdits runs at a time (prevents race conditions)
+  const applyEditsQueue = useRef<Promise<Flow | undefined>>(Promise.resolve(undefined))
+
   const applyEdits = useCallback(
     async (edits: PlannerEdit[]) => {
-      if (!edits || edits.length === 0) {
-        const current = await ensureFlow()
-        return current
-      }
+      // Queue this request to run after the previous one completes
+      const previousRequest = applyEditsQueue.current
 
-      const baseFlow = await ensureFlow()
-      const nextFlow = applyPlannerEdits(baseFlow, edits)
+      const thisRequest = previousRequest.then(async () => {
+        if (!edits || edits.length === 0) {
+          const current = await ensureFlow()
+          return current
+        }
 
-      setSaving(true)
-      try {
-        const payload = await fetchJson<{ flow: Flow; revisionId?: string; version?: number }>(
-          `/workflows/v2/api/flows/${flowId}/apply-edits`,
-          {
-            method: "POST",
-            headers: JSON_HEADERS,
-            body: JSON.stringify({
-              flow: nextFlow,
-              version: nextFlow.version,
-            }),
-          }
-        )
+        const baseFlow = await ensureFlow()
+        const nextFlow = applyPlannerEdits(baseFlow, edits)
 
-        const updatedFlow = FlowSchema.parse(payload.flow)
-        flowRef.current = updatedFlow
-        revisionIdRef.current = payload.revisionId ?? revisionIdRef.current
-        updateReactFlowGraph(updatedFlow)
+        setSaving(true)
+        try {
+          const payload = await fetchJson<{ flow: Flow; revisionId?: string; version?: number }>(
+            `/workflows/v2/api/flows/${flowId}/apply-edits`,
+            {
+              method: "POST",
+              headers: JSON_HEADERS,
+              body: JSON.stringify({
+                flow: nextFlow,
+                version: nextFlow.version,
+              }),
+            }
+          )
 
-        setFlowState((prev) => ({
-          ...prev,
-          flow: updatedFlow,
-          revisionId: payload.revisionId ?? prev.revisionId,
-          version: updatedFlow.version ?? payload.version ?? prev.version,
-          revisionCount: (prev.revisionCount ?? 0) + 1,
-          pendingAgentEdits: [],
-        }))
+          const updatedFlow = FlowSchema.parse(payload.flow)
+          flowRef.current = updatedFlow
+          revisionIdRef.current = payload.revisionId ?? revisionIdRef.current
+          updateReactFlowGraph(updatedFlow)
 
-        return updatedFlow
-      } finally {
-        setSaving(false)
-      }
+          setFlowState((prev) => ({
+            ...prev,
+            flow: updatedFlow,
+            revisionId: payload.revisionId ?? prev.revisionId,
+            version: updatedFlow.version ?? payload.version ?? prev.version,
+            revisionCount: (prev.revisionCount ?? 0) + 1,
+            pendingAgentEdits: [],
+          }))
+
+          return updatedFlow
+        } finally {
+          setSaving(false)
+        }
+      })
+
+      // Update the queue with this request
+      applyEditsQueue.current = thisRequest
+
+      // Return this specific request (not the queue)
+      return thisRequest
     },
     [ensureFlow, flowId, setSaving, updateReactFlowGraph]
   )

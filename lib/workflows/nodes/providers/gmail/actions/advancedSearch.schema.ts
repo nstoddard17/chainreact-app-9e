@@ -36,21 +36,21 @@ export const advancedSearchActionSchema: NodeComponent = {
       name: "totalResults",
       label: "Total Results",
       type: "number",
-      description: "Total number of emails found",
-      example: 42
+      description: "Total number of emails matching your search in Gmail (may be more than what was returned)",
+      example: 201
     },
     {
       name: "resultCount",
-      label: "Returned Count",
+      label: "Results Returned",
       type: "number",
-      description: "Number of emails returned (limited by maxResults)",
+      description: "Actual number of emails returned in this batch (limited by Max Results setting)",
       example: 10
     },
     {
       name: "nextPageToken",
       label: "Next Page Token",
       type: "string",
-      description: "Token to fetch the next page of results",
+      description: "Pagination token - Use this to fetch more results if totalResults > resultCount. Currently not supported in workflows.",
       example: "CAUAA..."
     },
     {
@@ -114,12 +114,12 @@ export const advancedSearchActionSchema: NodeComponent = {
     {
       name: "subject",
       label: "Subject Contains",
-      type: "text",
+      type: "tags",
       required: false,
-      placeholder: "invoice",
+      placeholder: "Type keyword and press Enter",
       supportsAI: true,
-      description: "Text that must appear in the subject line",
-      tooltip: "Case-insensitive search within email subjects.",
+      description: "Keywords to search for in subject line (matches emails containing any of these)",
+      tooltip: "Press Enter after typing each keyword to add it as a pill. Emails matching ANY of these keywords will be found (OR logic).",
       visibleWhen: {
         field: "searchMode",
         value: "filters"
@@ -273,10 +273,10 @@ export const advancedSearchActionSchema: NodeComponent = {
       required: false,
       defaultValue: 10,
       min: 1,
-      max: 500,
+      max: 100,
       placeholder: "10",
-      description: "Maximum number of emails to return (1-500)",
-      tooltip: "Gmail API allows up to 500 results per request. Use pagination for more results."
+      description: "Maximum number of emails to return (1-100)",
+      tooltip: "Fetching many emails takes time and may hit Gmail API rate limits. Recommended: 10-50. For large batches, expect some emails to fail due to rate limiting."
     },
     {
       name: "includeSpam",

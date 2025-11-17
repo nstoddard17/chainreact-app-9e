@@ -1,3 +1,5 @@
 export { sendGmail } from './sendGmail'
 export { addGmailLabels } from './addLabels'
-export { searchGmailEmails } from './searchEmails' 
+export { searchGmailEmails } from './searchEmails'
+export { markGmailAsRead } from './markAsRead'
+export { markGmailAsUnread } from './markAsUnread' 

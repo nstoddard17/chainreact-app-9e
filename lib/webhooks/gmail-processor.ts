@@ -380,6 +380,7 @@ async function fetchGmailMessageDetails(
     const headers = message.data.payload?.headers || []
     const emailDetails: any = {
       id: message.data.id,
+      messageId: message.data.id, // Same as id, provided for compatibility with Gmail actions
       threadId: message.data.threadId,
       labelIds: message.data.labelIds,
       snippet: message.data.snippet
@@ -567,6 +568,7 @@ async function fetchEmailDetails(
     const headers = message.data.payload?.headers || []
     const emailDetails: any = {
       id: message.data.id,
+      messageId: message.data.id, // Same as id, provided for compatibility with Gmail actions
       threadId: message.data.threadId,
       labelIds: message.data.labelIds,
       snippet: message.data.snippet
