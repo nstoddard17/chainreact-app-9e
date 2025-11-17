@@ -70,6 +70,23 @@ export const updateMultipleRecordsActionSchema: NodeComponent = {
       description: "Selected record IDs will be stored here",
       readonly: true,
       hidden: true
+    },
+    {
+      name: "preserveExistingAttachments",
+      label: "Append or Replace Attachments",
+      type: "select",
+      required: false,
+      options: [
+        { value: "true", label: "Append to existing attachments" },
+        { value: "false", label: "Replace all existing attachments" }
+      ],
+      defaultValue: "true",
+      description: "Choose whether to keep or replace existing attachments when updating attachment fields",
+      tooltip: "Append will add new attachments to existing ones. Replace will remove all existing attachments and add only the new ones.",
+      dependsOn: "tableName",
+      metadata: {
+        showOnlyIfAttachmentFieldsPresent: true
+      }
     }
   ]
 }

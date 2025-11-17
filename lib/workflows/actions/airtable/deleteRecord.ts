@@ -117,9 +117,17 @@ export async function deleteAirtableRecord(
           searchConditions.push(`${fieldRef} = "${value}"`)
         } else {
           // For 'any' or 'all' - search for each keyword
+          // Use FIND() which returns position (>0) when found, 0 when not found
+          // We need to explicitly check > 0 for proper boolean evaluation
           keywords.forEach(keyword => {
-            const searchFunc = caseSensitive ? 'FIND' : 'SEARCH'
-            searchConditions.push(`${searchFunc}("${keyword}", {${searchField}})`)
+            if (caseSensitive) {
+              // Case-sensitive: use FIND directly and check > 0
+              searchConditions.push(`FIND("${keyword}", {${searchField}}) > 0`)
+            } else {
+              // Case-insensitive: convert both to lowercase, use FIND, and check > 0
+              const lowerKeyword = keyword.toLowerCase()
+              searchConditions.push(`FIND("${lowerKeyword}", LOWER({${searchField}})) > 0`)
+            }
           })
         }
 

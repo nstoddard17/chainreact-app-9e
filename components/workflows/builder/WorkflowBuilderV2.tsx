@@ -1468,6 +1468,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
     // Handler for inserting a node in the middle of an edge
     const handleInsertNodeOnEdge = (edgeId: string, position: { x: number; y: number }) => {
+      // Close config modal if open
+      if (configuringNode) {
+        setConfiguringNode(null)
+      }
+
       // Find the edge to get the source node
       const edge = builder.edges.find((e: any) => e.id === edgeId)
       if (!edge) return
@@ -1569,6 +1574,20 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     setIntegrationsPanelMode(mode)
     setIsIntegrationsPanelOpen(true)
   }, [builder.nodes, integrations.length, fetchIntegrations])
+
+  // Handler for adding node after another (from plus button)
+  const handleAddNodeAfterClick = useCallback((afterNodeId: string | null) => {
+    // Close config modal if open
+    if (configuringNode) {
+      setConfiguringNode(null)
+    }
+    // Store the node to add after
+    if (afterNodeId) {
+      setSelectedNodeId(afterNodeId)
+    }
+    // Open integrations panel in action mode
+    openIntegrationsPanel('action')
+  }, [configuringNode, openIntegrationsPanel])
 
   // Node selection from panel
   const handleNodeSelectFromPanel = useCallback(async (nodeData: any) => {
@@ -3919,14 +3938,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
             onNodeConfigure={handleNodeConfigure}
             onUndoToPreviousStage={handleUndoToPreviousStage}
             onCancelBuild={handleCancelBuild}
-            onAddNodeAfter={(afterNodeId) => {
-              // Store the node to add after
-              if (afterNodeId) {
-                setSelectedNodeId(afterNodeId)
-              }
-              // Open integrations panel in action mode (we're always adding actions in linear flow)
-              openIntegrationsPanel('action')
-            }}
+            onAddNodeAfter={handleAddNodeAfterClick}
           >
             {/* Path Labels Overlay - Zapier-style floating pills */}
             <PathLabelsOverlay

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useTheme } from "next-themes"
 import { ProfessionalSearch } from "@/components/ui/professional-search"
 import { Button } from "@/components/ui/button"
@@ -43,6 +43,15 @@ export function IntegrationsSidePanel({ isOpen, onClose, onNodeSelect, mode = 'a
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<Category>('all')
   const [selectedIntegration, setSelectedIntegration] = useState<string | null>(null)
+
+  // Reset to main view (all integrations) when panel is opened
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedCategory('all')
+      setSelectedIntegration(null)
+      setSearchQuery("")
+    }
+  }, [isOpen])
 
   // Group nodes by provider to create integrations list
   // Filter based on mode (triggers vs actions)

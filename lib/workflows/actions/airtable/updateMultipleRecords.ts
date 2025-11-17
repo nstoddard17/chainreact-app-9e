@@ -34,6 +34,9 @@ export async function updateMultipleAirtableRecords(
     const sharedConfig = { ...config }
     delete sharedConfig.recordIds
 
+    // Extract preserveExistingAttachments setting for attachment handling
+    const preserveExistingAttachments = resolveValue(config.preserveExistingAttachments, input)
+
     const updatedRecords: any[] = []
     const failedRecords: Array<{ recordId: string; error: string }> = []
 
@@ -47,6 +50,11 @@ export async function updateMultipleAirtableRecords(
 
       if (tableId) {
         recordConfig.tableId = tableId
+      }
+
+      // Pass through preserveExistingAttachments setting for each record
+      if (preserveExistingAttachments !== undefined) {
+        recordConfig.preserveExistingAttachments = preserveExistingAttachments
       }
 
       try {

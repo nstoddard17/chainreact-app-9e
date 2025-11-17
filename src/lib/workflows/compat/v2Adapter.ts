@@ -199,6 +199,9 @@ export function addNodeEdit(type: string, position?: { x: number; y: number }): 
   const icon = nodeDefinition?.icon
   const category = nodeDefinition?.category
 
+  const finalPosition = position ?? { x: 160, y: 120 }
+  console.log(`📍 [addNodeEdit] Creating node ${nodeId} with position:`, finalPosition)
+
   return {
     op: "addNode",
     node: {
@@ -213,7 +216,7 @@ export function addNodeEdit(type: string, position?: { x: number; y: number }): 
       policy: { timeoutMs: 60_000, retries: 0 },
       costHint: 0,
       metadata: {
-        position: position ?? { x: 160, y: 120 },
+        position: finalPosition,
         reactFlowType: "custom",
         providerId,
         isTrigger,

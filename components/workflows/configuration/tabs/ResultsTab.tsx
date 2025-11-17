@@ -43,6 +43,7 @@ export function ResultsTab({
 }: ResultsTabProps) {
   const [showRawResponse, setShowRawResponse] = useState(false)
   const [expandedFields, setExpandedFields] = useState<Record<string, boolean>>({})
+  const [rowsToShow, setRowsToShow] = useState(10)
 
   // Get the node component definition with outputSchema
   const nodeComponent = useMemo(() => {
@@ -95,8 +96,106 @@ export function ResultsTab({
     return String(value)
   }
 
-  // Render table for array of objects
-  const renderTable = (data: any[]) => {
+  // Helper to render cell value based on type
+  const renderCellValue = (value: any, columnName: string) => {
+    if (value === null || value === undefined) {
+      return <span className="text-slate-400 dark:text-slate-600 italic text-xs">empty</span>
+    }
+
+    // Handle arrays (linked records, multi-select, etc.)
+    if (Array.isArray(value)) {
+      // Check if it's an array of attachment objects
+      if (value.length > 0 && value[0]?.url && value[0]?.filename) {
+        return (
+          <div className="flex flex-wrap gap-2">
+            {value.map((attachment, idx) => (
+              <div key={idx} className="group relative">
+                <a
+                  href={attachment.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block"
+                >
+                  {attachment.type?.startsWith('image/') ? (
+                    <img
+                      src={attachment.thumbnails?.small?.url || attachment.url}
+                      alt={attachment.filename}
+                      className="w-16 h-16 object-cover rounded border border-slate-200 dark:border-slate-700 hover:scale-105 transition-transform"
+                      title={attachment.filename}
+                    />
+                  ) : (
+                    <div className="w-16 h-16 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700">
+                      <span className="text-xs text-slate-500 dark:text-slate-400 truncate px-1">
+                        {attachment.filename?.split('.').pop()?.toUpperCase() || 'FILE'}
+                      </span>
+                    </div>
+                  )}
+                </a>
+              </div>
+            ))}
+          </div>
+        )
+      }
+
+      // Handle linked records with display format "rec::Name"
+      if (value.length > 0 && typeof value[0] === 'string' && value[0].includes('::')) {
+        return (
+          <div className="flex flex-wrap gap-1">
+            {value.map((item, idx) => {
+              const label = item.split('::')[1] || item
+              return (
+                <span
+                  key={idx}
+                  className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
+                >
+                  {label}
+                </span>
+              )
+            })}
+          </div>
+        )
+      }
+
+      // Regular array
+      return (
+        <div className="flex flex-wrap gap-1">
+          {value.map((item, idx) => (
+            <span
+              key={idx}
+              className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+            >
+              {String(item)}
+            </span>
+          ))}
+        </div>
+      )
+    }
+
+    // Handle objects
+    if (typeof value === 'object') {
+      return (
+        <code className="text-xs font-mono text-slate-600 dark:text-slate-400 block max-w-xs truncate">
+          {JSON.stringify(value)}
+        </code>
+      )
+    }
+
+    // Handle long text
+    const stringValue = String(value)
+    if (stringValue.length > 100) {
+      return (
+        <span className="text-xs block max-w-xs truncate" title={stringValue}>
+          {stringValue}
+        </span>
+      )
+    }
+
+    // Regular value
+    return <span className="text-xs">{stringValue}</span>
+  }
+
+  // Render table for array of objects (Airtable-style)
+  const renderTable = (data: any[], fieldName?: string) => {
     if (!Array.isArray(data) || data.length === 0) return null
 
     // Check if all items are objects with similar keys
@@ -106,37 +205,83 @@ export function ResultsTab({
     const keys = Object.keys(firstItem)
     if (keys.length === 0) return null
 
+    const displayedRows = data.slice(0, rowsToShow)
+    const hasMore = data.length > rowsToShow
+
     return (
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 border-b border-border">
-            <tr>
-              {keys.map((key) => (
-                <th key={key} className="px-4 py-2 text-left font-medium text-foreground">
-                  {key}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {data.slice(0, 10).map((row, idx) => (
-              <tr key={idx} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
+      <div className="space-y-2">
+        <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
                 {keys.map((key) => (
-                  <td key={key} className="px-4 py-2 text-muted-foreground">
-                    {typeof row[key] === 'object'
-                      ? JSON.stringify(row[key])
-                      : String(row[key] ?? '')}
-                  </td>
+                  <th
+                    key={key}
+                    className="px-3 py-2.5 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wide border-r border-slate-200 dark:border-slate-700 last:border-r-0 whitespace-nowrap"
+                  >
+                    {key}
+                  </th>
                 ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-        {data.length > 10 && (
-          <div className="px-4 py-2 text-xs text-muted-foreground bg-muted/30 border-t border-border">
-            Showing 10 of {data.length} rows
+            </thead>
+            <tbody className="bg-white dark:bg-slate-900">
+              {displayedRows.map((row, idx) => (
+                <tr
+                  key={idx}
+                  className="border-b border-slate-100 dark:border-slate-800 last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                >
+                  {keys.map((key) => (
+                    <td
+                      key={key}
+                      className="px-3 py-2.5 text-sm text-slate-600 dark:text-slate-400 border-r border-slate-100 dark:border-slate-800 last:border-r-0 align-top"
+                    >
+                      {renderCellValue(row[key], key)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination controls */}
+        <div className="flex items-center justify-between px-1">
+          <div className="text-xs text-muted-foreground">
+            Showing {Math.min(rowsToShow, data.length)} of {data.length} rows
           </div>
-        )}
+          {hasMore && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setRowsToShow(prev => Math.min(prev + 10, data.length))}
+                className="h-7 text-xs"
+              >
+                Show 10 More
+              </Button>
+              {rowsToShow < data.length && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setRowsToShow(data.length)}
+                  className="h-7 text-xs"
+                >
+                  Show All ({data.length})
+                </Button>
+              )}
+            </div>
+          )}
+          {!hasMore && rowsToShow > 10 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setRowsToShow(10)}
+              className="h-7 text-xs"
+            >
+              Show Less
+            </Button>
+          )}
+        </div>
       </div>
     )
   }
@@ -390,7 +535,20 @@ export function ResultsTab({
                           {/* Table view for arrays */}
                           {isArray && field.type === 'array' && value.length > 0 && typeof value[0] === 'object' ? (
                             <>
-                              {renderTable(value)}
+                              {/* Special handling for Airtable records with nested 'fields' property */}
+                              {value[0].fields && typeof value[0].fields === 'object' ? (
+                                (() => {
+                                  // Flatten Airtable records - extract the 'fields' object and merge with id/createdTime
+                                  const flattenedRecords = value.map((record: any) => ({
+                                    id: record.id,
+                                    ...record.fields,
+                                    createdTime: record.createdTime
+                                  }))
+                                  return renderTable(flattenedRecords, field.name)
+                                })()
+                              ) : (
+                                renderTable(value, field.name)
+                              )}
                             </>
                           ) : isArray ? (
                             <div className="rounded bg-muted/30 p-3 border border-border">

@@ -139,56 +139,60 @@ export class FlowRepository {
   }: CreateFlowRevisionParams): Promise<FlowRevisionRecord> {
     const validated = FlowSchema.parse(flow)
 
-    // Retry logic to handle race conditions when adding multiple nodes quickly
-    const maxRetries = 5 // Increased from 3
-    let lastError: any = null
-
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      // IMPORTANT: Re-query version on each attempt to get latest version
-      // This ensures retries don't use stale version numbers from before the race
-      const resolvedVersion = await this.resolveRevisionVersion(flowId, version)
+    // If version is explicitly provided, use the old insert method
+    if (typeof version === "number") {
       const now = new Date().toISOString()
 
       const { data, error } = await this.client
         .from("flow_v2_revisions")
         .insert({
-          id: attempt === 0 ? id : randomUUID(), // Use new ID on retry
+          id,
           flow_id: flowId,
-          version: resolvedVersion,
+          version,
           graph: validated,
           created_at: now,
         })
         .select("id, flow_id, version, graph, created_at")
         .single()
 
-      if (!error) {
-        const parsed = FlowRevisionRowSchema.parse(data)
-        return {
-          id: parsed.id,
-          flowId: parsed.flow_id,
-          version: parsed.version,
-          graph: FlowSchema.parse(parsed.graph as JsonValue),
-          createdAt: parsed.created_at,
-        }
+      if (error) {
+        throw new Error(`Failed to create flow revision: ${error.message}`)
       }
 
-      // Check if it's a duplicate key error
-      if (error.code === '23505' && error.message.includes('flow_v2_revisions_unique_version')) {
-        lastError = error
-        console.log(`[FlowRepository] Version collision on attempt ${attempt + 1}/${maxRetries}, retrying...`)
-        // Wait with exponential backoff + jitter to spread out retries
-        const baseDelay = 100 * Math.pow(2, attempt)
-        const jitter = Math.random() * 50 // Add 0-50ms random jitter
-        await new Promise(resolve => setTimeout(resolve, baseDelay + jitter))
-        continue
+      const parsed = FlowRevisionRowSchema.parse(data)
+      return {
+        id: parsed.id,
+        flowId: parsed.flow_id,
+        version: parsed.version,
+        graph: FlowSchema.parse(parsed.graph as JsonValue),
+        createdAt: parsed.created_at,
       }
-
-      // For other errors, throw immediately
-      throw new Error(`Failed to create flow revision: ${error.message}`)
     }
 
-    // If we exhausted all retries
-    throw new Error(`Failed to create flow revision after ${maxRetries} attempts: ${lastError?.message}`)
+    // Use atomic create function that does version increment + insert in one transaction
+    const now = new Date().toISOString()
+
+    const { data, error } = await this.client
+      .rpc("flow_v2_create_revision", {
+        p_id: id,
+        p_flow_id: flowId,
+        p_graph: validated,
+        p_created_at: now,
+      })
+      .single()
+
+    if (error) {
+      throw new Error(`Failed to create flow revision atomically: ${error.message}`)
+    }
+
+    const parsed = FlowRevisionRowSchema.parse(data)
+    return {
+      id: parsed.id,
+      flowId: parsed.flow_id,
+      version: parsed.version,
+      graph: FlowSchema.parse(parsed.graph as JsonValue),
+      createdAt: parsed.created_at,
+    }
   }
 
   async loadRevision({ flowId, version }: LoadFlowRevisionParams): Promise<FlowRevisionRecord | null> {
@@ -285,26 +289,6 @@ export class FlowRepository {
     })
   }
 
-  private async resolveRevisionVersion(flowId: string, preferred?: number): Promise<number> {
-    if (typeof preferred === "number") {
-      return preferred
-    }
-
-    const { data, error } = await this.client
-      .from("flow_v2_revisions")
-      .select("version")
-      .eq("flow_id", flowId)
-      .order("version", { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    if (error) {
-      throw new Error(`Failed to resolve revision version: ${error.message}`)
-    }
-
-    const latestVersion = data?.version ?? -1
-    return latestVersion + 1
-  }
 }
 
 export type FlowRepositoryInstance = FlowRepository

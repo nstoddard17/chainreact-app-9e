@@ -670,8 +670,8 @@ export function ConfigurationModal({
           transform: 'translateZ(0)', // Force GPU acceleration for smooth rendering
           backfaceVisibility: 'hidden', // Prevent flickering during scroll
           top: `${headerHeight}px`,
-          width: viewportWidth === 0 ? '90vw' : viewportWidth < 640 ? '100vw' : viewportWidth < 1024 ? '95vw' : '90vw',
-          maxWidth: viewportWidth === 0 ? '1200px' : viewportWidth < 640 ? '100vw' : '1200px',
+          width: viewportWidth === 0 ? '600px' : viewportWidth < 640 ? '100vw' : '600px',
+          maxWidth: viewportWidth === 0 ? '600px' : viewportWidth < 640 ? '100vw' : '600px',
           height: panelHeight ? `${panelHeight}px` : `calc(100vh - ${headerHeight}px)`,
           maxHeight: panelHeight ? `${panelHeight}px` : `calc(100vh - ${headerHeight}px)`,
         }}

@@ -14,6 +14,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     'tableName',
     'filterField',
     'filterValue',
+    'searchValue',
     'draftName',
     'designer',
     'associatedProject',
@@ -88,6 +89,9 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
 
       case 'filterValue':
         return this.loadFieldValues(params);
+
+      case 'searchValue':
+        return this.loadSearchFieldValues(params);
 
       case 'draftName':
         return this.loadDynamicFieldOptions(params, 'airtable_draft_names');
@@ -306,13 +310,29 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
       const result = await response.json();
       const fields = result.data || [];
 
+      logger.debug(`🔍 [loadFields] Received ${fields.length} fields from API:`, {
+        firstField: fields[0],
+        selectFields: fields.filter((f: any) => f.type === 'singleSelect' || f.type === 'multipleSelects').map((f: any) => ({
+          label: f.label || f.value || f.name,
+          type: f.type,
+          optionsCount: f.options?.length || 0,
+          hasOptions: !!f.options
+        }))
+      });
+
       // Fields are already formatted from the backend with proper type information
       const formattedFields = fields.map((field: any) => ({
         value: field.value || field.name,
         label: field.label || field.name,
         type: field.type || 'text',
-        id: field.id || field.value || field.name
+        id: field.id || field.value || field.name,
+        options: field.options // Preserve options for select fields
       }));
+
+      logger.debug(`🔍 [loadFields] Formatted fields:`, {
+        firstFormatted: formattedFields[0],
+        selectFormatted: formattedFields.filter((f: any) => f.type === 'singleSelect' || f.type === 'multipleSelects').slice(0, 2)
+      });
 
       // Store in cache
       const ttl = getFieldTTL('filterField');
@@ -580,6 +600,90 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
       return formattedValues;
     } catch (error) {
       logger.error('❌ [Airtable] Error loading field values:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Load search field values for Find Record action
+   * Returns field options for select fields, or empty array for text fields (allowing freeform input)
+   */
+  private async loadSearchFieldValues(params: LoadOptionsParams): Promise<FormattedOption[]> {
+    const { dependsOnValue: searchField, extraOptions, integrationId, signal, forceRefresh } = params;
+
+    if (!searchField || !integrationId) {
+      logger.debug('🔍 [Airtable] Cannot load search field values without searchField and integrationId');
+      return [];
+    }
+
+    const baseId = extraOptions?.baseId;
+    const tableName = extraOptions?.tableName;
+
+    if (!baseId || !tableName) {
+      logger.debug('🔍 [Airtable] Cannot load search field values without baseId and tableName');
+      return [];
+    }
+
+    // First, we need to get the field metadata to check if it's a select field
+    // Build cache key for fields
+    const fieldsCacheKey = buildCacheKey('airtable', integrationId, 'searchFieldMeta', { baseId, tableName });
+    const cacheStore = useConfigCacheStore.getState();
+
+    let fieldMetadata: any = null;
+
+    try {
+      // Try to get fields with metadata
+      const response = await fetch('/api/integrations/airtable/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          integrationId,
+          dataType: 'airtable_fields',
+          options: {
+            baseId,
+            tableName,
+            filterReadOnly: true
+          },
+          forceRefresh
+        }),
+        signal
+      });
+
+      if (!response.ok) {
+        logger.debug('🔍 [Airtable] Failed to load field metadata for searchValue');
+        return [];
+      }
+
+      const result = await response.json();
+      const fields = result.data || [];
+
+      // Find the selected field
+      fieldMetadata = fields.find((f: any) => f.value === searchField || f.label === searchField);
+
+      if (!fieldMetadata) {
+        logger.debug('🔍 [Airtable] Field not found in metadata:', searchField);
+        return [];
+      }
+
+      // If field has options (singleSelect or multipleSelects), return them
+      if (fieldMetadata.options && Array.isArray(fieldMetadata.options)) {
+        logger.debug(`✅ [Airtable] Found ${fieldMetadata.options.length} options for select field "${searchField}"`);
+
+        const formattedOptions = fieldMetadata.options.map((option: any) => ({
+          value: option.name,
+          label: option.name,
+          color: option.color
+        }));
+
+        return formattedOptions;
+      }
+
+      // For non-select fields, return empty array (allows freeform tags input)
+      logger.debug(`🔍 [Airtable] Field "${searchField}" is type "${fieldMetadata.type}" - allowing freeform input`);
+      return [];
+
+    } catch (error) {
+      logger.error('❌ [Airtable] Error loading search field values:', error);
       return [];
     }
   }

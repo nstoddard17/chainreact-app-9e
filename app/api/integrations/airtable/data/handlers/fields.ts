@@ -13,6 +13,7 @@ export interface AirtableFieldOption {
   label: string
   type: string
   id: string
+  options?: { id?: string; name: string; color?: string }[] // For select/multipleSelects fields
 }
 
 // Read-only field types that cannot be edited via the API
@@ -117,12 +118,25 @@ export const getAirtableFields: AirtableDataHandler<AirtableFieldOption> = async
     const originalCount = allFields.length
 
     // Map fields to options
-    let fields: AirtableFieldOption[] = allFields.map((field: any) => ({
-      value: field.name,
-      label: field.name,
-      type: field.type,
-      id: field.id
-    }))
+    let fields: AirtableFieldOption[] = allFields.map((field: any) => {
+      const fieldOption: AirtableFieldOption = {
+        value: field.name,
+        label: field.name,
+        type: field.type,
+        id: field.id
+      }
+
+      // Include options for select and multipleSelects fields
+      if ((field.type === 'singleSelect' || field.type === 'multipleSelects') && field.options?.choices) {
+        fieldOption.options = field.options.choices.map((choice: any) => ({
+          id: choice.id,
+          name: choice.name,
+          color: choice.color
+        }))
+      }
+
+      return fieldOption
+    })
 
     // Filter out read-only fields if requested
     if (filterReadOnly) {
@@ -139,6 +153,17 @@ export const getAirtableFields: AirtableDataHandler<AirtableFieldOption> = async
     }
 
     logger.debug(`✅ Airtable fields fetched successfully: ${fields.length} fields from table "${tableName}"`)
+    logger.debug(`🔍 [Fields Handler] Sample field data:`, {
+      sampleField: fields[0],
+      allFieldNames: fields.map(f => f.label).slice(0, 5),
+      hasType: fields.filter(f => f.type).length,
+      hasOptions: fields.filter(f => f.options).length,
+      selectFields: fields.filter(f => f.type === 'singleSelect' || f.type === 'multipleSelects').map(f => ({
+        label: f.label,
+        type: f.type,
+        optionsCount: f.options?.length || 0
+      }))
+    })
     return fields
     
   } catch (error: any) {

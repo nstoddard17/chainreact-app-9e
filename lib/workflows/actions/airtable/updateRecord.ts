@@ -105,6 +105,9 @@ export async function updateAirtableRecord(
     const attachmentErrors: string[] = []
     const skippedFields: string[] = []
 
+    // Get preserveExistingAttachments setting (default to true for append mode)
+    const preserveExistingAttachments = config.preserveExistingAttachments === "false" ? false : true
+
     // Helper function to format date/datetime values based on field schema
     const formatDateForAirtable = (value: any, fieldInfo: any): any => {
       if (!fieldInfo || !value) return value
@@ -213,7 +216,46 @@ export async function updateAirtableRecord(
         }
 
         if (attachments.length > 0) {
-          resolvedFields[fieldName] = attachments
+          // If preserving existing attachments, fetch current record and merge
+          if (preserveExistingAttachments) {
+            try {
+              const currentRecordResponse = await fetch(
+                `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}/${recordId}`,
+                {
+                  method: "GET",
+                  headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    "Content-Type": "application/json",
+                  },
+                }
+              )
+
+              if (currentRecordResponse.ok) {
+                const currentRecord = await currentRecordResponse.json()
+                const existingAttachments = currentRecord.fields?.[fieldName]
+
+                if (Array.isArray(existingAttachments) && existingAttachments.length > 0) {
+                  // Merge existing attachments with new ones
+                  resolvedFields[fieldName] = [...existingAttachments, ...attachments]
+                  logger.debug(`📎 [Airtable] Appending ${attachments.length} attachment(s) to ${existingAttachments.length} existing attachment(s) for field "${fieldName}"`)
+                } else {
+                  resolvedFields[fieldName] = attachments
+                }
+              } else {
+                // If we can't fetch the current record, just use the new attachments
+                resolvedFields[fieldName] = attachments
+                logger.debug(`📎 [Airtable] Could not fetch existing attachments, using new attachments only for field "${fieldName}"`)
+              }
+            } catch (fetchError) {
+              // If fetching fails, just use the new attachments
+              resolvedFields[fieldName] = attachments
+              logger.debug(`📎 [Airtable] Error fetching existing attachments, using new attachments only for field "${fieldName}"`)
+            }
+          } else {
+            // Replace mode - just use the new attachments
+            resolvedFields[fieldName] = attachments
+            logger.debug(`📎 [Airtable] Replacing existing attachments with ${attachments.length} new attachment(s) for field "${fieldName}"`)
+          }
           continue
         }
 

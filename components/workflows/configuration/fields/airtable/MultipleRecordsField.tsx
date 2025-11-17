@@ -56,17 +56,19 @@ export function MultipleRecordsField({
     const target = recordItemRefs.current[recordIndex];
     if (!target) return;
 
-    const scrollParent = getScrollableParent(target);
+    const scrollParent =
+      (target.closest('[data-config-scroll-container="true"]') as HTMLElement | null) ||
+      getScrollableParent(target);
+
     if (!scrollParent) return;
 
     const parentRect = scrollParent.getBoundingClientRect();
     const targetRect = target.getBoundingClientRect();
-    const currentScrollTop = scrollParent.scrollTop ?? document.documentElement.scrollTop;
     const relativeTop = targetRect.top - parentRect.top;
-    const desiredTop = Math.max(currentScrollTop + relativeTop - 80, 0); // leave some breathing room at the top
+    const desiredScroll = scrollParent.scrollTop + relativeTop - 24;
 
     scrollParent.scrollTo({
-      top: desiredTop,
+      top: desiredScroll < 0 ? 0 : desiredScroll,
       behavior: 'smooth'
     });
   }, []);
@@ -376,6 +378,7 @@ function getFieldType(airtableType: string): string {
     'richText': 'textarea',
     'barcode': 'text',
     'button': 'text',
+    'multipleAttachments': 'file',
   };
 
   return typeMap[airtableType] || 'text';

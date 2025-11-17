@@ -70,9 +70,17 @@ export async function findAirtableRecord(
         searchConditions.push(`${fieldRef} = "${value}"`)
       } else {
         // For 'any' or 'all' - search for each keyword
+        // Use FIND() which returns position (>0) when found, 0 when not found
+        // We need to explicitly check > 0 for proper boolean evaluation
         keywords.forEach(keyword => {
-          const searchFunc = caseSensitive ? 'FIND' : 'SEARCH'
-          searchConditions.push(`${searchFunc}("${keyword}", {${searchField}})`)
+          if (caseSensitive) {
+            // Case-sensitive: use FIND directly and check > 0
+            searchConditions.push(`FIND("${keyword}", {${searchField}}) > 0`)
+          } else {
+            // Case-insensitive: convert both to lowercase, use FIND, and check > 0
+            const lowerKeyword = keyword.toLowerCase()
+            searchConditions.push(`FIND("${lowerKeyword}", LOWER({${searchField}})) > 0`)
+          }
         })
       }
 
@@ -101,10 +109,14 @@ export async function findAirtableRecord(
       url.searchParams.append('filterByFormula', finalFormula)
     }
 
-    // Add sorting for newest/oldest options
+    // Note: Sorting by creation time requires a "Created time" field in the table
+    // Airtable's REST API does not support sorting by system fields (createdTime)
+    // Skipping sort for newest/oldest to avoid 422 errors
+    // Users should add a "Created time" field type to their table if they want time-based sorting
     if (returnFirst === 'newest' || returnFirst === 'oldest') {
-      url.searchParams.append('sort[0][field]', 'Created')
-      url.searchParams.append('sort[0][direction]', returnFirst === 'newest' ? 'desc' : 'asc')
+      // Sorting disabled - would cause 422 error "Unknown field name"
+      // TODO: Add config option for users to specify their created time field name
+      logger.debug('[findAirtableRecord] Skipping time-based sort - not supported by Airtable REST API')
     }
 
     logger.debug('[findAirtableRecord] Searching with formula:', {
