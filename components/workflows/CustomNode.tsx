@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils"
 import './builder/styles/node-states.css'
 import { InlineNodePicker } from './InlineNodePicker'
 import type { NodeComponent } from '@/lib/workflows/nodes/types'
+import { FieldVisibilityEngine } from '@/lib/workflows/fields/visibility'
 
 export type NodeState = 'skeleton' | 'ready' | 'running' | 'passed' | 'failed'
 
@@ -333,31 +334,46 @@ function CustomNode({ id, data, selected }: NodeProps) {
   // Check if all required fields are filled
   // Use validationState from ConfigurationForm if available (smart check with visibility awareness)
   // Otherwise fall back to simple config check
+  // Memo to check required fields - use validationState if available, otherwise check visibility-aware
   const hasRequiredFieldsMissing = useMemo(() => {
-    // If we have validation state from the configuration form, use it
+    // Path 1: If we have validation state from the configuration form, use it (most reliable)
     if (data.validationState) {
-      // Check if validation is recent and valid
       const isValid = data.validationState.isValid
       const hasMissingRequired = (data.validationState.missingRequired?.length ?? 0) > 0
 
-      // If explicitly marked as valid, trust it
       if (isValid === true) return false
-      // If explicitly marked as invalid, trust it
       if (isValid === false) return true
-      // Otherwise check missingRequired array
       return hasMissingRequired
     }
 
-    // Fallback to simple check if no validation state
+    // Path 2: Fallback check using FieldVisibilityEngine (respects visibility conditions)
     if (!component?.configSchema || !config) return false
 
-    return component.configSchema.some((field: any) => {
-      if (!field.required) return false
-      const value = config[field.name]
+    try {
+      const nodeInfo = {
+        type: type,
+        providerId: data.providerId,
+        configSchema: component.configSchema
+      }
 
-      // Check if value is missing or empty
-      return value === undefined || value === null || value === ''
-    })
+      const missingFields = FieldVisibilityEngine.getMissingRequiredFields(
+        component.configSchema,
+        config,
+        nodeInfo
+      )
+
+      return missingFields.length > 0
+    } catch (error) {
+      // Path 3: Error fallback - use simple check (less accurate but safe)
+      logger.debug('[CustomNode] Visibility check error, using simple fallback', { type, error })
+      return component.configSchema.some((field: any) => {
+        if (!field.required) return false
+        const value = config[field.name]
+        return value === undefined || value === null || value === ''
+      })
+    }
+    // IMPORTANT: Keep original dependencies to prevent infinite loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [component?.configSchema, config, data.validationState])
 
   const statusBadge = getStatusBadge(nodeState, hasRequiredFieldsMissing)

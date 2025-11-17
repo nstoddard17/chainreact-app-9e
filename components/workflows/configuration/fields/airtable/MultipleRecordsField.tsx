@@ -73,8 +73,24 @@ export function MultipleRecordsField({
     const newRecords = [...records, newRecord];
     onChange(newRecords);
 
-    // Open the newly added record
-    setOpenItems([`record-${newRecords.length - 1}`]);
+    // Open the newly added record and scroll to show it at the top
+    setTimeout(() => {
+      setOpenItems([`record-${newRecords.length - 1}`]);
+
+      // Wait for the accordion to expand, then scroll the new record into view
+      requestAnimationFrame(() => {
+        const newRecordElement = document.querySelector(`[value="record-${newRecords.length - 1}"]`);
+
+        if (newRecordElement) {
+          // Scroll so the new record's header is at the top of the viewport
+          newRecordElement.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start',
+            inline: 'nearest'
+          });
+        }
+      });
+    }, 0);
   }, [records, maxRecords, onChange]);
 
   // Remove a record

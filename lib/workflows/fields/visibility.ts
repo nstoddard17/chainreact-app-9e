@@ -492,7 +492,7 @@ export class FieldVisibilityEngine {
   ): string[] {
     const visibleFields = this.getVisibleFields(schema, formValues, nodeInfo);
 
-    return visibleFields
+    const missingFields = visibleFields
       .filter(field => field.required || field.validation?.required)
       .filter(field => {
         const value = formValues[field.name];
@@ -509,6 +509,19 @@ export class FieldVisibilityEngine {
                (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0);
       })
       .map(field => field.name);
+
+    // Debug logging for Add Attachment
+    if (nodeInfo?.type === 'airtable_action_add_attachment') {
+      console.log('🔍 [Add Attachment Validation]', {
+        allFields: schema.map(f => f.name),
+        visibleFields: visibleFields.map(f => f.name),
+        visibleRequiredFields: visibleFields.filter(f => f.required).map(f => f.name),
+        formValues: formValues,
+        missingFields: missingFields
+      });
+    }
+
+    return missingFields;
   }
 
   /**

@@ -8,6 +8,7 @@ import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-re
 import { createClient } from "@supabase/supabase-js"
 import { airtableHandlers } from './handlers'
 import { AirtableIntegration } from './types'
+import { decrypt } from '@/lib/security/encryption'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -48,6 +49,25 @@ export async function POST(req: NextRequest) {
       return errorResponse('Airtable integration is not connected. Please reconnect your account.', 400, {
         needsReconnection: true,
         currentStatus: integration.status
+      })
+    }
+
+    // Decrypt the access token
+    const encryptionKey = process.env.ENCRYPTION_KEY
+    if (!encryptionKey) {
+      logger.error('❌ [Airtable API] ENCRYPTION_KEY not configured')
+      return errorResponse('Server configuration error', 500)
+    }
+
+    try {
+      integration.access_token = decrypt(integration.access_token, encryptionKey)
+      if (integration.refresh_token) {
+        integration.refresh_token = decrypt(integration.refresh_token, encryptionKey)
+      }
+    } catch (decryptError) {
+      logger.error('❌ [Airtable API] Failed to decrypt tokens:', decryptError)
+      return errorResponse('Failed to decrypt authentication tokens. Please reconnect your account.', 500, {
+        needsReconnection: true
       })
     }
 

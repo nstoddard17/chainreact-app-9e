@@ -45,16 +45,31 @@ export const getAirtableBases: AirtableDataHandler<AirtableBase> = async (integr
     return transformedBases
     
   } catch (error: any) {
-    logger.error("Error fetching Airtable bases:", error)
-    
-    if (error.message?.includes('authentication') || error.message?.includes('expired')) {
+    logger.error("Error fetching Airtable bases:", {
+      message: error.message,
+      status: error.status,
+      name: error.name,
+      stack: error.stack
+    })
+
+    // Check for specific status codes first (more reliable than string matching)
+    if (error.status === 429) {
+      throw new Error('Airtable API rate limit exceeded. Please try again later.')
+    }
+
+    if (error.status === 401) {
       throw new Error('Airtable authentication expired. Please reconnect your account.')
     }
-    
+
+    // Fallback to message checking (less reliable)
     if (error.message?.includes('rate limit')) {
       throw new Error('Airtable API rate limit exceeded. Please try again later.')
     }
-    
+
+    if (error.message?.includes('authentication') || error.message?.includes('expired')) {
+      throw new Error('Airtable authentication expired. Please reconnect your account.')
+    }
+
     throw new Error(error.message || "Error fetching Airtable bases")
   }
 }
