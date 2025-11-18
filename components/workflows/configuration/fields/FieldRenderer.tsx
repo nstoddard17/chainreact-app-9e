@@ -305,9 +305,9 @@ const shouldUseConnectMode = (field: ConfigField | NodeField) => {
     return true
   }
 
-  // Default: use connect mode for text, email, number, date, dropdown, object, and array field types
+  // Default: use connect mode for text, email, number, date, datetime-local, dropdown, object, and array field types
   return fieldType === 'text' || fieldType === 'email' || fieldType === 'number' || fieldType === 'date' ||
-         fieldType === 'object' || fieldType === 'array'
+         fieldType === 'datetime-local' || fieldType === 'object' || fieldType === 'array'
 }
 
 /**
@@ -2498,15 +2498,6 @@ export function FieldRenderer({
                     isUsingNow && "opacity-50"
                   )}
                   placeholder={field.placeholder || "Select date & time or insert variable"}
-                />
-              )}
-              {/* Show old variable picker if NOT using connect mode */}
-              {!useConnectMode && (
-                <SimpleVariablePicker
-                  workflowData={workflowData}
-                  currentNodeId={currentNodeId}
-                  currentNodeType={nodeInfo?.type}
-                  onVariableSelect={(variable) => onChange(variable)}
                 />
               )}
             </div>

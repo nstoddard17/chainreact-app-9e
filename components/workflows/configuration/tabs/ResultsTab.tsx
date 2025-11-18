@@ -180,6 +180,92 @@ export function ResultsTab({
       return <span className="text-slate-400 dark:text-slate-600 italic text-xs">empty</span>
     }
 
+    // Handle Google Calendar specific fields
+    if (columnName === 'start' || columnName === 'end') {
+      if (typeof value === 'object' && value !== null) {
+        // Handle Google Calendar datetime object
+        const dateTime = value.dateTime || value.date
+        if (dateTime) {
+          try {
+            const date = new Date(dateTime)
+            const formatted = date.toLocaleString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+              hour: value.dateTime ? 'numeric' : undefined,
+              minute: value.dateTime ? '2-digit' : undefined,
+            })
+            return <span className="text-xs whitespace-nowrap">{formatted}</span>
+          } catch {
+            return <span className="text-xs">{dateTime}</span>
+          }
+        }
+      }
+    }
+
+    if (columnName === 'attendees') {
+      if (Array.isArray(value) && value.length > 0) {
+        return (
+          <div className="flex flex-col gap-1 max-w-xs">
+            {value.slice(0, 3).map((attendee: any, idx: number) => (
+              <span key={idx} className="text-xs truncate" title={attendee.email}>
+                {attendee.displayName || attendee.email}
+                {attendee.responseStatus && (
+                  <span className="ml-1 text-slate-400">
+                    ({attendee.responseStatus === 'accepted' ? '✓' :
+                      attendee.responseStatus === 'declined' ? '✗' :
+                      attendee.responseStatus === 'tentative' ? '?' : '?'})
+                  </span>
+                )}
+              </span>
+            ))}
+            {value.length > 3 && (
+              <span className="text-xs text-slate-400">+{value.length - 3} more</span>
+            )}
+          </div>
+        )
+      }
+    }
+
+    if (columnName === 'organizer') {
+      if (typeof value === 'object' && value !== null) {
+        return (
+          <span className="text-xs" title={value.email}>
+            {value.displayName || value.email}
+          </span>
+        )
+      }
+    }
+
+    if (columnName === 'htmlLink') {
+      if (typeof value === 'string' && value.startsWith('http')) {
+        return (
+          <a
+            href={value}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            View Event
+          </a>
+        )
+      }
+    }
+
+    if (columnName === 'status') {
+      const statusColors: Record<string, string> = {
+        confirmed: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800',
+        tentative: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800',
+        cancelled: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800',
+      }
+      const colorClass = statusColors[String(value).toLowerCase()] || 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+      return (
+        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs border ${colorClass}`}>
+          {String(value)}
+        </span>
+      )
+    }
+
     // Handle arrays (linked records, multi-select, etc.)
     if (Array.isArray(value)) {
       // Check if it's an array of attachment objects
@@ -278,6 +364,21 @@ export function ResultsTab({
     if (!firstItem || typeof firstItem !== 'object') return null
 
     const allKeys = Object.keys(firstItem)
+
+    // Google Calendar event field order
+    const calendarEventFields = ['summary', 'start', 'end', 'location', 'description', 'attendees', 'organizer', 'status', 'htmlLink', 'eventId', 'created', 'updated']
+
+    // Check if this looks like Google Calendar event data
+    const isCalendarEvent = allKeys.some(key => ['summary', 'start', 'end'].includes(key)) ||
+                            allKeys.some(key => ['eventId', 'htmlLink'].includes(key))
+
+    if (isCalendarEvent) {
+      // Use Calendar event field order
+      return [
+        ...calendarEventFields.filter(field => allKeys.includes(field)),
+        ...allKeys.filter(field => !calendarEventFields.includes(field)).sort()
+      ]
+    }
 
     // Gmail email message field order
     const gmailEmailFields = ['from', 'to', 'cc', 'bcc', 'subject', 'body', 'snippet', 'date', 'attachments', 'labelIds', 'threadId', 'id']

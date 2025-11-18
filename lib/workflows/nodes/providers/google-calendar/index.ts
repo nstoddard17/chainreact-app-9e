@@ -1360,16 +1360,14 @@ export const googleCalendarNodes: NodeComponent[] = [
         label: "Start Date/Time",
         type: "datetime-local",
         placeholder: "Select start date and time",
-        required: false,
-        description: "Lower bound for event start time"
+        required: false
       },
       {
         name: "timeMax",
         label: "End Date/Time",
         type: "datetime-local",
         placeholder: "Select end date and time",
-        required: false,
-        description: "Upper bound for event start time"
+        required: false
       },
       {
         name: "maxResults",
