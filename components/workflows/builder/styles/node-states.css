@@ -22,11 +22,19 @@
   }
 }
 
-/* Apply running state - keep base styling but add animated tint */
-.node-running {
+/* Apply running state - overlay gradient that stays within rounded corners */
+.workflow-node-card.node-running {
   position: relative;
   overflow: hidden;
   isolation: isolate;
+}
+
+.workflow-node-card.node-running::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
   background-image:
     linear-gradient(120deg, hsl(217 91% 60% / 0.12), hsl(217 91% 60% / 0.02)),
     linear-gradient(90deg, transparent 0%, hsl(217 91% 60% / 0.35) 50%, transparent 100%);
@@ -127,18 +135,18 @@
 /* ===== Node Container Borders ===== */
 
 /* Passed state - subtle green border */
-.node-passed {
+.workflow-node-card.node-passed {
   border-color: hsl(142 76% 36% / 0.2) !important;
 }
 
 /* Failed state - subtle red border */
-.node-failed {
+.workflow-node-card.node-failed {
   border-color: hsl(var(--destructive) / 0.2) !important;
 }
 
 /* ===== Reduced Motion Support ===== */
 @media (prefers-reduced-motion: reduce) {
-  .node-running {
+  .workflow-node-card.node-running::before {
     animation: none;
     background-position: 0 0, 0 0;
   }

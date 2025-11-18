@@ -1552,7 +1552,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
       {/* Wrapper div to contain both node and plus button */}
       <div className="relative" style={{ width: '360px' }}>
         <div
-          className={`relative w-[360px] ${finalBackgroundClass} rounded-lg shadow-sm border-2 group ${finalBorderClass} ${shadowClass} ${ringClass} ${
+          className={`workflow-node-card relative w-[360px] ${finalBackgroundClass} rounded-lg shadow-sm border-2 group ${finalBorderClass} ${shadowClass} ${ringClass} ${
             nodeHasConfiguration() ? "cursor-pointer" : ""
           } ${getExecutionStatusStyle()} ${
             visualNodeState === 'running' ? 'node-running' :

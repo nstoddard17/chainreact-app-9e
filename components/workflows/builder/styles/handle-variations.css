@@ -127,34 +127,34 @@
 /* ===== State-Based Colors for All Handles ===== */
 
 /* Running state handles - blue */
-.node-running .handle-dot,
-.node-running .handle-circle,
-.node-running .handle-halfmoon-pulse,
-.node-running .handle-halfmoon-dot {
+.workflow-node-card.node-running .handle-dot,
+.workflow-node-card.node-running .handle-circle,
+.workflow-node-card.node-running .handle-halfmoon-pulse,
+.workflow-node-card.node-running .handle-halfmoon-dot {
   background: linear-gradient(90deg, #d3e7ff 0%, #e6f0ff 100%) !important;
   border-color: hsl(217 91% 60% / 0.5) !important;
 }
 
-.node-running .handle-dot:hover,
-.node-running .handle-circle:hover {
+.workflow-node-card.node-running .handle-dot:hover,
+.workflow-node-card.node-running .handle-circle:hover {
   background: hsl(217 91% 60%) !important;
   border-color: hsl(217 91% 60%) !important;
 }
 
 /* Passed state handles - subtle green hint */
-.node-passed .handle-dot,
-.node-passed .handle-circle {
+.workflow-node-card.node-passed .handle-dot,
+.workflow-node-card.node-passed .handle-circle {
   border-color: hsl(142 76% 36% / 0.3) !important;
 }
 
-.node-passed .handle-dot:hover,
-.node-passed .handle-circle:hover {
+.workflow-node-card.node-passed .handle-dot:hover,
+.workflow-node-card.node-passed .handle-circle:hover {
   border-color: hsl(142 76% 36%) !important;
 }
 
 /* Failed state handles - subtle red hint */
-.node-failed .handle-dot,
-.node-failed .handle-circle {
+.workflow-node-card.node-failed .handle-dot,
+.workflow-node-card.node-failed .handle-circle {
   border-color: hsl(var(--destructive) / 0.3) !important;
 }
 

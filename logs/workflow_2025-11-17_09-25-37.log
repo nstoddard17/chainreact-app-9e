@@ -247,3 +247,7 @@ Import trace for requested module:
 [2025-11-18T21:17:51.537Z] [INFO   ]  ✓ Compiled in 457ms (2845 modules)
 [2025-11-18T21:18:11.200Z] [INFO   ]  ✓ Compiled in 586ms (2845 modules)
 [2025-11-18T21:18:34.175Z] [INFO   ]  ✓ Compiled in 3s (2854 modules)
+[2025-11-18T23:06:23.803Z] [INFO   ]  ✓ Compiled in 9.1s (2854 modules)
+[2025-11-18T23:09:30.476Z] [INFO   ]  ✓ Compiled in 4.3s (2854 modules)
+[2025-11-18T23:09:38.012Z] [INFO   ]  ✓ Compiled in 2s (2854 modules)
+[2025-11-18T23:11:21.085Z] [INFO   ]  ✓ Compiled in 3.5s (2854 modules)

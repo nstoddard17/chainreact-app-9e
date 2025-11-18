@@ -518,7 +518,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         name: "startDate",
         label: "Start Date",
         type: "date",
-        required: true,
+        required: false,
         defaultValue: "today"
       },
 
@@ -526,7 +526,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         name: "startTime",
         label: "Start Time",
         type: "time-picker-15min",
-        required: true,
+        required: false,
         defaultValue: "09:00",
         hidden: {
           $deps: ["allDay"],
@@ -538,7 +538,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         name: "endDate",
         label: "End Date",
         type: "date",
-        required: true,
+        required: false,
         defaultValue: "today"
       },
 
@@ -546,7 +546,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         name: "endTime",
         label: "End Time",
         type: "time-picker-15min",
-        required: true,
+        required: false,
         defaultValue: "10:00",
         hidden: {
           $deps: ["allDay"],
@@ -1358,18 +1358,18 @@ export const googleCalendarNodes: NodeComponent[] = [
       {
         name: "timeMin",
         label: "Start Date/Time",
-        type: "text",
-        placeholder: "today, tomorrow, or ISO date",
+        type: "datetime-local",
+        placeholder: "Select start date and time",
         required: false,
-        description: "Lower bound for event start time (use 'today', 'tomorrow', or ISO date)"
+        description: "Lower bound for event start time"
       },
       {
         name: "timeMax",
         label: "End Date/Time",
-        type: "text",
-        placeholder: "next_week, next_month, or ISO date",
+        type: "datetime-local",
+        placeholder: "Select end date and time",
         required: false,
-        description: "Upper bound for event start time (use 'next_week', 'next_month', or ISO date)"
+        description: "Upper bound for event start time"
       },
       {
         name: "maxResults",

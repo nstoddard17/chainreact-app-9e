@@ -24,7 +24,7 @@ const googleDocsActionCreateDocument: NodeComponent = {
       type: "text",
       required: true,
       placeholder: "e.g., Meeting Notes, Project Report, Documentation",
-      description: "The title of the new document",
+      description: "The title of the new document. If uploading a file, leave empty to use the file's name.",
       tabGroup: "Document"
     },
     {
