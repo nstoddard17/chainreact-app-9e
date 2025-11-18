@@ -408,6 +408,13 @@ function CustomNode({ id, data, selected }: NodeProps) {
     return !AI_STATUS_HIDE_BADGE_STATES.has(normalizedStatus)
   }, [aiStatus, hasRequiredFieldsMissing, visualNodeState])
 
+  type StatusIconItem = {
+    key: string
+    label: string
+    icon: React.ReactNode
+    className: string
+  }
+
   type OutputHandleConfig = {
     id: string
     label: string
@@ -515,6 +522,65 @@ function CustomNode({ id, data, selected }: NodeProps) {
 
     return !isConnected
   })()
+
+  const statusIconItems = useMemo<StatusIconItem[]>(() => {
+    const items: StatusIconItem[] = []
+
+    if (shouldShowStatusBadge) {
+      switch (visualNodeState) {
+        case 'running':
+          items.push({
+            key: 'running',
+            label: statusBadge.text,
+            className: 'text-blue-600 bg-blue-50 border border-blue-200',
+            icon: <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          })
+          break
+        case 'passed':
+          items.push({
+            key: 'passed',
+            label: statusBadge.text,
+            className: 'text-emerald-600 bg-emerald-50 border border-emerald-200',
+            icon: <CheckCircle2 className="w-3.5 h-3.5" />
+          })
+          break
+        case 'failed':
+          items.push({
+            key: 'failed',
+            label: statusBadge.text,
+            className: 'text-red-600 bg-red-50 border border-red-200',
+            icon: <AlertTriangle className="w-3.5 h-3.5" />
+          })
+          break
+        case 'ready':
+        default:
+          if (hasRequiredFieldsMissing) {
+            items.push({
+              key: 'incomplete',
+              label: 'Incomplete',
+              className: 'text-amber-600 bg-amber-50 border border-amber-200',
+              icon: <AlertCircle className="w-3.5 h-3.5" />
+            })
+          }
+          break
+      }
+    }
+
+    if (isIntegrationDisconnected) {
+      const providerName = providerId
+        ?.split('-')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ')
+      items.push({
+        key: 'disconnected',
+        label: providerName ? `Integration disconnected – reconnect ${providerName}` : 'Integration disconnected',
+        className: 'text-red-600 bg-red-50 border border-red-200',
+        icon: <Unplug className="w-3.5 h-3.5" />
+      })
+    }
+
+    return items
+  }, [hasRequiredFieldsMissing, isIntegrationDisconnected, providerId, shouldShowStatusBadge, statusBadge.text, visualNodeState])
 
   // Auto-expand when status changes to configuring
   useEffect(() => {
@@ -1570,6 +1636,24 @@ function CustomNode({ id, data, selected }: NodeProps) {
             flex: 'none',
           }}
         >
+      {statusIconItems.length > 0 && (
+        <TooltipProvider>
+          <div className="absolute top-2 right-10 flex items-center gap-1 noDrag noPan z-20">
+            {statusIconItems.map((item) => (
+              <Tooltip key={item.key}>
+                <TooltipTrigger asChild>
+                  <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full ${item.className}`}>
+                    {item.icon}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>{item.label}</p>
+                </TooltipContent>
+              </Tooltip>
+            ))}
+          </div>
+        </TooltipProvider>
+      )}
       {/* Three-dots menu - Always visible in top-right corner */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -1830,20 +1914,6 @@ function CustomNode({ id, data, selected }: NodeProps) {
                       <span className={`inline-flex items-center rounded-full text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 flex-shrink-0 ${badgeClasses}`}>
                         {badgeLabel}
                       </span>
-                    )}
-                    {isIntegrationDisconnected && (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="flex-shrink-0">
-                              <Unplug className="h-4 w-4 text-red-500" />
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent side="top">
-                            <p>Integration disconnected. Reconnect {providerId?.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} to use this node.</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
                     )}
                   </div>
                   {description && (
