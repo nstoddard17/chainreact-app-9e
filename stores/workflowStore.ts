@@ -148,6 +148,7 @@ export interface Workflow {
   visibility?: string
   executions_count?: number
   created_by?: string
+  last_modified_by?: string | null
   source_template_id?: string | null
   deleted_at?: string | null
   original_folder_id?: string | null
