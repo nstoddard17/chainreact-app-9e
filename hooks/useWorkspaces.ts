@@ -8,6 +8,7 @@ export interface WorkspaceOption {
   id: string | null // null for personal workspace
   name: string
   description?: string
+  user_role?: string // User's role in this workspace (e.g., 'owner', 'admin', 'member')
 }
 
 /**
@@ -59,23 +60,25 @@ export function useWorkspaces() {
         }
       ]
 
-      // Add teams
+      // Add teams (with user role)
       teams.forEach((team: any) => {
         options.push({
           type: 'team',
           id: team.id,
           name: team.name,
-          description: team.description || `Team workspace`
+          description: team.description || `Team workspace`,
+          user_role: team.user_role
         })
       })
 
-      // Add organizations
+      // Add organizations (with user role)
       organizations.forEach((org: any) => {
         options.push({
           type: 'organization',
           id: org.id,
           name: org.name,
-          description: org.description || 'Organization workspace'
+          description: org.description || 'Organization workspace',
+          user_role: org.user_role
         })
       })
 
@@ -103,8 +106,14 @@ export function useWorkspaces() {
     }
   }
 
+  // Helper to get teams and organizations separately
+  const teams = workspaces.filter(w => w.type === 'team')
+  const organizations = workspaces.filter(w => w.type === 'organization')
+
   return {
     workspaces,
+    teams,
+    organizations,
     loading,
     error,
     refetch: fetchWorkspaces
