@@ -70,6 +70,7 @@ export function NodeContextMenu({
             </ContextMenuItem>
             <ContextMenuItem
               onClick={() => {
+                console.log('[NodeContextMenu] Test Flow from here clicked:', nodeId, 'Handler exists:', !!onTestFlowFromHere, 'Disabled:', hasRequiredFieldsMissing)
                 if (!hasRequiredFieldsMissing) {
                   onTestFlowFromHere?.(nodeId)
                 }

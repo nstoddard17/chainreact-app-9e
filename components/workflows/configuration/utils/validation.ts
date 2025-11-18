@@ -1,14 +1,17 @@
 import { NodeComponent, NodeField, ConfigField } from "@/lib/workflows/nodes"
+import { validateVariableResolution, containsVariables } from "./variable-validation"
 
 /**
  * Validates if a field is required and has a value
  * @param field The field configuration
  * @param value The current value of the field
+ * @param input Optional input context for variable resolution validation
  * @returns Error message if validation fails, or undefined if validation passes
  */
 export const validateRequiredField = (
   field: NodeField | ConfigField,
-  value: any
+  value: any,
+  input?: Record<string, any>
 ): string | undefined => {
   // Skip validation for hidden fields or non-required fields
   if (field.hidden || !field.required) {
@@ -34,14 +37,42 @@ export const validateRequiredField = (
 };
 
 /**
+ * Validates that variables in a field resolve to actual values
+ * @param field The field configuration
+ * @param value The current value of the field
+ * @param input The input context for variable resolution
+ * @returns Error message if validation fails, or undefined if validation passes
+ */
+export const validateFieldVariables = (
+  field: NodeField | ConfigField,
+  value: any,
+  input: Record<string, any>
+): string | undefined => {
+  // Skip validation for hidden fields
+  if (field.hidden) {
+    return undefined;
+  }
+
+  // Only validate if the field contains variables
+  if (!containsVariables(value)) {
+    return undefined;
+  }
+
+  // Validate variable resolution
+  return validateVariableResolution(value, input, field.name);
+};
+
+/**
  * Validates all required fields in a form
  * @param nodeInfo Node component information
  * @param config Current form configuration values
+ * @param input Optional input context for variable resolution validation
  * @returns Object with field errors
  */
 export const validateAllRequiredFields = (
   nodeInfo: NodeComponent | null,
-  config: Record<string, any>
+  config: Record<string, any>,
+  input?: Record<string, any>
 ): Record<string, string> => {
   const errors: Record<string, string> = {};
 
@@ -57,10 +88,20 @@ export const validateAllRequiredFields = (
   // Validate each visible required field
   visibleFields.forEach((field) => {
     const value = config[field.name];
-    const error = validateRequiredField(field, value);
-    
-    if (error) {
-      errors[field.name] = error;
+
+    // Check required field validation
+    const requiredError = validateRequiredField(field, value, input);
+    if (requiredError) {
+      errors[field.name] = requiredError;
+      return; // Don't check variable validation if required validation fails
+    }
+
+    // Check variable resolution validation (if input is provided)
+    if (input) {
+      const variableError = validateFieldVariables(field, value, input);
+      if (variableError) {
+        errors[field.name] = variableError;
+      }
     }
   });
 

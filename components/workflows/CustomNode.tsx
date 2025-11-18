@@ -198,6 +198,15 @@ function CustomNode({ id, data, selected }: NodeProps) {
   // Phase 1: Node state helpers
   const nodeState = nodeData.state || 'ready'
   const isSkeletonState = nodeState === 'skeleton'
+  const visualNodeState = useMemo<NodeState>(() => {
+    if (nodeState === 'running' || nodeState === 'passed' || nodeState === 'failed') {
+      return nodeState
+    }
+    if (nodeData.executionStatus === 'running' || nodeData.isActiveExecution) return 'running'
+    if (nodeData.executionStatus === 'completed' || nodeData.executionStatus === 'success') return 'passed'
+    if (nodeData.executionStatus === 'error') return 'failed'
+    return nodeState
+  }, [nodeData.executionStatus, nodeData.isActiveExecution, nodeState])
 
   const getStatusBadge = (state: NodeState, hasRequiredFieldsMissing: boolean): { text: string; className: string; icon?: React.ReactNode; iconOnly?: boolean } => {
     // For ready nodes, check if required fields are missing
@@ -234,16 +243,6 @@ function CustomNode({ id, data, selected }: NodeProps) {
     }
 
     switch (state) {
-      case 'running':
-        // Running nodes get special blue gradient handles
-        return {
-          background: 'linear-gradient(180deg, rgba(219, 234, 254, 0.95), rgba(201, 218, 255, 0.95))',
-          borderColor: 'rgba(59, 130, 246, 0.45)',
-          boxShadow: '0 6px 16px rgba(59, 130, 246, 0.20)',
-        }
-      case 'skeleton':
-        // Skeleton nodes use same grey half-moons as ready nodes
-        return baseStyle
       case 'passed':
         return {
           background: 'linear-gradient(180deg, rgba(229, 250, 239, 0.95), rgba(209, 241, 223, 0.95))',
@@ -256,13 +255,12 @@ function CustomNode({ id, data, selected }: NodeProps) {
           borderColor: 'rgba(248, 113, 113, 0.4)',
           boxShadow: '0 4px 12px rgba(248, 113, 113, 0.16)',
         }
-      case 'ready':
       default:
         return baseStyle
     }
   }
 
-  const handleStyle = getHandleStyle(nodeState)
+  const handleStyle = getHandleStyle(visualNodeState)
 
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [editedTitle, setEditedTitle] = useState("")
@@ -395,20 +393,20 @@ function CustomNode({ id, data, selected }: NodeProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [component?.configSchema, config, data.validationState, type])
 
-  const statusBadge = getStatusBadge(nodeState, hasRequiredFieldsMissing)
+  const statusBadge = getStatusBadge(visualNodeState, hasRequiredFieldsMissing)
 
   const shouldShowStatusBadge = useMemo(() => {
     // Always show badges for explicit execution states or validation warnings
-    if (nodeState === 'running' || nodeState === 'passed' || nodeState === 'failed') {
+    if (visualNodeState === 'running' || visualNodeState === 'passed' || visualNodeState === 'failed') {
       return true
     }
-    if (nodeState === 'ready' && hasRequiredFieldsMissing) {
+    if (visualNodeState === 'ready' && hasRequiredFieldsMissing) {
       return true
     }
 
     const normalizedStatus = (aiStatus || '').toLowerCase()
     return !AI_STATUS_HIDE_BADGE_STATES.has(normalizedStatus)
-  }, [aiStatus, hasRequiredFieldsMissing, nodeState])
+  }, [aiStatus, hasRequiredFieldsMissing, visualNodeState])
 
   type OutputHandleConfig = {
     id: string
@@ -614,7 +612,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
     }
 
     // If nodeState is handling the styling (running/passed/failed), don't add conflicting styles
-    if (nodeState === 'running' || nodeState === 'passed' || nodeState === 'failed') {
+    if (visualNodeState === 'running' || visualNodeState === 'passed' || visualNodeState === 'failed') {
       return ""
     }
 
@@ -1062,21 +1060,26 @@ function CustomNode({ id, data, selected }: NodeProps) {
       return {
         borderClass: 'border-red-500',
         shadowClass: 'shadow-[0_0_0_3px_rgba(239,68,68,0.4)]',
-        backgroundClass: 'bg-white',
+        backgroundClass: 'bg-red-50 dark:bg-red-950/30',
         ringClass: selected ? 'ring-4 ring-red-200' : 'ring-4 ring-red-200'
       }
     }
 
-    if (error) {
-      return { borderClass: 'border-destructive', shadowClass: '', backgroundClass: 'bg-card', ringClass: selected ? 'ring-4 ring-destructive/20' : '' }
+    if (error || nodeState === 'failed') {
+      return {
+        borderClass: 'border-red-500',
+        shadowClass: 'shadow-[0_0_0_2px_rgba(239,68,68,0.3)]',
+        backgroundClass: 'bg-red-50 dark:bg-red-950/30',
+        ringClass: selected ? 'ring-4 ring-red-200' : ''
+      }
     }
 
-    if (hasValidationIssues) {
+    if (hasValidationIssues || hasRequiredFieldsMissing) {
       return {
-        borderClass: 'border-red-400',
-        shadowClass: 'shadow-[0_0_0_2px_rgba(248,113,113,0.35)]',
-        backgroundClass: 'bg-card',
-        ringClass: selected ? 'ring-4 ring-red-200' : ''
+        borderClass: 'border-orange-400',
+        shadowClass: 'shadow-[0_0_0_2px_rgba(251,146,60,0.35)]',
+        backgroundClass: 'bg-orange-50 dark:bg-orange-950/30',
+        ringClass: selected ? 'ring-4 ring-orange-200' : ''
       }
     }
 
@@ -1089,7 +1092,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
         return {
           borderClass: 'border-sky-500',
           shadowClass: 'shadow-[0_0_0_3px_rgba(56,189,248,0.25)]',
-          backgroundClass: 'bg-white',
+          backgroundClass: 'bg-white dark:bg-gray-950',
           ringClass: selected ? 'ring-4 ring-sky-100' : 'ring-4 ring-sky-100'
         }
       case 'testing':
@@ -1097,7 +1100,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
         return {
           borderClass: 'border-amber-500',
           shadowClass: 'shadow-[0_0_0_3px_rgba(251,191,36,0.28)]',
-          backgroundClass: 'bg-white',
+          backgroundClass: 'bg-white dark:bg-gray-950',
           ringClass: selected ? 'ring-4 ring-amber-100' : 'ring-4 ring-amber-100'
         }
       case 'ready':
@@ -1105,14 +1108,14 @@ function CustomNode({ id, data, selected }: NodeProps) {
         return {
           borderClass: 'border-emerald-500',
           shadowClass: 'shadow-[0_0_0_3px_rgba(16,185,129,0.28)]',
-          backgroundClass: 'bg-white',
+          backgroundClass: 'bg-white dark:bg-gray-950',
           ringClass: selected ? 'ring-4 ring-emerald-100' : 'ring-4 ring-emerald-100'
         }
       case 'error':
         return {
           borderClass: 'border-red-500',
           shadowClass: 'shadow-[0_0_0_3px_rgba(239,68,68,0.28)]',
-          backgroundClass: 'bg-white',
+          backgroundClass: 'bg-red-50 dark:bg-red-950/30',
           ringClass: selected ? 'ring-4 ring-red-100' : 'ring-4 ring-red-100'
         }
       default:
@@ -1121,23 +1124,23 @@ function CustomNode({ id, data, selected }: NodeProps) {
           return {
             borderClass: 'border-emerald-500',
             shadowClass: 'shadow-[0_0_0_2px_rgba(16,185,129,0.2)]',
-            backgroundClass: 'bg-white',
+            backgroundClass: 'bg-white dark:bg-gray-950',
             ringClass: selected ? 'ring-4 ring-emerald-100' : ''
           }
         }
 
-        // Default state - use primary border when selected, border when not
+        // Default state (ready) - white background
         if (selected) {
-          return { borderClass: 'border-primary', shadowClass: '', backgroundClass: 'bg-white', ringClass: 'ring-4 ring-primary/20' }
+          return { borderClass: 'border-primary', shadowClass: '', backgroundClass: 'bg-white dark:bg-gray-950', ringClass: 'ring-4 ring-primary/20' }
         }
         return {
           borderClass: 'border-border',
           shadowClass: '',
-          backgroundClass: 'bg-card',
+          backgroundClass: 'bg-white dark:bg-gray-950',
           ringClass: ''
         }
     }
-  }, [aiStatus, selected, isIntegrationDisconnected, error, hasValidationIssues, testResult, hasTestData])
+  }, [aiStatus, selected, isIntegrationDisconnected, error, hasValidationIssues, testResult, hasTestData, nodeState, hasRequiredFieldsMissing])
 
   const { borderClass, shadowClass, backgroundClass, ringClass } = aiOutline
 
@@ -1549,17 +1552,17 @@ function CustomNode({ id, data, selected }: NodeProps) {
       {/* Wrapper div to contain both node and plus button */}
       <div className="relative" style={{ width: '360px' }}>
         <div
-          className={`relative w-[360px] ${finalBackgroundClass} rounded-lg shadow-sm border-2 group ${finalBorderClass} ${shadowClass} ${ringClass} transition-all duration-200 ${
+          className={`relative w-[360px] ${finalBackgroundClass} rounded-lg shadow-sm border-2 group ${finalBorderClass} ${shadowClass} ${ringClass} ${
             nodeHasConfiguration() ? "cursor-pointer" : ""
           } ${getExecutionStatusStyle()} ${
-            nodeState === 'running' ? 'node-running' :
-            nodeState === 'passed' ? 'node-passed' :
-            nodeState === 'failed' ? 'node-failed' : ''
+            visualNodeState === 'running' ? 'node-running' :
+            visualNodeState === 'passed' ? 'node-passed' :
+            visualNodeState === 'failed' ? 'node-failed' : ''
           }`}
           data-testid={`node-${id}`}
           onClick={handleClick}
           style={{
-            opacity: nodeState === 'skeleton' ? 0.5 : 1,
+            opacity: visualNodeState === 'skeleton' ? 0.5 : 1,
             width: '360px',
             maxWidth: '360px',
             minWidth: '360px',
@@ -1567,66 +1570,6 @@ function CustomNode({ id, data, selected }: NodeProps) {
             flex: 'none',
           }}
         >
-      {/* Phase 1: Status Badge - Top Right Corner - Click to toggle preview details */}
-      {/* Hide badge during AI configuration states - show inline status instead */}
-      {shouldShowStatusBadge && (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div
-                className={statusBadge.className}
-                onClick={(e) => {
-                  e.stopPropagation() // Prevent click from opening config
-                  if (nodeState === 'passed' || nodeState === 'failed' || nodeState === 'running') {
-                    setIsPreviewExpanded(!isPreviewExpanded)
-                  }
-                }}
-                style={{
-                  position: 'absolute',
-                  top: '8px',
-                  right: '40px',
-                  fontSize: '10px',
-                  padding: '4px 8px',
-                  borderRadius: '4px',
-                  fontWeight: 600,
-                  textAlign: 'center',
-                  lineHeight: 1,
-                  zIndex: 10,
-                  cursor: (nodeState === 'passed' || nodeState === 'failed' || nodeState === 'running' || hasRequiredFieldsMissing) ? 'pointer' : 'default',
-                }}
-              >
-                {statusBadge.iconOnly ? (
-                  statusBadge.icon
-                ) : (
-                  <>
-                    {statusBadge.icon && <span className="mr-1">{statusBadge.icon}</span>}
-                    {statusBadge.text}
-                  </>
-                )}
-              </div>
-            </TooltipTrigger>
-            {hasRequiredFieldsMissing && (
-              <TooltipContent side="left" className="max-w-xs">
-                <div className="space-y-1">
-                  <p className="font-semibold">Missing required fields:</p>
-                  <ul className="list-disc list-inside text-sm">
-                    {data.validationState?.missingRequired?.map((field) => (
-                      <li key={field}>{field}</li>
-                    )) || <li>Some required fields are missing</li>}
-                  </ul>
-                  <p className="text-xs text-muted-foreground mt-2">Click the node to configure</p>
-                </div>
-              </TooltipContent>
-            )}
-            {(nodeState === 'passed' || nodeState === 'failed' || nodeState === 'running') && !hasRequiredFieldsMissing && (
-              <TooltipContent side="left">
-                {isPreviewExpanded ? 'Click to hide details' : 'Click to show details'}
-              </TooltipContent>
-            )}
-          </Tooltip>
-        </TooltipProvider>
-      )}
-
       {/* Three-dots menu - Always visible in top-right corner */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -2024,9 +1967,14 @@ function CustomNode({ id, data, selected }: NodeProps) {
         )}
       </div>
 
-      <div className="px-3 pb-3 space-y-3">
-        {(showConfigSection || showConfigSkeleton) && (
-          <div className="rounded-xl border border-border/60 bg-background/70 shadow-sm">
+      {/* Configuration section - Position absolutely when running to prevent layout shift */}
+      {(showConfigSection || showConfigSkeleton) && (
+        <div className={visualNodeState === 'running' && isConfigExpanded ? "relative px-3" : "px-3 pb-3 space-y-3"}>
+          <div className={`rounded-xl border border-border/60 bg-background/70 shadow-sm ${
+            visualNodeState === 'running' && isConfigExpanded
+              ? 'absolute top-0 left-3 right-3 z-50 shadow-xl'
+              : ''
+          }`}>
             <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border/50">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -2179,7 +2127,6 @@ function CustomNode({ id, data, selected }: NodeProps) {
               </div>
             )}
           </div>
-        )}
 
         {showTestingSection && (
           <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 shadow-inner">
@@ -2228,7 +2175,8 @@ function CustomNode({ id, data, selected }: NodeProps) {
             {aiTestSummary}
           </div>
         )}
-      </div>
+        </div>
+      )}
 
       {/* CSS for field animations */}
       <style jsx>{`

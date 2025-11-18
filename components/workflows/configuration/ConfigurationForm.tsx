@@ -1083,42 +1083,25 @@ function ConfigurationForm({
         fieldsWithValues.map((f: any) => ({ name: f.name, value: values[f.name], dependsOn: f.dependsOn }))
       );
 
-      // Load options for all fields with saved values in parallel
-      const loadPromises = fieldsWithValues.map(async (field: any) => {
-        // Mark this field as loaded to prevent duplicate loads
+      // Mark all fields as loaded to prevent duplicate loads
+      fieldsWithValues.forEach(field => {
         loadedFieldsWithValues.current.add(field.name);
-
-        logger.debug(`🔄 [ConfigForm] Background loading options for field: ${field.name} (saved value: ${values[field.name]})`);
-
-        try {
-          // Check if field has dependencies
-          if (field.dependsOn) {
-            const dependsOnValue = values[field.dependsOn];
-            if (dependsOnValue) {
-              logger.debug(`  -> Loading with dependency: ${field.dependsOn} = ${dependsOnValue}`);
-              await loadOptions(field.name, field.dependsOn, dependsOnValue);
-            }
-          } else {
-            // No dependencies, just load the field
-            await loadOptions(field.name);
-          }
-        } catch (error) {
-          logger.error(`❌ [ConfigForm] Error loading options for ${field.name}:`, error);
-          // Make sure to clear loading state even on error
-          setLoadingFields(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(field.name);
-            return newSet;
-          });
-        }
       });
 
-      // Execute all loads in parallel
-      Promise.all(loadPromises).catch(err => {
+      logger.debug(`🔄 [ConfigForm] Background loading options for ${fieldsWithValues.length} fields with saved values in parallel`);
+
+      // Load all fields in parallel using the optimized loadOptionsParallel function
+      loadOptionsParallel(
+        fieldsWithValues.map(field => ({
+          fieldName: field.name,
+          dependsOn: field.dependsOn,
+          dependsOnValue: field.dependsOn ? values[field.dependsOn] : undefined
+        }))
+      ).catch(err => {
         logger.error('❌ [ConfigForm] Error loading fields with saved values:', err);
       });
     }
-  }, [nodeInfo, isInitialLoading, values, dynamicOptions, loadOptions]);
+  }, [nodeInfo, isInitialLoading, values, dynamicOptions, loadOptionsParallel]);
 
   // Load dynamic fields when their dependencies are satisfied
   useEffect(() => {
@@ -1185,35 +1168,41 @@ function ConfigurationForm({
         }
       });
 
-      // Load all independent fields in parallel
-      const loadPromises: Promise<any>[] = independentFields.map(field => {
+      // Build list of all fields to load
+      const fieldsToLoadConfig: Array<{ fieldName: string; dependsOn?: string; dependsOnValue?: any }> = [];
+
+      // Add independent fields
+      independentFields.forEach(field => {
         logger.debug(`🔄 [ConfigForm] Auto-loading independent field: ${field.name}`);
-        return loadOptions(field.name);
+        fieldsToLoadConfig.push({ fieldName: field.name });
       });
 
-      // Load all fields with the same dependency in parallel
+      // Add dependent fields that have their dependency values
       Object.entries(dependentFieldsByParent).forEach(([parentField, fields]) => {
         const dependencyValue = values[parentField];
         if (dependencyValue) {
           logger.debug(`📦 [ConfigForm] Loading ${fields.length} fields that depend on ${parentField}:`, fields.map((f: any) => f.name));
           fields.forEach((field: any) => {
-            loadPromises.push(
-              loadOptions(field.name, field.dependsOn, dependencyValue, false)
-            );
+            fieldsToLoadConfig.push({
+              fieldName: field.name,
+              dependsOn: field.dependsOn,
+              dependsOnValue: dependencyValue
+            });
           });
         } else {
           logger.debug(`⚠️ [ConfigForm] Skipping auto-load for fields depending on ${parentField} - missing dependency value`);
         }
       });
 
-      // Execute all loads in parallel
-      if (loadPromises.length > 0) {
-        Promise.all(loadPromises).catch(err => {
+      // Execute all loads in parallel using optimized function
+      if (fieldsToLoadConfig.length > 0) {
+        logger.debug(`🚀 [ConfigForm] Auto-loading ${fieldsToLoadConfig.length} visible fields in parallel`);
+        loadOptionsParallel(fieldsToLoadConfig).catch(err => {
           logger.error('❌ [ConfigForm] Error auto-loading visible fields:', err);
         });
       }
     }
-  }, [nodeInfo, isInitialLoading, values.pageId, loadOptions, dynamicOptions, values]);
+  }, [nodeInfo, isInitialLoading, values.pageId, loadOptionsParallel, dynamicOptions, values]);
 
   // Listen for integration reconnection events to refresh integration status
   useEffect(() => {

@@ -27,6 +27,7 @@ import { GoogleAnalyticsOptionsLoader } from './google-analytics/GoogleAnalytics
 import { GmailOptionsLoader } from './gmail/GmailOptionsLoader';
 import { SlackOptionsLoader } from './slack/slackOptionsLoader';
 import { GumroadOptionsLoader } from './gumroad/gumroadOptionsLoader';
+import { StorageOptionsLoader } from './storage/StorageOptionsLoader';
 
 import { logger } from '@/lib/utils/logger'
 
@@ -104,6 +105,8 @@ class ProviderRegistryImpl implements IProviderRegistry {
 
     // Register Gmail loader
     this.register('gmail', new GmailOptionsLoader());
+    // Register Storage loader for Gmail (for download attachment to storage)
+    this.register('gmail', new StorageOptionsLoader());
 
     // Register Slack loader
     this.register('slack', new SlackOptionsLoader());

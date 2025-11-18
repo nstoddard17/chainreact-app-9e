@@ -66,6 +66,7 @@ const gmailMappings: Record<string, FieldMapping> = {
   },
   gmail_action_download_attachment: {
     messageId: "gmail-recent-emails",
+    folderId: "storage-folders",
   },
   gmail_action_mark_as_read: {
     from: "gmail_recent_senders",

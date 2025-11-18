@@ -4,7 +4,7 @@ import { NodeComponent } from "../../../types"
 const GMAIL_SEARCH_EMAILS_METADATA = {
   key: "gmail_action_search_email",
   name: "Get Email",
-  description: "Find emails in Gmail matching specific search criteria"
+  description: "Find emails by search criteria"
 }
 
 export const searchEmailsActionSchema: NodeComponent = {
@@ -107,16 +107,64 @@ export const searchEmailsActionSchema: NodeComponent = {
   ],
   outputSchema: [
     {
-      name: "messages",
-      label: "Messages",
+      name: "emails",
+      label: "Emails",
       type: "array",
-      description: "Array of email messages matching the search criteria"
+      description: "List of emails that matched your filters, including subject, sender, snippet, body (optional), and metadata."
     },
     {
-      name: "count",
-      label: "Count",
+      name: "totalCount",
+      label: "Total Count",
       type: "number",
-      description: "Number of messages found"
+      description: "Total number of matching emails returned by Gmail for this search."
+    },
+    {
+      name: "hasMore",
+      label: "More Available",
+      type: "boolean",
+      description: "Whether additional pages of results are available beyond the returned set."
+    },
+    {
+      name: "latestEmail",
+      label: "Newest Email (Object)",
+      type: "object",
+      description: "Full object for the most recent email in the search results."
+    },
+    {
+      name: "latestSubject",
+      label: "Newest Email Subject",
+      type: "string",
+      description: "Subject line of the most recent email returned."
+    },
+    {
+      name: "latestSnippet",
+      label: "Newest Email Snippet",
+      type: "string",
+      description: "Preview/snippet text for the most recent email."
+    },
+    {
+      name: "latestBody",
+      label: "Newest Email Body",
+      type: "string",
+      description: "Full body of the most recent email (only populated when body fetching is enabled)."
+    },
+    {
+      name: "latestFrom",
+      label: "Newest Email From",
+      type: "string",
+      description: "Sender of the most recent email."
+    },
+    {
+      name: "latestTo",
+      label: "Newest Email Recipients",
+      type: "string",
+      description: "Comma-separated recipient list for the most recent email."
+    },
+    {
+      name: "latestDate",
+      label: "Newest Email Date",
+      type: "string",
+      description: "Timestamp of the most recent email."
     }
   ]
 }
