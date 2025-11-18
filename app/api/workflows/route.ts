@@ -269,6 +269,7 @@ export async function POST(request: Request) {
         workspace_type,
         workspace_id,
         created_by: user.id,
+        last_modified_by: user.id,
         nodes: [],
         connections: [],
         status: status || "draft",

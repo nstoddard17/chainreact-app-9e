@@ -1959,9 +1959,16 @@ function WorkflowsContent() {
                           </div>
                         </td>
                         <td className="px-3 py-4">
-                          <span className="text-sm">
-                            {formatDistanceToNow(new Date(workflow.updated_at || workflow.created_at), { addSuffix: true })}
-                          </span>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-sm text-muted-foreground">
+                              {formatDistanceToNow(new Date(workflow.updated_at || workflow.created_at), { addSuffix: true })}
+                            </span>
+                            {workflow.last_modified_by && workflow.last_modified_by !== user?.id && (
+                              <span className="text-xs text-muted-foreground/70">
+                                by {workflow.last_modified_by === workflow.user_id ? 'owner' : 'collaborator'}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-3 py-4">
                           <TooltipProvider>
@@ -2475,8 +2482,15 @@ function WorkflowsContent() {
                           </div>
 
                           {/* Last Modified */}
-                          <div className="text-xs text-slate-500 text-center mt-2">
-                            {formatDistanceToNow(new Date(workflow.updated_at || workflow.created_at), { addSuffix: true })}
+                          <div className="flex flex-col items-center gap-0.5 text-xs text-slate-500 mt-2">
+                            <span>
+                              {formatDistanceToNow(new Date(workflow.updated_at || workflow.created_at), { addSuffix: true })}
+                            </span>
+                            {workflow.last_modified_by && workflow.last_modified_by !== user?.id && (
+                              <span className="text-[10px] text-slate-400">
+                                by {workflow.last_modified_by === workflow.user_id ? 'owner' : 'collaborator'}
+                              </span>
+                            )}
                           </div>
                         </div>
                       )
