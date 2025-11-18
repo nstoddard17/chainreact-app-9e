@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Command } from "lucide-react"
-import { OrganizationSwitcher } from "@/components/new-design/OrganizationSwitcher"
 import { CommandPalette } from "@/components/new-design/CommandPalette"
 import { NotificationDropdown } from "@/components/ui/notification-dropdown"
 
@@ -44,11 +43,8 @@ export function NewHeader({ title, subtitle, actions }: NewHeaderProps) {
         )}
       </div>
 
-      {/* Right Side - Organization Switcher, Search, Notifications, Actions */}
+      {/* Right Side - Search, Notifications, Actions */}
       <div className="flex items-center gap-3">
-        {/* Organization Switcher */}
-        <OrganizationSwitcher />
-
         {/* Quick Search */}
         <Button
           variant="outline"
