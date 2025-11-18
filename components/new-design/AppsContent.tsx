@@ -22,38 +22,55 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { CheckCircle2, Plus, ExternalLink, MoreVertical, Unplug, RefreshCw, Settings, AlertCircle, Shield, Eye } from "lucide-react"
+import { CheckCircle2, Plus, ExternalLink, MoreVertical, Unplug, RefreshCw, Settings, AlertCircle, Shield, Eye, Home, Users, Building } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { logger } from "@/lib/utils/logger"
 import { IntegrationService } from "@/services/integration-service"
 import { getIntegrationLogoClasses, getIntegrationLogoPath } from "@/lib/integrations/logoStyles"
 import { useTheme } from "next-themes"
-import { useWorkspaceContext } from "@/hooks/useWorkspaceContext"
+import { AppsWorkspaceGroupView } from "@/components/apps/AppsWorkspaceGroupView"
+import { useWorkspaces } from "@/hooks/useWorkspaces"
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 export function AppsContent() {
-  const { providers, integrations, initializeProviders, fetchIntegrations, connectIntegration, setLoading, loading: storeLoading, setWorkspaceContext: setStoreWorkspaceContext } = useIntegrationStore()
+  const { providers, integrations, initializeProviders, fetchAllIntegrations, connectIntegration, setLoading, loading: storeLoading } = useIntegrationStore()
   const { user } = useAuthStore()
   const { theme } = useTheme()
-  const { workspaceContext } = useWorkspaceContext()
-  const [searchQuery, setSearchQuery] = useState("")
+  const { teams: allTeams, organizations: allOrganizations } = useWorkspaces()
   const [availableSearchQuery, setAvailableSearchQuery] = useState("")
   const [showConnectDialog, setShowConnectDialog] = useState(false)
+  const [selectedWorkspaceType, setSelectedWorkspaceType] = useState<'personal' | 'team' | 'organization'>('personal')
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null)
   const [loading, setLocalLoading] = useState<Record<string, boolean>>({})
   const [initialLoadComplete, setInitialLoadComplete] = useState(false)
   const { toast } = useToast()
 
-  // Sync workspace context to integration store when it changes
+  // Filter to only show workspaces where user can manage apps (owner or admin)
+  const teams = allTeams.filter(team =>
+    team.user_role === 'owner' || team.user_role === 'admin'
+  )
+  const organizations = allOrganizations.filter(org =>
+    org.user_role === 'owner' || org.user_role === 'admin'
+  )
+
+  // Always fetch all integrations for grouped view
   useEffect(() => {
-    if (workspaceContext) {
-      setStoreWorkspaceContext(workspaceContext.type, workspaceContext.id)
+    if (user) {
+      fetchAllIntegrations()
     }
-  }, [workspaceContext, setStoreWorkspaceContext])
+  }, [user, fetchAllIntegrations])
 
   // Prevent React 18 Strict Mode double-fetch
   const hasInitializedRef = useRef(false)
@@ -93,7 +110,7 @@ export function AppsContent() {
 
     try {
       // Use the store's connectIntegration method which handles optimistic updates
-      await connectIntegration(providerId)
+      await connectIntegration(providerId, selectedWorkspaceType, selectedWorkspaceId)
 
       // Keep modal open so user can connect more apps without reopening
       // The connected app will automatically disappear from the list
@@ -135,7 +152,7 @@ export function AppsContent() {
       })
 
       // Refresh integrations list
-      fetchIntegrations(false)
+      fetchAllIntegrations()
     } catch (error: any) {
       logger.error("Failed to disconnect integration:", error)
       toast({
@@ -151,26 +168,6 @@ export function AppsContent() {
   const handleReconnect = async (providerId: string) => {
     handleConnect(providerId)
   }
-
-  // Filter connected apps - only show truly connected (not expired)
-  const connectedApps = providers.filter(provider => {
-    if (["ai", "logic", "control"].includes(provider.id)) return false
-    const connection = getConnectionStatus(provider.id)
-    const isConnected = connection?.status === 'connected'
-    const matchesSearch = searchQuery === "" ||
-      provider.name.toLowerCase().includes(searchQuery.toLowerCase())
-    return isConnected && matchesSearch
-  }).sort((a, b) => a.name.localeCompare(b.name))
-
-  // Filter apps that need attention (expired or needs reauth)
-  const appsNeedingAttention = providers.filter(provider => {
-    if (["ai", "logic", "control"].includes(provider.id)) return false
-    const connection = getConnectionStatus(provider.id)
-    const needsAttention = connection && (connection.status === 'expired' || connection.status === 'needs_reauthorization')
-    const matchesSearch = searchQuery === "" ||
-      provider.name.toLowerCase().includes(searchQuery.toLowerCase())
-    return needsAttention && matchesSearch
-  }).sort((a, b) => a.name.localeCompare(b.name))
 
   // Popular apps to show first (most commonly used integrations)
   const POPULAR_APPS = ['gmail', 'slack', 'notion', 'drive', 'twitter', 'discord', 'airtable', 'hubspot']
@@ -197,6 +194,13 @@ export function AppsContent() {
 
   const availableApps = [...popularApps, ...otherApps]
 
+  // Filter apps that need attention (expired or need reauthorization)
+  const appsNeedingAttention = providers.filter(provider => {
+    if (["ai", "logic", "control"].includes(provider.id)) return false
+    const connection = getConnectionStatus(provider.id)
+    return connection && (connection.status === 'expired' || connection.status === 'needs_reauthorization')
+  })
+
   const stats = {
     connected: integrations.filter(i => i.status === 'connected').length,
     available: availableApps.length,
@@ -216,24 +220,11 @@ export function AppsContent() {
 
   return (
     <div className="space-y-6">
-      {/* Workspace Context Badge */}
-      <div className="flex items-center justify-between mb-2">
-        <Badge variant="outline" className="text-xs sm:text-sm py-1 px-3">
-          {workspaceContext.isPersonal ? (
-            <>Personal Workspace</>
-          ) : (
-            <>{workspaceContext.name} ({workspaceContext.type === 'team' ? 'Team' : 'Organization'})</>
-          )}
-        </Badge>
-      </div>
-
-      {/* Header Action */}
+      {/* Header Actions */}
       <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-muted-foreground">
-            {stats.connected} connected, {stats.available} available
-          </p>
-        </div>
+        <p className="text-sm text-muted-foreground">
+          {stats.connected} connected, {stats.available} available
+        </p>
 
         <Dialog open={showConnectDialog} onOpenChange={setShowConnectDialog}>
           <DialogTrigger asChild>
@@ -242,13 +233,68 @@ export function AppsContent() {
               Connect New App
             </Button>
           </DialogTrigger>
-          <DialogContent className="w-full max-w-[1400px] lg:max-w-[1800px] xl:max-w-[2400px] max-h-[80vh] bg-white dark:bg-white border-none shadow-2xl">
+          <DialogContent className="w-full max-w-[1400px] lg:max-w-[1800px] xl:max-w-[2400px] max-h-[80vh] border-none shadow-2xl">
             <DialogHeader>
-              <DialogTitle className="text-gray-900">Connect New App</DialogTitle>
-              <DialogDescription className="text-gray-600">
-                Choose an app to connect to your account
+              <DialogTitle>Connect New App</DialogTitle>
+              <DialogDescription>
+                Select a workspace and choose an app to connect
               </DialogDescription>
             </DialogHeader>
+
+            {/* Workspace Selector */}
+            <div className="space-y-3 pb-4 border-b">
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  Which workspace?
+                </label>
+                <Select
+                  value={selectedWorkspaceType === 'personal' ? 'personal' : `${selectedWorkspaceType}-${selectedWorkspaceId}`}
+                  onValueChange={(value) => {
+                    if (value === 'personal') {
+                      setSelectedWorkspaceType('personal')
+                      setSelectedWorkspaceId(null)
+                    } else {
+                      const [type, id] = value.split('-')
+                      setSelectedWorkspaceType(type as 'team' | 'organization')
+                      setSelectedWorkspaceId(id)
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select workspace" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="personal">
+                      <div className="flex items-center gap-2">
+                        <Home className="w-4 h-4" />
+                        <span>Personal Workspace</span>
+                      </div>
+                    </SelectItem>
+                    {(teams || []).map(team => (
+                      <SelectItem key={team.id} value={`team-${team.id}`}>
+                        <div className="flex items-center gap-2">
+                          <Users className="w-4 h-4" />
+                          <span>{team.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                    {(organizations || []).map(org => (
+                      <SelectItem key={org.id} value={`organization-${org.id}`}>
+                        <div className="flex items-center gap-2">
+                          <Building className="w-4 h-4" />
+                          <span>{org.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {teams.length === 0 && organizations.length === 0 && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    You can only connect apps to your personal workspace. To connect apps to a team or organization, you need to be an owner or admin.
+                  </p>
+                )}
+              </div>
+            </div>
 
             {/* Search for available apps */}
             <ProfessionalSearch
@@ -263,7 +309,7 @@ export function AppsContent() {
               <div className="space-y-6">
                 {availableApps.length === 0 ? (
                   <div className="text-center py-8">
-                    <p className="text-gray-600">
+                    <p className="text-muted-foreground">
                       {availableSearchQuery ? "No apps found matching your search" : "All apps are already connected!"}
                     </p>
                   </div>
@@ -273,11 +319,11 @@ export function AppsContent() {
                     {!availableSearchQuery && popularApps.length > 0 && (
                       <div>
                         <div className="mb-4">
-                          <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">Most Popular</h3>
+                          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Most Popular</h3>
                         </div>
                         <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                           {popularApps.map((provider) => (
-                            <Card key={provider.id} className="bg-gray-50 border border-gray-200 hover:bg-gray-100 hover:border-gray-300 transition-all duration-200 shadow-sm hover:shadow-md">
+                            <Card key={provider.id} className="hover:bg-accent transition-all duration-200 shadow-sm hover:shadow-md">
                               <CardContent className="py-5 px-4">
                                 <div className="flex items-center justify-between gap-3">
                                   <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -291,14 +337,14 @@ export function AppsContent() {
                                         }}
                                       />
                                     </div>
-                                    <h3 className="font-semibold text-sm text-gray-900 whitespace-nowrap">{provider.name}</h3>
+                                    <h3 className="font-semibold text-sm whitespace-nowrap">{provider.name}</h3>
                                   </div>
                                   <Button
                                     size="icon"
                                     variant="ghost"
                                     onClick={() => handleConnect(provider.id)}
                                     disabled={loading[provider.id]}
-                                    className="h-8 w-8 flex-shrink-0 hover:bg-gray-200 text-gray-700 hover:text-gray-900"
+                                    className="h-8 w-8 flex-shrink-0"
                                   >
                                     {loading[provider.id] ? (
                                       <RefreshCw className="w-4 h-4 animate-spin" />
@@ -318,11 +364,11 @@ export function AppsContent() {
                     {!availableSearchQuery && otherApps.length > 0 && (
                       <div>
                         <div className="mb-4">
-                          <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">All Apps (A-Z)</h3>
+                          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">All Apps (A-Z)</h3>
                         </div>
                         <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                           {otherApps.map((provider) => (
-                            <Card key={provider.id} className="bg-gray-50 border border-gray-200 hover:bg-gray-100 hover:border-gray-300 transition-all duration-200 shadow-sm hover:shadow-md">
+                            <Card key={provider.id} className="hover:bg-accent transition-all duration-200 shadow-sm hover:shadow-md">
                               <CardContent className="py-5 px-4">
                                 <div className="flex items-center justify-between gap-3">
                                   <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -336,14 +382,14 @@ export function AppsContent() {
                                         }}
                                       />
                                     </div>
-                                    <h3 className="font-semibold text-sm text-gray-900 whitespace-nowrap">{provider.name}</h3>
+                                    <h3 className="font-semibold text-sm whitespace-nowrap">{provider.name}</h3>
                                   </div>
                                   <Button
                                     size="icon"
                                     variant="ghost"
                                     onClick={() => handleConnect(provider.id)}
                                     disabled={loading[provider.id]}
-                                    className="h-8 w-8 flex-shrink-0 hover:bg-gray-200 text-gray-700 hover:text-gray-900"
+                                    className="h-8 w-8 flex-shrink-0"
                                   >
                                     {loading[provider.id] ? (
                                       <RefreshCw className="w-4 h-4 animate-spin" />
@@ -363,7 +409,7 @@ export function AppsContent() {
                     {availableSearchQuery && (
                       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                         {availableApps.map((provider) => (
-                          <Card key={provider.id} className="bg-gray-50 border border-gray-200 hover:bg-gray-100 hover:border-gray-300 transition-all duration-200 shadow-sm hover:shadow-md">
+                          <Card key={provider.id} className="hover:bg-accent transition-all duration-200 shadow-sm hover:shadow-md">
                             <CardContent className="py-5 px-4">
                               <div className="flex items-center justify-between gap-3">
                                 <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -377,14 +423,14 @@ export function AppsContent() {
                                       }}
                                     />
                                   </div>
-                                  <h3 className="font-semibold text-sm text-gray-900 whitespace-nowrap">{provider.name}</h3>
+                                  <h3 className="font-semibold text-sm whitespace-nowrap">{provider.name}</h3>
                                 </div>
                                 <Button
                                   size="icon"
                                   variant="ghost"
                                   onClick={() => handleConnect(provider.id)}
                                   disabled={loading[provider.id]}
-                                  className="h-8 w-8 flex-shrink-0 hover:bg-gray-200 text-gray-700 hover:text-gray-900"
+                                  className="h-8 w-8 flex-shrink-0"
                                 >
                                   {loading[provider.id] ? (
                                     <RefreshCw className="w-4 h-4 animate-spin" />
@@ -495,42 +541,15 @@ export function AppsContent() {
         </div>
       )}
 
-      {/* Search Connected Apps */}
-      <ProfessionalSearch
-        placeholder="Search connected apps..."
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        onClear={() => setSearchQuery('')}
-      />
-
-      {/* Connected Apps Grid */}
-      {connectedApps.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 px-4 border-2 border-dashed rounded-xl">
-          <div className="w-16 h-16 bg-muted rounded-2xl flex items-center justify-center mb-4">
-            <Plus className="w-8 h-8 text-muted-foreground" />
-          </div>
-          <h3 className="text-lg font-semibold mb-2">No Connected Apps</h3>
-          <p className="text-muted-foreground text-center max-w-md mb-4">
-            {searchQuery
-              ? "No connected apps match your search"
-              : "Connect your first app to start building workflows"
-            }
-          </p>
-          {!searchQuery && (
-            <Button onClick={() => setShowConnectDialog(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Connect Your First App
-            </Button>
-          )}
-        </div>
-      ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {connectedApps.map((provider) => {
-            const connection = getConnectionStatus(provider.id)
-            const isExpired = connection?.status === 'expired' || connection?.status === 'needs_reauthorization'
+      {/* Workspace Grouped View - Always On */}
+      <AppsWorkspaceGroupView
+        integrations={integrations.filter(i => i.status === 'connected')}
+        renderAppCard={(integration) => {
+            const provider = providers.find(p => p.id === integration.provider)
+            if (!provider) return null
 
             return (
-              <Card key={provider.id} className="group hover:shadow-md transition-all">
+              <Card className="group hover:shadow-md transition-all">
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3 mb-3">
                     {/* App Icon */}
@@ -549,53 +568,45 @@ export function AppsContent() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <h3 className="font-semibold text-sm truncate">{provider.name}</h3>
-                        {!isExpired && (
-                          <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
-                        )}
+                        <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
                       </div>
                       <div className="flex items-center gap-1 flex-wrap">
                         {/* Permission Badge */}
-                        {connection?.user_permission && (
+                        {integration?.user_permission && (
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Badge
                                   variant="outline"
                                   className={`text-xs px-1.5 py-0.5 flex items-center gap-0.5 ${
-                                    connection.user_permission === 'admin'
+                                    integration.user_permission === 'admin'
                                       ? 'bg-purple-100 dark:bg-purple-900/20 text-purple-800 dark:text-purple-300'
-                                      : connection.user_permission === 'manage'
+                                      : integration.user_permission === 'manage'
                                       ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300'
                                       : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300'
                                   }`}
                                 >
-                                  {connection.user_permission === 'admin' ? (
+                                  {integration.user_permission === 'admin' ? (
                                     <Shield className="w-3 h-3" />
-                                  ) : connection.user_permission === 'manage' ? (
+                                  ) : integration.user_permission === 'manage' ? (
                                     <Settings className="w-3 h-3" />
                                   ) : (
                                     <Eye className="w-3 h-3" />
                                   )}
-                                  <span className="hidden sm:inline">{connection.user_permission === 'admin' ? 'Admin' : connection.user_permission === 'manage' ? 'Manage' : 'View'}</span>
+                                  <span className="hidden sm:inline">{integration.user_permission === 'admin' ? 'Admin' : integration.user_permission === 'manage' ? 'Manage' : 'View'}</span>
                                 </Badge>
                               </TooltipTrigger>
                               <TooltipContent>
                                 <p>{
-                                  connection.user_permission === 'admin'
+                                  integration.user_permission === 'admin'
                                     ? 'Full control: connect, disconnect, manage permissions'
-                                    : connection.user_permission === 'manage'
+                                    : integration.user_permission === 'manage'
                                     ? 'Can reconnect and view details'
                                     : 'Can use in workflows (read-only)'
                                 }</p>
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
-                        )}
-                        {/* Status Badge */}
-                        {isExpired ? (
-                          <Badge variant="destructive" className="text-xs">Expired</Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-xs">Connected</Badge>
                         )}
                       </div>
                     </div>
@@ -612,31 +623,18 @@ export function AppsContent() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        {isExpired ? (
-                          <DropdownMenuItem
-                            onClick={() => handleReconnect(provider.id)}
-                            disabled={loading[provider.id]}
-                          >
-                            <RefreshCw className="w-4 h-4 mr-2" />
-                            Reconnect
-                          </DropdownMenuItem>
-                        ) : (
-                          <>
-                            <DropdownMenuItem onClick={() => handleReconnect(provider.id)}>
-                              <RefreshCw className="w-4 h-4 mr-2" />
-                              Refresh Connection
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Settings className="w-4 h-4 mr-2" />
-                              View Settings
-                            </DropdownMenuItem>
-                          </>
-                        )}
+                        <DropdownMenuItem
+                          onClick={() => handleReconnect(provider.id)}
+                          disabled={loading[provider.id]}
+                        >
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          Reconnect
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           className="text-destructive"
-                          onClick={() => connection && handleDisconnect(connection.id, provider.name)}
-                          disabled={loading[connection?.id || '']}
+                          onClick={() => handleDisconnect(integration.id, provider.name)}
+                          disabled={loading[integration.id]}
                         >
                           <Unplug className="w-4 h-4 mr-2" />
                           Disconnect
@@ -646,22 +644,18 @@ export function AppsContent() {
                   </div>
 
                   {/* Connection Details */}
-                  {connection && (
-                    <div className="text-xs text-muted-foreground">
-                      <p>Connected {new Date(connection.created_at).toLocaleDateString()}</p>
-                      {connection.expires_at && !isExpired && (
-                        <p>
-                          Expires {new Date(connection.expires_at).toLocaleDateString()}
-                        </p>
-                      )}
+                  {integration && (
+                    <div className="text-xs text-muted-foreground space-y-1">
+                      {integration.account_name && <p className="truncate">Account: {integration.account_name}</p>}
+                      {integration.email && <p className="truncate">{integration.email}</p>}
+                      <p>Connected {new Date(integration.created_at).toLocaleDateString()}</p>
                     </div>
                   )}
                 </CardContent>
               </Card>
             )
-          })}
-        </div>
-      )}
+          }}
+        />
 
       {/* Footer Help */}
       <div className="mt-12 p-6 border rounded-xl bg-muted/30">

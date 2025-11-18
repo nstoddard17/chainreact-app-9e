@@ -58,6 +58,7 @@ import {
   type ProviderCategory,
 } from "@/lib/workflows/ai-agent/providerDisambiguation"
 import { useIntegrationStore } from "@/stores/integrationStore"
+import { useWorkspaceContext } from "@/hooks/useWorkspaceContext"
 import {
   applyDagreLayout,
   needsLayout,
@@ -301,7 +302,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   const { isReady: appReady } = appContext
 
   const adapter = useFlowV2LegacyAdapter(flowId, { initialRevision })
-  const { integrations, fetchIntegrations } = useIntegrationStore()
+  const { integrations, fetchIntegrations, setWorkspaceContext: setIntegrationWorkspaceContext } = useIntegrationStore()
+  const { workspaceContext } = useWorkspaceContext()
   const builder = adapter.flowState
   const actions = adapter.actions
   const flowState = builder?.flowState
@@ -451,6 +453,21 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
     console.log('[WorkflowBuilder] Initial mount complete - integrations loading')
   }, [appReady, fetchIntegrations])
+
+  // Sync workspace context to integration store when builder loads
+  useEffect(() => {
+    if (!workspaceContext) {
+      return
+    }
+
+    logger.debug('[WorkflowBuilder] Syncing workspace context to integration store:', {
+      type: workspaceContext.type,
+      id: workspaceContext.id
+    })
+
+    // Set the integration store's workspace context to match the current workflow's workspace
+    setIntegrationWorkspaceContext(workspaceContext.type, workspaceContext.id)
+  }, [workspaceContext, setIntegrationWorkspaceContext])
 
   // Cleanup: Clear pending messages on unmount if workflow was never saved
   useEffect(() => {
@@ -1727,15 +1744,20 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     }
 
     // Lazy load integrations when panel opens (only if not already loaded)
-    if (integrations.length === 0) {
-      fetchIntegrations(false).catch(error => {
+    // Use workspace context to filter integrations to this workflow's workspace
+    if (integrations.length === 0 && workspaceContext) {
+      logger.debug('[WorkflowBuilder] Lazy-loading workspace-filtered integrations:', {
+        workspaceType: workspaceContext.type,
+        workspaceId: workspaceContext.id
+      })
+      fetchIntegrations(false, workspaceContext.type, workspaceContext.id || undefined).catch(error => {
         logger.error('[WorkflowBuilder] Failed to lazy-load integrations on panel open:', error)
       })
     }
 
     setIntegrationsPanelMode(mode)
     setIsIntegrationsPanelOpen(true)
-  }, [builder.nodes, integrations.length, fetchIntegrations])
+  }, [builder.nodes, integrations.length, fetchIntegrations, workspaceContext])
 
   // Handler for adding node after another (from plus button)
   const handleAddNodeAfterClick = useCallback((afterNodeId: string | null) => {

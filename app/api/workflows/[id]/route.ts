@@ -213,7 +213,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const includesValidationState = Object.prototype.hasOwnProperty.call(updateData, 'validationState')
     const baseUpdatePayload = {
       ...updateData,
-      updated_at: updatedAtIso
+      updated_at: updatedAtIso,
+      last_modified_by: user.id
     }
 
     const performUpdate = async (payload: Record<string, any>) => {
