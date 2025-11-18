@@ -73,7 +73,8 @@ export interface IntegrationStore {
   clearError: () => void
   initializeProviders: () => Promise<void>
   fetchIntegrations: (force?: boolean, workspaceType?: 'personal' | 'team' | 'organization', workspaceId?: string) => Promise<void>
-  connectIntegration: (providerId: string) => Promise<void>
+  fetchAllIntegrations: () => Promise<void>
+  connectIntegration: (providerId: string, workspaceType?: 'personal' | 'team' | 'organization', workspaceId?: string | null) => Promise<void>
   disconnectIntegration: (integrationId: string) => Promise<void>
   refreshAllTokens: () => Promise<{ refreshed: number; failed: number }>
   getIntegrationStatus: (providerId: string) => string
@@ -442,7 +443,66 @@ export const useIntegrationStore = create<IntegrationStore>()(
         return ongoingFetchPromise
     },
 
-    connectIntegration: async (providerId: string) => {
+    // Fetch all integrations across all workspaces (for grouped view)
+    fetchAllIntegrations: async () => {
+      const { setLoading, currentUserId } = get()
+
+      try {
+        setLoading('integrations', true)
+        set({ error: null })
+
+        // Try to get user session
+        let user;
+        try {
+          const sessionData = await SessionManager.getSecureUserAndSession();
+          user = sessionData.user;
+        } catch (authError: any) {
+          logger.debug("User not authenticated, skipping integration fetch")
+          setLoading('integrations', false)
+          set({
+            integrations: [],
+            currentUserId: null,
+            error: null,
+          })
+          return
+        }
+
+        // Update current user if needed
+        if (!currentUserId) {
+          set({ currentUserId: user.id })
+        } else if (user?.id !== currentUserId) {
+          logger.warn("User session mismatch detected")
+          setLoading('integrations', false)
+          set({
+            integrations: [],
+            currentUserId: user.id,
+            error: null,
+          })
+          return
+        }
+
+        // Fetch all integrations without workspace filtering
+        const integrations = await IntegrationService.fetchIntegrations(true, undefined, undefined)
+
+        setLoading('integrations', false)
+        const previousIntegrations = get().integrations
+        handleIntegrationStatusChanges(previousIntegrations, integrations)
+
+        set({
+          integrations,
+          lastFetchTime: Date.now(),
+        })
+
+      } catch (error: any) {
+        logger.error('Failed to fetch all integrations:', error)
+        setLoading('integrations', false)
+        set({
+          error: error.message || "Failed to fetch integrations"
+        })
+      }
+    },
+
+    connectIntegration: async (providerId: string, workspaceType?: 'personal' | 'team' | 'organization', workspaceId?: string | null) => {
       const { setLoading, setError, fetchIntegrations, loadingStates, integrations } = get()
       
       // Check if this is a reconnection (integration exists but needs reauth)
@@ -548,6 +608,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
           // Use normal connection flow for new integrations
           result = await OAuthConnectionFlow.startConnection({
             providerId,
+            workspaceType: workspaceType || 'personal',
+            workspaceId: workspaceId || null,
             onSuccess: (data) => {
               // Immediately update the local state to show as connected
               set((state) => {
