@@ -2,13 +2,13 @@ import { NodeComponent } from "../../../types"
 
 const GMAIL_DOWNLOAD_ATTACHMENT_METADATA = {
   key: "gmail_action_download_attachment",
-  name: "Download Attachment to Storage",
-  description: "Download Gmail attachment and save to Google Drive, OneDrive, or Dropbox"
+  name: "Download Attachment",
+  description: "Save attachment to storage"
 }
 
 export const downloadAttachmentActionSchema: NodeComponent = {
   type: GMAIL_DOWNLOAD_ATTACHMENT_METADATA.key,
-  title: "Download Attachment to Storage",
+  title: "Download Attachment",
   description: GMAIL_DOWNLOAD_ATTACHMENT_METADATA.description,
   icon: "Download" as any, // Will be resolved in index file
   isTrigger: false,

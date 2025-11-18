@@ -19,29 +19,58 @@ export async function searchGmailEmails(
     // Get search query from config
     let query = resolveValue(config.query, input) || ""
     const maxResults = Number(config.maxResults) || 10
-    
+
+    // Add from filter if provided
+    const from = resolveValue(config.from, input)
+    if (from && from.trim()) {
+      // Wrap in quotes if it contains spaces
+      const fromValue = from.includes(' ') ? `"${from.trim()}"` : from.trim()
+      query += ` from:${fromValue}`
+    }
+
+    // Add to filter if provided
+    const to = resolveValue(config.to, input)
+    if (to && to.trim()) {
+      // Wrap in quotes if it contains spaces
+      const toValue = to.includes(' ') ? `"${to.trim()}"` : to.trim()
+      query += ` to:${toValue}`
+    }
+
     // Add date range filters if provided (using correct field names)
     const startDate = resolveValue(config.startDate, input)
     const endDate = resolveValue(config.endDate, input)
-    
+
     if (startDate) {
       query += ` after:${startDate}`
     }
-    
+
     if (endDate) {
       query += ` before:${endDate}`
     }
-    
+
     // Add thread ID filter if provided
     const threadId = resolveValue(config.threadId, input)
     if (threadId) {
       query += ` threadId:${threadId}`
     }
-    
-    // Add label filters if provided
+
+    // Add label filters if provided (including the 'labels' field from schema)
+    const labels = resolveValue(config.labels, input)
     const labelFilters = resolveValue(config.labelFilters, input)
-    if (labelFilters && Array.isArray(labelFilters) && labelFilters.length > 0) {
-      const labelQuery = labelFilters.map((label: string) => `label:${label}`).join(' ')
+
+    // Combine both labels and labelFilters
+    const allLabels = []
+    if (labels && Array.isArray(labels)) {
+      allLabels.push(...labels)
+    } else if (labels && typeof labels === 'string') {
+      allLabels.push(labels)
+    }
+    if (labelFilters && Array.isArray(labelFilters)) {
+      allLabels.push(...labelFilters)
+    }
+
+    if (allLabels.length > 0) {
+      const labelQuery = allLabels.map((label: string) => `label:${label}`).join(' ')
       query += ` ${labelQuery}`
     }
     

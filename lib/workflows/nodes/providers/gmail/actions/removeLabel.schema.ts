@@ -2,8 +2,8 @@ import { NodeComponent } from "../../../types"
 
 const GMAIL_REMOVE_LABEL_METADATA = {
   key: "gmail_action_remove_label",
-  name: "Remove Label from Email",
-  description: "Remove a label from an email"
+  name: "Remove Label",
+  description: "Remove label from email"
 }
 
 export const removeLabelActionSchema: NodeComponent = {

@@ -1,12 +1,14 @@
 "use client"
 
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
 import { CheckCircle2, XCircle, Clock, Info, TestTube, AlertCircle, RefreshCw, ChevronDown, ChevronRight, Code2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { ConfigurationSectionHeader } from '../components/ConfigurationSectionHeader'
+import { useFlowV2Builder } from '@/src/lib/workflows/builder/useFlowV2Builder'
+import { logger } from '@/lib/utils/logger'
 
 interface ResultsTabProps {
   nodeInfo: any
@@ -44,6 +46,12 @@ export function ResultsTab({
   const [showRawResponse, setShowRawResponse] = useState(false)
   const [expandedFields, setExpandedFields] = useState<Record<string, boolean>>({})
   const [rowsToShow, setRowsToShow] = useState(10)
+  const [latestExecutionData, setLatestExecutionData] = useState<Record<string, any> | null>(null)
+  const [latestExecutionResult, setLatestExecutionResult] = useState<any>(null)
+  const [isLoadingLatest, setIsLoadingLatest] = useState(false)
+
+  // Get builder instance to access actions
+  const builder = useFlowV2Builder()
 
   // Get the node component definition with outputSchema
   const nodeComponent = useMemo(() => {
@@ -51,8 +59,78 @@ export function ResultsTab({
   }, [nodeInfo?.type])
 
   const outputSchema = nodeComponent?.outputSchema || []
-  const hasTestData = testData && Object.keys(testData).length > 0
-  const hasTestResult = testResult !== undefined
+
+  // Use latest execution data if available, otherwise fall back to test data
+  const displayData = latestExecutionData || testData
+  const displayResult = latestExecutionResult || testResult
+
+  const hasTestData = displayData && Object.keys(displayData).length > 0
+  const hasTestResult = displayResult !== undefined
+
+  // Fetch latest execution results when tab is opened
+  useEffect(() => {
+    const fetchLatestExecution = async () => {
+      if (!currentNodeId || !builder?.actions?.getNodeSnapshot) return
+
+      try {
+        setIsLoadingLatest(true)
+        logger.debug('[ResultsTab] Fetching latest execution for node:', currentNodeId)
+
+        const snapshot = await builder.actions.getNodeSnapshot(currentNodeId)
+
+        if (snapshot?.snapshot) {
+          logger.debug('[ResultsTab] Got latest execution snapshot:', snapshot.snapshot)
+
+          // Extract output data from snapshot
+          const output = snapshot.snapshot.output || snapshot.snapshot.data || {}
+
+          setLatestExecutionData(output)
+          setLatestExecutionResult({
+            success: snapshot.snapshot.success !== false,
+            executionTime: snapshot.snapshot.executionTime,
+            timestamp: snapshot.snapshot.timestamp || snapshot.snapshot.completedAt,
+            error: snapshot.snapshot.error,
+            message: snapshot.snapshot.message,
+            rawResponse: snapshot.snapshot
+          })
+        }
+      } catch (error: any) {
+        logger.debug('[ResultsTab] No execution history found:', error.message)
+        // Don't show error - it's normal if there's no execution history yet
+      } finally {
+        setIsLoadingLatest(false)
+      }
+    }
+
+    fetchLatestExecution()
+  }, [currentNodeId, builder?.actions])
+
+  // Auto-refresh every 5 seconds if there's an active workflow run
+  useEffect(() => {
+    if (!currentNodeId || !builder?.actions?.getNodeSnapshot || !builder?.flowState?.lastRunId) return
+
+    const interval = setInterval(async () => {
+      try {
+        const snapshot = await builder.actions.getNodeSnapshot(currentNodeId)
+        if (snapshot?.snapshot) {
+          const output = snapshot.snapshot.output || snapshot.snapshot.data || {}
+          setLatestExecutionData(output)
+          setLatestExecutionResult({
+            success: snapshot.snapshot.success !== false,
+            executionTime: snapshot.snapshot.executionTime,
+            timestamp: snapshot.snapshot.timestamp || snapshot.snapshot.completedAt,
+            error: snapshot.snapshot.error,
+            message: snapshot.snapshot.message,
+            rawResponse: snapshot.snapshot
+          })
+        }
+      } catch (error) {
+        // Silently fail - execution may not exist yet
+      }
+    }, 5000) // Refresh every 5 seconds
+
+    return () => clearInterval(interval)
+  }, [currentNodeId, builder?.actions, builder?.flowState?.lastRunId])
 
   // Format timestamp
   const formatTimestamp = (timestamp?: string) => {
@@ -194,6 +272,45 @@ export function ResultsTab({
     return <span className="text-xs">{stringValue}</span>
   }
 
+  // Define common field orders for different data types
+  const getFieldOrder = (data: any[], fieldName?: string) => {
+    const firstItem = data[0]
+    if (!firstItem || typeof firstItem !== 'object') return null
+
+    const allKeys = Object.keys(firstItem)
+
+    // Gmail email message field order
+    const gmailEmailFields = ['from', 'to', 'cc', 'bcc', 'subject', 'body', 'snippet', 'date', 'attachments', 'labelIds', 'threadId', 'id']
+
+    // Check if this looks like Gmail email data
+    const isGmailEmail = allKeys.some(key => ['from', 'to', 'subject'].includes(key))
+
+    if (isGmailEmail) {
+      // Use Gmail email field order
+      return [
+        ...gmailEmailFields.filter(field => allKeys.includes(field)),
+        ...allKeys.filter(field => !gmailEmailFields.includes(field)).sort()
+      ]
+    }
+
+    // Try to use schema order for other types
+    const schemaFields = outputSchema.length > 0
+      ? outputSchema
+      : (nodeComponent?.configSchema || [])
+
+    const schemaFieldNames = schemaFields.map((f: any) => f.name)
+
+    // Sort keys: schema fields first (in order), then remaining fields alphabetically
+    return [
+      ...allKeys.filter(key => schemaFieldNames.includes(key)).sort((a, b) => {
+        const indexA = schemaFieldNames.indexOf(a)
+        const indexB = schemaFieldNames.indexOf(b)
+        return indexA - indexB
+      }),
+      ...allKeys.filter(key => !schemaFieldNames.includes(key)).sort()
+    ]
+  }
+
   // Render table for array of objects (Airtable-style)
   const renderTable = (data: any[], fieldName?: string) => {
     if (!Array.isArray(data) || data.length === 0) return null
@@ -202,8 +319,11 @@ export function ResultsTab({
     const firstItem = data[0]
     if (typeof firstItem !== 'object' || firstItem === null) return null
 
-    const keys = Object.keys(firstItem)
-    if (keys.length === 0) return null
+    const allKeys = Object.keys(firstItem)
+    if (allKeys.length === 0) return null
+
+    // Get the ordered keys based on data type
+    const keys = getFieldOrder(data, fieldName) || allKeys
 
     const displayedRows = data.slice(0, rowsToShow)
     const hasMore = data.length > rowsToShow
@@ -478,11 +598,11 @@ export function ResultsTab({
                 </div>
               </div>
 
-              {!isSuccess && testResult.error && (
+              {!isSuccess && displayResult.error && (
                 <Alert variant="destructive" className="mt-3">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription className="text-xs leading-relaxed">
-                    {testResult.error}
+                    {displayResult.error}
                   </AlertDescription>
                 </Alert>
               )}
@@ -499,7 +619,7 @@ export function ResultsTab({
 
               <div className="space-y-2">
                 {outputSchema.map((field) => {
-                  const value = testData[field.name]
+                  const value = displayData[field.name]
                   const hasValue = value !== undefined && value !== null
                   const isArray = Array.isArray(value)
                   const isObject = typeof value === 'object' && value !== null && !isArray
@@ -600,11 +720,11 @@ export function ResultsTab({
                 })}
 
                 {/* Extra fields not in schema */}
-                {Object.keys(testData).filter(key => !outputSchema.find(f => f.name === key)).length > 0 && (
+                {Object.keys(displayData).filter(key => !outputSchema.find(f => f.name === key)).length > 0 && (
                   <Alert className="border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/30">
                     <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                     <AlertDescription className="text-xs text-blue-900 dark:text-blue-200 leading-relaxed">
-                      Additional fields returned: <code className="font-mono">{Object.keys(testData).filter(key => !outputSchema.find(f => f.name === key)).join(', ')}</code>
+                      Additional fields returned: <code className="font-mono">{Object.keys(displayData).filter(key => !outputSchema.find(f => f.name === key)).join(', ')}</code>
                     </AlertDescription>
                   </Alert>
                 )}
@@ -630,7 +750,7 @@ export function ResultsTab({
               {showRawResponse && (
                 <div className="rounded-lg border border-border bg-muted/30 p-4 overflow-x-auto">
                   <pre className="text-xs font-mono text-foreground whitespace-pre-wrap break-all">
-                    {JSON.stringify(testResult.rawResponse, null, 2)}
+                    {JSON.stringify(displayResult.rawResponse, null, 2)}
                   </pre>
                 </div>
               )}

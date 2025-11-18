@@ -137,3 +137,105 @@ Import trace for requested module:
 [2025-11-17T21:14:16.478Z] [INFO   ]  ✓ Compiled in 1397ms (2841 modules)
 [2025-11-17T21:18:19.621Z] [INFO   ]  ✓ Compiled in 812ms (2841 modules)
 [2025-11-17T21:18:29.279Z] [INFO   ]  ✓ Compiled in 472ms (2841 modules)
+[2025-11-17T21:32:09.528Z] [INFO   ]  ✓ Compiled in 830ms (2841 modules)
+[2025-11-17T21:32:34.525Z] [INFO   ] 2025-11-17T21:32:34.525Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-17T21:32:34.590Z] [INFO   ] 2025-11-17T21:32:34.590Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-11-17T21:32:35.032Z] [INFO   ] 2025-11-17T21:32:35.032Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-17T21:32:35.034Z] [INFO   ] 2025-11-17T21:32:35.034Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-17T21:41:19.507Z] [INFO   ]  ✓ Compiled in 1259ms (2841 modules)
+[2025-11-17T21:43:18.734Z] [INFO   ]  ✓ Compiled in 730ms (2841 modules)
+[2025-11-17T21:51:37.969Z] [INFO   ]  ✓ Compiled in 1041ms (2841 modules)
+[2025-11-17T23:56:16.024Z] [INFO   ] 2025-11-17T23:56:16.023Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-17T23:56:16.080Z] [INFO   ] 2025-11-17T23:56:16.080Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-11-17T23:56:16.506Z] [INFO   ] 2025-11-17T23:56:16.506Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-17T23:56:16.508Z] [INFO   ] 2025-11-17T23:56:16.508Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-18T00:46:36.761Z] [INFO   ] 2025-11-18T00:46:36.760Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-18T00:46:36.825Z] [INFO   ] 2025-11-18T00:46:36.825Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-11-18T00:46:37.166Z] [INFO   ] 2025-11-18T00:46:37.166Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-18T00:46:37.167Z] [INFO   ] 2025-11-18T00:46:37.167Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-18T00:48:54.422Z] [INFO   ]  ✓ Compiled in 690ms (2841 modules)
+[2025-11-18T00:53:35.270Z] [INFO   ]  ✓ Compiled in 686ms (2841 modules)
+[2025-11-18T00:54:07.921Z] [INFO   ]  ✓ Compiled in 711ms (2841 modules)
+[2025-11-18T00:54:30.291Z] [INFO   ]  ✓ Compiled in 753ms (2841 modules)
+[2025-11-18T00:55:39.320Z] [INFO   ]  ✓ Compiled in 1390ms (2854 modules)
+[2025-11-18T01:10:10.442Z] [INFO   ]  ✓ Compiled in 4.6s (2841 modules)
+[2025-11-18T01:10:19.114Z] [INFO   ]  ✓ Compiled in 3.2s (2841 modules)
+[2025-11-18T01:10:27.116Z] [INFO   ]  ✓ Compiled in 748ms (2841 modules)
+[2025-11-18T01:10:37.964Z] [INFO   ]  ✓ Compiled in 591ms (2841 modules)
+[2025-11-18T01:10:48.247Z] [INFO   ]  ✓ Compiled in 514ms (2841 modules)
+[2025-11-18T01:11:03.588Z] [INFO   ]  ✓ Compiled in 547ms (2841 modules)
+[2025-11-18T01:11:15.177Z] [INFO   ]  ✓ Compiled in 661ms (2841 modules)
+[2025-11-18T01:13:59.250Z] [INFO   ]  ✓ Compiled in 592ms (2854 modules)
+[2025-11-18T01:14:18.388Z] [INFO   ]  ✓ Compiled in 975ms (2841 modules)
+[2025-11-18T01:20:37.011Z] [ERROR  ]  ⨯ ./lib/workflows/actions/gmail/downloadAttachment.ts
+Module parse failed: Identifier 'message' has already been declared (207:12)
+|         const totalCount = attachmentsToDownload.length;
+|         // Build detailed error message if there are failures
+>         let message = '';
+|         if (successCount === totalCount) {
+|             message = `Successfully saved ${successCount} attachment(s) to ${getStorageServiceName(storageService)}`;
+
+Import trace for requested module:
+./lib/workflows/actions/gmail/downloadAttachment.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-18T01:21:52.128Z] [ERROR  ]  ⨯ ./lib/workflows/actions/gmail/downloadAttachment.ts
+Module parse failed: Identifier 'message' has already been declared (208:14)
+|         // Build detailed error message if there are failures
+|         const errorDetails = errors.map((e)=>`${e.filename}: ${e.error}`).join('; ');
+>         const message = successCount === totalCount ? `Successfully saved ${successCount} attachment(s) to ${getStorageServiceName(storageService)}` : successCount > 0 ? `Saved ${successCount} of ${totalCount} attachment(s) to ${getStorageServiceName(storageService)}. ${errorCount} failed: ${errorDetails}` : `Failed to save all ${totalCount} attachment(s) to ${getStorageServiceName(storageService)}. Errors: ${errorDetails}`;
+|         logger.info(`[Gmail Download Attachment] Complete: ${successCount}/${totalCount} successful`, {
+|             errors: errorCount > 0 ? errors : undefined
+
+Import trace for requested module:
+./lib/workflows/actions/gmail/downloadAttachment.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-18T01:24:03.358Z] [INFO   ]  ✓ Compiled in 613ms (2841 modules)
+[2025-11-18T01:34:43.205Z] [INFO   ]  ✓ Compiled in 10.2s (2841 modules)
+[2025-11-18T01:35:36.049Z] [INFO   ]  ✓ Compiled in 49.4s (2841 modules)
+[2025-11-18T01:36:49.319Z] [INFO   ]  ✓ Compiled in 887ms (2841 modules)
+[2025-11-18T01:39:13.788Z] [INFO   ]  ✓ Compiled in 5.7s (2841 modules)
+[2025-11-18T01:42:02.155Z] [INFO   ]  ✓ Compiled in 1632ms (2841 modules)
+[2025-11-18T01:43:56.751Z] [INFO   ]  ✓ Compiled in 770ms (2841 modules)
+[2025-11-18T01:44:10.754Z] [INFO   ]  ✓ Compiled in 629ms (2841 modules)
+[2025-11-18T01:44:17.414Z] [INFO   ]  ✓ Compiled in 670ms (2841 modules)
+[2025-11-18T01:44:27.231Z] [INFO   ]  ✓ Compiled in 615ms (2841 modules)
+[2025-11-18T01:45:23.788Z] [INFO   ]  ✓ Compiled in 1116ms (2841 modules)
+[2025-11-18T01:45:32.309Z] [INFO   ]  ✓ Compiled in 853ms (2841 modules)
+[2025-11-18T01:45:58.546Z] [INFO   ]  ✓ Compiled in 1131ms (2841 modules)
+[2025-11-18T01:46:05.198Z] [INFO   ]  ✓ Compiled in 217ms (2841 modules)
+[2025-11-18T01:46:10.679Z] [INFO   ]  ✓ Compiled in 246ms (2841 modules)
+[2025-11-18T01:48:28.239Z] [INFO   ]  ✓ Compiled in 707ms (2841 modules)
+[2025-11-18T01:51:05.417Z] [INFO   ]  ✓ Compiled in 572ms (2841 modules)
+[2025-11-18T01:51:26.631Z] [INFO   ]  ✓ Compiled in 615ms (2841 modules)
+[2025-11-18T01:51:34.024Z] [INFO   ]  ✓ Compiled in 704ms (2841 modules)
+[2025-11-18T01:51:42.579Z] [INFO   ]  ✓ Compiled in 558ms (2841 modules)
+[2025-11-18T01:55:28.312Z] [INFO   ]  ✓ Compiled in 941ms (2841 modules)
+[2025-11-18T01:55:37.130Z] [INFO   ]  ✓ Compiled in 417ms (2841 modules)
+[2025-11-18T01:55:49.482Z] [INFO   ]  ✓ Compiled in 236ms (2841 modules)
+[2025-11-18T01:55:55.318Z] [INFO   ]  ✓ Compiled in 293ms (2841 modules)
+[2025-11-18T01:56:03.444Z] [INFO   ]  ✓ Compiled in 279ms (2841 modules)
+[2025-11-18T02:01:26.460Z] [INFO   ]  ✓ Compiled in 7.7s (2841 modules)
+[2025-11-18T02:01:28.004Z] [INFO   ]  ✓ Compiled in 1230ms (2841 modules)
+[2025-11-18T02:01:36.622Z] [INFO   ]  ✓ Compiled in 644ms (2841 modules)
+[2025-11-18T02:01:45.671Z] [INFO   ]  ✓ Compiled in 601ms (2841 modules)
+[2025-11-18T03:42:24.226Z] [INFO   ] 2025-11-18T03:42:24.217Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-18T03:42:24.376Z] [INFO   ] 2025-11-18T03:42:24.376Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-11-18T03:42:24.906Z] [INFO   ] 2025-11-18T03:42:24.906Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-18T03:42:24.914Z] [INFO   ] 2025-11-18T03:42:24.914Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-18T04:03:29.474Z] [INFO   ] 2025-11-18T04:03:29.473Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-11-18T16:16:24.491Z] [INFO   ]  ✓ Compiled in 9.3s (2841 modules)
+[2025-11-18T16:16:29.246Z] [INFO   ]  ✓ Compiled in 1385ms (2841 modules)
+[2025-11-18T18:14:33.816Z] [INFO   ]  ✓ Compiled in 5.2s (2841 modules)
+[2025-11-18T18:14:36.783Z] [INFO   ]  ✓ Compiled in 897ms (2841 modules)
+[2025-11-18T18:14:44.003Z] [INFO   ]  ✓ Compiled in 900ms (2841 modules)
+[2025-11-18T18:14:56.646Z] [INFO   ]  ✓ Compiled in 1062ms (2841 modules)
+[2025-11-18T18:16:31.800Z] [INFO   ]  ✓ Compiled in 5.2s (2841 modules)
+[2025-11-18T18:19:07.164Z] [INFO   ]  ✓ Compiled in 1193ms (2845 modules)
+[2025-11-18T18:19:31.407Z] [INFO   ]  ✓ Compiled in 937ms (2845 modules)
+[2025-11-18T18:19:46.052Z] [INFO   ]  ✓ Compiled in 684ms (2845 modules)

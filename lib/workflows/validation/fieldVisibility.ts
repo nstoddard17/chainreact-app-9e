@@ -248,6 +248,17 @@ export const isFieldCurrentlyVisible = (
     return false
   }
 
+  // Handle showIf function (used in Google Docs and other nodes)
+  if (typeof (field as any).showIf === 'function') {
+    try {
+      const shouldShow = (field as any).showIf(values)
+      return shouldShow === true
+    } catch (error) {
+      // If showIf function throws, default to showing the field
+      return true
+    }
+  }
+
   return true
 }
 

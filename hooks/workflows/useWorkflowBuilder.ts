@@ -927,17 +927,151 @@ export function useWorkflowBuilder() {
     }
   }, [getNodes, setNodes])
 
-  const handleTestFlowFromHere = useCallback((nodeId: string) => {
-    const node = getNodes().find(n => n.id === nodeId)
-    if (!node) {
-      console.error('Test flow: Node not found', nodeId)
+  const handleTestFlowFromHere = useCallback(async (nodeId: string) => {
+    console.log('[handleTestFlowFromHere] Starting test from node:', nodeId)
+    const currentNodes = getNodes()
+    const currentEdges = getEdges()
+    const startNode = currentNodes.find(n => n.id === nodeId)
+
+    if (!startNode) {
+      console.error('[handleTestFlowFromHere] Node not found:', nodeId)
       return
     }
 
-    // TODO: Integrate with workflow execution system
-    // This should execute the workflow starting from this node
-    console.log('Test flow from node:', nodeId, node.data.type)
-  }, [getNodes])
+    // Get all downstream nodes (nodes that come after this one)
+    const getDownstreamNodes = (fromNodeId: string, visited = new Set<string>()): string[] => {
+      if (visited.has(fromNodeId)) return []
+      visited.add(fromNodeId)
+
+      const downstreamIds: string[] = [fromNodeId]
+      const outgoingEdges = currentEdges.filter(edge => edge.source === fromNodeId)
+
+      for (const edge of outgoingEdges) {
+        const childNodes = getDownstreamNodes(edge.target, visited)
+        downstreamIds.push(...childNodes)
+      }
+
+      return downstreamIds
+    }
+
+    const nodesToTest = getDownstreamNodes(nodeId)
+    console.log('[handleTestFlowFromHere] Testing nodes:', nodesToTest)
+
+    // Sort nodes in execution order (topological sort based on edges)
+    const sortedNodeIds: string[] = []
+    const visited = new Set<string>()
+
+    const topologicalSort = (nId: string) => {
+      if (visited.has(nId)) return
+      visited.add(nId)
+
+      // Visit all dependencies first (nodes that point to this node)
+      const incomingEdges = currentEdges.filter(edge => edge.target === nId && nodesToTest.includes(edge.source))
+      for (const edge of incomingEdges) {
+        topologicalSort(edge.source)
+      }
+
+      sortedNodeIds.push(nId)
+    }
+
+    for (const nId of nodesToTest) {
+      topologicalSort(nId)
+    }
+
+    console.log('[handleTestFlowFromHere] Execution order:', sortedNodeIds)
+
+    // Test nodes sequentially, passing output from one to the next
+    let currentTestData: Record<string, any> = {}
+
+    for (const nId of sortedNodeIds) {
+      const node = currentNodes.find(n => n.id === nId)
+      if (!node) continue
+
+      console.log('[handleTestFlowFromHere] Testing node:', node.data.title)
+
+      // Set node to running state
+      setNodes(getNodes().map(n => {
+        if (n.id === nId) {
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              executionStatus: 'running',
+              isActiveExecution: true,
+            },
+          }
+        }
+        return n
+      }))
+
+      try {
+        // Call the test-node API with accumulated test data
+        const response = await fetch('/api/workflows/test-node', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            nodeType: node.data.type,
+            config: node.data.config || {},
+            testData: currentTestData,
+          }),
+        })
+
+        const result = await response.json()
+
+        if (result.success) {
+          // Merge the output into currentTestData for the next node
+          currentTestData = {
+            ...currentTestData,
+            ...(result.testResult?.output || {}),
+          }
+
+          // Update node with test results
+          setNodes(getNodes().map(n => {
+            if (n.id === nId) {
+              return {
+                ...n,
+                data: {
+                  ...n.data,
+                  executionStatus: 'completed',
+                  isActiveExecution: false,
+                  testData: result.testResult?.output || {},
+                  resultMessage: result.testResult?.message || 'Test completed successfully',
+                },
+              }
+            }
+            return n
+          }))
+        } else {
+          throw new Error(result.error || 'Test failed')
+        }
+      } catch (error: any) {
+        // Update node to show error state
+        setNodes(getNodes().map(n => {
+          if (n.id === nId) {
+            return {
+              ...n,
+              data: {
+                ...n.data,
+                executionStatus: 'error',
+                isActiveExecution: false,
+                errorMessage: error.message,
+                errorTimestamp: new Date().toISOString(),
+              },
+            }
+          }
+          return n
+        }))
+
+        // Stop testing on error
+        console.error('[handleTestFlowFromHere] Test failed at node:', node.data.title, error)
+        break
+      }
+    }
+
+    console.log('[handleTestFlowFromHere] Flow test completed')
+  }, [getNodes, getEdges, setNodes])
 
   const handleFreezeNode = useCallback((nodeId: string) => {
     const currentNodes = getNodes()

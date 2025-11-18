@@ -92,6 +92,7 @@ export const addAttachmentActionSchema: NodeComponent = {
       required: true,
       description: "Upload a file from your computer",
       placeholder: "Choose files to upload...",
+      supportsVariables: true,
       visibleWhen: { field: "fileSource", value: "upload" },
       dependsOn: "tableName"
     },

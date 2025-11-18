@@ -507,12 +507,14 @@ export function GenericConfiguration({
 
   // Render fields helper
   const renderFields = (fields: any[]) => {
-    return fields.map((field, index) => {
+    return fields.flatMap((field, index) => {
+      const elements = [];
+
       // Special handling for Google Drive preview field
       if (field.type === 'google_drive_preview') {
         // Lazy import to avoid circular dependencies
         const { GoogleDriveFilePreview } = require('@/components/workflows/configuration/components/google-drive/GoogleDriveFilePreview');
-        return (
+        elements.push(
           <GoogleDriveFilePreview
             key={`field-${field.name}-${index}`}
             fileId={values.fileId}
@@ -520,6 +522,7 @@ export function GenericConfiguration({
             onTogglePreview={() => setShowPreview(!showPreview)}
           />
         );
+        return elements;
       }
 
       // Use AIFieldWrapper when connected to AI Agent, otherwise use FieldRenderer
@@ -542,7 +545,7 @@ export function GenericConfiguration({
       });
       const Component = shouldUseAIWrapper ? AIFieldWrapper : FieldRenderer;
 
-      return (
+      elements.push(
         <div key={`field-${field.name}-${index}`} data-config-field={field.name}>
           <Component
             field={field}
@@ -564,6 +567,24 @@ export function GenericConfiguration({
           />
         </div>
       );
+
+      // Special handling: Show storage service connection banner after storageService field
+      if (field.name === 'storageService' && values.storageService) {
+        const { StorageServiceConnectionBanner } = require('@/components/workflows/configuration/fields/StorageServiceConnectionBanner');
+        elements.push(
+          <StorageServiceConnectionBanner
+            key={`storage-banner-${index}`}
+            storageService={values.storageService}
+            onConnectionChange={(connectionId) => {
+              logger.debug('[GenericConfig] Storage connection changed:', connectionId);
+              // Optionally store the selected connection ID in form values
+              setValue('storageConnectionId', connectionId);
+            }}
+          />
+        );
+      }
+
+      return elements;
     });
   };
 

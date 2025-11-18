@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { X, Upload, File, AlertCircle, Image as ImageIcon } from 'lucide-react'
+import { X, Upload, File, AlertCircle, Image as ImageIcon, FileText, FileSpreadsheet, Presentation, FileVideo, FileAudio, FileArchive, FileCode } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 import { logger } from '@/lib/utils/logger'
@@ -403,6 +403,70 @@ export function FileUpload({
     return file.type.startsWith('image/')
   }
 
+  const getFileIcon = (fileName: string, mimeType?: string) => {
+    const extension = fileName.split('.').pop()?.toLowerCase()
+    const type = mimeType?.toLowerCase() || ''
+
+    // Images
+    if (type.startsWith('image/')) {
+      return ImageIcon
+    }
+
+    // Documents
+    if (extension === 'doc' || extension === 'docx' ||
+        type.includes('word') || type.includes('document')) {
+      return FileText
+    }
+
+    if (extension === 'pdf' || type.includes('pdf')) {
+      return FileText
+    }
+
+    if (extension === 'txt' || type.includes('text/plain')) {
+      return FileText
+    }
+
+    // Spreadsheets
+    if (extension === 'xls' || extension === 'xlsx' || extension === 'csv' ||
+        type.includes('spreadsheet') || type.includes('excel')) {
+      return FileSpreadsheet
+    }
+
+    // Presentations
+    if (extension === 'ppt' || extension === 'pptx' ||
+        type.includes('presentation') || type.includes('powerpoint')) {
+      return Presentation
+    }
+
+    // Videos
+    if (extension === 'mp4' || extension === 'mov' || extension === 'avi' || extension === 'mkv' ||
+        type.startsWith('video/')) {
+      return FileVideo
+    }
+
+    // Audio
+    if (extension === 'mp3' || extension === 'wav' || extension === 'ogg' || extension === 'm4a' ||
+        type.startsWith('audio/')) {
+      return FileAudio
+    }
+
+    // Archives
+    if (extension === 'zip' || extension === 'rar' || extension === '7z' || extension === 'tar' || extension === 'gz' ||
+        type.includes('zip') || type.includes('compressed')) {
+      return FileArchive
+    }
+
+    // Code files
+    if (extension === 'js' || extension === 'ts' || extension === 'jsx' || extension === 'tsx' ||
+        extension === 'py' || extension === 'java' || extension === 'cpp' || extension === 'c' ||
+        extension === 'html' || extension === 'css' || extension === 'json' || extension === 'xml') {
+      return FileCode
+    }
+
+    // Default
+    return File
+  }
+
   return (
     <div className={cn("space-y-4", className)}>
       {/* Upload Area */}
@@ -466,25 +530,37 @@ export function FileUpload({
             >
               <div className="flex items-center space-x-3 flex-1">
                 {/* File Icon or Image Preview */}
-                {uploadedFile.isFileId ? (
-                  <div className="w-10 h-10 bg-muted rounded flex items-center justify-center">
-                    <ImageIcon className="w-5 h-5 text-muted-foreground" />
-                  </div>
-                ) : (uploadedFile.actualType?.startsWith('image/') || isImageFile(uploadedFile.file)) && uploadedFile.previewUrl ? (
-                  <div className="w-10 h-10 rounded overflow-hidden flex-shrink-0">
-                    <img
-                      src={uploadedFile.previewUrl}
-                      alt={uploadedFile.actualName || uploadedFile.file.name}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                ) : (uploadedFile.actualType?.startsWith('image/') || uploadedFile.file.type?.startsWith('image/')) ? (
-                  <div className="w-10 h-10 bg-muted rounded flex items-center justify-center">
-                    <ImageIcon className="w-5 h-5 text-muted-foreground" />
-                  </div>
-                ) : (
-                  <File className="h-4 w-4 text-muted-foreground" />
-                )}
+                {(() => {
+                  const fileName = uploadedFile.actualName || uploadedFile.file?.name || ''
+                  const fileType = uploadedFile.actualType || uploadedFile.file?.type || ''
+                  const FileIcon = getFileIcon(fileName, fileType)
+
+                  if (uploadedFile.isFileId) {
+                    return (
+                      <div className="w-10 h-10 bg-muted rounded flex items-center justify-center">
+                        <FileIcon className="w-5 h-5 text-muted-foreground" />
+                      </div>
+                    )
+                  } else if ((fileType.startsWith('image/') || isImageFile(uploadedFile.file)) && uploadedFile.previewUrl) {
+                    return (
+                      <div className="w-10 h-10 rounded overflow-hidden flex-shrink-0">
+                        <img
+                          src={uploadedFile.previewUrl}
+                          alt={fileName}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )
+                  } else if (fileType.startsWith('image/') || uploadedFile.file?.type?.startsWith('image/')) {
+                    return (
+                      <div className="w-10 h-10 bg-muted rounded flex items-center justify-center">
+                        <ImageIcon className="w-5 h-5 text-muted-foreground" />
+                      </div>
+                    )
+                  } else {
+                    return <FileIcon className="h-5 w-5 text-muted-foreground" />
+                  }
+                })()}
                 
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">

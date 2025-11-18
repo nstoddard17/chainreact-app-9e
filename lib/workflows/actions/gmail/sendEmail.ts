@@ -17,6 +17,10 @@ export async function sendGmailEmail(
   const { config, userId, input } = params
   const cleanupPaths = new Set<string>()
 
+  // IMMEDIATE DEBUG - This should always show
+  console.log('🚨🚨🚨 [sendGmailEmail] FUNCTION CALLED - NEW CODE ACTIVE')
+  console.log('🚨 Raw config.cc:', config.cc)
+
   try {
     // Debug logging
     logger.debug('📧 [sendGmailEmail] Raw config:', JSON.stringify(config, null, 2))
@@ -101,14 +105,14 @@ export async function sendGmailEmail(
       'From': from || 'me', // Use specified sender or default to authenticated user
     }
 
-    if (cc) {
+    if (cc && (Array.isArray(cc) ? cc.length > 0 : cc.trim())) {
       headers['Cc'] = Array.isArray(cc) ? cc.join(', ') : cc
       logger.debug('📧 [sendGmailEmail] CC header set to:', headers['Cc'])
     } else {
-      logger.debug('📧 [sendGmailEmail] CC is falsy, not adding CC header')
+      logger.debug('📧 [sendGmailEmail] CC is empty or falsy, not adding CC header. CC value:', cc)
     }
 
-    if (bcc) {
+    if (bcc && (Array.isArray(bcc) ? bcc.length > 0 : bcc.trim())) {
       headers['Bcc'] = Array.isArray(bcc) ? bcc.join(', ') : bcc
     }
 

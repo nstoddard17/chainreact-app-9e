@@ -3,8 +3,8 @@ import { NodeComponent } from "../../../types"
 // Note: These imports may need adjustment based on project structure
 const GMAIL_ADD_LABEL_METADATA = {
   key: "gmail_action_add_label",
-  name: "Add Labels to Email",
-  description: "Add one or more labels to a Gmail message"
+  name: "Add Label",
+  description: "Add labels to an email"
 }
 
 export const addLabelActionSchema: NodeComponent = {

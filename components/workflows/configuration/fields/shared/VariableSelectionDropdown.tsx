@@ -19,6 +19,7 @@ import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { StaticIntegrationLogo } from '@/components/ui/static-integration-logo'
+import { extractNodeOutputs, sanitizeAlias } from '../../autoMapping'
 
 interface VariableSelectionDropdownProps {
   workflowData: { nodes: any[]; edges: any[] }
@@ -80,7 +81,16 @@ export function VariableSelectionDropdown({
   }, [disabled, open])
 
   // Get upstream nodes (nodes that connect to the current node)
-  const upstreamNodes = useMemo(() => {
+  interface UpstreamNode {
+    id: string
+    title: string
+    alias: string
+    type?: string
+    providerId?: string
+    outputs: any[]
+  }
+
+  const upstreamNodes = useMemo<UpstreamNode[]>(() => {
     const nodeById = new Map(workflowData.nodes.map(n => [n.id, n]))
     const edges = workflowData.edges || []
 
@@ -94,12 +104,18 @@ export function VariableSelectionDropdown({
       .filter(Boolean)
       .map(node => {
         const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === node.data?.type)
+        const baseOutputs = extractNodeOutputs(node as any)
+        const outputs = (baseOutputs && baseOutputs.length > 0)
+          ? baseOutputs
+          : (nodeComponent?.outputSchema || [])
+        const title = node.data?.title || node.data?.label || nodeComponent?.title || 'Unnamed'
 
         return {
           id: node.id,
-          title: node.data?.title || node.data?.label || nodeComponent?.title || 'Unnamed',
+          title,
+          alias: sanitizeAlias(node.data?.label || node.data?.title || node.data?.type || node.id),
           type: node.data?.type,
-          outputSchema: nodeComponent?.outputSchema || [],
+          outputs,
           providerId: node.data?.providerId || nodeComponent?.providerId,
         }
       })
@@ -128,13 +144,13 @@ export function VariableSelectionDropdown({
     const node = upstreamNodes.find(n => n.id === parsed.nodeId)
     if (!node) return value
 
-    const field = node.outputSchema.find((f: any) => f.name === parsed.fieldName)
+    const field = node.outputs.find((f: any) => f.name === parsed.fieldName)
     return `${node.title} → ${field?.label || parsed.fieldName}`
   }
 
   // Only show nodes that expose variables
   const nodesWithVariables = useMemo(
-    () => upstreamNodes.filter(node => node.outputSchema.length > 0),
+    () => upstreamNodes.filter(node => node.outputs.length > 0),
     [upstreamNodes]
   )
 
@@ -210,16 +226,16 @@ export function VariableSelectionDropdown({
                 heading={
                   <div className="flex items-center gap-3">
                     {renderNodeIcon(node.title, node.providerId)}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-semibold text-foreground">{node.title}</span>
                       <Badge variant="outline" className="text-[10px] px-1.5 py-0 uppercase tracking-tight">
-                        {node.outputSchema.length} field{node.outputSchema.length === 1 ? '' : 's'}
+                        {node.outputs.length} field{node.outputs.length === 1 ? '' : 's'}
                       </Badge>
                     </div>
                   </div>
                 }
               >
-                {node.outputSchema.map((field: any) => {
+                {node.outputs.map((field: any) => {
                   const variableRef = `{{${node.id}.${field.name}}}`
                   const isSelected = value === variableRef
 
@@ -239,7 +255,7 @@ export function VariableSelectionDropdown({
                             {field.label || field.name}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            From {node.title}
+                            {field.description ? field.description : `From ${node.title}`}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">

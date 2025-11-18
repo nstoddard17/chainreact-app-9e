@@ -139,3 +139,100 @@ Import trace for requested module:
 [2025-11-17T21:18:19.666Z] [INFO   ]  ✓ Compiled in 857ms (2841 modules)
 [2025-11-17T21:18:29.328Z] [INFO   ]  ✓ Compiled in 518ms (2841 modules)
 [2025-11-17T21:25:55.572Z] [INFO   ] 2025-11-17T21:25:55.571Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-11-17T21:32:09.537Z] [INFO   ]  ✓ Compiled in 840ms (2841 modules)
+[2025-11-17T21:41:19.489Z] [INFO   ]  ✓ Compiled in 1240ms (2841 modules)
+[2025-11-17T21:43:18.771Z] [INFO   ]  ✓ Compiled in 766ms (2841 modules)
+[2025-11-17T21:51:38.031Z] [INFO   ]  ✓ Compiled in 1103ms (2841 modules)
+[2025-11-18T00:48:54.455Z] [INFO   ]  ✓ Compiled in 721ms (2841 modules)
+[2025-11-18T00:53:35.286Z] [INFO   ]  ✓ Compiled in 693ms (2841 modules)
+[2025-11-18T00:54:07.961Z] [INFO   ]  ✓ Compiled in 751ms (2841 modules)
+[2025-11-18T00:54:30.321Z] [INFO   ]  ✓ Compiled in 786ms (2841 modules)
+[2025-11-18T00:55:39.419Z] [INFO   ]  ✓ Compiled in 1492ms (2854 modules)
+[2025-11-18T01:10:10.731Z] [INFO   ]  ✓ Compiled in 4.8s (2841 modules)
+[2025-11-18T01:10:18.742Z] [INFO   ]  ✓ Compiled in 2.8s (2841 modules)
+[2025-11-18T01:10:27.165Z] [INFO   ]  ✓ Compiled in 798ms (2841 modules)
+[2025-11-18T01:10:38.011Z] [INFO   ]  ✓ Compiled in 639ms (2841 modules)
+[2025-11-18T01:10:48.307Z] [INFO   ]  ✓ Compiled in 563ms (2841 modules)
+[2025-11-18T01:11:03.843Z] [INFO   ]  ✓ Compiled in 804ms (2841 modules)
+[2025-11-18T01:11:15.115Z] [INFO   ]  ✓ Compiled in 600ms (2841 modules)
+[2025-11-18T01:13:59.286Z] [INFO   ]  ✓ Compiled in 590ms (2854 modules)
+[2025-11-18T01:14:18.551Z] [INFO   ]  ✓ Compiled in 1137ms (2841 modules)
+[2025-11-18T01:20:37.012Z] [ERROR  ]  ⨯ ./lib/workflows/actions/gmail/downloadAttachment.ts
+Module parse failed: Identifier 'message' has already been declared (207:12)
+|         const totalCount = attachmentsToDownload.length;
+|         // Build detailed error message if there are failures
+>         let message = '';
+|         if (successCount === totalCount) {
+|             message = `Successfully saved ${successCount} attachment(s) to ${getStorageServiceName(storageService)}`;
+
+Import trace for requested module:
+./lib/workflows/actions/gmail/downloadAttachment.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-18T01:21:52.197Z] [ERROR  ]  ⨯ ./lib/workflows/actions/gmail/downloadAttachment.ts
+Module parse failed: Identifier 'message' has already been declared (208:14)
+|         // Build detailed error message if there are failures
+|         const errorDetails = errors.map((e)=>`${e.filename}: ${e.error}`).join('; ');
+>         const message = successCount === totalCount ? `Successfully saved ${successCount} attachment(s) to ${getStorageServiceName(storageService)}` : successCount > 0 ? `Saved ${successCount} of ${totalCount} attachment(s) to ${getStorageServiceName(storageService)}. ${errorCount} failed: ${errorDetails}` : `Failed to save all ${totalCount} attachment(s) to ${getStorageServiceName(storageService)}. Errors: ${errorDetails}`;
+|         logger.info(`[Gmail Download Attachment] Complete: ${successCount}/${totalCount} successful`, {
+|             errors: errorCount > 0 ? errors : undefined
+
+Import trace for requested module:
+./lib/workflows/actions/gmail/downloadAttachment.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-11-18T01:24:03.377Z] [INFO   ]  ✓ Compiled in 638ms (2841 modules)
+[2025-11-18T01:34:43.731Z] [INFO   ]  ✓ Compiled in 10.7s (2841 modules)
+[2025-11-18T01:35:39.020Z] [INFO   ]  ✓ Compiled in 50.6s (2841 modules)
+[2025-11-18T01:36:49.283Z] [INFO   ]  ✓ Compiled in 851ms (2841 modules)
+[2025-11-18T01:39:13.220Z] [INFO   ]  ✓ Compiled in 5.2s (2841 modules)
+[2025-11-18T01:42:02.113Z] [INFO   ]  ✓ Compiled in 1592ms (2841 modules)
+[2025-11-18T01:43:56.758Z] [INFO   ]  ✓ Compiled in 776ms (2841 modules)
+[2025-11-18T01:44:10.822Z] [INFO   ]  ✓ Compiled in 698ms (2841 modules)
+[2025-11-18T01:44:17.455Z] [INFO   ]  ✓ Compiled in 711ms (2841 modules)
+[2025-11-18T01:44:27.227Z] [INFO   ]  ✓ Compiled in 611ms (2841 modules)
+[2025-11-18T01:45:24.211Z] [INFO   ]  ✓ Compiled in 1539ms (2841 modules)
+[2025-11-18T01:45:32.344Z] [INFO   ]  ✓ Compiled in 888ms (2841 modules)
+[2025-11-18T01:45:58.665Z] [INFO   ]  ✓ Compiled in 1257ms (2841 modules)
+[2025-11-18T01:46:05.209Z] [INFO   ]  ✓ Compiled in 228ms (2841 modules)
+[2025-11-18T01:46:10.650Z] [INFO   ]  ✓ Compiled in 217ms (2841 modules)
+[2025-11-18T01:48:28.312Z] [INFO   ]  ✓ Compiled in 778ms (2841 modules)
+[2025-11-18T01:51:05.457Z] [INFO   ]  ✓ Compiled in 607ms (2841 modules)
+[2025-11-18T01:51:26.653Z] [INFO   ]  ✓ Compiled in 638ms (2841 modules)
+[2025-11-18T01:51:34.044Z] [INFO   ]  ✓ Compiled in 727ms (2841 modules)
+[2025-11-18T01:51:42.457Z] [INFO   ]  ✓ Compiled in 435ms (2841 modules)
+[2025-11-18T01:55:28.092Z] [INFO   ]  ✓ Compiled in 738ms (2841 modules)
+[2025-11-18T01:55:37.177Z] [INFO   ]  ✓ Compiled in 464ms (2841 modules)
+[2025-11-18T01:55:49.495Z] [INFO   ]  ✓ Compiled in 250ms (2841 modules)
+[2025-11-18T01:55:55.256Z] [INFO   ]  ✓ Compiled in 230ms (2841 modules)
+[2025-11-18T01:56:03.667Z] [INFO   ]  ✓ Compiled in 493ms (2841 modules)
+[2025-11-18T02:01:27.370Z] [INFO   ]  ✓ Compiled in 8.6s (2841 modules)
+[2025-11-18T02:01:28.230Z] [INFO   ]  ✓ Compiled in 798ms (2841 modules)
+[2025-11-18T02:01:36.687Z] [INFO   ]  ✓ Compiled in 706ms (2841 modules)
+[2025-11-18T02:01:45.722Z] [INFO   ]  ✓ Compiled in 653ms (2841 modules)
+[2025-11-18T16:16:25.066Z] [INFO   ]  ✓ Compiled in 9.9s (2841 modules)
+[2025-11-18T16:16:29.376Z] [INFO   ]  ✓ Compiled in 1511ms (2841 modules)
+[2025-11-18T18:14:34.174Z] [INFO   ]  ✓ Compiled in 5.5s (2841 modules)
+[2025-11-18T18:14:36.807Z] [INFO   ]  ✓ Compiled in 924ms (2841 modules)
+[2025-11-18T18:14:44.309Z] [INFO   ]  ✓ Compiled in 1206ms (2841 modules)
+[2025-11-18T18:14:56.774Z] [INFO   ]  ✓ Compiled in 1190ms (2841 modules)
+[2025-11-18T18:16:31.570Z] [INFO   ]  ✓ Compiled in 5s (2841 modules)
+[2025-11-18T18:19:07.288Z] [INFO   ]  ✓ Compiled in 1319ms (2845 modules)
+[2025-11-18T18:19:31.489Z] [INFO   ]  ✓ Compiled in 1019ms (2845 modules)
+[2025-11-18T18:19:46.133Z] [INFO   ]  ✓ Compiled in 766ms (2845 modules)
+[2025-11-18T21:10:54.133Z] [INFO   ]  ✓ Compiled in 8.9s (2845 modules)
+[2025-11-18T21:12:03.132Z] [INFO   ]  ✓ Compiled in 3.7s (2845 modules)
+[2025-11-18T21:12:40.719Z] [INFO   ]  ✓ Compiled in 1818ms (2845 modules)
+[2025-11-18T21:13:25.867Z] [INFO   ]  ✓ Compiled in 1157ms (2845 modules)
+[2025-11-18T21:14:13.347Z] [INFO   ]  ✓ Compiled in 1034ms (2845 modules)
+[2025-11-18T21:14:55.313Z] [INFO   ]  ✓ Compiled in 832ms (2845 modules)
+[2025-11-18T21:15:40.156Z] [INFO   ]  ✓ Compiled in 1318ms (2845 modules)
+[2025-11-18T21:16:27.365Z] [INFO   ]  ✓ Compiled in 383ms (2845 modules)
+[2025-11-18T21:17:08.039Z] [INFO   ]  ✓ Compiled in 486ms (2845 modules)
+[2025-11-18T21:17:51.552Z] [INFO   ]  ✓ Compiled in 473ms (2845 modules)
+[2025-11-18T21:18:11.187Z] [INFO   ]  ✓ Compiled in 572ms (2845 modules)
+[2025-11-18T21:18:33.502Z] [INFO   ]  ✓ Compiled in 2.4s (2854 modules)

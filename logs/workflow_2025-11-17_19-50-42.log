@@ -1,0 +1,544 @@
+=== Log Session Started: 2025-11-18T01:50:42.954Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-11-18T01:50:42.954Z] [INFO   ] File logging initialized
+[2025-11-18T01:50:42.954Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-17_19-50-42.log
+[2025-11-18T01:50:42.957Z] [INFO   ] 📁 File logging enabled
+[2025-11-18T01:50:42.957Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-17_19-50-42.log
+[2025-11-18T01:50:42.957Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-17_19-50-42.log
+[2025-11-18T01:50:42.957Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-17_19-50-42.log
+[2025-11-18T01:50:42.957Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-17_19-50-42.log
+[2025-11-18T01:50:42.957Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-11-18T01:50:42.957Z] [DEBUG  ] 📁 File logging system initialized
+[2025-11-18T01:50:42.994Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 9.1s
+[2025-11-18T01:50:43.181Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 179ms (233 modules)
+[2025-11-18T01:50:43.523Z] [INFO   ] 2025-11-18T01:50:43.522Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/0af4872c-1522-427b-959b-72ed2701ab25","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14863956123}
+[2025-11-18T01:50:43.963Z] [INFO   ] 2025-11-18T01:50:43.963Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-11-18T01:50:46.452Z] [INFO   ] 2025-11-18T01:50:46.452Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-11-18T01:50:46.453Z] [INFO   ] 2025-11-18T01:50:46.452Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-18T01:50:46.471Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/builder/[id] ...
+[2025-11-18T01:50:46.806Z] [INFO   ] 2025-11-18T01:50:46.806Z [DEBUG] Discord Gateway initialization complete
+[2025-11-18T01:50:46.807Z] [INFO   ] 2025-11-18T01:50:46.807Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-11-18T01:50:46.963Z] [INFO   ] 2025-11-18T01:50:46.963Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-18T01:50:46.964Z] [INFO   ] 2025-11-18T01:50:46.964Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-18T01:50:56.402Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/builder/[id] in 12.9s (6851 modules)
+[2025-11-18T01:50:57.189Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 734ms (1836 modules)
+[2025-11-18T01:50:59.397Z] [INFO   ] 2025-11-18T01:50:59.397Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-18T01:50:59.397Z"}
+[2025-11-18T01:50:59.421Z] [INFO   ] 2025-11-18T01:50:59.421Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-18T01:50:59.421Z"}
+[2025-11-18T01:50:59.421Z] [INFO   ] 2025-11-18T01:50:59.421Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-18T01:50:59.421Z"}
+[2025-11-18T01:50:59.967Z] [INFO   ] 2025-11-18T01:50:59.966Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-18T01:51:01.030Z] [INFO   ] [PhantomEdgeOverlay] No nodes found
+[2025-11-18T01:51:01.030Z] [INFO   ] [PhantomEdgeOverlay] Not rendering - no last node info
+[2025-11-18T01:51:01.633Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-11-18T01:51:02.307Z] [INFO   ] 2025-11-18T01:51:02.307Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/0af4872c-1522-427b-959b-72ed2701ab25/revisions","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14863974907}
+[2025-11-18T01:51:08.461Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/workflows in 7.3s (6858 modules)
+[2025-11-18T01:51:08.981Z] [INFO   ] 2025-11-18T01:51:08.981Z [DEBUG] [API /api/workflows] GET request {"filterContext":"ALL (unified view)","workspaceId":null,"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-18T01:51:09.106Z] [INFO   ] 2025-11-18T01:51:09.106Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/0af4872c-1522-427b-959b-72ed2701ab25","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14863981707}
+[2025-11-18T01:51:09.374Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-11-18T01:51:09.645Z] [INFO   ] 2025-11-18T01:51:09.645Z [DEBUG] [API /api/workflows] Query result {"filterContext":"ALL","count":0,"error":null}
+[2025-11-18T01:51:09.864Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 1004ms (6861 modules)
+[2025-11-18T01:51:09.964Z] [INFO   ] 2025-11-18T01:51:09.964Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-18T01:51:09.964Z","url":"http://localhost:3000/api/integrations?workspace_type=personal&workspace_id=ed18bcb3-6a08-4422-a1a3-9e4b7b3337ab"}
+[2025-11-18T01:51:09.965Z] [INFO   ] 2025-11-18T01:51:09.965Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-18T01:51:09.965Z","url":"http://localhost:3000/api/integrations"}
+[2025-11-18T01:51:10.185Z] [INFO   ] 2025-11-18T01:51:10.184Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-18T01:51:10.234Z] [INFO   ] 2025-11-18T01:51:10.234Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-18T01:51:10.234Z] [INFO   ] 2025-11-18T01:51:10.234Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":"ed18bcb3-6a08-4422-a1a3-9e4b7b3337ab"}
+[2025-11-18T01:51:10.235Z] [INFO   ] 2025-11-18T01:51:10.235Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-18T01:51:10.235Z] [INFO   ] 2025-11-18T01:51:10.235Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-18T01:51:10.341Z] [INFO   ] 2025-11-18T01:51:10.341Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":15,"permissionsCount":4,"integrationsError":null,"permissionsError":null}
+[2025-11-18T01:51:10.342Z] [INFO   ] 2025-11-18T01:51:10.342Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","permission":"admin"}
+[2025-11-18T01:51:10.342Z] [INFO   ] 2025-11-18T01:51:10.342Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:10.342Z] [INFO   ] 2025-11-18T01:51:10.342Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:10.342Z] [INFO   ] 2025-11-18T01:51:10.342Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-18T01:51:10.342Z] [INFO   ] 2025-11-18T01:51:10.342Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","permission":"admin"}
+[2025-11-18T01:51:10.342Z] [INFO   ] 2025-11-18T01:51:10.342Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f367c75b-b4ea-4d0e-96ba-76368f0525a6","provider":"slack","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:10.342Z] [INFO   ] 2025-11-18T01:51:10.342Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f172e387-ab0c-4c6a-975e-1767b2fd37be","provider":"notion","permission":"admin","reason":"default"}
+[2025-11-18T01:51:10.342Z] [INFO   ] 2025-11-18T01:51:10.342Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:10.342Z] [INFO   ] 2025-11-18T01:51:10.342Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"dd542556-581b-4711-ae40-304c81619938","provider":"airtable","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:10.342Z] [INFO   ] 2025-11-18T01:51:10.342Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f0476067-a30a-4ab4-b9fb-1f5a647a7be7","provider":"facebook","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:10.343Z] [INFO   ] 2025-11-18T01:51:10.342Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"c61c89e4-4f78-4069-8bfe-d36dd81cf6fc","provider":"dropbox","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:10.343Z] [INFO   ] 2025-11-18T01:51:10.343Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:10.343Z] [INFO   ] 2025-11-18T01:51:10.343Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:10.343Z] [INFO   ] 2025-11-18T01:51:10.343Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-18T01:51:10.343Z] [INFO   ] 2025-11-18T01:51:10.343Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:10.343Z] [INFO   ] 2025-11-18T01:51:10.343Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":15,"workspaceType":"personal"}
+[2025-11-18T01:51:10.364Z] [INFO   ] 2025-11-18T01:51:10.364Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":"ed18bcb3-6a08-4422-a1a3-9e4b7b3337ab","integrationsCount":15,"permissionsCount":4,"integrationsError":null,"permissionsError":null}
+[2025-11-18T01:51:10.364Z] [INFO   ] 2025-11-18T01:51:10.364Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","permission":"admin"}
+[2025-11-18T01:51:10.364Z] [INFO   ] 2025-11-18T01:51:10.364Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:10.365Z] [INFO   ] 2025-11-18T01:51:10.365Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:10.365Z] [INFO   ] 2025-11-18T01:51:10.365Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-18T01:51:10.365Z] [INFO   ] 2025-11-18T01:51:10.365Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","permission":"admin"}
+[2025-11-18T01:51:10.365Z] [INFO   ] 2025-11-18T01:51:10.365Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f367c75b-b4ea-4d0e-96ba-76368f0525a6","provider":"slack","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:10.365Z] [INFO   ] 2025-11-18T01:51:10.365Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f172e387-ab0c-4c6a-975e-1767b2fd37be","provider":"notion","permission":"admin","reason":"default"}
+[2025-11-18T01:51:10.365Z] [INFO   ] 2025-11-18T01:51:10.365Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:10.365Z] [INFO   ] 2025-11-18T01:51:10.365Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"dd542556-581b-4711-ae40-304c81619938","provider":"airtable","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:10.365Z] [INFO   ] 2025-11-18T01:51:10.365Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f0476067-a30a-4ab4-b9fb-1f5a647a7be7","provider":"facebook","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:10.365Z] [INFO   ] 2025-11-18T01:51:10.365Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"c61c89e4-4f78-4069-8bfe-d36dd81cf6fc","provider":"dropbox","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:10.365Z] [INFO   ] 2025-11-18T01:51:10.365Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:10.365Z] [INFO   ] 2025-11-18T01:51:10.365Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:10.365Z] [INFO   ] 2025-11-18T01:51:10.365Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-18T01:51:10.365Z] [INFO   ] 2025-11-18T01:51:10.365Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:10.365Z] [INFO   ] 2025-11-18T01:51:10.365Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":15,"workspaceType":"personal"}
+[2025-11-18T01:51:10.471Z] [INFO   ] 2025-11-18T01:51:10.471Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-18T01:51:10.471Z","url":"http://localhost:3000/api/integrations"}
+[2025-11-18T01:51:10.503Z] [INFO   ] 2025-11-18T01:51:10.503Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/0af4872c-1522-427b-959b-72ed2701ab25/revisions/dc8b0b2f-3708-4de7-aed3-7cefd0bf2967","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14863983104}
+[2025-11-18T01:51:10.586Z] [INFO   ] 2025-11-18T01:51:10.586Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-18T01:51:10.586Z] [INFO   ] 2025-11-18T01:51:10.586Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-18T01:51:10.684Z] [INFO   ] 2025-11-18T01:51:10.683Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":15,"permissionsCount":4,"integrationsError":null,"permissionsError":null}
+[2025-11-18T01:51:10.684Z] [INFO   ] 2025-11-18T01:51:10.684Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","permission":"admin"}
+[2025-11-18T01:51:10.684Z] [INFO   ] 2025-11-18T01:51:10.684Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:10.684Z] [INFO   ] 2025-11-18T01:51:10.684Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:10.684Z] [INFO   ] 2025-11-18T01:51:10.684Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-18T01:51:10.684Z] [INFO   ] 2025-11-18T01:51:10.684Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","permission":"admin"}
+[2025-11-18T01:51:10.684Z] [INFO   ] 2025-11-18T01:51:10.684Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f367c75b-b4ea-4d0e-96ba-76368f0525a6","provider":"slack","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:10.684Z] [INFO   ] 2025-11-18T01:51:10.684Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f172e387-ab0c-4c6a-975e-1767b2fd37be","provider":"notion","permission":"admin","reason":"default"}
+[2025-11-18T01:51:10.684Z] [INFO   ] 2025-11-18T01:51:10.684Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:10.684Z] [INFO   ] 2025-11-18T01:51:10.684Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"dd542556-581b-4711-ae40-304c81619938","provider":"airtable","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:10.684Z] [INFO   ] 2025-11-18T01:51:10.684Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f0476067-a30a-4ab4-b9fb-1f5a647a7be7","provider":"facebook","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:10.684Z] [INFO   ] 2025-11-18T01:51:10.684Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"c61c89e4-4f78-4069-8bfe-d36dd81cf6fc","provider":"dropbox","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:10.684Z] [INFO   ] 2025-11-18T01:51:10.684Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:10.684Z] [INFO   ] 2025-11-18T01:51:10.684Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:10.684Z] [INFO   ] 2025-11-18T01:51:10.684Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-18T01:51:10.684Z] [INFO   ] 2025-11-18T01:51:10.684Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:10.684Z] [INFO   ] 2025-11-18T01:51:10.684Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":15,"workspaceType":"personal"}
+[2025-11-18T01:51:11.043Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/v2/api/flows/[flowId]/revisions/[revisionId] ...
+[2025-11-18T01:51:11.136Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/revisions/[revisionId] in 592ms (6863 modules)
+[2025-11-18T01:51:12.077Z] [INFO   ] 2025-11-18T01:51:12.077Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-18T01:51:12.077Z","url":"http://localhost:3000/api/integrations"}
+[2025-11-18T01:51:12.152Z] [INFO   ] 2025-11-18T01:51:12.152Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-18T01:51:12.152Z] [INFO   ] 2025-11-18T01:51:12.152Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-18T01:51:12.239Z] [INFO   ] 2025-11-18T01:51:12.239Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":15,"permissionsCount":4,"integrationsError":null,"permissionsError":null}
+[2025-11-18T01:51:12.239Z] [INFO   ] 2025-11-18T01:51:12.239Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","permission":"admin"}
+[2025-11-18T01:51:12.239Z] [INFO   ] 2025-11-18T01:51:12.239Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:12.239Z] [INFO   ] 2025-11-18T01:51:12.239Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:12.239Z] [INFO   ] 2025-11-18T01:51:12.239Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-18T01:51:12.239Z] [INFO   ] 2025-11-18T01:51:12.239Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","permission":"admin"}
+[2025-11-18T01:51:12.239Z] [INFO   ] 2025-11-18T01:51:12.239Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f367c75b-b4ea-4d0e-96ba-76368f0525a6","provider":"slack","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:12.239Z] [INFO   ] 2025-11-18T01:51:12.239Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f172e387-ab0c-4c6a-975e-1767b2fd37be","provider":"notion","permission":"admin","reason":"default"}
+[2025-11-18T01:51:12.239Z] [INFO   ] 2025-11-18T01:51:12.239Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:12.239Z] [INFO   ] 2025-11-18T01:51:12.239Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"dd542556-581b-4711-ae40-304c81619938","provider":"airtable","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:12.239Z] [INFO   ] 2025-11-18T01:51:12.239Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f0476067-a30a-4ab4-b9fb-1f5a647a7be7","provider":"facebook","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:12.239Z] [INFO   ] 2025-11-18T01:51:12.239Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"c61c89e4-4f78-4069-8bfe-d36dd81cf6fc","provider":"dropbox","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:12.239Z] [INFO   ] 2025-11-18T01:51:12.239Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:12.239Z] [INFO   ] 2025-11-18T01:51:12.239Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:12.239Z] [INFO   ] 2025-11-18T01:51:12.239Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-18T01:51:12.239Z] [INFO   ] 2025-11-18T01:51:12.239Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:12.239Z] [INFO   ] 2025-11-18T01:51:12.239Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":15,"workspaceType":"personal"}
+[2025-11-18T01:51:12.300Z] [INFO   ] 2025-11-18T01:51:12.300Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-18T01:51:12.300Z","url":"http://localhost:3000/api/integrations"}
+[2025-11-18T01:51:12.382Z] [INFO   ] 2025-11-18T01:51:12.382Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-18T01:51:12.383Z] [INFO   ] 2025-11-18T01:51:12.383Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-18T01:51:12.468Z] [INFO   ] 2025-11-18T01:51:12.468Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":15,"permissionsCount":4,"integrationsError":null,"permissionsError":null}
+[2025-11-18T01:51:12.468Z] [INFO   ] 2025-11-18T01:51:12.468Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","permission":"admin"}
+[2025-11-18T01:51:12.468Z] [INFO   ] 2025-11-18T01:51:12.468Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:12.468Z] [INFO   ] 2025-11-18T01:51:12.468Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:12.468Z] [INFO   ] 2025-11-18T01:51:12.468Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-18T01:51:12.468Z] [INFO   ] 2025-11-18T01:51:12.468Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","permission":"admin"}
+[2025-11-18T01:51:12.468Z] [INFO   ] 2025-11-18T01:51:12.468Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f367c75b-b4ea-4d0e-96ba-76368f0525a6","provider":"slack","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:12.468Z] [INFO   ] 2025-11-18T01:51:12.468Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f172e387-ab0c-4c6a-975e-1767b2fd37be","provider":"notion","permission":"admin","reason":"default"}
+[2025-11-18T01:51:12.468Z] [INFO   ] 2025-11-18T01:51:12.468Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:12.468Z] [INFO   ] 2025-11-18T01:51:12.468Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"dd542556-581b-4711-ae40-304c81619938","provider":"airtable","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:12.468Z] [INFO   ] 2025-11-18T01:51:12.468Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f0476067-a30a-4ab4-b9fb-1f5a647a7be7","provider":"facebook","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:12.468Z] [INFO   ] 2025-11-18T01:51:12.468Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"c61c89e4-4f78-4069-8bfe-d36dd81cf6fc","provider":"dropbox","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:12.468Z] [INFO   ] 2025-11-18T01:51:12.468Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:12.468Z] [INFO   ] 2025-11-18T01:51:12.468Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:12.468Z] [INFO   ] 2025-11-18T01:51:12.468Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-18T01:51:12.468Z] [INFO   ] 2025-11-18T01:51:12.468Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:12.468Z] [INFO   ] 2025-11-18T01:51:12.468Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":15,"workspaceType":"personal"}
+[2025-11-18T01:51:29.829Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 3.8s (6877 modules)
+[2025-11-18T01:51:30.107Z] [INFO   ] 2025-11-18T01:51:30.107Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/0af4872c-1522-427b-959b-72ed2701ab25","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14864002708}
+[2025-11-18T01:51:30.550Z] [INFO   ] 2025-11-18T01:51:30.550Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-18T01:51:34.863Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1548ms (6877 modules)
+[2025-11-18T01:51:35.140Z] [INFO   ] 2025-11-18T01:51:35.139Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/0af4872c-1522-427b-959b-72ed2701ab25","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14864007740}
+[2025-11-18T01:51:35.589Z] [INFO   ] 2025-11-18T01:51:35.588Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-18T01:51:43.855Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1836ms (6877 modules)
+[2025-11-18T01:51:43.904Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-11-18T01:51:44.200Z] [INFO   ] 2025-11-18T01:51:44.200Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/0af4872c-1522-427b-959b-72ed2701ab25","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14864016801}
+[2025-11-18T01:51:44.208Z] [INFO   ] 2025-11-18T01:51:44.207Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/0af4872c-1522-427b-959b-72ed2701ab25","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14864016808}
+[2025-11-18T01:51:44.679Z] [INFO   ] 2025-11-18T01:51:44.679Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-18T01:51:44.679Z"}
+[2025-11-18T01:51:44.695Z] [INFO   ] 2025-11-18T01:51:44.695Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-18T01:51:44.695Z"}
+[2025-11-18T01:51:44.696Z] [INFO   ] 2025-11-18T01:51:44.695Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-18T01:51:44.695Z"}
+[2025-11-18T01:51:45.019Z] [INFO   ] 2025-11-18T01:51:45.019Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-18T01:51:45.259Z] [INFO   ] 2025-11-18T01:51:45.259Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-18T01:51:46.100Z] [INFO   ] [PhantomEdgeOverlay] No nodes found
+[2025-11-18T01:51:46.100Z] [INFO   ] [PhantomEdgeOverlay] Not rendering - no last node info
+[2025-11-18T01:51:47.161Z] [INFO   ] 2025-11-18T01:51:47.161Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-18T01:51:47.161Z","url":"http://localhost:3000/api/integrations"}
+[2025-11-18T01:51:47.240Z] [INFO   ] 2025-11-18T01:51:47.240Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-18T01:51:47.240Z","url":"http://localhost:3000/api/integrations?workspace_type=personal&workspace_id=ed18bcb3-6a08-4422-a1a3-9e4b7b3337ab"}
+[2025-11-18T01:51:47.306Z] [INFO   ] 2025-11-18T01:51:47.306Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/0af4872c-1522-427b-959b-72ed2701ab25/revisions","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14864019907}
+[2025-11-18T01:51:47.341Z] [INFO   ] 2025-11-18T01:51:47.341Z [DEBUG] [API /api/workflows] GET request {"filterContext":"ALL (unified view)","workspaceId":null,"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-18T01:51:47.346Z] [INFO   ] 2025-11-18T01:51:47.346Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-18T01:51:47.346Z] [INFO   ] 2025-11-18T01:51:47.346Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-18T01:51:47.398Z] [INFO   ] 2025-11-18T01:51:47.398Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-18T01:51:47.398Z] [INFO   ] 2025-11-18T01:51:47.398Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":"ed18bcb3-6a08-4422-a1a3-9e4b7b3337ab"}
+[2025-11-18T01:51:47.444Z] [INFO   ] 2025-11-18T01:51:47.444Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":15,"permissionsCount":4,"integrationsError":null,"permissionsError":null}
+[2025-11-18T01:51:47.445Z] [INFO   ] 2025-11-18T01:51:47.445Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","permission":"admin"}
+[2025-11-18T01:51:47.445Z] [INFO   ] 2025-11-18T01:51:47.445Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:47.445Z] [INFO   ] 2025-11-18T01:51:47.445Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:47.445Z] [INFO   ] 2025-11-18T01:51:47.445Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-18T01:51:47.445Z] [INFO   ] 2025-11-18T01:51:47.445Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","permission":"admin"}
+[2025-11-18T01:51:47.445Z] [INFO   ] 2025-11-18T01:51:47.445Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f367c75b-b4ea-4d0e-96ba-76368f0525a6","provider":"slack","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:47.445Z] [INFO   ] 2025-11-18T01:51:47.445Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f172e387-ab0c-4c6a-975e-1767b2fd37be","provider":"notion","permission":"admin","reason":"default"}
+[2025-11-18T01:51:47.445Z] [INFO   ] 2025-11-18T01:51:47.445Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:47.445Z] [INFO   ] 2025-11-18T01:51:47.445Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"dd542556-581b-4711-ae40-304c81619938","provider":"airtable","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:47.445Z] [INFO   ] 2025-11-18T01:51:47.445Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f0476067-a30a-4ab4-b9fb-1f5a647a7be7","provider":"facebook","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:47.445Z] [INFO   ] 2025-11-18T01:51:47.445Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"c61c89e4-4f78-4069-8bfe-d36dd81cf6fc","provider":"dropbox","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:47.445Z] [INFO   ] 2025-11-18T01:51:47.445Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:47.445Z] [INFO   ] 2025-11-18T01:51:47.445Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:47.445Z] [INFO   ] 2025-11-18T01:51:47.445Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-18T01:51:47.445Z] [INFO   ] 2025-11-18T01:51:47.445Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:47.445Z] [INFO   ] 2025-11-18T01:51:47.445Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":15,"workspaceType":"personal"}
+[2025-11-18T01:51:47.542Z] [INFO   ] 2025-11-18T01:51:47.542Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":"ed18bcb3-6a08-4422-a1a3-9e4b7b3337ab","integrationsCount":15,"permissionsCount":4,"integrationsError":null,"permissionsError":null}
+[2025-11-18T01:51:47.543Z] [INFO   ] 2025-11-18T01:51:47.543Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","permission":"admin"}
+[2025-11-18T01:51:47.543Z] [INFO   ] 2025-11-18T01:51:47.543Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:47.543Z] [INFO   ] 2025-11-18T01:51:47.543Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:47.543Z] [INFO   ] 2025-11-18T01:51:47.543Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-18T01:51:47.543Z] [INFO   ] 2025-11-18T01:51:47.543Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","permission":"admin"}
+[2025-11-18T01:51:47.543Z] [INFO   ] 2025-11-18T01:51:47.543Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f367c75b-b4ea-4d0e-96ba-76368f0525a6","provider":"slack","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:47.543Z] [INFO   ] 2025-11-18T01:51:47.543Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f172e387-ab0c-4c6a-975e-1767b2fd37be","provider":"notion","permission":"admin","reason":"default"}
+[2025-11-18T01:51:47.543Z] [INFO   ] 2025-11-18T01:51:47.543Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:47.543Z] [INFO   ] 2025-11-18T01:51:47.543Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"dd542556-581b-4711-ae40-304c81619938","provider":"airtable","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:47.543Z] [INFO   ] 2025-11-18T01:51:47.543Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f0476067-a30a-4ab4-b9fb-1f5a647a7be7","provider":"facebook","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:47.543Z] [INFO   ] 2025-11-18T01:51:47.543Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"c61c89e4-4f78-4069-8bfe-d36dd81cf6fc","provider":"dropbox","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:47.543Z] [INFO   ] 2025-11-18T01:51:47.543Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:47.543Z] [INFO   ] 2025-11-18T01:51:47.543Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:47.543Z] [INFO   ] 2025-11-18T01:51:47.543Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-18T01:51:47.543Z] [INFO   ] 2025-11-18T01:51:47.543Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:47.543Z] [INFO   ] 2025-11-18T01:51:47.543Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":15,"workspaceType":"personal"}
+[2025-11-18T01:51:47.584Z] [INFO   ] 2025-11-18T01:51:47.584Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-18T01:51:47.584Z","url":"http://localhost:3000/api/integrations"}
+[2025-11-18T01:51:47.633Z] [INFO   ] 2025-11-18T01:51:47.633Z [DEBUG] [API /api/workflows] Query result {"filterContext":"ALL","count":0,"error":null}
+[2025-11-18T01:51:47.700Z] [INFO   ] 2025-11-18T01:51:47.700Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-18T01:51:47.700Z] [INFO   ] 2025-11-18T01:51:47.700Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-18T01:51:47.807Z] [INFO   ] 2025-11-18T01:51:47.807Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":15,"permissionsCount":4,"integrationsError":null,"permissionsError":null}
+[2025-11-18T01:51:47.807Z] [INFO   ] 2025-11-18T01:51:47.807Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","permission":"admin"}
+[2025-11-18T01:51:47.807Z] [INFO   ] 2025-11-18T01:51:47.807Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:47.807Z] [INFO   ] 2025-11-18T01:51:47.807Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:47.807Z] [INFO   ] 2025-11-18T01:51:47.807Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-18T01:51:47.807Z] [INFO   ] 2025-11-18T01:51:47.807Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","permission":"admin"}
+[2025-11-18T01:51:47.807Z] [INFO   ] 2025-11-18T01:51:47.807Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f367c75b-b4ea-4d0e-96ba-76368f0525a6","provider":"slack","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:47.807Z] [INFO   ] 2025-11-18T01:51:47.807Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f172e387-ab0c-4c6a-975e-1767b2fd37be","provider":"notion","permission":"admin","reason":"default"}
+[2025-11-18T01:51:47.807Z] [INFO   ] 2025-11-18T01:51:47.807Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:47.807Z] [INFO   ] 2025-11-18T01:51:47.807Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"dd542556-581b-4711-ae40-304c81619938","provider":"airtable","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:47.807Z] [INFO   ] 2025-11-18T01:51:47.807Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f0476067-a30a-4ab4-b9fb-1f5a647a7be7","provider":"facebook","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:47.807Z] [INFO   ] 2025-11-18T01:51:47.807Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"c61c89e4-4f78-4069-8bfe-d36dd81cf6fc","provider":"dropbox","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:47.807Z] [INFO   ] 2025-11-18T01:51:47.807Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:47.807Z] [INFO   ] 2025-11-18T01:51:47.807Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:47.807Z] [INFO   ] 2025-11-18T01:51:47.807Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-18T01:51:47.807Z] [INFO   ] 2025-11-18T01:51:47.807Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:47.807Z] [INFO   ] 2025-11-18T01:51:47.807Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":15,"workspaceType":"personal"}
+[2025-11-18T01:51:48.116Z] [INFO   ] 2025-11-18T01:51:48.116Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/0af4872c-1522-427b-959b-72ed2701ab25/revisions/dc8b0b2f-3708-4de7-aed3-7cefd0bf2967","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14864020717}
+[2025-11-18T01:51:48.779Z] [INFO   ] 2025-11-18T01:51:48.779Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-18T01:51:48.779Z","url":"http://localhost:3000/api/integrations"}
+[2025-11-18T01:51:48.866Z] [INFO   ] 2025-11-18T01:51:48.866Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-18T01:51:48.866Z] [INFO   ] 2025-11-18T01:51:48.866Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-18T01:51:48.956Z] [INFO   ] 2025-11-18T01:51:48.956Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":15,"permissionsCount":4,"integrationsError":null,"permissionsError":null}
+[2025-11-18T01:51:48.956Z] [INFO   ] 2025-11-18T01:51:48.956Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","permission":"admin"}
+[2025-11-18T01:51:48.956Z] [INFO   ] 2025-11-18T01:51:48.956Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:48.956Z] [INFO   ] 2025-11-18T01:51:48.956Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:48.956Z] [INFO   ] 2025-11-18T01:51:48.956Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-18T01:51:48.956Z] [INFO   ] 2025-11-18T01:51:48.956Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","permission":"admin"}
+[2025-11-18T01:51:48.956Z] [INFO   ] 2025-11-18T01:51:48.956Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f367c75b-b4ea-4d0e-96ba-76368f0525a6","provider":"slack","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:48.956Z] [INFO   ] 2025-11-18T01:51:48.956Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f172e387-ab0c-4c6a-975e-1767b2fd37be","provider":"notion","permission":"admin","reason":"default"}
+[2025-11-18T01:51:48.956Z] [INFO   ] 2025-11-18T01:51:48.956Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:48.956Z] [INFO   ] 2025-11-18T01:51:48.956Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"dd542556-581b-4711-ae40-304c81619938","provider":"airtable","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:48.956Z] [INFO   ] 2025-11-18T01:51:48.956Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f0476067-a30a-4ab4-b9fb-1f5a647a7be7","provider":"facebook","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:48.956Z] [INFO   ] 2025-11-18T01:51:48.956Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"c61c89e4-4f78-4069-8bfe-d36dd81cf6fc","provider":"dropbox","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:48.956Z] [INFO   ] 2025-11-18T01:51:48.956Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:48.956Z] [INFO   ] 2025-11-18T01:51:48.956Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:48.956Z] [INFO   ] 2025-11-18T01:51:48.956Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-18T01:51:48.957Z] [INFO   ] 2025-11-18T01:51:48.956Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:48.957Z] [INFO   ] 2025-11-18T01:51:48.957Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":15,"workspaceType":"personal"}
+[2025-11-18T01:51:49.027Z] [INFO   ] 2025-11-18T01:51:49.027Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-18T01:51:49.027Z","url":"http://localhost:3000/api/integrations"}
+[2025-11-18T01:51:49.106Z] [INFO   ] 2025-11-18T01:51:49.106Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-18T01:51:49.107Z] [INFO   ] 2025-11-18T01:51:49.107Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-18T01:51:49.197Z] [INFO   ] 2025-11-18T01:51:49.196Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":15,"permissionsCount":4,"integrationsError":null,"permissionsError":null}
+[2025-11-18T01:51:49.197Z] [INFO   ] 2025-11-18T01:51:49.197Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","permission":"admin"}
+[2025-11-18T01:51:49.197Z] [INFO   ] 2025-11-18T01:51:49.197Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:49.197Z] [INFO   ] 2025-11-18T01:51:49.197Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:49.197Z] [INFO   ] 2025-11-18T01:51:49.197Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-18T01:51:49.197Z] [INFO   ] 2025-11-18T01:51:49.197Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","permission":"admin"}
+[2025-11-18T01:51:49.197Z] [INFO   ] 2025-11-18T01:51:49.197Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f367c75b-b4ea-4d0e-96ba-76368f0525a6","provider":"slack","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:49.197Z] [INFO   ] 2025-11-18T01:51:49.197Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f172e387-ab0c-4c6a-975e-1767b2fd37be","provider":"notion","permission":"admin","reason":"default"}
+[2025-11-18T01:51:49.197Z] [INFO   ] 2025-11-18T01:51:49.197Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:49.197Z] [INFO   ] 2025-11-18T01:51:49.197Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"dd542556-581b-4711-ae40-304c81619938","provider":"airtable","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:49.197Z] [INFO   ] 2025-11-18T01:51:49.197Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f0476067-a30a-4ab4-b9fb-1f5a647a7be7","provider":"facebook","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:49.197Z] [INFO   ] 2025-11-18T01:51:49.197Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"c61c89e4-4f78-4069-8bfe-d36dd81cf6fc","provider":"dropbox","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:49.197Z] [INFO   ] 2025-11-18T01:51:49.197Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:49.197Z] [INFO   ] 2025-11-18T01:51:49.197Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:49.197Z] [INFO   ] 2025-11-18T01:51:49.197Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-18T01:51:49.197Z] [INFO   ] 2025-11-18T01:51:49.197Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","permission":"admin","reason":"connected_by"}
+[2025-11-18T01:51:49.197Z] [INFO   ] 2025-11-18T01:51:49.197Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":15,"workspaceType":"personal"}
+[2025-11-18T01:52:00.358Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1773ms (6890 modules)
+[2025-11-18T01:52:00.617Z] [INFO   ] 2025-11-18T01:52:00.617Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/0af4872c-1522-427b-959b-72ed2701ab25","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14864033218}
+[2025-11-18T01:52:00.920Z] [INFO   ] 2025-11-18T01:52:00.920Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-18T01:53:25.408Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/workflows/test-node ...
+[2025-11-18T01:53:40.312Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/workflows/test-node in 15.8s (9423 modules)
+[2025-11-18T01:53:43.656Z] [INFO   ] 2025-11-18T01:53:43.656Z [DEBUG] [test-node] Executing real action: {"nodeType":"gmail_action_reply_to_email","hasConfig":true,"configKeys":["body","replyAll","messageId","attachments"]}
+[2025-11-18T01:53:43.658Z] [INFO   ] 2025-11-18T01:53:43.658Z [DEBUG] 📌 executeAction received userId: a3e3a51a-175c-4b59-ad03-227ba12a18b0, workflowId: test-workflow
+[2025-11-18T01:53:43.659Z] [INFO   ] 2025-11-18T01:53:43.659Z [DEBUG] Execution log (server-side): {"nodeId":"test-node","nodeType":"gmail_action_reply_to_email","nodeTitle":"Reply to Email","timestamp":"2025-11-18T01:53:43.658Z","status":"started","input":{"raw":{"config":{"body":"test email response","replyAll":false,"messageId":"19a93353dd7a2c19","attachments":"{{gmail_action_get_attachment-7efa6278-0dde-4dee-95f0-7e3b260f6f7b.data}}"}},"formatted":["📥 Configuration:","  Message Body: \"test email response\"","  Reply All: No","  Message ID: \"19a93353dd7a2c19\"","  Attachments: \"{{gmail_action_get_attachment-7efa6278-0dde-4dee-95f0-7e3b260f6f7b.data}}\""]}}
+[2025-11-18T01:53:43.673Z] [INFO   ] 2025-11-18T01:53:43.673Z [DEBUG] [Execution Started] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔄 Reply to Email (gmail_action_reply_to_email)
+⏱️ 7:53:43 PM
+📌 Status: 🔄 Started
+────────────────────────────────────────────────────────────
+📥 Configuration:
+  Message Body: "test email response"
+  Reply All: No
+  Message ID: "19a93353dd7a2c19"
+  Attachments: "{{gmail_action_get_attachment-7efa6278-0dde-4dee-95f0-7e3b260f6f7b.data}}"
+
+[2025-11-18T01:53:43.675Z] [INFO   ] 2025-11-18T01:53:43.675Z [DEBUG] 🔍 Looking for integration: userId="a3e3a51a-175c-4b59-ad03-227ba12a18b0", provider="gmail"
+[2025-11-18T01:53:43.675Z] [INFO   ] 2025-11-18T01:53:43.675Z [DEBUG] 🔍 Searching for integration with providers: gmail, google
+[2025-11-18T01:53:43.778Z] [INFO   ] 2025-11-18T01:53:43.778Z [DEBUG] 📋 All integrations for user a3e3a51a-175c-4b59-ad03-227ba12a18b0: [{"id":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","status":"connected"},{"id":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","status":"connected"},{"id":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","status":"connected"},{"id":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","status":"connected"},{"id":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","status":"connected"},{"id":"f367c75b-b4ea-4d0e-96ba-76368f0525a6","provider":"slack","status":"connected"},{"id":"f172e387-ab0c-4c6a-975e-1767b2fd37be","provider":"notion","status":"connected"},{"id":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","status":"connected"},{"id":"dd542556-581b-4711-ae40-304c81619938","provider":"airtable","status":"connected"},{"id":"f0476067-a30a-4ab4-b9fb-1f5a647a7be7","provider":"facebook","status":"connected"},{"id":"c61c89e4-4f78-4069-8bfe-d36dd81cf6fc","provider":"dropbox","status":"connected"},{"id":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","status":"connected"},{"id":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","status":"needs_reauthorization"},{"id":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","status":"connected"},{"id":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","status":"connected"}]
+[2025-11-18T01:53:43.873Z] [INFO   ] 2025-11-18T01:53:43.872Z [DEBUG] ✅ Found integration for gmail with actual provider: gmail
+[2025-11-18T01:53:43.873Z] [INFO   ] 2025-11-18T01:53:43.873Z [DEBUG] Attempting to decrypt access token for gmail
+[2025-11-18T01:53:43.874Z] [INFO   ] 2025-11-18T01:53:43.873Z [DEBUG] Token format check: {"hasColon":false,"isEncrypted":false}
+[2025-11-18T01:53:43.874Z] [INFO   ] 2025-11-18T01:53:43.874Z [DEBUG] Token for gmail is stored as plain text, returning as-is
+[2025-11-18T01:53:43.874Z] [INFO   ] 2025-11-18T01:53:43.874Z [DEBUG] 🔍 Resolving variable: {{gmail_action_get_attachment-7efa6278-0dde-4dee-95f0-7e3b260f6f7b.data}}
+[2025-11-18T01:53:43.874Z] [INFO   ] 2025-11-18T01:53:43.874Z [DEBUG] 🔍 Available input keys: 
+[2025-11-18T01:53:43.875Z] [INFO   ] 2025-11-18T01:53:43.874Z [DEBUG] [Gmail Reply] Sending reply to message 19a93353dd7a2c19 {"hasCustomSubject":false}
+[2025-11-18T01:53:44.490Z] [INFO   ] 2025-11-18T01:53:44.490Z [DEBUG] [Gmail Reply] Successfully sent reply: 19a94aaf90793d58
+[2025-11-18T01:53:44.493Z] [INFO   ] 2025-11-18T01:53:44.492Z [DEBUG] Execution log (server-side): {"nodeId":"test-node","nodeType":"gmail_action_reply_to_email","nodeTitle":"Reply to Email","timestamp":"2025-11-18T01:53:44.491Z","status":"completed","executionTime":833,"input":{"raw":{"config":{"body":"test email response","replyAll":false,"messageId":"19a93353dd7a2c19","attachments":"{{gmail_action_get_attachment-7efa6278-0dde-4dee-95f0-7e3b260f6f7b.data}}"}},"formatted":["📥 Configuration:","  Message Body: \"test email response\"","  Reply All: No","  Message ID: \"19a93353dd7a2c19\"","  Attachments: \"{{gmail_action_get_attachment-7efa6278-0dde-4dee-95f0-7e3b260f6f7b.data}}\""]},"output":{"raw":{"messageId":"19a94aaf90793d58","threadId":"19a93353dd7a2c19","success":true,"replyingTo":"19a93353dd7a2c19","replyAll":false,"subject":"Re: test","sentAt":"2025-11-18T01:53:44.491Z"},"formatted":["✅ Reply to Email Completed","","Status: Success ✓","Message ID: \"19a94aaf90793d58\"","Thread Id: \"19a93353dd7a2c19\"","Replying To: \"19a93353dd7a2c19\"","Reply All: No","Subject: \"Re: test\"","Sent At: \"2025-11-18T01:53:44.491Z\""]}}
+[2025-11-18T01:53:44.493Z] [INFO   ] 2025-11-18T01:53:44.493Z [DEBUG] [Execution Completed] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔄 Reply to Email (gmail_action_reply_to_email)
+⏱️ 7:53:44 PM • 833ms
+📌 Status: ✅ Completed
+────────────────────────────────────────────────────────────
+📥 Configuration:
+  Message Body: "test email response"
+  Reply All: No
+  Message ID: "19a93353dd7a2c19"
+  Attachments: "{{gmail_action_get_attachment-7efa6278-0dde-4dee-95f0-7e3b260f6f7b.data}}"
+
+✅ Reply to Email Completed
+
+Status: Success ✓
+Message ID: "19a94aaf90793d58"
+Thread Id: "19a93353dd7a2c19"
+Replying To: "19a93353dd7a2c19"
+Reply All: No
+Subject: "Re: test"
+Sent At: "2025-11-18T01:53:44.491Z"
+
+[2025-11-18T01:53:44.493Z] [INFO   ] 2025-11-18T01:53:44.493Z [DEBUG] [test-node] Execution completed: {"success":true,"hasOutput":true,"outputKeys":["messageId","threadId","success","replyingTo","replyAll","subject","sentAt"]}
+[2025-11-18T01:53:45.331Z] [INFO   ] 2025-11-18T01:53:45.331Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/0af4872c-1522-427b-959b-72ed2701ab25/apply-edits","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14864137931}
+[2025-11-18T01:53:46.102Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/v2/api/flows/[flowId]/apply-edits ...
+[2025-11-18T01:53:46.385Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/apply-edits in 1001ms (9425 modules)
+[2025-11-18T01:53:47.010Z] [INFO   ] [apply-edits] Original flow size: 37267 bytes (36.39 KB)
+[2025-11-18T01:53:47.011Z] [INFO   ] [apply-edits] Sanitized flow size: 36763 bytes (35.90 KB), saved 504 bytes
+[2025-11-18T01:53:47.335Z] [INFO   ] [FlowRepository] Creating revision for flow 0af4872c-1522-427b-959b-72ed2701ab25, JSON size: 36763 bytes (35.90 KB)
+[2025-11-18T01:53:48.185Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/workflows/[id]/chat ...
+[2025-11-18T01:53:48.253Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/workflows/[id]/chat in 588ms (7605 modules)
+[2025-11-18T01:54:46.462Z] [ERROR  ] ENOENT: no such file or directory, stat '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/cache/webpack/client-development/6.pack.gz'
+Error: ENOENT: no such file or directory, stat '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/cache/webpack/client-development/6.pack.gz'
+[2025-11-18T01:54:46.463Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection: ENOENT: no such file or directory, stat '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/cache/webpack/client-development/6.pack.gz'
+Error: ENOENT: no such file or directory, stat '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/cache/webpack/client-development/6.pack.gz'
+[2025-11-18T01:54:46.463Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection:  ENOENT: no such file or directory, stat '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/cache/webpack/client-development/6.pack.gz'
+Error: ENOENT: no such file or directory, stat '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/cache/webpack/client-development/6.pack.gz'
+[2025-11-18T01:54:48.590Z] [ERROR  ] ENOENT: no such file or directory, stat '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/cache/webpack/server-development/2.pack.gz'
+Error: ENOENT: no such file or directory, stat '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/cache/webpack/server-development/2.pack.gz'
+[2025-11-18T01:54:48.591Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection: ENOENT: no such file or directory, stat '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/cache/webpack/server-development/2.pack.gz'
+Error: ENOENT: no such file or directory, stat '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/cache/webpack/server-development/2.pack.gz'
+[2025-11-18T01:54:48.591Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection:  ENOENT: no such file or directory, stat '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/cache/webpack/server-development/2.pack.gz'
+Error: ENOENT: no such file or directory, stat '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/cache/webpack/server-development/2.pack.gz'
+[2025-11-18T01:55:29.326Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1981ms (6851 modules)
+[2025-11-18T01:55:30.127Z] [INFO   ] 2025-11-18T01:55:30.127Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/0af4872c-1522-427b-959b-72ed2701ab25","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14864242728}
+[2025-11-18T01:55:30.718Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at AppPageRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:40:28483)
+    at AppPageRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:40:36772)
+    at async handler (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fworkflows%2Fbuilder%2F%5Bid%5D%2Fpage&page=%2Fworkflows%2Fbuilder%2F%5Bid%5D%2Fpage&appPaths=%2Fworkflows%2Fbuilder%2F%5Bid%5D%2Fpage&pagePath=private-next-app-dir%2Fworkflows%2Fbuilder%2F%5Bid%5D%2Fpage.tsx&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:200:27)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1474:24)
+    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-11-18T01:55:31.100Z] [ERROR  ]  [31m[1m⨯[22m[39m Failed to generate static paths for /workflows/builder/[id]:
+[2025-11-18T01:55:31.101Z] [ERROR  ] require is not defined
+ReferenceError: require is not defined
+    at file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/workflows/builder/%5Bid%5D/page.js:6145:27
+    at file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/workflows/builder/%5Bid%5D/page.js:6151:3
+    at ModuleJobSync.runSync (node:internal/modules/esm/module_job:396:35)
+    at ModuleLoader.importSyncForRequire (node:internal/modules/esm/loader:366:47)
+    at loadESMFromCJS (node:internal/modules/cjs/loader:1554:24)
+    at Module._compile (node:internal/modules/cjs/loader:1705:5)
+    at Object..js (node:internal/modules/cjs/loader:1888:10)
+    at Module.load (node:internal/modules/cjs/loader:1458:32)
+    at Function._load (node:internal/modules/cjs/loader:1275:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+[2025-11-18T01:55:31.351Z] [INFO   ]  [37m[1m○[22m[39m Compiling /_error ...
+[2025-11-18T01:55:31.893Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload when ?608e changed. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-11-18T01:55:32.236Z] [INFO   ] 2025-11-18T01:55:32.236Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/0af4872c-1522-427b-959b-72ed2701ab25","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14864244837}
+[2025-11-18T01:55:32.265Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_error in 1544ms (7178 modules)
+[2025-11-18T01:55:32.690Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:131864)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:140087)
+    at async handler (webpack-internal:///(pages-dir-node)/./node_modules/next/dist/server/route-modules/pages/pages-handler.js:50:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderErrorToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1742:24)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:408:21)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-11-18T01:55:32.813Z] [ERROR  ]  [31m[1m⨯[22m[39m require is not defined
+ReferenceError: require is not defined
+    at file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/workflows/builder/%5Bid%5D/page.js:6145:27
+    at file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/workflows/builder/%5Bid%5D/page.js:6151:3
+    at ModuleJobSync.runSync (node:internal/modules/esm/module_job:396:35)
+    at ModuleLoader.importSyncForRequire (node:internal/modules/esm/loader:366:47)
+    at loadESMFromCJS (node:internal/modules/cjs/loader:1554:24)
+    at Module._compile (node:internal/modules/cjs/loader:1705:5)
+    at Object..js (node:internal/modules/cjs/loader:1888:10)
+    at Module.load (node:internal/modules/cjs/loader:1458:32)
+    at Function._load (node:internal/modules/cjs/loader:1275:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+[2025-11-18T01:55:33.257Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:131864)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:140087)
+    at async handler (webpack-internal:///(pages-dir-node)/./node_modules/next/dist/server/route-modules/pages/pages-handler.js:50:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderErrorToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1742:24)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:408:21)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-11-18T01:55:34.511Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at AppPageRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:40:28483)
+    at AppPageRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:40:36772)
+    at async handler (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fworkflows%2Fbuilder%2F%5Bid%5D%2Fpage&page=%2Fworkflows%2Fbuilder%2F%5Bid%5D%2Fpage&appPaths=%2Fworkflows%2Fbuilder%2F%5Bid%5D%2Fpage&pagePath=private-next-app-dir%2Fworkflows%2Fbuilder%2F%5Bid%5D%2Fpage.tsx&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:200:27)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1474:24)
+    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-11-18T01:55:34.831Z] [ERROR  ] require is not defined
+ReferenceError: require is not defined
+    at file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/workflows/builder/%5Bid%5D/page.js:6145:27
+    at file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/workflows/builder/%5Bid%5D/page.js:6151:3
+    at ModuleJobSync.runSync (node:internal/modules/esm/module_job:396:35)
+    at ModuleLoader.importSyncForRequire (node:internal/modules/esm/loader:366:47)
+    at loadESMFromCJS (node:internal/modules/cjs/loader:1554:24)
+    at Module._compile (node:internal/modules/cjs/loader:1705:5)
+    at Object..js (node:internal/modules/cjs/loader:1888:10)
+    at Module.load (node:internal/modules/cjs/loader:1458:32)
+    at Function._load (node:internal/modules/cjs/loader:1275:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+[2025-11-18T01:55:34.884Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:131864)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:140087)
+    at async handler (webpack-internal:///(pages-dir-node)/./node_modules/next/dist/server/route-modules/pages/pages-handler.js:50:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderErrorToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1742:24)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:497:24)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-11-18T01:55:34.899Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/route-module.js:115:17)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/route-module.js:285:38)
+    at async handler (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/pages/pages-handler.js:52:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:497:24)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-11-18T01:55:35.062Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:131864)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:140087)
+    at async handler (webpack-internal:///(pages-dir-node)/./node_modules/next/dist/server/route-modules/pages/pages-handler.js:50:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderErrorToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1742:24)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:497:24)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-11-18T01:55:35.066Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/route-module.js:115:17)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/route-module.js:285:38)
+    at async handler (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/pages/pages-handler.js:52:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:497:24)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-11-18T01:55:35.195Z] [INFO   ] 2025-11-18T01:55:35.195Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/0af4872c-1522-427b-959b-72ed2701ab25","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14864247796}
+[2025-11-18T01:55:37.619Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 908ms (7192 modules)
+[2025-11-18T01:55:50.129Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 883ms (7192 modules)
+[2025-11-18T01:55:56.583Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1558ms (7192 modules)
+[2025-11-18T01:56:04.495Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1330ms (7192 modules)
+
+=== Log Session Ended: 2025-11-18T01:58:36.226Z ===
