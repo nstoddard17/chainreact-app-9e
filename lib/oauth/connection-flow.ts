@@ -15,6 +15,11 @@ export interface ConnectionOptions {
     width?: number
     height?: number
   }
+  // Shopify-specific
+  shop?: string
+  // Workspace context
+  workspaceType?: 'personal' | 'team' | 'organization'
+  workspaceId?: string | null
 }
 
 export interface ReconnectionOptions {
@@ -53,12 +58,41 @@ export class OAuthConnectionFlow {
       onCancel,
       onInfo,
       validateScopes = true,
-      popupOptions = { width: 600, height: 700 }
+      popupOptions = { width: 600, height: 700 },
+      workspaceType,
+      workspaceId
     } = options
 
     try {
+      // Shopify-specific: Prompt for shop domain if not provided
+      let shop = options.shop
+      if (providerId.toLowerCase() === 'shopify' && !shop) {
+        shop = window.prompt(
+          'Enter your Shopify store domain:',
+          'your-store.myshopify.com'
+        )?.trim()
+
+        if (!shop) {
+          // User cancelled
+          const cancelMessage = "User cancelled shop domain entry"
+          onCancel?.()
+          return { success: false, message: cancelMessage }
+        }
+
+        // Basic validation - add .myshopify.com if not present
+        if (!shop.includes('.')) {
+          shop = `${shop}.myshopify.com`
+        }
+
+        logger.debug('[OAuthConnectionFlow] Shopify shop entered:', shop)
+      }
+
       // Step 1: Generate OAuth URL
-      const { authUrl } = await IntegrationService.generateOAuthUrl(providerId)
+      const { authUrl } = await IntegrationService.generateOAuthUrl(providerId, {
+        shop,
+        workspaceType,
+        workspaceId
+      })
 
       // Step 2: Open popup and handle OAuth flow
       const popup = OAuthPopupManager.openOAuthPopup(authUrl, {
