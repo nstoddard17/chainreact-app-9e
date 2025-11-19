@@ -1136,7 +1136,7 @@ export function GenericSelectField({
               </TooltipContent>
             </Tooltip>
         )}
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <MultiCombobox
             value={Array.isArray(value) ? value : (value ? [value] : [])}
             onChange={handleChangeWithLogging}
@@ -1204,7 +1204,7 @@ export function GenericSelectField({
               </TooltipContent>
             </Tooltip>
         )}
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <Combobox
             value={value ?? ""}
             onChange={(newValue) => {
@@ -1298,7 +1298,7 @@ export function GenericSelectField({
             </TooltipContent>
           </Tooltip>
       )}
-      <div className="flex-1">
+      <div className="flex-1 min-w-0">
         <Combobox
           value={value ?? ""}
           onChange={(newValue) => {
