@@ -278,7 +278,8 @@ const shouldUseConnectMode = (field: ConfigField | NodeField) => {
     'button-toggle'
   ]
   if (selectionFieldTypes.includes(fieldType)) {
-    return supportsVariables === true
+    // Check for explicit opt-in via connectButton, supportsVariables, or supportsAI
+    return supportsVariables === true || (field as any).connectButton === true
   }
 
   // Rich text fields - keep variable picker (allow multiple variables + text)
