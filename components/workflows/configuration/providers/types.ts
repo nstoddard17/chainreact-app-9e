@@ -12,6 +12,7 @@ export interface LoadOptionsParams {
   dependsOnValue?: any;
   forceRefresh?: boolean;
   extraOptions?: Record<string, any>;
+  formValues?: Record<string, any>;
   signal?: AbortSignal;
 }
 

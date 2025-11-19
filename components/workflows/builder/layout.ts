@@ -329,22 +329,20 @@ export function setNodeState(
 ) {
   if (!instance) return
 
-  const nodes = instance.getNodes()
-  const updatedNodes = nodes.map((node) => {
-    if (node.id === nodeId) {
-      // Update both data.state and className
-      const stateClass = `node-${state}`
-      return {
-        ...node,
-        data: {
-          ...node.data,
-          state,
-        },
-        className: stateClass,
+  instance.setNodes((nodes) =>
+    nodes.map((node) => {
+      if (node.id === nodeId) {
+        const stateClass = `node-${state}`
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            state,
+          },
+          className: stateClass,
+        }
       }
-    }
-    return node
-  })
-
-  instance.setNodes(updatedNodes)
+      return node
+    })
+  )
 }

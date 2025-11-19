@@ -445,11 +445,14 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
     console.log('[WorkflowBuilder] App context ready, batching initial loads')
 
-    // REMOVED: Eager fetchIntegrations on mount
-    // Integrations are now lazy-loaded when user opens the integrations panel
-    // This significantly improves initial page load performance
-    console.log('[WorkflowBuilder] Initial mount complete - integrations will load on demand')
-  }, [appReady])
+    // Fetch integrations on mount to ensure connection status is accurate
+    // CustomNode components need this data to show connected/disconnected state
+    fetchIntegrations(false).catch(error => {
+      logger.error('[WorkflowBuilder] Failed to fetch integrations on mount:', error)
+    })
+
+    console.log('[WorkflowBuilder] Initial mount complete - integrations loading')
+  }, [appReady, fetchIntegrations])
 
   // Sync workspace context to integration store when builder loads
   useEffect(() => {
@@ -1452,6 +1455,164 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     }
   }, [builder?.nodes, actions, toast])
 
+  const handleTestFlowFromHere = useCallback(async (nodeId: string) => {
+    if (!builder?.nodes || !builder?.edges || !reactFlowInstanceRef.current) {
+      logger.error('[WorkflowBuilder] Cannot test flow - builder not ready')
+      return
+    }
+
+    const startNode = builder.nodes.find((n: any) => n.id === nodeId)
+    if (!startNode) {
+      logger.error('[WorkflowBuilder] Start node not found:', nodeId)
+      return
+    }
+
+    // Get all downstream nodes
+    const getDownstreamNodes = (fromNodeId: string, visited = new Set<string>()): string[] => {
+      if (visited.has(fromNodeId)) return []
+      visited.add(fromNodeId)
+
+      const downstreamIds: string[] = [fromNodeId]
+      const outgoingEdges = builder.edges.filter((edge: any) => edge.source === fromNodeId)
+
+      for (const edge of outgoingEdges) {
+        const childNodes = getDownstreamNodes(edge.target, visited)
+        downstreamIds.push(...childNodes)
+      }
+
+      return downstreamIds
+    }
+
+    const nodesToTest = getDownstreamNodes(nodeId)
+    logger.debug('[WorkflowBuilder] Testing flow from node:', nodeId, 'Total nodes:', nodesToTest.length)
+
+    // Sort nodes in execution order (topological sort)
+    const sortedNodeIds: string[] = []
+    const visited = new Set<string>()
+
+    const topologicalSort = (nId: string) => {
+      if (visited.has(nId)) return
+      visited.add(nId)
+
+      const incomingEdges = builder.edges.filter((edge: any) =>
+        edge.target === nId && nodesToTest.includes(edge.source)
+      )
+      for (const edge of incomingEdges) {
+        topologicalSort(edge.source)
+      }
+
+      sortedNodeIds.push(nId)
+    }
+
+    for (const nId of nodesToTest) {
+      topologicalSort(nId)
+    }
+
+    // Test nodes sequentially, passing output from one to the next
+    let currentTestData: Record<string, any> = {}
+
+    for (const nId of sortedNodeIds) {
+      const node = builder.nodes.find((n: any) => n.id === nId)
+      if (!node) continue
+
+      logger.debug('[WorkflowBuilder] Testing node in flow:', node.data?.title || node.data?.type)
+
+      // Set node to running state
+      setNodeState(reactFlowInstanceRef.current, nId, 'running')
+
+      try {
+        // Strip test metadata from config
+        const config = node.data?.config || {}
+        const cleanConfig = Object.keys(config).reduce((acc, key) => {
+          if (!key.startsWith('__test') && !key.startsWith('__validation')) {
+            acc[key] = config[key]
+          }
+          return acc
+        }, {} as Record<string, any>)
+
+        // Call test-node API with accumulated test data
+        const response = await fetch('/api/workflows/test-node', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            nodeType: node.data?.type,
+            config: cleanConfig,
+            testData: currentTestData,
+          }),
+        })
+
+        const result = await response.json()
+
+        if (!response.ok || result.testResult?.success === false) {
+          throw new Error(result.error || result.testResult?.error || 'Test failed')
+        }
+
+        // Merge the output into currentTestData for the next node
+        currentTestData = {
+          ...currentTestData,
+          ...(result.testResult?.output || {}),
+        }
+
+        // Update node with test results and set to passed state
+        if (actions?.updateConfig) {
+          const updatedConfig = {
+            ...config,
+            __testData: result.testResult?.output || {},
+            __testResult: {
+              success: true,
+              executionTime: result.testResult?.executionTime,
+              timestamp: new Date().toISOString(),
+              message: result.testResult?.message,
+              rawResponse: result.testResult?.output
+            }
+          }
+          actions.updateConfig(nId, updatedConfig)
+        }
+
+        // Wait for debounced config save to complete (600ms debounce + 100ms buffer)
+        // This ensures the database update and graph refresh complete before setting state
+        await new Promise(resolve => setTimeout(resolve, 700))
+        setNodeState(reactFlowInstanceRef.current, nId, 'passed')
+
+      } catch (error: any) {
+        logger.error('[WorkflowBuilder] Flow test failed at node:', node.data?.title, error)
+
+        // Set node to failed state
+        setNodeState(reactFlowInstanceRef.current, nId, 'failed')
+
+        // Update node with error
+        if (actions?.updateConfig) {
+          const config = node.data?.config || {}
+          const updatedConfig = {
+            ...config,
+            __testResult: {
+              success: false,
+              error: error.message,
+              timestamp: new Date().toISOString(),
+            }
+          }
+          actions.updateConfig(nId, updatedConfig)
+        }
+
+        toast({
+          title: "Flow test failed",
+          description: `Failed at node: ${node.data?.title || node.data?.type}. ${error.message}`,
+          variant: "destructive"
+        })
+
+        // Stop testing on error
+        return
+      }
+    }
+
+    toast({
+      title: "Flow test completed",
+      description: `Successfully tested ${sortedNodeIds.length} node(s)`,
+    })
+  }, [builder?.nodes, builder?.edges, actions, toast])
+
   const reactFlowProps = useMemo(() => {
     if (!builder) {
       return null
@@ -1471,7 +1632,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       }
     })
 
-    // Enhance nodes with isLastNode, onAddNodeAfter, onTestNode, and isBeingConfigured
+    // Enhance nodes with isLastNode, onAddNodeAfter, onTestNode, onTestFlowFromHere, and isBeingConfigured
     const enhancedNodes = builder.nodes.map((node: any) => ({
       ...node,
       data: {
@@ -1479,6 +1640,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         isLastNode: lastNodeIds.has(node.id),
         onAddNodeAfter: handleAddNodeAfter,
         onTestNode: handleTestNode,
+        onTestFlowFromHere: handleTestFlowFromHere,
         isBeingConfigured: configuringNode?.id === node.id,
       }
     }))
@@ -1517,7 +1679,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       nodeTypes: builder.nodeTypes,
       edgeTypes: builder.edgeTypes,
     }
-  }, [builder, handleAddNodeAfter, handleTestNode, configuringNode])
+  }, [builder, handleAddNodeAfter, handleTestNode, handleTestFlowFromHere, configuringNode])
 
   // Name update handler
   const persistName = useCallback(
@@ -1914,10 +2076,15 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     // Clear selection when deleting current node(s)
     setSelectedNodeId(prev => (prev && nodeIdSet.has(prev) ? null : prev))
 
-    try {
-      const deleteEdits = nodeIds.map(nodeId => ({ op: "deleteNode", nodeId }))
-      await actions.applyEdits(deleteEdits)
-    } catch (error: any) {
+    // Close config modal if the deleted node is currently being configured
+    if (configuringNode && nodeIdSet.has(configuringNode.id)) {
+      setConfiguringNode(null)
+    }
+
+    // Persist to backend without waiting for response
+    // The UI is already updated optimistically above - don't let backend response overwrite it
+    const deleteEdits = nodeIds.map(nodeId => ({ op: "deleteNode", nodeId }))
+    actions.applyEdits(deleteEdits).catch((error: any) => {
       // Rollback on error
       builder.setNodes(currentNodes)
       builder.setEdges(currentEdges)
@@ -1927,8 +2094,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         description: error?.message ?? "Unable to delete node(s)",
         variant: "destructive",
       })
-    }
-  }, [actions, builder, toast])
+    })
+  }, [actions, builder, toast, agentOpen, agentPanelWidth, configuringNode])
 
   const handleNodeDelete = useCallback(async (nodeId: string) => {
     await handleDeleteNodes([nodeId])

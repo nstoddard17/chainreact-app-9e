@@ -10,113 +10,35 @@
  */
 
 /* ===== Running Animation - Shimmer Effect ===== */
-
-/* Shimmer sweep animation - smooth left to right */
-@keyframes shimmer-sweep {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
-}
-
-/* Border pulse animation - subtle glow */
-@keyframes border-pulse {
-  0%, 100% {
-    border-color: hsl(217 91% 60% / 0.3);
-    box-shadow: 0 0 0 0 hsl(217 91% 60% / 0);
-  }
-  50% {
-    border-color: hsl(217 91% 60% / 0.6);
-    box-shadow: 0 0 8px 2px hsl(217 91% 60% / 0.2);
-  }
-}
-
-/* Slow wave motion for the background tint */
 @keyframes running-wave {
   0% {
-    background-position: 0% 0%;
-  }
-  50% {
-    background-position: 100% 0%;
+    background-position: 0 0, 0% 0;
   }
   100% {
-    background-position: 0% 0%;
+    background-position: 0 0, -200% 0;
   }
 }
 
-/* Apply running state - keep base card styling but add overlay animation */
-.node-running {
+/* Apply running state - overlay gradient that stays within rounded corners */
+.workflow-node-card.node-running {
   position: relative;
   overflow: hidden;
-  background: inherit !important;
-  animation: border-pulse 2s ease-in-out infinite;
   isolation: isolate;
 }
 
-/* Shimmer overlay - translucent glowing bar */
-.node-running::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    hsl(217 91% 60% / 0.35) 50%,
-    transparent 100%
-  );
-  animation: shimmer-sweep 2s ease-in-out infinite;
-  pointer-events: none;
-  z-index: 2;
-  border-radius: 0.5rem;
-  overflow: hidden;
-  /* Ensure animation stays within bounds */
-  clip-path: inset(0 0 0 0 round 0.5rem);
-}
-
-/* Soft gradient tint underneath the shimmer */
-.node-running::after {
+.workflow-node-card.node-running::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    135deg,
-    hsl(217 91% 60% / 0.18),
-    hsl(217 91% 60% / 0.05)
-  );
-  background-size: 200% 100%;
-  animation: running-wave 6s ease-in-out infinite;
-  opacity: 0.85;
+  border-radius: inherit;
   pointer-events: none;
-  z-index: 1;
-  border-radius: 0.5rem;
-  clip-path: inset(0 0 0 0 round 0.5rem);
-}
-
-/* Ensure node content stays above the shimmer */
-.node-running > * {
-  position: relative;
-  z-index: 3;
-}
-
-.node-running .react-flow__handle {
-  position: absolute !important;
-  z-index: 5;
-}
-
-/* Ensure three-dots menu, badges, and other UI elements are above shimmer */
-.node-running button,
-.node-running [class*="badge"],
-.node-running [data-radix-dropdown-trigger],
-.node-running [data-radix-tooltip-trigger] {
-  position: relative;
-  z-index: 20 !important;
+  background-image:
+    linear-gradient(120deg, hsl(217 91% 60% / 0.12), hsl(217 91% 60% / 0.02)),
+    linear-gradient(90deg, transparent 0%, hsl(217 91% 60% / 0.35) 50%, transparent 100%);
+  background-size: 100% 100%, 200% 100%;
+  background-repeat: no-repeat, repeat-x;
+  background-position: 0 0, 0% 0;
+  animation: running-wave 6s linear infinite;
 }
 
 /* ===== Skeleton Node Stacking ===== */
@@ -211,37 +133,20 @@
 /* ===== Node Container Borders ===== */
 
 /* Passed state - subtle green border */
-.node-passed {
+.workflow-node-card.node-passed {
   border-color: hsl(142 76% 36% / 0.2) !important;
 }
 
 /* Failed state - subtle red border */
-.node-failed {
+.workflow-node-card.node-failed {
   border-color: hsl(var(--destructive) / 0.2) !important;
 }
 
 /* ===== Reduced Motion Support ===== */
 @media (prefers-reduced-motion: reduce) {
-  .node-running {
-    /* Remove border pulse animation */
+  .workflow-node-card.node-running::before {
     animation: none;
-    border-color: hsl(217 91% 60% / 0.4);
-  }
-
-  .node-running::before {
-    /* Remove shimmer sweep animation */
-    animation: none;
-    /* Show static subtle overlay */
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      hsl(217 91% 60% / 0.15) 100%
-    );
-    transform: translateX(0);
-  }
-
-  .node-running::after {
-    animation: none;
+    background-position: 0 0, 0 0;
   }
 
   /* Disable hover transforms for reduced motion */

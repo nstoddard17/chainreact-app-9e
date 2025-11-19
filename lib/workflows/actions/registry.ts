@@ -43,6 +43,15 @@ import {
 
 // Google Calendar actions
 import { createGoogleCalendarEvent } from './google-calendar/createEvent'
+import { updateGoogleCalendarEvent } from './google-calendar/updateEvent'
+import { deleteGoogleCalendarEvent } from './google-calendar/deleteEvent'
+import { getGoogleCalendarEvent } from './google-calendar/getEvent'
+import { listGoogleCalendarEvents } from './google-calendar/listEvents'
+import { quickAddGoogleCalendarEvent } from './google-calendar/quickAddEvent'
+import { addGoogleCalendarAttendees } from './google-calendar/addAttendees'
+import { removeGoogleCalendarAttendees } from './google-calendar/removeAttendees'
+import { moveGoogleCalendarEvent } from './google-calendar/moveEvent'
+import { getGoogleCalendarFreeBusy } from './google-calendar/getFreeBusy'
 
 // Google Drive actions
 import { uploadGoogleDriveFile } from './googleDrive/uploadFile'
@@ -60,7 +69,11 @@ import {
   sendGoogleAnalyticsEvent,
   getGoogleAnalyticsRealtimeData,
   runGoogleAnalyticsReport,
-  getGoogleAnalyticsUserActivity
+  getGoogleAnalyticsUserActivity,
+  createGoogleAnalyticsMeasurementSecret,
+  findGoogleAnalyticsConversion,
+  createGoogleAnalyticsConversionEvent,
+  runGoogleAnalyticsPivotReport
 } from './google-analytics'
 
 // Airtable actions
@@ -532,6 +545,24 @@ export const actionHandlerRegistry: Record<string, Function> = {
   // Google Calendar actions - wrapped to handle new calling convention
   "google_calendar_action_create_event": (params: { config: any; userId: string; input: Record<string, any> }) =>
     createGoogleCalendarEvent(params.config, params.userId, params.input),
+  "google_calendar_action_update_event": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    updateGoogleCalendarEvent(params.config, params.userId, params.input),
+  "google_calendar_action_delete_event": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    deleteGoogleCalendarEvent(params.config, params.userId, params.input),
+  "google_calendar_action_get_event": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    getGoogleCalendarEvent(params.config, params.userId, params.input),
+  "google_calendar_action_list_events": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    listGoogleCalendarEvents(params.config, params.userId, params.input),
+  "google_calendar_action_quick_add_event": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    quickAddGoogleCalendarEvent(params.config, params.userId, params.input),
+  "google_calendar_action_add_attendees": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    addGoogleCalendarAttendees(params.config, params.userId, params.input),
+  "google_calendar_action_remove_attendees": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    removeGoogleCalendarAttendees(params.config, params.userId, params.input),
+  "google_calendar_action_move_event": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    moveGoogleCalendarEvent(params.config, params.userId, params.input),
+  "google_calendar_action_get_free_busy": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    getGoogleCalendarFreeBusy(params.config, params.userId, params.input),
 
   // Google Drive actions - wrapped to handle new calling convention
   "google_drive_action_upload_file": (params: { config: any; userId: string; input: Record<string, any> }) =>
@@ -552,6 +583,13 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "google_analytics_action_get_realtime_data": createExecutionContextWrapper(getGoogleAnalyticsRealtimeData),
   "google_analytics_action_run_report": createExecutionContextWrapper(runGoogleAnalyticsReport),
   "google_analytics_action_get_user_activity": createExecutionContextWrapper(getGoogleAnalyticsUserActivity),
+  "google_analytics_action_create_measurement_secret": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createGoogleAnalyticsMeasurementSecret(params.config, params.userId, params.input),
+  "google_analytics_action_find_conversion": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    findGoogleAnalyticsConversion(params.config, params.userId, params.input),
+  "google_analytics_action_create_conversion_event": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createGoogleAnalyticsConversionEvent(params.config, params.userId, params.input),
+  "google_analytics_action_run_pivot_report": createExecutionContextWrapper(runGoogleAnalyticsPivotReport),
 
   // Airtable actions - wrapped to handle new calling convention
   "airtable_action_move_record": (params: { config: any; userId: string; input: Record<string, any> }) =>

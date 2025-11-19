@@ -73,11 +73,22 @@ const OUTPUT_SCHEMA_REGISTRY: Record<string, OutputField[]> = {
   ],
   'gmail_action_search_email': [
     { name: 'emails', label: 'Emails', type: 'array' },
-    { name: 'count', label: 'Count', type: 'number' },
-    { name: 'from', label: 'From', type: 'string' },
-    { name: 'subject', label: 'Subject', type: 'string' },
-    { name: 'body', label: 'Body', type: 'string' },
-    { name: 'attachments', label: 'Attachments', type: 'array' }
+    { name: 'totalCount', label: 'Total Count', type: 'number' },
+    { name: 'hasMore', label: 'More Available', type: 'boolean' },
+    { name: 'latestEmail', label: 'Newest Email (Object)', type: 'object' },
+    { name: 'latestSubject', label: 'Newest Subject', type: 'string' },
+    { name: 'latestSnippet', label: 'Newest Snippet', type: 'string' },
+    { name: 'latestBody', label: 'Newest Body', type: 'string' },
+    { name: 'latestFrom', label: 'Newest From', type: 'string' },
+    { name: 'latestTo', label: 'Newest Recipients', type: 'string' },
+    { name: 'latestDate', label: 'Newest Date', type: 'string' }
+  ],
+  'gmail_action_advanced_search': [
+    { name: 'emails', label: 'Matching Emails', type: 'array' },
+    { name: 'totalResults', label: 'Total Results', type: 'number' },
+    { name: 'resultCount', label: 'Results Returned', type: 'number' },
+    { name: 'nextPageToken', label: 'Next Page Token', type: 'string' },
+    { name: 'query', label: 'Search Query', type: 'string' }
   ],
 
   // Slack Actions

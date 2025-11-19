@@ -31,8 +31,8 @@ export const INTEGRATION_SCOPES = {
     optional: ["https://www.googleapis.com/auth/calendar.events"],
   },
   "google-docs": {
-    required: ["https://www.googleapis.com/auth/documents", "https://www.googleapis.com/auth/drive.readonly"],
-    optional: ["https://www.googleapis.com/auth/drive.file"],
+    required: ["https://www.googleapis.com/auth/documents", "https://www.googleapis.com/auth/drive.file"],
+    optional: ["https://www.googleapis.com/auth/drive"],
   },
   "google-drive": {
     required: ["https://www.googleapis.com/auth/drive"],

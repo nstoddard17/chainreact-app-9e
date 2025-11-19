@@ -232,6 +232,13 @@ const getFieldIcon = (fieldName: string, fieldType: string) => {
 const shouldUseConnectMode = (field: ConfigField | NodeField) => {
   const fieldName = field.name?.toLowerCase() || ''
   const fieldLabel = field.label?.toLowerCase() || ''
+  const fieldType = typeof field.type === 'string' ? field.type.toLowerCase() : ''
+  const supportsVariables = (field as any).supportsVariables
+
+  // Explicit opt-out for variable support
+  if (supportsVariables === false) {
+    return false
+  }
 
   // Check for explicit supportsAI flag first
   if ('supportsAI' in field) {
@@ -257,6 +264,23 @@ const shouldUseConnectMode = (field: ConfigField | NodeField) => {
     return true
   }
 
+  // Dropdowns/toggles with option lists should only opt-in explicitly.
+  // These fields are typically discrete user choices (e.g. attachment filters) where connect mode adds confusion.
+  const selectionFieldTypes = [
+    'select',
+    'multi_select',
+    'multi-select',
+    'multiselect',
+    'combobox',
+    'toggle_group',
+    'toggle',
+    'boolean',
+    'button-toggle'
+  ]
+  if (selectionFieldTypes.includes(fieldType)) {
+    return supportsVariables === true
+  }
+
   // Rich text fields - keep variable picker (allow multiple variables + text)
   const richTextFields = ['message', 'body', 'content', 'description', 'text', 'notes']
   if (richTextFields.some(rt => fieldName.includes(rt) || fieldLabel.includes(rt))) {
@@ -276,10 +300,14 @@ const shouldUseConnectMode = (field: ConfigField | NodeField) => {
     return true
   }
 
-  // Default: use connect mode for text, email, number, date, dropdown, object, and array field types
-  return field.type === 'text' || field.type === 'email' || field.type === 'number' || field.type === 'date' ||
-         field.type === 'combobox' || field.type === 'select' || field.type === 'multi_select' || field.type === 'multi-select' ||
-         field.type === 'object' || field.type === 'array'
+  // If field explicitly supports variables, enable connect mode
+  if (supportsVariables === true) {
+    return true
+  }
+
+  // Default: use connect mode for text, email, number, date, datetime-local, dropdown, object, and array field types
+  return fieldType === 'text' || fieldType === 'email' || fieldType === 'number' || fieldType === 'date' ||
+         fieldType === 'datetime-local' || fieldType === 'object' || fieldType === 'array'
 }
 
 /**
@@ -1155,6 +1183,21 @@ export function FieldRenderer({
         // Generic file upload handling - render FileUpload component for all file fields
         // unless they have specific custom implementations below
 
+        // If connect mode is enabled, show variable dropdown when in connected mode
+        const supportsFileConnectMode = shouldUseConnectMode(field);
+        if (supportsFileConnectMode && workflowData && currentNodeId && isConnectedMode) {
+          return (
+            <VariableSelectionDropdown
+              workflowData={workflowData}
+              currentNodeId={currentNodeId}
+              value={value || ''}
+              onChange={onChange}
+              placeholder="Select an attachment variable..."
+              disabled={false}
+            />
+          );
+        }
+
         // Special handling for Gmail attachments - convert to base64 for persistence
         if (integrationProvider === 'gmail' && (field.name === 'uploadedFiles' || field.name === 'attachments')) {
           const handleFileUpload = async (files: FileList | File[]) => {
@@ -1326,6 +1369,74 @@ export function FieldRenderer({
               />
             );
           }
+        }
+
+        // Special handling for Google Docs file uploads - convert to base64 for persistence
+        if (integrationProvider === 'google-docs' && field.name === 'uploadedFile') {
+          const handleFileUpload = async (files: FileList | File[]) => {
+            if (files && files.length > 0) {
+              const uploadedFile = files[0];
+
+              // Auto-populate title field with filename if autoFillTitle is enabled AND title is empty
+              if (field.autoFillTitle && setFieldValue && uploadedFile instanceof File) {
+                const currentTitle = parentValues?.title || '';
+                if (!currentTitle || currentTitle.trim() === '') {
+                  const fileNameWithoutExt = uploadedFile.name.replace(/\.[^/.]+$/, '');
+                  logger.debug('[FieldRenderer] Auto-populating title field:', fileNameWithoutExt);
+                  setFieldValue('title', fileNameWithoutExt);
+                } else {
+                  logger.debug('[FieldRenderer] Title already set, not overwriting:', currentTitle);
+                }
+              }
+
+              // Convert File to base64 for storage
+              if (uploadedFile instanceof File) {
+                try {
+                  const base64 = await new Promise<string>((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result as string);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(uploadedFile);
+                  });
+
+                  const fileObject = {
+                    name: uploadedFile.name,
+                    size: uploadedFile.size,
+                    type: uploadedFile.type,
+                    url: base64
+                  };
+
+                  logger.debug('[FieldRenderer] Converted Google Docs file to base64 for storage:', {
+                    name: uploadedFile.name,
+                    size: uploadedFile.size,
+                    type: uploadedFile.type
+                  });
+
+                  onChange([fileObject]);
+                } catch (error) {
+                  logger.error('[FieldRenderer] Error converting Google Docs file to base64:', error);
+                  onChange(files);
+                }
+              } else {
+                onChange(files);
+              }
+            } else {
+              onChange(files);
+            }
+          };
+
+          return (
+            <FileUpload
+              value={value}
+              onChange={handleFileUpload}
+              accept={field.accept || ".txt,.docx,.pdf,.html,.md"}
+              placeholder={field.placeholder || "Choose a file to upload..."}
+              disabled={field.disabled}
+              maxFiles={1}
+              multiple={false}
+              className={cn(error && "border-red-500")}
+            />
+          );
         }
 
         // Default file upload for all other file fields (Facebook video, Teams attachments, etc.)
@@ -2388,15 +2499,6 @@ export function FieldRenderer({
                     isUsingNow && "opacity-50"
                   )}
                   placeholder={field.placeholder || "Select date & time or insert variable"}
-                />
-              )}
-              {/* Show old variable picker if NOT using connect mode */}
-              {!useConnectMode && (
-                <SimpleVariablePicker
-                  workflowData={workflowData}
-                  currentNodeId={currentNodeId}
-                  currentNodeType={nodeInfo?.type}
-                  onVariableSelect={(variable) => onChange(variable)}
                 />
               )}
             </div>

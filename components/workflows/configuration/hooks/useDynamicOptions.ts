@@ -1390,6 +1390,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
               dependsOn,
               dependsOnValue,
               forceRefresh,
+              formValues: getFormValues?.(),
               extraOptions: {
                 ...enhancedExtraOptions,
                 ...(workflowId && { workflowId })

@@ -53,6 +53,7 @@ export const sendMessageActionSchema: NodeComponent = {
       accept: ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.gif,.zip,.rar",
       maxSize: 50 * 1024 * 1024,
       multiple: true,
+      supportsVariables: true,
       description: "Attach files to your message (max 50MB per file)",
       hidden: true,
       toggleOptions: {

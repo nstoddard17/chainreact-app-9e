@@ -14,8 +14,8 @@ import { logger } from '@/lib/utils/logger'
  */
 export const ACTION_METADATA = {
   key: "gmail_action_add_label",
-  name: "Apply Gmail Labels",
-  description: "Add one or more labels to incoming Gmail messages from a specific email address",
+  name: "Add Label",
+  description: "Add labels to an email",
   icon: "tag"
 };
 

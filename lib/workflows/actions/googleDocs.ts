@@ -17,7 +17,9 @@ export async function createGoogleDocument(
     // Resolve each config field individually to handle nested templates
     const resolvedConfig = {
       title: resolveValue(config.title, input),
+      contentSource: resolveValue(config.contentSource, input) || 'manual',
       content: resolveValue(config.content, input),
+      uploadedFile: resolveValue(config.uploadedFile, input),
       folderId: resolveValue(config.folderId, input),
       // Sharing options
       enableSharing: resolveValue(config.enableSharing, input),
@@ -29,51 +31,104 @@ export async function createGoogleDocument(
       allowDownload: resolveValue(config.allowDownload, input),
       expirationDate: resolveValue(config.expirationDate, input)
     }
-    
-    const { title, content, folderId, enableSharing, shareType, emails, 
+
+    const { title, contentSource, content, uploadedFile, folderId, enableSharing, shareType, emails,
             permission, sendNotification, emailMessage, allowDownload, expirationDate } = resolvedConfig
 
     const accessToken = await getDecryptedAccessToken(userId, 'google-docs')
-    
-    // Initialize Google Docs API
+
+    // Initialize Google APIs
     const oauth2Client = new google.auth.OAuth2()
     oauth2Client.setCredentials({ access_token: accessToken })
-    
+
     const docs = google.docs({ version: 'v1', auth: oauth2Client })
     const drive = google.drive({ version: 'v3', auth: oauth2Client })
 
-    // Create the document
-    const createResponse = await docs.documents.create({
-      requestBody: {
-        title: title || 'Untitled Document'
-      }
-    })
-
-    const documentId = createResponse.data.documentId
+    let documentId: string
+    let documentUrl: string
     const shareResults = { success: true, errors: [] as string[], sharedWith: [] as string[] }
 
-    // Add content if provided
-    if (content) {
-      const requests = [{
-        insertText: {
-          location: { index: 1 },
-          text: content
+    // Step 1: Create the document based on content source
+    if (contentSource === 'file_upload' && uploadedFile) {
+      // Handle file upload - upload the file to Google Drive with the specified title
+      logger.debug('[Google Docs] Uploading file to Google Drive')
+
+      // uploadedFile should be an array with file object containing base64 data
+      const fileArray = Array.isArray(uploadedFile) ? uploadedFile : [uploadedFile]
+      if (!fileArray.length || !fileArray[0]) {
+        throw new Error('No file uploaded')
+      }
+
+      const file = fileArray[0]
+
+      if (!file.url || typeof file.url !== 'string') {
+        throw new Error('Invalid file data')
+      }
+
+      // Remove data URL prefix if present (data:mime/type;base64,...)
+      const base64Data = file.url.includes(',') ? file.url.split(',')[1] : file.url
+      const fileBuffer = Buffer.from(base64Data, 'base64')
+
+      logger.debug(`[Google Docs] Uploading ${file.name} (${file.size} bytes, ${file.type})`)
+
+      // Convert Buffer to Stream for Google Drive API
+      const { Readable } = require('stream')
+      const fileStream = Readable.from(fileBuffer)
+
+      // Upload file to Google Drive with the user-specified title
+      const uploadResponse = await drive.files.create({
+        requestBody: {
+          name: title || file.name, // Use the user-specified title, or fallback to filename
+          mimeType: file.type,
+          parents: folderId ? [folderId] : undefined,
+        },
+        media: {
+          mimeType: file.type,
+          body: fileStream,
+        },
+        fields: 'id, name, mimeType, webViewLink',
+      })
+
+      documentId = uploadResponse.data.id!
+      documentUrl = uploadResponse.data.webViewLink || `https://drive.google.com/file/d/${documentId}/view`
+
+      logger.debug(`[Google Docs] File uploaded successfully with ID: ${documentId}`)
+    } else {
+      // Create a new Google Docs document with manual content
+      const createResponse = await docs.documents.create({
+        requestBody: {
+          title: title || 'Untitled Document'
         }
-      }]
-
-      await docs.documents.batchUpdate({
-        documentId,
-        requestBody: { requests }
       })
-    }
 
-    // Move to folder if specified
-    if (folderId) {
-      await drive.files.update({
-        fileId: documentId!,
-        addParents: folderId,
-        fields: 'id, parents'
-      })
+      documentId = createResponse.data.documentId!
+      documentUrl = `https://docs.google.com/document/d/${documentId}/edit`
+
+      logger.debug(`[Google Docs] Document created with ID: ${documentId}`)
+
+      // Add content if provided
+      if (content) {
+        const requests = [{
+          insertText: {
+            location: { index: 1 },
+            text: content
+          }
+        }]
+
+        await docs.documents.batchUpdate({
+          documentId,
+          requestBody: { requests }
+        })
+      }
+
+      // Move to folder if specified (only for manual content, file upload handles this above)
+      if (folderId) {
+        await drive.files.update({
+          fileId: documentId,
+          addParents: folderId,
+          fields: 'id, parents'
+        })
+      }
     }
 
     // Handle sharing if enabled
@@ -206,9 +261,9 @@ export async function createGoogleDocument(
       success: true,
       output: {
         documentId,
-        title: createResponse.data.title,
-        revisionId: createResponse.data.revisionId,
-        documentUrl: `https://docs.google.com/document/d/${documentId}/edit`,
+        title: title,
+        revisionId: contentSource === 'file_upload' ? undefined : documentId, // Only include for native Docs
+        documentUrl: documentUrl,
         sharingStatus: shareResults
       },
       message

@@ -14,8 +14,8 @@ import { logger } from '@/lib/utils/logger'
  */
 export const ACTION_METADATA = {
   key: "gmail_action_search_email",
-  name: "Fetch Gmail Message",
-  description: "Find emails in Gmail matching specific search criteria",
+  name: "Get Email",
+  description: "Find emails by search criteria",
   icon: "search"
 };
 
@@ -145,7 +145,14 @@ export async function searchGmailEmails(params: ActionParams): Promise<ActionRes
         output: {
           emails: [],
           totalCount: 0,
-          hasMore: false
+          hasMore: false,
+          latestEmail: null,
+          latestSubject: null,
+          latestSnippet: null,
+          latestBody: null,
+          latestFrom: null,
+          latestTo: null,
+          latestDate: null
         },
         message: "No emails found matching the search criteria"
       }
@@ -207,12 +214,21 @@ export async function searchGmailEmails(params: ActionParams): Promise<ActionRes
     }
     
     // 9. Return success result with emails
+    const latestEmail = emails[0] || null
+
     return {
       success: true,
       output: {
-        emails: emails,
+        emails,
         totalCount: searchResult.resultSizeEstimate || emails.length,
-        hasMore: Boolean(searchResult.nextPageToken)
+        hasMore: Boolean(searchResult.nextPageToken),
+        latestEmail,
+        latestSubject: latestEmail?.subject ?? null,
+        latestSnippet: latestEmail?.snippet ?? null,
+        latestBody: latestEmail?.body ?? null,
+        latestFrom: latestEmail?.from ?? null,
+        latestTo: latestEmail?.to?.join(', ') ?? null,
+        latestDate: latestEmail?.date ?? null
       },
       message: `Found ${emails.length} matching email(s)`
     }

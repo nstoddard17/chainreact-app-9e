@@ -32,6 +32,13 @@ export const replyToEmailActionSchema: NodeComponent = {
       example: "17c123456789abcd"
     },
     {
+      name: "subject",
+      label: "Subject",
+      type: "string",
+      description: "Subject line of the reply email",
+      example: "Re: Meeting Tomorrow"
+    },
+    {
       name: "inReplyTo",
       label: "In Reply To",
       type: "string",
@@ -65,8 +72,18 @@ export const replyToEmailActionSchema: NodeComponent = {
       tooltip: "The reply will be part of the same conversation thread as the original message."
     },
     {
+      name: "subject",
+      label: "Subject (Optional)",
+      type: "text",
+      required: false,
+      placeholder: "Leave blank to auto-generate 'Re: Original Subject'",
+      supportsAI: true,
+      description: "Override the automatic subject line. If left blank, will use 'Re: [Original Subject]'",
+      tooltip: "By default, Gmail will prepend 'Re: ' to the original subject. Use this to customize the subject line."
+    },
+    {
       name: "body",
-      label: "Reply Message",
+      label: "Body",
       type: "email-rich-text",
       required: true,
       placeholder: "Type your reply...",
@@ -77,10 +94,13 @@ export const replyToEmailActionSchema: NodeComponent = {
       label: "Attachments",
       type: "file",
       required: false,
-      placeholder: "Select files to attach",
+      placeholder: "Upload files or use a variable from a previous node",
       accept: ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.gif,.zip,.rar",
       maxSize: 25 * 1024 * 1024,
-      description: "Attach files to the reply"
+      supportsVariables: true,
+      supportsAI: true,
+      description: "Upload files or use a variable from a previous node like {{getAttachment.attachments}}",
+      tooltip: "You can either upload files directly or reference attachment data from previous nodes (e.g., {{getAttachment.attachments}})"
     },
     {
       name: "replyAll",
