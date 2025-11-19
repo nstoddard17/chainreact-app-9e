@@ -140,8 +140,20 @@ export const INTEGRATION_SCOPES = {
     optional: [],
   },
   shopify: {
-    required: ["read_products"],
-    optional: ["write_products", "read_orders"],
+    required: [
+      "read_orders",
+      "read_products",
+      "read_customers",
+      "read_inventory",
+      "read_checkouts",
+      "read_locations",
+      "write_orders",
+      "write_products",
+      "write_customers",
+      "write_inventory",
+      "write_fulfillments"
+    ],
+    optional: [],
   },
   stripe: {
     required: [],

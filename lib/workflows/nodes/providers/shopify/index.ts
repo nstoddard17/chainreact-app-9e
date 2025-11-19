@@ -750,11 +750,13 @@ export const shopifyNodes: NodeComponent[] = [
           $deps: ["shopify_store"],
           $condition: { shopify_store: { $exists: false } }
         },
-        label: "Order ID",
-        type: "text",
+        label: "Order",
+        type: "select",
+        dynamic: "shopify_orders",
         required: true,
-        placeholder: "{{trigger.order_id}}",
-        description: "The ID of the order to update",
+        loadOnMount: true,
+        placeholder: "Select an order...",
+        description: "Select the order to update",
         supportsAI: true,
         connectButton: true
       },
@@ -779,6 +781,11 @@ export const shopifyNodes: NodeComponent[] = [
       },
       {
         name: "tags",
+        dependsOn: "action",
+        hidden: {
+          $deps: ["action"],
+          $condition: { action: { $exists: false } }
+        },
         label: "Tags",
         type: "text",
         required: false,
@@ -790,6 +797,11 @@ export const shopifyNodes: NodeComponent[] = [
       },
       {
         name: "note",
+        dependsOn: "action",
+        hidden: {
+          $deps: ["action"],
+          $condition: { action: { $exists: false } }
+        },
         label: "Note",
         type: "text",
         required: false,
@@ -801,11 +813,17 @@ export const shopifyNodes: NodeComponent[] = [
       },
       {
         name: "notify_customer",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Notify Customer",
         type: "boolean",
         required: false,
         defaultValue: false,
-        description: "Send notification email to customer"
+        description: "Send notification email to customer",
+        connectButton: true
       },
     ],
     outputSchema: [
@@ -1016,11 +1034,13 @@ export const shopifyNodes: NodeComponent[] = [
           $deps: ["shopify_store"],
           $condition: { shopify_store: { $exists: false } }
         },
-        label: "Product ID",
-        type: "text",
+        label: "Product",
+        type: "select",
+        dynamic: "shopify_products",
         required: true,
-        placeholder: "{{trigger.product_id}}",
-        description: "The ID of the product to update",
+        loadOnMount: true,
+        placeholder: "Select a product...",
+        description: "Select the product to update",
         supportsAI: true,
         connectButton: true
       },
@@ -1177,11 +1197,13 @@ export const shopifyNodes: NodeComponent[] = [
           $deps: ["shopify_store"],
           $condition: { shopify_store: { $exists: false } }
         },
-        label: "Inventory Item ID",
-        type: "text",
+        label: "Inventory Item",
+        type: "select",
+        dynamic: "shopify_inventory_items",
         required: true,
-        placeholder: "{{trigger.inventory_item_id}}",
-        description: "The inventory item ID to update",
+        loadOnMount: true,
+        placeholder: "Select an inventory item...",
+        description: "Select the inventory item to update",
         supportsAI: true,
         connectButton: true
       },
@@ -1222,6 +1244,11 @@ export const shopifyNodes: NodeComponent[] = [
       },
       {
         name: "quantity",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Quantity",
         type: "number",
         required: true,
@@ -1416,11 +1443,13 @@ export const shopifyNodes: NodeComponent[] = [
           $deps: ["shopify_store"],
           $condition: { shopify_store: { $exists: false } }
         },
-        label: "Customer ID",
-        type: "text",
+        label: "Customer",
+        type: "select",
+        dynamic: "shopify_customers",
         required: true,
-        placeholder: "{{trigger.customer_id}}",
-        description: "The ID of the customer to update",
+        loadOnMount: true,
+        placeholder: "Select a customer...",
+        description: "Select the customer to update",
         supportsAI: true,
         connectButton: true
       },
@@ -1592,11 +1621,13 @@ export const shopifyNodes: NodeComponent[] = [
           $deps: ["shopify_store"],
           $condition: { shopify_store: { $exists: false } }
         },
-        label: "Order ID",
-        type: "text",
+        label: "Order",
+        type: "select",
+        dynamic: "shopify_orders",
         required: true,
-        placeholder: "{{trigger.order_id}}",
-        description: "The ID of the order to fulfill",
+        loadOnMount: true,
+        placeholder: "Select an order...",
+        description: "Select the order to fulfill",
         supportsAI: true,
         connectButton: true
       },
@@ -1640,6 +1671,11 @@ export const shopifyNodes: NodeComponent[] = [
       },
       {
         name: "tracking_url",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Tracking URL (Optional)",
         type: "text",
         required: false,
@@ -1650,11 +1686,17 @@ export const shopifyNodes: NodeComponent[] = [
       },
       {
         name: "notify_customer",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Notify Customer",
         type: "boolean",
         required: false,
         defaultValue: true,
-        description: "Send shipping confirmation email to customer"
+        description: "Send shipping confirmation email to customer",
+        connectButton: true
       },
     ],
     outputSchema: [
@@ -1722,11 +1764,13 @@ export const shopifyNodes: NodeComponent[] = [
           $deps: ["shopify_store"],
           $condition: { shopify_store: { $exists: false } }
         },
-        label: "Order ID",
-        type: "text",
+        label: "Order",
+        type: "select",
+        dynamic: "shopify_orders",
         required: true,
-        placeholder: "{{trigger.order_id}}",
-        description: "The ID of the order",
+        loadOnMount: true,
+        placeholder: "Select an order...",
+        description: "Select the order to add note to",
         supportsAI: true,
         connectButton: true
       },

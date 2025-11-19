@@ -1256,6 +1256,27 @@ const shopifyMappings: Record<string, FieldMapping> = {
   shopify_action_update_inventory: {
     shopify_store: "shopify_stores",
     location_id: "shopify_locations",
+    inventory_item_id: "shopify_inventory_items",
+  },
+  shopify_action_update_product: {
+    shopify_store: "shopify_stores",
+    product_id: "shopify_products",
+  },
+  shopify_action_update_order_status: {
+    shopify_store: "shopify_stores",
+    order_id: "shopify_orders",
+  },
+  shopify_action_create_fulfillment: {
+    shopify_store: "shopify_stores",
+    order_id: "shopify_orders",
+  },
+  shopify_action_add_order_note: {
+    shopify_store: "shopify_stores",
+    order_id: "shopify_orders",
+  },
+  shopify_action_update_customer: {
+    shopify_store: "shopify_stores",
+    customer_id: "shopify_customers",
   },
 };
 
