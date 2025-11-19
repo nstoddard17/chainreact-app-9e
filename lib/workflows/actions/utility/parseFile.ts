@@ -27,7 +27,7 @@ export async function executeParseFile(
   const startTime = Date.now();
 
   try {
-    const resolvedConfig = resolveValue(config, { input });
+    const resolvedConfig = resolveValue(config, input);
 
     const {
       fileUrl,

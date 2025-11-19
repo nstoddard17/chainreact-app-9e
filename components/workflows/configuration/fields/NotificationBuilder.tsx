@@ -5,7 +5,7 @@ import { Bell, Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Combobox } from '@/components/ui/combobox'
 import { Input } from '@/components/ui/input'
-import { TimePicker15Min } from './TimePicker15Min'
+import { GoogleTimePicker } from './GoogleTimePicker'
 import { cn } from '@/lib/utils'
 
 interface Notification {
@@ -23,10 +23,10 @@ interface NotificationBuilderProps {
 }
 
 const timeUnits = [
-  { value: 1, label: 'minutes', singular: 'minute' },
-  { value: 60, label: 'hours', singular: 'hour' },
-  { value: 1440, label: 'days', singular: 'day' },
-  { value: 10080, label: 'weeks', singular: 'week' }
+  { value: 1, label: 'minute(s)' },
+  { value: 60, label: 'hour(s)' },
+  { value: 1440, label: 'day(s)' },
+  { value: 10080, label: 'week(s)' }
 ]
 
 function convertMinutesToDisplay(minutes: number): { value: number; unit: number } {
@@ -40,11 +40,6 @@ function convertMinutesToDisplay(minutes: number): { value: number; unit: number
   return { value: minutes, unit: 1 }
 }
 
-function getUnitLabel(value: number, unitMinutes: number): string {
-  const unit = timeUnits.find(u => u.value === unitMinutes)
-  if (!unit) return 'minutes'
-  return value === 1 ? unit.singular : unit.label
-}
 
 export function NotificationBuilder({
   value = [],
@@ -72,22 +67,7 @@ export function NotificationBuilder({
 
   const updateTime = (index: number, value: number, unitMinutes: number) => {
     const updates: Partial<Notification> = { minutes: value * unitMinutes }
-
-    // If switching to days or weeks, ensure time defaults to 9:00 AM
-    if ((unitMinutes === 1440 || unitMinutes === 10080) && !notifications[index].time) {
-      updates.time = '09:00'
-    }
-
-    // If switching away from days/weeks, remove time
-    if (unitMinutes !== 1440 && unitMinutes !== 10080) {
-      updates.time = undefined
-    }
-
     updateNotification(index, updates)
-  }
-
-  const updateNotificationTime = (index: number, time: string) => {
-    updateNotification(index, { time })
   }
 
   if (notifications.length === 0) {
@@ -109,14 +89,13 @@ export function NotificationBuilder({
     <div className={cn("space-y-2", className)}>
       {notifications.map((notification, index) => {
         const { value: timeValue, unit: unitMinutes } = convertMinutesToDisplay(notification.minutes)
-        const showTimeField = showTimePicker && (unitMinutes === 1440 || unitMinutes === 10080)
 
         return (
           <div key={index} className="flex items-center gap-2">
             <Bell className="h-4 w-4 text-muted-foreground shrink-0" />
 
             {/* Method selector */}
-            <div style={{ width: '180px', minWidth: '180px' }}>
+            <div style={{ width: '145px', minWidth: '145px' }}>
               <Combobox
                 value={notification.method}
                 onChange={(method) => updateNotification(index, { method: method as 'popup' | 'email' })}
@@ -127,7 +106,7 @@ export function NotificationBuilder({
                 disabled={disabled}
                 disableSearch={true}
                 hideClearButton={true}
-                style={{ width: '180px', minWidth: '180px' }}
+                style={{ width: '145px', minWidth: '145px' }}
               />
             </div>
 
@@ -142,39 +121,24 @@ export function NotificationBuilder({
                 updateTime(index, newValue, unitMinutes)
               }}
               disabled={disabled}
-              className="w-[80px]"
+              className="w-[90px]"
             />
 
             {/* Time unit selector */}
-            <div style={{ width: '140px', minWidth: '140px' }}>
+            <div style={{ width: '130px', minWidth: '130px' }}>
               <Combobox
                 value={unitMinutes.toString()}
                 onChange={(unit) => updateTime(index, timeValue, parseInt(unit))}
                 options={timeUnits.map((unit) => ({
                   value: unit.value.toString(),
-                  label: timeValue === 1 ? unit.singular : unit.label
+                  label: unit.label
                 }))}
                 disabled={disabled}
                 disableSearch={true}
                 hideClearButton={true}
-                style={{ width: '140px', minWidth: '140px' }}
+                style={{ width: '130px', minWidth: '130px' }}
               />
             </div>
-
-            {/* Time picker - shown only for day/week units */}
-            {showTimeField && (
-              <>
-                <span className="text-sm text-muted-foreground shrink-0">at</span>
-                <div style={{ width: '140px', minWidth: '140px' }}>
-                  <TimePicker15Min
-                    value={notification.time || '09:00'}
-                    onChange={(time) => updateNotificationTime(index, time)}
-                    disabled={disabled}
-                    placeholder="Select time"
-                  />
-                </div>
-              </>
-            )}
 
             {/* Remove button */}
             <Button

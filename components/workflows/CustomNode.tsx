@@ -73,6 +73,7 @@ export interface CustomNodeData {
   onStop?: (nodeId: string) => void
   onStartReorder?: (nodeId: string, event: React.PointerEvent) => void
   isReorderable?: boolean
+  isBeingReordered?: boolean
   hasAddButton?: boolean
   isPlaceholder?: boolean
   error?: string
@@ -109,6 +110,10 @@ export interface CustomNodeData {
   onAddNodeAfter?: (afterNodeId: string, nodeType: string, component: any, sourceHandle?: string) => void
   selectedNodeIds?: string[]
   isBeingConfigured?: boolean // Highlight when this node is actively being edited
+  isBeingReordered?: boolean
+  reorderDragOffset?: number
+  previewOffset?: number
+  isBeingReordered?: boolean
 }
 
 type SlackConfigSection = {
@@ -326,6 +331,9 @@ function CustomNode({ id, data, selected }: NodeProps) {
     isLastNode,
     onAddNodeAfter,
     isBeingConfigured,
+    reorderDragOffset,
+    previewOffset,
+    isBeingReordered,
   } = nodeData
 
   const component = ALL_NODE_COMPONENTS.find((c) => c.type === type)
@@ -1628,7 +1636,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
             visualNodeState === 'running' ? 'node-running' :
             visualNodeState === 'passed' ? 'node-passed' :
             visualNodeState === 'failed' ? 'node-failed' : ''
-          }`}
+          } ${isBeingReordered ? 'ring-2 ring-primary/50' : ''}`}
           data-testid={`node-${id}`}
           onClick={handleClick}
           style={{
@@ -1638,22 +1646,40 @@ function CustomNode({ id, data, selected }: NodeProps) {
             minWidth: '360px',
             boxSizing: 'border-box',
             flex: 'none',
+            transform: (() => {
+              if (isBeingReordered) {
+                return `translateY(${reorderDragOffset ?? 0}px) scale(1.01)`
+              }
+              const base = previewOffset ?? 0
+              if (base !== 0) {
+                return `translateY(${base}px)`
+              }
+              return undefined
+            })(),
+            zIndex: isBeingReordered ? 30 : undefined,
+            boxShadow: isBeingReordered
+              ? '0 15px 35px rgba(15, 23, 42, 0.28)'
+              : undefined,
+            pointerEvents: isBeingReordered ? 'none' : undefined,
+            transition: isBeingReordered
+              ? 'box-shadow 0.1s ease'
+              : 'transform 80ms ease-out, box-shadow 0.15s ease',
           }}
         >
-      {isReorderable && onStartReorder && (
-        <button
-          type="button"
-          className="absolute -left-7 top-1/2 -translate-y-1/2 w-5 h-12 flex items-center justify-center text-muted-foreground bg-white border rounded-full opacity-0 group-hover:opacity-100 shadow cursor-grab"
-          onPointerDown={(event) => {
-            event.preventDefault()
-            event.stopPropagation()
-            onStartReorder(id, event)
-          }}
-          aria-label="Reorder node"
-        >
-          <GripVertical className="w-3 h-3" />
-        </button>
-      )}
+          {isReorderable && onStartReorder && (
+            <button
+              type="button"
+              className="absolute -left-7 top-1/2 -translate-y-1/2 w-5 h-12 flex items-center justify-center text-muted-foreground bg-white border rounded-full opacity-0 group-hover:opacity-100 shadow cursor-grab active:cursor-grabbing hover:bg-muted/60"
+              onPointerDown={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                onStartReorder(id, event)
+              }}
+              aria-label="Reorder node"
+            >
+              <GripVertical className="w-3 h-3" />
+            </button>
+          )}
       {statusIconItems.length > 0 && (
         <TooltipProvider>
           <div className="absolute top-2 right-10 flex items-center gap-1 noDrag noPan z-20">

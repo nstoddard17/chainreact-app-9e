@@ -12,7 +12,7 @@ export async function createMicrosoftExcelRow(
 ): Promise<ActionResult> {
   try {
     // Resolve configuration with workflow variables
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     const { workbookId, worksheetName, insertPosition = 'append', specificRow, fieldMapping } = resolvedConfig
 
     // Get access token for OneDrive (Microsoft Graph API)

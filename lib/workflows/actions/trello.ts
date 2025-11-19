@@ -14,7 +14,7 @@ export async function createTrelloList(
 ): Promise<ActionResult> {
   try {
     // Resolve any workflow variables in the config
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     const { boardId, name, template, position, specificPosition } = resolvedConfig
 
     if (!boardId || !name) {
@@ -331,7 +331,7 @@ export async function createTrelloCard(
 ): Promise<ActionResult> {
   try {
     // Resolve any workflow variables in the config
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     const {
       boardId,
       listId,
@@ -673,7 +673,7 @@ export async function moveTrelloCard(
 ): Promise<ActionResult> {
   try {
     // Resolve any workflow variables in the config
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     const { cardId, listId, position = "bottom" } = resolvedConfig
 
     if (!cardId || !listId) {
@@ -750,7 +750,7 @@ export async function createTrelloBoard(
     logger.debug("[Trello] createTrelloBoard called with config:", config)
 
     // Resolve any workflow variables in the config
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     logger.debug("[Trello] Resolved config:", resolvedConfig)
 
     const { name, description, template, sourceBoardId, visibility } = resolvedConfig

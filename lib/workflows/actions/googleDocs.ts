@@ -532,7 +532,7 @@ export async function shareGoogleDocument(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     const { 
       documentId, 
       shareWith, 
@@ -688,7 +688,7 @@ export async function getGoogleDocument(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     const { documentId } = resolvedConfig
 
     const accessToken = await getDecryptedAccessToken(userId, 'google-docs')
@@ -745,7 +745,7 @@ export async function exportGoogleDocument(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     const { 
       documentId,
       exportFormat = 'pdf',

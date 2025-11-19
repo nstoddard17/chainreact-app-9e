@@ -4,6 +4,7 @@ import React, { useEffect, useRef } from 'react';
 import { GenericConfiguration } from './GenericConfiguration';
 
 import { logger } from '@/lib/utils/logger'
+import { getCurrentMinutes, minutesToTimeString, normalizeMinutes, roundMinutesToInterval, timeStringToMinutes } from '@/lib/utils/time';
 
 interface GoogleCalendarConfigurationProps {
   nodeInfo: any;
@@ -28,21 +29,64 @@ interface GoogleCalendarConfigurationProps {
   loadingFields?: Set<string>;
 }
 
+const DEFAULT_EVENT_DURATION_MINUTES = 60;
+const DEFAULT_NOTIFICATION_MINUTES = 30;
+const getDefaultNotifications = () => [{ method: 'popup', minutes: DEFAULT_NOTIFICATION_MINUTES }];
+
 export function GoogleCalendarConfiguration(props: GoogleCalendarConfigurationProps) {
   const {
     nodeInfo,
     loadOptions,
     needsConnection,
     values,
-    setValue
+    setValue,
+    isEditMode
   } = props;
 
   const hasRequestedCalendarsRef = useRef(false);
   const prevAllDayRef = useRef<boolean | undefined>(undefined);
+  const eventDurationRef = useRef(DEFAULT_EVENT_DURATION_MINUTES);
+  const hasCustomDurationRef = useRef(false);
+  const autoUpdatingEndRef = useRef(false);
+  const initialDurationSyncedRef = useRef(false);
+  const hasSetInitialTimesRef = useRef(false);
 
   useEffect(() => {
     hasRequestedCalendarsRef.current = false;
   }, [nodeInfo?.id, nodeInfo?.type, nodeInfo?.providerId, needsConnection]);
+
+  useEffect(() => {
+    eventDurationRef.current = DEFAULT_EVENT_DURATION_MINUTES;
+    hasCustomDurationRef.current = false;
+    autoUpdatingEndRef.current = false;
+    initialDurationSyncedRef.current = false;
+    hasSetInitialTimesRef.current = false;
+  }, [nodeInfo?.id, nodeInfo?.type]);
+
+  // Always set times when modal opens (unless in edit mode with saved values)
+  useEffect(() => {
+    if (hasSetInitialTimesRef.current) return;
+
+    // Calculate current time rounded to nearest 15 minutes
+    const roundedStartMinutes = roundMinutesToInterval(getCurrentMinutes(), 15, "nearest");
+    const startValue = minutesToTimeString(roundedStartMinutes);
+    const endValue = minutesToTimeString(
+      normalizeMinutes(roundedStartMinutes + DEFAULT_EVENT_DURATION_MINUTES)
+    );
+
+    // Always set times when opening modal (unless already set in edit mode)
+    if (!isEditMode || !values?.startTime) {
+      setValue('startTime', startValue);
+      setValue('endTime', endValue);
+    }
+
+    // Set default notifications if not present
+    if (!Array.isArray(values?.notifications) || values.notifications.length === 0) {
+      setValue('notifications', getDefaultNotifications());
+    }
+
+    hasSetInitialTimesRef.current = true;
+  }, [setValue, isEditMode]);
 
   // Ensure calendar options load immediately when the configuration opens
   useEffect(() => {
@@ -90,29 +134,78 @@ export function GoogleCalendarConfiguration(props: GoogleCalendarConfigurationPr
 
       // Only update on actual toggle, not initial load
       if (prevAllDayRef.current !== undefined) {
+        const defaultNotifications = getDefaultNotifications();
+
         if (currentAllDay === true) {
-          // Switched to all-day event
-          // Update notifications to Google's default: 1 day before at 9:00 AM
-          // 1 day = 1440 minutes, time = 09:00
-          setValue('notifications', [{ method: 'popup', minutes: 1440, time: '09:00' }]);
-
-          // Update transparency to "Free" for all-day events
+          setValue('notifications', defaultNotifications);
           setValue('transparency', 'transparent');
-
-          logger.debug('🔄 [GoogleCalendar] Switched to all-day event - updated notifications to 1 day before at 9:00 AM and transparency to free');
+          logger.debug('🔄 [GoogleCalendar] Switched to all-day event - reset notifications to 30 minutes and transparency to free');
         } else if (currentAllDay === false) {
-          // Switched to timed event
-          // Update notifications to 30 minutes before (no time field for timed events)
-          setValue('notifications', [{ method: 'popup', minutes: 30 }]);
-
-          // Update transparency to "Busy" for timed events
+          setValue('notifications', defaultNotifications);
           setValue('transparency', 'opaque');
-
-          logger.debug('🔄 [GoogleCalendar] Switched to timed event - updated notifications to 30 minutes before and transparency to busy');
+          logger.debug('🔄 [GoogleCalendar] Switched to timed event - reset notifications to 30 minutes and transparency to busy');
         }
       }
     }
   }, [values?.allDay, setValue]);
+
+  useEffect(() => {
+    if (values?.allDay) {
+      hasCustomDurationRef.current = false;
+      eventDurationRef.current = DEFAULT_EVENT_DURATION_MINUTES;
+    }
+  }, [values?.allDay]);
+
+  useEffect(() => {
+    if (values?.allDay) return;
+
+    const startMinutes = timeStringToMinutes(values?.startTime);
+    const endMinutes = timeStringToMinutes(values?.endTime);
+
+    if (startMinutes === null || endMinutes === null || endMinutes <= startMinutes) {
+      return;
+    }
+
+    if (!initialDurationSyncedRef.current) {
+      eventDurationRef.current = endMinutes - startMinutes;
+      initialDurationSyncedRef.current = true;
+      return;
+    }
+
+    if (autoUpdatingEndRef.current) {
+      autoUpdatingEndRef.current = false;
+      return;
+    }
+
+    eventDurationRef.current = endMinutes - startMinutes;
+    hasCustomDurationRef.current = true;
+  }, [values?.endTime, values?.startTime, values?.allDay]);
+
+  useEffect(() => {
+    if (values?.allDay) return;
+
+    const startMinutes = timeStringToMinutes(values?.startTime);
+    if (startMinutes === null) return;
+
+    const endMinutes = timeStringToMinutes(values?.endTime);
+    const hasValidEnd = endMinutes !== null && endMinutes > startMinutes;
+
+    const storedDuration = hasCustomDurationRef.current ? eventDurationRef.current : null;
+    const fallbackDuration = hasValidEnd
+      ? (endMinutes as number) - startMinutes
+      : eventDurationRef.current || DEFAULT_EVENT_DURATION_MINUTES;
+    const duration = storedDuration ?? fallbackDuration ?? DEFAULT_EVENT_DURATION_MINUTES;
+
+    const computedEnd = minutesToTimeString(normalizeMinutes(startMinutes + duration));
+
+    if (hasValidEnd && values?.endTime === computedEnd) {
+      return;
+    }
+
+    eventDurationRef.current = duration;
+    autoUpdatingEndRef.current = true;
+    setValue('endTime', computedEnd);
+  }, [values?.startTime, values?.endTime, values?.allDay, setValue]);
 
   return <GenericConfiguration {...props} />;
 }

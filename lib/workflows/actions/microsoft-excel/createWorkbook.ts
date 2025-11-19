@@ -13,7 +13,7 @@ export async function createMicrosoftExcelWorkbook(
 ): Promise<ActionResult> {
   try {
     // Resolve configuration with workflow variables
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     const {
       title,
       description,

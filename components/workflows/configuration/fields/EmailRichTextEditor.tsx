@@ -68,6 +68,7 @@ import { useToast } from '@/hooks/use-toast'
 import { useVariableDropTarget } from '../hooks/useVariableDropTarget'
 import { insertVariableIntoContentEditable, normalizeDraggedVariable } from '@/lib/workflows/variableInsertion'
 import { GenericSelectField } from './shared/GenericSelectField'
+import { VariablePickerDropdown } from '../VariablePickerDropdown'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -81,7 +82,9 @@ interface EmailRichTextEditorProps {
   integrationProvider?: string // 'gmail', 'outlook', etc.
   userId?: string
   availableVariables?: string[] // List of available variable keys (e.g., ['trigger.subject', 'trigger.body'])
-  workflowNodes?: any[] // Current workflow nodes to extract available variables
+  workflowNodes?: any[] // Current workflow nodes to extract available variables (deprecated - use workflowData)
+  workflowData?: { nodes: any[], edges: any[] } // Full workflow data for variable picker
+  currentNodeId?: string // Current node ID for variable picker
 }
 
 interface EmailTemplate {
@@ -702,12 +705,13 @@ export function EmailRichTextEditor({
   integrationProvider = 'gmail',
   userId,
   availableVariables,
-  workflowNodes
+  workflowNodes,
+  workflowData,
+  currentNodeId
 }: EmailRichTextEditorProps) {
   const [isPreviewMode, setIsPreviewMode] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState<string>('')
   const [selectedTemplateCategory, setSelectedTemplateCategory] = useState<string>('all')
-  const [selectedVariableCategory, setSelectedVariableCategory] = useState<string>('all')
   const [signatures, setSignatures] = useState<EmailSignature[]>([])
   const [selectedSignature, setSelectedSignature] = useState<string>('')
   const [isLoadingSignatures, setIsLoadingSignatures] = useState(false)
@@ -1767,78 +1771,40 @@ export function EmailRichTextEditor({
 
         {/* Row 3: Content Insertion (Variables, Templates, Signatures, Preview) */}
         <div className="flex items-center gap-1 justify-between">
-          {/* Variables */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 gap-1 hover:bg-muted text-muted-foreground hover:text-foreground"
-                title="Insert workflow variables"
-              >
-                <Braces className="h-4 w-4" />
-                Variables
-                <ChevronDown className="h-3 w-3" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[420px] p-0 bg-background border-border overflow-hidden" align="start" side="bottom" sideOffset={4}>
-              <div className="p-3 border-b border-border">
-                <h4 className="text-sm font-medium text-foreground">Workflow Variables</h4>
-                <p className="text-xs text-muted-foreground mt-1">Insert dynamic data into your email</p>
-
-                {/* Category Filter */}
-                <div className="mt-3">
-                  <GenericSelectField
-                    field={{
-                      name: 'variableCategory',
-                      label: 'Category',
-                      type: 'select',
-                      placeholder: 'Filter by category',
-                      disableSearch: true
-                    }}
-                    value={selectedVariableCategory}
-                    onChange={setSelectedVariableCategory}
-                    options={[
-                      { value: 'all', label: 'All Categories' },
-                      { value: 'trigger', label: 'Trigger Data' },
-                      { value: 'recipient', label: 'Recipient Info' },
-                      { value: 'sender', label: 'Sender Info' },
-                      { value: 'workflow', label: 'Workflow Info' },
-                      { value: 'datetime', label: 'Date & Time' }
-                    ]}
-                  />
-                </div>
-              </div>
-              <ScrollArea className="h-[320px] w-full">
-                <div className="p-2">
-                  {displayVariables
-                    .filter(variable => selectedVariableCategory === 'all' || variable.category === selectedVariableCategory)
-                    .map(variable => (
-                      <div
-                        key={variable.variable}
-                        className="px-3 py-2.5 rounded-md hover:bg-muted cursor-pointer border border-transparent hover:border-border mb-1"
-                        onClick={() => insertVariable(variable.variable)}
-                      >
-                        <div className="flex items-center justify-between gap-3 mb-1">
-                          <h5 className="text-sm font-medium text-foreground">{variable.name}</h5>
-                          <code className="text-xs bg-muted px-2 py-1 rounded text-foreground font-mono whitespace-nowrap flex-shrink-0">
-                            {variable.variable}
-                          </code>
-                        </div>
-                        <p className="text-xs text-muted-foreground">{variable.description}</p>
-                      </div>
-                    ))}
-                  {displayVariables.filter(variable => selectedVariableCategory === 'all' || variable.category === selectedVariableCategory).length === 0 && (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Braces className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                      <p className="text-sm">No variables available</p>
-                      <p className="text-xs mt-1">Add nodes to your workflow to see available variables</p>
-                    </div>
-                  )}
-                </div>
-              </ScrollArea>
-            </PopoverContent>
-          </Popover>
+          {/* Variables - Using VariablePickerDropdown */}
+          {workflowData && currentNodeId ? (
+            <VariablePickerDropdown
+              workflowData={workflowData}
+              currentNodeId={currentNodeId}
+              onSelect={(variableRef) => {
+                insertVariable(variableRef)
+              }}
+              trigger={
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 gap-1 hover:bg-muted text-muted-foreground hover:text-foreground"
+                  title="Insert workflow variables"
+                >
+                  <Braces className="h-4 w-4" />
+                  Variables
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              }
+            />
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1 hover:bg-muted text-muted-foreground hover:text-foreground opacity-50 cursor-not-allowed"
+              title="No workflow data available"
+              disabled
+            >
+              <Braces className="h-4 w-4" />
+              Variables
+              <ChevronDown className="h-3 w-3" />
+            </Button>
+          )}
 
           {/* Templates */}
           <Popover>

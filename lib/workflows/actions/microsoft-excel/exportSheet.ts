@@ -12,7 +12,7 @@ export async function exportMicrosoftExcelSheet(
 ): Promise<ActionResult> {
   try {
     // Resolve configuration with workflow variables
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     const {
       workbookId,
       worksheetName,

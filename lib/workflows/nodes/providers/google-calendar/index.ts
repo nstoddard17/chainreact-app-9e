@@ -519,15 +519,19 @@ export const googleCalendarNodes: NodeComponent[] = [
         label: "Start Date",
         type: "date",
         required: false,
-        defaultValue: "today"
+        defaultValue: "today",
+        toggleLabel: "Current date",
+        toggleField: "useCurrentStartDate"
       },
 
       {
         name: "startTime",
         label: "Start Time",
-        type: "time-picker-15min",
+        type: "google-time-picker",
         required: false,
         defaultValue: "09:00",
+        toggleLabel: "Current time",
+        toggleField: "useCurrentStartTime",
         hidden: {
           $deps: ["allDay"],
           $condition: { allDay: { $eq: true } }
@@ -539,15 +543,19 @@ export const googleCalendarNodes: NodeComponent[] = [
         label: "End Date",
         type: "date",
         required: false,
-        defaultValue: "today"
+        defaultValue: "today",
+        toggleLabel: "Current date",
+        toggleField: "useCurrentEndDate"
       },
 
       {
         name: "endTime",
         label: "End Time",
-        type: "time-picker-15min",
+        type: "google-time-picker",
         required: false,
         defaultValue: "10:00",
+        toggleLabel: "Current time",
+        toggleField: "useCurrentEndTime",
         hidden: {
           $deps: ["allDay"],
           $condition: { allDay: { $eq: true } }
@@ -685,8 +693,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         type: "select",
         dynamic: "google-calendars",
         loadOnMount: true,
-        required: true,
-        defaultValue: "primary"
+        required: true
       },
 
       {
@@ -716,7 +723,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         name: "transparency",
         label: "Show as",
         type: "select",
-        defaultValue: "transparent",
+        defaultValue: "opaque",
         options: [
           { value: "transparent", label: "Free" },
           { value: "opaque", label: "Busy" }
@@ -904,7 +911,7 @@ export const googleCalendarNodes: NodeComponent[] = [
       {
         name: "startTime",
         label: "Start Time",
-        type: "time-picker-15min",
+        type: "google-time-picker",
         required: false,
         hidden: {
           $deps: ["allDay"],
@@ -924,7 +931,7 @@ export const googleCalendarNodes: NodeComponent[] = [
       {
         name: "endTime",
         label: "End Time",
-        type: "time-picker-15min",
+        type: "google-time-picker",
         required: false,
         hidden: {
           $deps: ["allDay"],
@@ -1064,8 +1071,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         type: "select",
         dynamic: "google-calendars",
         loadOnMount: true,
-        required: true,
-        defaultValue: "primary"
+        required: true
       },
       {
         name: "eventId",
@@ -1408,7 +1414,73 @@ export const googleCalendarNodes: NodeComponent[] = [
         name: "events",
         label: "Events",
         type: "array",
-        description: "Array of calendar events"
+        description: "Array of calendar events. Each event contains: eventId, htmlLink, summary, description, location, start, end, attendees, organizer, creator, created, updated, status, hangoutLink, meetLink, conferenceData, colorId, transparency, visibility, recurrence, recurringEventId, eventType"
+      },
+      {
+        name: "eventId",
+        label: "Event ID",
+        type: "string",
+        description: "Unique identifier for each event in the array"
+      },
+      {
+        name: "htmlLink",
+        label: "Event Link",
+        type: "string",
+        description: "Direct link to the event in Google Calendar"
+      },
+      {
+        name: "summary",
+        label: "Event Title",
+        type: "string",
+        description: "Title of the event"
+      },
+      {
+        name: "description",
+        label: "Description",
+        type: "string",
+        description: "Event description"
+      },
+      {
+        name: "location",
+        label: "Location",
+        type: "string",
+        description: "Event location"
+      },
+      {
+        name: "start",
+        label: "Start Time",
+        type: "object",
+        description: "Event start date and time"
+      },
+      {
+        name: "end",
+        label: "End Time",
+        type: "object",
+        description: "Event end date and time"
+      },
+      {
+        name: "attendees",
+        label: "Attendees",
+        type: "array",
+        description: "List of event attendees"
+      },
+      {
+        name: "organizer",
+        label: "Organizer",
+        type: "object",
+        description: "Event organizer information"
+      },
+      {
+        name: "status",
+        label: "Status",
+        type: "string",
+        description: "Event status (confirmed, tentative, cancelled)"
+      },
+      {
+        name: "meetLink",
+        label: "Google Meet Link",
+        type: "string",
+        description: "Google Meet video conference link if attached"
       },
       {
         name: "count",
