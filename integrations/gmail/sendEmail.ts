@@ -14,8 +14,8 @@ import { logger } from '@/lib/utils/logger'
  */
 export const ACTION_METADATA = {
   key: "gmail_action_send_email",
-  name: "Send Gmail Message",
-  description: "Compose and send an email through your Gmail account",
+  name: "Send Email",
+  description: "Send an email",
   icon: "mail"
 };
 

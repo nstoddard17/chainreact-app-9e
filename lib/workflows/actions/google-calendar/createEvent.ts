@@ -109,6 +109,10 @@ export async function createGoogleCalendarEvent(
       if (!date || date === 'today') {
         return new Date().toISOString().split('T')[0]
       }
+      // If date contains time component (T or space), extract just the date part
+      if (typeof date === 'string' && (date.includes('T') || date.includes(' '))) {
+        return date.split('T')[0].split(' ')[0]
+      }
       return date
     }
 
@@ -121,13 +125,12 @@ export async function createGoogleCalendarEvent(
 
     // Handle all-day events
     if (allDay) {
+      // For all-day events, only use date (no timeZone field)
       eventData.start = {
-        date: parseDate(startDate),
-        timeZone: eventStartTimeZone
+        date: parseDate(startDate)
       }
       eventData.end = {
-        date: parseDate(endDate || startDate),
-        timeZone: eventEndTimeZone
+        date: parseDate(endDate || startDate)
       }
     } else {
       // Regular timed event
@@ -249,8 +252,26 @@ export async function createGoogleCalendarEvent(
 
     let createdEvent: any
 
+    // Log the event data being sent for debugging
+    logger.debug('📤 [Google Calendar] Event data being sent:', {
+      allDay,
+      hasExistingEventId: !!existingEventId,
+      eventData: JSON.stringify(eventData, null, 2)
+    })
+
     // If we have an existing event ID (from Google Meet button), update it instead of creating new
     if (existingEventId) {
+      // First, fetch the existing event to preserve conference data
+      const existingEvent = await calendar.events.get({
+        calendarId: calendarId,
+        eventId: existingEventId
+      })
+
+      // Preserve the existing conference data
+      if (existingEvent.data.conferenceData) {
+        eventData.conferenceData = existingEvent.data.conferenceData
+      }
+
       const response = await calendar.events.update({
         calendarId: calendarId,
         eventId: existingEventId,
@@ -296,11 +317,23 @@ export async function createGoogleCalendarEvent(
       }
     }
   } catch (error: any) {
-    logger.error('❌ [Google Calendar] Error creating event:', error)
+    logger.error('❌ [Google Calendar] Error creating event:', {
+      message: error.message,
+      code: error.code,
+      errors: error.errors,
+      response: error.response?.data,
+      status: error.response?.status,
+      statusText: error.response?.statusText
+    })
 
     // Check if it's a token error
     if (error.message?.includes('401') || error.message?.includes('Unauthorized') || error.code === 401) {
       throw new Error('Google Calendar authentication failed. Please reconnect your account.')
+    }
+
+    // Provide more helpful error message
+    if (error.response?.data?.error?.message) {
+      throw new Error(`Google Calendar API Error: ${error.response.data.error.message}`)
     }
 
     throw error

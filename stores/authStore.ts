@@ -1471,8 +1471,15 @@ export const useAuthStore = create<AuthState>()(
             // Validate it's valid JSON
             JSON.parse(stringValue)
             localStorage.setItem(name, stringValue)
-          } catch (error) {
-            logger.error('Error setting auth storage:', error)
+          } catch (error: any) {
+            // Silently ignore localStorage errors (quota exceeded, private browsing, etc.)
+            // These are non-critical and will be retried on next state change
+            if (error?.name === 'QuotaExceededError') {
+              console.warn('LocalStorage quota exceeded - auth state may not persist')
+            } else if (error instanceof SyntaxError) {
+              logger.error('Invalid JSON in auth storage:', { name, error: error.message })
+            }
+            // Ignore other localStorage errors as they're usually environmental
           }
         },
         removeItem: (name) => {

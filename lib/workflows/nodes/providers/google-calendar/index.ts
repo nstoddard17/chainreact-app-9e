@@ -518,7 +518,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         name: "startDate",
         label: "Start Date",
         type: "date",
-        required: true,
+        required: false,
         defaultValue: "today"
       },
 
@@ -526,7 +526,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         name: "startTime",
         label: "Start Time",
         type: "time-picker-15min",
-        required: true,
+        required: false,
         defaultValue: "09:00",
         hidden: {
           $deps: ["allDay"],
@@ -538,7 +538,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         name: "endDate",
         label: "End Date",
         type: "date",
-        required: true,
+        required: false,
         defaultValue: "today"
       },
 
@@ -546,7 +546,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         name: "endTime",
         label: "End Time",
         type: "time-picker-15min",
-        required: true,
+        required: false,
         defaultValue: "10:00",
         hidden: {
           $deps: ["allDay"],
@@ -688,6 +688,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         dynamic: "google-calendars",
         loadOnMount: true,
         required: true,
+        defaultValue: "primary"
       },
 
       {
@@ -854,6 +855,1126 @@ export const googleCalendarNodes: NodeComponent[] = [
         label: "Status",
         type: "string",
         description: "Current status of the event"
+      }
+    ],
+  },
+  {
+    type: "google_calendar_action_update_event",
+    title: "Update Event",
+    description: "Update an existing calendar event",
+    icon: Calendar,
+    isTrigger: false,
+    providerId: "google-calendar",
+    requiredScopes: ["https://www.googleapis.com/auth/calendar"],
+    category: "Productivity",
+    configSchema: [
+      {
+        name: "calendarId",
+        label: "Calendar",
+        type: "select",
+        dynamic: "google-calendars",
+        loadOnMount: true,
+        required: true,
+        defaultValue: "primary"
+      },
+      {
+        name: "eventId",
+        label: "Event ID",
+        type: "text",
+        placeholder: "Event ID to update",
+        required: true,
+        description: "The ID of the event to update"
+      },
+      {
+        name: "title",
+        label: "Event Title",
+        type: "text",
+        placeholder: "Leave empty to keep current title",
+        required: false
+      },
+      {
+        name: "allDay",
+        label: "All day",
+        type: "boolean",
+        defaultValue: false,
+        description: "Event lasts all day"
+      },
+      {
+        name: "startDate",
+        label: "Start Date",
+        type: "date",
+        required: false,
+        hidden: {
+          $deps: ["allDay"],
+          $condition: { allDay: { $exists: false } }
+        }
+      },
+      {
+        name: "startTime",
+        label: "Start Time",
+        type: "time-picker-15min",
+        required: false,
+        hidden: {
+          $deps: ["allDay"],
+          $condition: { allDay: { $eq: true } }
+        }
+      },
+      {
+        name: "endDate",
+        label: "End Date",
+        type: "date",
+        required: false,
+        hidden: {
+          $deps: ["allDay"],
+          $condition: { allDay: { $exists: false } }
+        }
+      },
+      {
+        name: "endTime",
+        label: "End Time",
+        type: "time-picker-15min",
+        required: false,
+        hidden: {
+          $deps: ["allDay"],
+          $condition: { allDay: { $eq: true } }
+        }
+      },
+      {
+        name: "location",
+        label: "Location",
+        type: "google-places-autocomplete",
+        placeholder: "Leave empty to keep current location"
+      },
+      {
+        name: "description",
+        label: "Description",
+        type: "textarea",
+        placeholder: "Leave empty to keep current description"
+      },
+      {
+        name: "attendees",
+        label: "Update Attendees",
+        type: "contact-picker",
+        dynamic: "gmail-recent-recipients",
+        loadOnMount: true,
+        placeholder: "Leave empty to keep current attendees",
+        description: "Replaces all attendees with new list"
+      },
+      {
+        name: "colorId",
+        label: "Color",
+        type: "select",
+        placeholder: "Calendar color",
+        showColorPreview: true,
+        options: [
+          { value: "default", label: "Keep current", color: "#808080" },
+          { value: "1", label: "Lavender", color: "#a4bdfc" },
+          { value: "2", label: "Sage", color: "#7ae7bf" },
+          { value: "3", label: "Grape", color: "#dbadff" },
+          { value: "4", label: "Flamingo", color: "#ff887c" },
+          { value: "5", label: "Banana", color: "#fbd75b" },
+          { value: "6", label: "Tangerine", color: "#ffb878" },
+          { value: "7", label: "Peacock", color: "#46d6db" },
+          { value: "8", label: "Graphite", color: "#e1e1e1" },
+          { value: "9", label: "Blueberry", color: "#5484ed" },
+          { value: "10", label: "Basil", color: "#51b749" },
+          { value: "11", label: "Tomato", color: "#dc2127" }
+        ]
+      },
+      {
+        name: "sendNotifications",
+        label: "Send notifications",
+        type: "select",
+        defaultValue: "all",
+        options: [
+          { value: "all", label: "Send to all guests" },
+          { value: "externalOnly", label: "Send to guests outside your organization" },
+          { value: "none", label: "Don't send" }
+        ]
+      }
+    ],
+    outputSchema: [
+      {
+        name: "eventId",
+        label: "Event ID",
+        type: "string",
+        description: "Unique identifier for the updated event"
+      },
+      {
+        name: "htmlLink",
+        label: "Event Link",
+        type: "string",
+        description: "Direct link to the event in Google Calendar"
+      },
+      {
+        name: "summary",
+        label: "Title",
+        type: "string",
+        description: "Updated event title"
+      },
+      {
+        name: "description",
+        label: "Description",
+        type: "string",
+        description: "Updated event description"
+      },
+      {
+        name: "location",
+        label: "Location",
+        type: "string",
+        description: "Updated event location"
+      },
+      {
+        name: "start",
+        label: "Start Time",
+        type: "object",
+        description: "Updated event start date and time information"
+      },
+      {
+        name: "end",
+        label: "End Time",
+        type: "object",
+        description: "Updated event end date and time information"
+      },
+      {
+        name: "attendees",
+        label: "Attendees",
+        type: "array",
+        description: "Updated list of event attendees"
+      },
+      {
+        name: "status",
+        label: "Status",
+        type: "string",
+        description: "Event status"
+      },
+      {
+        name: "updated",
+        label: "Last Updated",
+        type: "string",
+        description: "ISO timestamp when event was last updated"
+      }
+    ],
+  },
+  {
+    type: "google_calendar_action_delete_event",
+    title: "Delete Event",
+    description: "Delete a calendar event",
+    icon: Calendar,
+    isTrigger: false,
+    providerId: "google-calendar",
+    requiredScopes: ["https://www.googleapis.com/auth/calendar"],
+    category: "Productivity",
+    configSchema: [
+      {
+        name: "calendarId",
+        label: "Calendar",
+        type: "select",
+        dynamic: "google-calendars",
+        loadOnMount: true,
+        required: true,
+        defaultValue: "primary"
+      },
+      {
+        name: "eventId",
+        label: "Event ID",
+        type: "text",
+        placeholder: "Event ID to delete",
+        required: true,
+        description: "The ID of the event to delete"
+      },
+      {
+        name: "sendNotifications",
+        label: "Send cancellation notifications",
+        type: "select",
+        defaultValue: "none",
+        options: [
+          { value: "all", label: "Send to all guests" },
+          { value: "externalOnly", label: "Send to guests outside your organization" },
+          { value: "none", label: "Don't send" }
+        ],
+        description: "Whether to send event cancellation notifications to attendees"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "eventId",
+        label: "Event ID",
+        type: "string",
+        description: "ID of the deleted event"
+      },
+      {
+        name: "deleted",
+        label: "Deleted",
+        type: "boolean",
+        description: "Confirmation that event was deleted"
+      },
+      {
+        name: "deletedAt",
+        label: "Deleted At",
+        type: "string",
+        description: "ISO timestamp when event was deleted"
+      },
+      {
+        name: "eventTitle",
+        label: "Event Title",
+        type: "string",
+        description: "Title of the deleted event"
+      },
+      {
+        name: "eventStart",
+        label: "Event Start",
+        type: "object",
+        description: "Start time of the deleted event"
+      },
+      {
+        name: "eventEnd",
+        label: "Event End",
+        type: "object",
+        description: "End time of the deleted event"
+      },
+      {
+        name: "calendarId",
+        label: "Calendar ID",
+        type: "string",
+        description: "ID of the calendar the event was deleted from"
+      }
+    ],
+  },
+  {
+    type: "google_calendar_action_get_event",
+    title: "Get Event",
+    description: "Retrieve details of a specific calendar event",
+    icon: Calendar,
+    isTrigger: false,
+    providerId: "google-calendar",
+    requiredScopes: ["https://www.googleapis.com/auth/calendar.readonly"],
+    category: "Productivity",
+    producesOutput: true,
+    configSchema: [
+      {
+        name: "calendarId",
+        label: "Calendar",
+        type: "select",
+        dynamic: "google-calendars",
+        loadOnMount: true,
+        required: true,
+        defaultValue: "primary"
+      },
+      {
+        name: "eventId",
+        label: "Event ID",
+        type: "text",
+        placeholder: "Enter event ID",
+        required: true,
+        description: "The ID of the event to retrieve"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "eventId",
+        label: "Event ID",
+        type: "string",
+        description: "Unique identifier for the event"
+      },
+      {
+        name: "htmlLink",
+        label: "Event Link",
+        type: "string",
+        description: "Direct link to the event in Google Calendar"
+      },
+      {
+        name: "summary",
+        label: "Title",
+        type: "string",
+        description: "Event title"
+      },
+      {
+        name: "description",
+        label: "Description",
+        type: "string",
+        description: "Event description"
+      },
+      {
+        name: "location",
+        label: "Location",
+        type: "string",
+        description: "Event location"
+      },
+      {
+        name: "start",
+        label: "Start Time",
+        type: "object",
+        description: "Event start date and time"
+      },
+      {
+        name: "end",
+        label: "End Time",
+        type: "object",
+        description: "Event end date and time"
+      },
+      {
+        name: "attendees",
+        label: "Attendees",
+        type: "array",
+        description: "List of event attendees with response status"
+      },
+      {
+        name: "organizer",
+        label: "Organizer",
+        type: "object",
+        description: "Event organizer information"
+      },
+      {
+        name: "creator",
+        label: "Creator",
+        type: "object",
+        description: "Event creator information"
+      },
+      {
+        name: "created",
+        label: "Created At",
+        type: "string",
+        description: "ISO timestamp when event was created"
+      },
+      {
+        name: "updated",
+        label: "Last Updated",
+        type: "string",
+        description: "ISO timestamp when event was last updated"
+      },
+      {
+        name: "status",
+        label: "Status",
+        type: "string",
+        description: "Event status (confirmed, tentative, cancelled)"
+      },
+      {
+        name: "hangoutLink",
+        label: "Hangout Link",
+        type: "string",
+        description: "Google Meet/Hangouts link if attached"
+      },
+      {
+        name: "meetLink",
+        label: "Meet Link",
+        type: "string",
+        description: "Google Meet video conference link"
+      },
+      {
+        name: "conferenceData",
+        label: "Conference Data",
+        type: "object",
+        description: "Full conference data object"
+      },
+      {
+        name: "colorId",
+        label: "Color ID",
+        type: "string",
+        description: "Event color ID"
+      },
+      {
+        name: "transparency",
+        label: "Transparency",
+        type: "string",
+        description: "Whether event blocks time (opaque/transparent)"
+      },
+      {
+        name: "visibility",
+        label: "Visibility",
+        type: "string",
+        description: "Event visibility (default/public/private)"
+      },
+      {
+        name: "recurrence",
+        label: "Recurrence Rules",
+        type: "array",
+        description: "RRULE recurrence rules if recurring event"
+      },
+      {
+        name: "recurringEventId",
+        label: "Recurring Event ID",
+        type: "string",
+        description: "ID of recurring event if this is an instance"
+      },
+      {
+        name: "reminders",
+        label: "Reminders",
+        type: "object",
+        description: "Event reminder settings"
+      },
+      {
+        name: "attachments",
+        label: "Attachments",
+        type: "array",
+        description: "File attachments on the event"
+      },
+      {
+        name: "guestsCanInviteOthers",
+        label: "Guests Can Invite Others",
+        type: "boolean",
+        description: "Whether attendees can invite others"
+      },
+      {
+        name: "guestsCanModify",
+        label: "Guests Can Modify",
+        type: "boolean",
+        description: "Whether attendees can modify the event"
+      },
+      {
+        name: "guestsCanSeeOtherGuests",
+        label: "Guests Can See Others",
+        type: "boolean",
+        description: "Whether attendees can see other guests"
+      },
+      {
+        name: "eventType",
+        label: "Event Type",
+        type: "string",
+        description: "Type of event (default, outOfOffice, etc.)"
+      }
+    ],
+  },
+  {
+    type: "google_calendar_action_list_events",
+    title: "List Events",
+    description: "Get events from a calendar within a date range",
+    icon: Calendar,
+    isTrigger: false,
+    providerId: "google-calendar",
+    requiredScopes: ["https://www.googleapis.com/auth/calendar.readonly"],
+    category: "Productivity",
+    producesOutput: true,
+    configSchema: [
+      {
+        name: "calendarId",
+        label: "Calendar",
+        type: "select",
+        dynamic: "google-calendars",
+        loadOnMount: true,
+        required: true,
+        defaultValue: "primary"
+      },
+      {
+        name: "timeMin",
+        label: "Start Date/Time",
+        type: "datetime-local",
+        placeholder: "Select start date and time",
+        required: false
+      },
+      {
+        name: "timeMax",
+        label: "End Date/Time",
+        type: "datetime-local",
+        placeholder: "Select end date and time",
+        required: false
+      },
+      {
+        name: "maxResults",
+        label: "Max Results",
+        type: "number",
+        defaultValue: 250,
+        required: false,
+        description: "Maximum number of events to return (max 2500)"
+      },
+      {
+        name: "orderBy",
+        label: "Order By",
+        type: "select",
+        defaultValue: "startTime",
+        options: [
+          { value: "startTime", label: "Start Time" },
+          { value: "updated", label: "Last Updated" }
+        ],
+        description: "Sort order for results"
+      },
+      {
+        name: "singleEvents",
+        label: "Expand Recurring Events",
+        type: "boolean",
+        defaultValue: true,
+        description: "Whether to expand recurring events into individual instances"
+      },
+      {
+        name: "showDeleted",
+        label: "Include Deleted Events",
+        type: "boolean",
+        defaultValue: false,
+        description: "Whether to include deleted events"
+      },
+      {
+        name: "query",
+        label: "Search Query",
+        type: "text",
+        placeholder: "Search events by text",
+        required: false,
+        description: "Free text search terms to find events"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "events",
+        label: "Events",
+        type: "array",
+        description: "Array of calendar events"
+      },
+      {
+        name: "count",
+        label: "Event Count",
+        type: "number",
+        description: "Number of events returned"
+      },
+      {
+        name: "nextPageToken",
+        label: "Next Page Token",
+        type: "string",
+        description: "Token for pagination if more results available"
+      },
+      {
+        name: "nextSyncToken",
+        label: "Next Sync Token",
+        type: "string",
+        description: "Token for incremental sync"
+      },
+      {
+        name: "calendarId",
+        label: "Calendar ID",
+        type: "string",
+        description: "ID of the calendar queried"
+      },
+      {
+        name: "timeMin",
+        label: "Start Time",
+        type: "string",
+        description: "Lower bound used in query"
+      },
+      {
+        name: "timeMax",
+        label: "End Time",
+        type: "string",
+        description: "Upper bound used in query"
+      }
+    ],
+  },
+  {
+    type: "google_calendar_action_quick_add_event",
+    title: "Quick Add Event",
+    description: "Create an event from natural language text",
+    icon: Calendar,
+    isTrigger: false,
+    providerId: "google-calendar",
+    requiredScopes: ["https://www.googleapis.com/auth/calendar"],
+    category: "Productivity",
+    producesOutput: true,
+    configSchema: [
+      {
+        name: "calendarId",
+        label: "Calendar",
+        type: "select",
+        dynamic: "google-calendars",
+        loadOnMount: true,
+        required: true,
+        defaultValue: "primary"
+      },
+      {
+        name: "text",
+        label: "Natural Language Text",
+        type: "textarea",
+        placeholder: "e.g., 'Lunch with John tomorrow at noon' or 'Meeting next Monday 2pm-3pm'",
+        required: true,
+        description: "Describe the event in natural language - Google will parse dates, times, and details"
+      },
+      {
+        name: "sendNotifications",
+        label: "Send invitations",
+        type: "select",
+        defaultValue: "none",
+        options: [
+          { value: "all", label: "Send to all guests" },
+          { value: "externalOnly", label: "Send to guests outside your organization" },
+          { value: "none", label: "Don't send" }
+        ]
+      }
+    ],
+    outputSchema: [
+      {
+        name: "eventId",
+        label: "Event ID",
+        type: "string",
+        description: "Unique identifier for the created event"
+      },
+      {
+        name: "htmlLink",
+        label: "Event Link",
+        type: "string",
+        description: "Direct link to the event in Google Calendar"
+      },
+      {
+        name: "summary",
+        label: "Title",
+        type: "string",
+        description: "Parsed event title"
+      },
+      {
+        name: "description",
+        label: "Description",
+        type: "string",
+        description: "Parsed event description"
+      },
+      {
+        name: "location",
+        label: "Location",
+        type: "string",
+        description: "Parsed event location"
+      },
+      {
+        name: "start",
+        label: "Start Time",
+        type: "object",
+        description: "Parsed event start date and time"
+      },
+      {
+        name: "end",
+        label: "End Time",
+        type: "object",
+        description: "Parsed event end date and time"
+      },
+      {
+        name: "attendees",
+        label: "Attendees",
+        type: "array",
+        description: "Parsed list of attendees"
+      },
+      {
+        name: "organizer",
+        label: "Organizer",
+        type: "object",
+        description: "Event organizer information"
+      },
+      {
+        name: "status",
+        label: "Status",
+        type: "string",
+        description: "Event status"
+      },
+      {
+        name: "created",
+        label: "Created At",
+        type: "string",
+        description: "ISO timestamp when event was created"
+      },
+      {
+        name: "originalText",
+        label: "Original Text",
+        type: "string",
+        description: "The original natural language input"
+      }
+    ],
+  },
+  {
+    type: "google_calendar_action_add_attendees",
+    title: "Add Attendees",
+    description: "Add attendees to an existing event",
+    icon: Calendar,
+    isTrigger: false,
+    providerId: "google-calendar",
+    requiredScopes: ["https://www.googleapis.com/auth/calendar"],
+    category: "Productivity",
+    producesOutput: true,
+    configSchema: [
+      {
+        name: "calendarId",
+        label: "Calendar",
+        type: "select",
+        dynamic: "google-calendars",
+        loadOnMount: true,
+        required: true,
+        defaultValue: "primary"
+      },
+      {
+        name: "eventId",
+        label: "Event ID",
+        type: "text",
+        placeholder: "Event ID",
+        required: true,
+        description: "The ID of the event to add attendees to"
+      },
+      {
+        name: "attendees",
+        label: "Attendees to Add",
+        type: "contact-picker",
+        dynamic: "gmail-recent-recipients",
+        loadOnMount: true,
+        placeholder: "Enter email addresses",
+        required: true,
+        description: "Email addresses of attendees to add (existing attendees won't be duplicated)"
+      },
+      {
+        name: "sendNotifications",
+        label: "Send invitations",
+        type: "select",
+        defaultValue: "all",
+        options: [
+          { value: "all", label: "Send to all guests" },
+          { value: "externalOnly", label: "Send to guests outside your organization" },
+          { value: "none", label: "Don't send" }
+        ]
+      }
+    ],
+    outputSchema: [
+      {
+        name: "eventId",
+        label: "Event ID",
+        type: "string",
+        description: "ID of the updated event"
+      },
+      {
+        name: "htmlLink",
+        label: "Event Link",
+        type: "string",
+        description: "Direct link to the event"
+      },
+      {
+        name: "summary",
+        label: "Event Title",
+        type: "string",
+        description: "Title of the event"
+      },
+      {
+        name: "attendees",
+        label: "All Attendees",
+        type: "array",
+        description: "Complete list of event attendees after adding"
+      },
+      {
+        name: "addedAttendees",
+        label: "Added Attendees",
+        type: "array",
+        description: "List of attendees that were actually added"
+      },
+      {
+        name: "existingAttendees",
+        label: "Previous Attendee Count",
+        type: "number",
+        description: "Number of attendees before adding"
+      },
+      {
+        name: "totalAttendees",
+        label: "Total Attendees",
+        type: "number",
+        description: "Total number of attendees after adding"
+      },
+      {
+        name: "actuallyAdded",
+        label: "Count Added",
+        type: "number",
+        description: "Number of new attendees actually added (excludes duplicates)"
+      }
+    ],
+  },
+  {
+    type: "google_calendar_action_remove_attendees",
+    title: "Remove Attendees",
+    description: "Remove attendees from an existing event",
+    icon: Calendar,
+    isTrigger: false,
+    providerId: "google-calendar",
+    requiredScopes: ["https://www.googleapis.com/auth/calendar"],
+    category: "Productivity",
+    producesOutput: true,
+    configSchema: [
+      {
+        name: "calendarId",
+        label: "Calendar",
+        type: "select",
+        dynamic: "google-calendars",
+        loadOnMount: true,
+        required: true,
+        defaultValue: "primary"
+      },
+      {
+        name: "eventId",
+        label: "Event ID",
+        type: "text",
+        placeholder: "Event ID",
+        required: true,
+        description: "The ID of the event to remove attendees from"
+      },
+      {
+        name: "attendeesToRemove",
+        label: "Attendees to Remove",
+        type: "contact-picker",
+        placeholder: "Enter email addresses to remove",
+        required: true,
+        description: "Email addresses of attendees to remove"
+      },
+      {
+        name: "sendNotifications",
+        label: "Send cancellation notifications",
+        type: "select",
+        defaultValue: "all",
+        options: [
+          { value: "all", label: "Send to all guests" },
+          { value: "externalOnly", label: "Send to guests outside your organization" },
+          { value: "none", label: "Don't send" }
+        ]
+      }
+    ],
+    outputSchema: [
+      {
+        name: "eventId",
+        label: "Event ID",
+        type: "string",
+        description: "ID of the updated event"
+      },
+      {
+        name: "htmlLink",
+        label: "Event Link",
+        type: "string",
+        description: "Direct link to the event"
+      },
+      {
+        name: "summary",
+        label: "Event Title",
+        type: "string",
+        description: "Title of the event"
+      },
+      {
+        name: "remainingAttendees",
+        label: "Remaining Attendees",
+        type: "array",
+        description: "List of attendees after removal"
+      },
+      {
+        name: "previousAttendeeCount",
+        label: "Previous Attendee Count",
+        type: "number",
+        description: "Number of attendees before removal"
+      },
+      {
+        name: "removedCount",
+        label: "Removed Count",
+        type: "number",
+        description: "Number of attendees actually removed"
+      },
+      {
+        name: "currentAttendeeCount",
+        label: "Current Attendee Count",
+        type: "number",
+        description: "Number of attendees after removal"
+      }
+    ],
+  },
+  {
+    type: "google_calendar_action_move_event",
+    title: "Move Event",
+    description: "Move an event to a different calendar",
+    icon: Calendar,
+    isTrigger: false,
+    providerId: "google-calendar",
+    requiredScopes: ["https://www.googleapis.com/auth/calendar"],
+    category: "Productivity",
+    producesOutput: true,
+    configSchema: [
+      {
+        name: "sourceCalendarId",
+        label: "Source Calendar",
+        type: "select",
+        dynamic: "google-calendars",
+        loadOnMount: true,
+        required: true,
+        defaultValue: "primary",
+        description: "Calendar where the event currently exists"
+      },
+      {
+        name: "eventId",
+        label: "Event ID",
+        type: "text",
+        placeholder: "Event ID to move",
+        required: true,
+        description: "The ID of the event to move"
+      },
+      {
+        name: "destinationCalendarId",
+        label: "Destination Calendar",
+        type: "select",
+        dynamic: "google-calendars",
+        loadOnMount: true,
+        required: true,
+        description: "Calendar to move the event to"
+      },
+      {
+        name: "sendNotifications",
+        label: "Send notifications",
+        type: "select",
+        defaultValue: "all",
+        options: [
+          { value: "all", label: "Send to all guests" },
+          { value: "externalOnly", label: "Send to guests outside your organization" },
+          { value: "none", label: "Don't send" }
+        ]
+      }
+    ],
+    outputSchema: [
+      {
+        name: "eventId",
+        label: "Event ID",
+        type: "string",
+        description: "ID of the moved event"
+      },
+      {
+        name: "htmlLink",
+        label: "Event Link",
+        type: "string",
+        description: "Direct link to the event in its new calendar"
+      },
+      {
+        name: "summary",
+        label: "Event Title",
+        type: "string",
+        description: "Title of the event"
+      },
+      {
+        name: "description",
+        label: "Description",
+        type: "string",
+        description: "Event description"
+      },
+      {
+        name: "location",
+        label: "Location",
+        type: "string",
+        description: "Event location"
+      },
+      {
+        name: "start",
+        label: "Start Time",
+        type: "object",
+        description: "Event start date and time"
+      },
+      {
+        name: "end",
+        label: "End Time",
+        type: "object",
+        description: "Event end date and time"
+      },
+      {
+        name: "sourceCalendarId",
+        label: "Source Calendar ID",
+        type: "string",
+        description: "ID of the calendar the event was moved from"
+      },
+      {
+        name: "destinationCalendarId",
+        label: "Destination Calendar ID",
+        type: "string",
+        description: "ID of the calendar the event was moved to"
+      },
+      {
+        name: "movedAt",
+        label: "Moved At",
+        type: "string",
+        description: "ISO timestamp when event was moved"
+      },
+      {
+        name: "status",
+        label: "Status",
+        type: "string",
+        description: "Event status after move"
+      }
+    ],
+  },
+  {
+    type: "google_calendar_action_get_free_busy",
+    title: "Get Free/Busy",
+    description: "Check availability across calendars",
+    icon: Calendar,
+    isTrigger: false,
+    providerId: "google-calendar",
+    requiredScopes: ["https://www.googleapis.com/auth/calendar.readonly"],
+    category: "Productivity",
+    producesOutput: true,
+    configSchema: [
+      {
+        name: "calendarIds",
+        label: "Calendars",
+        type: "multiselect",
+        dynamic: "google-calendars",
+        loadOnMount: true,
+        required: true,
+        description: "Calendars to check availability for"
+      },
+      {
+        name: "timeMin",
+        label: "Start Time",
+        type: "text",
+        placeholder: "today, tomorrow, or ISO date",
+        required: true,
+        description: "Start of time range to query (use 'today', 'tomorrow', or ISO date)"
+      },
+      {
+        name: "timeMax",
+        label: "End Time",
+        type: "text",
+        placeholder: "next_week, or ISO date",
+        required: true,
+        description: "End of time range to query (use 'next_week' or ISO date)"
+      },
+      {
+        name: "timeZone",
+        label: "Time Zone",
+        type: "select",
+        defaultValue: "UTC",
+        options: [
+          { value: "UTC", label: "UTC" },
+          { value: "America/New_York", label: "Eastern Time (ET)" },
+          { value: "America/Chicago", label: "Central Time (CT)" },
+          { value: "America/Denver", label: "Mountain Time (MT)" },
+          { value: "America/Los_Angeles", label: "Pacific Time (PT)" },
+          { value: "Europe/London", label: "London (GMT/BST)" },
+          { value: "Europe/Paris", label: "Paris (CET/CEST)" },
+          { value: "Asia/Tokyo", label: "Tokyo (JST)" },
+          { value: "Australia/Sydney", label: "Sydney (AEDT/AEST)" }
+        ],
+        description: "Time zone for the query"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "calendars",
+        label: "Calendars",
+        type: "object",
+        description: "Object containing free/busy data for each calendar"
+      },
+      {
+        name: "timeMin",
+        label: "Query Start Time",
+        type: "string",
+        description: "Start time used in the query"
+      },
+      {
+        name: "timeMax",
+        label: "Query End Time",
+        type: "string",
+        description: "End time used in the query"
+      },
+      {
+        name: "timeZone",
+        label: "Time Zone",
+        type: "string",
+        description: "Time zone used in the query"
+      },
+      {
+        name: "queriedCalendars",
+        label: "Queried Calendars",
+        type: "array",
+        description: "List of calendar IDs that were queried"
+      },
+      {
+        name: "calendarCount",
+        label: "Calendar Count",
+        type: "number",
+        description: "Number of calendars queried"
       }
     ],
   },

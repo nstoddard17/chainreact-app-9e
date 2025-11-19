@@ -3,8 +3,8 @@ import { NodeComponent } from "../../../types"
 // Note: These imports may need adjustment based on project structure
 const GMAIL_SEND_EMAIL_METADATA = {
   key: "gmail_action_send_email",
-  name: "Send Gmail Message",
-  description: "Compose and send an email through your Gmail account"
+  name: "Send Email",
+  description: "Send an email"
 }
 
 export const sendEmailActionSchema: NodeComponent = {
@@ -120,6 +120,7 @@ export const sendEmailActionSchema: NodeComponent = {
       placeholder: "Select files to attach",
       accept: ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.gif,.zip,.rar",
       maxSize: 25 * 1024 * 1024, // 25MB limit (Gmail's attachment limit)
+      supportsVariables: true,
       description: "Attach files from your computer or select files from previous workflow nodes"
     },
     {

@@ -37,15 +37,19 @@ export async function createGmailLabel(
       messageListVisibility,
     }
 
-    // Add color if specified
+    // Add color if specified - Gmail requires BOTH backgroundColor and textColor
     if (backgroundColor || textColor) {
-      requestBody.color = {}
-      if (backgroundColor) {
-        requestBody.color.backgroundColor = backgroundColor
+      // If only one color is provided, we need to provide a default for the other
+      // Common text colors for readability
+      const defaultTextColor = '#ffffff' // White text for dark backgrounds
+      const defaultBackgroundColor = '#434343' // Gmail's default gray
+
+      requestBody.color = {
+        backgroundColor: backgroundColor || defaultBackgroundColor,
+        textColor: textColor || defaultTextColor
       }
-      if (textColor) {
-        requestBody.color.textColor = textColor
-      }
+
+      logger.debug(`[Gmail Create Label] Setting colors - background: ${requestBody.color.backgroundColor}, text: ${requestBody.color.textColor}`)
     }
 
     // Create label

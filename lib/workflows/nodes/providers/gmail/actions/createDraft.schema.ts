@@ -108,6 +108,7 @@ export const createDraftActionSchema: NodeComponent = {
       placeholder: "Select files to attach",
       accept: ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.gif,.zip,.rar",
       maxSize: 25 * 1024 * 1024, // 25MB limit
+      supportsVariables: true,
       description: "Attach files to the draft"
     },
   ],
