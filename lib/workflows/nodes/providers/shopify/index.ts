@@ -36,8 +36,10 @@ const STORE_SELECTOR_FIELD = {
   dynamic: "shopify_stores",
   required: true,
   loadOnMount: true,
+  supportsAI: true,
   placeholder: "Select a store...",
-  description: "Select which Shopify store to use for this action/trigger"
+  description: "Select which Shopify store to use for this action/trigger",
+  connectButton: true
 }
 
 export const shopifyNodes: NodeComponent[] = [
@@ -61,6 +63,11 @@ export const shopifyNodes: NodeComponent[] = [
         label: "Fulfillment Status Filter (Optional)",
         type: "select",
         required: false,
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         options: [
           { label: "Any Status", value: "any" },
           { label: "Fulfilled", value: "fulfilled" },
@@ -68,13 +75,19 @@ export const shopifyNodes: NodeComponent[] = [
           { label: "Partially Fulfilled", value: "partial" },
         ],
         defaultValue: "any",
-        description: "Only trigger for orders with this fulfillment status"
+        description: "Only trigger for orders with this fulfillment status",
+        connectButton: true
       },
       {
         name: "financial_status",
         label: "Payment Status Filter (Optional)",
         type: "select",
         required: false,
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         options: [
           { label: "Any Status", value: "any" },
           { label: "Paid", value: "paid" },
@@ -83,7 +96,8 @@ export const shopifyNodes: NodeComponent[] = [
           { label: "Refunded", value: "refunded" },
         ],
         defaultValue: "any",
-        description: "Only trigger for orders with this payment status"
+        description: "Only trigger for orders with this payment status",
+        connectButton: true
       },
     ],
     outputSchema: [
@@ -116,6 +130,11 @@ export const shopifyNodes: NodeComponent[] = [
         label: "Fulfillment Status Filter (Optional)",
         type: "select",
         required: false,
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         options: [
           { label: "Any Status", value: "any" },
           { label: "Fulfilled", value: "fulfilled" },
@@ -123,7 +142,8 @@ export const shopifyNodes: NodeComponent[] = [
           { label: "Partially Fulfilled", value: "partial" },
         ],
         defaultValue: "any",
-        description: "Only trigger for orders with this fulfillment status"
+        description: "Only trigger for orders with this fulfillment status",
+        connectButton: true
       },
     ],
     outputSchema: [
@@ -158,9 +178,15 @@ export const shopifyNodes: NodeComponent[] = [
         label: "Trigger Configuration",
         type: "select",
         required: false,
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         options: [{ value: "all", label: "Trigger for all fulfilled orders" }],
         defaultValue: "all",
-        description: "This trigger will fire whenever an order's fulfillment status changes to fulfilled"
+        description: "This trigger will fire whenever an order's fulfillment status changes to fulfilled",
+        connectButton: true
       }
     ],
     outputSchema: [
@@ -195,8 +221,14 @@ export const shopifyNodes: NodeComponent[] = [
         label: "Minimum Cart Value (Optional)",
         type: "number",
         required: false,
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         placeholder: "50.00",
-        description: "Only trigger for carts above this value (e.g., 50.00)"
+        description: "Only trigger for carts above this value (e.g., 50.00)",
+        connectButton: true
       },
     ],
     outputSchema: [
@@ -229,6 +261,11 @@ export const shopifyNodes: NodeComponent[] = [
         label: "Watch For Changes In",
         type: "multi_select",
         required: false,
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         options: [
           { label: "Fulfillment Status", value: "fulfillment_status" },
           { label: "Payment Status", value: "financial_status" },
@@ -237,6 +274,7 @@ export const shopifyNodes: NodeComponent[] = [
         ],
         description: "Only trigger when these fields change (leave empty to trigger on any change)",
         supportsAI: true,
+        connectButton: true
       },
     ],
     outputSchema: [
@@ -266,9 +304,15 @@ export const shopifyNodes: NodeComponent[] = [
         label: "Trigger Configuration",
         type: "select",
         required: false,
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         options: [{ value: "all", label: "Trigger for all new customers" }],
         defaultValue: "all",
-        description: "This trigger will fire whenever a new customer is created in your Shopify store"
+        description: "This trigger will fire whenever a new customer is created in your Shopify store",
+        connectButton: true
       }
     ],
     outputSchema: [
@@ -300,9 +344,15 @@ export const shopifyNodes: NodeComponent[] = [
         type: "select",
         dynamic: "shopify_collections",
         required: false,
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         loadOnMount: true,
         placeholder: "All collections",
-        description: "Only trigger for products in this collection"
+        description: "Only trigger for products in this collection",
+        connectButton: true
       },
     ],
     outputSchema: [
@@ -332,9 +382,15 @@ export const shopifyNodes: NodeComponent[] = [
         label: "Low Stock Threshold",
         type: "number",
         required: true,
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         defaultValue: 10,
         placeholder: "10",
-        description: "Trigger when inventory falls below this number"
+        description: "Trigger when inventory falls below this number",
+        connectButton: true
       },
       {
         name: "location_id",
@@ -342,9 +398,15 @@ export const shopifyNodes: NodeComponent[] = [
         type: "select",
         dynamic: "shopify_locations",
         required: false,
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         loadOnMount: true,
         placeholder: "All locations",
-        description: "Only check inventory at this location"
+        description: "Only check inventory at this location",
+        connectButton: true
       },
     ],
     outputSchema: [
@@ -378,12 +440,23 @@ export const shopifyNodes: NodeComponent[] = [
         label: "Customer Email",
         type: "text",
         required: true,
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         placeholder: "customer@example.com",
         description: "Email address of the customer",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "line_items",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Line Items",
         type: "array",
         required: true,
@@ -392,140 +465,231 @@ export const shopifyNodes: NodeComponent[] = [
         ], null, 2),
         description: "Array of items to include in the order",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "send_receipt",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Send Order Confirmation Email",
         type: "boolean",
         required: false,
         defaultValue: true,
-        description: "Send order confirmation email to customer"
+        description: "Send order confirmation email to customer",
+        connectButton: true
       },
       {
         name: "note",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Order Note (Optional)",
         type: "text",
         required: false,
         placeholder: "Special instructions...",
         description: "Internal note for the order",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "tags",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Tags (Optional)",
         type: "text",
         required: false,
         placeholder: "wholesale, priority",
         description: "Comma-separated tags for the order",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "shipping_address_line1",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Shipping Address Line 1 (Optional)",
         type: "text",
         required: false,
         placeholder: "123 Main St",
         description: "Street address for shipping",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "shipping_address_line2",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Shipping Address Line 2 (Optional)",
         type: "text",
         required: false,
         placeholder: "Apt 4B",
         description: "Additional address details (apartment, suite, etc.)",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "shipping_city",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Shipping City (Optional)",
         type: "text",
         required: false,
         placeholder: "San Francisco",
         description: "City for shipping address",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "shipping_province",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Shipping State/Province (Optional)",
         type: "text",
         required: false,
         placeholder: "CA",
         description: "State or province code (e.g., CA, NY, ON)",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "shipping_country",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Shipping Country (Optional)",
         type: "text",
         required: false,
         placeholder: "US",
         description: "Country code (e.g., US, CA, GB)",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "shipping_zip",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Shipping ZIP/Postal Code (Optional)",
         type: "text",
         required: false,
         placeholder: "94102",
         description: "ZIP or postal code",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "billing_address_line1",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Billing Address Line 1 (Optional)",
         type: "text",
         required: false,
         placeholder: "456 Oak Ave",
         description: "Street address for billing (defaults to shipping if empty)",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "billing_address_line2",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Billing Address Line 2 (Optional)",
         type: "text",
         required: false,
         placeholder: "Suite 100",
         description: "Additional billing address details",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "billing_city",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Billing City (Optional)",
         type: "text",
         required: false,
         placeholder: "Los Angeles",
         description: "City for billing address",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "billing_province",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Billing State/Province (Optional)",
         type: "text",
         required: false,
         placeholder: "CA",
         description: "State or province code for billing",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "billing_country",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Billing Country (Optional)",
         type: "text",
         required: false,
         placeholder: "US",
         description: "Country code for billing",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "billing_zip",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Billing ZIP/Postal Code (Optional)",
         type: "text",
         required: false,
         placeholder: "90001",
         description: "ZIP or postal code for billing",
         supportsAI: true,
+        connectButton: true
       },
     ],
     outputSchema: [
@@ -581,15 +745,26 @@ export const shopifyNodes: NodeComponent[] = [
       STORE_SELECTOR_FIELD,
       {
         name: "order_id",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Order ID",
         type: "text",
         required: true,
         placeholder: "{{trigger.order_id}}",
         description: "The ID of the order to update",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "action",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Action",
         type: "select",
         required: true,
@@ -599,7 +774,8 @@ export const shopifyNodes: NodeComponent[] = [
           { label: "Add Tags", value: "add_tags" },
           { label: "Add Note", value: "add_note" },
         ],
-        description: "What action to perform on the order"
+        description: "What action to perform on the order",
+        connectButton: true
       },
       {
         name: "tags",
@@ -610,6 +786,7 @@ export const shopifyNodes: NodeComponent[] = [
         description: "Tags to add (only if action is 'Add Tags')",
         showIf: { field: "action", value: "add_tags" },
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "note",
@@ -620,6 +797,7 @@ export const shopifyNodes: NodeComponent[] = [
         description: "Note to add (only if action is 'Add Note')",
         showIf: { field: "action", value: "add_note" },
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "notify_customer",
@@ -676,66 +854,108 @@ export const shopifyNodes: NodeComponent[] = [
       STORE_SELECTOR_FIELD,
       {
         name: "title",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Product Title",
         type: "text",
         required: true,
         placeholder: "Amazing Product",
         description: "The name of the product",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "body_html",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Description (HTML)",
         type: "text",
         required: false,
         placeholder: "<p>Product description...</p>",
         description: "Product description in HTML format",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "vendor",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Vendor",
         type: "text",
         required: false,
         placeholder: "My Brand",
         description: "The vendor of the product",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "product_type",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Product Type",
         type: "text",
         required: false,
         placeholder: "Apparel",
         description: "The type/category of the product",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "price",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Price",
         type: "number",
         required: true,
         placeholder: "29.99",
         description: "The price of the product",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "sku",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "SKU (Optional)",
         type: "text",
         required: false,
         placeholder: "PROD-001",
         description: "Stock Keeping Unit",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "inventory_quantity",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Initial Inventory",
         type: "number",
         required: false,
         defaultValue: 0,
         placeholder: "100",
-        description: "Starting inventory quantity"
+        description: "Starting inventory quantity",
+        connectButton: true
       },
     ],
     outputSchema: [
@@ -791,60 +1011,101 @@ export const shopifyNodes: NodeComponent[] = [
       STORE_SELECTOR_FIELD,
       {
         name: "product_id",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Product ID",
         type: "text",
         required: true,
         placeholder: "{{trigger.product_id}}",
         description: "The ID of the product to update",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "title",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Product Title (Optional)",
         type: "text",
         required: false,
         placeholder: "Updated Product Name",
         description: "Update the product title",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "body_html",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Description (Optional)",
         type: "text",
         required: false,
         placeholder: "<p>Updated description...</p>",
         description: "Update product description in HTML format",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "vendor",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Vendor (Optional)",
         type: "text",
         required: false,
         placeholder: "Brand Name",
         description: "Update the vendor/brand",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "product_type",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Product Type (Optional)",
         type: "text",
         required: false,
         placeholder: "Electronics",
         description: "Update the product type/category",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "tags",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Tags (Optional)",
         type: "text",
         required: false,
         placeholder: "new-arrival, featured, sale",
         description: "Comma-separated tags (replaces existing tags)",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "published",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Published Status (Optional)",
         type: "select",
         required: false,
@@ -854,7 +1115,8 @@ export const shopifyNodes: NodeComponent[] = [
           { label: "Draft (Hidden)", value: "false" },
         ],
         defaultValue: "",
-        description: "Update product visibility in storefront"
+        description: "Update product visibility in storefront",
+        connectButton: true
       },
     ],
     outputSchema: [
@@ -910,25 +1172,42 @@ export const shopifyNodes: NodeComponent[] = [
       STORE_SELECTOR_FIELD,
       {
         name: "inventory_item_id",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Inventory Item ID",
         type: "text",
         required: true,
         placeholder: "{{trigger.inventory_item_id}}",
         description: "The inventory item ID to update",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "location_id",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Location",
         type: "select",
         dynamic: "shopify_locations",
         required: true,
         loadOnMount: true,
         placeholder: "Select location",
-        description: "The location to update inventory at"
+        description: "The location to update inventory at",
+        connectButton: true
       },
       {
         name: "adjustment_type",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Adjustment Type",
         type: "select",
         required: true,
@@ -938,7 +1217,8 @@ export const shopifyNodes: NodeComponent[] = [
           { label: "Subtract from Current", value: "subtract" },
         ],
         defaultValue: "set",
-        description: "How to adjust the inventory"
+        description: "How to adjust the inventory",
+        connectButton: true
       },
       {
         name: "quantity",
@@ -948,6 +1228,7 @@ export const shopifyNodes: NodeComponent[] = [
         placeholder: "100",
         description: "The amount to set/add/subtract",
         supportsAI: true,
+        connectButton: true
       },
     ],
     outputSchema: [
@@ -996,56 +1277,92 @@ export const shopifyNodes: NodeComponent[] = [
       STORE_SELECTOR_FIELD,
       {
         name: "email",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Email",
         type: "text",
         required: true,
         placeholder: "customer@example.com",
         description: "Customer's email address",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "first_name",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "First Name",
         type: "text",
         required: false,
         placeholder: "John",
         description: "Customer's first name",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "last_name",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Last Name",
         type: "text",
         required: false,
         placeholder: "Doe",
         description: "Customer's last name",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "phone",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Phone (Optional)",
         type: "text",
         required: false,
         placeholder: "+1-555-1234",
         description: "Customer's phone number",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "tags",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Tags (Optional)",
         type: "text",
         required: false,
         placeholder: "vip, wholesale",
         description: "Comma-separated tags",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "send_welcome_email",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Send Welcome Email",
         type: "boolean",
         required: false,
         defaultValue: false,
-        description: "Send account activation email"
+        description: "Send account activation email",
+        connectButton: true
       },
     ],
     outputSchema: [
@@ -1094,69 +1411,116 @@ export const shopifyNodes: NodeComponent[] = [
       STORE_SELECTOR_FIELD,
       {
         name: "customer_id",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Customer ID",
         type: "text",
         required: true,
         placeholder: "{{trigger.customer_id}}",
         description: "The ID of the customer to update",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "email",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Email (Optional)",
         type: "text",
         required: false,
         placeholder: "newemail@example.com",
         description: "Update customer's email address",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "first_name",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "First Name (Optional)",
         type: "text",
         required: false,
         placeholder: "John",
         description: "Update customer's first name",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "last_name",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Last Name (Optional)",
         type: "text",
         required: false,
         placeholder: "Doe",
         description: "Update customer's last name",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "phone",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Phone (Optional)",
         type: "text",
         required: false,
         placeholder: "+1-555-5678",
         description: "Update customer's phone number",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "tags",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Tags (Optional)",
         type: "text",
         required: false,
         placeholder: "vip, loyal-customer",
         description: "Comma-separated tags (replaces existing tags)",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "note",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Note (Optional)",
         type: "text",
         required: false,
         placeholder: "Prefers email communication",
         description: "Internal note about the customer",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "accepts_marketing",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Accepts Marketing (Optional)",
         type: "select",
         required: false,
@@ -1166,7 +1530,8 @@ export const shopifyNodes: NodeComponent[] = [
           { label: "No (Opted Out)", value: "false" },
         ],
         defaultValue: "",
-        description: "Update marketing email preference"
+        description: "Update marketing email preference",
+        connectButton: true
       },
     ],
     outputSchema: [
@@ -1222,24 +1587,41 @@ export const shopifyNodes: NodeComponent[] = [
       STORE_SELECTOR_FIELD,
       {
         name: "order_id",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Order ID",
         type: "text",
         required: true,
         placeholder: "{{trigger.order_id}}",
         description: "The ID of the order to fulfill",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "tracking_number",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Tracking Number (Optional)",
         type: "text",
         required: false,
         placeholder: "1Z999AA10123456784",
         description: "Shipment tracking number",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "tracking_company",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Tracking Company (Optional)",
         type: "select",
         required: false,
@@ -1253,7 +1635,8 @@ export const shopifyNodes: NodeComponent[] = [
           { label: "Other", value: "Other" },
         ],
         defaultValue: "",
-        description: "Shipping carrier"
+        description: "Shipping carrier",
+        connectButton: true
       },
       {
         name: "tracking_url",
@@ -1263,6 +1646,7 @@ export const shopifyNodes: NodeComponent[] = [
         placeholder: "https://www.ups.com/track?tracknum=1Z999AA10123456784",
         description: "Direct link to tracking page",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "notify_customer",
@@ -1333,29 +1717,47 @@ export const shopifyNodes: NodeComponent[] = [
       STORE_SELECTOR_FIELD,
       {
         name: "order_id",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Order ID",
         type: "text",
         required: true,
         placeholder: "{{trigger.order_id}}",
         description: "The ID of the order",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "note",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Note",
         type: "text",
         required: true,
         placeholder: "Customer requested gift wrapping",
         description: "The note to add to the order",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "append",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Append to Existing Note",
         type: "boolean",
         required: false,
         defaultValue: true,
-        description: "Add to existing note instead of replacing"
+        description: "Add to existing note instead of replacing",
+        connectButton: true
       },
     ],
     outputSchema: [
@@ -1397,82 +1799,136 @@ export const shopifyNodes: NodeComponent[] = [
       STORE_SELECTOR_FIELD,
       {
         name: "product_id",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Product ID",
         type: "text",
         required: true,
         placeholder: "{{trigger.product_id}}",
         description: "The ID of the product to add variant to",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "option1",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Option 1 (e.g., Size, Color)",
         type: "text",
         required: false,
         placeholder: "Large",
         description: "First variant option value (e.g., 'Large' for Size option)",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "option2",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Option 2 (Optional)",
         type: "text",
         required: false,
         placeholder: "Red",
         description: "Second variant option value (e.g., 'Red' for Color option)",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "option3",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Option 3 (Optional)",
         type: "text",
         required: false,
         placeholder: "Cotton",
         description: "Third variant option value (e.g., 'Cotton' for Material option)",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "price",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Price",
         type: "number",
         required: true,
         placeholder: "39.99",
         description: "Price for this variant",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "sku",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "SKU (Optional)",
         type: "text",
         required: false,
         placeholder: "PROD-LRG-RED",
         description: "Unique Stock Keeping Unit for this variant",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "inventory_quantity",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Initial Inventory (Optional)",
         type: "number",
         required: false,
         placeholder: "100",
-        description: "Starting inventory quantity for this variant"
+        description: "Starting inventory quantity for this variant",
+        connectButton: true
       },
       {
         name: "weight",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Weight (Optional)",
         type: "number",
         required: false,
         placeholder: "1.5",
-        description: "Weight in pounds (or store's default unit)"
+        description: "Weight in pounds (or store's default unit)",
+        connectButton: true
       },
       {
         name: "barcode",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Barcode (Optional)",
         type: "text",
         required: false,
         placeholder: "123456789012",
         description: "UPC, EAN, or ISBN barcode",
         supportsAI: true,
+        connectButton: true
       },
     ],
     outputSchema: [
@@ -1535,82 +1991,136 @@ export const shopifyNodes: NodeComponent[] = [
       STORE_SELECTOR_FIELD,
       {
         name: "variant_id",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Variant ID",
         type: "text",
         required: true,
         placeholder: "{{trigger.variant_id}}",
         description: "The ID of the variant to update",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "price",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Price (Optional)",
         type: "number",
         required: false,
         placeholder: "44.99",
         description: "Update the price",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "sku",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "SKU (Optional)",
         type: "text",
         required: false,
         placeholder: "PROD-LRG-RED-V2",
         description: "Update the SKU",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "inventory_quantity",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Inventory Quantity (Optional)",
         type: "number",
         required: false,
         placeholder: "150",
-        description: "Set inventory quantity (requires location if specified)"
+        description: "Set inventory quantity (requires location if specified)",
+        connectButton: true
       },
       {
         name: "weight",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Weight (Optional)",
         type: "number",
         required: false,
         placeholder: "2.0",
-        description: "Update weight in pounds (or store's default unit)"
+        description: "Update weight in pounds (or store's default unit)",
+        connectButton: true
       },
       {
         name: "barcode",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Barcode (Optional)",
         type: "text",
         required: false,
         placeholder: "123456789013",
         description: "Update UPC, EAN, or ISBN barcode",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "option1",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Option 1 (Optional)",
         type: "text",
         required: false,
         placeholder: "X-Large",
         description: "Update first option value",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "option2",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Option 2 (Optional)",
         type: "text",
         required: false,
         placeholder: "Blue",
         description: "Update second option value",
         supportsAI: true,
+        connectButton: true
       },
       {
         name: "option3",
+        dependsOn: "shopify_store",
+        hidden: {
+          $deps: ["shopify_store"],
+          $condition: { shopify_store: { $exists: false } }
+        },
         label: "Option 3 (Optional)",
         type: "text",
         required: false,
         placeholder: "Polyester",
         description: "Update third option value",
         supportsAI: true,
+        connectButton: true
       },
     ],
     outputSchema: [
