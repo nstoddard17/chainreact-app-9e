@@ -1538,6 +1538,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       }
 
       const { ids, positions, spacing, boundaries } = data
+      const viewport = instance.getViewport?.()
+      const zoom = viewport?.zoom ?? 1
 
       let targetSlot = ids.length
       if (Array.isArray(boundaries) && boundaries.length > 1) {
@@ -1566,9 +1568,10 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
       targetSlot = Math.max(0, Math.min(ids.length, targetSlot))
 
-      reorderDragOffsetRef.current = nextOffset
+      const scaledOffset = zoom !== 0 ? nextOffset / zoom : nextOffset
+      reorderDragOffsetRef.current = scaledOffset
       dragVisualStateRef.current = {
-        offset: nextOffset,
+        offset: scaledOffset,
         slot: targetSlot,
       }
       scheduleVisualUpdate()
