@@ -1036,33 +1036,17 @@ export function EmailRichTextEditor({
           fragment.appendChild(document.createTextNode(text.substring(lastIndex, replacement.start)))
         }
 
-        // Create styled pill
+        // Create styled pill matching app theme
         const pill = document.createElement('span')
-        pill.className = 'variable-pill'
+        pill.className = 'variable-pill inline-flex items-center gap-1 px-2 py-0.5 mx-0.5 rounded-md border border-primary/20 bg-primary/10 text-primary text-xs font-medium cursor-default select-none whitespace-nowrap'
         pill.setAttribute('contenteditable', 'false')
         pill.setAttribute('data-variable', replacement.variable)
-        pill.style.cssText = `
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          padding: 2px 8px;
-          margin: 0 2px;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          color: white;
-          border-radius: 4px;
-          font-size: 13px;
-          font-weight: 500;
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-          cursor: default;
-          user-select: none;
-          white-space: nowrap;
-        `
         pill.innerHTML = `
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink: 0; opacity: 0.7;">
             <path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1" />
             <path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1" />
           </svg>
-          <span style="line-height: 1;">${replacement.label}</span>
+          <span>${replacement.label}</span>
         `
         fragment.appendChild(pill)
 
@@ -1345,38 +1329,22 @@ export function EmailRichTextEditor({
   const insertVariable = (variableText: string, label?: string) => {
     if (!editorRef.current) return
 
-    // Create a styled variable pill badge
+    // Create a styled variable pill badge matching app theme
     const variablePill = document.createElement('span')
-    variablePill.className = 'variable-pill'
+    variablePill.className = 'variable-pill inline-flex items-center gap-1 px-2 py-0.5 mx-0.5 rounded-md border border-primary/20 bg-primary/10 text-primary text-xs font-medium cursor-default select-none whitespace-nowrap'
     variablePill.setAttribute('contenteditable', 'false')
     variablePill.setAttribute('data-variable', variableText)
-    variablePill.style.cssText = `
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 2px 8px;
-      margin: 0 2px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border-radius: 4px;
-      font-size: 13px;
-      font-weight: 500;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      cursor: default;
-      user-select: none;
-      white-space: nowrap;
-    `
 
     // Extract field name from variable for display
     const displayLabel = label || variableText.replace(/{{|}}/g, '').split('.').pop() || variableText
 
     // Add braces icon and label
     variablePill.innerHTML = `
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0;">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink: 0; opacity: 0.7;">
         <path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1" />
         <path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1" />
       </svg>
-      <span style="line-height: 1;">${displayLabel}</span>
+      <span>${displayLabel}</span>
     `
 
     // Try to use saved selection first (in case cursor was lost when dropdown opened)
