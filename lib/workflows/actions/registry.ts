@@ -242,6 +242,16 @@ import {
 
 // OneDrive actions
 import { uploadFileToOneDrive } from './onedrive'
+import { createOnedriveFolder } from './onedrive/createFolder'
+import { deleteOnedriveItem } from './onedrive/deleteItem'
+import { copyOnedriveItem } from './onedrive/copyItem'
+import { moveOnedriveItem } from './onedrive/moveItem'
+import { renameOnedriveItem } from './onedrive/renameItem'
+import { createOnedriveSharingLink } from './onedrive/createSharingLink'
+import { sendOnedriveSharingInvitation } from './onedrive/sendSharingInvitation'
+import { searchOnedriveFiles } from './onedrive/searchFiles'
+import { findOnedriveItemById } from './onedrive/findItemById'
+import { listOnedriveDrives } from './onedrive/listDrives'
 
 // Facebook actions
 import {
@@ -840,6 +850,16 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "onedrive_action_upload_file": (params: { config: any; userId: string; input: Record<string, any> }) =>
     uploadFileToOneDrive(params.config, params.userId, params.input),
   "onedrive_action_get_file": createExecutionContextWrapper(getOnedriveFile),
+  "onedrive_action_create_folder": createExecutionContextWrapper(createOnedriveFolder),
+  "onedrive_action_delete_item": createExecutionContextWrapper(deleteOnedriveItem),
+  "onedrive_action_copy_item": createExecutionContextWrapper(copyOnedriveItem),
+  "onedrive_action_move_item": createExecutionContextWrapper(moveOnedriveItem),
+  "onedrive_action_rename_item": createExecutionContextWrapper(renameOnedriveItem),
+  "onedrive_action_create_sharing_link": createExecutionContextWrapper(createOnedriveSharingLink),
+  "onedrive_action_send_sharing_invitation": createExecutionContextWrapper(sendOnedriveSharingInvitation),
+  "onedrive_action_search_files": createExecutionContextWrapper(searchOnedriveFiles),
+  "onedrive_action_find_item_by_id": createExecutionContextWrapper(findOnedriveItemById),
+  "onedrive_action_list_drives": createExecutionContextWrapper(listOnedriveDrives),
 
   // Facebook actions - wrapped to handle new calling convention
   "facebook_action_create_post": (params: { config: any; userId: string; input: Record<string, any> }) =>
