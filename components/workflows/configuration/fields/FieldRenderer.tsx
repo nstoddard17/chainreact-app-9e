@@ -42,7 +42,6 @@ import { EmptyStateCard } from "../EmptyStateCard";
 import { TimePicker15Min } from './TimePicker15Min';
 import { TimezonePicker } from './TimezonePicker';
 import { RecurrencePicker } from './RecurrencePicker';
-import { GoogleMeetButton } from './GoogleMeetButton';
 import { GooglePlacesAutocomplete } from './GooglePlacesAutocomplete';
 import { NotificationBuilder } from './NotificationBuilder';
 import { ColorSelect } from './ColorSelect';
@@ -2786,16 +2785,6 @@ export function FieldRenderer({
             placeholder={field.placeholder}
             disabled={field.disabled}
             startDate={parentValues?.startDate}
-            className={cn(error && "border-red-500")}
-          />
-        );
-
-      case "google-meet-button":
-        return (
-          <GoogleMeetButton
-            value={value}
-            onChange={onChange}
-            disabled={field.disabled}
             className={cn(error && "border-red-500")}
           />
         );

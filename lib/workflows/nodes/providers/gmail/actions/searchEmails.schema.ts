@@ -126,45 +126,51 @@ export const searchEmailsActionSchema: NodeComponent = {
     },
     {
       name: "latestEmail",
-      label: "Newest Email (Object)",
+      label: "Email (Object)",
       type: "object",
       description: "Full object for the most recent email in the search results."
     },
     {
       name: "latestSubject",
-      label: "Newest Email Subject",
+      label: "Email Subject",
       type: "string",
       description: "Subject line of the most recent email returned."
     },
     {
       name: "latestSnippet",
-      label: "Newest Email Snippet",
+      label: "Email Snippet",
       type: "string",
       description: "Preview/snippet text for the most recent email."
     },
     {
       name: "latestBody",
-      label: "Newest Email Body",
+      label: "Email Body",
       type: "string",
       description: "Full body of the most recent email (only populated when body fetching is enabled)."
     },
     {
       name: "latestFrom",
-      label: "Newest Email From",
+      label: "Email From",
       type: "string",
       description: "Sender of the most recent email."
     },
     {
       name: "latestTo",
-      label: "Newest Email Recipients",
+      label: "Email Recipients",
       type: "string",
       description: "Comma-separated recipient list for the most recent email."
     },
     {
       name: "latestDate",
-      label: "Newest Email Date",
+      label: "Email Date",
       type: "string",
       description: "Timestamp of the most recent email."
+    },
+    {
+      name: "latestEmailId",
+      label: "Email ID",
+      type: "string",
+      description: "Gmail message ID of the most recent email."
     }
   ]
 }

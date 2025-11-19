@@ -3,7 +3,7 @@
 import React, { memo, useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { Handle, Position, type NodeProps, useUpdateNodeInternals, useReactFlow } from "@xyflow/react"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
-import { Trash2, TestTube, Plus, Edit2, Layers, Unplug, Sparkles, ChevronDown, ChevronUp, Loader2, CheckCircle2, AlertTriangle, Info, GitFork, ArrowRight, PlusCircle, AlertCircle, MoreVertical, Play, Snowflake, StopCircle } from "lucide-react"
+import { Trash2, TestTube, Plus, Edit2, Layers, Unplug, Sparkles, ChevronDown, ChevronUp, Loader2, CheckCircle2, AlertTriangle, Info, GitFork, ArrowRight, PlusCircle, AlertCircle, MoreVertical, Play, Snowflake, StopCircle, GripVertical } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -71,6 +71,8 @@ export interface CustomNodeData {
   onTestFlowFromHere?: (nodeId: string) => void
   onFreeze?: (nodeId: string) => void
   onStop?: (nodeId: string) => void
+  onStartReorder?: (nodeId: string, event: React.PointerEvent) => void
+  isReorderable?: boolean
   hasAddButton?: boolean
   isPlaceholder?: boolean
   error?: string
@@ -296,6 +298,8 @@ function CustomNode({ id, data, selected }: NodeProps) {
     onFreeze,
     onStop,
     hasAddButton,
+    onStartReorder,
+    isReorderable,
     isPlaceholder,
     error,
     executionStatus,
@@ -1636,6 +1640,20 @@ function CustomNode({ id, data, selected }: NodeProps) {
             flex: 'none',
           }}
         >
+      {isReorderable && onStartReorder && (
+        <button
+          type="button"
+          className="absolute -left-7 top-1/2 -translate-y-1/2 w-5 h-12 flex items-center justify-center text-muted-foreground bg-white border rounded-full opacity-0 group-hover:opacity-100 shadow cursor-grab"
+          onPointerDown={(event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            onStartReorder(id, event)
+          }}
+          aria-label="Reorder node"
+        >
+          <GripVertical className="w-3 h-3" />
+        </button>
+      )}
       {statusIconItems.length > 0 && (
         <TooltipProvider>
           <div className="absolute top-2 right-10 flex items-center gap-1 noDrag noPan z-20">

@@ -67,10 +67,15 @@ export function ResultsTab({
   const hasTestData = displayData && Object.keys(displayData).length > 0
   const hasTestResult = displayResult !== undefined
 
+  useEffect(() => {
+    setLatestExecutionData(null)
+    setLatestExecutionResult(null)
+  }, [currentNodeId])
+
   // Fetch latest execution results when tab is opened
   useEffect(() => {
     const fetchLatestExecution = async () => {
-      if (!currentNodeId || !builder?.actions?.getNodeSnapshot) return
+      if (!currentNodeId || !builder?.actions?.getNodeSnapshot || !builder?.flowState?.lastRunId) return
 
       try {
         setIsLoadingLatest(true)
@@ -103,7 +108,7 @@ export function ResultsTab({
     }
 
     fetchLatestExecution()
-  }, [currentNodeId, builder?.actions])
+  }, [currentNodeId, builder?.actions, builder?.flowState?.lastRunId])
 
   // Auto-refresh every 5 seconds if there's an active workflow run
   useEffect(() => {

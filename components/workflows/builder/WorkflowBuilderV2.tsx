@@ -92,6 +92,18 @@ type PendingChatMessage = {
   createdAt?: string
 }
 
+type NodeTestCacheEntry = {
+  data: Record<string, any>
+  result: {
+    success: boolean
+    executionTime?: number
+    timestamp?: string
+    error?: string
+    message?: string
+    rawResponse?: any
+  }
+}
+
 // Agent panel dimensions - Responsive to screen size
 // Mobile (< 640px): 100% width - margin
 // Tablet (640-1024px): 400px
@@ -155,6 +167,15 @@ function getKadabraStyleNodeName(nodeType: string, providerId?: string, title?: 
   }
 
   return title || nodeType
+}
+
+const isReorderableNode = (node: any) => {
+  if (!node || node.type !== 'custom') return false
+  const data = node.data || {}
+  if (data.isTrigger) return false
+  if (data.isPlaceholder) return false
+  if (data.type === 'chain_placeholder') return false
+  return true
 }
 
 /**
@@ -355,6 +376,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
   // Node configuration state (for user input during build)
   const [nodeConfigs, setNodeConfigs] = useState<Record<string, Record<string, any>>>({})
+  const [nodeTestCache, setNodeTestCache] = useState<Record<string, NodeTestCacheEntry>>({})
+  const [activeReorderDrag, setActiveReorderDrag] = useState<{ nodeId: string; pointerId: number } | null>(null)
 
   // AI Agent Infrastructure (Spec-Compliant)
   const choreographerRef = useRef<BuildChoreographer | null>(null)
@@ -1362,6 +1385,154 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
   // React Flow props with last-node detection
   // Handle test node from context menu
+  const moveNodeToIndex = useCallback((nodeId: string, targetIndex: number) => {
+    if (!builder?.nodes || !builder.setNodes) {
+      return
+    }
+
+    const reorderable = builder.nodes
+      .filter((node: any) => isReorderableNode(node))
+      .sort((a: any, b: any) => (a.position?.y ?? 0) - (b.position?.y ?? 0))
+
+    if (reorderable.length === 0) {
+      return
+    }
+
+    const currentIndex = reorderable.findIndex((node: any) => node.id === nodeId)
+    if (currentIndex === -1) {
+      return
+    }
+
+    const clampedIndex = Math.max(0, Math.min(reorderable.length - 1, targetIndex))
+    if (clampedIndex === currentIndex) {
+      return
+    }
+
+    const updatedOrder = [...reorderable]
+    const [movedNode] = updatedOrder.splice(currentIndex, 1)
+    updatedOrder.splice(clampedIndex, 0, movedNode)
+
+    const originalYPositions = reorderable.map((node: any) => node.position?.y ?? 0)
+    const sortedYPositions = [...originalYPositions].sort((a, b) => a - b)
+    const startY = sortedYPositions[0] ?? 120
+    const spacing = sortedYPositions.length > 1 ? Math.max(60, sortedYPositions[1] - sortedYPositions[0]) : 160
+
+    const positionMap = new Map<string, number>()
+    updatedOrder.forEach((node, index) => {
+      const y = sortedYPositions[index] ?? startY + index * spacing
+      positionMap.set(node.id, y)
+    })
+
+    builder.setNodes(
+      builder.nodes.map((node: any) => {
+        const newY = positionMap.get(node.id)
+        if (newY === undefined) {
+          return node
+        }
+        const newPosition = {
+          x: node.position?.x ?? LINEAR_STACK_X,
+          y: newY,
+        }
+        return {
+          ...node,
+          position: newPosition,
+          positionAbsolute: newPosition,
+        }
+      })
+    )
+  }, [builder])
+
+  const handleMoveNode = useCallback((nodeId: string, direction: 'up' | 'down') => {
+    if (!builder?.nodes) {
+      return
+    }
+
+    const reorderable = builder.nodes
+      .filter((node: any) => isReorderableNode(node))
+      .sort((a: any, b: any) => (a.position?.y ?? 0) - (b.position?.y ?? 0))
+
+    if (reorderable.length === 0) {
+      return
+    }
+
+    const currentIndex = reorderable.findIndex((node: any) => node.id === nodeId)
+    if (currentIndex === -1) {
+      return
+    }
+
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
+    moveNodeToIndex(nodeId, targetIndex)
+  }, [builder?.nodes, moveNodeToIndex])
+
+  const handleReorderPointerDown = useCallback((nodeId: string, event: React.PointerEvent) => {
+    if (!builder?.nodes) {
+      return
+    }
+    const node = builder.nodes.find((n: any) => n.id === nodeId)
+    if (!isReorderableNode(node)) {
+      return
+    }
+
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+    setActiveReorderDrag({ nodeId, pointerId: event.pointerId })
+  }, [builder?.nodes])
+
+  useEffect(() => {
+    if (!activeReorderDrag) {
+      return
+    }
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (event.pointerId !== activeReorderDrag.pointerId) {
+        return
+      }
+
+      const instance = reactFlowInstanceRef.current
+      if (!instance || !builder?.nodes) {
+        return
+      }
+
+      const flowPoint = instance.screenToFlowPosition({ x: event.clientX, y: event.clientY })
+      if (!flowPoint) {
+        return
+      }
+
+      const reorderable = builder.nodes
+        .filter((node: any) => isReorderableNode(node))
+        .sort((a: any, b: any) => (a.position?.y ?? 0) - (b.position?.y ?? 0))
+
+      if (reorderable.length === 0) {
+        return
+      }
+
+      let targetIndex = reorderable.length - 1
+      for (let i = 0; i < reorderable.length; i++) {
+        const nodeY = reorderable[i].position?.y ?? 0
+        if (flowPoint.y < nodeY) {
+          targetIndex = i
+          break
+        }
+      }
+
+      moveNodeToIndex(activeReorderDrag.nodeId, targetIndex)
+    }
+
+    const handlePointerUp = (event: PointerEvent) => {
+      if (event.pointerId !== activeReorderDrag.pointerId) {
+        return
+      }
+      setActiveReorderDrag(null)
+    }
+
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerUp)
+
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUp)
+    }
+  }, [activeReorderDrag, builder?.nodes, moveNodeToIndex])
+
   const handleTestNode = useCallback(async (nodeId: string) => {
     const node = builder?.nodes?.find((n: any) => n.id === nodeId)
     if (!node || !reactFlowInstanceRef.current) {
@@ -1375,6 +1546,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       return
     }
 
+    const config = node.data?.config || {}
+
     try {
       logger.debug('[WorkflowBuilder] Testing node:', { nodeId, nodeType: node.data?.type })
 
@@ -1382,13 +1555,51 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       setNodeState(reactFlowInstanceRef.current, nodeId, 'running')
 
       // Strip test metadata from config
-      const config = node.data?.config || {}
       const cleanConfig = Object.keys(config).reduce((acc, key) => {
         if (!key.startsWith('__test') && !key.startsWith('__validation')) {
           acc[key] = config[key]
         }
         return acc
       }, {} as Record<string, any>)
+
+      // Collect test data from all previous nodes to enable variable resolution
+      const testData: Record<string, any> = {}
+
+      // Get all upstream nodes (nodes that come before this one)
+      const getUpstreamNodes = (targetNodeId: string, visited = new Set<string>()): string[] => {
+        if (visited.has(targetNodeId) || !builder?.edges) return []
+        visited.add(targetNodeId)
+
+        const upstreamIds: string[] = []
+        const incomingEdges = builder.edges.filter((edge: any) => edge.target === targetNodeId)
+
+        for (const edge of incomingEdges) {
+          upstreamIds.push(edge.source)
+          const parentNodes = getUpstreamNodes(edge.source, visited)
+          upstreamIds.push(...parentNodes)
+        }
+
+        return upstreamIds
+      }
+
+      const upstreamNodeIds = getUpstreamNodes(nodeId)
+
+      // Collect test results from upstream nodes and add them to testData
+      for (const upstreamId of upstreamNodeIds) {
+        const upstreamNode = builder.nodes.find((n: any) => n.id === upstreamId)
+        if (upstreamNode?.data?.config?.__testData) {
+          // Add the upstream node's test data using the node ID as the key
+          testData[upstreamId] = upstreamNode.data.config.__testData
+
+          // Also merge the test data fields directly for backward compatibility
+          Object.assign(testData, upstreamNode.data.config.__testData)
+        }
+      }
+
+      logger.debug('[WorkflowBuilder] Collected test data from upstream nodes:', {
+        upstreamNodeCount: upstreamNodeIds.length,
+        testDataKeys: Object.keys(testData)
+      })
 
       // Call test-node API
       const response = await fetch('/api/workflows/test-node', {
@@ -1399,7 +1610,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         body: JSON.stringify({
           nodeType: node.data?.type,
           config: cleanConfig,
-          testData: {}
+          testData: testData
         })
       })
 
@@ -1412,20 +1623,46 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       logger.debug('[WorkflowBuilder] Test completed:', result)
 
       // Update node with test results
-      if (actions?.updateConfig) {
-        const updatedConfig = {
-          ...config,
-          __testData: result.testResult?.output || {},
-          __testResult: {
-            success: result.testResult?.success !== false,
-            executionTime: result.testResult?.executionTime,
-            timestamp: new Date().toISOString(),
-            error: result.testResult?.error,
-            message: result.testResult?.message,
-            rawResponse: result.testResult?.output
-          }
+      const testMetadata = {
+        __testData: result.testResult?.output || {},
+        __testResult: {
+          success: result.testResult?.success !== false,
+          executionTime: result.testResult?.executionTime,
+          timestamp: new Date().toISOString(),
+          error: result.testResult?.error,
+          message: result.testResult?.message,
+          rawResponse: result.testResult?.output
         }
-        actions.updateConfig(nodeId, updatedConfig)
+      }
+
+      setNodeTestCache(prev => ({
+        ...prev,
+        [nodeId]: {
+          data: testMetadata.__testData,
+          result: testMetadata.__testResult
+        }
+      }))
+
+      if (actions?.updateConfig) {
+        actions.updateConfig(nodeId, testMetadata)
+
+        if (builder?.setNodes) {
+          builder.setNodes((nodes: any[]) =>
+            nodes.map((n: any) => {
+              if (n.id !== nodeId) return n
+              return {
+                ...n,
+                data: {
+                  ...n.data,
+                  config: {
+                    ...(n.data?.config || {}),
+                    ...testMetadata,
+                  }
+                }
+              }
+            })
+          )
+        }
       }
 
       // Set node to passed or failed state
@@ -1444,16 +1681,100 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         })
       }
 
+      persistNodeTestResult('success', testMetadata, node).catch((error) =>
+        logger.error('[WorkflowBuilder] Failed to persist node test result', error)
+      )
+
     } catch (error: any) {
       logger.error('[WorkflowBuilder] Test failed:', error)
       setNodeState(reactFlowInstanceRef.current, nodeId, 'failed')
+      const errorMetadata = {
+        __testData: {},
+        __testResult: {
+          success: false,
+          timestamp: new Date().toISOString(),
+          error: error.message || 'Test execution failed',
+          message: error.message || 'Test execution failed'
+        }
+      }
+
+      setNodeTestCache(prev => ({
+        ...prev,
+        [nodeId]: {
+          data: errorMetadata.__testData,
+          result: errorMetadata.__testResult
+        }
+      }))
+
+      if (actions?.updateConfig) {
+        actions.updateConfig(nodeId, errorMetadata)
+
+        if (builder?.setNodes) {
+          builder.setNodes((nodes: any[]) =>
+            nodes.map((n: any) => {
+              if (n.id !== nodeId) return n
+              return {
+                ...n,
+                data: {
+                  ...n.data,
+                  config: {
+                    ...(n.data?.config || {}),
+                    ...errorMetadata,
+                  }
+                }
+              }
+            })
+          )
+        }
+      }
+      persistNodeTestResult('error', errorMetadata, node, error.message).catch((persistError) =>
+        logger.error('[WorkflowBuilder] Failed to persist failed node test', persistError)
+      )
       toast({
         title: "Test failed",
         description: error.message || "Failed to execute test",
         variant: "destructive"
       })
     }
-  }, [builder?.nodes, actions, toast])
+    async function persistNodeTestResult(
+      status: 'success' | 'error',
+      payload: { __testData: Record<string, any>; __testResult: any },
+      nodeData: any,
+      errorMessage?: string
+    ) {
+      try {
+        const response = await fetch(`/workflows/v2/api/flows/${flowId}/nodes/${nodeId}/tests`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            status,
+            executionTime: payload.__testResult.executionTime,
+            output: payload.__testData,
+            rawResponse: payload.__testResult.rawResponse,
+            error: status === 'error' ? { message: errorMessage || payload.__testResult.error } : null,
+            message: payload.__testResult.message,
+            nodeType: nodeData.data?.type,
+            nodeLabel: nodeData.data?.title || nodeData.data?.label || nodeId,
+          }),
+        })
+
+        if (!response.ok) {
+          const errorPayload = await response.json().catch(() => ({}))
+          logger.error('[WorkflowBuilder] Failed to persist node test:', errorPayload)
+          return
+        }
+
+        const responseBody = await response.json()
+        if (responseBody?.runId && actions?.refreshRun) {
+          await actions.refreshRun(responseBody.runId)
+        }
+      } catch (persistError) {
+        logger.error('[WorkflowBuilder] Persist node test error:', persistError)
+      }
+    }
+  }, [builder?.nodes, builder?.setNodes, actions, flowId, toast])
 
   const handleTestFlowFromHere = useCallback(async (nodeId: string) => {
     if (!builder?.nodes || !builder?.edges || !reactFlowInstanceRef.current) {
@@ -1632,18 +1953,32 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       }
     })
 
+    const reorderableNodes = builder.nodes
+      .filter(isReorderableNode)
+      .sort((a: any, b: any) => (a.position?.y ?? 0) - (b.position?.y ?? 0))
+    const orderMap = new Map<string, number>()
+    reorderableNodes.forEach((node: any, index: number) => orderMap.set(node.id, index))
+
     // Enhance nodes with isLastNode, onAddNodeAfter, onTestNode, onTestFlowFromHere, and isBeingConfigured
-    const enhancedNodes = builder.nodes.map((node: any) => ({
-      ...node,
-      data: {
-        ...node.data,
-        isLastNode: lastNodeIds.has(node.id),
-        onAddNodeAfter: handleAddNodeAfter,
-        onTestNode: handleTestNode,
-        onTestFlowFromHere: handleTestFlowFromHere,
+    const enhancedNodes = builder.nodes.map((node: any) => {
+      const orderIndex = orderMap.get(node.id)
+      const canMoveUp = typeof orderIndex === 'number' && orderIndex > 0
+      const canMoveDown = typeof orderIndex === 'number' && orderIndex < reorderableNodes.length - 1
+
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          isLastNode: lastNodeIds.has(node.id),
+          onAddNodeAfter: handleAddNodeAfter,
+          onTestNode: handleTestNode,
+          onTestFlowFromHere: handleTestFlowFromHere,
         isBeingConfigured: configuringNode?.id === node.id,
+          onStartReorder: isReorderableNode(node) ? handleReorderPointerDown : undefined,
+          isReorderable: isReorderableNode(node),
+        }
       }
-    }))
+    })
 
     // Handler for inserting a node in the middle of an edge
     const handleInsertNodeOnEdge = (edgeId: string, position: { x: number; y: number }) => {
@@ -1679,7 +2014,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       nodeTypes: builder.nodeTypes,
       edgeTypes: builder.edgeTypes,
     }
-  }, [builder, handleAddNodeAfter, handleTestNode, handleTestFlowFromHere, configuringNode])
+  }, [builder, handleAddNodeAfter, handleMoveNode, handleTestNode, handleTestFlowFromHere, handleReorderPointerDown, configuringNode])
 
   // Name update handler
   const persistName = useCallback(
@@ -2327,6 +2662,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           console.warn('⚠️ [WorkflowBuilder] Prefetch failed (non-critical):', err)
         })
       }
+
+      // Close integrations panel when opening configuration modal
+      setIsIntegrationsPanelOpen(false)
 
       setConfiguringNode(node)
     } else {
@@ -4022,7 +4360,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     canUndo: builder?.canUndo ?? false,
     canRedo: builder?.canRedo ?? false,
     setShowExecutionHistory: () => {},
-  }), [builder, comingSoon, flowId, flowState?.hasUnsavedChanges, flowState?.isSaving, handleNameChange, handleTestWorkflow, handleToggleLiveWithValidation, hasPlaceholders, nameDirty, persistName, workflowName])
+    onSelectHistoryRun: actions?.refreshRun
+      ? (runId: string) => actions.refreshRun(runId)
+      : undefined,
+    activeRunId: flowState?.lastRunId,
+  }), [actions, builder, comingSoon, flowId, flowState?.hasUnsavedChanges, flowState?.isSaving, flowState?.lastRunId, handleNameChange, handleTestWorkflow, handleToggleLiveWithValidation, hasPlaceholders, nameDirty, persistName, workflowName])
 
   if (!builder || !actions || flowState?.isLoading) {
     return <WorkflowLoadingScreen />
@@ -4206,10 +4548,10 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         // INSTANT REOPEN: Calculate initial data with stable reference
         // NOTE: We rely on ConfigurationModal's internal effectiveInitialData useMemo
         // to maintain stable reference, not on this calculation
-        let initialData = configuringNode?.data?.config || {};
+        let initialData: Record<string, any> = { ...(configuringNode?.data?.config || {}) }
 
         // If we don't have config from the node, try localStorage cache
-        if (!initialData || Object.keys(initialData).length === 0) {
+        if (Object.keys(initialData).length === 0) {
           if (typeof window !== 'undefined' && flowId && configuringNode?.id) {
             try {
               const cacheKey = `workflow_${flowId}_node_${configuringNode.id}_config`;
@@ -4220,12 +4562,20 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
                 // Use cache if less than 5 minutes old
                 if (age < 5 * 60 * 1000) {
                   console.log('⚡ [WorkflowBuilder] Loaded config from cache for instant reopen');
-                  initialData = config;
+                  initialData = { ...config };
                 }
               }
             } catch (e) {
               console.warn('Failed to load cached config:', e);
             }
+          }
+        }
+
+        if (configuringNode?.id) {
+          const cachedTest = nodeTestCache[configuringNode.id];
+          if (cachedTest) {
+            initialData.__testData = cachedTest.data;
+            initialData.__testResult = cachedTest.result;
           }
         }
 
