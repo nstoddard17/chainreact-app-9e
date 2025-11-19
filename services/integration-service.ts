@@ -135,8 +135,31 @@ export class IntegrationService {
   /**
    * Generate OAuth URL for provider connection
    */
-  static async generateOAuthUrl(providerId: string): Promise<{ authUrl: string }> {
+  static async generateOAuthUrl(
+    providerId: string,
+    options?: {
+      shop?: string,
+      workspaceType?: 'personal' | 'team' | 'organization',
+      workspaceId?: string
+    }
+  ): Promise<{ authUrl: string }> {
     const { user, session } = await SessionManager.getSecureUserAndSession()
+
+    const requestBody: any = {
+      provider: providerId,
+      userId: user.id,
+    }
+
+    // Add optional parameters if provided
+    if (options?.shop) {
+      requestBody.shop = options.shop
+    }
+    if (options?.workspaceType) {
+      requestBody.workspaceType = options.workspaceType
+    }
+    if (options?.workspaceId) {
+      requestBody.workspaceId = options.workspaceId
+    }
 
     const response = await fetch("/api/integrations/auth/generate-url", {
       method: "POST",
@@ -144,10 +167,7 @@ export class IntegrationService {
         "Content-Type": "application/json",
         Authorization: `Bearer ${session.access_token}`,
       },
-      body: JSON.stringify({
-        provider: providerId,
-        userId: user.id,
-      }),
+      body: JSON.stringify(requestBody),
     })
 
     if (!response.ok) {

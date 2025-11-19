@@ -32,11 +32,11 @@ import { NodeComponent } from "../../types"
 const STORE_SELECTOR_FIELD = {
   name: "shopify_store",
   label: "Shopify Store",
-  type: "combobox" as const,
+  type: "select" as const,
   dynamic: "shopify_stores",
   required: true,
   loadOnMount: true,
-  searchable: true,
+  placeholder: "Select a store...",
   description: "Select which Shopify store to use for this action/trigger"
 }
 
