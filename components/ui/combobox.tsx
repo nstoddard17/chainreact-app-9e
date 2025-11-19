@@ -375,12 +375,12 @@ export function Combobox({
             role="combobox"
             aria-expanded={open}
             className={cn(
-              "w-full justify-between",
+              "w-full justify-between min-w-0",
               isDragOver && "ring-2 ring-blue-500 bg-blue-50"
             )}
             disabled={disabled}
           >
-          <span className="flex-1 text-left break-words line-clamp-2">
+          <span className="flex-1 text-left truncate overflow-hidden text-ellipsis whitespace-nowrap min-w-0">
             {selectedOption ? selectedOption.label : (displayLabel || value || placeholder || "Select option...")}
           </span>
           <div className="flex items-center gap-0.5">

@@ -3,7 +3,17 @@ import {
   Mail,
   Send,
   Calendar,
-  Search
+  Search,
+  FileText,
+  Trash2,
+  UserPlus,
+  Edit,
+  Clock,
+  FolderInput,
+  Paperclip,
+  Flag,
+  Users,
+  MailPlus
 } from "lucide-react"
 
 // Microsoft Outlook Triggers
@@ -26,12 +36,13 @@ const outlookTriggerNewEmail: NodeComponent = {
     {
       name: "from",
       label: "From",
-      type: "email-autocomplete",
+      type: "select",
       dynamic: "outlook-enhanced-recipients",
-      required: true,
+      required: false,
       loadOnMount: true,
-      placeholder: "Enter sender email address",
-      description: "Filter emails by sender address"
+      placeholder: "Leave blank for any sender",
+      description: "Filter by sender email address. Shows recent senders and your contacts.",
+      tooltip: "Leave blank to trigger on emails from ANY sender"
     },
     {
       name: "subjectExactMatch",
@@ -302,6 +313,595 @@ const outlookTriggerEmailSent: NodeComponent = {
       label: "Has Attachments",
       type: "boolean",
       description: "Whether the email has attachments"
+    }
+  ]
+}
+
+const outlookTriggerEmailFlagged: NodeComponent = {
+  type: "microsoft-outlook_trigger_email_flagged",
+  title: "Email Flagged",
+  description: "Triggers when an email is flagged/starred",
+  icon: Flag,
+  providerId: "microsoft-outlook",
+  category: "Communication",
+  isTrigger: true,
+  requiredScopes: ["Mail.Read"],
+  producesOutput: true,
+  supportsWebhook: true,
+  webhookConfig: {
+    method: "POST",
+    responseFormat: "json"
+  },
+  configSchema: [
+    {
+      name: "folder",
+      label: "Folder",
+      type: "select",
+      dynamic: "outlook_folders",
+      required: false,
+      loadOnMount: true,
+      placeholder: "Select folder (default: All folders)",
+      description: "Monitor specific folder for flagged emails"
+    }
+  ],
+  outputSchema: [
+    {
+      name: "id",
+      label: "Email ID",
+      type: "string",
+      description: "The unique ID of the flagged email"
+    },
+    {
+      name: "from",
+      label: "From",
+      type: "object",
+      description: "The sender's information (name and email)"
+    },
+    {
+      name: "subject",
+      label: "Subject",
+      type: "string",
+      description: "The subject of the email"
+    },
+    {
+      name: "body",
+      label: "Body",
+      type: "string",
+      description: "The full body of the email (HTML)"
+    },
+    {
+      name: "receivedDateTime",
+      label: "Received At",
+      type: "string",
+      description: "The timestamp when the email was received"
+    },
+    {
+      name: "flagStatus",
+      label: "Flag Status",
+      type: "string",
+      description: "The flag status (flagged, complete, notFlagged)"
+    }
+  ]
+}
+
+const outlookTriggerNewAttachment: NodeComponent = {
+  type: "microsoft-outlook_trigger_new_attachment",
+  title: "New Attachment",
+  description: "Triggers when a new email with attachments is received",
+  icon: Paperclip,
+  providerId: "microsoft-outlook",
+  category: "Communication",
+  isTrigger: true,
+  requiredScopes: ["Mail.Read"],
+  producesOutput: true,
+  supportsWebhook: true,
+  webhookConfig: {
+    method: "POST",
+    responseFormat: "json"
+  },
+  configSchema: [
+    {
+      name: "folder",
+      label: "Folder",
+      type: "select",
+      dynamic: "outlook_folders",
+      required: false,
+      loadOnMount: true,
+      placeholder: "Select folder (default: Inbox)",
+      description: "Monitor specific folder for emails with attachments"
+    },
+    {
+      name: "fileExtension",
+      label: "File Extension Filter",
+      type: "text",
+      required: false,
+      placeholder: "e.g., pdf, docx, xlsx (comma-separated)",
+      description: "Filter by specific file extensions"
+    }
+  ],
+  outputSchema: [
+    {
+      name: "id",
+      label: "Email ID",
+      type: "string",
+      description: "The unique ID of the email"
+    },
+    {
+      name: "from",
+      label: "From",
+      type: "object",
+      description: "The sender's information (name and email)"
+    },
+    {
+      name: "subject",
+      label: "Subject",
+      type: "string",
+      description: "The subject of the email"
+    },
+    {
+      name: "attachments",
+      label: "Attachments",
+      type: "array",
+      description: "An array of attachment objects with name, size, and contentType"
+    },
+    {
+      name: "receivedDateTime",
+      label: "Received At",
+      type: "string",
+      description: "The timestamp when the email was received"
+    }
+  ]
+}
+
+const outlookTriggerNewCalendarEvent: NodeComponent = {
+  type: "microsoft-outlook_trigger_new_calendar_event",
+  title: "New Calendar Event",
+  description: "Triggers when a new calendar event is created",
+  icon: Calendar,
+  providerId: "microsoft-outlook",
+  category: "Communication",
+  isTrigger: true,
+  requiredScopes: ["Calendars.Read"],
+  producesOutput: true,
+  supportsWebhook: true,
+  webhookConfig: {
+    method: "POST",
+    responseFormat: "json"
+  },
+  configSchema: [
+    {
+      name: "calendarId",
+      label: "Calendar",
+      type: "select",
+      dynamic: true,
+      loadOnMount: true,
+      required: false,
+      placeholder: "Select calendar (default: primary calendar)",
+      description: "Monitor specific calendar for new events"
+    }
+  ],
+  outputSchema: [
+    {
+      name: "id",
+      label: "Event ID",
+      type: "string",
+      description: "The unique ID of the calendar event"
+    },
+    {
+      name: "subject",
+      label: "Subject",
+      type: "string",
+      description: "The subject/title of the event"
+    },
+    {
+      name: "body",
+      label: "Body",
+      type: "string",
+      description: "Event description/body content"
+    },
+    {
+      name: "start",
+      label: "Start Time",
+      type: "object",
+      description: "Event start time (dateTime and timeZone)"
+    },
+    {
+      name: "end",
+      label: "End Time",
+      type: "object",
+      description: "Event end time (dateTime and timeZone)"
+    },
+    {
+      name: "location",
+      label: "Location",
+      type: "string",
+      description: "Event location"
+    },
+    {
+      name: "attendees",
+      label: "Attendees",
+      type: "array",
+      description: "List of event attendees"
+    },
+    {
+      name: "organizer",
+      label: "Organizer",
+      type: "object",
+      description: "Event organizer information"
+    },
+    {
+      name: "isOnlineMeeting",
+      label: "Is Online Meeting",
+      type: "boolean",
+      description: "Whether this is an online meeting"
+    },
+    {
+      name: "onlineMeetingUrl",
+      label: "Meeting URL",
+      type: "string",
+      description: "Online meeting URL if applicable"
+    },
+    {
+      name: "createdDateTime",
+      label: "Created At",
+      type: "string",
+      description: "When the event was created"
+    }
+  ]
+}
+
+const outlookTriggerUpdatedCalendarEvent: NodeComponent = {
+  type: "microsoft-outlook_trigger_updated_calendar_event",
+  title: "Updated Calendar Event",
+  description: "Triggers when a calendar event is updated",
+  icon: Edit,
+  providerId: "microsoft-outlook",
+  category: "Communication",
+  isTrigger: true,
+  requiredScopes: ["Calendars.Read"],
+  producesOutput: true,
+  supportsWebhook: true,
+  webhookConfig: {
+    method: "POST",
+    responseFormat: "json"
+  },
+  configSchema: [
+    {
+      name: "calendarId",
+      label: "Calendar",
+      type: "select",
+      dynamic: true,
+      loadOnMount: true,
+      required: false,
+      placeholder: "Select calendar (default: primary calendar)",
+      description: "Monitor specific calendar for event updates"
+    }
+  ],
+  outputSchema: [
+    {
+      name: "id",
+      label: "Event ID",
+      type: "string",
+      description: "The unique ID of the calendar event"
+    },
+    {
+      name: "subject",
+      label: "Subject",
+      type: "string",
+      description: "The subject/title of the event"
+    },
+    {
+      name: "body",
+      label: "Body",
+      type: "string",
+      description: "Event description/body content"
+    },
+    {
+      name: "start",
+      label: "Start Time",
+      type: "object",
+      description: "Event start time (dateTime and timeZone)"
+    },
+    {
+      name: "end",
+      label: "End Time",
+      type: "object",
+      description: "Event end time (dateTime and timeZone)"
+    },
+    {
+      name: "location",
+      label: "Location",
+      type: "string",
+      description: "Event location"
+    },
+    {
+      name: "attendees",
+      label: "Attendees",
+      type: "array",
+      description: "List of event attendees"
+    },
+    {
+      name: "lastModifiedDateTime",
+      label: "Last Modified",
+      type: "string",
+      description: "When the event was last updated"
+    }
+  ]
+}
+
+const outlookTriggerDeletedCalendarEvent: NodeComponent = {
+  type: "microsoft-outlook_trigger_deleted_calendar_event",
+  title: "Deleted Calendar Event",
+  description: "Triggers when a calendar event is cancelled or deleted",
+  icon: Trash2,
+  providerId: "microsoft-outlook",
+  category: "Communication",
+  isTrigger: true,
+  requiredScopes: ["Calendars.Read"],
+  producesOutput: true,
+  supportsWebhook: true,
+  webhookConfig: {
+    method: "POST",
+    responseFormat: "json"
+  },
+  configSchema: [
+    {
+      name: "calendarId",
+      label: "Calendar",
+      type: "select",
+      dynamic: true,
+      loadOnMount: true,
+      required: false,
+      placeholder: "Select calendar (default: primary calendar)",
+      description: "Monitor specific calendar for deleted events"
+    }
+  ],
+  outputSchema: [
+    {
+      name: "id",
+      label: "Event ID",
+      type: "string",
+      description: "The unique ID of the deleted event"
+    },
+    {
+      name: "subject",
+      label: "Subject",
+      type: "string",
+      description: "The subject/title of the deleted event"
+    },
+    {
+      name: "start",
+      label: "Start Time",
+      type: "object",
+      description: "Original event start time"
+    },
+    {
+      name: "end",
+      label: "End Time",
+      type: "object",
+      description: "Original event end time"
+    },
+    {
+      name: "isCancelled",
+      label: "Is Cancelled",
+      type: "boolean",
+      description: "Whether the event was cancelled vs permanently deleted"
+    }
+  ]
+}
+
+const outlookTriggerCalendarEventStart: NodeComponent = {
+  type: "microsoft-outlook_trigger_calendar_event_start",
+  title: "Calendar Event Start",
+  description: "Triggers before a calendar event starts (for reminders/notifications)",
+  icon: Clock,
+  providerId: "microsoft-outlook",
+  category: "Communication",
+  isTrigger: true,
+  requiredScopes: ["Calendars.Read"],
+  producesOutput: true,
+  supportsWebhook: false,
+  configSchema: [
+    {
+      name: "calendarId",
+      label: "Calendar",
+      type: "select",
+      dynamic: true,
+      loadOnMount: true,
+      required: false,
+      placeholder: "Select calendar (default: primary calendar)",
+      description: "Monitor specific calendar for upcoming events"
+    },
+    {
+      name: "minutesBefore",
+      label: "Minutes Before Start",
+      type: "select",
+      required: true,
+      defaultValue: "15",
+      options: [
+        { value: "5", label: "5 minutes before" },
+        { value: "10", label: "10 minutes before" },
+        { value: "15", label: "15 minutes before" },
+        { value: "30", label: "30 minutes before" },
+        { value: "60", label: "1 hour before" },
+        { value: "120", label: "2 hours before" },
+        { value: "1440", label: "1 day before" }
+      ],
+      description: "How far in advance to trigger before event starts"
+    }
+  ],
+  outputSchema: [
+    {
+      name: "id",
+      label: "Event ID",
+      type: "string",
+      description: "The unique ID of the upcoming event"
+    },
+    {
+      name: "subject",
+      label: "Subject",
+      type: "string",
+      description: "The subject/title of the event"
+    },
+    {
+      name: "start",
+      label: "Start Time",
+      type: "object",
+      description: "Event start time (dateTime and timeZone)"
+    },
+    {
+      name: "end",
+      label: "End Time",
+      type: "object",
+      description: "Event end time (dateTime and timeZone)"
+    },
+    {
+      name: "location",
+      label: "Location",
+      type: "string",
+      description: "Event location"
+    },
+    {
+      name: "attendees",
+      label: "Attendees",
+      type: "array",
+      description: "List of event attendees"
+    },
+    {
+      name: "minutesUntilStart",
+      label: "Minutes Until Start",
+      type: "number",
+      description: "Number of minutes until event starts"
+    }
+  ]
+}
+
+const outlookTriggerNewContact: NodeComponent = {
+  type: "microsoft-outlook_trigger_new_contact",
+  title: "New Contact",
+  description: "Triggers when a new contact is added",
+  icon: UserPlus,
+  providerId: "microsoft-outlook",
+  category: "Communication",
+  isTrigger: true,
+  requiredScopes: ["Contacts.Read"],
+  producesOutput: true,
+  supportsWebhook: true,
+  webhookConfig: {
+    method: "POST",
+    responseFormat: "json"
+  },
+  configSchema: [
+    {
+      name: "companyName",
+      label: "Company Name Filter",
+      type: "text",
+      required: false,
+      placeholder: "Optional: filter by company name",
+      description: "Only trigger for contacts from a specific company"
+    }
+  ],
+  outputSchema: [
+    {
+      name: "id",
+      label: "Contact ID",
+      type: "string",
+      description: "The unique ID of the contact"
+    },
+    {
+      name: "displayName",
+      label: "Display Name",
+      type: "string",
+      description: "Contact's full name"
+    },
+    {
+      name: "emailAddresses",
+      label: "Email Addresses",
+      type: "array",
+      description: "Contact's email addresses"
+    },
+    {
+      name: "businessPhones",
+      label: "Business Phones",
+      type: "array",
+      description: "Contact's business phone numbers"
+    },
+    {
+      name: "mobilePhone",
+      label: "Mobile Phone",
+      type: "string",
+      description: "Contact's mobile phone number"
+    },
+    {
+      name: "jobTitle",
+      label: "Job Title",
+      type: "string",
+      description: "Contact's job title"
+    },
+    {
+      name: "companyName",
+      label: "Company",
+      type: "string",
+      description: "Contact's company name"
+    },
+    {
+      name: "createdDateTime",
+      label: "Created At",
+      type: "string",
+      description: "When the contact was created"
+    }
+  ]
+}
+
+const outlookTriggerUpdatedContact: NodeComponent = {
+  type: "microsoft-outlook_trigger_updated_contact",
+  title: "Updated Contact",
+  description: "Triggers when a contact is modified",
+  icon: Edit,
+  providerId: "microsoft-outlook",
+  category: "Communication",
+  isTrigger: true,
+  requiredScopes: ["Contacts.Read"],
+  producesOutput: true,
+  supportsWebhook: true,
+  webhookConfig: {
+    method: "POST",
+    responseFormat: "json"
+  },
+  configSchema: [
+    {
+      name: "companyName",
+      label: "Company Name Filter",
+      type: "text",
+      required: false,
+      placeholder: "Optional: filter by company name",
+      description: "Only trigger for contacts from a specific company"
+    }
+  ],
+  outputSchema: [
+    {
+      name: "id",
+      label: "Contact ID",
+      type: "string",
+      description: "The unique ID of the contact"
+    },
+    {
+      name: "displayName",
+      label: "Display Name",
+      type: "string",
+      description: "Contact's full name"
+    },
+    {
+      name: "emailAddresses",
+      label: "Email Addresses",
+      type: "array",
+      description: "Contact's email addresses"
+    },
+    {
+      name: "lastModifiedDateTime",
+      label: "Last Modified",
+      type: "string",
+      description: "When the contact was last updated"
     }
   ]
 }
@@ -621,14 +1221,386 @@ const outlookActionSearchEmail: NodeComponent = {
   ]
 }
 
+const outlookActionReplyToEmail: NodeComponent = {
+  type: "microsoft-outlook_action_reply_to_email",
+  title: "Reply to Email",
+  description: "Reply to an existing email",
+  icon: MailPlus,
+  providerId: "microsoft-outlook",
+  category: "Communication",
+  isTrigger: false,
+  requiredScopes: ["Mail.Send"],
+  configSchema: [
+    { name: "emailId", label: "Email ID", type: "text", required: true, placeholder: "ID of email to reply to", description: "The ID of the email you want to reply to" },
+    { name: "replyAll", label: "Reply All", type: "boolean", required: false, defaultValue: false, description: "Reply to all recipients instead of just the sender" },
+    { name: "body", label: "Reply Body", type: "email-rich-text", required: true, placeholder: "Type your reply...", provider: "outlook" },
+    { name: "attachments", label: "Attachments", type: "file", required: false, placeholder: "Select files to attach", multiple: true }
+  ],
+  producesOutput: true,
+  outputSchema: [
+    { name: "id", label: "Reply Email ID", type: "string", description: "ID of the sent reply" },
+    { name: "sent", label: "Sent Successfully", type: "boolean", description: "Whether the reply was sent" },
+    { name: "sentAt", label: "Sent At", type: "string", description: "Timestamp when reply was sent" }
+  ]
+}
+
+const outlookActionForwardEmail: NodeComponent = {
+  type: "microsoft-outlook_action_forward_email",
+  title: "Forward Email",
+  description: "Forward an existing email to other recipients",
+  icon: Send,
+  providerId: "microsoft-outlook",
+  category: "Communication",
+  isTrigger: false,
+  requiredScopes: ["Mail.Send"],
+  configSchema: [
+    { name: "emailId", label: "Email ID", type: "text", required: true, placeholder: "ID of email to forward", description: "The ID of the email you want to forward" },
+    { name: "to", label: "To", type: "email-autocomplete", required: true, placeholder: "Enter recipient email addresses...", dynamic: "outlook-enhanced-recipients" },
+    { name: "cc", label: "CC", type: "email-autocomplete", required: false, placeholder: "Enter CC email addresses...", dynamic: "outlook-enhanced-recipients" },
+    { name: "comment", label: "Comment", type: "email-rich-text", required: false, placeholder: "Add a comment to the forwarded email...", provider: "outlook", description: "Optional message to add before the forwarded content" }
+  ],
+  producesOutput: true,
+  outputSchema: [
+    { name: "sent", label: "Sent Successfully", type: "boolean", description: "Whether the forward was sent" },
+    { name: "sentAt", label: "Sent At", type: "string", description: "Timestamp when email was forwarded" }
+  ]
+}
+
+const outlookActionCreateDraftEmail: NodeComponent = {
+  type: "microsoft-outlook_action_create_draft_email",
+  title: "Create Draft Email",
+  description: "Create a draft email for later review and sending",
+  icon: FileText,
+  providerId: "microsoft-outlook",
+  category: "Communication",
+  isTrigger: false,
+  requiredScopes: ["Mail.ReadWrite"],
+  configSchema: [
+    { name: "to", label: "To", type: "email-autocomplete", required: true, placeholder: "Enter recipient email addresses...", dynamic: "outlook-enhanced-recipients" },
+    { name: "cc", label: "CC", type: "email-autocomplete", required: false, placeholder: "Enter CC email addresses...", dynamic: "outlook-enhanced-recipients" },
+    { name: "bcc", label: "BCC", type: "email-autocomplete", required: false, placeholder: "Enter BCC email addresses...", dynamic: "outlook-enhanced-recipients" },
+    { name: "subject", label: "Subject", type: "text", required: true, placeholder: "Email subject" },
+    { name: "body", label: "Body", type: "email-rich-text", required: true, placeholder: "Compose your email...", provider: "outlook" },
+    { name: "importance", label: "Importance", type: "select", required: false, defaultValue: "normal", options: [
+      { value: "low", label: "Low" },
+      { value: "normal", label: "Normal" },
+      { value: "high", label: "High" }
+    ]}
+  ],
+  producesOutput: true,
+  outputSchema: [
+    { name: "id", label: "Draft Email ID", type: "string", description: "ID of the created draft" },
+    { name: "subject", label: "Subject", type: "string", description: "Email subject" },
+    { name: "webLink", label: "Web Link", type: "string", description: "URL to open draft in Outlook" }
+  ]
+}
+
+const outlookActionMoveEmail: NodeComponent = {
+  type: "microsoft-outlook_action_move_email",
+  title: "Move Email to Folder",
+  description: "Move an email to a different folder",
+  icon: FolderInput,
+  providerId: "microsoft-outlook",
+  category: "Communication",
+  isTrigger: false,
+  requiredScopes: ["Mail.ReadWrite"],
+  configSchema: [
+    { name: "emailId", label: "Email ID", type: "text", required: true, placeholder: "ID of email to move", description: "The ID of the email you want to move" },
+    { name: "destinationFolderId", label: "Destination Folder", type: "select", required: true, dynamic: "outlook_folders", loadOnMount: true, placeholder: "Select destination folder" }
+  ],
+  producesOutput: true,
+  outputSchema: [
+    { name: "id", label: "Email ID", type: "string", description: "ID of the moved email" },
+    { name: "moved", label: "Moved Successfully", type: "boolean", description: "Whether the email was moved" },
+    { name: "newFolderId", label: "New Folder ID", type: "string", description: "ID of the destination folder" }
+  ]
+}
+
+const outlookActionDeleteEmail: NodeComponent = {
+  type: "microsoft-outlook_action_delete_email",
+  title: "Delete Email",
+  description: "Delete an email message",
+  icon: Trash2,
+  providerId: "microsoft-outlook",
+  category: "Communication",
+  isTrigger: false,
+  requiredScopes: ["Mail.ReadWrite"],
+  configSchema: [
+    { name: "emailId", label: "Email ID", type: "text", required: true, placeholder: "ID of email to delete", description: "The ID of the email you want to delete" },
+    { name: "permanentDelete", label: "Permanent Delete", type: "boolean", required: false, defaultValue: false, description: "Permanently delete instead of moving to Deleted Items folder" }
+  ],
+  producesOutput: true,
+  outputSchema: [
+    { name: "deleted", label: "Deleted Successfully", type: "boolean", description: "Whether the email was deleted" },
+    { name: "emailId", label: "Email ID", type: "string", description: "ID of the deleted email" }
+  ]
+}
+
+const outlookActionAddCategories: NodeComponent = {
+  type: "microsoft-outlook_action_add_categories",
+  title: "Add Categories to Email",
+  description: "Add categories/tags to an email for organization",
+  icon: Flag,
+  providerId: "microsoft-outlook",
+  category: "Communication",
+  isTrigger: false,
+  requiredScopes: ["Mail.ReadWrite"],
+  configSchema: [
+    { name: "emailId", label: "Email ID", type: "text", required: true, placeholder: "ID of email to categorize", description: "The ID of the email you want to add categories to" },
+    { name: "categories", label: "Categories", type: "text", required: true, placeholder: "Enter categories (comma-separated)", description: "Categories to add (e.g., 'Important, Follow Up, Project X')" }
+  ],
+  producesOutput: true,
+  outputSchema: [
+    { name: "id", label: "Email ID", type: "string", description: "ID of the categorized email" },
+    { name: "categories", label: "Categories", type: "array", description: "Updated list of categories" }
+  ]
+}
+
+const outlookActionUpdateCalendarEvent: NodeComponent = {
+  type: "microsoft-outlook_action_update_calendar_event",
+  title: "Update Calendar Event",
+  description: "Update an existing calendar event",
+  icon: Edit,
+  providerId: "microsoft-outlook",
+  category: "Communication",
+  isTrigger: false,
+  requiredScopes: ["Calendars.ReadWrite"],
+  configSchema: [
+    { name: "eventId", label: "Event ID", type: "text", required: true, placeholder: "ID of event to update", description: "The ID of the calendar event you want to update" },
+    { name: "calendarId", label: "Calendar", type: "select", required: false, dynamic: true, loadOnMount: true, placeholder: "Select calendar (optional)" },
+    { name: "subject", label: "Subject", type: "text", required: false, placeholder: "New event subject" },
+    { name: "body", label: "Description", type: "textarea", required: false, placeholder: "New event description" },
+    { name: "startDateTime", label: "Start Date/Time", type: "datetime-local", required: false },
+    { name: "endDateTime", label: "End Date/Time", type: "datetime-local", required: false },
+    { name: "location", label: "Location", type: "location-autocomplete", required: false, placeholder: "New location" },
+    { name: "attendees", label: "Attendees", type: "email-autocomplete", required: false, placeholder: "Update attendees...", dynamic: "outlook-enhanced-recipients" }
+  ],
+  producesOutput: true,
+  outputSchema: [
+    { name: "id", label: "Event ID", type: "string", description: "ID of the updated event" },
+    { name: "updated", label: "Updated Successfully", type: "boolean", description: "Whether the event was updated" },
+    { name: "subject", label: "Subject", type: "string", description: "Updated event subject" }
+  ]
+}
+
+const outlookActionDeleteCalendarEvent: NodeComponent = {
+  type: "microsoft-outlook_action_delete_calendar_event",
+  title: "Delete Calendar Event",
+  description: "Delete a calendar event",
+  icon: Trash2,
+  providerId: "microsoft-outlook",
+  category: "Communication",
+  isTrigger: false,
+  requiredScopes: ["Calendars.ReadWrite"],
+  configSchema: [
+    { name: "eventId", label: "Event ID", type: "text", required: true, placeholder: "ID of event to delete", description: "The ID of the calendar event you want to delete" },
+    { name: "calendarId", label: "Calendar", type: "select", required: false, dynamic: true, loadOnMount: true, placeholder: "Select calendar (optional)" },
+    { name: "sendCancellation", label: "Send Cancellation Notice", type: "boolean", required: false, defaultValue: true, description: "Send cancellation notice to attendees" }
+  ],
+  producesOutput: true,
+  outputSchema: [
+    { name: "deleted", label: "Deleted Successfully", type: "boolean", description: "Whether the event was deleted" },
+    { name: "eventId", label: "Event ID", type: "string", description: "ID of the deleted event" }
+  ]
+}
+
+const outlookActionAddAttendees: NodeComponent = {
+  type: "microsoft-outlook_action_add_attendees",
+  title: "Add Attendees to Event",
+  description: "Add attendees to an existing calendar event",
+  icon: Users,
+  providerId: "microsoft-outlook",
+  category: "Communication",
+  isTrigger: false,
+  requiredScopes: ["Calendars.ReadWrite"],
+  configSchema: [
+    { name: "eventId", label: "Event ID", type: "text", required: true, placeholder: "ID of event", description: "The ID of the calendar event" },
+    { name: "calendarId", label: "Calendar", type: "select", required: false, dynamic: true, loadOnMount: true, placeholder: "Select calendar (optional)" },
+    { name: "attendees", label: "Attendees to Add", type: "email-autocomplete", required: true, placeholder: "Enter attendee email addresses...", dynamic: "outlook-enhanced-recipients" },
+    { name: "sendInvitation", label: "Send Invitation", type: "boolean", required: false, defaultValue: true, description: "Send meeting invitation to new attendees" }
+  ],
+  producesOutput: true,
+  outputSchema: [
+    { name: "id", label: "Event ID", type: "string", description: "ID of the event" },
+    { name: "attendeesAdded", label: "Attendees Added", type: "array", description: "List of newly added attendees" }
+  ]
+}
+
+const outlookActionCreateContact: NodeComponent = {
+  type: "microsoft-outlook_action_create_contact",
+  title: "Create Contact",
+  description: "Create a new contact in Outlook",
+  icon: UserPlus,
+  providerId: "microsoft-outlook",
+  category: "Communication",
+  isTrigger: false,
+  requiredScopes: ["Contacts.ReadWrite"],
+  configSchema: [
+    { name: "givenName", label: "First Name", type: "text", required: true, placeholder: "First name" },
+    { name: "surname", label: "Last Name", type: "text", required: false, placeholder: "Last name" },
+    { name: "emailAddress", label: "Email Address", type: "text", required: true, placeholder: "email@example.com" },
+    { name: "businessPhone", label: "Business Phone", type: "text", required: false, placeholder: "+1 (555) 123-4567" },
+    { name: "mobilePhone", label: "Mobile Phone", type: "text", required: false, placeholder: "+1 (555) 987-6543" },
+    { name: "jobTitle", label: "Job Title", type: "text", required: false, placeholder: "Position or role" },
+    { name: "companyName", label: "Company", type: "text", required: false, placeholder: "Company name" },
+    { name: "department", label: "Department", type: "text", required: false, placeholder: "Department" }
+  ],
+  producesOutput: true,
+  outputSchema: [
+    { name: "id", label: "Contact ID", type: "string", description: "ID of the created contact" },
+    { name: "displayName", label: "Display Name", type: "string", description: "Contact's full name" },
+    { name: "emailAddress", label: "Email", type: "string", description: "Contact's email address" }
+  ]
+}
+
+const outlookActionUpdateContact: NodeComponent = {
+  type: "microsoft-outlook_action_update_contact",
+  title: "Update Contact",
+  description: "Update an existing contact",
+  icon: Edit,
+  providerId: "microsoft-outlook",
+  category: "Communication",
+  isTrigger: false,
+  requiredScopes: ["Contacts.ReadWrite"],
+  configSchema: [
+    { name: "contactId", label: "Contact ID", type: "text", required: true, placeholder: "ID of contact to update", description: "The ID of the contact you want to update" },
+    { name: "givenName", label: "First Name", type: "text", required: false, placeholder: "First name" },
+    { name: "surname", label: "Last Name", type: "text", required: false, placeholder: "Last name" },
+    { name: "emailAddress", label: "Email Address", type: "text", required: false, placeholder: "email@example.com" },
+    { name: "businessPhone", label: "Business Phone", type: "text", required: false, placeholder: "+1 (555) 123-4567" },
+    { name: "mobilePhone", label: "Mobile Phone", type: "text", required: false, placeholder: "+1 (555) 987-6543" },
+    { name: "jobTitle", label: "Job Title", type: "text", required: false, placeholder: "Position or role" },
+    { name: "companyName", label: "Company", type: "text", required: false, placeholder: "Company name" }
+  ],
+  producesOutput: true,
+  outputSchema: [
+    { name: "id", label: "Contact ID", type: "string", description: "ID of the updated contact" },
+    { name: "updated", label: "Updated Successfully", type: "boolean", description: "Whether the contact was updated" }
+  ]
+}
+
+const outlookActionDeleteContact: NodeComponent = {
+  type: "microsoft-outlook_action_delete_contact",
+  title: "Delete Contact",
+  description: "Delete a contact from Outlook",
+  icon: Trash2,
+  providerId: "microsoft-outlook",
+  category: "Communication",
+  isTrigger: false,
+  requiredScopes: ["Contacts.ReadWrite"],
+  configSchema: [
+    { name: "contactId", label: "Contact ID", type: "text", required: true, placeholder: "ID of contact to delete", description: "The ID of the contact you want to delete" }
+  ],
+  producesOutput: true,
+  outputSchema: [
+    { name: "deleted", label: "Deleted Successfully", type: "boolean", description: "Whether the contact was deleted" },
+    { name: "contactId", label: "Contact ID", type: "string", description: "ID of the deleted contact" }
+  ]
+}
+
+const outlookActionFindContact: NodeComponent = {
+  type: "microsoft-outlook_action_find_contact",
+  title: "Find Contact",
+  description: "Search for a contact",
+  icon: Search,
+  providerId: "microsoft-outlook",
+  category: "Communication",
+  isTrigger: false,
+  requiredScopes: ["Contacts.Read"],
+  configSchema: [
+    { name: "searchQuery", label: "Search Query", type: "text", required: true, placeholder: "Search by name, email, or company", description: "Search contacts by name, email address, or company name" }
+  ],
+  producesOutput: true,
+  outputSchema: [
+    { name: "contacts", label: "Contacts", type: "array", description: "Array of matching contacts" },
+    { name: "count", label: "Count", type: "number", description: "Number of contacts found" }
+  ]
+}
+
+const outlookActionDownloadAttachment: NodeComponent = {
+  type: "microsoft-outlook_action_download_attachment",
+  title: "Download Attachment",
+  description: "Download an email attachment",
+  icon: Paperclip,
+  providerId: "microsoft-outlook",
+  category: "Communication",
+  isTrigger: false,
+  requiredScopes: ["Mail.Read"],
+  configSchema: [
+    { name: "emailId", label: "Email ID", type: "text", required: true, placeholder: "ID of email", description: "The ID of the email containing the attachment" },
+    { name: "attachmentId", label: "Attachment ID", type: "text", required: true, placeholder: "ID of attachment", description: "The ID of the attachment to download" }
+  ],
+  producesOutput: true,
+  outputSchema: [
+    { name: "name", label: "File Name", type: "string", description: "Name of the attachment file" },
+    { name: "contentType", label: "Content Type", type: "string", description: "MIME type of the file" },
+    { name: "size", label: "Size", type: "number", description: "File size in bytes" },
+    { name: "contentBytes", label: "Content", type: "string", description: "Base64-encoded file content" }
+  ]
+}
+
+const outlookActionListAttachments: NodeComponent = {
+  type: "microsoft-outlook_action_list_attachments",
+  title: "List Attachments",
+  description: "Get list of attachments from an email",
+  icon: Paperclip,
+  providerId: "microsoft-outlook",
+  category: "Communication",
+  isTrigger: false,
+  requiredScopes: ["Mail.Read"],
+  configSchema: [
+    { name: "emailId", label: "Email ID", type: "text", required: true, placeholder: "ID of email", description: "The ID of the email to get attachments from" }
+  ],
+  producesOutput: true,
+  outputSchema: [
+    { name: "attachments", label: "Attachments", type: "array", description: "Array of attachment metadata (id, name, size, contentType)" },
+    { name: "count", label: "Count", type: "number", description: "Number of attachments" }
+  ]
+}
+
 // Export all Microsoft Outlook nodes
 export const outlookNodes: NodeComponent[] = [
-  // Triggers (2)
+  // Email Triggers (4)
   outlookTriggerNewEmail,
   outlookTriggerEmailSent,
+  outlookTriggerEmailFlagged,
+  outlookTriggerNewAttachment,
 
-  // Actions (3)
-  outlookActionSendEmail, // Re-activated - now visible in workflow builder
-  outlookActionCreateCalendarEvent,
+  // Calendar Triggers (5)
+  outlookTriggerNewCalendarEvent,
+  outlookTriggerUpdatedCalendarEvent,
+  outlookTriggerDeletedCalendarEvent,
+  outlookTriggerCalendarEventStart,
+
+  // Contact Triggers (2)
+  outlookTriggerNewContact,
+  outlookTriggerUpdatedContact,
+
+  // Email Actions (9)
+  outlookActionSendEmail,
+  outlookActionReplyToEmail,
+  outlookActionForwardEmail,
+  outlookActionCreateDraftEmail,
+  outlookActionMoveEmail,
+  outlookActionDeleteEmail,
+  outlookActionAddCategories,
   outlookActionGetEmails,
+  outlookActionSearchEmail,
+
+  // Calendar Actions (6)
+  outlookActionCreateCalendarEvent,
+  outlookActionUpdateCalendarEvent,
+  outlookActionDeleteCalendarEvent,
+  outlookActionAddAttendees,
+  outlookActionGetCalendarEvents,
+
+  // Contact Actions (4)
+  outlookActionCreateContact,
+  outlookActionUpdateContact,
+  outlookActionDeleteContact,
+  outlookActionFindContact,
+
+  // Attachment Actions (2)
+  outlookActionDownloadAttachment,
+  outlookActionListAttachments,
 ]
