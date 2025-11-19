@@ -31,6 +31,7 @@ interface GenericSelectFieldProps {
   isConnectedToAIAgent?: boolean;
   workflowData?: { nodes: any[], edges: any[] }; // Full workflow data for variable picker
   currentNodeId?: string; // Current node ID for variable picker context
+  aiToggleButton?: React.ReactNode; // AI toggle button to render alongside label
 }
 
 /**
@@ -89,6 +90,7 @@ export function GenericSelectField({
   isConnectedToAIAgent,
   workflowData,
   currentNodeId,
+  aiToggleButton,
 }: GenericSelectFieldProps) {
   // Cache store - must be at top level
   const { get: getCache, set: setCache, invalidate: invalidateCache } = useConfigCacheStore()

@@ -21,7 +21,7 @@ import { ConfigurationModal } from "@/components/workflows/configuration/Configu
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Search, Zap, Settings, AlertCircle, CheckCircle, ChevronDown, ChevronRight } from "lucide-react"
+import { Search, Zap, Settings, AlertCircle, CheckCircle, ChevronDown, ChevronRight, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { getProviderBrandName } from "@/lib/integrations/brandNames"
 import { useIntegrationStore } from "@/stores/integrationStore"
@@ -64,15 +64,15 @@ export default function NodeTestHarnessPage() {
   const [showIssuesOnly, setShowIssuesOnly] = useState(false)
 
   // Integration store hooks
-  const { fetchIntegrations } = useIntegrationStore()
+  const { fetchIntegrations, loading: integrationsLoading, integrations } = useIntegrationStore()
   const { initialized: authInitialized } = useAuthStore()
 
-  // Fetch integrations once on mount (cached for 5 seconds per integrationStore)
+  // Fetch integrations once on mount (cached for 30 seconds per integrationStore)
   // This prevents repeated force fetches when config modals are opened
   useEffect(() => {
     if (!authInitialized) return
 
-    console.log('[Test Nodes] Fetching integrations on mount (uses cache if <5s old)')
+    console.log('[Test Nodes] Fetching integrations on mount (uses cache if <30s old)')
     fetchIntegrations(false) // Don't force - use cache if available
   }, [authInitialized, fetchIntegrations])
 
@@ -157,6 +157,13 @@ export default function NodeTestHarnessPage() {
   }
 
   const openNodeConfig = (node: NodeComponent) => {
+    // Ensure integrations are loaded before opening the modal
+    // This prevents errors when dynamic fields try to access integrations
+    if (integrationsLoading) {
+      console.log('[Test Nodes] Waiting for integrations to load before opening modal...')
+      return
+    }
+
     setSelectedNode(node)
     setIsModalOpen(true)
   }
@@ -196,9 +203,19 @@ export default function NodeTestHarnessPage() {
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="space-y-2">
-          <h1 className="text-3xl font-bold">Node Configuration Test Harness</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold">Node Configuration Test Harness</h1>
+            {integrationsLoading && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading integrations...
+              </div>
+            )}
+          </div>
           <p className="text-muted-foreground">
             Test all node configuration menus in one place. Changes here reflect in the Workflow Builder.
+            {!authInitialized && " (Waiting for authentication...)"}
+            {authInitialized && !integrationsLoading && integrations.length === 0 && " (No integrations connected)"}
           </p>
         </div>
 
@@ -374,9 +391,11 @@ export default function NodeTestHarnessPage() {
                           <button
                             key={node.type}
                             onClick={() => openNodeConfig(node)}
+                            disabled={integrationsLoading}
                             className={cn(
                               "text-left p-4 rounded-lg border transition-all",
                               "hover:border-primary hover:shadow-md",
+                              "disabled:opacity-50 disabled:cursor-not-allowed",
                               hasIssues ? "border-orange-200 bg-orange-50/50" : "border-border bg-card"
                             )}
                           >

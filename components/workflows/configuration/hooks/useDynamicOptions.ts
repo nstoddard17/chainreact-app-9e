@@ -943,16 +943,10 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       });
 
       if (!integration) {
-        console.error('⚠️ [useDynamicOptions] No integration found for provider:', providerId);
-        console.error('🔍 [useDynamicOptions] Total integrations in store:', allIntegrations.length);
-        console.error('🔍 [useDynamicOptions] All provider IDs:', allIntegrations.map(i => i.provider));
-        console.error('🔍 [useDynamicOptions] Stripe integrations:', allIntegrations.filter(i => i.provider?.toLowerCase().includes('stripe')));
-        logger.warn('⚠️ [useDynamicOptions] No integration found for provider:', providerId);
-        logger.warn('🔍 [useDynamicOptions] Available integrations:', allIntegrations.map(i => ({
-          provider: i.provider,
-          status: i.status,
-          id: i.id
-        })));
+        logger.debug('⚠️ [useDynamicOptions] No integration found for provider:', providerId);
+        logger.debug('🔍 [useDynamicOptions] Total integrations in store:', allIntegrations.length);
+        logger.debug('🔍 [useDynamicOptions] All provider IDs:', allIntegrations.map(i => i.provider));
+        logger.debug('🔍 [useDynamicOptions] Stripe integrations:', allIntegrations.filter(i => i.provider?.toLowerCase().includes('stripe')));
 
         const providerKey = lookupProviderId || providerId;
         const lastAttempt = integrationFetchAttempts.current.get(providerKey);
@@ -1407,7 +1401,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
               firstResult: formattedOptions?.[0]
             });
           } catch (loaderError) {
-            console.error('❌ [useDynamicOptions] ERROR calling loader.loadOptions:', {
+            logger.error('❌ [useDynamicOptions] ERROR calling loader.loadOptions:', {
               error: loaderError,
               message: loaderError instanceof Error ? loaderError.message : String(loaderError),
               stack: loaderError instanceof Error ? loaderError.stack : undefined,
@@ -2232,7 +2226,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       }
 
       // CRITICAL: Log the actual error that caused failure
-      console.error(`🚨 [useDynamicOptions] ERROR loading ${fieldName}:`, {
+      logger.error(`🚨 [useDynamicOptions] ERROR loading ${fieldName}:`, {
         fieldName,
         resourceType: getResourceTypeForField(fieldName, nodeType),
         error: error.message,

@@ -1816,6 +1816,7 @@ export function FieldRenderer({
             isConnectedToAIAgent={isConnectedToAIAgent}
             workflowData={workflowData}
             currentNodeId={currentNodeId}
+            aiToggleButton={aiToggleButton}
           />
         );
 
