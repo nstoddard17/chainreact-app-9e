@@ -14,7 +14,7 @@ export async function createHubSpotObject(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input });
+    const resolvedConfig = resolveValue(config, input);
     const { objectType, properties, associations } = resolvedConfig;
 
     if (!objectType) {
@@ -85,7 +85,7 @@ export async function updateHubSpotObject(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input });
+    const resolvedConfig = resolveValue(config, input);
     const { objectType, recordId, properties } = resolvedConfig;
 
     if (!objectType) {
@@ -159,7 +159,7 @@ export async function upsertHubSpotObject(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input });
+    const resolvedConfig = resolveValue(config, input);
     const { objectType, identifierProperty, identifierValue, properties, associations } = resolvedConfig;
 
     if (!objectType) {
@@ -247,7 +247,7 @@ export async function refreshHubSpotProperties(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input });
+    const resolvedConfig = resolveValue(config, input);
     const { objectType } = resolvedConfig;
 
     // Call the cache clear endpoint

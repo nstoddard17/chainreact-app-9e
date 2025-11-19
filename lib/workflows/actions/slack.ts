@@ -90,7 +90,7 @@ export async function slackActionSendMessageLegacy(
       hasMessage: !!config.message
     })
 
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
 
     // Extract configuration
     const channel = resolvedConfig.channel
@@ -410,7 +410,7 @@ export async function createSlackChannel(
       template: config.template
     })
 
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
 
     // Extract configuration
     const channelName = resolvedConfig.channelName

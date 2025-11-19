@@ -23,7 +23,7 @@ export async function uploadFileToOneDrive(
       folderId: config.folderId
     })
 
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
 
     // Extract configuration
     const sourceType = resolvedConfig.sourceType || 'file'

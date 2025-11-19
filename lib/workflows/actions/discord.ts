@@ -129,7 +129,7 @@ export async function sendDiscordMessage(
     logger.debug(`   input keys:`, Object.keys(input || {}))
 
     // Resolve templated values
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
 
     const {
       guildId,
@@ -333,7 +333,7 @@ export async function createDiscordCategory(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     
     const {
       guildId,
@@ -474,7 +474,7 @@ export async function deleteDiscordCategory(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     
     const {
       guildId,
@@ -598,7 +598,7 @@ export async function createDiscordChannel(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     
     const {
       guildId,
@@ -779,7 +779,7 @@ export async function addDiscordRole(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     
     const {
       guildId,
@@ -857,7 +857,7 @@ export async function addDiscordRole(
  */
 export async function sendDiscordDirectMessage(config: any, userId: string, input: Record<string, any>) {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     const { userId: targetUserId, message } = resolvedConfig
     if (!targetUserId || !message) throw new Error("User ID and message are required")
     const botToken = process.env.DISCORD_BOT_TOKEN
@@ -889,7 +889,7 @@ export async function sendDiscordDirectMessage(config: any, userId: string, inpu
  */
 export async function editDiscordMessage(config: any, userId: string, input: Record<string, any>) {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     const { channelId, messageId, content } = resolvedConfig
 
     if (!channelId || !messageId || !content) {
@@ -978,7 +978,7 @@ export async function editDiscordMessage(config: any, userId: string, input: Rec
  */
 export async function deleteDiscordMessage(config: any, userId: string, input: Record<string, any>) {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     const { channelId, messageIds, userId: filterUserId, userIds: filterUserIds, keywords, keywordMatchType = "partial" } = resolvedConfig
     
     const botToken = process.env.DISCORD_BOT_TOKEN
@@ -1217,7 +1217,7 @@ export async function deleteDiscordMessage(config: any, userId: string, input: R
  */
 export async function fetchDiscordMessages(config: any, userId: string, input: Record<string, any>) {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     const {
       channelId,
       limit = 20,
@@ -1409,7 +1409,7 @@ export async function fetchDiscordMessages(config: any, userId: string, input: R
  */
 export async function addDiscordReaction(config: any, userId: string, input: Record<string, any>) {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     const { channelId, messageId, emoji } = resolvedConfig
     const botToken = process.env.DISCORD_BOT_TOKEN
     if (!botToken) throw new Error("Discord bot token not configured")
@@ -1469,7 +1469,7 @@ export async function addDiscordReaction(config: any, userId: string, input: Rec
  */
 export async function removeDiscordReaction(config: any, userId: string, input: Record<string, any>) {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     const { channelId, messageId, emoji } = resolvedConfig;
 
     if (!channelId || !messageId || !emoji) {
@@ -1592,7 +1592,7 @@ export async function removeDiscordReaction(config: any, userId: string, input: 
  */
 export async function editDiscordChannel(config: any, userId: string, input: Record<string, any>) {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     const { guildId, channelId, ...updateFields } = resolvedConfig
     if (!guildId || !channelId) throw new Error("Guild ID and Channel ID are required")
     const botToken = process.env.DISCORD_BOT_TOKEN
@@ -1615,7 +1615,7 @@ export async function editDiscordChannel(config: any, userId: string, input: Rec
  */
 export async function deleteDiscordChannel(config: any, userId: string, input: Record<string, any>) {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     const { channelId } = resolvedConfig
     if (!channelId) throw new Error("Channel ID is required")
     const botToken = process.env.DISCORD_BOT_TOKEN
@@ -1636,7 +1636,7 @@ export async function deleteDiscordChannel(config: any, userId: string, input: R
  */
 export async function listDiscordChannels(config: any, userId: string, input: Record<string, any>) {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     const { 
       guildId, 
       limit = 50, 
@@ -1803,7 +1803,7 @@ export async function listDiscordChannels(config: any, userId: string, input: Re
  */
 export async function fetchDiscordGuildMembers(config: any, userId: string, input: Record<string, any>) {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     const { 
       guildId, 
       limit = 50, 
@@ -1904,7 +1904,7 @@ export async function fetchDiscordGuildMembers(config: any, userId: string, inpu
  */
 export async function listDiscordRoles(config: any, userId: string, input: Record<string, any>) {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     const { guildId } = resolvedConfig
     if (!guildId) throw new Error("Guild ID is required")
     const botToken = process.env.DISCORD_BOT_TOKEN
@@ -1925,7 +1925,7 @@ export async function listDiscordRoles(config: any, userId: string, input: Recor
  */
 export async function createDiscordRole(config: any, userId: string, input: Record<string, any>) {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     const { guildId, ...roleData } = resolvedConfig
     if (!guildId) throw new Error("Guild ID is required")
     const botToken = process.env.DISCORD_BOT_TOKEN
@@ -1948,7 +1948,7 @@ export async function createDiscordRole(config: any, userId: string, input: Reco
  */
 export async function updateDiscordRole(config: any, userId: string, input: Record<string, any>) {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     const { guildId, roleId, ...roleData } = resolvedConfig
     if (!guildId || !roleId) throw new Error("Guild ID and Role ID are required")
     const botToken = process.env.DISCORD_BOT_TOKEN
@@ -1971,7 +1971,7 @@ export async function updateDiscordRole(config: any, userId: string, input: Reco
  */
 export async function deleteDiscordRole(config: any, userId: string, input: Record<string, any>) {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     const { guildId, roleId } = resolvedConfig
     if (!guildId || !roleId) throw new Error("Guild ID and Role ID are required")
     const botToken = process.env.DISCORD_BOT_TOKEN
@@ -1992,7 +1992,7 @@ export async function deleteDiscordRole(config: any, userId: string, input: Reco
  */
 export async function removeDiscordRole(config: any, userId: string, input: Record<string, any>) {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     const { guildId, userId: targetUserId, roleId } = resolvedConfig
     if (!guildId || !targetUserId || !roleId) throw new Error("Guild ID, User ID, and Role ID are required")
     const botToken = process.env.DISCORD_BOT_TOKEN
@@ -2013,7 +2013,7 @@ export async function removeDiscordRole(config: any, userId: string, input: Reco
  */
 export async function kickDiscordMember(config: any, userId: string, input: Record<string, any>) {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     const { guildId, userId: targetUserId, reason } = resolvedConfig
     if (!guildId || !targetUserId) throw new Error("Guild ID and User ID are required")
     const botToken = process.env.DISCORD_BOT_TOKEN
@@ -2035,7 +2035,7 @@ export async function kickDiscordMember(config: any, userId: string, input: Reco
  */
 export async function banDiscordMember(config: any, userId: string, input: Record<string, any>) {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     const { guildId, userId: targetUserId, deleteMessageSeconds = 0, reason } = resolvedConfig
     if (!guildId || !targetUserId) throw new Error("Guild ID and User ID are required")
     const botToken = process.env.DISCORD_BOT_TOKEN
@@ -2057,7 +2057,7 @@ export async function banDiscordMember(config: any, userId: string, input: Recor
  */
 export async function unbanDiscordMember(config: any, userId: string, input: Record<string, any>) {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     const { guildId, userId: targetUserId, reason } = resolvedConfig
     if (!guildId || !targetUserId) throw new Error("Guild ID and User ID are required")
     const botToken = process.env.DISCORD_BOT_TOKEN

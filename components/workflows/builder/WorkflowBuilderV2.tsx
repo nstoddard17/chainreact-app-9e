@@ -377,7 +377,18 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   // Node configuration state (for user input during build)
   const [nodeConfigs, setNodeConfigs] = useState<Record<string, Record<string, any>>>({})
   const [nodeTestCache, setNodeTestCache] = useState<Record<string, NodeTestCacheEntry>>({})
-  const [activeReorderDrag, setActiveReorderDrag] = useState<{ nodeId: string; pointerId: number } | null>(null)
+  const [activeReorderDrag, setActiveReorderDrag] = useState<{
+    nodeId: string
+    pointerId: number
+    release?: () => void
+  } | null>(null)
+  const [reorderDragOffset, setReorderDragOffset] = useState(0)
+  const reorderDragOffsetRef = useRef(0)
+  const [reorderPreviewIndex, setReorderPreviewIndex] = useState<number | null>(null)
+  const [reorderDragStartIndex, setReorderDragStartIndex] = useState<number | null>(null)
+  const dragStartRef = useRef<number | null>(null)
+  const dragVisualStateRef = useRef<{ offset: number; slot: number | null }>({ offset: 0, slot: null })
+  const dragRafRef = useRef<number | null>(null)
 
   // AI Agent Infrastructure (Spec-Compliant)
   const choreographerRef = useRef<BuildChoreographer | null>(null)
@@ -1385,42 +1396,62 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
   // React Flow props with last-node detection
   // Handle test node from context menu
-  const moveNodeToIndex = useCallback((nodeId: string, targetIndex: number) => {
-    if (!builder?.nodes || !builder.setNodes) {
-      return
+  const getReorderableData = useCallback(() => {
+    if (!builder?.nodes) {
+      return null
     }
-
-    const reorderable = builder.nodes
-      .filter((node: any) => isReorderableNode(node))
+    const reorderableNodes = builder.nodes
+      .filter(isReorderableNode)
       .sort((a: any, b: any) => (a.position?.y ?? 0) - (b.position?.y ?? 0))
+    if (reorderableNodes.length === 0) {
+      return null
+    }
+    const ids = reorderableNodes.map((node: any) => node.id)
+    const positions = reorderableNodes.map((node: any) => node.position?.y ?? 0)
+    const spacing =
+      positions.length > 1
+        ? (positions[positions.length - 1] - positions[0]) / (positions.length - 1 || 1)
+        : 160
+    const boundaries = new Array(ids.length + 1)
+    boundaries[0] = positions[0] - spacing / 2
+    for (let i = 1; i < ids.length; i++) {
+      boundaries[i] = (positions[i - 1] + positions[i]) / 2
+    }
+    boundaries[ids.length] = positions[positions.length - 1] + spacing / 2
+    return { reorderableNodes, ids, positions, spacing, boundaries }
+  }, [builder?.nodes])
 
-    if (reorderable.length === 0) {
+  const moveNodeToIndex = useCallback((nodeId: string, targetSlot: number) => {
+    const data = getReorderableData()
+    if (!data || !builder?.setNodes) {
       return
     }
+    const { ids, positions, spacing } = data
+    let slot = Math.max(0, Math.min(ids.length, targetSlot))
 
-    const currentIndex = reorderable.findIndex((node: any) => node.id === nodeId)
+    const currentIndex = ids.indexOf(nodeId)
     if (currentIndex === -1) {
       return
     }
 
-    const clampedIndex = Math.max(0, Math.min(reorderable.length - 1, targetIndex))
-    if (clampedIndex === currentIndex) {
-      return
+    const newOrder = ids.slice()
+    newOrder.splice(currentIndex, 1)
+    if (slot > currentIndex) {
+      slot -= 1
     }
+    slot = Math.max(0, Math.min(newOrder.length, slot))
+    newOrder.splice(slot, 0, nodeId)
 
-    const updatedOrder = [...reorderable]
-    const [movedNode] = updatedOrder.splice(currentIndex, 1)
-    updatedOrder.splice(clampedIndex, 0, movedNode)
-
-    const originalYPositions = reorderable.map((node: any) => node.position?.y ?? 0)
-    const sortedYPositions = [...originalYPositions].sort((a, b) => a - b)
-    const startY = sortedYPositions[0] ?? 120
-    const spacing = sortedYPositions.length > 1 ? Math.max(60, sortedYPositions[1] - sortedYPositions[0]) : 160
+    const baselinePositions = [...positions]
+    const lastPosition = baselinePositions[baselinePositions.length - 1] ?? 0
 
     const positionMap = new Map<string, number>()
-    updatedOrder.forEach((node, index) => {
-      const y = sortedYPositions[index] ?? startY + index * spacing
-      positionMap.set(node.id, y)
+    newOrder.forEach((id, index) => {
+      let y = baselinePositions[index]
+      if (y === undefined) {
+        y = lastPosition + spacing * (index - baselinePositions.length + 1)
+      }
+      positionMap.set(id, y)
     })
 
     builder.setNodes(
@@ -1440,42 +1471,44 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         }
       })
     )
-  }, [builder])
+  }, [builder?.nodes, builder?.setNodes, getReorderableData])
 
-  const handleMoveNode = useCallback((nodeId: string, direction: 'up' | 'down') => {
-    if (!builder?.nodes) {
-      return
-    }
+  const flushDragVisualState = useCallback(() => {
+    dragRafRef.current = null
+    setReorderDragOffset(dragVisualStateRef.current.offset)
+    setReorderPreviewIndex(dragVisualStateRef.current.slot)
+  }, [])
 
-    const reorderable = builder.nodes
-      .filter((node: any) => isReorderableNode(node))
-      .sort((a: any, b: any) => (a.position?.y ?? 0) - (b.position?.y ?? 0))
-
-    if (reorderable.length === 0) {
-      return
-    }
-
-    const currentIndex = reorderable.findIndex((node: any) => node.id === nodeId)
-    if (currentIndex === -1) {
-      return
-    }
-
-    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
-    moveNodeToIndex(nodeId, targetIndex)
-  }, [builder?.nodes, moveNodeToIndex])
+  const scheduleVisualUpdate = useCallback(() => {
+    if (dragRafRef.current !== null) return
+    dragRafRef.current = requestAnimationFrame(flushDragVisualState)
+  }, [flushDragVisualState])
 
   const handleReorderPointerDown = useCallback((nodeId: string, event: React.PointerEvent) => {
-    if (!builder?.nodes) {
+    const data = getReorderableData()
+    if (!data || !builder?.nodes) {
       return
     }
-    const node = builder.nodes.find((n: any) => n.id === nodeId)
-    if (!isReorderableNode(node)) {
+    const startIndex = data.ids.indexOf(nodeId)
+    if (startIndex === -1) {
       return
     }
 
-    event.currentTarget.setPointerCapture?.(event.pointerId)
-    setActiveReorderDrag({ nodeId, pointerId: event.pointerId })
-  }, [builder?.nodes])
+    const handleElement = event.currentTarget
+    handleElement.setPointerCapture?.(event.pointerId)
+    dragStartRef.current = event.clientY
+    setActiveReorderDrag({
+      nodeId,
+      pointerId: event.pointerId,
+      release: () => handleElement.releasePointerCapture?.(event.pointerId),
+    })
+    setReorderDragStartIndex(startIndex)
+    dragVisualStateRef.current = { offset: 0, slot: startIndex }
+    reorderDragOffsetRef.current = 0
+    setReorderPreviewIndex(startIndex)
+    setReorderDragOffset(0)
+    scheduleVisualUpdate()
+  }, [builder?.nodes, getReorderableData, scheduleVisualUpdate])
 
   useEffect(() => {
     if (!activeReorderDrag) {
@@ -1486,7 +1519,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       if (event.pointerId !== activeReorderDrag.pointerId) {
         return
       }
-
+      const startY = dragStartRef.current
+      if (startY === null) return
+      const nextOffset = event.clientY - startY
       const instance = reactFlowInstanceRef.current
       if (!instance || !builder?.nodes) {
         return
@@ -1497,41 +1532,84 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         return
       }
 
-      const reorderable = builder.nodes
-        .filter((node: any) => isReorderableNode(node))
-        .sort((a: any, b: any) => (a.position?.y ?? 0) - (b.position?.y ?? 0))
-
-      if (reorderable.length === 0) {
+      const data = getReorderableData()
+      if (!data) {
         return
       }
 
-      let targetIndex = reorderable.length - 1
-      for (let i = 0; i < reorderable.length; i++) {
-        const nodeY = reorderable[i].position?.y ?? 0
-        if (flowPoint.y < nodeY) {
-          targetIndex = i
+      const estimatedHeight = Math.max(data.spacing, 80)
+      let targetSlot = data.ids.length
+      for (let i = 0; i < data.ids.length; i++) {
+        const nodeTop = data.positions[i]
+        const nodeBottom = nodeTop + estimatedHeight * 0.9
+        if (flowPoint.y < nodeTop) {
+          targetSlot = i
+          break
+        }
+        if (flowPoint.y < nodeBottom) {
+          targetSlot = i + 1
           break
         }
       }
 
-      moveNodeToIndex(activeReorderDrag.nodeId, targetIndex)
+      reorderDragOffsetRef.current = nextOffset
+      dragVisualStateRef.current = {
+        offset: nextOffset,
+        slot: targetSlot,
+      }
+      scheduleVisualUpdate()
     }
 
     const handlePointerUp = (event: PointerEvent) => {
       if (event.pointerId !== activeReorderDrag.pointerId) {
         return
       }
+      activeReorderDrag.release?.()
+      if (dragRafRef.current !== null) {
+        cancelAnimationFrame(dragRafRef.current)
+        dragRafRef.current = null
+      }
+      const finalSlot = dragVisualStateRef.current.slot ?? reorderDragStartIndex ?? 0
+      moveNodeToIndex(activeReorderDrag.nodeId, finalSlot)
       setActiveReorderDrag(null)
+      dragStartRef.current = null
+      setReorderDragStartIndex(null)
+      setReorderPreviewIndex(null)
+      dragVisualStateRef.current = { offset: 0, slot: null }
+      reorderDragOffsetRef.current = 0
+      setReorderDragOffset(0)
     }
 
     window.addEventListener('pointermove', handlePointerMove)
     window.addEventListener('pointerup', handlePointerUp)
+    window.addEventListener('pointercancel', handlePointerUp)
 
     return () => {
       window.removeEventListener('pointermove', handlePointerMove)
       window.removeEventListener('pointerup', handlePointerUp)
+      window.removeEventListener('pointercancel', handlePointerUp)
+      if (dragRafRef.current !== null) {
+        cancelAnimationFrame(dragRafRef.current)
+        dragRafRef.current = null
+      }
     }
-  }, [activeReorderDrag, builder?.nodes, moveNodeToIndex])
+  }, [activeReorderDrag, builder?.nodes, getReorderableData, moveNodeToIndex, reorderPreviewIndex, reorderDragStartIndex, scheduleVisualUpdate])
+
+  useEffect(() => {
+    if (!activeReorderDrag) {
+      dragStartRef.current = null
+      setReorderDragOffset(0)
+      return
+    }
+    const prevCursor = document.body.style.cursor
+    const prevUserSelect = document.body.style.userSelect
+    document.body.style.cursor = 'grabbing'
+    document.body.style.userSelect = 'none'
+    return () => {
+      document.body.style.cursor = prevCursor
+      document.body.style.userSelect = prevUserSelect
+    }
+  }, [activeReorderDrag])
 
   const handleTestNode = useCallback(async (nodeId: string) => {
     const node = builder?.nodes?.find((n: any) => n.id === nodeId)
@@ -1953,11 +2031,42 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       }
     })
 
-    const reorderableNodes = builder.nodes
-      .filter(isReorderableNode)
-      .sort((a: any, b: any) => (a.position?.y ?? 0) - (b.position?.y ?? 0))
+    const previewOffsets = new Map<string, number>()
+    const reorderData = getReorderableData()
     const orderMap = new Map<string, number>()
-    reorderableNodes.forEach((node: any, index: number) => orderMap.set(node.id, index))
+    const reorderableNodes = reorderData?.reorderableNodes ?? []
+
+    if (reorderData) {
+      reorderData.ids.forEach((id, index) => orderMap.set(id, index))
+
+      if (activeReorderDrag && reorderPreviewIndex !== null) {
+        const draggedId = activeReorderDrag.nodeId
+        const draggedIndex = reorderData.ids.indexOf(draggedId)
+        if (draggedIndex !== -1) {
+          const simulated = reorderData.ids.slice()
+          simulated.splice(draggedIndex, 1)
+          let insertSlot = Math.max(0, Math.min(reorderData.ids.length, reorderPreviewIndex))
+          if (insertSlot > draggedIndex) {
+            insertSlot -= 1
+          }
+          insertSlot = Math.max(0, Math.min(simulated.length, insertSlot))
+          simulated.splice(insertSlot, 0, draggedId)
+
+          const simulatedMap = new Map<string, number>()
+          simulated.forEach((id, idx) => simulatedMap.set(id, idx))
+
+          reorderData.ids.forEach((id, index) => {
+            if (id === draggedId) return
+            const simulatedIdx = simulatedMap.get(id)
+            if (simulatedIdx === undefined) return
+            const currentY = reorderData.positions[index]
+            const targetY = reorderData.positions[simulatedIdx]
+            if (currentY === undefined || targetY === undefined) return
+            previewOffsets.set(id, targetY - currentY)
+          })
+        }
+      }
+    }
 
     // Enhance nodes with isLastNode, onAddNodeAfter, onTestNode, onTestFlowFromHere, and isBeingConfigured
     const enhancedNodes = builder.nodes.map((node: any) => {
@@ -1973,7 +2082,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           onAddNodeAfter: handleAddNodeAfter,
           onTestNode: handleTestNode,
           onTestFlowFromHere: handleTestFlowFromHere,
-        isBeingConfigured: configuringNode?.id === node.id,
+          isBeingConfigured: configuringNode?.id === node.id,
+          isBeingReordered: activeReorderDrag?.nodeId === node.id,
+          reorderDragOffset:
+            activeReorderDrag?.nodeId === node.id ? reorderDragOffset : 0,
+          previewOffset: previewOffsets.get(node.id) ?? 0,
           onStartReorder: isReorderableNode(node) ? handleReorderPointerDown : undefined,
           isReorderable: isReorderableNode(node),
         }
@@ -2014,7 +2127,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       nodeTypes: builder.nodeTypes,
       edgeTypes: builder.edgeTypes,
     }
-  }, [builder, handleAddNodeAfter, handleMoveNode, handleTestNode, handleTestFlowFromHere, handleReorderPointerDown, configuringNode])
+  }, [builder, handleAddNodeAfter, handleTestNode, handleTestFlowFromHere, handleReorderPointerDown, configuringNode, activeReorderDrag, getReorderableData, reorderDragOffset, reorderPreviewIndex])
 
   // Name update handler
   const persistName = useCallback(

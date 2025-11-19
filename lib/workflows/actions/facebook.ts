@@ -32,7 +32,7 @@ export async function createFacebookPost(
 ): Promise<ActionResult> {
   try {
     // Resolve templated values
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     
     const {
       pageId,
@@ -512,7 +512,7 @@ export async function getFacebookPageInsights(
 ): Promise<ActionResult> {
   try {
     // Resolve templated values
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     
     const {
       pageId,
@@ -630,7 +630,7 @@ export async function sendFacebookMessage(
 ): Promise<ActionResult> {
   try {
     // Resolve templated values
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     
     const {
       pageId,
@@ -782,7 +782,7 @@ export async function commentOnFacebookPost(
 ): Promise<ActionResult> {
   try {
     // Resolve templated values
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     
     const {
       pageId,
@@ -908,7 +908,7 @@ export async function deleteFacebookPost(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
 
     const { pageId, postId } = resolvedConfig
 
@@ -987,7 +987,7 @@ export async function updateFacebookPost(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
 
     const {
       pageId,
@@ -1095,7 +1095,7 @@ export async function uploadFacebookPhoto(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
 
     const {
       pageId,
@@ -1251,7 +1251,7 @@ export async function uploadFacebookVideo(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
 
     const {
       pageId,

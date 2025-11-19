@@ -24,7 +24,7 @@ export async function sendOutlookEmail(
         typeof v === 'string' && v.includes('{{') && v.includes('}}')
       )
 
-    const resolvedConfig = needsResolution ? resolveValue(config, { input }) : config
+    const resolvedConfig = needsResolution ? resolveValue(config, input) : config
 
     // Apply meta-variable resolution to subject and body
     // This resolves {{recipient_name}}, {{sender_email}}, etc. based on To/From fields

@@ -21,7 +21,7 @@ export async function quickAddGoogleCalendarEvent(
         typeof v === 'string' && v.includes('{{') && v.includes('}}')
       )
 
-    const resolvedConfig = needsResolution ? resolveValue(config, { input }) : config
+    const resolvedConfig = needsResolution ? resolveValue(config, input) : config
 
     const {
       calendarId = 'primary',

@@ -20,7 +20,8 @@ export async function deleteGoogleCalendarEvent(
         typeof v === 'string' && v.includes('{{') && v.includes('}}')
       )
 
-    const resolvedConfig = needsResolution ? resolveValue(config, { input }) : config
+    // Pass input directly, not wrapped in an object
+    const resolvedConfig = needsResolution ? resolveValue(config, input) : config
 
     const {
       calendarId = 'primary',
@@ -51,18 +52,16 @@ export async function deleteGoogleCalendarEvent(
     const eventDetails = eventResponse.data
 
     // Determine send notifications parameter
-    let sendUpdates = 'none'
-    if (sendNotifications === 'all') {
-      sendUpdates = 'all'
-    } else if (sendNotifications === 'externalOnly') {
-      sendUpdates = 'externalOnly'
-    }
+    // Google Calendar API expects 'all', 'externalOnly', or 'none'
+    const sendUpdates = sendNotifications === 'all' ? 'all'
+      : sendNotifications === 'externalOnly' ? 'externalOnly'
+      : 'none'
 
-    // Delete the event
+    // Delete the event with sendUpdates parameter
     await calendar.events.delete({
       calendarId: calendarId,
       eventId: eventId,
-      sendUpdates: sendUpdates
+      sendUpdates: sendUpdates as 'all' | 'externalOnly' | 'none'
     })
 
     logger.info('✅ [Google Calendar] Deleted event', {

@@ -32,7 +32,7 @@ export async function executeGoogleSearch(
   const startTime = Date.now();
 
   try {
-    const resolvedConfig = resolveValue(config, { input });
+    const resolvedConfig = resolveValue(config, input);
 
     const {
       query,

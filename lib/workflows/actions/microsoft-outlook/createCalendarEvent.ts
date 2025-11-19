@@ -19,7 +19,7 @@ export async function createOutlookCalendarEvent(
         typeof v === 'string' && v.includes('{{') && v.includes('}}')
       )
 
-    const resolvedConfig = needsResolution ? resolveValue(config, { input }) : config
+    const resolvedConfig = needsResolution ? resolveValue(config, input) : config
 
     // Process date/time based on the simplified field structure
     const processedConfig = { ...resolvedConfig }

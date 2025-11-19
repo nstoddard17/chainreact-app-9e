@@ -21,6 +21,32 @@ import { cn } from '@/lib/utils'
 import { StaticIntegrationLogo } from '@/components/ui/static-integration-logo'
 import { extractNodeOutputs, sanitizeAlias } from '../../autoMapping'
 
+/**
+ * Helper function to recursively get ALL previous nodes in the workflow
+ * Not just the immediate parent, but all ancestors
+ */
+function getAllPreviousNodeIds(currentNodeId: string, edges: any[]): string[] {
+  const findPreviousNodes = (nodeId: string, visited = new Set<string>()): string[] => {
+    if (visited.has(nodeId)) return []
+    visited.add(nodeId)
+
+    const incomingEdges = edges.filter((edge: any) => edge.target === nodeId)
+    if (incomingEdges.length === 0) return []
+
+    const sourceNodeIds = incomingEdges.map((edge: any) => edge.source)
+    const allPreviousNodes: string[] = [...sourceNodeIds]
+
+    sourceNodeIds.forEach(sourceId => {
+      const previousNodes = findPreviousNodes(sourceId, visited)
+      allPreviousNodes.push(...previousNodes)
+    })
+
+    return allPreviousNodes
+  }
+
+  return findPreviousNodes(currentNodeId)
+}
+
 interface VariableSelectionDropdownProps {
   workflowData: { nodes: any[]; edges: any[] }
   currentNodeId: string
@@ -94,10 +120,8 @@ export function VariableSelectionDropdown({
     const nodeById = new Map(workflowData.nodes.map(n => [n.id, n]))
     const edges = workflowData.edges || []
 
-    // Find nodes that connect TO the current node
-    const sourceIds = edges
-      .filter(e => e.target === currentNodeId)
-      .map(e => e.source)
+    // Find ALL previous nodes (all ancestors, not just immediate parents)
+    const sourceIds = getAllPreviousNodeIds(currentNodeId, edges)
 
     return sourceIds
       .map(id => nodeById.get(id))

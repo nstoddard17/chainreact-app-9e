@@ -30,7 +30,7 @@ export async function executeTransformer(
   const startTime = Date.now();
 
   try {
-    const resolvedConfig = resolveValue(config, { input });
+    const resolvedConfig = resolveValue(config, input);
 
     const {
       code,

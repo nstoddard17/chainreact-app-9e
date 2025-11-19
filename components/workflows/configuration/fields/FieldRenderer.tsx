@@ -12,6 +12,32 @@ import { HelpCircle, Mail, Hash, Calendar, FileText, Link, User, MessageSquare, 
 import { FileUpload } from "@/components/ui/file-upload";
 import { cn } from "@/lib/utils";
 import { SimpleVariablePicker } from "./SimpleVariablePicker";
+
+/**
+ * Helper function to recursively get ALL previous nodes in the workflow
+ * Not just the immediate parent, but all ancestors
+ */
+function getAllPreviousNodeIds(currentNodeId: string, edges: any[]): string[] {
+  const findPreviousNodes = (nodeId: string, visited = new Set<string>()): string[] => {
+    if (visited.has(nodeId)) return []
+    visited.add(nodeId)
+
+    const incomingEdges = edges.filter((edge: any) => edge.target === nodeId)
+    if (incomingEdges.length === 0) return []
+
+    const sourceNodeIds = incomingEdges.map((edge: any) => edge.source)
+    const allPreviousNodes: string[] = [...sourceNodeIds]
+
+    sourceNodeIds.forEach(sourceId => {
+      const previousNodes = findPreviousNodes(sourceId, visited)
+      allPreviousNodes.push(...previousNodes)
+    })
+
+    return allPreviousNodes
+  }
+
+  return findPreviousNodes(currentNodeId)
+}
 import { MultiCombobox } from "@/components/ui/combobox";
 import { TimePicker } from "@/components/ui/time-picker";
 import EnhancedFileInput from "./EnhancedFileInput";
@@ -39,7 +65,7 @@ import { generatePlaceholder, generateHelpText, generateExamples, getKeyboardHin
 import { EmptyStateCard } from "../EmptyStateCard";
 
 // Integration-specific field components
-import { TimePicker15Min } from './TimePicker15Min';
+import { GoogleTimePicker } from './GoogleTimePicker';
 import { TimezonePicker } from './TimezonePicker';
 import { RecurrencePicker } from './RecurrencePicker';
 import { GooglePlacesAutocomplete } from './GooglePlacesAutocomplete';
@@ -1032,6 +1058,8 @@ export function FieldRenderer({
             integrationProvider={field.provider || 'gmail'}
             userId={user?.id}
             workflowNodes={workflowData?.nodes}
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
             className={cn(
               error && "border-red-500"
             )}
@@ -1667,12 +1695,10 @@ export function FieldRenderer({
         if (isConnectedMode && workflowData && currentNodeId) {
           console.log('🔌 [FieldRenderer] Connect mode ACTIVE - showing variable dropdown');
 
-          // Get upstream nodes (nodes that connect to the current node)
+          // Get ALL upstream nodes (all previous nodes in the workflow, not just immediate parents)
           const nodeById = new Map(workflowData.nodes.map((n: any) => [n.id, n]))
           const edges = workflowData.edges || []
-          const sourceIds = edges
-            .filter((e: any) => e.target === currentNodeId)
-            .map((e: any) => e.source)
+          const sourceIds = getAllPreviousNodeIds(currentNodeId, edges)
 
           const upstreamNodes = sourceIds
             .map((id: string) => nodeById.get(id))
@@ -1826,12 +1852,10 @@ export function FieldRenderer({
 
         // If Connect mode is active, show GenericSelectField with upstream variables as options
         if (isConnectedMode && workflowData && currentNodeId) {
-          // Get upstream nodes (nodes that connect to the current node)
+          // Get ALL upstream nodes (all previous nodes in the workflow, not just immediate parents)
           const nodeById = new Map(workflowData.nodes.map((n: any) => [n.id, n]))
           const edges = workflowData.edges || []
-          const sourceIds = edges
-            .filter((e: any) => e.target === currentNodeId)
-            .map((e: any) => e.source)
+          const sourceIds = getAllPreviousNodeIds(currentNodeId, edges)
 
           const upstreamNodes = sourceIds
             .map((id: string) => nodeById.get(id))
@@ -1956,12 +1980,10 @@ export function FieldRenderer({
         // If Connect mode is active, show GenericSelectField with upstream variables as options
         if (isConnectedMode && workflowData && currentNodeId) {
           console.log('🔌 [FieldRenderer] Connect mode ACTIVE for multi-select - showing variable dropdown');
-          // Get upstream nodes (nodes that connect to the current node)
+          // Get ALL upstream nodes (all previous nodes in the workflow, not just immediate parents)
           const nodeById = new Map(workflowData.nodes.map((n: any) => [n.id, n]))
           const edges = workflowData.edges || []
-          const sourceIds = edges
-            .filter((e: any) => e.target === currentNodeId)
-            .map((e: any) => e.source)
+          const sourceIds = getAllPreviousNodeIds(currentNodeId, edges)
 
           const upstreamNodes = sourceIds
             .map((id: string) => nodeById.get(id))
@@ -2756,8 +2778,9 @@ export function FieldRenderer({
         );
 
       case "time-picker-15min":
+      case "google-time-picker":
         return (
-          <TimePicker15Min
+          <GoogleTimePicker
             value={value}
             onChange={onChange}
             placeholder={field.placeholder}
