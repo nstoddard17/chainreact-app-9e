@@ -1447,9 +1447,9 @@ export function EmailRichTextEditor({
   return (
     <div className={cn("border border-border rounded-lg overflow-hidden bg-background", className)}>
       {/* Comprehensive Toolbar - Multi-row */}
-      <div className="border-b border-border p-2 bg-muted/50 space-y-2">
+      <div className="border-b border-border p-2 bg-muted/50">
         {/* Row 1: Basic Text Formatting */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 flex-wrap">
           {/* Font Family */}
           <div className="w-36">
             <GenericSelectField
@@ -1622,7 +1622,7 @@ export function EmailRichTextEditor({
         </div>
 
         {/* Row 2: Lists, Alignment, Indent */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 flex-wrap mt-2">
           {/* Lists */}
           <div className="flex items-center gap-1">
             {formatToolbarButton(<List className="h-4 w-4" />, 'insertUnorderedList', 'Bullet List')}
@@ -1766,7 +1766,7 @@ export function EmailRichTextEditor({
         </div>
 
         {/* Row 3: Content Insertion (Variables, Templates, Signatures, Preview) */}
-        <div className="flex items-center gap-1 justify-between">
+        <div className="flex items-center gap-1 flex-wrap mt-2">
           {/* Variables */}
           <Popover>
             <PopoverTrigger asChild>
@@ -2280,7 +2280,7 @@ export function EmailRichTextEditor({
       )}
 
       {/* Editor Content */}
-      <div className="relative h-[160px] overflow-hidden">
+      <div className="relative h-[300px] overflow-hidden">
         {isPreviewMode ? (
           <div className="h-full overflow-y-auto p-4 bg-background">
             <div 
