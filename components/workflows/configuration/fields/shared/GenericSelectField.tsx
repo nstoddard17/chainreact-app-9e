@@ -1174,7 +1174,9 @@ export function GenericSelectField({
               </TooltipContent>
             </Tooltip>
         )}
-        {field.supportsVariables && workflowData && currentNodeId && (
+        {/* Only show SimpleVariablePicker for non-select fields
+            Select fields use the Connect button instead (in FieldRenderer) */}
+        {field.supportsVariables && workflowData && currentNodeId && field.type !== 'select' && (
           <SimpleVariablePicker
             workflowData={workflowData}
             currentNodeId={currentNodeId}
@@ -1270,7 +1272,9 @@ export function GenericSelectField({
               </TooltipContent>
             </Tooltip>
         )}
-        {field.supportsVariables && workflowData && currentNodeId && (
+        {/* Only show SimpleVariablePicker for non-select fields
+            Select fields use the Connect button instead (in FieldRenderer) */}
+        {field.supportsVariables && workflowData && currentNodeId && field.type !== 'select' && (
           <SimpleVariablePicker
             workflowData={workflowData}
             currentNodeId={currentNodeId}

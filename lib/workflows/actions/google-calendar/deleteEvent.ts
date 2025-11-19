@@ -23,7 +23,7 @@ export async function deleteGoogleCalendarEvent(
     // Pass input directly, not wrapped in an object
     const resolvedConfig = needsResolution ? resolveValue(config, input) : config
 
-    const {
+    let {
       calendarId = 'primary',
       eventId,
       sendNotifications = 'none'
@@ -31,6 +31,13 @@ export async function deleteGoogleCalendarEvent(
 
     if (!eventId) {
       throw new Error('Event ID is required to delete an event')
+    }
+
+    // Check if an array was provided instead of a single event ID
+    if (Array.isArray(eventId)) {
+      throw new Error(
+        'Multiple events detected. To delete multiple events, add a Loop node before this action and use {{loop.currentItem.eventId}} as the Event ID. If you want to delete only the first event, use {{list_events_node.events.0.eventId}} instead.'
+      )
     }
 
     // Get the decrypted access token for Google

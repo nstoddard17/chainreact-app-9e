@@ -87,7 +87,8 @@ export const replyToEmailActionSchema: NodeComponent = {
       type: "email-rich-text",
       required: true,
       placeholder: "Type your reply...",
-      description: "Your reply message content with rich text formatting"
+      description: "Your reply message content with rich text formatting",
+      supportsAI: true
     },
     {
       name: "attachments",

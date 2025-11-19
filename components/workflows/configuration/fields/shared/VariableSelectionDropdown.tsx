@@ -123,15 +123,38 @@ export function VariableSelectionDropdown({
     // Find ALL previous nodes (all ancestors, not just immediate parents)
     const sourceIds = getAllPreviousNodeIds(currentNodeId, edges)
 
-    return sourceIds
+    const nodes = sourceIds
       .map(id => nodeById.get(id))
       .filter(Boolean)
       .map(node => {
         const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === node.data?.type)
         const baseOutputs = extractNodeOutputs(node as any)
-        const outputs = (baseOutputs && baseOutputs.length > 0)
+        let outputs = (baseOutputs && baseOutputs.length > 0)
           ? baseOutputs
           : (nodeComponent?.outputSchema || [])
+
+        // Flatten array properties - if an output has 'properties', include those as individual outputs
+        const flattenedOutputs: any[] = []
+        outputs.forEach((output: any) => {
+          // Always include the top-level field
+          flattenedOutputs.push(output)
+
+          // If this is an array with properties, also include the properties as separate fields
+          // These will be accessible via events[].fieldName syntax
+          if (output.type === 'array' && Array.isArray(output.properties)) {
+            output.properties.forEach((prop: any) => {
+              flattenedOutputs.push({
+                ...prop,
+                name: `${output.name}[].${prop.name}`,
+                label: prop.label || prop.name, // Just use the property label, node title will be shown separately
+                _isArrayProperty: true,
+                _parentArray: output.name,
+                _parentArrayLabel: output.label || output.name
+              })
+            })
+          }
+        })
+
         const title = node.data?.title || node.data?.label || nodeComponent?.title || 'Unnamed'
 
         return {
@@ -139,10 +162,14 @@ export function VariableSelectionDropdown({
           title,
           alias: sanitizeAlias(node.data?.label || node.data?.title || node.data?.type || node.id),
           type: node.data?.type,
-          outputs,
+          outputs: flattenedOutputs,
           providerId: node.data?.providerId || nodeComponent?.providerId,
+          position: node.position || { x: 0, y: 0 }, // Include position for sorting
         }
       })
+
+    // Sort by Y position (top to bottom order in the workflow builder)
+    return nodes.sort((a, b) => a.position.y - b.position.y)
   }, [workflowData, currentNodeId])
 
   // Parse the current value to extract node ID and field name
@@ -155,7 +182,13 @@ export function VariableSelectionDropdown({
     }
 
     const content = stringValue.slice(2, -2) // Remove {{ and }}
-    const [nodeId, fieldName] = content.split('.')
+    // Split only on the first dot to handle field names with dots (like events[].eventId)
+    const firstDotIndex = content.indexOf('.')
+    if (firstDotIndex === -1) {
+      return { nodeId: content, fieldName: undefined }
+    }
+    const nodeId = content.substring(0, firstDotIndex)
+    const fieldName = content.substring(firstDotIndex + 1)
     return { nodeId, fieldName }
   }
 

@@ -69,6 +69,9 @@ import { useVariableDropTarget } from '../hooks/useVariableDropTarget'
 import { insertVariableIntoContentEditable, normalizeDraggedVariable } from '@/lib/workflows/variableInsertion'
 import { GenericSelectField } from './shared/GenericSelectField'
 import { VariablePickerDropdown } from '../VariablePickerDropdown'
+import { VariableSelectionDropdown } from './shared/VariableSelectionDropdown'
+import { ConnectButton } from './shared/ConnectButton'
+import { VariableInserterDropdown } from './shared/VariableInserterDropdown'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -85,6 +88,8 @@ interface EmailRichTextEditorProps {
   workflowNodes?: any[] // Current workflow nodes to extract available variables (deprecated - use workflowData)
   workflowData?: { nodes: any[], edges: any[] } // Full workflow data for variable picker
   currentNodeId?: string // Current node ID for variable picker
+  enableConnectMode?: boolean // Enable connect button to toggle between rich text and variable dropdown
+  showConnectButton?: React.ReactNode // Custom connect button to render (for external control)
 }
 
 interface EmailTemplate {
@@ -707,7 +712,9 @@ export function EmailRichTextEditor({
   availableVariables,
   workflowNodes,
   workflowData,
-  currentNodeId
+  currentNodeId,
+  enableConnectMode = false,
+  showConnectButton
 }: EmailRichTextEditorProps) {
   const [isPreviewMode, setIsPreviewMode] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState<string>('')
@@ -739,6 +746,15 @@ export function EmailRichTextEditor({
   const [tableRows, setTableRows] = useState('3')
   const [tableColumns, setTableColumns] = useState('3')
   const savedSelectionRef = useRef<Range | null>(null)
+
+  // Connect mode state - check if value is a connected variable
+  const isConnectedValue = (val: any) => {
+    if (typeof val !== 'string') return false
+    const trimmed = val.trim()
+    return trimmed.startsWith('{{') && trimmed.endsWith('}}') && !trimmed.includes(' ')
+  }
+
+  const [isConnectedMode, setIsConnectedMode] = useState(() => enableConnectMode && isConnectedValue(value))
 
   // Save selection before interacting with dropdowns
   const saveSelection = useCallback(() => {
@@ -932,7 +948,7 @@ export function EmailRichTextEditor({
     onChange(updatedHtml)
   }, [onChange])
 
-  const { eventHandlers: dropHandlers, isDragOver } = useVariableDropTarget({
+  const { eventHandlers: dropHandlers, isDragOver} = useVariableDropTarget({
     fieldId: "email-rich-text-body",
     fieldLabel: "Email Body",
     elementRef: editorRef,
@@ -940,6 +956,129 @@ export function EmailRichTextEditor({
   })
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { toast } = useToast()
+
+  // Convert HTML with styled variable pills to backend-compatible format
+  // The backend needs {{variable}} syntax, but the editor displays styled pills
+  const convertHtmlToBackendFormat = useCallback((html: string): string => {
+    // Create a temporary div to parse the HTML
+    const tempDiv = document.createElement('div')
+    tempDiv.innerHTML = html
+
+    // Find all variable pills and replace them with {{variable}} syntax
+    const variablePills = tempDiv.querySelectorAll('.variable-pill')
+    variablePills.forEach(pill => {
+      const variableRef = pill.getAttribute('data-variable')
+      if (variableRef) {
+        // Replace the pill with the actual variable reference
+        const textNode = document.createTextNode(variableRef)
+        pill.parentNode?.replaceChild(textNode, pill)
+      }
+    })
+
+    return tempDiv.innerHTML
+  }, [])
+
+  // Wrapper for onChange that converts HTML to backend format
+  const handleContentChange = useCallback((html: string) => {
+    const backendHtml = convertHtmlToBackendFormat(html)
+    onChange(backendHtml)
+  }, [onChange, convertHtmlToBackendFormat])
+
+  // Convert backend format with {{variables}} to styled pills for display
+  const convertBackendToDisplayFormat = useCallback((html: string): string => {
+    const tempDiv = document.createElement('div')
+    tempDiv.innerHTML = html
+
+    // Find all text nodes and replace {{variable}} patterns with styled pills
+    const walker = document.createTreeWalker(
+      tempDiv,
+      NodeFilter.SHOW_TEXT,
+      null
+    )
+
+    const nodesToReplace: Array<{ node: Node; replacements: Array<{ start: number; end: number; variable: string; label: string }> }> = []
+
+    let currentNode: Node | null
+    while ((currentNode = walker.nextNode())) {
+      const text = currentNode.textContent || ''
+      const variablePattern = /\{\{([^}]+)\}\}/g
+      let match
+
+      const replacements: Array<{ start: number; end: number; variable: string; label: string }> = []
+      while ((match = variablePattern.exec(text)) !== null) {
+        const fullMatch = match[0] // {{nodeId.fieldName}}
+        const label = match[1].split('.').pop() || match[1] // Extract field name
+        replacements.push({
+          start: match.index,
+          end: match.index + fullMatch.length,
+          variable: fullMatch,
+          label
+        })
+      }
+
+      if (replacements.length > 0) {
+        nodesToReplace.push({ node: currentNode, replacements })
+      }
+    }
+
+    // Replace text nodes with styled pills
+    nodesToReplace.forEach(({ node, replacements }) => {
+      const text = node.textContent || ''
+      const parent = node.parentNode
+      if (!parent) return
+
+      let lastIndex = 0
+      const fragment = document.createDocumentFragment()
+
+      replacements.forEach((replacement) => {
+        // Add text before variable
+        if (replacement.start > lastIndex) {
+          fragment.appendChild(document.createTextNode(text.substring(lastIndex, replacement.start)))
+        }
+
+        // Create styled pill
+        const pill = document.createElement('span')
+        pill.className = 'variable-pill'
+        pill.setAttribute('contenteditable', 'false')
+        pill.setAttribute('data-variable', replacement.variable)
+        pill.style.cssText = `
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 2px 8px;
+          margin: 0 2px;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          border-radius: 4px;
+          font-size: 13px;
+          font-weight: 500;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          cursor: default;
+          user-select: none;
+          white-space: nowrap;
+        `
+        pill.innerHTML = `
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0;">
+            <path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1" />
+            <path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1" />
+          </svg>
+          <span style="line-height: 1;">${replacement.label}</span>
+        `
+        fragment.appendChild(pill)
+
+        lastIndex = replacement.end
+      })
+
+      // Add remaining text
+      if (lastIndex < text.length) {
+        fragment.appendChild(document.createTextNode(text.substring(lastIndex)))
+      }
+
+      parent.replaceChild(fragment, node)
+    })
+
+    return tempDiv.innerHTML
+  }, [])
 
   // Initialize editor content and sync with value prop
   useEffect(() => {
@@ -949,16 +1088,18 @@ export function EmailRichTextEditor({
       hasEditorRef: !!editorRef.current,
       isInitialized: isEditorInitialized
     })
-    
+
     if (editorRef.current) {
       // Only update if the content is different to prevent cursor jumps
       if (editorRef.current.innerHTML !== value && !editorRef.current.contains(document.activeElement)) {
         logger.debug('📧 [EmailRichTextEditor] Updating editor content')
-        editorRef.current.innerHTML = value || ''
+        // Convert backend format to display format with styled pills
+        const displayHtml = convertBackendToDisplayFormat(value || '')
+        editorRef.current.innerHTML = displayHtml
       }
       setIsEditorInitialized(true)
     }
-  }, [value])
+  }, [value, convertBackendToDisplayFormat])
 
   // Load user's email signatures
   useEffect(() => {
@@ -1201,41 +1342,90 @@ export function EmailRichTextEditor({
     setShowCreateSignatureDialog(true)
   }
 
-  const insertVariable = (variableText: string) => {
+  const insertVariable = (variableText: string, label?: string) => {
     if (!editorRef.current) return
 
-    // Get current selection or cursor position
-    const selection = window.getSelection()
-    if (!selection || selection.rangeCount === 0) {
-      // No selection, append to end
-      const currentContent = editorRef.current.innerHTML || ''
-      const newContent = `${currentContent} ${variableText}`
-      onChange(newContent)
-      if (editorRef.current) {
-        editorRef.current.innerHTML = newContent
-      }
+    // Create a styled variable pill badge
+    const variablePill = document.createElement('span')
+    variablePill.className = 'variable-pill'
+    variablePill.setAttribute('contenteditable', 'false')
+    variablePill.setAttribute('data-variable', variableText)
+    variablePill.style.cssText = `
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      margin: 0 2px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      cursor: default;
+      user-select: none;
+      white-space: nowrap;
+    `
+
+    // Extract field name from variable for display
+    const displayLabel = label || variableText.replace(/{{|}}/g, '').split('.').pop() || variableText
+
+    // Add braces icon and label
+    variablePill.innerHTML = `
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0;">
+        <path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1" />
+        <path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1" />
+      </svg>
+      <span style="line-height: 1;">${displayLabel}</span>
+    `
+
+    // Try to use saved selection first (in case cursor was lost when dropdown opened)
+    let range: Range | null = null
+    if (savedSelectionRef.current && editorRef.current.contains(savedSelectionRef.current.startContainer)) {
+      range = savedSelectionRef.current.cloneRange()
     } else {
-      // Insert at cursor position
-      const range = selection.getRangeAt(0)
-      range.deleteContents()
-
-      const variableNode = document.createTextNode(variableText)
-      range.insertNode(variableNode)
-
-      // Move cursor after inserted variable
-      range.setStartAfter(variableNode)
-      range.setEndAfter(variableNode)
-      selection.removeAllRanges()
-      selection.addRange(range)
-
-      // Update content
-      onChange(editorRef.current.innerHTML)
+      // Fall back to current selection
+      const selection = window.getSelection()
+      if (selection && selection.rangeCount > 0) {
+        range = selection.getRangeAt(0)
+      }
     }
 
-    toast({
-      title: "Variable inserted",
-      description: `${variableText} has been added to your email.`,
-    })
+    if (!range || !editorRef.current.contains(range.startContainer)) {
+      // No valid cursor position, append to end with a space
+      const space = document.createTextNode(' ')
+      editorRef.current.appendChild(space)
+      editorRef.current.appendChild(variablePill)
+      editorRef.current.appendChild(document.createTextNode(' '))
+    } else {
+      // Insert at cursor position
+      range.deleteContents()
+
+      // Insert the variable pill
+      range.insertNode(variablePill)
+
+      // Add a space after the variable for easier typing
+      const spaceAfter = document.createTextNode(' ')
+      range.setStartAfter(variablePill)
+      range.insertNode(spaceAfter)
+
+      // Move cursor after the space
+      range.setStartAfter(spaceAfter)
+      range.setEndAfter(spaceAfter)
+
+      // Restore the selection
+      const selection = window.getSelection()
+      if (selection) {
+        selection.removeAllRanges()
+        selection.addRange(range)
+      }
+    }
+
+    // Focus the editor after inserting
+    editorRef.current.focus()
+
+    // Update content using the handler that converts to backend format
+    handleContentChange(editorRef.current.innerHTML)
   }
 
 
@@ -1283,17 +1473,6 @@ export function EmailRichTextEditor({
       // Ignore errors from selection API
     }
   }, [fontFamily, fontSize])
-
-  const handleContentChange = () => {
-    if (editorRef.current) {
-      const content = editorRef.current.innerHTML
-      logger.debug('📧 [EmailRichTextEditor] Content changed:', {
-        content: content?.substring(0, 100) + (content?.length > 100 ? '...' : ''),
-        length: content?.length
-      })
-      onChange(content)
-    }
-  }
 
   const handleSelectionChange = useCallback(() => {
     updateFormatState()
@@ -1447,6 +1626,20 @@ export function EmailRichTextEditor({
       {icon}
     </Button>
   )
+
+  // If in connect mode and we have workflow data, show the variable selection dropdown
+  if (enableConnectMode && isConnectedMode && workflowData && currentNodeId) {
+    return (
+      <VariableSelectionDropdown
+        workflowData={workflowData}
+        currentNodeId={currentNodeId}
+        value={value || ''}
+        onChange={onChange}
+        placeholder="Select a variable..."
+        disabled={false}
+      />
+    )
+  }
 
   return (
     <div className={cn("border border-border rounded-lg overflow-hidden bg-background", className)}>
@@ -1771,13 +1964,13 @@ export function EmailRichTextEditor({
 
         {/* Row 3: Content Insertion (Variables, Templates, Signatures, Preview) */}
         <div className="flex items-center gap-1 justify-between">
-          {/* Variables - Using VariablePickerDropdown */}
+          {/* Variables - Using VariableInserterDropdown with clean UI */}
           {workflowData && currentNodeId ? (
-            <VariablePickerDropdown
+            <VariableInserterDropdown
               workflowData={workflowData}
               currentNodeId={currentNodeId}
-              onSelect={(variableRef) => {
-                insertVariable(variableRef)
+              onSelect={(variableRef, label) => {
+                insertVariable(variableRef, label)
               }}
               trigger={
                 <Button
@@ -1785,6 +1978,10 @@ export function EmailRichTextEditor({
                   size="sm"
                   className="h-8 gap-1 hover:bg-muted text-muted-foreground hover:text-foreground"
                   title="Insert workflow variables"
+                  onMouseDown={(e) => {
+                    // Save cursor position before dropdown opens
+                    saveSelection()
+                  }}
                 >
                   <Braces className="h-4 w-4" />
                   Variables
@@ -2258,7 +2455,11 @@ export function EmailRichTextEditor({
           <div
             ref={editorRef}
             contentEditable
-            onInput={handleContentChange}
+            onInput={() => {
+              if (editorRef.current) {
+                handleContentChange(editorRef.current.innerHTML)
+              }
+            }}
             onKeyDown={(e) => {
               // Prevent Enter key from submitting form/closing modal
               if (e.key === 'Enter') {
@@ -2277,7 +2478,9 @@ export function EmailRichTextEditor({
             }}
             onBlur={(event) => {
               dropHandlers.onBlur()
-              handleContentChange()
+              if (editorRef.current) {
+                handleContentChange(editorRef.current.innerHTML)
+              }
             }}
             onDragOver={dropHandlers.onDragOver}
             onDragLeave={dropHandlers.onDragLeave}
