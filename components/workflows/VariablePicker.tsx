@@ -87,10 +87,31 @@ export function VariablePicker({
         }
       }
 
+      // Flatten array properties - if an output has 'properties', include those as individual outputs
+      const flattenedOutputs: any[] = []
+      outputs.forEach((output: any) => {
+        // Always include the top-level field
+        flattenedOutputs.push(output)
+
+        // If this is an array with properties, also include the properties as separate fields
+        if (output.type === 'array' && Array.isArray(output.properties)) {
+          output.properties.forEach((prop: any) => {
+            flattenedOutputs.push({
+              ...prop,
+              name: `${output.name}[].${prop.name}`,
+              label: prop.label || prop.name, // Just use the property label, node title will be shown separately
+              _isArrayProperty: true,
+              _parentArray: output.name,
+              _parentArrayLabel: output.label || output.name
+            })
+          })
+        }
+      })
+
       return {
         id: node.id,
         title: node.data?.title || node.data?.type || 'Unknown Node',
-        outputs
+        outputs: flattenedOutputs
       }
     }) || [])
     
@@ -131,14 +152,24 @@ export function VariablePicker({
     
     // Find trigger nodes (they're always available)
     const triggerNodes = workflowData.nodes.filter((node: any) => node.data?.isTrigger).map((node: any) => node.id)
-    
+
     // Return filtered nodes - include previous nodes, trigger nodes, and any nodes with outputs (excluding current node)
-    return nodes.filter((node: any) => 
-      node.id !== currentNodeId && // Exclude the current node being configured
-      (previousNodeIds.includes(node.id) || 
-      triggerNodes.includes(node.id) ||
-      (node.outputs && node.outputs.length > 0)) // Include any node that has outputs
-    )
+    // Sort by Y position to maintain workflow order
+    return nodes
+      .filter((node: any) =>
+        node.id !== currentNodeId && // Exclude the current node being configured
+        (previousNodeIds.includes(node.id) ||
+        triggerNodes.includes(node.id) ||
+        (node.outputs && node.outputs.length > 0)) // Include any node that has outputs
+      )
+      .sort((a: any, b: any) => {
+        // Get positions from the original workflow nodes
+        const nodeA = workflowData.nodes.find((n: any) => n.id === a.id)
+        const nodeB = workflowData.nodes.find((n: any) => n.id === b.id)
+        const posA = nodeA?.position || { x: 0, y: 0 }
+        const posB = nodeB?.position || { x: 0, y: 0 }
+        return posA.y - posB.y
+      })
   }
 
   // Function to get relevant AI agent outputs based on current node type

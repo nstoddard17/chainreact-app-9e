@@ -34,6 +34,13 @@ export async function moveGoogleCalendarEvent(
       throw new Error('Event ID is required to move an event')
     }
 
+    // Check if an array was provided instead of a single event ID
+    if (Array.isArray(eventId)) {
+      throw new Error(
+        'Multiple events detected. To move multiple events, add a Loop node before this action and use {{loop.currentItem.eventId}} as the Event ID. If you want to move only the first event, use {{list_events_node.events.0.eventId}} instead.'
+      )
+    }
+
     if (!destinationCalendarId) {
       throw new Error('Destination calendar ID is required')
     }

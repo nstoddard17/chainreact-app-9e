@@ -95,7 +95,7 @@ export function NotificationBuilder({
             <Bell className="h-4 w-4 text-muted-foreground shrink-0" />
 
             {/* Method selector */}
-            <div style={{ width: '145px', minWidth: '145px' }}>
+            <div style={{ width: '160px', minWidth: '160px' }}>
               <Combobox
                 value={notification.method}
                 onChange={(method) => updateNotification(index, { method: method as 'popup' | 'email' })}
@@ -106,7 +106,7 @@ export function NotificationBuilder({
                 disabled={disabled}
                 disableSearch={true}
                 hideClearButton={true}
-                style={{ width: '145px', minWidth: '145px' }}
+                style={{ width: '160px', minWidth: '160px' }}
               />
             </div>
 

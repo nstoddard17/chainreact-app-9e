@@ -110,23 +110,50 @@ export function VariablePickerDropdown({
     // Get previous node IDs
     const previousNodeIds = new Set(getPreviousNodes(currentNodeId))
 
-    // Filter to previous nodes only
-    const previousNodes = workflowData.nodes.filter((node: any) =>
-      previousNodeIds.has(node.id) &&
-      node.id !== 'add-action-button' &&
-      !node.data?.title?.toLowerCase().includes('add action')
-    )
+    // Filter to previous nodes only and sort by Y position (workflow order)
+    const previousNodes = workflowData.nodes
+      .filter((node: any) =>
+        previousNodeIds.has(node.id) &&
+        node.id !== 'add-action-button' &&
+        !node.data?.title?.toLowerCase().includes('add action')
+      )
+      .sort((a: any, b: any) => {
+        const posA = a.position || { x: 0, y: 0 }
+        const posB = b.position || { x: 0, y: 0 }
+        return posA.y - posB.y
+      })
 
     // Build variable groups
     const groups: VariableGroup[] = previousNodes.map((node: any) => {
       const nodeComponent = ALL_NODE_COMPONENTS.find(comp => comp.type === node.data?.type)
-      const outputSchema = getActionOutputSchema(node.data?.type || '', node.data?.config)
+      let outputSchema = getActionOutputSchema(node.data?.type || '', node.data?.config)
+
+      // Flatten array properties - if an output has 'properties', include those as individual outputs
+      const flattenedOutputs: any[] = []
+      outputSchema.forEach((output: any) => {
+        // Always include the top-level field
+        flattenedOutputs.push(output)
+
+        // If this is an array with properties, also include the properties as separate fields
+        if (output.type === 'array' && Array.isArray(output.properties)) {
+          output.properties.forEach((prop: any) => {
+            flattenedOutputs.push({
+              ...prop,
+              name: `${output.name}[].${prop.name}`,
+              label: prop.label || prop.name, // Just use the property label, node title will be shown separately
+              _isArrayProperty: true,
+              _parentArray: output.name,
+              _parentArrayLabel: output.label || output.name
+            })
+          })
+        }
+      })
 
       const providerId = node.data?.providerId || nodeComponent?.providerId || ''
       const providerName = formatProviderName(providerId)
       const nodeTitle = node.data?.title?.trim() || nodeComponent?.title || 'Step'
 
-      const variables: Variable[] = outputSchema.map(output => ({
+      const variables: Variable[] = flattenedOutputs.map(output => ({
         nodeId: node.id,
         nodeTitle,
         nodeProviderName: providerName,

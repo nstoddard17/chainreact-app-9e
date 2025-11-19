@@ -135,6 +135,11 @@ export async function listGoogleCalendarEvents(
       output: {
         events: transformedEvents,
         count: transformedEvents.length,
+        // Convenience fields for easy access to first/last event
+        firstEventId: transformedEvents.length > 0 ? transformedEvents[0].eventId : null,
+        lastEventId: transformedEvents.length > 0 ? transformedEvents[transformedEvents.length - 1].eventId : null,
+        firstEvent: transformedEvents.length > 0 ? transformedEvents[0] : null,
+        lastEvent: transformedEvents.length > 0 ? transformedEvents[transformedEvents.length - 1] : null,
         nextPageToken: response.data.nextPageToken,
         nextSyncToken: response.data.nextSyncToken,
         calendarId: calendarId,

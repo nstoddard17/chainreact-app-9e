@@ -1537,20 +1537,34 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         return
       }
 
-      const estimatedHeight = Math.max(data.spacing, 80)
-      let targetSlot = data.ids.length
-      for (let i = 0; i < data.ids.length; i++) {
-        const nodeTop = data.positions[i]
-        const nodeBottom = nodeTop + estimatedHeight * 0.9
-        if (flowPoint.y < nodeTop) {
-          targetSlot = i
-          break
+      const { ids, positions, spacing, boundaries } = data
+
+      let targetSlot = ids.length
+      if (Array.isArray(boundaries) && boundaries.length > 1) {
+        targetSlot = boundaries.length - 1
+        for (let i = 1; i < boundaries.length; i++) {
+          if (flowPoint.y < boundaries[i]) {
+            targetSlot = i - 1
+            break
+          }
         }
-        if (flowPoint.y < nodeBottom) {
-          targetSlot = i + 1
-          break
+      } else {
+        const estimatedHeight = Math.max(spacing, 80)
+        for (let i = 0; i < ids.length; i++) {
+          const nodeTop = positions[i]
+          const nodeBottom = nodeTop + estimatedHeight * 0.9
+          if (flowPoint.y < nodeTop) {
+            targetSlot = i
+            break
+          }
+          if (flowPoint.y < nodeBottom) {
+            targetSlot = i + 1
+            break
+          }
         }
       }
+
+      targetSlot = Math.max(0, Math.min(ids.length, targetSlot))
 
       reorderDragOffsetRef.current = nextOffset
       dragVisualStateRef.current = {
