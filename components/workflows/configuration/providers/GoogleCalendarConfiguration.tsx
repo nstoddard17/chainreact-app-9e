@@ -32,10 +32,13 @@ export function GoogleCalendarConfiguration(props: GoogleCalendarConfigurationPr
   const {
     nodeInfo,
     loadOptions,
-    needsConnection
+    needsConnection,
+    values,
+    setValue
   } = props;
 
   const hasRequestedCalendarsRef = useRef(false);
+  const prevAllDayRef = useRef<boolean | undefined>(undefined);
 
   useEffect(() => {
     hasRequestedCalendarsRef.current = false;
@@ -76,6 +79,40 @@ export function GoogleCalendarConfiguration(props: GoogleCalendarConfigurationPr
       isMounted = false;
     };
   }, [loadOptions, needsConnection, nodeInfo?.id, nodeInfo?.type, nodeInfo?.providerId]);
+
+  // Handle allDay toggle - update notifications and transparency defaults
+  useEffect(() => {
+    const currentAllDay = values?.allDay;
+
+    // Only update if allDay value has changed
+    if (prevAllDayRef.current !== currentAllDay) {
+      prevAllDayRef.current = currentAllDay;
+
+      // Only update on actual toggle, not initial load
+      if (prevAllDayRef.current !== undefined) {
+        if (currentAllDay === true) {
+          // Switched to all-day event
+          // Update notifications to Google's default: 1 day before at 9:00 AM
+          // 1 day = 1440 minutes, time = 09:00
+          setValue('notifications', [{ method: 'popup', minutes: 1440, time: '09:00' }]);
+
+          // Update transparency to "Free" for all-day events
+          setValue('transparency', 'transparent');
+
+          logger.debug('🔄 [GoogleCalendar] Switched to all-day event - updated notifications to 1 day before at 9:00 AM and transparency to free');
+        } else if (currentAllDay === false) {
+          // Switched to timed event
+          // Update notifications to 30 minutes before (no time field for timed events)
+          setValue('notifications', [{ method: 'popup', minutes: 30 }]);
+
+          // Update transparency to "Busy" for timed events
+          setValue('transparency', 'opaque');
+
+          logger.debug('🔄 [GoogleCalendar] Switched to timed event - updated notifications to 30 minutes before and transparency to busy');
+        }
+      }
+    }
+  }, [values?.allDay, setValue]);
 
   return <GenericConfiguration {...props} />;
 }

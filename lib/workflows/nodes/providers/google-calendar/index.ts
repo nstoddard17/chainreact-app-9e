@@ -657,11 +657,9 @@ export const googleCalendarNodes: NodeComponent[] = [
       {
         name: "googleMeet",
         label: "Add Google Meet video conferencing",
-        type: "google-meet-button",
-        defaultValue: null,
-        icon: "video",
-        buttonText: "Add Google Meet video conferencing",
-        description: "Create and manage Google Meet video conference for this event"
+        type: "boolean",
+        defaultValue: false,
+        description: "Automatically create a Google Meet link for this event"
       },
 
       {
@@ -676,7 +674,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         label: "Notifications",
         type: "notification-builder",
         defaultValue: [
-          { method: "popup", minutes: 30 }
+          { method: "popup", minutes: 1440, time: "09:00" }
         ],
         description: "Add multiple notifications with different timing"
       },
@@ -718,7 +716,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         name: "transparency",
         label: "Show as",
         type: "select",
-        defaultValue: "opaque",
+        defaultValue: "transparent",
         options: [
           { value: "transparent", label: "Free" },
           { value: "opaque", label: "Busy" }
@@ -833,16 +831,10 @@ export const googleCalendarNodes: NodeComponent[] = [
         description: "Event end date and time information"
       },
       {
-        name: "hangoutLink",
-        label: "Hangout Link",
-        type: "string",
-        description: "Google Meet/Hangouts link if conference was added"
-      },
-      {
         name: "meetLink",
-        label: "Meet Link",
+        label: "Google Meet Link",
         type: "string",
-        description: "Google Meet video conference link"
+        description: "Google Meet video conference link (if video conferencing was enabled)"
       },
       {
         name: "attendees",

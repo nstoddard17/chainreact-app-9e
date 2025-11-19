@@ -350,6 +350,25 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
   const isMountedRef = useRef<boolean>(false)
   const deleteNodeRef = useRef<((nodeId: string) => Promise<void>) | null>(null)
 
+  const syncLatestRunId = useCallback(async () => {
+    if (!flowId) return
+
+    try {
+      const payload = await fetchJson<{ run: { id: string } | null }>(
+        `/workflows/v2/api/flows/${flowId}/runs/latest`
+      )
+
+      if (payload?.run?.id) {
+        setFlowState((prev) => ({
+          ...prev,
+          lastRunId: payload.run!.id,
+        }))
+      }
+    } catch (error) {
+      console.debug("[useFlowV2Builder] Unable to fetch latest run", error)
+    }
+  }, [flowId])
+
   const updateReactFlowGraph = useCallback(
     (flow: Flow) => {
       const existingNodes = getNodes ? getNodes() : []
@@ -639,6 +658,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
           revisionCount: 1, // We don't have revision count from server, set to 1
           error: undefined,
         }))
+        void syncLatestRunId()
       } catch (error: any) {
         setFlowState((prev) => ({
           ...prev,
@@ -680,6 +700,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
         revisionCount: revisions.length,
         error: undefined,
       }))
+      void syncLatestRunId()
     } catch (error: any) {
       const message = error?.message ?? "Failed to load flow"
       console.error("[useFlowV2Builder] load failed", message)
@@ -690,7 +711,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
     } finally {
       setLoading(false)
     }
-  }, [flowId, setLoading, updateReactFlowGraph])
+  }, [flowId, setLoading, syncLatestRunId, updateReactFlowGraph])
 
   const ensureFlow = useCallback(async () => {
     if (flowRef.current) {

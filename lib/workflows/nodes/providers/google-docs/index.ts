@@ -325,6 +325,373 @@ const googleDocsActionUpdateDocument: NodeComponent = {
   ]
 }
 
+const googleDocsActionShareDocument: NodeComponent = {
+  type: "google_docs_action_share_document",
+  title: "Share Document",
+  description: "Share a Google Document with users or make it public",
+  icon: Share,
+  providerId: "google-docs",
+  category: "Productivity",
+  isTrigger: false,
+  requiredScopes: ["https://www.googleapis.com/auth/drive"],
+  configSchema: [
+    {
+      name: "documentId",
+      label: "Document",
+      type: "select",
+      dynamic: "google-docs-documents",
+      loadOnMount: true,
+      required: true,
+      placeholder: "Select a document to share",
+      description: "Choose the document you want to share"
+    },
+    {
+      name: "shareWith",
+      label: "Share With (Email Addresses)",
+      type: "email-autocomplete",
+      required: false,
+      placeholder: "Enter email addresses separated by commas",
+      description: "Email addresses of people to share with (leave empty if making public)",
+      dynamic: "google-contacts"
+    },
+    {
+      name: "permission",
+      label: "Permission Level",
+      type: "select",
+      required: false,
+      defaultValue: "reader",
+      options: [
+        { value: "reader", label: "Viewer (Read Only)" },
+        { value: "commenter", label: "Commenter (Can Comment)" },
+        { value: "writer", label: "Editor (Can Edit)" },
+        { value: "owner", label: "Owner (Transfer Ownership)" }
+      ],
+      description: "Access level for shared users"
+    },
+    {
+      name: "sendNotification",
+      label: "Send Email Notification",
+      type: "boolean",
+      required: false,
+      defaultValue: true,
+      description: "Notify users via email when sharing"
+    },
+    {
+      name: "message",
+      label: "Notification Message",
+      type: "textarea",
+      required: false,
+      placeholder: "Optional message to include in the sharing email",
+      description: "Custom message for the email notification",
+      rows: 3,
+      showIf: (values: any) => values.sendNotification
+    },
+    {
+      name: "makePublic",
+      label: "Make Public",
+      type: "boolean",
+      required: false,
+      defaultValue: false,
+      description: "Make the document accessible to anyone"
+    },
+    {
+      name: "publicPermission",
+      label: "Public Permission Level",
+      type: "select",
+      required: false,
+      defaultValue: "reader",
+      options: [
+        { value: "reader", label: "Viewer (Read Only)" },
+        { value: "commenter", label: "Commenter (Can Comment)" },
+        { value: "writer", label: "Editor (Can Edit)" }
+      ],
+      description: "Access level for public users",
+      showIf: (values: any) => values.makePublic
+    },
+    {
+      name: "allowDiscovery",
+      label: "Allow Discovery in Search",
+      type: "boolean",
+      required: false,
+      defaultValue: false,
+      description: "Allow the document to appear in search results",
+      showIf: (values: any) => values.makePublic
+    },
+    {
+      name: "transferOwnership",
+      label: "Transfer Ownership",
+      type: "boolean",
+      required: false,
+      defaultValue: false,
+      description: "Transfer ownership to the first user (only works with 'Owner' permission)",
+      showIf: (values: any) => values.permission === "owner"
+    }
+  ],
+  producesOutput: true,
+  outputSchema: [
+    {
+      name: "documentId",
+      label: "Document ID",
+      type: "string",
+      description: "The unique ID of the shared document"
+    },
+    {
+      name: "documentUrl",
+      label: "Document URL",
+      type: "string",
+      description: "Direct URL to view/edit the document"
+    },
+    {
+      name: "sharedWith",
+      label: "Shared With",
+      type: "array",
+      description: "List of email addresses the document was shared with"
+    },
+    {
+      name: "isPublic",
+      label: "Is Public",
+      type: "boolean",
+      description: "Whether the document is publicly accessible"
+    },
+    {
+      name: "permissionIds",
+      label: "Permission IDs",
+      type: "array",
+      description: "Array of permission IDs created"
+    }
+  ]
+}
+
+const googleDocsActionGetDocument: NodeComponent = {
+  type: "google_docs_action_get_document",
+  title: "Get Document",
+  description: "Retrieve content from a Google Document",
+  icon: FileText,
+  providerId: "google-docs",
+  category: "Productivity",
+  isTrigger: false,
+  requiredScopes: ["https://www.googleapis.com/auth/documents.readonly"],
+  configSchema: [
+    {
+      name: "documentId",
+      label: "Document",
+      type: "select",
+      dynamic: "google-docs-documents",
+      loadOnMount: true,
+      required: true,
+      placeholder: "Select a document to retrieve",
+      description: "Choose the document to get content from"
+    }
+  ],
+  producesOutput: true,
+  outputSchema: [
+    {
+      name: "documentId",
+      label: "Document ID",
+      type: "string",
+      description: "The unique ID of the document"
+    },
+    {
+      name: "title",
+      label: "Document Title",
+      type: "string",
+      description: "The title of the document"
+    },
+    {
+      name: "content",
+      label: "Document Content",
+      type: "string",
+      description: "Full text content of the document"
+    },
+    {
+      name: "revisionId",
+      label: "Revision ID",
+      type: "string",
+      description: "The current revision ID"
+    },
+    {
+      name: "documentUrl",
+      label: "Document URL",
+      type: "string",
+      description: "Direct URL to view/edit the document"
+    }
+  ]
+}
+
+const googleDocsActionExportDocument: NodeComponent = {
+  type: "google_docs_action_export_document",
+  title: "Export Document",
+  description: "Export a Google Document to various formats (PDF, DOCX, etc.)",
+  icon: Share,
+  providerId: "google-docs",
+  category: "Productivity",
+  isTrigger: false,
+  requiredScopes: ["https://www.googleapis.com/auth/documents.readonly", "https://www.googleapis.com/auth/drive"],
+  configSchema: [
+    {
+      name: "documentId",
+      label: "Document",
+      type: "select",
+      dynamic: "google-docs-documents",
+      loadOnMount: true,
+      required: true,
+      placeholder: "Select a document to export",
+      description: "Choose the document to export"
+    },
+    {
+      name: "exportFormat",
+      label: "Export Format",
+      type: "select",
+      required: true,
+      defaultValue: "pdf",
+      options: [
+        { value: "pdf", label: "PDF" },
+        { value: "docx", label: "Microsoft Word (.docx)" },
+        { value: "txt", label: "Plain Text (.txt)" },
+        { value: "html", label: "HTML" },
+        { value: "rtf", label: "Rich Text Format (.rtf)" },
+        { value: "epub", label: "EPUB" },
+        { value: "odt", label: "OpenDocument Text (.odt)" }
+      ],
+      description: "Format to export the document to"
+    },
+    {
+      name: "fileName",
+      label: "File Name (Optional)",
+      type: "text",
+      required: false,
+      placeholder: "Leave empty to use document title",
+      description: "Custom file name for the exported document"
+    },
+    {
+      name: "destination",
+      label: "Destination",
+      type: "select",
+      required: true,
+      defaultValue: "drive",
+      options: [
+        { value: "drive", label: "Save to Google Drive" },
+        { value: "email", label: "Send via Email" },
+        { value: "webhook", label: "Send to Webhook URL" },
+        { value: "workflow", label: "Use in Next Step (Base64)" }
+      ],
+      description: "Where to send the exported document"
+    },
+    {
+      name: "driveFolder",
+      label: "Drive Folder",
+      type: "select",
+      dynamic: "google-drive-folders",
+      loadOnMount: true,
+      required: false,
+      placeholder: "Select destination folder (optional)",
+      description: "Folder to save the exported file",
+      showIf: (values: any) => values.destination === "drive"
+    },
+    {
+      name: "emailTo",
+      label: "Email To",
+      type: "email-autocomplete",
+      required: false,
+      placeholder: "Enter recipient email addresses",
+      description: "Email addresses to send the exported document to",
+      dynamic: "google-contacts",
+      showIf: (values: any) => values.destination === "email"
+    },
+    {
+      name: "emailSubject",
+      label: "Email Subject",
+      type: "text",
+      required: false,
+      defaultValue: "Exported Document",
+      placeholder: "Email subject line",
+      description: "Subject for the email",
+      showIf: (values: any) => values.destination === "email"
+    },
+    {
+      name: "emailBody",
+      label: "Email Body",
+      type: "textarea",
+      required: false,
+      defaultValue: "Please find your exported document attached to this email.",
+      placeholder: "Email message content",
+      description: "Body text for the email",
+      rows: 4,
+      showIf: (values: any) => values.destination === "email"
+    },
+    {
+      name: "webhookUrl",
+      label: "Webhook URL",
+      type: "text",
+      required: false,
+      placeholder: "https://example.com/webhook",
+      description: "URL to POST the exported document to",
+      showIf: (values: any) => values.destination === "webhook"
+    },
+    {
+      name: "webhookHeaders",
+      label: "Webhook Headers (JSON)",
+      type: "textarea",
+      required: false,
+      placeholder: '{"Authorization": "Bearer token", "X-Custom-Header": "value"}',
+      description: "Optional custom headers as JSON",
+      rows: 3,
+      showIf: (values: any) => values.destination === "webhook"
+    }
+  ],
+  producesOutput: true,
+  outputSchema: [
+    {
+      name: "fileName",
+      label: "File Name",
+      type: "string",
+      description: "Name of the exported file"
+    },
+    {
+      name: "fileSize",
+      label: "File Size",
+      type: "number",
+      description: "Size of the exported file in bytes"
+    },
+    {
+      name: "format",
+      label: "Export Format",
+      type: "string",
+      description: "Format the document was exported to"
+    },
+    {
+      name: "destination",
+      label: "Destination",
+      type: "string",
+      description: "Where the document was sent"
+    },
+    {
+      name: "fileId",
+      label: "File ID (Drive)",
+      type: "string",
+      description: "Google Drive file ID (only for Drive destination)"
+    },
+    {
+      name: "fileUrl",
+      label: "File URL (Drive)",
+      type: "string",
+      description: "URL to access the file (only for Drive destination)"
+    },
+    {
+      name: "data",
+      label: "File Data (Base64)",
+      type: "string",
+      description: "Base64-encoded file data (only for workflow destination)"
+    },
+    {
+      name: "mimeType",
+      label: "MIME Type",
+      type: "string",
+      description: "MIME type of the exported file"
+    }
+  ]
+}
+
 
 
 // Google Docs Triggers
@@ -499,10 +866,13 @@ const googleDocsTriggerDocumentUpdated: NodeComponent = {
 
 // Export all Google Docs nodes
 export const googleDocsNodes: NodeComponent[] = [
-  // Actions (2)
+  // Actions (5)
   googleDocsActionCreateDocument,
   googleDocsActionUpdateDocument,
-  
+  googleDocsActionShareDocument,
+  googleDocsActionGetDocument,
+  googleDocsActionExportDocument,
+
   // Triggers (2)
   googleDocsTriggerNewDocument,
   googleDocsTriggerDocumentUpdated,
