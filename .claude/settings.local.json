@@ -87,7 +87,10 @@
       "Bash(npm view:*)",
       "Bash(taskkill:*)",
       "Bash(rm:*)",
-      "Bash(timeout 5 tail:*)"
+      "Bash(timeout 5 tail:*)",
+      "Bash(node:*)",
+      "Bash(del \"c:\\Users\\marcu\\source\\repos\\nstoddard17\\chainreact-app-9e\\scripts\\update-shopify-cascading.js\")",
+      "Bash(del \"c:\\Users\\marcu\\source\\repos\\nstoddard17\\chainreact-app-9e\\scripts\\add-shopify-connect-buttons.js\")"
     ],
     "edit": [
       "*"

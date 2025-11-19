@@ -889,9 +889,17 @@ function generateShopifyAuthUrl(state: string, shop: string): string {
     shopDomain = `${shopDomain}.myshopify.com`
   }
 
+  const redirectUri = `${baseUrl}/api/integrations/shopify/callback`
+
+  logger.debug('🛍️ Shopify OAuth URL Generation:')
+  logger.debug('  - Client ID:', clientId ? `${clientId.substring(0, 10)}...` : 'NOT SET')
+  logger.debug('  - Base URL:', baseUrl)
+  logger.debug('  - Redirect URI:', redirectUri)
+  logger.debug('  - Shop Domain:', shopDomain)
+
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: `${baseUrl}/api/integrations/shopify/callback`,
+    redirect_uri: redirectUri,
     response_type: "code",
     scope: "read_products write_products read_orders write_orders read_customers write_customers read_inventory write_inventory",
     state,
@@ -899,8 +907,11 @@ function generateShopifyAuthUrl(state: string, shop: string): string {
     // Users must uninstall the app from Shopify admin to see the consent screen again
   })
 
+  const authUrl = `https://${shopDomain}/admin/oauth/authorize?${params.toString()}`
+  logger.debug('  - Final OAuth URL (first 150 chars):', authUrl.substring(0, 150) + '...')
+
   // The correct format for Shopify OAuth URL includes the shop domain
-  return `https://${shopDomain}/admin/oauth/authorize?${params.toString()}`
+  return authUrl
 }
 
 function generateStripeAuthUrl(state: string): string {
