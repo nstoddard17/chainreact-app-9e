@@ -113,6 +113,8 @@ const AGENT_PANEL_MARGIN = 16 // Margin on each side
 const AGENT_PANEL_MIN_WIDTH = 300 // Mobile minimum
 const AGENT_PANEL_MAX_WIDTH = 600 // Large desktop maximum
 const ENABLE_AUTO_STACK = false
+const LINEAR_STACK_X = 400
+const LINEAR_NODE_VERTICAL_GAP = 180
 
 type MoveNodeResult = { newOrder: string[]; changed: boolean } | null
 
@@ -1431,6 +1433,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       return
     }
 
+    const triggerNodeId = builder.nodes?.find((node: any) => node.data?.isTrigger)?.id ?? null
+
     builder.setEdges((currentEdges: any[]) => {
       if (!Array.isArray(currentEdges) || currentEdges.length === 0) {
         return currentEdges
@@ -1518,12 +1522,16 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
       const nextEdges = [...preservedEdges]
       const firstNodeId = orderedNodeIds[0]
-      if (firstNodeId && incomingEdges.length === 1) {
-        const incoming = incomingEdges[0]
-        nextEdges.push({
-          ...incoming,
-          target: firstNodeId,
-        })
+      if (firstNodeId) {
+        if (incomingEdges.length === 1) {
+          const incoming = incomingEdges[0]
+          nextEdges.push({
+            ...incoming,
+            target: firstNodeId,
+          })
+        } else if (incomingEdges.length === 0 && triggerNodeId) {
+          nextEdges.push(makeLinearEdge(triggerNodeId, firstNodeId))
+        }
       }
 
       for (let i = 0; i < orderedNodeIds.length - 1; i++) {
@@ -1544,7 +1552,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
       return nextEdges
     })
-  }, [builder?.setEdges])
+  }, [builder?.nodes, builder?.setEdges])
 
   const moveNodeToIndex = useCallback((nodeId: string, targetSlot: number) => {
     const data = getReorderableData()
@@ -1567,15 +1575,12 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     slot = Math.max(0, Math.min(newOrder.length, slot))
     newOrder.splice(slot, 0, nodeId)
 
-    const baselinePositions = [...positions]
-    const lastPosition = baselinePositions[baselinePositions.length - 1] ?? 0
+    const anchorY = positions[0] ?? 0
+    const stackSpacing = Math.max(spacing, LINEAR_NODE_VERTICAL_GAP)
 
     const positionMap = new Map<string, number>()
     newOrder.forEach((id, index) => {
-      let y = baselinePositions[index]
-      if (y === undefined) {
-        y = lastPosition + spacing * (index - baselinePositions.length + 1)
-      }
+      const y = anchorY + index * stackSpacing
       positionMap.set(id, y)
     })
 
@@ -1698,34 +1703,54 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       const viewport = instance.getViewport?.()
       const zoom = viewport?.zoom ?? 1
 
-      let targetSlot = ids.length
-      if (Array.isArray(boundaries) && boundaries.length > 1) {
-        targetSlot = boundaries.length - 1
-        for (let i = 1; i < boundaries.length; i++) {
-          if (flowPoint.y < boundaries[i]) {
-            targetSlot = i - 1
-            break
+      const getSlotForY = (y: number) => {
+        let slot = ids.length
+        if (Array.isArray(boundaries) && boundaries.length > 1) {
+          slot = boundaries.length - 1
+          for (let i = 1; i < boundaries.length; i++) {
+            if (y < boundaries[i]) {
+              slot = i - 1
+              break
+            }
+          }
+        } else {
+          const estimatedHeight = Math.max(spacing, 80)
+          for (let i = 0; i < ids.length; i++) {
+            const nodeTop = positions[i]
+            const nodeBottom = nodeTop + estimatedHeight
+            if (y < nodeTop) {
+              slot = i
+              break
+            }
+            if (y < nodeBottom) {
+              slot = i + 1
+              break
+            }
           }
         }
-      } else {
-        const estimatedHeight = Math.max(spacing, 80)
-        for (let i = 0; i < ids.length; i++) {
-          const nodeTop = positions[i]
-          const nodeBottom = nodeTop + estimatedHeight * 0.9
-          if (flowPoint.y < nodeTop) {
-            targetSlot = i
-            break
-          }
-          if (flowPoint.y < nodeBottom) {
-            targetSlot = i + 1
-            break
-          }
+        return Math.max(0, Math.min(ids.length, slot))
+      }
+
+      const scaledOffset = zoom !== 0 ? nextOffset / zoom : nextOffset
+      const pointerSlot = getSlotForY(flowPoint.y)
+      const draggedIndex = reorderDragStartIndex ?? ids.indexOf(activeReorderDrag.nodeId)
+      let targetSlot = pointerSlot
+
+      if (draggedIndex !== -1) {
+        const baseY = positions[draggedIndex] ?? flowPoint.y
+        const estimatedHeight = Math.max(spacing, LINEAR_NODE_VERTICAL_GAP)
+        const draggedCenterY = baseY + scaledOffset + estimatedHeight / 2
+        const centerSlot = getSlotForY(draggedCenterY)
+
+        if (scaledOffset > 0) {
+          targetSlot = Math.max(pointerSlot, centerSlot)
+        } else if (scaledOffset < 0) {
+          targetSlot = Math.min(pointerSlot, centerSlot)
+        } else {
+          targetSlot = centerSlot
         }
       }
 
-      targetSlot = Math.max(0, Math.min(ids.length, targetSlot))
-
-      const scaledOffset = zoom !== 0 ? nextOffset / zoom : nextOffset
       reorderDragOffsetRef.current = scaledOffset
       dragVisualStateRef.current = {
         offset: scaledOffset,

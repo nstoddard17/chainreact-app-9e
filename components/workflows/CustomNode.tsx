@@ -216,31 +216,6 @@ function CustomNode({ id, data, selected }: NodeProps) {
     return nodeState
   }, [nodeData.executionStatus, nodeData.isActiveExecution, nodeState])
 
-  const getStatusBadge = (state: NodeState, hasRequiredFieldsMissing: boolean): { text: string; className: string; icon?: React.ReactNode; iconOnly?: boolean } => {
-    // For ready nodes, check if required fields are missing
-    if (state === 'ready' && hasRequiredFieldsMissing) {
-      return {
-        text: 'Incomplete',
-        className: 'badge-incomplete',
-        icon: <AlertCircle className="w-4 h-4" />,
-        iconOnly: true // Only show the icon, not the text
-      }
-    }
-
-    switch (state) {
-      case 'skeleton':
-        return { text: 'Setup Required', className: 'badge-skeleton' }
-      case 'running':
-        return { text: 'Running', className: 'badge-running' }
-      case 'passed':
-        return { text: 'Success', className: 'badge-passed' }
-      case 'failed':
-        return { text: 'Failed', className: 'badge-failed' }
-      case 'ready':
-      default:
-        return { text: 'Ready', className: 'badge-ready' }
-    }
-  }
 
   // Helper function to get handle styling based on node state
   const getHandleStyle = (state: NodeState) => {
@@ -406,27 +381,6 @@ function CustomNode({ id, data, selected }: NodeProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [component?.configSchema, config, data.validationState, type])
 
-  const statusBadge = getStatusBadge(visualNodeState, hasRequiredFieldsMissing)
-
-  const shouldShowStatusBadge = useMemo(() => {
-    // Always show badges for explicit execution states or validation warnings
-    if (visualNodeState === 'running' || visualNodeState === 'passed' || visualNodeState === 'failed') {
-      return true
-    }
-    if (visualNodeState === 'ready' && hasRequiredFieldsMissing) {
-      return true
-    }
-
-    const normalizedStatus = (aiStatus || '').toLowerCase()
-    return !AI_STATUS_HIDE_BADGE_STATES.has(normalizedStatus)
-  }, [aiStatus, hasRequiredFieldsMissing, visualNodeState])
-
-  type StatusIconItem = {
-    key: string
-    label: string
-    icon: React.ReactNode
-    className: string
-  }
 
   type OutputHandleConfig = {
     id: string
@@ -535,65 +489,6 @@ function CustomNode({ id, data, selected }: NodeProps) {
 
     return !isConnected
   })()
-
-  const statusIconItems = useMemo<StatusIconItem[]>(() => {
-    const items: StatusIconItem[] = []
-
-    if (shouldShowStatusBadge) {
-      switch (visualNodeState) {
-        case 'running':
-          items.push({
-            key: 'running',
-            label: statusBadge.text,
-            className: 'text-blue-600 bg-blue-50 border border-blue-200',
-            icon: <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          })
-          break
-        case 'passed':
-          items.push({
-            key: 'passed',
-            label: statusBadge.text,
-            className: 'text-emerald-600 bg-emerald-50 border border-emerald-200',
-            icon: <CheckCircle2 className="w-3.5 h-3.5" />
-          })
-          break
-        case 'failed':
-          items.push({
-            key: 'failed',
-            label: statusBadge.text,
-            className: 'text-red-600 bg-red-50 border border-red-200',
-            icon: <AlertTriangle className="w-3.5 h-3.5" />
-          })
-          break
-        case 'ready':
-        default:
-          if (hasRequiredFieldsMissing) {
-            items.push({
-              key: 'incomplete',
-              label: 'Incomplete',
-              className: 'text-amber-600 bg-amber-50 border border-amber-200',
-              icon: <AlertCircle className="w-3.5 h-3.5" />
-            })
-          }
-          break
-      }
-    }
-
-    if (isIntegrationDisconnected) {
-      const providerName = providerId
-        ?.split('-')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ')
-      items.push({
-        key: 'disconnected',
-        label: providerName ? `Integration disconnected – reconnect ${providerName}` : 'Integration disconnected',
-        className: 'text-red-600 bg-red-50 border border-red-200',
-        icon: <Unplug className="w-3.5 h-3.5" />
-      })
-    }
-
-    return items
-  }, [hasRequiredFieldsMissing, isIntegrationDisconnected, providerId, shouldShowStatusBadge, statusBadge.text, visualNodeState])
 
   // Auto-expand when status changes to configuring
   useEffect(() => {
@@ -1685,24 +1580,6 @@ function CustomNode({ id, data, selected }: NodeProps) {
               <GripVertical className="w-3 h-3" />
             </button>
           )}
-      {statusIconItems.length > 0 && (
-        <TooltipProvider>
-          <div className="absolute top-2 right-10 flex items-center gap-1 noDrag noPan z-20">
-            {statusIconItems.map((item) => (
-              <Tooltip key={item.key}>
-                <TooltipTrigger asChild>
-                  <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full ${item.className}`}>
-                    {item.icon}
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  <p>{item.label}</p>
-                </TooltipContent>
-              </Tooltip>
-            ))}
-          </div>
-        </TooltipProvider>
-      )}
       {/* Three-dots menu - Always visible in top-right corner */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

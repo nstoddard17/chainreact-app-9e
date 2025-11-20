@@ -1787,10 +1787,11 @@ export const googleCalendarNodes: NodeComponent[] = [
       {
         name: "attendeesToRemove",
         label: "Attendees to Remove",
-        type: "contact-picker",
-        placeholder: "Enter email addresses to remove",
+        type: "tags",
+        placeholder: "Type email and press Enter",
         required: true,
-        description: "Email addresses of attendees to remove"
+        description: "Email addresses of attendees to remove",
+        tooltip: "Press Enter after typing each email to add it as a pill"
       },
       {
         name: "sendNotifications",
