@@ -68,6 +68,7 @@ interface FlowV2BuilderContentProps {
 
   // Add node between/after
   onAddNodeAfter?: (afterNodeId: string | null) => void
+  disablePhantomOverlay?: boolean
 
   // Children for overlays (e.g., PathLabelsOverlay)
   children?: React.ReactNode
@@ -100,6 +101,7 @@ export function FlowV2BuilderContent({
   onUndoToPreviousStage,
   onCancelBuild,
   onAddNodeAfter,
+  disablePhantomOverlay,
   children,
 }: FlowV2BuilderContentProps) {
   const reactFlowInstance = useRef<any>(null)
@@ -349,7 +351,7 @@ export function FlowV2BuilderContent({
         {children}
 
         {/* Phantom Edge Overlay - Dashed line after last node with plus button */}
-        {onAddNodeAfter && (
+        {onAddNodeAfter && !disablePhantomOverlay && (
           <PhantomEdgeOverlay
             nodes={enrichedNodes}
             onAddNode={(afterNodeId) => {
