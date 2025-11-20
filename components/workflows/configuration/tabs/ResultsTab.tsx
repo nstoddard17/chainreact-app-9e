@@ -160,6 +160,28 @@ export function ResultsTab({
     return `${(ms / 1000).toFixed(2)}s`
   }
 
+  // Helper function to highlight variables in text
+  const highlightVariables = (text: string) => {
+    // Match {{variable}} pattern including AI_FIELD, trigger, previous, node_X, etc.
+    const variableRegex = /(\{\{[^}]+\}\})/g
+    const parts = text.split(variableRegex)
+
+    return parts.map((part, index) => {
+      if (variableRegex.test(part)) {
+        // This is a variable - highlight it
+        return (
+          <span
+            key={index}
+            className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700 font-mono text-xs"
+          >
+            {part}
+          </span>
+        )
+      }
+      return part
+    })
+  }
+
   // Format value for display
   const formatValue = (value: any, maxLength = 150): string => {
     if (value === null) return 'null'
@@ -354,13 +376,13 @@ export function ResultsTab({
     if (stringValue.length > 100) {
       return (
         <span className="text-xs block max-w-xs truncate" title={stringValue}>
-          {stringValue}
+          {highlightVariables(stringValue)}
         </span>
       )
     }
 
-    // Regular value
-    return <span className="text-xs">{stringValue}</span>
+    // Regular value with variable highlighting
+    return <span className="text-xs inline-flex items-center gap-1 flex-wrap">{highlightVariables(stringValue)}</span>
   }
 
   // Define common field orders for different data types
@@ -778,8 +800,11 @@ export function ResultsTab({
                             </>
                           ) : isArray ? (
                             <div className="rounded bg-muted/30 p-3 border border-border">
-                              <code className="text-xs font-mono text-foreground break-all">
-                                {JSON.stringify(value, null, 2)}
+                              <code className="text-xs font-mono text-foreground break-all whitespace-pre-wrap">
+                                {(() => {
+                                  const jsonString = JSON.stringify(value, null, 2)
+                                  return highlightVariables(jsonString)
+                                })()}
                               </code>
                             </div>
                           ) : isObject ? (
@@ -798,15 +823,15 @@ export function ResultsTab({
                               {isExpanded && (
                                 <div className="rounded bg-muted/30 p-3 border border-border mt-2">
                                   <pre className="text-xs font-mono text-foreground whitespace-pre-wrap break-all">
-                                    {JSON.stringify(value, null, 2)}
+                                    {highlightVariables(JSON.stringify(value, null, 2))}
                                   </pre>
                                 </div>
                               )}
                             </>
                           ) : (
                             <div className="rounded bg-muted/30 p-3 border border-border">
-                              <code className="text-xs font-mono text-foreground break-all">
-                                {String(value)}
+                              <code className="text-xs font-mono text-foreground break-all inline-flex items-center gap-1 flex-wrap">
+                                {highlightVariables(String(value))}
                               </code>
                             </div>
                           )}
@@ -856,7 +881,7 @@ export function ResultsTab({
               {showRawResponse && (
                 <div className="rounded-lg border border-border bg-muted/30 p-4 overflow-x-auto">
                   <pre className="text-xs font-mono text-foreground whitespace-pre-wrap break-all">
-                    {JSON.stringify(displayResult.rawResponse, null, 2)}
+                    {highlightVariables(JSON.stringify(displayResult.rawResponse, null, 2))}
                   </pre>
                 </div>
               )}

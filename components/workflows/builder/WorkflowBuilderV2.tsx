@@ -112,6 +112,9 @@ type NodeTestCacheEntry = {
 const AGENT_PANEL_MARGIN = 16 // Margin on each side
 const AGENT_PANEL_MIN_WIDTH = 300 // Mobile minimum
 const AGENT_PANEL_MAX_WIDTH = 600 // Large desktop maximum
+const ENABLE_AUTO_STACK = false
+
+type MoveNodeResult = { newOrder: string[]; changed: boolean } | null
 
 // Kadabra-style node display name mapping
 const NODE_DISPLAY_NAME_MAP: Record<string, string> = {
@@ -386,6 +389,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   const reorderDragOffsetRef = useRef(0)
   const [reorderPreviewIndex, setReorderPreviewIndex] = useState<number | null>(null)
   const [reorderDragStartIndex, setReorderDragStartIndex] = useState<number | null>(null)
+  const suppressNodeClickRef = useRef<string | null>(null)
+  const suppressNodeClickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const dragStartRef = useRef<number | null>(null)
   const dragVisualStateRef = useRef<{ offset: number; slot: number | null }>({ offset: 0, slot: null })
   const dragRafRef = useRef<number | null>(null)
@@ -1471,12 +1476,32 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         }
       })
     )
+    return {
+      newOrder,
+      changed: slot !== currentIndex,
+    }
   }, [builder?.nodes, builder?.setNodes, getReorderableData])
+
+  const commitReorderChanges = useCallback((orderedIds: string[]) => {
+    if (!actions?.applyEdits || orderedIds.length < 2) {
+      return
+    }
+    console.log('[Reorder] Committing order', orderedIds)
+    actions.applyEdits([{ op: "reorderNodes", nodeIds: orderedIds }]).catch((error) => {
+      console.error("[WorkflowBuilderV2] Failed to persist reorder", error)
+      toast({
+        title: "Unable to reorder nodes",
+        description: error?.message ?? "Please try again.",
+        variant: "destructive",
+      })
+    })
+  }, [actions, toast])
 
   const flushDragVisualState = useCallback(() => {
     dragRafRef.current = null
-    setReorderDragOffset(dragVisualStateRef.current.offset)
-    setReorderPreviewIndex(dragVisualStateRef.current.slot)
+    const { offset, slot } = dragVisualStateRef.current
+    setReorderDragOffset((prev) => (prev === offset ? prev : offset))
+    setReorderPreviewIndex((prev) => (prev === slot ? prev : slot))
   }, [])
 
   const scheduleVisualUpdate = useCallback(() => {
@@ -1508,6 +1533,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     setReorderPreviewIndex(startIndex)
     setReorderDragOffset(0)
     scheduleVisualUpdate()
+    if (suppressNodeClickTimeoutRef.current) {
+      clearTimeout(suppressNodeClickTimeoutRef.current)
+      suppressNodeClickTimeoutRef.current = null
+    }
+    suppressNodeClickRef.current = nodeId
   }, [builder?.nodes, getReorderableData, scheduleVisualUpdate])
 
   useEffect(() => {
@@ -1587,7 +1617,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         dragRafRef.current = null
       }
       const finalSlot = dragVisualStateRef.current.slot ?? reorderDragStartIndex ?? 0
-      moveNodeToIndex(activeReorderDrag.nodeId, finalSlot)
+      const finishedNodeId = activeReorderDrag.nodeId
+      const reorderResult = moveNodeToIndex(finishedNodeId, finalSlot)
       setActiveReorderDrag(null)
       dragStartRef.current = null
       setReorderDragStartIndex(null)
@@ -1595,6 +1626,18 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       dragVisualStateRef.current = { offset: 0, slot: null }
       reorderDragOffsetRef.current = 0
       setReorderDragOffset(0)
+      if (reorderResult?.changed) {
+        commitReorderChanges(reorderResult.newOrder)
+      }
+      if (suppressNodeClickTimeoutRef.current) {
+        clearTimeout(suppressNodeClickTimeoutRef.current)
+      }
+      suppressNodeClickRef.current = finishedNodeId
+      suppressNodeClickTimeoutRef.current = setTimeout(() => {
+        if (suppressNodeClickRef.current === finishedNodeId) {
+          suppressNodeClickRef.current = null
+        }
+      }, 250)
     }
 
     window.addEventListener('pointermove', handlePointerMove)
@@ -1610,7 +1653,15 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         dragRafRef.current = null
       }
     }
-  }, [activeReorderDrag, builder?.nodes, getReorderableData, moveNodeToIndex, reorderPreviewIndex, reorderDragStartIndex, scheduleVisualUpdate])
+  }, [activeReorderDrag, builder?.nodes, commitReorderChanges, getReorderableData, moveNodeToIndex, reorderPreviewIndex, reorderDragStartIndex, scheduleVisualUpdate])
+
+  useEffect(() => {
+    return () => {
+      if (suppressNodeClickTimeoutRef.current) {
+        clearTimeout(suppressNodeClickTimeoutRef.current)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (!activeReorderDrag) {
@@ -2106,6 +2157,13 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           previewOffset: previewOffsets.get(node.id) ?? 0,
           onStartReorder: isReorderableNode(node) ? handleReorderPointerDown : undefined,
           isReorderable: isReorderableNode(node),
+          shouldSuppressConfigureClick: () => {
+            if (suppressNodeClickRef.current === node.id) {
+              suppressNodeClickRef.current = null
+              return true
+            }
+            return false
+          },
         }
       }
     })
@@ -2304,8 +2362,14 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
     // Add optimistic node to canvas immediately for instant feedback
     builder.setNodes((nodes: any[]) => {
-      const insertIndex = nodes.findIndex(n => n.position.y > position.y)
-      const newNodes = [...nodes]
+      let newNodes = [...nodes]
+
+      // If replacing a placeholder, remove it first
+      if (replacingPlaceholder) {
+        newNodes = newNodes.filter(n => n.id !== selectedNodeId)
+      }
+
+      const insertIndex = newNodes.findIndex(n => n.position.y > position.y)
       if (insertIndex === -1) {
         newNodes.push(optimisticNode)
       } else {
@@ -2315,7 +2379,22 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     })
 
     // Add optimistic edges immediately
-    if (selectedNodeId && !replacingPlaceholder) {
+    if (replacingPlaceholder) {
+      // When replacing a placeholder, update edges that reference the placeholder
+      builder.setEdges((edges: any[]) => {
+        return edges.map(edge => {
+          // Update edges pointing TO the placeholder
+          if (edge.target === selectedNodeId) {
+            return { ...edge, target: tempId }
+          }
+          // Update edges FROM the placeholder
+          if (edge.source === selectedNodeId) {
+            return { ...edge, source: tempId }
+          }
+          return edge
+        })
+      })
+    } else if (selectedNodeId) {
       builder.setEdges((edges: any[]) => {
         const oldEdge = edges.find((e: any) => e.source === selectedNodeId)
         if (oldEdge) {
@@ -4307,6 +4386,10 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       return
     }
 
+    if (!ENABLE_AUTO_STACK) {
+      return
+    }
+
     const VERTICAL_SPACING = 180 // Match initial placeholder spacing
     const CENTER_X = 400 // Consistent horizontal center
 
@@ -4600,6 +4683,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
             onUndoToPreviousStage={handleUndoToPreviousStage}
             onCancelBuild={handleCancelBuild}
             onAddNodeAfter={handleAddNodeAfterClick}
+            disablePhantomOverlay={Boolean(activeReorderDrag)}
           >
             {/* Path Labels Overlay - Zapier-style floating pills */}
             <PathLabelsOverlay

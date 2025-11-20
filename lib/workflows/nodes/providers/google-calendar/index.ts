@@ -873,8 +873,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         type: "select",
         dynamic: "google-calendars",
         loadOnMount: true,
-        required: true,
-        defaultValue: "primary"
+        required: true
       },
       {
         name: "eventId",
@@ -1156,8 +1155,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         type: "select",
         dynamic: "google-calendars",
         loadOnMount: true,
-        required: true,
-        defaultValue: "primary"
+        required: true
       },
       {
         name: "eventId",
@@ -1350,8 +1348,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         type: "select",
         dynamic: "google-calendars",
         loadOnMount: true,
-        required: true,
-        defaultValue: "primary"
+        required: true
       },
       {
         name: "timeMin",
@@ -1563,8 +1560,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         type: "select",
         dynamic: "google-calendars",
         loadOnMount: true,
-        required: true,
-        defaultValue: "primary"
+        required: true
       },
       {
         name: "text",
@@ -1678,8 +1674,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         type: "select",
         dynamic: "google-calendars",
         loadOnMount: true,
-        required: true,
-        defaultValue: "primary"
+        required: true
       },
       {
         name: "eventId",
@@ -1779,8 +1774,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         type: "select",
         dynamic: "google-calendars",
         loadOnMount: true,
-        required: true,
-        defaultValue: "primary"
+        required: true
       },
       {
         name: "eventId",

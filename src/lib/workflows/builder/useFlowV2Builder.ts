@@ -22,6 +22,7 @@ type PlannerEdit =
   | { op: "setConfig"; nodeId: string; patch: Record<string, any> }
   | { op: "setInterface"; inputs: FlowInterface["inputs"]; outputs: FlowInterface["outputs"] }
   | { op: "deleteNode"; nodeId: string }
+  | { op: "reorderNodes"; nodeIds: string[] }
 
 interface AgentResult {
   edits: PlannerEdit[]
@@ -143,6 +144,143 @@ function cloneFlow(flow: Flow): Flow {
   return JSON.parse(JSON.stringify(flow)) as Flow
 }
 
+function reorderLinearChain(flow: Flow, orderedNodeIds: string[]) {
+  if (!Array.isArray(orderedNodeIds) || orderedNodeIds.length < 2) {
+    return
+  }
+
+  const nodeSet = new Set(flow.nodes.map((node) => node.id))
+  const deduped = Array.from(new Set(orderedNodeIds)).filter((id) => nodeSet.has(id))
+  if (deduped.length < 2) {
+    return
+  }
+
+  const reorderSet = new Set(deduped)
+  const preservedEdges: FlowEdge[] = []
+  const incomingEdges: FlowEdge[] = []
+  const outgoingEdges: FlowEdge[] = []
+  const internalEdgeMap = new Map<string, FlowEdge>()
+
+  for (const edge of flow.edges) {
+    const fromInSet = reorderSet.has(edge.from.nodeId)
+    const toInSet = reorderSet.has(edge.to.nodeId)
+
+    if (fromInSet && toInSet) {
+      internalEdgeMap.set(`${edge.from.nodeId}->${edge.to.nodeId}`, edge)
+      continue
+    }
+
+    if (!fromInSet && toInSet) {
+      incomingEdges.push(edge)
+      continue
+    }
+
+    if (fromInSet && !toInSet) {
+      outgoingEdges.push(edge)
+      continue
+    }
+
+    preservedEdges.push(edge)
+  }
+
+  if (incomingEdges.length > 1 || outgoingEdges.length > 1) {
+    console.warn("[useFlowV2Builder] Skipping reorder due to branching connections", {
+      orderedNodeIds,
+      incoming: incomingEdges.length,
+      outgoing: outgoingEdges.length,
+    })
+    return
+  }
+
+  const getNodePosition = (nodeId: string): number => {
+    const node = flow.nodes.find((n) => n.id === nodeId)
+    if (!node) return Number.MAX_SAFE_INTEGER
+    const metadata = (node.metadata ?? {}) as any
+    const y = metadata.position?.y
+    if (typeof y === "number") {
+      return y
+    }
+    return 120 + orderedNodeIds.indexOf(nodeId) * 180
+  }
+
+  const originalOrder = deduped.slice().sort((a, b) => getNodePosition(a) - getNodePosition(b))
+  const nextEdges: FlowEdge[] = [...preservedEdges]
+  const firstNodeId = deduped[0]
+  const lastNodeId = deduped[deduped.length - 1]
+
+  const boundaryIncoming = incomingEdges[0]
+  if (boundaryIncoming && firstNodeId) {
+    nextEdges.push({
+      ...boundaryIncoming,
+      to: {
+        ...boundaryIncoming.to,
+        nodeId: firstNodeId,
+      },
+    })
+  }
+
+  const pickTemplateEdge = (): FlowEdge | undefined => {
+    const entry = internalEdgeMap.values().next()
+    if (!entry.done) {
+      return entry.value
+    }
+    return undefined
+  }
+
+  for (let i = 0; i < deduped.length - 1; i++) {
+    const sourceId = deduped[i]
+    const targetId = deduped[i + 1]
+    const template = internalEdgeMap.get(`${sourceId}->${targetId}`) ?? pickTemplateEdge()
+
+    const newEdge: FlowEdge = {
+      id: `${sourceId}-${targetId}`,
+      from: {
+        nodeId: sourceId,
+        portId: template?.from.portId ?? "source",
+      },
+      to: {
+        nodeId: targetId,
+        portId: template?.to.portId ?? "target",
+      },
+      mappings: template?.mappings ?? [],
+      metadata: template?.metadata,
+    }
+
+    nextEdges.push(newEdge)
+  }
+
+  const boundaryOutgoing = outgoingEdges[0]
+  if (boundaryOutgoing && lastNodeId) {
+    nextEdges.push({
+      ...boundaryOutgoing,
+      from: {
+        ...boundaryOutgoing.from,
+        nodeId: lastNodeId,
+      },
+    })
+  }
+
+  flow.edges = nextEdges
+
+  const sortedPositions = originalOrder
+    .map((nodeId) => getNodePosition(nodeId))
+    .sort((a, b) => a - b)
+
+  deduped.forEach((nodeId, index) => {
+    const node = flow.nodes.find((n) => n.id === nodeId)
+    if (!node) {
+      return
+    }
+    const metadata = { ...(node.metadata ?? {}) }
+    const position = { ...(metadata.position ?? {}) }
+    position.x = LINEAR_STACK_X
+    const fallbackY = 120 + index * 180
+    position.y = sortedPositions[index] ?? fallbackY
+    metadata.position = position
+    node.metadata = metadata
+  })
+}
+
 function applyPlannerEdits(base: Flow, edits: PlannerEdit[]): Flow {
   const working = cloneFlow(base)
 
@@ -212,6 +350,10 @@ function applyPlannerEdits(base: Flow, edits: PlannerEdit[]): Flow {
             mappings: [],
           })
         }
+        break
+      }
+      case "reorderNodes": {
+        reorderLinearChain(working, edit.nodeIds)
         break
       }
       default: {

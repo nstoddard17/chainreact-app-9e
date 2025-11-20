@@ -114,6 +114,7 @@ export interface CustomNodeData {
   reorderDragOffset?: number
   previewOffset?: number
   isBeingReordered?: boolean
+  shouldSuppressConfigureClick?: () => boolean
 }
 
 type SlackConfigSection = {
@@ -772,6 +773,10 @@ function CustomNode({ id, data, selected }: NodeProps) {
       hasOnConfigure: !!onConfigure,
       nodeHasConfiguration: nodeHasConfiguration()
     })
+
+    if (data.shouldSuppressConfigureClick?.()) {
+      return
+    }
 
     // Manual triggers open the trigger selection dialog on click
     if (type === 'manual' && onConfigure) {
