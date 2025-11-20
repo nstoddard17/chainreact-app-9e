@@ -1426,6 +1426,126 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     return { reorderableNodes, ids, positions, spacing, boundaries }
   }, [builder?.nodes])
 
+  const syncReorderEdges = useCallback((orderedNodeIds: string[]) => {
+    if (!builder?.setEdges || !Array.isArray(orderedNodeIds) || orderedNodeIds.length === 0) {
+      return
+    }
+
+    builder.setEdges((currentEdges: any[]) => {
+      if (!Array.isArray(currentEdges) || currentEdges.length === 0) {
+        return currentEdges
+      }
+
+      const reorderSet = new Set(orderedNodeIds)
+      if (reorderSet.size < 2) {
+        return currentEdges
+      }
+
+      const preservedEdges: any[] = []
+      const internalEdges: any[] = []
+      const incomingEdges: any[] = []
+      const outgoingEdges: any[] = []
+
+      for (const edge of currentEdges) {
+        const fromInSet = reorderSet.has(edge.source)
+        const toInSet = reorderSet.has(edge.target)
+
+        if (fromInSet && toInSet) {
+          internalEdges.push(edge)
+          continue
+        }
+
+        if (!fromInSet && toInSet) {
+          incomingEdges.push(edge)
+          continue
+        }
+
+        if (fromInSet && !toInSet) {
+          outgoingEdges.push(edge)
+          continue
+        }
+
+        preservedEdges.push(edge)
+      }
+
+      if (
+        internalEdges.length === 0 &&
+        incomingEdges.length === 0 &&
+        outgoingEdges.length === 0
+      ) {
+        return currentEdges
+      }
+
+      if (incomingEdges.length > 1 || outgoingEdges.length > 1) {
+        // Multiple boundary edges imply branching – skip local rewiring to avoid breaking the graph.
+        return currentEdges
+      }
+
+      const baseEdgeTemplate =
+        internalEdges[0] ??
+        incomingEdges[0] ??
+        outgoingEdges[0] ??
+        currentEdges.find((edge) => edge?.type === 'custom') ??
+        null
+
+      const defaultTemplate = {
+        id: 'synthetic-linear-edge',
+        type: 'custom',
+        sourceHandle: 'source',
+        targetHandle: 'target',
+        style: { stroke: '#d0d6e0' },
+        data: {},
+      }
+
+      const makeLinearEdge = (sourceId: string, targetId: string, template?: any) => {
+        const base = template ?? baseEdgeTemplate ?? defaultTemplate
+        return {
+          ...defaultTemplate,
+          ...base,
+          id: `${sourceId}-${targetId}`,
+          source: sourceId,
+          target: targetId,
+          sourceHandle: base?.sourceHandle ?? defaultTemplate.sourceHandle,
+          targetHandle: base?.targetHandle ?? defaultTemplate.targetHandle,
+          data: {
+            ...(base?.data ?? {}),
+          },
+          style: {
+            ...(base?.style ?? defaultTemplate.style),
+          },
+        }
+      }
+
+      const nextEdges = [...preservedEdges]
+      const firstNodeId = orderedNodeIds[0]
+      if (firstNodeId && incomingEdges.length === 1) {
+        const incoming = incomingEdges[0]
+        nextEdges.push({
+          ...incoming,
+          target: firstNodeId,
+        })
+      }
+
+      for (let i = 0; i < orderedNodeIds.length - 1; i++) {
+        const sourceId = orderedNodeIds[i]
+        const targetId = orderedNodeIds[i + 1]
+        const template = internalEdges[i] ?? internalEdges[0]
+        nextEdges.push(makeLinearEdge(sourceId, targetId, template))
+      }
+
+      const lastNodeId = orderedNodeIds[orderedNodeIds.length - 1]
+      if (lastNodeId && outgoingEdges.length === 1) {
+        const outgoing = outgoingEdges[0]
+        nextEdges.push({
+          ...outgoing,
+          source: lastNodeId,
+        })
+      }
+
+      return nextEdges
+    })
+  }, [builder?.setEdges])
+
   const moveNodeToIndex = useCallback((nodeId: string, targetSlot: number) => {
     const data = getReorderableData()
     if (!data || !builder?.setNodes) {
@@ -1459,6 +1579,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       positionMap.set(id, y)
     })
 
+    const orderChanged = slot !== currentIndex
+
     builder.setNodes(
       builder.nodes.map((node: any) => {
         const newY = positionMap.get(node.id)
@@ -1476,11 +1598,16 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         }
       })
     )
+
+    if (orderChanged) {
+      syncReorderEdges(newOrder)
+    }
+
     return {
       newOrder,
-      changed: slot !== currentIndex,
+      changed: orderChanged,
     }
-  }, [builder?.nodes, builder?.setNodes, getReorderableData])
+  }, [builder?.nodes, builder?.setNodes, getReorderableData, syncReorderEdges])
 
   const commitReorderChanges = useCallback((orderedIds: string[]) => {
     if (!actions?.applyEdits || orderedIds.length < 2) {
