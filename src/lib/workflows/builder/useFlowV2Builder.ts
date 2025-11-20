@@ -9,6 +9,7 @@ import { addNodeEdit, oldConnectToEdge } from "../compat/v2Adapter"
 import { ALL_NODE_COMPONENTS } from "../../../../lib/workflows/nodes"
 
 const LINEAR_STACK_X = 400
+const DEFAULT_VERTICAL_SPACING = 180
 
 export interface UseFlowV2BuilderOptions {
   initialPrompt?: string
@@ -262,9 +263,8 @@ function reorderLinearChain(flow: Flow, orderedNodeIds: string[]) {
 
   flow.edges = nextEdges
 
-  const sortedPositions = originalOrder
-    .map((nodeId) => getNodePosition(nodeId))
-    .sort((a, b) => a - b)
+  const currentPositions = deduped.map((nodeId) => getNodePosition(nodeId))
+  const baseY = currentPositions.length > 0 ? Math.min(...currentPositions) : 0
 
   deduped.forEach((nodeId, index) => {
     const node = flow.nodes.find((n) => n.id === nodeId)
@@ -272,10 +272,11 @@ function reorderLinearChain(flow: Flow, orderedNodeIds: string[]) {
       return
     }
     const metadata = { ...(node.metadata ?? {}) }
-    const position = { ...(metadata.position ?? {}) }
-    position.x = LINEAR_STACK_X
-    const fallbackY = 120 + index * 180
-    position.y = sortedPositions[index] ?? fallbackY
+    const position = {
+      ...(metadata.position ?? {}),
+      x: LINEAR_STACK_X,
+      y: baseY + index * DEFAULT_VERTICAL_SPACING,
+    }
     metadata.position = position
     node.metadata = metadata
   })
