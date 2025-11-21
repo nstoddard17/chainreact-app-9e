@@ -18,7 +18,7 @@ import { generateEncryptionCertificate, rotateCertificateIfNeeded } from '@/lib/
  * - /chats - All chats
  * - /teams/{id}/channels - Channels in a team
  */
-export class TeamsT riggerLifecycle implements TriggerLifecycle {
+export class TeamsTriggerLifecycle implements TriggerLifecycle {
   /**
    * Create a Graph API subscription when workflow is activated
    */
