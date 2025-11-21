@@ -23,6 +23,8 @@ export interface IntegrationConfig {
   authType?: "oauth" | "apiKey"
   searchKeywords?: string[]
   additionalInfo?: string
+  // If set, this integration shares OAuth with another provider (e.g., microsoft-excel shares with onedrive)
+  sharesAuthWith?: string
 }
 
 // Complete integration configurations with all metadata
@@ -132,14 +134,24 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     docsUrl: "https://developer.microsoft.com/en-us/onedrive",
     authType: "oauth",
     searchKeywords: ["onedrive", "microsoft", "storage", "files", "cloud"],
+    additionalInfo: "Cloud file storage and synchronization",
   },
 
   "microsoft-excel": {
     id: "microsoft-excel",
     name: "Microsoft Excel",
-    description: "Create, edit, and manage spreadsheets with Microsoft Excel Online.",
+    description: "Create, edit, and manage Excel spreadsheets stored in OneDrive or SharePoint.",
     category: "productivity",
-    capabilities: ["Create Spreadsheets", "Read Data", "Update Rows", "Add Rows", "Workbook Management"],
+    capabilities: [
+      "Create Spreadsheets",
+      "Read Data",
+      "Add Rows",
+      "Update Rows",
+      "Delete Rows",
+      "Export Data",
+      "Workbook Management",
+      "Manage Worksheets"
+    ],
     scopes: ["Files.Read", "Files.ReadWrite"],
     isAvailable: false,
     requiresClientId: "MICROSOFT_EXCEL_CLIENT_ID",
@@ -147,7 +159,8 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     color: "#217346",
     docsUrl: "https://learn.microsoft.com/en-us/graph/api/resources/excel",
     authType: "oauth",
-    searchKeywords: ["excel", "microsoft", "spreadsheet", "workbook", "worksheet", "cells", "rows", "columns"],
+    searchKeywords: ["excel", "microsoft", "spreadsheet", "workbook", "worksheet", "data", "csv", "cells", "rows", "columns"],
+    additionalInfo: "📊 Work with Excel spreadsheets stored in OneDrive or SharePoint",
   },
 
   // Communication Platforms

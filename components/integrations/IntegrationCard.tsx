@@ -727,51 +727,42 @@ export const IntegrationCard = memo(function IntegrationCard({
         <DialogContent className="sm:max-w-[525px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <FileSpreadsheet className="w-5 h-5 text-green-600" />
-              OneDrive + Microsoft Excel Integration
+              <FileSpreadsheet className="w-5 h-5 text-blue-600" />
+              OneDrive Integration
             </DialogTitle>
             <DialogDescription>
-              Connect OneDrive to unlock powerful file storage and Excel automation capabilities.
+              Connect OneDrive to unlock powerful cloud file storage capabilities.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
-              <div className="flex items-start gap-2">
-                <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                <div className="text-sm text-blue-800 dark:text-blue-200">
-                  <strong>Included Excel Features:</strong> When you connect OneDrive, you also get access to Microsoft Excel automation with the same powerful features as Google Sheets.
-                </div>
-              </div>
-            </div>
-
             <div className="space-y-3">
-              <h4 className="text-sm font-semibold">Excel Actions Available:</h4>
+              <h4 className="text-sm font-semibold">OneDrive Features:</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span><strong>Manage Excel Data:</strong> Add, update, or delete rows with visual column mapping</span>
+                  <span><strong>File Storage:</strong> Upload and manage files in your OneDrive</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span><strong>Export Worksheets:</strong> Filter and export data in multiple formats (CSV, JSON, etc.)</span>
+                  <span><strong>File Sync:</strong> Keep files synchronized across devices</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span><strong>Create Workbooks:</strong> Generate new Excel files with templates</span>
+                  <span><strong>Sharing:</strong> Share files and folders with others</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span><strong>Triggers:</strong> React to new rows, updated rows, and new worksheets</span>
+                  <span><strong>Collaboration:</strong> Work together on documents in real-time</span>
                 </li>
               </ul>
             </div>
 
-            <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
+            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
               <div className="flex items-start gap-2">
-                <Sparkles className="w-4 h-4 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
-                <div className="text-sm text-green-800 dark:text-green-200">
-                  <strong>Pro Tip:</strong> Excel actions appear in their own section in the workflow builder after connecting OneDrive. Look for the "Microsoft Excel" category when adding actions.
+                <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <strong>Note:</strong> For Excel spreadsheet automation, connect Microsoft Excel separately from the Apps page.
                 </div>
               </div>
             </div>

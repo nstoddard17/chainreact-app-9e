@@ -11,7 +11,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
     category: "Productivity",
     isTrigger: true,
     producesOutput: true,
-    requiredIntegration: "onedrive", // Requires OneDrive connection for Graph API access
+    requiredIntegration: "microsoft-excel", // Requires Microsoft Excel connection for Graph API access
     configSchema: [
       {
         name: "workbookId",
@@ -82,7 +82,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
     category: "Productivity",
     isTrigger: true,
     producesOutput: true,
-    requiredIntegration: "onedrive",
+    requiredIntegration: "microsoft-excel",
     configSchema: [
       {
         name: "workbookId",
@@ -137,7 +137,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
     providerId: "microsoft-excel",
     category: "Productivity",
     producesOutput: true,
-    requiredIntegration: "onedrive",
+    requiredIntegration: "microsoft-excel",
     configSchema: [
       {
         name: "workbookId",
@@ -220,7 +220,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
     category: "Productivity",
     isTrigger: true,
     producesOutput: true,
-    requiredIntegration: "onedrive",
+    requiredIntegration: "microsoft-excel",
     configSchema: [
       {
         name: "workbookId",
@@ -289,7 +289,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
     icon: Plus,
     isTrigger: false,
     providerId: "microsoft-excel",
-    requiredIntegration: "onedrive",
+    requiredIntegration: "microsoft-excel",
     requiredScopes: ["https://graph.microsoft.com/Files.ReadWrite.All"],
     category: "Productivity",
     configSchema: [
@@ -386,7 +386,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
     isTrigger: false,
     providerId: "microsoft-excel",
     testable: true,
-    requiredIntegration: "onedrive",
+    requiredIntegration: "microsoft-excel",
     requiredScopes: ["https://graph.microsoft.com/Files.ReadWrite.All"],
     category: "Productivity",
     outputSchema: [
@@ -616,7 +616,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
     description: "Retrieve and filter rows from a Microsoft Excel worksheet",
     icon: Search,
     providerId: "microsoft-excel",
-    requiredIntegration: "onedrive",
+    requiredIntegration: "microsoft-excel",
     requiredScopes: ["https://graph.microsoft.com/Files.ReadWrite.All"],
     category: "Productivity",
     isTrigger: false,
@@ -825,7 +825,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
     description: "Add a new row to an Excel table with automatic formatting and formulas",
     icon: Plus,
     providerId: "microsoft-excel",
-    requiredIntegration: "onedrive",
+    requiredIntegration: "microsoft-excel",
     requiredScopes: ["https://graph.microsoft.com/Files.ReadWrite.All"],
     category: "Productivity",
     isTrigger: false,
@@ -908,7 +908,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
     description: "Search for a row by column value, update if found, create if not found",
     icon: GitMerge,
     providerId: "microsoft-excel",
-    requiredIntegration: "onedrive",
+    requiredIntegration: "microsoft-excel",
     requiredScopes: ["https://graph.microsoft.com/Files.ReadWrite.All"],
     category: "Productivity",
     isTrigger: false,
@@ -1042,7 +1042,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
     description: "Create a new worksheet (tab) in an Excel workbook",
     icon: FilePlus,
     providerId: "microsoft-excel",
-    requiredIntegration: "onedrive",
+    requiredIntegration: "microsoft-excel",
     requiredScopes: ["https://graph.microsoft.com/Files.ReadWrite.All"],
     category: "Productivity",
     isTrigger: false,
@@ -1118,7 +1118,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
     description: "Rename an existing worksheet (tab) in an Excel workbook",
     icon: Edit,
     providerId: "microsoft-excel",
-    requiredIntegration: "onedrive",
+    requiredIntegration: "microsoft-excel",
     requiredScopes: ["https://graph.microsoft.com/Files.ReadWrite.All"],
     category: "Productivity",
     isTrigger: false,
@@ -1204,7 +1204,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
     description: "Delete a worksheet (tab) from an Excel workbook",
     icon: Trash2,
     providerId: "microsoft-excel",
-    requiredIntegration: "onedrive",
+    requiredIntegration: "microsoft-excel",
     requiredScopes: ["https://graph.microsoft.com/Files.ReadWrite.All"],
     category: "Productivity",
     isTrigger: false,
@@ -1268,7 +1268,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
     description: "Add multiple rows to a worksheet in a single batch operation",
     icon: List,
     providerId: "microsoft-excel",
-    requiredIntegration: "onedrive",
+    requiredIntegration: "microsoft-excel",
     requiredScopes: ["https://graph.microsoft.com/Files.ReadWrite.All"],
     category: "Productivity",
     isTrigger: false,

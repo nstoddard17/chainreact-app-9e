@@ -7,7 +7,6 @@ import { getResourceTypeForField } from '../config/fieldMappings';
 import { formatOptionsForField } from '../utils/fieldFormatters';
 import { useConfigCacheStore } from "@/stores/configCacheStore"
 import { buildCacheKey, getFieldTTL, shouldCacheField } from "@/lib/workflows/configuration/cache-utils"
-import { deduplicateRequest } from "@/lib/utils/requestDeduplication"
 import { getCachedProviderData, cacheProviderData, shouldRefreshProviderCache } from "@/lib/utils/field-cache"
 import { useAuthStore } from "@/stores/authStore"
 
@@ -111,6 +110,9 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
   const [loading, setLoading] = useState<boolean>(false);
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(false);
 
+  // Track previous nodeType to detect changes
+  const prevNodeTypeRef = useRef(nodeType);
+
   // Integration store methods
   const { getIntegrationByProvider, loadIntegrationData, fetchIntegrations } = useIntegrationStore();
 
@@ -171,7 +173,54 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
   const lastLoadedAt = useRef<Map<string, number>>(new Map());
   // Track provider fetch attempts to avoid spamming integration fetches
   const integrationFetchAttempts = useRef<Map<string, number>>(new Map());
-  
+
+  // Reset dynamic options when nodeType changes (switching between different nodes)
+  // This prevents stale options from being shown when switching between nodes of the same provider
+  useEffect(() => {
+    if (prevNodeTypeRef.current !== nodeType) {
+      logger.debug(`🔄 [useDynamicOptions] nodeType changed from ${prevNodeTypeRef.current} to ${nodeType}, resetting options`);
+      prevNodeTypeRef.current = nodeType;
+
+      // Reset to initialOptions or empty object
+      const newOptions = initialOptions || {};
+      setDynamicOptions(newOptions);
+
+      // CRITICAL: Also update the ref immediately so that loadOptions doesn't see stale data
+      // The ref won't be updated automatically until the next render, but loadOptions checks the ref
+      dynamicOptionsRef.current = newOptions;
+
+      // Clear loading tracking refs
+      loadingFields.current.clear();
+      loadingStartTimes.current.clear();
+      activeRequests.current.clear();
+      lastLoadedAt.current.clear();
+      activeRequestIds.current.clear();
+      integrationFetchAttempts.current.clear();
+
+      // Abort any in-flight requests
+      abortControllers.current.forEach((controller) => {
+        controller.abort();
+      });
+      abortControllers.current.clear();
+
+      // Clear stale timers
+      staleTimers.current.forEach((timer) => {
+        clearTimeout(timer);
+      });
+      staleTimers.current.clear();
+
+      // Clear the global request deduplication cache for this provider/node
+      // This ensures fresh data is fetched when switching nodes
+      try {
+        const { requestDeduplicationManager } = require('@/lib/utils/requestDeduplication');
+        requestDeduplicationManager.clearAll();
+        logger.debug('🧹 [useDynamicOptions] Cleared request deduplication cache');
+      } catch (e) {
+        // Ignore if module not available
+      }
+    }
+  }, [nodeType, initialOptions]);
+
   // Reset options for a field
   const resetOptions = useCallback((fieldName: string) => {
     setDynamicOptions(prev => {
@@ -269,36 +318,6 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
     // Create a key that includes dependencies
     const requestKey = `${fieldName}-${dependsOn || 'none'}-${dependsOnValue || 'none'}`;
-    // If we already have dependency-specific options cached, skip reload
-    if (!forceRefresh && dependsOn && dependsOnValue) {
-      const depKey = `${fieldName}_${dependsOnValue}`;
-      const depOptions = dynamicOptionsRef.current[depKey];
-      if (depOptions && Array.isArray(depOptions) && depOptions.length > 0) {
-        console.log(`🔄 [useDynamicOptions] EARLY RETURN: Has cached dependency options for ${fieldName}`);
-
-        // If the base field options were cleared (e.g., after dependency reset),
-        // repopulate them from the dependency-specific cache so the UI has data.
-        if (!dynamicOptionsRef.current[fieldName] || dynamicOptionsRef.current[fieldName].length === 0) {
-          setDynamicOptions(prev => ({
-            ...prev,
-            [fieldName]: depOptions
-          }));
-        }
-
-        setLoading(false); // Clear loading state
-        if (!silent) {
-          onLoadingChangeRef.current?.(fieldName, false);
-        }
-        return;
-      }
-    }
-
-    // If we recently loaded this key, skip reloading to prevent API spam
-    const lastTs = lastLoadedAt.current.get(requestKey)
-    if (!forceRefresh && lastTs && Date.now() - lastTs < 5000) {
-      setLoading(false); // Clear loading state
-      return
-    }
     
     // Check if there's already an active request for this exact field/dependency combination
     const activeRequestKey = requestKey;
@@ -373,24 +392,10 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       }
     }
 
-    // For authorFilter (Discord), only skip if we have data for the specific channel
-    if (!forceRefresh && fieldName === 'authorFilter' && dependsOn === 'channelId' && dependsOnValue) {
-      const channelSpecificData = dynamicOptionsRef.current[`${fieldName}_${dependsOnValue}`];
-      if (channelSpecificData && channelSpecificData.length > 0) {
-        console.log(`🔄 [useDynamicOptions] EARLY RETURN: Has channel-specific data for ${fieldName}`);
-        // Ensure loading state is cleared on early return
-        setLoading(false);
-        return;
-      }
-    }
+    // NOTE: Removed early return caching logic that was preventing fields from reloading
+    // when switching between nodes. Provider loaders like OneNote, Teams, Excel should
+    // always fetch fresh data when the config modal opens.
 
-    // For other fields, use simple data check (exclude authorFilter since it's channel-specific)
-    if (!forceRefresh && fieldName !== 'authorFilter' && dynamicOptionsRef.current[fieldName] && dynamicOptionsRef.current[fieldName].length > 0) {
-      console.log(`🔄 [useDynamicOptions] EARLY RETURN: Field already has options (${dynamicOptionsRef.current[fieldName].length}) for ${fieldName}`);
-      // CRITICAL: Clear loading state on early return so UI doesn't stay stuck loading
-      setLoading(false);
-      return;
-    }
     // Determine data to load based on field name (moved outside try block for error handling)
     const resourceType = getResourceTypeForField(fieldName, nodeType);
 
@@ -874,10 +879,8 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
                      getIntegrationByProvider('google_docs') ||
                      getIntegrationByProvider('google');
         } else if (providerId === 'microsoft-excel') {
-          resolved = getIntegrationByProvider('onedrive') ||
-                     getIntegrationByProvider('microsoft-onedrive') ||
-                     getIntegrationByProvider('microsoft_onedrive');
-          logger.debug('🔍 [useDynamicOptions] Microsoft Excel integration lookup (via OneDrive):', {
+          resolved = getIntegrationByProvider('microsoft-excel');
+          logger.debug('🔍 [useDynamicOptions] Microsoft Excel integration lookup:', {
             providerId,
             integrationFound: !!resolved,
             integrationProvider: resolved?.provider,
@@ -1313,27 +1316,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
         if (loader) {
           console.log('🟢 [useDynamicOptions] About to call loader.loadOptions for:', fieldName);
-          // Check if we already have options and not forcing refresh
-          const existingOptions = dynamicOptionsRef.current[fieldName];
-          console.log('🟢 [useDynamicOptions] existingOptions check:', {
-            fieldName,
-            forceRefresh,
-            hasExistingOptions: !!existingOptions,
-            existingOptionsLength: existingOptions?.length,
-            willSkip: !forceRefresh && existingOptions && existingOptions.length > 0
-          });
-
-          if (!forceRefresh && existingOptions && existingOptions.length > 0) {
-            console.log(`❌ [useDynamicOptions] SKIPPING - Already have options for ${fieldName}`);
-            // Clear loading state
-            if (activeRequestIds.current.get(requestKey) === requestId) {
-              loadingFields.current.delete(requestKey);
-              setLoading(false);
-              activeRequestIds.current.delete(requestKey);
-            }
-            return;
-          }
-
+          // NOTE: Removed early return caching check - always fetch fresh data from provider loaders
           console.log('✅ [useDynamicOptions] Proceeding to call loader for:', fieldName);
 
           logger.debug(`🔧 [useDynamicOptions] Using custom loader for ${providerId}/${fieldName}`);
@@ -2292,23 +2275,23 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       activeRequests.current.delete(activeRequestKey);
     }
   }, [nodeType, providerId, getIntegrationByProvider, loadIntegrationData, getFormValues]); // Removed dynamicOptions and onLoadingChange from dependencies to prevent infinite loops - using refs instead
-  
-  // Track previous values to avoid unnecessary clears
-  const prevNodeTypeRef = useRef(nodeType);
+
+  // Track previous values to avoid unnecessary clears (uses prevNodeTypeRef declared earlier)
   const prevProviderIdRef = useRef(providerId);
 
   // Clear all options when node type changes
+  // NOTE: This effect is SEPARATE from the reset effect above (lines 178-208) which handles
+  // resetting dynamicOptions state. This effect handles aborting requests and clearing tracking refs.
   useEffect(() => {
     // Only clear if values actually changed
     if (prevNodeTypeRef.current === nodeType && prevProviderIdRef.current === providerId) {
       return;
     }
-    
-    
-    // Update refs
+
+    // Update refs (prevNodeTypeRef is also updated in the earlier reset effect)
     prevNodeTypeRef.current = nodeType;
     prevProviderIdRef.current = providerId;
-    
+
     // Abort all active fetch requests EXCEPT Discord guilds (they're cached globally)
     abortControllers.current.forEach((controller, key) => {
       // Don't abort Discord guild requests as they're cached and reusable
@@ -2316,18 +2299,18 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
         controller.abort();
       }
     });
-    
+
     // Clear abort controllers except for Discord guilds
-    const guildControllers = new Map();
+    const guildControllers = new Map<string, AbortController>();
     abortControllers.current.forEach((controller, key) => {
       if (key.startsWith('guildId')) {
         guildControllers.set(key, controller);
       }
     });
     abortControllers.current = guildControllers;
-    
+
     // Clear request IDs except for Discord guilds
-    const guildRequestIds = new Map();
+    const guildRequestIds = new Map<string, number>();
     activeRequestIds.current.forEach((id, key) => {
       if (key.startsWith('guildId')) {
         guildRequestIds.set(key, id);
@@ -2497,6 +2480,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
   /**
    * Load multiple fields in parallel
    * Used for instant loading optimization
+   * NOTE: No deduplication here - each modal open should fetch fresh data
    */
   const loadOptionsParallel = useCallback(async (
     fields: Array<{ fieldName: string; dependsOn?: string; dependsOnValue?: any }>
@@ -2504,12 +2488,10 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
     logger.debug(`🚀 [useDynamicOptions] Parallel load started for ${fields.length} fields`)
 
     // Load all fields in parallel using Promise.allSettled
+    // Force refresh to ensure fresh data on every modal open
     const results = await Promise.allSettled(
       fields.map(({ fieldName, dependsOn, dependsOnValue }) =>
-        deduplicateRequest(
-          `load_${providerId}_${nodeType}_${fieldName}_${dependsOnValue || ''}`,
-          () => loadOptions(fieldName, dependsOn, dependsOnValue, false, true)
-        )
+        loadOptions(fieldName, dependsOn, dependsOnValue, true, true)
       )
     )
 
@@ -2525,7 +2507,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
         .map(r => r.reason)
       logger.warn('⚠️ [useDynamicOptions] Some parallel loads failed:', errors)
     }
-  }, [loadOptions, providerId, nodeType])
+  }, [loadOptions])
 
   return {
     dynamicOptions,

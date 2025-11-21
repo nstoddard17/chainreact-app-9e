@@ -794,6 +794,37 @@ const microsoftExcelMappings: Record<string, FieldMapping> = {
     workbookId: "microsoft-excel_workbooks",
     worksheetName: "microsoft-excel_worksheets",
   },
+  "microsoft_excel_trigger_new_table_row": {
+    workbookId: "microsoft-excel_workbooks",
+    tableName: "microsoft-excel_tables",
+  },
+  "microsoft_excel_action_add_table_row": {
+    workbookId: "microsoft-excel_workbooks",
+    tableName: "microsoft-excel_tables",
+    columnMapping: "microsoft_excel_column_mapper",
+  },
+  "microsoft_excel_action_find_or_create_row": {
+    workbookId: "microsoft-excel_workbooks",
+    worksheetName: "microsoft-excel_worksheets",
+    searchColumn: "microsoft-excel_columns",
+    columnMapping: "microsoft_excel_column_mapper",
+  },
+  "microsoft_excel_action_create_worksheet": {
+    workbookId: "microsoft-excel_workbooks",
+  },
+  "microsoft_excel_action_rename_worksheet": {
+    workbookId: "microsoft-excel_workbooks",
+    worksheetName: "microsoft-excel_worksheets",
+  },
+  "microsoft_excel_action_delete_worksheet": {
+    workbookId: "microsoft-excel_workbooks",
+    worksheetName: "microsoft-excel_worksheets",
+  },
+  "microsoft_excel_action_add_multiple_rows": {
+    workbookId: "microsoft-excel_workbooks",
+    worksheetName: "microsoft-excel_worksheets",
+    columnMapping: "microsoft_excel_column_mapper",
+  },
 };
 
 // Facebook field mappings

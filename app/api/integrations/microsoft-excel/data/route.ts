@@ -55,8 +55,10 @@ export async function POST(req: NextRequest) {
 
     if (integrationError || !integrations || integrations.length === 0) {
       logger.error('❌ [Microsoft Excel API] Integration not found:', { error: integrationError, userId })
-      return errorResponse('Microsoft Excel connection not found. Please connect your Microsoft Excel account first.'
-      , 404)
+      return errorResponse(
+        'Microsoft Excel connection not found. Please connect your Microsoft Excel account first.',
+        404
+      )
     }
 
     // Use the first connected Microsoft Excel integration
@@ -64,8 +66,11 @@ export async function POST(req: NextRequest) {
 
     if (!integration) {
       logger.error('❌ [Microsoft Excel API] Integration not connected')
-      return errorResponse('Microsoft Excel is not connected. Please connect your Microsoft Excel account.', 400, { needsReconnection: true
-       })
+      return errorResponse(
+        'Microsoft Excel requires an active connection. Please connect your Microsoft account.',
+        400,
+        { needsReconnection: true }
+      )
     }
 
     // Validate integration status

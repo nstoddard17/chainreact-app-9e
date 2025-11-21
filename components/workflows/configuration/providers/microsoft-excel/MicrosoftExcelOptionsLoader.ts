@@ -1,15 +1,13 @@
 /**
  * Microsoft Excel Options Loader
  * Handles loading dynamic options for Microsoft Excel-specific fields
+ *
+ * NOTE: Simplified implementation - removed debounce/pending promise mechanism
+ * that was causing fields not to load when switching between Excel nodes.
+ * The useDynamicOptions hook already handles deduplication and caching.
  */
 
 import { ProviderOptionsLoader, LoadOptionsParams, FormattedOption } from '../types';
-
-import { logger } from '@/lib/utils/logger'
-
-// Debounce map to prevent rapid consecutive calls
-const debounceTimers = new Map<string, NodeJS.Timeout>();
-const pendingPromises = new Map<string, Promise<FormattedOption[]>>();
 
 export class MicrosoftExcelOptionsLoader implements ProviderOptionsLoader {
   private supportedFields = [
@@ -36,97 +34,55 @@ export class MicrosoftExcelOptionsLoader implements ProviderOptionsLoader {
   }
 
   async loadOptions(params: LoadOptionsParams): Promise<FormattedOption[]> {
-    const { fieldName, dependsOnValue, forceRefresh, signal, integrationId, dataType } = params;
+    const { fieldName, dependsOnValue, forceRefresh, signal, integrationId, extraOptions, formValues } = params;
 
-    // Create a unique key for this request
-    const requestKey = `${fieldName}:${dependsOnValue || 'none'}:${forceRefresh}`;
-
-    // If not forcing refresh, check if there's already a pending promise for this exact request
-    if (!forceRefresh) {
-      const pendingPromise = pendingPromises.get(requestKey);
-      if (pendingPromise) {
-        logger.debug(`🔄 [MicrosoftExcel] Reusing pending request for ${fieldName}`);
-        return pendingPromise;
-      }
+    // Determine the correct data type for the API call
+    let apiDataType: string;
+    switch (fieldName) {
+      case 'workbookId':
+        apiDataType = 'workbooks';
+        break;
+      case 'worksheetName':
+        apiDataType = 'worksheets';
+        break;
+      case 'tableName':
+        apiDataType = 'tables';
+        break;
+      case 'filterColumn':
+      case 'sortColumn':
+      case 'updateColumn':
+      case 'matchColumn':
+      case 'deleteColumn':
+      case 'dateColumn':
+        apiDataType = 'columns';
+        break;
+      case 'tableColumn':
+        apiDataType = 'table_columns';
+        break;
+      case 'filterValue':
+      case 'updateValue':
+      case 'deleteValue':
+        apiDataType = 'column_values';
+        break;
+      case 'folderPath':
+        apiDataType = 'folders';
+        break;
+      case 'dataPreview':
+        apiDataType = 'data_preview';
+        break;
+      case 'columnMapping':
+        apiDataType = 'columns';
+        break;
+      default:
+        apiDataType = extraOptions?.dataType || fieldName;
     }
 
-    // Clear any existing debounce timer for this field
-    const existingTimer = debounceTimers.get(fieldName);
-    if (existingTimer) {
-      clearTimeout(existingTimer);
-      debounceTimers.delete(fieldName);
+    try {
+      const allValues = { ...formValues, ...extraOptions };
+      return await this.loadFromAPI(apiDataType, integrationId, dependsOnValue, forceRefresh, allValues, signal);
+    } catch {
+      return [];
     }
-
-    // Create a new promise for this request
-    const loadPromise = new Promise<FormattedOption[]>((resolve) => {
-      // Add a small debounce delay to batch rapid consecutive calls
-      const timer = setTimeout(async () => {
-        debounceTimers.delete(fieldName);
-
-        try {
-          let result: FormattedOption[] = [];
-
-          // Determine the correct data type for the API call
-          let apiDataType: string;
-          switch (fieldName) {
-            case 'workbookId':
-              apiDataType = 'workbooks';
-              break;
-            case 'worksheetName':
-              apiDataType = 'worksheets';
-              break;
-            case 'tableName':
-              apiDataType = 'tables';
-              break;
-            case 'filterColumn':
-            case 'sortColumn':
-            case 'updateColumn':
-            case 'matchColumn':
-            case 'deleteColumn':
-            case 'dateColumn':
-              apiDataType = 'columns';
-              break;
-            case 'tableColumn':
-              apiDataType = 'table_columns';
-              break;
-            case 'filterValue':
-            case 'updateValue':
-            case 'deleteValue':
-              apiDataType = 'column_values';
-              break;
-            case 'folderPath':
-              apiDataType = 'folders';
-              break;
-            case 'dataPreview':
-              apiDataType = 'data_preview';
-              break;
-            case 'columnMapping':
-              apiDataType = 'columns'; // Column mapping needs columns
-              break;
-            default:
-              apiDataType = dataType || fieldName;
-          }
-
-          // Load data through the API
-          result = await this.loadFromAPI(apiDataType, integrationId, dependsOnValue, forceRefresh, params.values);
-
-          resolve(result);
-        } catch (error) {
-          logger.error(`❌ [MicrosoftExcel] Error loading ${fieldName}:`, error);
-          resolve([]);
-        } finally {
-          // Clean up the pending promise
-          pendingPromises.delete(requestKey);
-        }
-      }, 50); // 50ms debounce delay
-
-      debounceTimers.set(fieldName, timer);
-    });
-
-    // Store the pending promise
-    pendingPromises.set(requestKey, loadPromise);
-
-    return loadPromise;
   }
 
   private async loadFromAPI(
@@ -134,10 +90,10 @@ export class MicrosoftExcelOptionsLoader implements ProviderOptionsLoader {
     integrationId?: string,
     dependsOnValue?: any,
     forceRefresh?: boolean,
-    allValues?: Record<string, any>
+    allValues?: Record<string, any>,
+    signal?: AbortSignal
   ): Promise<FormattedOption[]> {
     try {
-      // Build the request body for Microsoft Excel data endpoint
       const requestBody: any = {
         integrationId,
         dataType,
@@ -150,30 +106,25 @@ export class MicrosoftExcelOptionsLoader implements ProviderOptionsLoader {
 
       // Handle dependencies based on the data type
       if (dependsOnValue) {
-        // For worksheets/tables that depend on workbookId
         if ((dataType === 'worksheets' || dataType === 'tables') && dependsOnValue) {
           requestBody.options.workbookId = dependsOnValue;
         }
-        // For columns that depend on both workbookId and worksheetName
         else if ((dataType === 'columns' || dataType === 'column_values' || dataType === 'data_preview') && dependsOnValue) {
           if (typeof dependsOnValue === 'object') {
             if (dependsOnValue.workbookId) requestBody.options.workbookId = dependsOnValue.workbookId;
             if (dependsOnValue.worksheetName) requestBody.options.worksheetName = dependsOnValue.worksheetName;
           } else {
-            // If we only have a single value, we need the workbookId from allValues
             requestBody.options.worksheetName = dependsOnValue;
             if (allValues?.workbookId) {
               requestBody.options.workbookId = allValues.workbookId;
             }
           }
         }
-        // For table columns that depend on both workbookId and tableName
         else if (dataType === 'table_columns' && dependsOnValue) {
           if (typeof dependsOnValue === 'object') {
             if (dependsOnValue.workbookId) requestBody.options.workbookId = dependsOnValue.workbookId;
             if (dependsOnValue.tableName) requestBody.options.tableName = dependsOnValue.tableName;
           } else {
-            // If we only have a single value, we need the workbookId from allValues
             requestBody.options.tableName = dependsOnValue;
             if (allValues?.workbookId) {
               requestBody.options.workbookId = allValues.workbookId;
@@ -182,31 +133,26 @@ export class MicrosoftExcelOptionsLoader implements ProviderOptionsLoader {
         }
       }
 
-      // Also check allValues for workbookId if not set
       if (allValues?.workbookId && !requestBody.options.workbookId) {
         requestBody.options.workbookId = allValues.workbookId;
       }
 
-      // For column values, we might need to specify the column
       if (dataType === 'column_values' && allValues) {
         if (allValues.filterColumn) requestBody.options.columnName = allValues.filterColumn;
         if (allValues.updateColumn) requestBody.options.columnName = allValues.updateColumn;
         if (allValues.deleteColumn) requestBody.options.columnName = allValues.deleteColumn;
       }
 
-      logger.debug(`📊 [MicrosoftExcel] Loading ${dataType}:`, requestBody);
-
       const response = await fetch('/api/integrations/microsoft-excel/data', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify(requestBody),
+        signal
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        logger.error(`❌ [MicrosoftExcel] API error:`, errorText);
         throw new Error(`Failed to load data: ${response.statusText}`);
       }
 
@@ -230,39 +176,15 @@ export class MicrosoftExcelOptionsLoader implements ProviderOptionsLoader {
       }
 
       return [];
-    } catch (error) {
-      logger.error(`❌ [MicrosoftExcel] API error loading ${dataType}:`, error);
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        return [];
+      }
       return [];
     }
   }
 
-  /**
-   * Reset cached data for specific fields or all fields
-   */
-  reset(fieldName?: string): void {
-    if (fieldName) {
-      // Clear specific field timer
-      const timer = debounceTimers.get(fieldName);
-      if (timer) {
-        clearTimeout(timer);
-        debounceTimers.delete(fieldName);
-      }
-
-      // Clear pending promises for this field
-      for (const [key] of pendingPromises) {
-        if (key.startsWith(`${fieldName}:`)) {
-          pendingPromises.delete(key);
-        }
-      }
-    } else {
-      // Clear all timers
-      for (const timer of debounceTimers.values()) {
-        clearTimeout(timer);
-      }
-      debounceTimers.clear();
-
-      // Clear all pending promises
-      pendingPromises.clear();
-    }
+  reset(): void {
+    // No-op - caching is handled by useDynamicOptions
   }
 }
