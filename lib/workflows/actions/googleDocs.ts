@@ -76,10 +76,17 @@ export async function createGoogleDocument(
       const fileStream = Readable.from(fileBuffer)
 
       // Upload file to Google Drive with the user-specified title
+      // Convert supported formats to Google Docs format
+      const shouldConvert = file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || // .docx
+                           file.type === 'application/msword' || // .doc
+                           file.type === 'text/plain' || // .txt
+                           file.type === 'text/html' || // .html
+                           file.type === 'application/rtf' // .rtf
+
       const uploadResponse = await drive.files.create({
         requestBody: {
           name: title || file.name, // Use the user-specified title, or fallback to filename
-          mimeType: file.type,
+          mimeType: shouldConvert ? 'application/vnd.google-apps.document' : file.type,
           parents: folderId ? [folderId] : undefined,
         },
         media: {
@@ -525,7 +532,7 @@ export async function shareGoogleDocument(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     const { 
       documentId, 
       shareWith, 
@@ -681,7 +688,7 @@ export async function getGoogleDocument(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     const { documentId } = resolvedConfig
 
     const accessToken = await getDecryptedAccessToken(userId, 'google-docs')
@@ -738,7 +745,7 @@ export async function exportGoogleDocument(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     const { 
       documentId,
       exportFormat = 'pdf',

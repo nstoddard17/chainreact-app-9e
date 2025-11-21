@@ -78,11 +78,37 @@ function SimpleVariablePickerComponent({
   // Get nodes to display - previous nodes only when in a node config
   // Memoize allNodes to prevent recreation on every render
   const allNodes = useMemo(() => {
-    return workflowData?.nodes?.map((node: any) => ({
-      id: node.id,
-      title: node.data?.title || node.data?.type || 'Unknown Node',
-      outputs: node.data?.outputSchema || []
-    })) || []
+    return workflowData?.nodes?.map((node: any) => {
+      const outputs = node.data?.outputSchema || []
+
+      // Flatten array properties - if an output has 'properties', include those as individual outputs
+      const flattenedOutputs: any[] = []
+      outputs.forEach((output: any) => {
+        // Always include the top-level field
+        flattenedOutputs.push(output)
+
+        // If this is an array with properties, also include the properties as separate fields
+        if (output.type === 'array' && Array.isArray(output.properties)) {
+          output.properties.forEach((prop: any) => {
+            flattenedOutputs.push({
+              ...prop,
+              name: `${output.name}[].${prop.name}`,
+              label: prop.label || prop.name, // Just use the property label, node title will be shown separately
+              _isArrayProperty: true,
+              _parentArray: output.name,
+              _parentArrayLabel: output.label || output.name
+            })
+          })
+        }
+      })
+
+      return {
+        id: node.id,
+        title: node.data?.title || node.data?.type || 'Unknown Node',
+        outputs: flattenedOutputs,
+        position: node.position || { x: 0, y: 0 }
+      }
+    }) || []
   }, [workflowData?.nodes])
 
   const previousNodeIdSet = useMemo(() => {
@@ -92,13 +118,16 @@ function SimpleVariablePickerComponent({
 
   // Memoize nodes to prevent recreation on every render
   const nodes = useMemo(() => {
-    return currentNodeId
+    const filtered = currentNodeId
       ? allNodes.filter(node => {
           if (node.id === currentNodeId) return false
           const hasOutputs = node.outputs && node.outputs.length > 0
           return hasOutputs && previousNodeIdSet.has(node.id)
         })
       : allNodes.filter(node => node.outputs && node.outputs.length > 0)
+
+    // Sort by Y position (top to bottom order in the workflow builder)
+    return filtered.sort((a, b) => a.position.y - b.position.y)
   }, [allNodes, currentNodeId, previousNodeIdSet])
 
   // Function to get relevant AI agent outputs based on current node type

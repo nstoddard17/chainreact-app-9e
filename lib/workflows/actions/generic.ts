@@ -13,7 +13,7 @@ export async function executeGenericAction(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     
     // Extract action type from config
     const actionType = resolvedConfig.actionType || "generic"
@@ -383,7 +383,7 @@ export async function executeDelayAction(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     
     // Support both timeUnit (new) and durationUnit (legacy) field names
     const { duration = 1, timeUnit = "seconds", durationUnit } = resolvedConfig

@@ -20,7 +20,7 @@ export async function createGoogleCalendarEvent(
         typeof v === 'string' && v.includes('{{') && v.includes('}}')
       )
 
-    const resolvedConfig = needsResolution ? resolveValue(config, { input }) : config
+    const resolvedConfig = needsResolution ? resolveValue(config, input) : config
 
     // Extract all config fields with new structure
     const {
@@ -107,9 +107,23 @@ export async function createGoogleCalendarEvent(
     // Parse date for all-day events
     const parseDate = (date: string) => {
       if (!date || date === 'today') {
-        return new Date().toISOString().split('T')[0]
+        // Use local date, not UTC date
+        const now = new Date()
+        const year = now.getFullYear()
+        const month = String(now.getMonth() + 1).padStart(2, '0')
+        const day = String(now.getDate()).padStart(2, '0')
+        return `${year}-${month}-${day}`
       }
       // If date contains time component (T or space), extract just the date part
+      // But convert from UTC to local date if it's an ISO string
+      if (typeof date === 'string' && date.includes('T') && date.includes('Z')) {
+        // This is a UTC ISO string from {{NOW}}, convert to local date
+        const dateObj = new Date(date)
+        const year = dateObj.getFullYear()
+        const month = String(dateObj.getMonth() + 1).padStart(2, '0')
+        const day = String(dateObj.getDate()).padStart(2, '0')
+        return `${year}-${month}-${day}`
+      }
       if (typeof date === 'string' && (date.includes('T') || date.includes(' '))) {
         return date.split('T')[0].split(' ')[0]
       }
@@ -160,13 +174,44 @@ export async function createGoogleCalendarEvent(
     }
 
     // Add reminders from notifications array
+    // For all-day events with a time specified (e.g., "1 day before at 9:00 AM"):
+    // - We need to calculate the exact minutes from midnight on the event day
+    // - For example: 1 day before at 9:00 AM = (1440 - 540) = 900 minutes from event midnight
+    //   (Because 9:00 AM is 540 minutes from midnight, and we want it 1 day before)
+    // For timed events, minutes count backward from the event start time
     if (notifications && Array.isArray(notifications) && notifications.length > 0) {
+      const processedNotifications = notifications.map((notif: any) => {
+        let finalMinutes = notif.minutes
+
+        // If this is an all-day event and a specific time is specified
+        if (allDay && notif.time) {
+          // Parse the time (format: "HH:mm")
+          const [hours, minutes] = notif.time.split(':').map(Number)
+          const timeInMinutes = (hours * 60) + minutes
+
+          // Calculate: if user wants "1 day before at 9:00 AM"
+          // We need to convert to minutes from midnight on event day
+          // Google API: minutes value = when to trigger relative to event start (midnight for all-day)
+          // So: 1 day (1440 min) before at 9:00 AM (540 min from midnight) = 1440 - 540 = 900 minutes
+          const daysBeforeInMinutes = notif.minutes // e.g., 1440 for 1 day
+          finalMinutes = daysBeforeInMinutes - timeInMinutes
+        }
+
+        return {
+          method: notif.method,
+          minutes: finalMinutes
+        }
+      })
+
+      logger.debug('📣 [Google Calendar] Processing notifications:', {
+        allDay,
+        rawNotifications: notifications,
+        processedNotifications
+      })
+
       eventData.reminders = {
         useDefault: false,
-        overrides: notifications.map((notif: any) => ({
-          method: notif.method,
-          minutes: notif.minutes
-        }))
+        overrides: processedNotifications
       }
     } else {
       eventData.reminders = {
@@ -176,44 +221,19 @@ export async function createGoogleCalendarEvent(
     }
 
     // Handle Google Meet conference
-    let createMeetLink = false
-    let existingEventId: string | null = null
+    // googleMeet is now a boolean (true/false) instead of an object
+    const createMeetLink = googleMeet === true
 
-    if (googleMeet && googleMeet.link) {
-      createMeetLink = true
+    if (createMeetLink) {
+      // Create conference data for new event
+      // Each workflow execution creates a fresh event with a unique Meet link
+      const conferenceRequest: any = {
+        requestId: `meet_${Date.now()}`,
+        conferenceSolutionKey: { type: 'hangoutsMeet' }
+      }
 
-      // If we already created a placeholder event, we'll update it instead of creating new
-      if (googleMeet.eventId) {
-        existingEventId = googleMeet.eventId
-        logger.debug(`🔄 [Google Calendar] Updating existing event ${existingEventId} with real details`)
-      } else {
-        // No existing event, create conference data for new event
-        const conferenceRequest: any = {
-          requestId: `meet_${Date.now()}`,
-          conferenceSolutionKey: { type: 'hangoutsMeet' }
-        }
-
-        // Apply Google Meet settings if provided
-        if (googleMeet.settings) {
-          const conferenceSolution: any = {}
-
-          // Note: Google Calendar API has limited support for these settings
-          // Most settings are controlled by the user's Google Workspace admin settings
-          if (googleMeet.settings.accessType) {
-            conferenceSolution.accessType = googleMeet.settings.accessType
-          }
-
-          if (Object.keys(conferenceSolution).length > 0) {
-            conferenceRequest.conferenceSolutionKey = {
-              type: 'hangoutsMeet',
-              ...conferenceSolution
-            }
-          }
-        }
-
-        eventData.conferenceData = {
-          createRequest: conferenceRequest
-        }
+      eventData.conferenceData = {
+        createRequest: conferenceRequest
       }
     }
 
@@ -250,53 +270,32 @@ export async function createGoogleCalendarEvent(
       sendUpdates = 'externalOnly'
     }
 
-    let createdEvent: any
-
     // Log the event data being sent for debugging
     logger.debug('📤 [Google Calendar] Event data being sent:', {
       allDay,
-      hasExistingEventId: !!existingEventId,
       eventData: JSON.stringify(eventData, null, 2)
     })
 
-    // If we have an existing event ID (from Google Meet button), update it instead of creating new
-    if (existingEventId) {
-      // First, fetch the existing event to preserve conference data
-      const existingEvent = await calendar.events.get({
-        calendarId: calendarId,
-        eventId: existingEventId
-      })
+    // Always create a new event (each workflow execution creates a fresh event)
+    const response = await calendar.events.insert({
+      calendarId: calendarId,
+      requestBody: eventData,
+      sendUpdates: sendUpdates,
+      conferenceDataVersion: createMeetLink ? 1 : 0
+    })
 
-      // Preserve the existing conference data
-      if (existingEvent.data.conferenceData) {
-        eventData.conferenceData = existingEvent.data.conferenceData
-      }
+    const createdEvent = response.data
 
-      const response = await calendar.events.update({
-        calendarId: calendarId,
-        eventId: existingEventId,
-        requestBody: eventData,
-        sendUpdates: sendUpdates,
-        conferenceDataVersion: 1 // Keep the existing conference data
-      })
-      createdEvent = response.data
-      logger.info('✅ [Google Calendar] Updated existing event with Google Meet', {
-        eventId: existingEventId
-      })
-    } else {
-      // Create a new event
-      const response = await calendar.events.insert({
-        calendarId: calendarId,
-        requestBody: eventData,
-        sendUpdates: sendUpdates,
-        conferenceDataVersion: createMeetLink ? 1 : 0
-      })
-      createdEvent = response.data
-      logger.info('✅ [Google Calendar] Created new event', {
-        eventId: createdEvent.id,
-        hasMeet: createMeetLink
-      })
-    }
+    // Extract Google Meet link from conference data
+    const meetLink = createdEvent.conferenceData?.entryPoints?.find(e => e.entryPointType === 'video')?.uri
+
+    logger.info('✅ [Google Calendar] Created new event', {
+      eventId: createdEvent.id,
+      hasMeet: createMeetLink,
+      hangoutLink: createdEvent.hangoutLink,
+      meetLink: meetLink,
+      conferenceData: createdEvent.conferenceData ? 'present' : 'absent'
+    })
 
     return {
       success: true,
@@ -305,8 +304,7 @@ export async function createGoogleCalendarEvent(
         htmlLink: createdEvent.htmlLink,
         start: createdEvent.start,
         end: createdEvent.end,
-        hangoutLink: createdEvent.hangoutLink,
-        meetLink: createdEvent.conferenceData?.entryPoints?.find(e => e.entryPointType === 'video')?.uri,
+        meetLink: meetLink || createdEvent.hangoutLink, // Use meetLink preferentially, fallback to hangoutLink
         attendees: createdEvent.attendees,
         status: createdEvent.status,
         created: createdEvent.created,

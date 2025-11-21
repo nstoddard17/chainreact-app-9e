@@ -26,7 +26,7 @@ export async function uploadGoogleDriveFile(
   const cleanupPaths = new Set<string>()
 
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     
     // Handle uploadedFiles being an object with file info
     let processedUploadedFiles = resolvedConfig.uploadedFiles;

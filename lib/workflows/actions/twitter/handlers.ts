@@ -35,7 +35,7 @@ function resolveValue(value: any, input: Record<string, any>): any {
  */
 export async function postTweetHandler(config: any, userId: string, input: any): Promise<ActionResult> {
   const accessToken = await getDecryptedAccessToken(userId, "twitter")
-  const resolvedConfig = resolveValue(config, { input })
+  const resolvedConfig = resolveValue(config, input)
   return postTwitterTweet(accessToken, resolvedConfig, input)
 }
 
@@ -44,7 +44,7 @@ export async function postTweetHandler(config: any, userId: string, input: any):
  */
 export async function replyTweetHandler(config: any, userId: string, input: any): Promise<ActionResult> {
   const accessToken = await getDecryptedAccessToken(userId, "twitter")
-  const resolvedConfig = resolveValue(config, { input })
+  const resolvedConfig = resolveValue(config, input)
   return replyTwitterTweet(accessToken, resolvedConfig, input)
 }
 
@@ -53,7 +53,7 @@ export async function replyTweetHandler(config: any, userId: string, input: any)
  */
 export async function retweetHandler(config: any, userId: string, input: any): Promise<ActionResult> {
   const accessToken = await getDecryptedAccessToken(userId, "twitter")
-  const resolvedConfig = resolveValue(config, { input })
+  const resolvedConfig = resolveValue(config, input)
   return retweetTwitterTweet(accessToken, resolvedConfig, input)
 }
 
@@ -62,7 +62,7 @@ export async function retweetHandler(config: any, userId: string, input: any): P
  */
 export async function unretweetHandler(config: any, userId: string, input: any): Promise<ActionResult> {
   const accessToken = await getDecryptedAccessToken(userId, "twitter")
-  const resolvedConfig = resolveValue(config, { input })
+  const resolvedConfig = resolveValue(config, input)
   return unretweetTwitterTweet(accessToken, resolvedConfig, input)
 }
 
@@ -71,7 +71,7 @@ export async function unretweetHandler(config: any, userId: string, input: any):
  */
 export async function likeTweetHandler(config: any, userId: string, input: any): Promise<ActionResult> {
   const accessToken = await getDecryptedAccessToken(userId, "twitter")
-  const resolvedConfig = resolveValue(config, { input })
+  const resolvedConfig = resolveValue(config, input)
   return likeTwitterTweet(accessToken, resolvedConfig, input)
 }
 
@@ -80,7 +80,7 @@ export async function likeTweetHandler(config: any, userId: string, input: any):
  */
 export async function unlikeTweetHandler(config: any, userId: string, input: any): Promise<ActionResult> {
   const accessToken = await getDecryptedAccessToken(userId, "twitter")
-  const resolvedConfig = resolveValue(config, { input })
+  const resolvedConfig = resolveValue(config, input)
   return unlikeTwitterTweet(accessToken, resolvedConfig, input)
 }
 
@@ -89,7 +89,7 @@ export async function unlikeTweetHandler(config: any, userId: string, input: any
  */
 export async function sendDMHandler(config: any, userId: string, input: any): Promise<ActionResult> {
   const accessToken = await getDecryptedAccessToken(userId, "twitter")
-  const resolvedConfig = resolveValue(config, { input })
+  const resolvedConfig = resolveValue(config, input)
   return sendTwitterDM(accessToken, resolvedConfig, input)
 }
 
@@ -98,7 +98,7 @@ export async function sendDMHandler(config: any, userId: string, input: any): Pr
  */
 export async function followUserHandler(config: any, userId: string, input: any): Promise<ActionResult> {
   const accessToken = await getDecryptedAccessToken(userId, "twitter")
-  const resolvedConfig = resolveValue(config, { input })
+  const resolvedConfig = resolveValue(config, input)
   return followTwitterUser(accessToken, resolvedConfig, input)
 }
 
@@ -107,7 +107,7 @@ export async function followUserHandler(config: any, userId: string, input: any)
  */
 export async function unfollowUserHandler(config: any, userId: string, input: any): Promise<ActionResult> {
   const accessToken = await getDecryptedAccessToken(userId, "twitter")
-  const resolvedConfig = resolveValue(config, { input })
+  const resolvedConfig = resolveValue(config, input)
   return unfollowTwitterUser(accessToken, resolvedConfig, input)
 }
 
@@ -116,7 +116,7 @@ export async function unfollowUserHandler(config: any, userId: string, input: an
  */
 export async function deleteTweetHandler(config: any, userId: string, input: any): Promise<ActionResult> {
   const accessToken = await getDecryptedAccessToken(userId, "twitter")
-  const resolvedConfig = resolveValue(config, { input })
+  const resolvedConfig = resolveValue(config, input)
   return deleteTwitterTweet(accessToken, resolvedConfig, input)
 }
 
@@ -125,7 +125,7 @@ export async function deleteTweetHandler(config: any, userId: string, input: any
  */
 export async function searchTweetsHandler(config: any, userId: string, input: any): Promise<ActionResult> {
   const accessToken = await getDecryptedAccessToken(userId, "twitter")
-  const resolvedConfig = resolveValue(config, { input })
+  const resolvedConfig = resolveValue(config, input)
   return searchTwitterTweets(accessToken, resolvedConfig, input)
 }
 
@@ -134,7 +134,7 @@ export async function searchTweetsHandler(config: any, userId: string, input: an
  */
 export async function getUserTimelineHandler(config: any, userId: string, input: any): Promise<ActionResult> {
   const accessToken = await getDecryptedAccessToken(userId, "twitter")
-  const resolvedConfig = resolveValue(config, { input })
+  const resolvedConfig = resolveValue(config, input)
   return getTwitterUserTimeline(accessToken, resolvedConfig, input)
 }
 
@@ -143,6 +143,6 @@ export async function getUserTimelineHandler(config: any, userId: string, input:
  */
 export async function getMentionsHandler(config: any, userId: string, input: any): Promise<ActionResult> {
   const accessToken = await getDecryptedAccessToken(userId, "twitter")
-  const resolvedConfig = resolveValue(config, { input })
+  const resolvedConfig = resolveValue(config, input)
   return getTwitterMentions(accessToken, resolvedConfig, input)
 }

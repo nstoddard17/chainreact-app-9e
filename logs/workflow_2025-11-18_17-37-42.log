@@ -1649,3 +1649,317 @@ Time Max: "2025-11-18T23:46:19.454Z"
 [2025-11-18T23:46:29.497Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 660ms (1838 modules)
 [2025-11-18T23:46:29.754Z] [INFO   ] 2025-11-18T23:46:29.754Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/0af4872c-1522-427b-959b-72ed2701ab25","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14942902355}
 [2025-11-18T23:46:30.081Z] [INFO   ] 2025-11-18T23:46:30.081Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-18T23:48:01.622Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-11-18T23:48:03.134Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 2.8s (5036 modules)
+[2025-11-18T23:55:15.618Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.8s (1838 modules)
+[2025-11-18T23:55:16.126Z] [INFO   ] 2025-11-18T23:55:16.126Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/0af4872c-1522-427b-959b-72ed2701ab25","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14943428727}
+[2025-11-18T23:55:16.707Z] [INFO   ] 2025-11-18T23:55:16.707Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-18T23:55:31.909Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/workflows/test-node ...
+[2025-11-18T23:55:36.984Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/workflows/test-node in 6.4s (9469 modules)
+[2025-11-18T23:55:44.944Z] [INFO   ] 2025-11-18T23:55:44.944Z [DEBUG] [test-node] Executing real action: {"nodeType":"google_calendar_action_create_event","hasConfig":true,"configKeys":["title","allDay","colorId","endDate","endTime","location","startDate","startTime","calendarId","googleMeet","recurrence","visibility","endTimeZone","transparency","notifications","startTimeZone","_label_colorId","guestsCanModify","__dynamicOptions","_label_recurrence","_label_visibility","sendNotifications","separateTimezones","_label_transparency","_label_startTimeZone","guestsCanInviteOthers","guestsCanSeeOtherGuests"]}
+[2025-11-18T23:55:44.944Z] [INFO   ] 2025-11-18T23:55:44.944Z [DEBUG] 📌 executeAction received userId: a3e3a51a-175c-4b59-ad03-227ba12a18b0, workflowId: test-workflow
+[2025-11-18T23:55:44.945Z] [INFO   ] 2025-11-18T23:55:44.945Z [DEBUG] Execution log (server-side): {"nodeId":"test-node","nodeType":"google_calendar_action_create_event","nodeTitle":"Create Event","timestamp":"2025-11-18T23:55:44.945Z","status":"started","input":{"raw":{"config":{"title":"test","allDay":true,"colorId":"default","endDate":"{{NOW}}","endTime":"10:00","location":"2615 Minot Drive, Bellevue, NE, USA","startDate":"{{NOW}}","startTime":"09:00","calendarId":"primary","googleMeet":{"id":"nni-fyud-nug","link":"https://meet.google.com/nni-fyud-nug","eventId":"duv2gntug1dgmq5m111q8a32jc","settings":{"accessType":"open","muteOnEntry":false,"enableRecording":false,"allowJoinBeforeHost":true}},"recurrence":"none","visibility":"default","endTimeZone":"America/Chicago","transparency":"transparent","notifications":[{"method":"popup","minutes":30}],"startTimeZone":"America/Chicago","_label_colorId":"Calendar color","guestsCanModify":false,"__dynamicOptions":{"calendarId":[{"label":"Holidays in United States","value":"en.usa#holiday@group.v.calendar.google.com","metadata":{"timeZone":"America/North_Dakota/Center","backgroundColor":"#16a765"}},{"label":"Stoddard Calendar","value":"51bdcd98d403450c61c21aea3475fdf2d0baa42cb582226e33dca85293db8317@group.calendar.google.com","metadata":{"timeZone":"America/North_Dakota/Center","backgroundColor":"#4986e7"}},{"label":"stoddard.nathaniel900@gmail.com","value":"stoddard.nathaniel900@gmail.com","metadata":{"primary":true,"timeZone":"America/North_Dakota/Center","backgroundColor":"#9a9cff"}}]},"_label_recurrence":"Does not repeat","_label_visibility":"Default visibility","sendNotifications":"all","separateTimezones":false,"_label_transparency":"Free","_label_startTimeZone":"Central Time (CT)","guestsCanInviteOthers":true,"guestsCanSeeOtherGuests":true}},"formatted":["📥 Configuration:","  Title: \"test\"","  All Day: Yes","  Color Id: \"default\"","  End Date: \"{{NOW}}\"","  End Time: \"10:00\"","  Location: \"2615 Minot Drive, Bellevue, NE, USA\"","  Start Date: \"{{NOW}}\"","  Start Time: \"09:00\"","  Calendar Id: \"primary\"","  Google Meet: Id: \"nni-fyud-nug\"\nLink: \"https://meet.google.com/nni-fyud-nug\"\nEvent Id: \"duv2gntug1dgmq5m111q8a32jc\"\nSettings: Access Type: \"[REDACTED-PII: 24 chars]\"\nMute On Entry: No\nEnable Recording: No\nAllow Join Before Host: Yes","  Recurrence: \"none\"","  Visibility: \"default\"","  End Time Zone: \"America/Chicago\"","  Transparency: \"transparent\"","  Notifications: [1] HTTP Method: \"popup\"\nMinutes: 30","  Start Time Zone: \"America/Chicago\"","  Guests Can Modify: No","  Send Notifications: \"all\"","  Separate Timezones: No","  Guests Can Invite Others: Yes","  Guests Can See Other Guests: Yes"]}}
+[2025-11-18T23:55:44.946Z] [INFO   ] 2025-11-18T23:55:44.946Z [DEBUG] [Execution Started] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔄 Create Event (google_calendar_action_create_event)
+⏱️ 5:55:44 PM
+📌 Status: 🔄 Started
+────────────────────────────────────────────────────────────
+📥 Configuration:
+  Title: "test"
+  All Day: Yes
+  Color Id: "default"
+  End Date: "{{NOW}}"
+  End Time: "10:00"
+  Location: "2615 Minot Drive, Bellevue, NE, USA"
+  Start Date: "{{NOW}}"
+  Start Time: "09:00"
+  Calendar Id: "primary"
+  Google Meet: Id: "nni-fyud-nug"
+Link: "https://meet.google.com/nni-fyud-nug"
+Event Id: "duv2gntug1dgmq5m111q8a32jc"
+Settings: Access Type: "[REDACTED-PII: 24 chars]"
+Mute On Entry: No
+Enable Recording: No
+Allow Join Before Host: Yes
+  Recurrence: "none"
+  Visibility: "default"
+  End Time Zone: "America/Chicago"
+  Transparency: "transparent"
+  Notifications: [1] HTTP Method: "popup"
+Minutes: 30
+  Start Time Zone: "America/Chicago"
+  Guests Can Modify: No
+  Send Notifications: "all"
+  Separate Timezones: No
+  Guests Can Invite Others: Yes
+  Guests Can See Other Guests: Yes
+
+[2025-11-18T23:55:44.947Z] [INFO   ] 2025-11-18T23:55:44.947Z [DEBUG] 🔍 Resolving variable: {{NOW}}
+[2025-11-18T23:55:44.947Z] [INFO   ] 2025-11-18T23:55:44.947Z [DEBUG] 🔍 Available input keys: input
+[2025-11-18T23:55:44.947Z] [INFO   ] 2025-11-18T23:55:44.947Z [DEBUG] 🔍 Resolving variable: {{NOW}}
+[2025-11-18T23:55:44.947Z] [INFO   ] 2025-11-18T23:55:44.947Z [DEBUG] 🔍 Available input keys: input
+[2025-11-18T23:55:44.947Z] [INFO   ] 2025-11-18T23:55:44.947Z [DEBUG] 🔍 Looking for integration: userId="a3e3a51a-175c-4b59-ad03-227ba12a18b0", provider="google-calendar"
+[2025-11-18T23:55:44.947Z] [INFO   ] 2025-11-18T23:55:44.947Z [DEBUG] 🔍 Searching for integration with providers: google, google-calendar, google_calendar, gmail
+[2025-11-18T23:55:45.084Z] [INFO   ] 2025-11-18T23:55:45.084Z [DEBUG] 📋 All integrations for user a3e3a51a-175c-4b59-ad03-227ba12a18b0: [{"id":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","status":"connected"},{"id":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","status":"connected"},{"id":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","status":"connected"},{"id":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","status":"connected"},{"id":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","status":"connected"},{"id":"f367c75b-b4ea-4d0e-96ba-76368f0525a6","provider":"slack","status":"connected"},{"id":"f172e387-ab0c-4c6a-975e-1767b2fd37be","provider":"notion","status":"connected"},{"id":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","status":"connected"},{"id":"dd542556-581b-4711-ae40-304c81619938","provider":"airtable","status":"connected"},{"id":"f0476067-a30a-4ab4-b9fb-1f5a647a7be7","provider":"facebook","status":"connected"},{"id":"c61c89e4-4f78-4069-8bfe-d36dd81cf6fc","provider":"dropbox","status":"connected"},{"id":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","status":"needs_reauthorization"},{"id":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","status":"connected"},{"id":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","status":"connected"},{"id":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","status":"connected"}]
+[2025-11-18T23:55:45.110Z] [INFO   ] 2025-11-18T23:55:45.110Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/0af4872c-1522-427b-959b-72ed2701ab25","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14943457711}
+[2025-11-18T23:55:45.478Z] [INFO   ] 2025-11-18T23:55:45.478Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-18T23:55:45.525Z] [INFO   ] 2025-11-18T23:55:45.525Z [DEBUG] ✅ Found integration for google-calendar with actual provider: google-calendar
+[2025-11-18T23:55:45.525Z] [INFO   ] 2025-11-18T23:55:45.525Z [DEBUG] Attempting to decrypt access token for google-calendar
+[2025-11-18T23:55:45.526Z] [INFO   ] 2025-11-18T23:55:45.525Z [DEBUG] Token format check: {"hasColon":false,"isEncrypted":false}
+[2025-11-18T23:55:45.526Z] [INFO   ] 2025-11-18T23:55:45.526Z [DEBUG] Token for google-calendar is stored as plain text, returning as-is
+[2025-11-18T23:55:45.526Z] [INFO   ] 2025-11-18T23:55:45.526Z [DEBUG] 🔄 [Google Calendar] Updating existing event duv2gntug1dgmq5m111q8a32jc with real details
+[2025-11-18T23:55:45.526Z] [INFO   ] 2025-11-18T23:55:45.526Z [DEBUG] 📤 [Google Calendar] Event data being sent: {"allDay":true,"hasExistingEventId":true,"eventData":"{\n  \"summary\": \"test\",\n  \"location\": \"2615 Minot Drive, Bellevue, NE, USA\",\n  \"start\": {\n    \"date\": \"2025-11-18\"\n  },\n  \"end\": {\n    \"date\": \"2025-11-18\"\n  },\n  \"reminders\": {\n    \"useDefault\": false,\n    \"overrides\": [\n      {\n        \"method\": \"popup\",\n        \"minutes\": 30\n      }\n    ]\n  },\n  \"transparency\": \"transparent\"\n}"}
+[2025-11-18T23:55:46.206Z] [INFO   ] 2025-11-18T23:55:46.206Z [INFO] ✅ [Google Calendar] Updated existing event with Google Meet {"eventId":"duv2gntug1dgmq5m111q8a32jc"}
+[2025-11-18T23:55:46.209Z] [INFO   ] 2025-11-18T23:55:46.209Z [DEBUG] Execution log (server-side): {"nodeId":"test-node","nodeType":"google_calendar_action_create_event","nodeTitle":"Create Event","timestamp":"2025-11-18T23:55:46.207Z","status":"completed","executionTime":1263,"input":{"raw":{"config":{"title":"test","allDay":true,"colorId":"default","endDate":"{{NOW}}","endTime":"10:00","location":"2615 Minot Drive, Bellevue, NE, USA","startDate":"{{NOW}}","startTime":"09:00","calendarId":"primary","googleMeet":{"id":"nni-fyud-nug","link":"https://meet.google.com/nni-fyud-nug","eventId":"duv2gntug1dgmq5m111q8a32jc","settings":{"accessType":"open","muteOnEntry":false,"enableRecording":false,"allowJoinBeforeHost":true}},"recurrence":"none","visibility":"default","endTimeZone":"America/Chicago","transparency":"transparent","notifications":[{"method":"popup","minutes":30}],"startTimeZone":"America/Chicago","_label_colorId":"Calendar color","guestsCanModify":false,"__dynamicOptions":{"calendarId":[{"label":"Holidays in United States","value":"en.usa#holiday@group.v.calendar.google.com","metadata":{"timeZone":"America/North_Dakota/Center","backgroundColor":"#16a765"}},{"label":"Stoddard Calendar","value":"51bdcd98d403450c61c21aea3475fdf2d0baa42cb582226e33dca85293db8317@group.calendar.google.com","metadata":{"timeZone":"America/North_Dakota/Center","backgroundColor":"#4986e7"}},{"label":"stoddard.nathaniel900@gmail.com","value":"stoddard.nathaniel900@gmail.com","metadata":{"primary":true,"timeZone":"America/North_Dakota/Center","backgroundColor":"#9a9cff"}}]},"_label_recurrence":"Does not repeat","_label_visibility":"Default visibility","sendNotifications":"all","separateTimezones":false,"_label_transparency":"Free","_label_startTimeZone":"Central Time (CT)","guestsCanInviteOthers":true,"guestsCanSeeOtherGuests":true}},"formatted":["📥 Configuration:","  Title: \"test\"","  All Day: Yes","  Color Id: \"default\"","  End Date: \"{{NOW}}\"","  End Time: \"10:00\"","  Location: \"2615 Minot Drive, Bellevue, NE, USA\"","  Start Date: \"{{NOW}}\"","  Start Time: \"09:00\"","  Calendar Id: \"primary\"","  Google Meet: Id: \"nni-fyud-nug\"\nLink: \"https://meet.google.com/nni-fyud-nug\"\nEvent Id: \"duv2gntug1dgmq5m111q8a32jc\"\nSettings: Access Type: \"[REDACTED-PII: 24 chars]\"\nMute On Entry: No\nEnable Recording: No\nAllow Join Before Host: Yes","  Recurrence: \"none\"","  Visibility: \"default\"","  End Time Zone: \"America/Chicago\"","  Transparency: \"transparent\"","  Notifications: [1] HTTP Method: \"popup\"\nMinutes: 30","  Start Time Zone: \"America/Chicago\"","  Guests Can Modify: No","  Send Notifications: \"all\"","  Separate Timezones: No","  Guests Can Invite Others: Yes","  Guests Can See Other Guests: Yes"]},"output":{"raw":{"eventId":"duv2gntug1dgmq5m111q8a32jc","htmlLink":"https://www.google.com/calendar/event?eid=ZHV2MmdudHVnMWRnbXE1bTExMXE4YTMyamMgc3RvZGRhcmQubmF0aGFuaWVsOTAwQG0","start":{"date":"2025-11-18"},"end":{"date":"2025-11-18"},"hangoutLink":"https://meet.google.com/nni-fyud-nug","meetLink":"https://meet.google.com/nni-fyud-nug","status":"confirmed","created":"2025-11-18T21:18:19.000Z","summary":"test","location":"2615 Minot Drive, Bellevue, NE, USA","startTimezone":"America/Chicago","endTimezone":"America/Chicago"},"formatted":["✅ Create Event Completed","","Event Id: \"duv2gntug1dgmq5m111q8a32jc\"","Html Link: \"https://www.google.com/calendar/event?eid=ZHV2MmdudHVnMWRnbXE1bTExMXE4YTMyamMgc3RvZGRhcmQubmF0aGFuaWVsOTAwQG0\"","Start: Date: \"2025-11-18\"","End: Date: \"2025-11-18\"","Hangout Link: \"https://meet.google.com/nni-fyud-nug\"","Meet Link: \"https://meet.google.com/nni-fyud-nug\"","Attendees: (empty)","Status: \"confirmed\"","Created: \"2025-11-18T21:18:19.000Z\"","Summary: \"test\"","Location: \"2615 Minot Drive, Bellevue, NE, USA\"","Start Timezone: \"America/Chicago\"","End Timezone: \"America/Chicago\""]}}
+[2025-11-18T23:55:46.209Z] [INFO   ] 2025-11-18T23:55:46.209Z [DEBUG] [Execution Completed] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔄 Create Event (google_calendar_action_create_event)
+⏱️ 5:55:46 PM • 1263ms
+📌 Status: ✅ Completed
+────────────────────────────────────────────────────────────
+📥 Configuration:
+  Title: "test"
+  All Day: Yes
+  Color Id: "default"
+  End Date: "{{NOW}}"
+  End Time: "10:00"
+  Location: "2615 Minot Drive, Bellevue, NE, USA"
+  Start Date: "{{NOW}}"
+  Start Time: "09:00"
+  Calendar Id: "primary"
+  Google Meet: Id: "nni-fyud-nug"
+Link: "https://meet.google.com/nni-fyud-nug"
+Event Id: "duv2gntug1dgmq5m111q8a32jc"
+Settings: Access Type: "[REDACTED-PII: 24 chars]"
+Mute On Entry: No
+Enable Recording: No
+Allow Join Before Host: Yes
+  Recurrence: "none"
+  Visibility: "default"
+  End Time Zone: "America/Chicago"
+  Transparency: "transparent"
+  Notifications: [1] HTTP Method: "popup"
+Minutes: 30
+  Start Time Zone: "America/Chicago"
+  Guests Can Modify: No
+  Send Notifications: "all"
+  Separate Timezones: No
+  Guests Can Invite Others: Yes
+  Guests Can See Other Guests: Yes
+
+✅ Create Event Completed
+
+Event Id: "duv2gntug1dgmq5m111q8a32jc"
+Html Link: "https://www.google.com/calendar/event?eid=ZHV2MmdudHVnMWRnbXE1bTExMXE4YTMyamMgc3RvZGRhcmQubmF0aGFuaWVsOTAwQG0"
+Start: Date: "2025-11-18"
+End: Date: "2025-11-18"
+Hangout Link: "https://meet.google.com/nni-fyud-nug"
+Meet Link: "https://meet.google.com/nni-fyud-nug"
+Attendees: (empty)
+Status: "confirmed"
+Created: "2025-11-18T21:18:19.000Z"
+Summary: "test"
+Location: "2615 Minot Drive, Bellevue, NE, USA"
+Start Timezone: "America/Chicago"
+End Timezone: "America/Chicago"
+
+[2025-11-18T23:55:46.209Z] [INFO   ] 2025-11-18T23:55:46.209Z [DEBUG] [test-node] Execution completed: {"success":true,"hasOutput":true,"outputKeys":["eventId","htmlLink","start","end","hangoutLink","meetLink","attendees","status","created","summary","location","startTimezone","endTimezone"]}
+[2025-11-18T23:55:47.089Z] [INFO   ] 2025-11-18T23:55:47.089Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/0af4872c-1522-427b-959b-72ed2701ab25/apply-edits","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14943459690}
+[2025-11-18T23:55:48.064Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/v2/api/flows/[flowId]/apply-edits ...
+[2025-11-18T23:55:48.170Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/apply-edits in 947ms (7633 modules)
+[2025-11-18T23:55:48.304Z] [INFO   ] [apply-edits] Original flow size: 40579 bytes (39.63 KB)
+[2025-11-18T23:55:48.305Z] [INFO   ] [apply-edits] Sanitized flow size: 39402 bytes (38.48 KB), saved 1177 bytes
+[2025-11-18T23:55:48.660Z] [INFO   ] [FlowRepository] Creating revision for flow 0af4872c-1522-427b-959b-72ed2701ab25, JSON size: 39402 bytes (38.48 KB)
+[2025-11-18T23:55:49.601Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/workflows/[id]/chat ...
+[2025-11-18T23:55:49.819Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/workflows/[id]/chat in 808ms (7635 modules)
+[2025-11-18T23:56:58.704Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-11-18T23:56:59.522Z] [INFO   ] 2025-11-18T23:56:59.522Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/0af4872c-1522-427b-959b-72ed2701ab25","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14943532123}
+[2025-11-18T23:57:08.302Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 10.1s (6875 modules)
+[2025-11-18T23:57:08.650Z] [INFO   ] 2025-11-18T23:57:08.650Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-18T23:57:08.649Z","url":"http://localhost:3000/api/integrations"}
+[2025-11-18T23:57:08.663Z] [INFO   ] 2025-11-18T23:57:08.663Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/0af4872c-1522-427b-959b-72ed2701ab25/apply-edits","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14943541264}
+[2025-11-18T23:57:09.037Z] [INFO   ] 2025-11-18T23:57:09.036Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-18T23:57:09.182Z] [INFO   ] 2025-11-18T23:57:09.182Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-18T23:57:09.183Z] [INFO   ] 2025-11-18T23:57:09.183Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-18T23:57:09.462Z] [INFO   ] 2025-11-18T23:57:09.462Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":15,"permissionsCount":4,"integrationsError":null,"permissionsError":null}
+[2025-11-18T23:57:09.463Z] [INFO   ] 2025-11-18T23:57:09.463Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","permission":"admin"}
+[2025-11-18T23:57:09.463Z] [INFO   ] 2025-11-18T23:57:09.463Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","permission":"admin","reason":"connected_by"}
+[2025-11-18T23:57:09.463Z] [INFO   ] 2025-11-18T23:57:09.463Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-18T23:57:09.463Z] [INFO   ] 2025-11-18T23:57:09.463Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","permission":"admin","reason":"connected_by"}
+[2025-11-18T23:57:09.464Z] [INFO   ] 2025-11-18T23:57:09.464Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","permission":"admin"}
+[2025-11-18T23:57:09.464Z] [INFO   ] 2025-11-18T23:57:09.464Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f367c75b-b4ea-4d0e-96ba-76368f0525a6","provider":"slack","permission":"admin","reason":"connected_by"}
+[2025-11-18T23:57:09.464Z] [INFO   ] 2025-11-18T23:57:09.464Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f172e387-ab0c-4c6a-975e-1767b2fd37be","provider":"notion","permission":"admin","reason":"default"}
+[2025-11-18T23:57:09.464Z] [INFO   ] 2025-11-18T23:57:09.464Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","permission":"admin","reason":"connected_by"}
+[2025-11-18T23:57:09.464Z] [INFO   ] 2025-11-18T23:57:09.464Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"dd542556-581b-4711-ae40-304c81619938","provider":"airtable","permission":"admin","reason":"connected_by"}
+[2025-11-18T23:57:09.464Z] [INFO   ] 2025-11-18T23:57:09.464Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f0476067-a30a-4ab4-b9fb-1f5a647a7be7","provider":"facebook","permission":"admin","reason":"connected_by"}
+[2025-11-18T23:57:09.464Z] [INFO   ] 2025-11-18T23:57:09.464Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"c61c89e4-4f78-4069-8bfe-d36dd81cf6fc","provider":"dropbox","permission":"admin","reason":"connected_by"}
+[2025-11-18T23:57:09.464Z] [INFO   ] 2025-11-18T23:57:09.464Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","permission":"admin","reason":"connected_by"}
+[2025-11-18T23:57:09.464Z] [INFO   ] 2025-11-18T23:57:09.464Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","permission":"admin","reason":"connected_by"}
+[2025-11-18T23:57:09.464Z] [INFO   ] 2025-11-18T23:57:09.464Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-18T23:57:09.464Z] [INFO   ] 2025-11-18T23:57:09.464Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","permission":"admin","reason":"connected_by"}
+[2025-11-18T23:57:09.464Z] [INFO   ] 2025-11-18T23:57:09.464Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":15,"workspaceType":"personal"}
+[2025-11-18T23:57:09.762Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/gmail/data ...
+[2025-11-18T23:57:10.523Z] [INFO   ] 2025-11-18T23:57:10.523Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/0af4872c-1522-427b-959b-72ed2701ab25","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14943543124}
+[2025-11-18T23:57:18.839Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_not-found in 9.6s (9474 modules)
+[2025-11-18T23:57:24.947Z] [INFO   ] [apply-edits] Original flow size: 39674 bytes (38.74 KB)
+[2025-11-18T23:57:24.947Z] [INFO   ] [apply-edits] Sanitized flow size: 39485 bytes (38.56 KB), saved 189 bytes
+[2025-11-18T23:57:24.975Z] [INFO   ] 2025-11-18T23:57:24.975Z [DEBUG] 🔍 [Gmail Data API] Request: {"integrationId":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","dataType":"gmail-recent-recipients","options":{}}
+[2025-11-18T23:57:25.010Z] [INFO   ] 2025-11-18T23:57:25.010Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-18T23:57:25.010Z","url":"http://localhost:3000/api/integrations"}
+[2025-11-18T23:57:25.275Z] [INFO   ] 2025-11-18T23:57:25.275Z [DEBUG] 🚀 [Gmail Data API] Executing handler for: gmail-recent-recipients
+[2025-11-18T23:57:25.275Z] [INFO   ] 2025-11-18T23:57:25.275Z [DEBUG] 🚀 [Gmail API] Fetching fresh enhanced recipients
+[2025-11-18T23:57:25.275Z] [INFO   ] 2025-11-18T23:57:25.275Z [DEBUG] 🔍 [Gmail API] Integration scopes: ["https://www.googleapis.com/auth/contacts.readonly","https://www.googleapis.com/auth/gmail.modify","https://www.googleapis.com/auth/userinfo.profile","https://www.googleapis.com/auth/gmail.settings.sharing","https://www.googleapis.com/auth/userinfo.email","openid","https://www.googleapis.com/auth/gmail.settings.basic"]
+[2025-11-18T23:57:25.275Z] [INFO   ] 2025-11-18T23:57:25.275Z [DEBUG] 📇 [Gmail API] Attempting to fetch Google Contacts...
+[2025-11-18T23:57:25.288Z] [INFO   ] 2025-11-18T23:57:25.288Z [DEBUG] [test-node] Executing real action: {"nodeType":"google_calendar_action_create_event","hasConfig":true,"configKeys":["title","allDay","colorId","endDate","endTime","location","startDate","startTime","calendarId","googleMeet","recurrence","visibility","endTimeZone","transparency","notifications","startTimeZone","_label_colorId","guestsCanModify","_label_recurrence","_label_visibility","sendNotifications","separateTimezones","_label_transparency","_label_startTimeZone","guestsCanInviteOthers","guestsCanSeeOtherGuests","__dynamicOptions"]}
+[2025-11-18T23:57:25.290Z] [INFO   ] 2025-11-18T23:57:25.290Z [DEBUG] 📌 executeAction received userId: a3e3a51a-175c-4b59-ad03-227ba12a18b0, workflowId: test-workflow
+[2025-11-18T23:57:25.292Z] [INFO   ] 2025-11-18T23:57:25.291Z [DEBUG] Execution log (server-side): {"nodeId":"test-node","nodeType":"google_calendar_action_create_event","nodeTitle":"Create Event","timestamp":"2025-11-18T23:57:25.291Z","status":"started","input":{"raw":{"config":{"title":"test","allDay":true,"colorId":"default","endDate":"{{NOW}}","endTime":"10:00","location":"2615 Minot Drive, Bellevue, NE, USA","startDate":"{{NOW}}","startTime":"09:00","calendarId":"51bdcd98d403450c61c21aea3475fdf2d0baa42cb582226e33dca85293db8317@group.calendar.google.com","googleMeet":{"id":"nni-fyud-nug","link":"https://meet.google.com/nni-fyud-nug","eventId":"duv2gntug1dgmq5m111q8a32jc","settings":{"accessType":"open","muteOnEntry":false,"enableRecording":false,"allowJoinBeforeHost":true}},"recurrence":"none","visibility":"default","endTimeZone":"America/Chicago","transparency":"transparent","notifications":[{"method":"popup","minutes":30}],"startTimeZone":"America/Chicago","_label_colorId":"Calendar color","guestsCanModify":false,"_label_recurrence":"Does not repeat","_label_visibility":"Default visibility","sendNotifications":"all","separateTimezones":false,"_label_transparency":"Free","_label_startTimeZone":"Central Time (CT)","guestsCanInviteOthers":true,"guestsCanSeeOtherGuests":true,"__dynamicOptions":{"calendarId":[{"value":"en.usa#holiday@group.v.calendar.google.com","label":"Holidays in United States","metadata":{"timeZone":"America/North_Dakota/Center","backgroundColor":"#16a765"}},{"value":"51bdcd98d403450c61c21aea3475fdf2d0baa42cb582226e33dca85293db8317@group.calendar.google.com","label":"Stoddard Calendar","metadata":{"timeZone":"America/North_Dakota/Center","backgroundColor":"#4986e7"}},{"value":"stoddard.nathaniel900@gmail.com","label":"stoddard.nathaniel900@gmail.com","metadata":{"primary":true,"timeZone":"America/North_Dakota/Center","backgroundColor":"#9a9cff"}}]}}},"formatted":["📥 Configuration:","  Title: \"test\"","  All Day: Yes","  Color Id: \"default\"","  End Date: \"{{NOW}}\"","  End Time: \"10:00\"","  Location: \"2615 Minot Drive, Bellevue, NE, USA\"","  Start Date: \"{{NOW}}\"","  Start Time: \"09:00\"","  Calendar Id: \"51bdcd98d403450c61c21aea3475fdf2d0baa42cb582226e33dca85293db8317@group.calendar.google.com\"","  Google Meet: Id: \"nni-fyud-nug\"\nLink: \"https://meet.google.com/nni-fyud-nug\"\nEvent Id: \"duv2gntug1dgmq5m111q8a32jc\"\nSettings: Access Type: \"[REDACTED-PII: 24 chars]\"\nMute On Entry: No\nEnable Recording: No\nAllow Join Before Host: Yes","  Recurrence: \"none\"","  Visibility: \"default\"","  End Time Zone: \"America/Chicago\"","  Transparency: \"transparent\"","  Notifications: [1] HTTP Method: \"popup\"\nMinutes: 30","  Start Time Zone: \"America/Chicago\"","  Guests Can Modify: No","  Send Notifications: \"all\"","  Separate Timezones: No","  Guests Can Invite Others: Yes","  Guests Can See Other Guests: Yes"]}}
+[2025-11-18T23:57:25.292Z] [INFO   ] 2025-11-18T23:57:25.292Z [DEBUG] [Execution Started] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔄 Create Event (google_calendar_action_create_event)
+⏱️ 5:57:25 PM
+📌 Status: 🔄 Started
+────────────────────────────────────────────────────────────
+📥 Configuration:
+  Title: "test"
+  All Day: Yes
+  Color Id: "default"
+  End Date: "{{NOW}}"
+  End Time: "10:00"
+  Location: "2615 Minot Drive, Bellevue, NE, USA"
+  Start Date: "{{NOW}}"
+  Start Time: "09:00"
+  Calendar Id: "51bdcd98d403450c61c21aea3475fdf2d0baa42cb582226e33dca85293db8317@group.calendar.google.com"
+  Google Meet: Id: "nni-fyud-nug"
+Link: "https://meet.google.com/nni-fyud-nug"
+Event Id: "duv2gntug1dgmq5m111q8a32jc"
+Settings: Access Type: "[REDACTED-PII: 24 chars]"
+Mute On Entry: No
+Enable Recording: No
+Allow Join Before Host: Yes
+  Recurrence: "none"
+  Visibility: "default"
+  End Time Zone: "America/Chicago"
+  Transparency: "transparent"
+  Notifications: [1] HTTP Method: "popup"
+Minutes: 30
+  Start Time Zone: "America/Chicago"
+  Guests Can Modify: No
+  Send Notifications: "all"
+  Separate Timezones: No
+  Guests Can Invite Others: Yes
+  Guests Can See Other Guests: Yes
+
+[2025-11-18T23:57:25.294Z] [INFO   ] 2025-11-18T23:57:25.294Z [DEBUG] 🔍 Resolving variable: {{NOW}}
+[2025-11-18T23:57:25.294Z] [INFO   ] 2025-11-18T23:57:25.294Z [DEBUG] 🔍 Available input keys: input
+[2025-11-18T23:57:25.294Z] [INFO   ] 2025-11-18T23:57:25.294Z [DEBUG] 🔍 Resolving variable: {{NOW}}
+[2025-11-18T23:57:25.294Z] [INFO   ] 2025-11-18T23:57:25.294Z [DEBUG] 🔍 Available input keys: input
+[2025-11-18T23:57:25.296Z] [INFO   ] 2025-11-18T23:57:25.296Z [DEBUG] 🔍 Looking for integration: userId="a3e3a51a-175c-4b59-ad03-227ba12a18b0", provider="google-calendar"
+[2025-11-18T23:57:25.296Z] [INFO   ] 2025-11-18T23:57:25.296Z [DEBUG] 🔍 Searching for integration with providers: google, google-calendar, google_calendar, gmail
+[2025-11-18T23:57:25.299Z] [INFO   ] 2025-11-18T23:57:25.299Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-18T23:57:25.299Z] [INFO   ] 2025-11-18T23:57:25.299Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-18T23:57:25.778Z] [INFO   ] 2025-11-18T23:57:25.778Z [DEBUG] 📋 All integrations for user a3e3a51a-175c-4b59-ad03-227ba12a18b0: [{"id":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","status":"connected"},{"id":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","status":"connected"},{"id":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","status":"connected"},{"id":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","status":"connected"},{"id":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","status":"connected"},{"id":"f367c75b-b4ea-4d0e-96ba-76368f0525a6","provider":"slack","status":"connected"},{"id":"f172e387-ab0c-4c6a-975e-1767b2fd37be","provider":"notion","status":"connected"},{"id":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","status":"connected"},{"id":"dd542556-581b-4711-ae40-304c81619938","provider":"airtable","status":"connected"},{"id":"f0476067-a30a-4ab4-b9fb-1f5a647a7be7","provider":"facebook","status":"connected"},{"id":"c61c89e4-4f78-4069-8bfe-d36dd81cf6fc","provider":"dropbox","status":"connected"},{"id":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","status":"needs_reauthorization"},{"id":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","status":"connected"},{"id":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","status":"connected"},{"id":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","status":"connected"}]
+[2025-11-18T23:57:25.786Z] [INFO   ] 2025-11-18T23:57:25.786Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":15,"permissionsCount":4,"integrationsError":null,"permissionsError":null}
+[2025-11-18T23:57:25.786Z] [INFO   ] 2025-11-18T23:57:25.786Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","permission":"admin"}
+[2025-11-18T23:57:25.786Z] [INFO   ] 2025-11-18T23:57:25.786Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","permission":"admin","reason":"connected_by"}
+[2025-11-18T23:57:25.786Z] [INFO   ] 2025-11-18T23:57:25.786Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-18T23:57:25.786Z] [INFO   ] 2025-11-18T23:57:25.786Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","permission":"admin","reason":"connected_by"}
+[2025-11-18T23:57:25.786Z] [INFO   ] 2025-11-18T23:57:25.786Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","permission":"admin"}
+[2025-11-18T23:57:25.786Z] [INFO   ] 2025-11-18T23:57:25.786Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f367c75b-b4ea-4d0e-96ba-76368f0525a6","provider":"slack","permission":"admin","reason":"connected_by"}
+[2025-11-18T23:57:25.786Z] [INFO   ] 2025-11-18T23:57:25.786Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f172e387-ab0c-4c6a-975e-1767b2fd37be","provider":"notion","permission":"admin","reason":"default"}
+[2025-11-18T23:57:25.786Z] [INFO   ] 2025-11-18T23:57:25.786Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","permission":"admin","reason":"connected_by"}
+[2025-11-18T23:57:25.786Z] [INFO   ] 2025-11-18T23:57:25.786Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"dd542556-581b-4711-ae40-304c81619938","provider":"airtable","permission":"admin","reason":"connected_by"}
+[2025-11-18T23:57:25.786Z] [INFO   ] 2025-11-18T23:57:25.786Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f0476067-a30a-4ab4-b9fb-1f5a647a7be7","provider":"facebook","permission":"admin","reason":"connected_by"}
+[2025-11-18T23:57:25.786Z] [INFO   ] 2025-11-18T23:57:25.786Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"c61c89e4-4f78-4069-8bfe-d36dd81cf6fc","provider":"dropbox","permission":"admin","reason":"connected_by"}
+[2025-11-18T23:57:25.786Z] [INFO   ] 2025-11-18T23:57:25.786Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","permission":"admin","reason":"connected_by"}
+[2025-11-18T23:57:25.786Z] [INFO   ] 2025-11-18T23:57:25.786Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","permission":"admin","reason":"connected_by"}
+[2025-11-18T23:57:25.786Z] [INFO   ] 2025-11-18T23:57:25.786Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-18T23:57:25.786Z] [INFO   ] 2025-11-18T23:57:25.786Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","permission":"admin","reason":"connected_by"}
+[2025-11-18T23:57:25.786Z] [INFO   ] 2025-11-18T23:57:25.786Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":15,"workspaceType":"personal"}
+[2025-11-18T23:57:25.832Z] [INFO   ] 2025-11-18T23:57:25.832Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/0af4872c-1522-427b-959b-72ed2701ab25","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14943558433}
+[2025-11-18T23:57:25.878Z] [INFO   ] [FlowRepository] Creating revision for flow 0af4872c-1522-427b-959b-72ed2701ab25, JSON size: 39485 bytes (38.56 KB)
+[2025-11-18T23:57:25.908Z] [INFO   ] 2025-11-18T23:57:25.908Z [DEBUG] ✅ Found integration for google-calendar with actual provider: google-calendar
+[2025-11-18T23:57:25.908Z] [INFO   ] 2025-11-18T23:57:25.908Z [DEBUG] Attempting to decrypt access token for google-calendar
+[2025-11-18T23:57:25.908Z] [INFO   ] 2025-11-18T23:57:25.908Z [DEBUG] Token format check: {"hasColon":false,"isEncrypted":false}
+[2025-11-18T23:57:25.908Z] [INFO   ] 2025-11-18T23:57:25.908Z [DEBUG] Token for google-calendar is stored as plain text, returning as-is
+[2025-11-18T23:57:25.909Z] [INFO   ] 2025-11-18T23:57:25.909Z [DEBUG] 🔄 [Google Calendar] Updating existing event duv2gntug1dgmq5m111q8a32jc with real details
+[2025-11-18T23:57:25.909Z] [INFO   ] 2025-11-18T23:57:25.909Z [DEBUG] 📤 [Google Calendar] Event data being sent: {"allDay":true,"hasExistingEventId":true,"eventData":"{\n  \"summary\": \"test\",\n  \"location\": \"2615 Minot Drive, Bellevue, NE, USA\",\n  \"start\": {\n    \"date\": \"2025-11-18\"\n  },\n  \"end\": {\n    \"date\": \"2025-11-18\"\n  },\n  \"reminders\": {\n    \"useDefault\": false,\n    \"overrides\": [\n      {\n        \"method\": \"popup\",\n        \"minutes\": 30\n      }\n    ]\n  },\n  \"transparency\": \"transparent\"\n}"}
+[2025-11-18T23:57:25.959Z] [INFO   ] 2025-11-18T23:57:25.959Z [DEBUG] 🔍 [Gmail Data API] Request: {"integrationId":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","dataType":"gmail-recent-recipients","options":{}}
+[2025-11-18T23:57:26.232Z] [INFO   ] 2025-11-18T23:57:26.232Z [DEBUG] ✅ [Gmail API] Found 4 contacts from Google Contacts
+[2025-11-18T23:57:26.232Z] [INFO   ] 2025-11-18T23:57:26.232Z [DEBUG] 👥 [Gmail API] Contacts raw preview: [{"names":["Nathaniel Stoddard"],"emails":[]},{"names":["SGT Aguilar"],"emails":[]},{"names":["Sponsee A1C Simona Gamble"],"emails":[]},{"names":["Rob"],"emails":[]}]
+[2025-11-18T23:57:26.232Z] [INFO   ] 2025-11-18T23:57:26.232Z [DEBUG] 📬 [Gmail API] Contacts returned: []
+[2025-11-18T23:57:26.232Z] [INFO   ] 2025-11-18T23:57:26.232Z [DEBUG] 📧 [Gmail API] Fetching recent email recipients from sent and received...
+[2025-11-18T23:57:26.241Z] [INFO   ] 2025-11-18T23:57:26.241Z [DEBUG] 🚀 [Gmail Data API] Executing handler for: gmail-recent-recipients
+[2025-11-18T23:57:26.241Z] [INFO   ] 2025-11-18T23:57:26.241Z [DEBUG] 🚀 [Gmail API] Fetching fresh enhanced recipients
+[2025-11-18T23:57:26.241Z] [INFO   ] 2025-11-18T23:57:26.241Z [DEBUG] 🔍 [Gmail API] Integration scopes: ["https://www.googleapis.com/auth/contacts.readonly","https://www.googleapis.com/auth/gmail.modify","https://www.googleapis.com/auth/userinfo.profile","https://www.googleapis.com/auth/gmail.settings.sharing","https://www.googleapis.com/auth/userinfo.email","openid","https://www.googleapis.com/auth/gmail.settings.basic"]
+[2025-11-18T23:57:26.241Z] [INFO   ] 2025-11-18T23:57:26.241Z [DEBUG] 📇 [Gmail API] Attempting to fetch Google Contacts...
+[2025-11-18T23:57:26.511Z] [INFO   ] 2025-11-18T23:57:26.511Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-18T23:57:26.536Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1505ms (1842 modules)
+[2025-11-18T23:57:26.564Z] [INFO   ] 2025-11-18T23:57:26.564Z [DEBUG] ✅ [Gmail API] Found 4 contacts from Google Contacts
+[2025-11-18T23:57:26.565Z] [INFO   ] 2025-11-18T23:57:26.565Z [DEBUG] 👥 [Gmail API] Contacts raw preview: [{"names":["Nathaniel Stoddard"],"emails":[]},{"names":["SGT Aguilar"],"emails":[]},{"names":["Sponsee A1C Simona Gamble"],"emails":[]},{"names":["Rob"],"emails":[]}]
+[2025-11-18T23:57:26.565Z] [INFO   ] 2025-11-18T23:57:26.565Z [DEBUG] 📬 [Gmail API] Contacts returned: []
+[2025-11-18T23:57:26.565Z] [INFO   ] 2025-11-18T23:57:26.565Z [DEBUG] 📧 [Gmail API] Fetching recent email recipients from sent and received...
+[2025-11-18T23:57:26.653Z] [ERROR  ] 2025-11-18T23:57:26.652Z [ERROR] ❌ [Google Calendar] Error creating event: {"message":"Not Found","code":404,"response":{"error":{"errors":[{"domain":"global","reason":"notFound","message":"Not Found"}],"code":404,"message":"Not Found"}},"status":404,"statusText":"Not Found"}
+[2025-11-18T23:57:26.654Z] [INFO   ] 2025-11-18T23:57:26.654Z [DEBUG] Execution log (server-side): {"nodeId":"test-node","nodeType":"google_calendar_action_create_event","nodeTitle":"Create Event","timestamp":"2025-11-18T23:57:26.654Z","status":"error","executionTime":1363,"input":{"raw":{"config":{"title":"test","allDay":true,"colorId":"default","endDate":"{{NOW}}","endTime":"10:00","location":"2615 Minot Drive, Bellevue, NE, USA","startDate":"{{NOW}}","startTime":"09:00","calendarId":"51bdcd98d403450c61c21aea3475fdf2d0baa42cb582226e33dca85293db8317@group.calendar.google.com","googleMeet":{"id":"nni-fyud-nug","link":"https://meet.google.com/nni-fyud-nug","eventId":"duv2gntug1dgmq5m111q8a32jc","settings":{"accessType":"open","muteOnEntry":false,"enableRecording":false,"allowJoinBeforeHost":true}},"recurrence":"none","visibility":"default","endTimeZone":"America/Chicago","transparency":"transparent","notifications":[{"method":"popup","minutes":30}],"startTimeZone":"America/Chicago","_label_colorId":"Calendar color","guestsCanModify":false,"_label_recurrence":"Does not repeat","_label_visibility":"Default visibility","sendNotifications":"all","separateTimezones":false,"_label_transparency":"Free","_label_startTimeZone":"Central Time (CT)","guestsCanInviteOthers":true,"guestsCanSeeOtherGuests":true,"__dynamicOptions":{"calendarId":[{"value":"en.usa#holiday@group.v.calendar.google.com","label":"Holidays in United States","metadata":{"timeZone":"America/North_Dakota/Center","backgroundColor":"#16a765"}},{"value":"51bdcd98d403450c61c21aea3475fdf2d0baa42cb582226e33dca85293db8317@group.calendar.google.com","label":"Stoddard Calendar","metadata":{"timeZone":"America/North_Dakota/Center","backgroundColor":"#4986e7"}},{"value":"stoddard.nathaniel900@gmail.com","label":"stoddard.nathaniel900@gmail.com","metadata":{"primary":true,"timeZone":"America/North_Dakota/Center","backgroundColor":"#9a9cff"}}]}}},"formatted":["📥 Configuration:","  Title: \"test\"","  All Day: Yes","  Color Id: \"default\"","  End Date: \"{{NOW}}\"","  End Time: \"10:00\"","  Location: \"2615 Minot Drive, Bellevue, NE, USA\"","  Start Date: \"{{NOW}}\"","  Start Time: \"09:00\"","  Calendar Id: \"51bdcd98d403450c61c21aea3475fdf2d0baa42cb582226e33dca85293db8317@group.calendar.google.com\"","  Google Meet: Id: \"nni-fyud-nug\"\nLink: \"https://meet.google.com/nni-fyud-nug\"\nEvent Id: \"duv2gntug1dgmq5m111q8a32jc\"\nSettings: Access Type: \"[REDACTED-PII: 24 chars]\"\nMute On Entry: No\nEnable Recording: No\nAllow Join Before Host: Yes","  Recurrence: \"none\"","  Visibility: \"default\"","  End Time Zone: \"America/Chicago\"","  Transparency: \"transparent\"","  Notifications: [1] HTTP Method: \"popup\"\nMinutes: 30","  Start Time Zone: \"America/Chicago\"","  Guests Can Modify: No","  Send Notifications: \"all\"","  Separate Timezones: No","  Guests Can Invite Others: Yes","  Guests Can See Other Guests: Yes"]},"error":{"message":"Google Calendar API Error: Not Found","stack":"Error: Google Calendar API Error: Not Found\n    at createGoogleCalendarEvent (webpack-internal:///(rsc)/./lib/workflows/actions/google-calendar/createEvent.ts:280:19)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async executeAction (webpack-internal:///(rsc)/./lib/workflows/executeNode.ts:525:24)\n    at async POST (webpack-internal:///(rsc)/./app/api/workflows/test-node/route.ts:75:26)\n    at async AppRouteRouteModule.do (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:38696)\n    at async AppRouteRouteModule.handle (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:45978)\n    at async responseGenerator (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fworkflows%2Ftest-node%2Froute&page=%2Fapi%2Fworkflows%2Ftest-node%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Fworkflows%2Ftest-node%2Froute.ts&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:203:38)\n    at async AppRouteRouteModule.handleResponse (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:1:187565)\n    at async handleResponse (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fworkflows%2Ftest-node%2Froute&page=%2Fapi%2Fworkflows%2Ftest-node%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Fworkflows%2Ftest-node%2Froute.ts&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:265:32)\n    at async handler (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fworkflows%2Ftest-node%2Froute&page=%2Fapi%2Fworkflows%2Ftest-node%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Fworkflows%2Ftest-node%2Froute.ts&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:317:13)\n    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)\n    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1474:24)\n    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)\n    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)\n    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)\n    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)\n    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20\n    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)\n    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)\n    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)\n    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)\n    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)\n    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)"}}
+[2025-11-18T23:57:26.655Z] [INFO   ] 2025-11-18T23:57:26.655Z [DEBUG] [Execution Error] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔄 Create Event (google_calendar_action_create_event)
+⏱️ 5:57:26 PM • 1363ms
+📌 Status: ❌ Error
+────────────────────────────────────────────────────────────
+📥 Configuration:
+  Title: "test"
+  All Day: Yes
+  Color Id: "default"
+  End Date: "{{NOW}}"
+  End Time: "10:00"
+  Location: "2615 Minot Drive, Bellevue, NE, USA"
+  Start Date: "{{NOW}}"
+  Start Time: "09:00"
+  Calendar Id: "51bdcd98d403450c61c21aea3475fdf2d0baa42cb582226e33dca85293db8317@group.calendar.google.com"
+  Google Meet: Id: "nni-fyud-nug"
+Link: "https://meet.google.com/nni-fyud-nug"
+Event Id: "duv2gntug1dgmq5m111q8a32jc"
+Settings: Access Type: "[REDACTED-PII: 24 chars]"
+Mute On Entry: No
+Enable Recording: No
+Allow Join Before Host: Yes
+  Recurrence: "none"
+  Visibility: "default"
+  End Time Zone: "America/Chicago"
+  Transparency: "transparent"
+  Notifications: [1] HTTP Method: "popup"
+Minutes: 30
+  Start Time Zone: "America/Chicago"
+  Guests Can Modify: No
+  Send Notifications: "all"
+  Separate Timezones: No
+  Guests Can Invite Others: Yes
+  Guests Can See Other Guests: Yes
+
+❌ Error Occurred
+Message: Google Calendar API Error: Not Found
+
+[2025-11-18T23:57:26.655Z] [ERROR  ] 2025-11-18T23:57:26.655Z [ERROR] [test-node] Execution failed: {"error":"Google Calendar API Error: Not Found","stack":"Error: Google Calendar API Error: Not Found\n    at createGoogleCalendarEvent (webpack-internal:///(rsc)/./lib/workflows/actions/google-calendar/createEvent.ts:280:19)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async executeAction (webpack-internal:///(rsc)/./lib/workflows/executeNode.ts:525:24)\n    at async POST (webpack-internal:///(rsc)/./app/api/workflows/test-node/route.ts:75:26)\n    at async AppRouteRouteModule.do (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:38696)\n    at async AppRouteRouteModule.handle (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:45978)\n    at async responseGenerator (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fworkflows%2Ftest-node%2Froute&page=%2Fapi%2Fworkflows%2Ftest-node%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Fworkflows%2Ftest-node%2Froute.ts&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:203:38)\n    at async AppRouteRouteModule.handleResponse (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:1:187565)\n    at async handleResponse (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fworkflows%2Ftest-node%2Froute&page=%2Fapi%2Fworkflows%2Ftest-node%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Fworkflows%2Ftest-node%2Froute.ts&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:265:32)\n    at async handler (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fworkflows%2Ftest-node%2Froute&page=%2Fapi%2Fworkflows%2Ftest-node%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Fworkflows%2Ftest-node%2Froute.ts&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:317:13)\n    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)\n    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1474:24)\n    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)\n    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)\n    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)\n    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)\n    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20\n    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)\n    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)\n    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)\n    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)\n    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)\n    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)","nodeType":"google_calendar_action_create_event"}
+[2025-11-18T23:57:26.838Z] [INFO   ] 2025-11-18T23:57:26.838Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/0af4872c-1522-427b-959b-72ed2701ab25","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14943559439}
+[2025-11-18T23:57:27.229Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/workflows/[id]/chat ...
+[2025-11-18T23:57:27.398Z] [INFO   ] 2025-11-18T23:57:27.398Z [DEBUG] 📧 [Gmail API] Processing 30 messages (sent + received)...
+[2025-11-18T23:57:27.404Z] [INFO   ] 2025-11-18T23:57:27.404Z [DEBUG] 📧 [Gmail API] Processing 30 messages (sent + received)...
+[2025-11-18T23:57:29.361Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/workflows/[id]/chat in 2.6s (7648 modules)
+[2025-11-18T23:57:29.541Z] [INFO   ] 2025-11-18T23:57:29.540Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/0af4872c-1522-427b-959b-72ed2701ab25/apply-edits","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14943562141}
+[2025-11-18T23:57:30.197Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (7648 modules)
+[2025-11-18T23:57:30.880Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (7648 modules)
+[2025-11-18T23:57:31.652Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1ms (7648 modules)
+[2025-11-18T23:57:32.224Z] [INFO   ] 2025-11-18T23:57:32.224Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-18T23:57:32.647Z] [INFO   ] 2025-11-18T23:57:32.647Z [DEBUG] ✅ [Gmail API] Found 8 unique recipients from sent and received emails
+[2025-11-18T23:57:32.648Z] [INFO   ] 2025-11-18T23:57:32.647Z [DEBUG] ✅ [Gmail API] Returning 8 enhanced recipients (contacts: true)
+[2025-11-18T23:57:32.648Z] [INFO   ] 2025-11-18T23:57:32.648Z [DEBUG] ✅ [Gmail Data API] Handler completed in 7373ms, returned 8 items
+[2025-11-18T23:57:32.652Z] [INFO   ] 2025-11-18T23:57:32.651Z [DEBUG] ✅ [Gmail API] Found 8 unique recipients from sent and received emails
+[2025-11-18T23:57:32.653Z] [INFO   ] 2025-11-18T23:57:32.653Z [DEBUG] ✅ [Gmail API] Returning 8 enhanced recipients (contacts: true)
+[2025-11-18T23:57:32.653Z] [INFO   ] 2025-11-18T23:57:32.653Z [DEBUG] ✅ [Gmail Data API] Handler completed in 6412ms, returned 8 items
+[2025-11-18T23:57:32.938Z] [INFO   ] 2025-11-18T23:57:32.938Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/0af4872c-1522-427b-959b-72ed2701ab25","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":14943565539}
+[2025-11-18T23:57:33.392Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1ms (7648 modules)
+[2025-11-18T23:57:33.480Z] [INFO   ] [apply-edits] Original flow size: 50214 bytes (49.04 KB)
+[2025-11-18T23:57:33.480Z] [INFO   ] [apply-edits] Sanitized flow size: 39485 bytes (38.56 KB), saved 10729 bytes
+[2025-11-18T23:57:34.126Z] [INFO   ] [FlowRepository] Creating revision for flow 0af4872c-1522-427b-959b-72ed2701ab25, JSON size: 39485 bytes (38.56 KB)
+[2025-11-18T23:57:34.444Z] [INFO   ] 2025-11-18T23:57:34.444Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-18T23:57:34.444Z"}
+[2025-11-18T23:57:34.465Z] [INFO   ] 2025-11-18T23:57:34.465Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-18T23:57:34.465Z"}
+[2025-11-18T23:57:34.466Z] [INFO   ] 2025-11-18T23:57:34.465Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-18T23:57:34.465Z"}
+[2025-11-18T23:57:34.879Z] [INFO   ] 2025-11-18T23:57:34.878Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-18T23:57:35.974Z] [INFO   ] [PhantomEdgeOverlay] No nodes found
+[2025-11-18T23:57:35.975Z] [INFO   ] [PhantomEdgeOverlay] Not rendering - no last node info
+[2025-11-18T23:57:36.204Z] [WARN   ]  [33m[1m⚠[22m[39m Server is approaching the used memory threshold, restarting...

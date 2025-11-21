@@ -61,7 +61,8 @@ import {
   createGoogleDocument,
   updateGoogleDocument,
   shareGoogleDocument,
-  getGoogleDocument
+  getGoogleDocument,
+  exportGoogleDocument
 } from './googleDocs'
 
 // Google Analytics actions
@@ -611,6 +612,8 @@ export const actionHandlerRegistry: Record<string, Function> = {
     shareGoogleDocument(params.config, params.userId, params.input),
   "google_docs_action_get_document": (params: { config: any; userId: string; input: Record<string, any> }) =>
     getGoogleDocument(params.config, params.userId, params.input),
+  "google_docs_action_export_document": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    exportGoogleDocument(params.config, params.userId, params.input),
 
   // Google Analytics actions - wrapped with ExecutionContext pattern
   "google_analytics_action_send_event": createExecutionContextWrapper(sendGoogleAnalyticsEvent),

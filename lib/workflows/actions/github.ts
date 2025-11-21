@@ -13,7 +13,7 @@ export async function createGitHubIssue(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     
     const {
       repository,
@@ -116,7 +116,7 @@ export async function createGitHubRepository(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     
     const {
       name,
@@ -216,7 +216,7 @@ export async function createGitHubPullRequest(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     
     const {
       repository,
@@ -319,7 +319,7 @@ export async function createGitHubGist(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
 
     const {
       description,
@@ -411,7 +411,7 @@ export async function addGitHubComment(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
 
     const {
       repository,

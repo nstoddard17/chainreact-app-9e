@@ -125,7 +125,7 @@ export async function executeExtractWebsiteData(
   const startTime = Date.now();
 
   try {
-    const resolvedConfig = resolveValue(config, { input });
+    const resolvedConfig = resolveValue(config, input);
 
     const {
       url,

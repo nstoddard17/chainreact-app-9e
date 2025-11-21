@@ -14,7 +14,7 @@ export async function updateMicrosoftExcelRow(
     logger.debug('📊 [Excel Update Row] Starting with config:', config);
 
     // Resolve configuration with workflow variables
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     const {
       workbookId,
       worksheetName,

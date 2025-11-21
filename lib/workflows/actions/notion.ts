@@ -13,7 +13,7 @@ export async function createNotionDatabase(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     
     const {
       workspace,
@@ -179,7 +179,7 @@ export async function createNotionPage(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     
     const {
       workspace,
@@ -306,7 +306,7 @@ export async function updateNotionPage(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     
     const {
       pageId,

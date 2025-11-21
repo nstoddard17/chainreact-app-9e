@@ -152,7 +152,8 @@ export async function searchGmailEmails(params: ActionParams): Promise<ActionRes
           latestBody: null,
           latestFrom: null,
           latestTo: null,
-          latestDate: null
+          latestDate: null,
+          latestEmailId: null
         },
         message: "No emails found matching the search criteria"
       }
@@ -228,7 +229,8 @@ export async function searchGmailEmails(params: ActionParams): Promise<ActionRes
         latestBody: latestEmail?.body ?? null,
         latestFrom: latestEmail?.from ?? null,
         latestTo: latestEmail?.to?.join(', ') ?? null,
-        latestDate: latestEmail?.date ?? null
+        latestDate: latestEmail?.date ?? null,
+        latestEmailId: latestEmail?.id ?? null
       },
       message: `Found ${emails.length} matching email(s)`
     }

@@ -13,7 +13,7 @@ export async function createHubSpotContact(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
 
     // Determine which mode we're in based on the config
     const fieldMode = resolvedConfig.fieldMode || 'basic'
@@ -449,7 +449,7 @@ export async function createHubSpotCompany(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     
     const {
       name,
@@ -569,7 +569,7 @@ export async function addContactToHubSpotList(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     
     const {
       contactEmail,
@@ -687,7 +687,7 @@ export async function updateHubSpotDeal(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     
     const {
       dealId,
@@ -789,7 +789,7 @@ export async function createHubSpotDeal(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     
     const {
       dealname,

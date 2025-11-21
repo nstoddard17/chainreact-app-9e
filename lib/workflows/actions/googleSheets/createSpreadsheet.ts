@@ -14,7 +14,7 @@ export async function createGoogleSpreadsheet(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     const {
       title = 'New Spreadsheet',
       sheetNames = ['Sheet1'],

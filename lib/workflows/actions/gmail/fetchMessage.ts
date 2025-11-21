@@ -14,7 +14,7 @@ export async function fetchGmailMessage(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     const {
       messageId,
       searchQuery,

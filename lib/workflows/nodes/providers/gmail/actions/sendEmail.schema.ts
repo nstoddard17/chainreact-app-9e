@@ -74,7 +74,8 @@ export const sendEmailActionSchema: NodeComponent = {
       loadOnMount: true,
       required: true,
       placeholder: "Select recipient email address...",
-      description: "Choose recipient from your contacts and recent recipients"
+      description: "Choose recipient from your contacts and recent recipients",
+      supportsVariables: true
     },
     {
       name: "cc",
@@ -84,7 +85,8 @@ export const sendEmailActionSchema: NodeComponent = {
       loadOnMount: true,
       required: false,
       placeholder: "Select CC email address...",
-      description: "Choose CC recipient from your contacts and recent recipients"
+      description: "Choose CC recipient from your contacts and recent recipients",
+      supportsVariables: true
     },
     {
       name: "bcc",
@@ -94,7 +96,8 @@ export const sendEmailActionSchema: NodeComponent = {
       loadOnMount: true,
       required: false,
       placeholder: "Select BCC email address...",
-      description: "Choose BCC recipient from your contacts and recent recipients"
+      description: "Choose BCC recipient from your contacts and recent recipients",
+      supportsVariables: true
     },
     {
       name: "subject",
@@ -110,7 +113,8 @@ export const sendEmailActionSchema: NodeComponent = {
       type: "email-rich-text",
       required: true,
       placeholder: "Compose your email message...",
-      description: "Email message content with rich text formatting"
+      description: "Email message content with rich text formatting",
+      supportsAI: true
     },
     {
       name: "attachments",
