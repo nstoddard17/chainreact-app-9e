@@ -37,10 +37,12 @@ export interface ExcelColumn {
 export interface ExcelHandlerOptions {
   workbookId?: string
   worksheetName?: string
+  tableName?: string
   columnName?: string
   range?: string
   limit?: number
   forceRefresh?: boolean
+  hasHeaders?: boolean
 }
 
 export type ExcelDataHandler = (

@@ -59,8 +59,7 @@ export const teamsNodes: NodeComponent[] = [
     configSchema: [
       { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true },
       { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel", dependsOn: "teamId", visibilityCondition: { field: "teamId", operator: "isNotEmpty" } },
-      { name: "message", label: "Message", type: "email-rich-text", required: true, placeholder: "Enter your message", dependsOn: "channelId", visibilityCondition: { field: "channelId", operator: "isNotEmpty" }, showConnectButton: true },
-      { name: "attachments", label: "Attachments", type: "file", required: false, accept: ".pdf,.doc,.docx,.txt,.jpg,.png,.gif", multiple: true, placeholder: "Add file attachments (optional)", dependsOn: "message", visibilityCondition: { field: "message", operator: "isNotEmpty" } }
+      { name: "message", label: "Message", type: "email-rich-text", required: true, placeholder: "Enter your message", dependsOn: "channelId", visibilityCondition: { field: "channelId", operator: "isNotEmpty" } }
     ],
     outputSchema: [
       { name: "messageId", label: "Message ID", type: "string", description: "The ID of the sent message" },
@@ -79,11 +78,11 @@ export const teamsNodes: NodeComponent[] = [
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "subject", label: "Meeting Subject", type: "text", required: true, placeholder: "Enter meeting subject" },
-      { name: "startTime", label: "Start Time", type: "datetime", required: true },
-      { name: "endTime", label: "End Time", type: "datetime", required: true },
-      { name: "attendees", label: "Attendees", type: "email-autocomplete", dynamic: "outlook-enhanced-recipients", required: false, placeholder: "Select or enter attendee email addresses" },
-      { name: "description", label: "Description", type: "textarea", required: false, placeholder: "Meeting description" },
+      { name: "subject", label: "Meeting Subject", type: "text", required: true, placeholder: "Enter meeting subject", supportsAI: true },
+      { name: "startTime", label: "Start Time", type: "datetime", required: true, supportsAI: true },
+      { name: "endTime", label: "End Time", type: "datetime", required: true, supportsAI: true },
+      { name: "attendees", label: "Attendees", type: "email-autocomplete", dynamic: "outlook-enhanced-recipients", required: false, placeholder: "Select or enter attendee email addresses", supportsAI: true },
+      { name: "description", label: "Description", type: "textarea", required: false, placeholder: "Meeting description", supportsAI: true },
       { name: "allowMeetingChat", label: "Allow Meeting Chat", type: "boolean", required: false, defaultValue: true },
       { name: "allowCamera", label: "Allow Camera", type: "boolean", required: false, defaultValue: true },
       { name: "allowMic", label: "Allow Microphone", type: "boolean", required: false, defaultValue: true }
@@ -107,9 +106,14 @@ export const teamsNodes: NodeComponent[] = [
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat" },
-      { name: "message", label: "Message", type: "textarea", required: true, placeholder: "Enter your message" },
-      { name: "attachments", label: "Attachments", type: "file", required: false, accept: ".pdf,.doc,.docx,.txt,.jpg,.png,.gif", multiple: true, placeholder: "Add file attachments (optional)" }
+      { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat", loadOnMount: true },
+      { name: "message", label: "Message", type: "email-rich-text", required: true, placeholder: "Enter your message", dependsOn: "chatId", visibilityCondition: { field: "chatId", operator: "isNotEmpty" } }
+    ],
+    outputSchema: [
+      { name: "messageId", label: "Message ID", type: "string", description: "The ID of the sent message" },
+      { name: "chatId", label: "Chat ID", type: "string", description: "The ID of the chat where the message was sent" },
+      { name: "timestamp", label: "Sent Time", type: "string", description: "When the message was sent (ISO 8601 format)" },
+      { name: "success", label: "Success Status", type: "boolean", description: "Whether the message was sent successfully" }
     ]
   },
   {
@@ -122,10 +126,10 @@ export const teamsNodes: NodeComponent[] = [
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team" },
-      { name: "channelName", label: "Channel Name", type: "text", required: true, placeholder: "Enter channel name" },
-      { name: "description", label: "Description", type: "textarea", required: false, placeholder: "Channel description (optional)" },
-      { name: "isPrivate", label: "Private Channel", type: "boolean", required: false, defaultValue: false }
+      { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true },
+      { name: "channelName", label: "Channel Name", type: "text", required: true, placeholder: "Enter channel name", dependsOn: "teamId", visibilityCondition: { field: "teamId", operator: "isNotEmpty" }, supportsAI: true },
+      { name: "description", label: "Description", type: "textarea", required: false, placeholder: "Channel description (optional)", dependsOn: "channelName", visibilityCondition: { field: "channelName", operator: "isNotEmpty" }, supportsAI: true },
+      { name: "isPrivate", label: "Private Channel", type: "boolean", required: false, defaultValue: false, dependsOn: "channelName", visibilityCondition: { field: "channelName", operator: "isNotEmpty" } }
     ],
     outputSchema: [
       { name: "channelId", label: "Channel ID", type: "string", description: "The ID of the created channel" },
@@ -145,12 +149,19 @@ export const teamsNodes: NodeComponent[] = [
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team" },
-      { name: "userEmail", label: "User Email", type: "email-autocomplete", dynamic: "outlook-enhanced-recipients", required: true, placeholder: "Select or enter user's email address" },
-      { name: "role", label: "Role", type: "select", required: true, defaultValue: "member", options: [
+      { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true },
+      { name: "userEmail", label: "User Email", type: "email-autocomplete", dynamic: "outlook-enhanced-recipients", required: true, placeholder: "Select or enter user's email address", dependsOn: "teamId", visibilityCondition: { field: "teamId", operator: "isNotEmpty" }, supportsAI: true },
+      { name: "role", label: "Role", type: "select", required: true, defaultValue: "member", dependsOn: "userEmail", visibilityCondition: { field: "userEmail", operator: "isNotEmpty" }, options: [
         { value: "member", label: "Member" },
         { value: "owner", label: "Owner" }
       ] }
+    ],
+    outputSchema: [
+      { name: "userId", label: "User ID", type: "string", description: "The ID of the added user" },
+      { name: "userEmail", label: "User Email", type: "string", description: "The email of the added user" },
+      { name: "teamId", label: "Team ID", type: "string", description: "The ID of the team" },
+      { name: "role", label: "Role", type: "string", description: "The assigned role" },
+      { name: "success", label: "Success Status", type: "boolean", description: "Whether the user was added successfully" }
     ]
   },
   {
@@ -163,12 +174,20 @@ export const teamsNodes: NodeComponent[] = [
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "subject", label: "Meeting Subject", type: "text", required: true, placeholder: "Enter meeting subject" },
-      { name: "startTime", label: "Start Time", type: "datetime", required: true },
-      { name: "endTime", label: "End Time", type: "datetime", required: true },
-      { name: "attendees", label: "Attendees", type: "email-autocomplete", dynamic: "outlook-enhanced-recipients", required: false, placeholder: "Select or enter attendee email addresses" },
-      { name: "description", label: "Description", type: "textarea", required: false, placeholder: "Meeting description" },
+      { name: "subject", label: "Meeting Subject", type: "text", required: true, placeholder: "Enter meeting subject", supportsAI: true },
+      { name: "startTime", label: "Start Time", type: "datetime", required: true, supportsAI: true },
+      { name: "endTime", label: "End Time", type: "datetime", required: true, supportsAI: true },
+      { name: "attendees", label: "Attendees", type: "email-autocomplete", dynamic: "outlook-enhanced-recipients", required: false, placeholder: "Select or enter attendee email addresses", supportsAI: true },
+      { name: "description", label: "Description", type: "textarea", required: false, placeholder: "Meeting description", supportsAI: true },
       { name: "isOnlineMeeting", label: "Online Meeting", type: "boolean", required: false, defaultValue: true }
+    ],
+    outputSchema: [
+      { name: "eventId", label: "Event ID", type: "string", description: "The ID of the scheduled meeting" },
+      { name: "subject", label: "Meeting Subject", type: "string", description: "The subject of the meeting" },
+      { name: "startTime", label: "Start Time", type: "string", description: "When the meeting starts (ISO 8601 format)" },
+      { name: "endTime", label: "End Time", type: "string", description: "When the meeting ends (ISO 8601 format)" },
+      { name: "joinUrl", label: "Join URL", type: "string", description: "The URL to join the online meeting (if applicable)" },
+      { name: "success", label: "Success Status", type: "boolean", description: "Whether the meeting was scheduled successfully" }
     ]
   },
   {
@@ -181,15 +200,23 @@ export const teamsNodes: NodeComponent[] = [
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "teamId", label: "Team", type: "select", dynamic: true, required: true, placeholder: "Select a team first" },
-      { name: "channelId", label: "Channel", type: "select", dynamic: true, required: true, placeholder: "Select a channel", dependsOn: "teamId" },
-      { name: "cardTitle", label: "Card Title", type: "text", required: true, placeholder: "Enter card title" },
-      { name: "cardText", label: "Card Text", type: "textarea", required: true, placeholder: "Enter card content" },
-      { name: "cardType", label: "Card Type", type: "select", required: true, defaultValue: "hero", options: [
+      { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true },
+      { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel", dependsOn: "teamId", visibilityCondition: { field: "teamId", operator: "isNotEmpty" } },
+      { name: "cardTitle", label: "Card Title", type: "text", required: true, placeholder: "Enter card title", dependsOn: "channelId", visibilityCondition: { field: "channelId", operator: "isNotEmpty" }, supportsAI: true },
+      { name: "cardText", label: "Card Text", type: "textarea", required: true, placeholder: "Enter card content", dependsOn: "channelId", visibilityCondition: { field: "channelId", operator: "isNotEmpty" }, supportsAI: true },
+      { name: "cardType", label: "Card Type", type: "select", required: true, defaultValue: "hero", dependsOn: "channelId", visibilityCondition: { field: "channelId", operator: "isNotEmpty" }, options: [
         { value: "hero", label: "Hero Card" },
         { value: "thumbnail", label: "Thumbnail Card" },
         { value: "receipt", label: "Receipt Card" }
       ] }
+    ],
+    outputSchema: [
+      { name: "messageId", label: "Message ID", type: "string", description: "The ID of the sent adaptive card message" },
+      { name: "cardTitle", label: "Card Title", type: "string", description: "The title of the card" },
+      { name: "cardType", label: "Card Type", type: "string", description: "The type of card sent" },
+      { name: "channelId", label: "Channel ID", type: "string", description: "The ID of the channel where the card was sent" },
+      { name: "timestamp", label: "Sent Time", type: "string", description: "When the card was sent (ISO 8601 format)" },
+      { name: "success", label: "Success Status", type: "boolean", description: "Whether the card was sent successfully" }
     ]
   },
   {
@@ -221,12 +248,20 @@ export const teamsNodes: NodeComponent[] = [
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "displayName", label: "Team Name", type: "text", required: true, placeholder: "Enter team name" },
-      { name: "description", label: "Description", type: "textarea", required: false, placeholder: "Team description (optional)" },
+      { name: "displayName", label: "Team Name", type: "text", required: true, placeholder: "Enter team name", supportsAI: true },
+      { name: "description", label: "Description", type: "textarea", required: false, placeholder: "Team description (optional)", supportsAI: true },
       { name: "visibility", label: "Visibility", type: "select", required: true, defaultValue: "private", options: [
         { value: "private", label: "Private" },
         { value: "public", label: "Public" }
       ] }
+    ],
+    outputSchema: [
+      { name: "teamId", label: "Team ID", type: "string", description: "The ID of the created team" },
+      { name: "displayName", label: "Team Name", type: "string", description: "The name of the team" },
+      { name: "description", label: "Description", type: "string", description: "The team description" },
+      { name: "visibility", label: "Visibility", type: "string", description: "The visibility setting (private/public)" },
+      { name: "webUrl", label: "Web URL", type: "string", description: "URL to the team in Teams" },
+      { name: "success", label: "Success Status", type: "boolean", description: "Whether the team was created successfully" }
     ]
   },
   // New Triggers
@@ -265,7 +300,7 @@ export const teamsNodes: NodeComponent[] = [
     configSchema: [
       { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true },
       { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel to monitor", dependsOn: "teamId", visibilityCondition: { field: "teamId", operator: "isNotEmpty" } },
-      { name: "keywords", label: "Keywords to Monitor", type: "textarea", required: false, placeholder: "Enter keywords to monitor (one per line). Leave empty to monitor all mentions." }
+      { name: "keywords", label: "Keywords to Monitor", type: "textarea", required: false, placeholder: "Enter keywords to monitor (one per line). Leave empty to monitor all mentions.", dependsOn: "channelId", visibilityCondition: { field: "channelId", operator: "isNotEmpty" } }
     ],
     outputSchema: [
       { name: "messageId", label: "Message ID", type: "string", description: "The ID of the message with the mention" },
@@ -349,8 +384,8 @@ export const teamsNodes: NodeComponent[] = [
     configSchema: [
       { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true },
       { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel", dependsOn: "teamId", visibilityCondition: { field: "teamId", operator: "isNotEmpty" } },
-      { name: "messageId", label: "Message ID", type: "text", required: true, placeholder: "Enter the ID of the message to reply to" },
-      { name: "replyContent", label: "Reply Message", type: "textarea", required: true, placeholder: "Enter your reply" }
+      { name: "messageId", label: "Message ID", type: "text", required: true, placeholder: "Enter the ID of the message to reply to", dependsOn: "channelId", visibilityCondition: { field: "channelId", operator: "isNotEmpty" }, supportsAI: true },
+      { name: "replyContent", label: "Reply Message", type: "email-rich-text", required: true, placeholder: "Enter your reply", dependsOn: "channelId", visibilityCondition: { field: "channelId", operator: "isNotEmpty" } }
     ],
     outputSchema: [
       { name: "replyId", label: "Reply ID", type: "string", description: "The ID of the reply message" },
@@ -376,8 +411,8 @@ export const teamsNodes: NodeComponent[] = [
       { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true, visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
       { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel", dependsOn: "teamId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
       { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
-      { name: "messageId", label: "Message ID", type: "text", required: true, placeholder: "Enter the ID of the message to edit" },
-      { name: "newContent", label: "New Message Content", type: "textarea", required: true, placeholder: "Enter the new message content" }
+      { name: "messageId", label: "Message ID", type: "text", required: true, placeholder: "Enter the ID of the message to edit", supportsAI: true },
+      { name: "newContent", label: "New Message Content", type: "email-rich-text", required: true, placeholder: "Enter the new message content" }
     ],
     outputSchema: [
       { name: "messageId", label: "Message ID", type: "string", description: "The ID of the edited message" },
@@ -448,9 +483,9 @@ export const teamsNodes: NodeComponent[] = [
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "topic", label: "Chat Topic", type: "text", required: false, placeholder: "Enter chat topic (optional)" },
-      { name: "members", label: "Members", type: "email-autocomplete", dynamic: "outlook-enhanced-recipients", required: true, placeholder: "Select or enter member email addresses" },
-      { name: "initialMessage", label: "Initial Message", type: "textarea", required: false, placeholder: "Send an initial message (optional)" }
+      { name: "topic", label: "Chat Topic", type: "text", required: false, placeholder: "Enter chat topic (optional)", supportsAI: true },
+      { name: "members", label: "Members", type: "textarea", required: true, placeholder: "Enter member email addresses (comma-separated)", supportsAI: true },
+      { name: "initialMessage", label: "Initial Message", type: "email-rich-text", required: false, placeholder: "Send an initial message (optional)" }
     ],
     outputSchema: [
       { name: "chatId", label: "Chat ID", type: "string", description: "The ID of the created chat" },
@@ -560,8 +595,8 @@ export const teamsNodes: NodeComponent[] = [
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "subject", label: "Meeting Subject", type: "text", required: true, placeholder: "Enter meeting subject" },
-      { name: "participants", label: "Participants", type: "email-autocomplete", dynamic: "outlook-enhanced-recipients", required: false, placeholder: "Add participants (optional)" },
+      { name: "subject", label: "Meeting Subject", type: "text", required: true, placeholder: "Enter meeting subject", supportsAI: true },
+      { name: "participants", label: "Participants", type: "textarea", required: false, placeholder: "Add participant email addresses (comma-separated, optional)", supportsAI: true },
       { name: "startDateTime", label: "Start Time", type: "datetime-local", required: false, placeholder: "Leave empty to start immediately" },
       { name: "endDateTime", label: "End Time", type: "datetime-local", required: false, placeholder: "Leave empty for no end time" }
     ],

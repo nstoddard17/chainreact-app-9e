@@ -9,7 +9,6 @@ import {
   ExcelHandlers,
   MicrosoftExcelIntegration,
   ExcelHandlerOptions,
-  ExcelWorkbook,
   ExcelWorksheet
 } from './types'
 
@@ -317,7 +316,7 @@ const fetchDataPreview: ExcelDataHandler = async (integration: MicrosoftExcelInt
       const headers = limitedValues[0]
       const dataRows = limitedValues.slice(1)
 
-      return dataRows.map((row, index) => {
+      return dataRows.map((row: any, index: number) => {
         const fields: Record<string, any> = {}
         headers.forEach((header: string, colIndex: number) => {
           if (header) {
@@ -330,10 +329,10 @@ const fetchDataPreview: ExcelDataHandler = async (integration: MicrosoftExcelInt
           rowNumber: index + 2,
           fields
         }
-      }).filter(row => Object.keys(row.fields).length > 0) // Filter out empty rows
-    } 
+      }).filter((row: any) => Object.keys(row.fields).length > 0) // Filter out empty rows
+    }
       // No headers - use column letters as field names
-      return limitedValues.map((row, index) => {
+      return limitedValues.map((row: any, index: number) => {
         const fields: Record<string, any> = {}
         row.forEach((value: any, colIndex: number) => {
           const columnLetter = String.fromCharCode(65 + colIndex) // A, B, C, etc.
@@ -345,11 +344,97 @@ const fetchDataPreview: ExcelDataHandler = async (integration: MicrosoftExcelInt
           rowNumber: index + 1,
           fields
         }
-      }).filter(row => Object.keys(row.fields).length > 0)
-    
+      }).filter((row: any) => Object.keys(row.fields).length > 0)
+
 
   } catch (error) {
     logger.error('Error fetching data preview:', error)
+    throw error
+  }
+}
+
+/**
+ * Fetch tables from a workbook
+ */
+const fetchTables: ExcelDataHandler = async (integration: MicrosoftExcelIntegration, options: ExcelHandlerOptions) => {
+  const { workbookId } = options
+
+  if (!workbookId) {
+    throw new Error('Workbook ID is required to fetch tables')
+  }
+
+  const accessToken = await getAccessToken(integration)
+
+  try {
+    const url = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/tables`
+
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`Failed to fetch tables: ${error}`)
+    }
+
+    const data = await response.json()
+    const tables = data.value || []
+
+    // Format for dropdown
+    return tables.map((table: any) => ({
+      value: table.name || table.id,
+      label: table.name || `Table ${table.id}`,
+      description: `${table.rowCount || 0} rows`
+    }))
+
+  } catch (error) {
+    logger.error('Error fetching tables:', error)
+    throw error
+  }
+}
+
+/**
+ * Fetch columns from a table
+ */
+const fetchTableColumns: ExcelDataHandler = async (integration: MicrosoftExcelIntegration, options: ExcelHandlerOptions) => {
+  const { workbookId, tableName } = options
+
+  if (!workbookId || !tableName) {
+    throw new Error('Workbook ID and table name are required to fetch table columns')
+  }
+
+  const accessToken = await getAccessToken(integration)
+
+  try {
+    const url = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/tables/${tableName}/columns`
+
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`Failed to fetch table columns: ${error}`)
+    }
+
+    const data = await response.json()
+    const columns = data.value || []
+
+    // Format for dropdown
+    return columns.map((column: any, index: number) => ({
+      value: column.name,
+      label: column.name,
+      description: `Column ${index + 1}`
+    }))
+
+  } catch (error) {
+    logger.error('Error fetching table columns:', error)
     throw error
   }
 }
@@ -364,4 +449,6 @@ export const microsoftExcelHandlers: ExcelHandlers = {
   'column_values': fetchColumnValues,
   'folders': fetchFolders,
   'data_preview': fetchDataPreview,
+  'tables': fetchTables,
+  'table_columns': fetchTableColumns,
 }
