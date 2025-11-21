@@ -5,7 +5,7 @@ import type { Edge as ReactFlowEdge, Node as ReactFlowNode, XYPosition } from "@
 
 import { useWorkflowBuilder } from "@/hooks/workflows/useWorkflowBuilder"
 import { FlowSchema, type Flow, type FlowInterface, type Node as FlowNode, type Edge as FlowEdge } from "./schema"
-import { addNodeEdit, oldConnectToEdge } from "../compat/v2Adapter"
+import { addNodeEdit, oldConnectToEdge, moveNodeEdit, generateId } from "../compat/v2Adapter"
 import { ALL_NODE_COMPONENTS } from "../../../../lib/workflows/nodes"
 
 const LINEAR_STACK_X = 400
@@ -24,6 +24,7 @@ type PlannerEdit =
   | { op: "setInterface"; inputs: FlowInterface["inputs"]; outputs: FlowInterface["outputs"] }
   | { op: "deleteNode"; nodeId: string }
   | { op: "reorderNodes"; nodeIds: string[] }
+  | { op: "moveNode"; nodeId: string; position: { x: number; y: number } }
 
 interface AgentResult {
   edits: PlannerEdit[]
@@ -104,8 +105,9 @@ export interface FlowV2BuilderActions {
   askAgent: (prompt: string) => Promise<AgentResult>
   updateConfig: (nodeId: string, patch: Record<string, any>) => void
   updateFlowName: (name: string) => Promise<void>
-  addNode: (type: string, position?: XYPosition) => Promise<void>
+  addNode: (type: string, position?: XYPosition, nodeId?: string) => Promise<string>
   deleteNode: (nodeId: string) => Promise<void>
+  moveNodes: (moves: Array<{ nodeId: string; position: { x: number; y: number } }>) => Promise<void>
   connectEdge: (params: { sourceId: string; targetId: string; sourceHandle?: string; targetHandle?: string }) => Promise<void>
   run: (inputs: any) => Promise<{ runId: string }>
   runFromHere: (nodeId: string, runId?: string) => Promise<{ runId: string }>
@@ -376,6 +378,15 @@ function applyPlannerEdits(base: Flow, edits: PlannerEdit[]): Flow {
       }
       case "reorderNodes": {
         reorderLinearChain(working, edit.nodeIds)
+        break
+      }
+      case "moveNode": {
+        const target = working.nodes.find((node) => node.id === edit.nodeId)
+        if (target) {
+          const metadata = { ...(target.metadata ?? {}) } as any
+          metadata.position = edit.position
+          target.metadata = metadata
+        }
         break
       }
       default: {
@@ -1112,9 +1123,12 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
   )
 
   const addNode = useCallback(
-    async (type: string, position?: XYPosition) => {
-      const edit = addNodeEdit(type, position)
+    async (type: string, position?: XYPosition, nodeId?: string) => {
+      // Generate ID if not provided, so caller can know the ID before it's created
+      const id = nodeId ?? generateId(type.replace(/\W+/g, "-") || "node")
+      const edit = addNodeEdit(type, position, id)
       await applyEdits([edit as PlannerEdit])
+      return id
     },
     [applyEdits]
   )
@@ -1123,6 +1137,19 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
     async (nodeId: string) => {
       const edit: PlannerEdit = { op: "deleteNode", nodeId }
       await applyEdits([edit])
+    },
+    [applyEdits]
+  )
+
+  const moveNodes = useCallback(
+    async (moves: Array<{ nodeId: string; position: { x: number; y: number } }>) => {
+      if (moves.length === 0) return
+      const edits: PlannerEdit[] = moves.map((move) => ({
+        op: "moveNode" as const,
+        nodeId: move.nodeId,
+        position: move.position,
+      }))
+      await applyEdits(edits)
     },
     [applyEdits]
   )
@@ -1307,6 +1334,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       updateFlowName,
       addNode,
       deleteNode,
+      moveNodes,
       connectEdge,
       run,
       runFromHere,
@@ -1324,6 +1352,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       connectEdge,
       createSecret,
       deleteNode,
+      moveNodes,
       estimate,
       getNodeSnapshot,
       updateFlowName,

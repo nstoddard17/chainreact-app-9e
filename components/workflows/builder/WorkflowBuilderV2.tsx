@@ -82,6 +82,7 @@ import { matchTemplate, logTemplateMatch, logTemplateMiss } from "@/lib/workflow
 import { logPrompt, updatePrompt } from "@/lib/workflows/ai-agent/promptAnalytics"
 import { logger } from '@/lib/utils/logger'
 import { useAppContext } from "@/lib/contexts/AppContext"
+import { generateId } from "@/src/lib/workflows/compat/v2Adapter"
 
 type PendingChatMessage = {
   localId: string
@@ -2083,6 +2084,17 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   }, [builder?.nodes, builder?.setNodes, actions, flowId, toast])
 
   const handleTestFlowFromHere = useCallback(async (nodeId: string) => {
+    // Suppress config modal from opening when this is triggered
+    suppressNodeClickRef.current = nodeId
+    if (suppressNodeClickTimeoutRef.current) {
+      clearTimeout(suppressNodeClickTimeoutRef.current)
+    }
+    suppressNodeClickTimeoutRef.current = setTimeout(() => {
+      if (suppressNodeClickRef.current === nodeId) {
+        suppressNodeClickRef.current = null
+      }
+    }, 500)
+
     if (!builder?.nodes || !builder?.edges || !reactFlowInstanceRef.current) {
       logger.error('[WorkflowBuilder] Cannot test flow - builder not ready')
       return
@@ -2364,6 +2376,15 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     }
   }, [builder, handleAddNodeAfter, handleTestNode, handleTestFlowFromHere, handleReorderPointerDown, configuringNode, activeReorderDrag, getReorderableData, reorderDragOffset, reorderPreviewIndex])
 
+  // Compute the name of the node we're adding after (for integrations panel context)
+  const addingAfterNodeName = useMemo(() => {
+    if (!selectedNodeId || !reactFlowProps?.nodes) return null
+    const selectedNode = reactFlowProps.nodes.find((n: any) => n.id === selectedNodeId)
+    if (!selectedNode) return null
+    // Get the title from node data, falling back to type if no title
+    return selectedNode.data?.title || selectedNode.data?.label || selectedNode.data?.type || null
+  }, [selectedNodeId, reactFlowProps?.nodes])
+
   // Name update handler
   const persistName = useCallback(
     async (name: string) => {
@@ -2463,13 +2484,29 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     if (configuringNode) {
       setConfiguringNode(null)
     }
+
+    // If panel is already open and user clicked a different plus button,
+    // briefly close and reopen to show a visual cue that the target changed
+    if (isIntegrationsPanelOpen && selectedNodeId !== afterNodeId) {
+      setIsIntegrationsPanelOpen(false)
+      // Update the target node
+      if (afterNodeId) {
+        setSelectedNodeId(afterNodeId)
+      }
+      // Reopen after a brief delay for visual feedback
+      setTimeout(() => {
+        openIntegrationsPanel('action')
+      }, 150) // Short delay for visual "flash" effect
+      return
+    }
+
     // Store the node to add after
     if (afterNodeId) {
       setSelectedNodeId(afterNodeId)
     }
     // Open integrations panel in action mode
     openIntegrationsPanel('action')
-  }, [configuringNode, openIntegrationsPanel])
+  }, [configuringNode, openIntegrationsPanel, isIntegrationsPanelOpen, selectedNodeId])
 
   // Node selection from panel
   const handleNodeSelectFromPanel = useCallback(async (nodeData: any) => {
@@ -2511,14 +2548,16 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     const nodeComponent = nodeComponentMap.get(nodeData.type)
     const providerId = nodeComponent?.providerId ?? nodeData.providerId
 
-    // Generate a temporary ID for the config modal
-    const tempId = `temp-${Date.now()}`
+    // Generate the REAL node ID upfront so we can use it for both optimistic updates
+    // and the backend call. This ensures edges and positions are consistent.
+    const newNodeId = generateId(nodeData.type.replace(/\W+/g, "-") || "node")
 
-    // Create optimistic node for config modal only
+    // Create optimistic node for config modal and canvas
     const optimisticNode = {
-      id: tempId,
+      id: newNodeId,
       type: "custom",
       position,
+      positionAbsolute: { ...position },
       data: {
         label: nodeComponent?.title ?? nodeData.title ?? nodeData.type,
         title: nodeComponent?.title ?? nodeData.title ?? nodeData.type,
@@ -2535,6 +2574,61 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     // Close panel immediately for better UX
     setIsIntegrationsPanelOpen(false)
 
+    // Check if we're inserting between nodes (there's an edge from selectedNodeId to another node)
+    // Capture this BEFORE any optimistic updates modify builder.edges
+
+    // Debug: Log current state before calculating insertion plan
+    console.log('🔍 [WorkflowBuilder] Insert calculation state:', {
+      selectedNodeId,
+      replacingPlaceholder: !!replacingPlaceholder,
+      currentNodesCount: currentNodes.length,
+      edgesCount: builder.edges?.length ?? 0,
+      edges: builder.edges?.map((e: any) => ({ source: e.source, target: e.target }))
+    })
+
+    // Simple approach: Check if there's an edge from selectedNodeId to any other node
+    const originalEdge = selectedNodeId && !replacingPlaceholder
+      ? builder.edges.find((e: any) => e.source === selectedNodeId)
+      : null
+
+    const originalTargetNodeId = originalEdge?.target
+    const originalSourceHandle = originalEdge?.sourceHandle || 'source'
+    const originalTargetHandle = originalEdge?.targetHandle || 'target'
+    const isInsertingBetween = Boolean(originalTargetNodeId && !replacingPlaceholder)
+
+    console.log('🔍 [WorkflowBuilder] Insertion between check:', {
+      originalEdge: originalEdge ? { source: originalEdge.source, target: originalEdge.target } : null,
+      originalTargetNodeId,
+      isInsertingBetween
+    })
+
+    // Calculate which nodes need to be shifted BEFORE optimistic update
+    // so we can persist them to the backend after addNode
+    const nodesToShift: Array<{ nodeId: string; position: { x: number; y: number } }> = []
+
+    if (isInsertingBetween && selectedNodeId) {
+      const verticalShift = LINEAR_NODE_VERTICAL_GAP // 180px
+      const selectedNode = currentNodes.find((n: any) => n.id === selectedNodeId)
+      const thresholdY = selectedNode?.position?.y ?? position.y
+
+      currentNodes.forEach((node: any) => {
+        // Shift nodes that are AFTER the selected node (Y position greater than selected node)
+        // Don't shift the selected node itself, and don't shift placeholders
+        if (node.position && node.position.y > thresholdY && node.id !== selectedNodeId && !node.data?.isPlaceholder) {
+          const newY = node.position.y + verticalShift
+          nodesToShift.push({
+            nodeId: node.id,
+            position: {
+              x: node.position.x,
+              y: newY
+            }
+          })
+        }
+      })
+
+      console.log('🔄 [WorkflowBuilder] Nodes to shift:', nodesToShift)
+    }
+
     // Add optimistic node to canvas immediately for instant feedback
     builder.setNodes((nodes: any[]) => {
       let newNodes = [...nodes]
@@ -2542,6 +2636,46 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       // If replacing a placeholder, remove it first
       if (replacingPlaceholder) {
         newNodes = newNodes.filter(n => n.id !== selectedNodeId)
+      }
+
+      // If inserting between nodes, shift all downstream nodes down
+      if (isInsertingBetween && selectedNodeId) {
+        const verticalShift = LINEAR_NODE_VERTICAL_GAP // 180px
+
+        console.log('🔄 [WorkflowBuilder] Shifting nodes down:', {
+          isInsertingBetween,
+          selectedNodeId,
+          originalTargetNodeId,
+          insertPosition: position,
+          verticalShift
+        })
+
+        // Find all nodes that are below the insertion point and shift them down
+        // Use the selectedNode's Y position as the threshold since we're inserting AFTER it
+        const selectedNode = newNodes.find(n => n.id === selectedNodeId)
+        const thresholdY = selectedNode?.position?.y ?? position.y
+
+        newNodes = newNodes.map(node => {
+          // Shift nodes that are AFTER the selected node (Y position greater than selected node)
+          // Don't shift the selected node itself
+          if (node.position && node.position.y > thresholdY && node.id !== selectedNodeId) {
+            const newY = node.position.y + verticalShift
+            console.log(`🔄 [WorkflowBuilder] Shifting node ${node.id} from Y=${node.position.y} to Y=${newY}`)
+            const nextPosition = {
+              ...node.position,
+              y: newY
+            }
+            const nextAbsolute = node.positionAbsolute
+              ? { ...node.positionAbsolute, y: newY }
+              : nextPosition
+            return {
+              ...node,
+              position: nextPosition,
+              positionAbsolute: nextAbsolute
+            }
+          }
+          return node
+        })
       }
 
       const insertIndex = newNodes.findIndex(n => n.position.y > position.y)
@@ -2560,36 +2694,34 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         return edges.map(edge => {
           // Update edges pointing TO the placeholder
           if (edge.target === selectedNodeId) {
-            return { ...edge, target: tempId }
+            return { ...edge, target: newNodeId }
           }
           // Update edges FROM the placeholder
           if (edge.source === selectedNodeId) {
-            return { ...edge, source: tempId }
+            return { ...edge, source: newNodeId }
           }
           return edge
         })
       })
     } else if (selectedNodeId) {
       builder.setEdges((edges: any[]) => {
-        const oldEdge = edges.find((e: any) => e.source === selectedNodeId)
-        if (oldEdge) {
-          // Inserting between two nodes
-          const nextNodeId = oldEdge.target
+        if (isInsertingBetween && originalTargetNodeId) {
+          // Inserting between two nodes - use captured edge info
           return [
-            ...edges.filter(e => e.id !== oldEdge.id),
+            ...edges.filter(e => !(e.source === selectedNodeId && e.target === originalTargetNodeId)),
             {
-              id: `${selectedNodeId}-${tempId}`,
+              id: `${selectedNodeId}-${newNodeId}`,
               source: selectedNodeId,
-              target: tempId,
-              sourceHandle: oldEdge.sourceHandle || 'source',
+              target: newNodeId,
+              sourceHandle: originalSourceHandle,
               type: 'custom'
             },
             {
-              id: `${tempId}-${nextNodeId}`,
-              source: tempId,
-              target: nextNodeId,
+              id: `${newNodeId}-${originalTargetNodeId}`,
+              source: newNodeId,
+              target: originalTargetNodeId,
               sourceHandle: 'source',
-              targetHandle: oldEdge.targetHandle,
+              targetHandle: originalTargetHandle,
               type: 'custom'
             }
           ]
@@ -2598,9 +2730,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           return [
             ...edges,
             {
-              id: `${selectedNodeId}-${tempId}`,
+              id: `${selectedNodeId}-${newNodeId}`,
               source: selectedNodeId,
-              target: tempId,
+              target: newNodeId,
               sourceHandle: 'source',
               type: 'custom'
             }
@@ -2617,60 +2749,48 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     setSelectedNodeId(null)
 
     try {
-      // Save node to database - updateReactFlowGraph will handle UI updates including action placeholder
-      console.log('📌 [WorkflowBuilder] Saving node:', nodeData.type, 'at position:', position)
-      const newNode = await actions.addNode(nodeData.type, position)
+      // Save node to database using the pre-generated ID
+      // This ensures the optimistic node ID matches the backend node ID
+      console.log('📌 [WorkflowBuilder] Saving node:', nodeData.type, 'at position:', position, 'with ID:', newNodeId)
+      await actions.addNode(nodeData.type, position, newNodeId)
 
-      console.log('📌 [WorkflowBuilder] Node saved successfully, updateReactFlowGraph will handle placeholder')
+      console.log('📌 [WorkflowBuilder] Node saved successfully')
 
-      // Update the configuring node with the real node ID from DB
-      if (newNode) {
-        setConfiguringNode((current: any) => {
-          if (current && current.id === tempId) {
-            return { ...current, id: newNode.id, data: { ...current.data, _optimistic: false } }
-          }
-          return current
-        })
-
-        // If adding after a node (not replacing placeholder), create edge and handle insertion
-        if (selectedNodeId && !replacingPlaceholder) {
-          console.log('🔗 [WorkflowBuilder] Inserting node after:', selectedNodeId)
-
-          // Find what was connected after the selected node
-          const afterNode = currentNodes.find((n: any) => n.id === selectedNodeId)
-          const oldEdge = builder.edges.find((e: any) => e.source === selectedNodeId)
-
-          if (oldEdge) {
-            // We're inserting between two nodes
-            const nextNodeId = oldEdge.target
-
-            // Create edge from previous node to new node
-            await actions.connectEdge({
-              sourceId: selectedNodeId,
-              targetId: newNode.id,
-              sourceHandle: oldEdge.sourceHandle || 'source'
-            })
-
-            // Create edge from new node to next node
-            await actions.connectEdge({
-              sourceId: newNode.id,
-              targetId: nextNodeId,
-              sourceHandle: 'source',
-              targetHandle: oldEdge.targetHandle
-            })
-
-            console.log('🔗 [WorkflowBuilder] Inserted between', selectedNodeId, 'and', nextNodeId)
-          } else {
-            // We're adding at the end
-            await actions.connectEdge({
-              sourceId: selectedNodeId,
-              targetId: newNode.id,
-              sourceHandle: 'source'
-            })
-            console.log('🔗 [WorkflowBuilder] Added at end after', selectedNodeId)
-          }
+      // Now create the edges in the backend
+      if (selectedNodeId && !replacingPlaceholder) {
+        if (isInsertingBetween && originalTargetNodeId) {
+          // We're inserting between two nodes - create both edges
+          console.log('🔗 [WorkflowBuilder] Creating edges for insertion between', selectedNodeId, 'and', originalTargetNodeId)
+          await actions.connectEdge({
+            sourceId: selectedNodeId,
+            targetId: newNodeId,
+            sourceHandle: originalSourceHandle
+          })
+          await actions.connectEdge({
+            sourceId: newNodeId,
+            targetId: originalTargetNodeId,
+            sourceHandle: 'source',
+            targetHandle: originalTargetHandle
+          })
+        } else {
+          // We're adding at the end - create single edge
+          console.log('🔗 [WorkflowBuilder] Creating edge from', selectedNodeId, 'to', newNodeId)
+          await actions.connectEdge({
+            sourceId: selectedNodeId,
+            targetId: newNodeId,
+            sourceHandle: 'source'
+          })
         }
       }
+
+      // Persist the position shifts to the backend AFTER addNode and edges complete
+      // This ensures the shifted positions are saved and won't be overwritten by updateReactFlowGraph
+      if (nodesToShift.length > 0) {
+        console.log('📌 [WorkflowBuilder] Persisting shifted positions:', nodesToShift)
+        await actions.moveNodes(nodesToShift)
+        console.log('📌 [WorkflowBuilder] Shifted positions persisted')
+      }
+
     } catch (error: any) {
       setConfiguringNode(null)
       toast({
@@ -4918,6 +5038,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
             setIsIntegrationsPanelOpen={setIsIntegrationsPanelOpen}
             integrationsPanelMode={integrationsPanelMode}
             onNodeSelect={handleNodeSelectFromPanel}
+            addingAfterNodeName={addingAfterNodeName}
             onNodeConfigure={handleNodeConfigure}
             onUndoToPreviousStage={handleUndoToPreviousStage}
             onCancelBuild={handleCancelBuild}

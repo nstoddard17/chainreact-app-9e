@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js"
 import { executeAction } from "@/lib/workflows/executeNode"
 import { mapWorkflowData, evaluateExpression, evaluateCondition } from "./variableResolver"
 import { ExecutionProgressTracker } from "./executionProgressTracker"
+import { nodeOutputCache } from "./nodeOutputCache"
 import { logInfo, logError, logSuccess, logWarning } from "@/lib/logging/backendLogger"
 
 import { logger } from '@/lib/utils/logger'
@@ -957,6 +958,21 @@ export class AdvancedExecutionEngine {
       if (this.progressTracker) {
         await this.progressTracker.updateNodeCompleted(node.id, actionResult)
       }
+
+      // Cache the node output for future use (non-blocking)
+      // This enables running individual nodes with cached upstream data
+      nodeOutputCache.saveNodeOutput({
+        workflowId: workflow.id,
+        userId: context.session.user_id,
+        nodeId: node.id,
+        nodeType: node.data.type,
+        output: actionResult,
+        input: safeInput,
+        executionId: context.session.id
+      }).catch(cacheError => {
+        // Don't fail the execution if caching fails
+        logger.warn(`[NodeOutputCache] Failed to cache output for node ${node.id}:`, cacheError)
+      })
 
       return result
     } catch (error) {

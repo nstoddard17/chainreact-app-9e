@@ -4,12 +4,13 @@ import { NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { executeAction } from "@/lib/workflows/executeNode"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
+import { nodeOutputCache } from "@/lib/execution/nodeOutputCache"
 
 import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: Request) {
   try {
-    const { nodeType, config, testData } = await request.json()
+    const { nodeType, config, testData, workflowId, nodeId, useCachedData } = await request.json()
 
     if (!nodeType) {
       return errorResponse("Node type is required" , 400)
@@ -35,19 +36,60 @@ export async function POST(request: Request) {
 
     // Create a test node object
     const testNode = {
-      id: "test-node",
+      id: nodeId || "test-node",
       data: {
         type: nodeType,
         config: config || {}
       }
     }
 
-    // Create test context - testData should contain actual outputs from previous nodes
-    // The caller is responsible for providing real node outputs in the correct structure
+    // Load cached outputs from previous runs if workflowId is provided and useCachedData is true
+    let cachedOutputs: Record<string, any> = {}
+    let cachedDataInfo = { loaded: false, nodeCount: 0, availableNodes: [] as string[] }
+
+    if (workflowId && useCachedData !== false) {
+      try {
+        cachedOutputs = await nodeOutputCache.getAllCachedOutputs(workflowId)
+        const cachedNodeIds = Object.keys(cachedOutputs)
+        cachedDataInfo = {
+          loaded: true,
+          nodeCount: cachedNodeIds.length,
+          availableNodes: cachedNodeIds
+        }
+        logger.debug(`[test-node] Loaded ${cachedNodeIds.length} cached outputs for workflow ${workflowId}`)
+      } catch (cacheError: any) {
+        logger.warn(`[test-node] Failed to load cached outputs:`, cacheError)
+      }
+    }
+
+    // Merge cached outputs with provided testData
+    // testData takes precedence over cached data (allows manual overrides)
+    const mergedData = {
+      ...cachedOutputs,
+      ...(testData || {})
+    }
+
+    // Debug logging for variable resolution
+    logger.debug('[test-node] Merged data for variable resolution:', {
+      cachedNodeIds: Object.keys(cachedOutputs),
+      testDataKeys: Object.keys(testData || {}),
+      mergedDataKeys: Object.keys(mergedData),
+      sampleCachedData: Object.keys(cachedOutputs).length > 0
+        ? {
+            nodeId: Object.keys(cachedOutputs)[0],
+            hasOutput: !!cachedOutputs[Object.keys(cachedOutputs)[0]]?.output,
+            outputKeys: cachedOutputs[Object.keys(cachedOutputs)[0]]?.output
+              ? Object.keys(cachedOutputs[Object.keys(cachedOutputs)[0]].output)
+              : []
+          }
+        : null
+    })
+
+    // Create test context with merged data
     const testContext = {
-      data: testData || {},
+      data: mergedData,
       userId: user.id,
-      workflowId: "test-workflow",
+      workflowId: workflowId || "test-workflow",
       testMode: true
     }
 
@@ -65,7 +107,7 @@ export async function POST(request: Request) {
         node: testNode,
         input: testContext.data,
         userId: user.id,
-        workflowId: "test-workflow",
+        workflowId: workflowId || "test-workflow",
         executionMode: 'live' // Execute real API calls
       })
 
@@ -83,6 +125,24 @@ export async function POST(request: Request) {
         hasOutput: !!testResult.output,
         outputKeys: testResult.output ? Object.keys(testResult.output) : []
       })
+
+      // Save the test result to cache (if workflowId is provided)
+      // This allows subsequent nodes to use this output as cached data
+      if (workflowId && nodeId && testResult.success !== false) {
+        try {
+          await nodeOutputCache.saveNodeOutput({
+            workflowId,
+            userId: user.id,
+            nodeId,
+            nodeType,
+            output: testResult,
+            input: testContext.data
+          })
+          logger.debug(`[test-node] Cached output for node ${nodeId}`)
+        } catch (cacheError: any) {
+          logger.warn(`[test-node] Failed to cache test result:`, cacheError)
+        }
+      }
     } catch (error: any) {
       logger.error('[test-node] Execution failed:', {
         error: error.message,
@@ -113,6 +173,17 @@ export async function POST(request: Request) {
         title: nodeComponent.title,
         description: nodeComponent.description,
         outputSchema: nodeComponent.outputSchema
+      },
+      cachedData: cachedDataInfo,
+      outputCached: workflowId && nodeId && testResult.success !== false,
+      // Debug info for troubleshooting variable resolution
+      debug: {
+        workflowId,
+        nodeId,
+        availableCachedNodes: cachedDataInfo.availableNodes,
+        configHasVariables: Object.values(config || {}).some((v: any) =>
+          typeof v === 'string' && v.includes('{{') && v.includes('}}')
+        )
       }
     })
 

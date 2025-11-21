@@ -58,6 +58,7 @@ interface FlowV2BuilderContentProps {
   setIsIntegrationsPanelOpen: (open: boolean) => void
   integrationsPanelMode?: 'trigger' | 'action'
   onNodeSelect: (nodeData: any) => void
+  addingAfterNodeName?: string | null // Name of the node we're adding after (for context display)
 
   // Configuration panel
   onNodeConfigure?: (nodeId: string) => void
@@ -97,6 +98,7 @@ export function FlowV2BuilderContent({
   setIsIntegrationsPanelOpen,
   integrationsPanelMode,
   onNodeSelect,
+  addingAfterNodeName,
   onNodeConfigure,
   onUndoToPreviousStage,
   onCancelBuild,
@@ -378,6 +380,7 @@ export function FlowV2BuilderContent({
               onClose={() => setIsIntegrationsPanelOpen(false)}
               onNodeSelect={onNodeSelect}
               mode={integrationsPanelMode}
+              addingAfterNodeName={addingAfterNodeName}
             />
           </div>
 
