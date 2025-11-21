@@ -343,7 +343,79 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   const [workflowName, setWorkflowName] = useState(adapter.state.flowName)
   const [nameDirty, setNameDirty] = useState(false)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const [addingAfterNodeId, setAddingAfterNodeId] = useState<string | null>(null) // Persists while integrations panel is open
   const [isIntegrationsPanelOpen, setIsIntegrationsPanelOpen] = useState(false)
+  const pendingInsertionRef = useRef<{
+    sourceId: string | null
+    targetId: string | null
+    sourceHandle: string | null
+    targetHandle: string | null
+  } | null>(null)
+
+  const setInsertionContext = useCallback((
+    sourceId: string | null,
+    targetId: string | null,
+    options?: { sourceHandle?: string | null; targetHandle?: string | null }
+  ) => {
+    pendingInsertionRef.current = {
+      sourceId,
+      targetId,
+      sourceHandle: options?.sourceHandle ?? null,
+      targetHandle: options?.targetHandle ?? null,
+    }
+  }, [])
+
+  const clearInsertionContext = useCallback(() => {
+    pendingInsertionRef.current = null
+    setAddingAfterNodeId(null)
+  }, [])
+
+  const prepareInsertionContext = useCallback((afterNodeId: string | null) => {
+    if (!afterNodeId || !builder) {
+      setInsertionContext(afterNodeId, null)
+      return
+    }
+
+    const nodes = Array.isArray(builder.nodes) ? builder.nodes : []
+    const edges = Array.isArray(builder.edges) ? builder.edges : []
+
+    let nextNodeId: string | null = null
+    if (nodes.length > 0) {
+      const sortedNodes = [...nodes].sort(
+        (a: any, b: any) => (a.position?.y ?? 0) - (b.position?.y ?? 0)
+      )
+      const currentIndex = sortedNodes.findIndex((node: any) => node.id === afterNodeId)
+      if (currentIndex >= 0) {
+        const candidate = sortedNodes
+          .slice(currentIndex + 1)
+          .find(node => !node.data?.isPlaceholder)
+        if (candidate) {
+          nextNodeId = candidate.id
+        }
+      }
+    }
+
+    let matchingEdge: any = null
+    if (edges.length > 0) {
+      if (nextNodeId) {
+        matchingEdge = edges.find(
+          (edge: any) => edge.source === afterNodeId && edge.target === nextNodeId
+        )
+      }
+      if (!matchingEdge) {
+        matchingEdge = edges.find((edge: any) => edge.source === afterNodeId) ?? null
+      }
+    }
+
+    if (matchingEdge) {
+      setInsertionContext(afterNodeId, matchingEdge.target ?? nextNodeId ?? null, {
+        sourceHandle: matchingEdge.sourceHandle || 'source',
+        targetHandle: matchingEdge.targetHandle || 'target',
+      })
+    } else {
+      setInsertionContext(afterNodeId, nextNodeId)
+    }
+  }, [builder, setInsertionContext])
   const [integrationsPanelMode, setIntegrationsPanelMode] = useState<'trigger' | 'action'>('action')
   const [configuringNode, setConfiguringNode] = useState<any>(null)
 
@@ -2351,7 +2423,14 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       const edge = builder.edges.find((e: any) => e.id === edgeId)
       if (!edge) return
 
+      // Store insertion context for precise edge splitting
+      setInsertionContext(edge.source, edge.target ?? null, {
+        sourceHandle: edge.sourceHandle || 'source',
+        targetHandle: edge.targetHandle || 'target'
+      })
+
       // Store the source node ID and open integrations panel
+      setAddingAfterNodeId(edge.source)
       setSelectedNodeId(edge.source)
       openIntegrationsPanel('action')
     }
@@ -2377,13 +2456,14 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   }, [builder, handleAddNodeAfter, handleTestNode, handleTestFlowFromHere, handleReorderPointerDown, configuringNode, activeReorderDrag, getReorderableData, reorderDragOffset, reorderPreviewIndex])
 
   // Compute the name of the node we're adding after (for integrations panel context)
+  // Uses addingAfterNodeId which persists while panel is open (not selectedNodeId which changes with React Flow selection)
   const addingAfterNodeName = useMemo(() => {
-    if (!selectedNodeId || !reactFlowProps?.nodes) return null
-    const selectedNode = reactFlowProps.nodes.find((n: any) => n.id === selectedNodeId)
-    if (!selectedNode) return null
+    if (!addingAfterNodeId || !reactFlowProps?.nodes) return null
+    const targetNode = reactFlowProps.nodes.find((n: any) => n.id === addingAfterNodeId)
+    if (!targetNode) return null
     // Get the title from node data, falling back to type if no title
-    return selectedNode.data?.title || selectedNode.data?.label || selectedNode.data?.type || null
-  }, [selectedNodeId, reactFlowProps?.nodes])
+    return targetNode.data?.title || targetNode.data?.label || targetNode.data?.type || null
+  }, [addingAfterNodeId, reactFlowProps?.nodes])
 
   // Name update handler
   const persistName = useCallback(
@@ -2457,6 +2537,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     setIsIntegrationsPanelOpen(true)
   }, [builder.nodes, integrations.length, fetchIntegrations, workspaceContext])
 
+  // Handler for when integrations panel closes (clears related state)
+  const handleIntegrationsPanelClose = useCallback(() => {
+    clearInsertionContext()
+  }, [clearInsertionContext])
+
   // Selection handler
   const handleSelectionChange = useCallback((params: any) => {
     const first = params?.nodes?.[0]
@@ -2485,11 +2570,14 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       setConfiguringNode(null)
     }
 
+    prepareInsertionContext(afterNodeId)
+
     // If panel is already open and user clicked a different plus button,
     // briefly close and reopen to show a visual cue that the target changed
-    if (isIntegrationsPanelOpen && selectedNodeId !== afterNodeId) {
+    if (isIntegrationsPanelOpen && addingAfterNodeId !== afterNodeId) {
       setIsIntegrationsPanelOpen(false)
-      // Update the target node
+      // Update the target node (use addingAfterNodeId which persists while panel is open)
+      setAddingAfterNodeId(afterNodeId)
       if (afterNodeId) {
         setSelectedNodeId(afterNodeId)
       }
@@ -2500,19 +2588,21 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       return
     }
 
-    // Store the node to add after
+    // Store the node to add after (use addingAfterNodeId which persists while panel is open)
+    setAddingAfterNodeId(afterNodeId)
     if (afterNodeId) {
       setSelectedNodeId(afterNodeId)
     }
     // Open integrations panel in action mode
     openIntegrationsPanel('action')
-  }, [configuringNode, openIntegrationsPanel, isIntegrationsPanelOpen, selectedNodeId])
+  }, [configuringNode, openIntegrationsPanel, isIntegrationsPanelOpen, addingAfterNodeId, prepareInsertionContext])
 
   // Node selection from panel
   const handleNodeSelectFromPanel = useCallback(async (nodeData: any) => {
     console.log('🎯 [WorkflowBuilder] handleNodeSelectFromPanel called:', {
       nodeData: nodeData?.type || nodeData,
       selectedNodeId,
+      addingAfterNodeId,
       hasActions: !!actions,
       hasBuilder: !!builder
     })
@@ -2520,28 +2610,30 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     if (!actions || !builder) return
 
     const currentNodes = builder.nodes ?? []
+    const insertionContext = pendingInsertionRef.current
+    const anchorNodeId = insertionContext?.sourceId ?? addingAfterNodeId ?? selectedNodeId
 
     // Check if we're replacing a placeholder node
-    const replacingPlaceholder = currentNodes.find((n: any) =>
-      n.id === selectedNodeId && n.data?.isPlaceholder
-    )
+    const replacingPlaceholder = anchorNodeId
+      ? currentNodes.find((n: any) => n.id === anchorNodeId && n.data?.isPlaceholder)
+      : null
 
     let position = nodeData.position || { x: 400, y: 300 }
 
     // If replacing placeholder, use its position
     if (replacingPlaceholder) {
       position = replacingPlaceholder.position
-      console.log('📌 [WorkflowBuilder] Replacing placeholder:', selectedNodeId, 'with:', nodeData.type)
+      console.log('📌 [WorkflowBuilder] Replacing placeholder:', anchorNodeId, 'with:', nodeData.type)
     }
     // If adding after a specific node (from plus button), calculate position after that node
-    else if (selectedNodeId) {
-      const afterNode = currentNodes.find((n: any) => n.id === selectedNodeId)
+    else if (anchorNodeId) {
+      const afterNode = currentNodes.find((n: any) => n.id === anchorNodeId)
       if (afterNode) {
         position = {
           x: 400,
           y: afterNode.position.y + 180 // Add 180px vertical spacing after the node
         }
-        console.log('📌 [WorkflowBuilder] Adding node after:', selectedNodeId, 'at position:', position)
+        console.log('📌 [WorkflowBuilder] Adding node after:', anchorNodeId, 'at position:', position)
       }
     }
 
@@ -2573,12 +2665,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
     // Close panel immediately for better UX
     setIsIntegrationsPanelOpen(false)
-
-    // Check if we're inserting between nodes (there's an edge from selectedNodeId to another node)
-    // Capture this BEFORE any optimistic updates modify builder.edges
+    clearInsertionContext()
 
     // Debug: Log current state before calculating insertion plan
     console.log('🔍 [WorkflowBuilder] Insert calculation state:', {
+      anchorNodeId,
       selectedNodeId,
       replacingPlaceholder: !!replacingPlaceholder,
       currentNodesCount: currentNodes.length,
@@ -2586,14 +2677,39 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       edges: builder.edges?.map((e: any) => ({ source: e.source, target: e.target }))
     })
 
-    // Simple approach: Check if there's an edge from selectedNodeId to any other node
-    const originalEdge = selectedNodeId && !replacingPlaceholder
-      ? builder.edges.find((e: any) => e.source === selectedNodeId)
-      : null
+    const nodesById = new Map(currentNodes.map((node: any) => [node.id, node]))
+    const outgoingEdges =
+      anchorNodeId && !replacingPlaceholder && Array.isArray(builder.edges)
+        ? builder.edges.filter((e: any) => e.source === anchorNodeId)
+        : []
 
-    const originalTargetNodeId = originalEdge?.target
-    const originalSourceHandle = originalEdge?.sourceHandle || 'source'
-    const originalTargetHandle = originalEdge?.targetHandle || 'target'
+    let originalEdge: any = null
+    let originalTargetNodeId = insertionContext?.targetId ?? null
+    let originalSourceHandle = insertionContext?.sourceHandle || 'source'
+    let originalTargetHandle = insertionContext?.targetHandle || 'target'
+
+    if (anchorNodeId && outgoingEdges.length > 0) {
+      if (originalTargetNodeId) {
+        originalEdge = outgoingEdges.find(edge => edge.target === originalTargetNodeId) ?? null
+      }
+      if (!originalEdge) {
+        const anchorY = nodesById.get(anchorNodeId)?.position?.y ?? Number.NEGATIVE_INFINITY
+        const sortedEdges = outgoingEdges
+          .map(edge => ({
+            edge,
+            targetY: nodesById.get(edge.target)?.position?.y ?? Number.POSITIVE_INFINITY
+          }))
+          .sort((a, b) => a.targetY - b.targetY)
+        originalEdge = sortedEdges.find(item => item.targetY > anchorY)?.edge ?? sortedEdges[0]?.edge ?? null
+      }
+
+      if (originalEdge) {
+        originalTargetNodeId = originalEdge.target
+        originalSourceHandle = originalEdge.sourceHandle || originalSourceHandle || 'source'
+        originalTargetHandle = originalEdge.targetHandle || originalTargetHandle || 'target'
+      }
+    }
+
     const isInsertingBetween = Boolean(originalTargetNodeId && !replacingPlaceholder)
 
     console.log('🔍 [WorkflowBuilder] Insertion between check:', {
@@ -2606,15 +2722,15 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     // so we can persist them to the backend after addNode
     const nodesToShift: Array<{ nodeId: string; position: { x: number; y: number } }> = []
 
-    if (isInsertingBetween && selectedNodeId) {
+    if (isInsertingBetween && anchorNodeId) {
       const verticalShift = LINEAR_NODE_VERTICAL_GAP // 180px
-      const selectedNode = currentNodes.find((n: any) => n.id === selectedNodeId)
+      const selectedNode = currentNodes.find((n: any) => n.id === anchorNodeId)
       const thresholdY = selectedNode?.position?.y ?? position.y
 
       currentNodes.forEach((node: any) => {
         // Shift nodes that are AFTER the selected node (Y position greater than selected node)
         // Don't shift the selected node itself, and don't shift placeholders
-        if (node.position && node.position.y > thresholdY && node.id !== selectedNodeId && !node.data?.isPlaceholder) {
+        if (node.position && node.position.y > thresholdY && node.id !== anchorNodeId && !node.data?.isPlaceholder) {
           const newY = node.position.y + verticalShift
           nodesToShift.push({
             nodeId: node.id,
@@ -2634,31 +2750,31 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       let newNodes = [...nodes]
 
       // If replacing a placeholder, remove it first
-      if (replacingPlaceholder) {
-        newNodes = newNodes.filter(n => n.id !== selectedNodeId)
+      if (replacingPlaceholder && anchorNodeId) {
+        newNodes = newNodes.filter(n => n.id !== anchorNodeId)
       }
 
       // If inserting between nodes, shift all downstream nodes down
-      if (isInsertingBetween && selectedNodeId) {
+      if (isInsertingBetween && anchorNodeId) {
         const verticalShift = LINEAR_NODE_VERTICAL_GAP // 180px
 
         console.log('🔄 [WorkflowBuilder] Shifting nodes down:', {
           isInsertingBetween,
-          selectedNodeId,
+          anchorNodeId,
           originalTargetNodeId,
           insertPosition: position,
           verticalShift
         })
 
         // Find all nodes that are below the insertion point and shift them down
-        // Use the selectedNode's Y position as the threshold since we're inserting AFTER it
-        const selectedNode = newNodes.find(n => n.id === selectedNodeId)
+        // Use the anchorNode's Y position as the threshold since we're inserting AFTER it
+        const selectedNode = newNodes.find(n => n.id === anchorNodeId)
         const thresholdY = selectedNode?.position?.y ?? position.y
 
         newNodes = newNodes.map(node => {
           // Shift nodes that are AFTER the selected node (Y position greater than selected node)
           // Don't shift the selected node itself
-          if (node.position && node.position.y > thresholdY && node.id !== selectedNodeId) {
+          if (node.position && node.position.y > thresholdY && node.id !== anchorNodeId) {
             const newY = node.position.y + verticalShift
             console.log(`🔄 [WorkflowBuilder] Shifting node ${node.id} from Y=${node.position.y} to Y=${newY}`)
             const nextPosition = {
@@ -2688,30 +2804,30 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     })
 
     // Add optimistic edges immediately
-    if (replacingPlaceholder) {
+    if (replacingPlaceholder && anchorNodeId) {
       // When replacing a placeholder, update edges that reference the placeholder
       builder.setEdges((edges: any[]) => {
         return edges.map(edge => {
           // Update edges pointing TO the placeholder
-          if (edge.target === selectedNodeId) {
+          if (edge.target === anchorNodeId) {
             return { ...edge, target: newNodeId }
           }
           // Update edges FROM the placeholder
-          if (edge.source === selectedNodeId) {
+          if (edge.source === anchorNodeId) {
             return { ...edge, source: newNodeId }
           }
           return edge
         })
       })
-    } else if (selectedNodeId) {
+    } else if (anchorNodeId) {
       builder.setEdges((edges: any[]) => {
         if (isInsertingBetween && originalTargetNodeId) {
           // Inserting between two nodes - use captured edge info
           return [
-            ...edges.filter(e => !(e.source === selectedNodeId && e.target === originalTargetNodeId)),
+            ...edges.filter(e => !(e.source === anchorNodeId && e.target === originalTargetNodeId)),
             {
-              id: `${selectedNodeId}-${newNodeId}`,
-              source: selectedNodeId,
+              id: `${anchorNodeId}-${newNodeId}`,
+              source: anchorNodeId,
               target: newNodeId,
               sourceHandle: originalSourceHandle,
               type: 'custom'
@@ -2730,8 +2846,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           return [
             ...edges,
             {
-              id: `${selectedNodeId}-${newNodeId}`,
-              source: selectedNodeId,
+              id: `${anchorNodeId}-${newNodeId}`,
+              source: anchorNodeId,
               target: newNodeId,
               sourceHandle: 'source',
               type: 'custom'
@@ -2757,12 +2873,12 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       console.log('📌 [WorkflowBuilder] Node saved successfully')
 
       // Now create the edges in the backend
-      if (selectedNodeId && !replacingPlaceholder) {
+      if (anchorNodeId && !replacingPlaceholder) {
         if (isInsertingBetween && originalTargetNodeId) {
           // We're inserting between two nodes - create both edges
-          console.log('🔗 [WorkflowBuilder] Creating edges for insertion between', selectedNodeId, 'and', originalTargetNodeId)
+          console.log('🔗 [WorkflowBuilder] Creating edges for insertion between', anchorNodeId, 'and', originalTargetNodeId)
           await actions.connectEdge({
-            sourceId: selectedNodeId,
+            sourceId: anchorNodeId,
             targetId: newNodeId,
             sourceHandle: originalSourceHandle
           })
@@ -2774,9 +2890,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           })
         } else {
           // We're adding at the end - create single edge
-          console.log('🔗 [WorkflowBuilder] Creating edge from', selectedNodeId, 'to', newNodeId)
+          console.log('🔗 [WorkflowBuilder] Creating edge from', anchorNodeId, 'to', newNodeId)
           await actions.connectEdge({
-            sourceId: selectedNodeId,
+            sourceId: anchorNodeId,
             targetId: newNodeId,
             sourceHandle: 'source'
           })
@@ -2800,7 +2916,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       })
       openIntegrationsPanel()
     }
-  }, [actions, builder, nodeComponentMap, toast, selectedNodeId, openIntegrationsPanel])
+  }, [actions, builder, nodeComponentMap, toast, selectedNodeId, addingAfterNodeId, openIntegrationsPanel, clearInsertionContext])
 
   // Node deletion with optimistic update for instant feedback
   const handleDeleteNodes = useCallback(async (nodeIds: string[]) => {
@@ -3203,12 +3319,13 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
       // Close integrations panel when opening configuration modal
       setIsIntegrationsPanelOpen(false)
+      clearInsertionContext() // Clear the "adding after" context
 
       setConfiguringNode(node)
     } else {
       console.warn('🔧 [WorkflowBuilder] Node not found for configuration:', nodeId)
     }
-  }, [reactFlowProps?.nodes, reactFlowProps?.edges, prefetchNodeConfig, openIntegrationsPanel, setSelectedNodeId])
+  }, [reactFlowProps?.nodes, reactFlowProps?.edges, prefetchNodeConfig, openIntegrationsPanel, setSelectedNodeId, clearInsertionContext])
 
   // Auto-open configuration modal whenever a non-placeholder node becomes selected
   // BUT NOT when the integrations panel is open (user is adding a new node, not configuring existing)
@@ -3236,9 +3353,10 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
     // Ensure integrations panel is closed so it doesn't overlap the config modal
     setIsIntegrationsPanelOpen(false)
+    clearInsertionContext() // Clear the "adding after" context
 
     handleNodeConfigure(selectedNodeId)
-  }, [selectedNodeId, configuringNode?.id, reactFlowProps?.nodes, handleNodeConfigure, isIntegrationsPanelOpen])
+  }, [selectedNodeId, configuringNode?.id, reactFlowProps?.nodes, handleNodeConfigure, isIntegrationsPanelOpen, clearInsertionContext])
 
   // Handle saving node configuration
   const handleSaveNodeConfig = useCallback(async (nodeId: string, config: Record<string, any>) => {
@@ -5036,6 +5154,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
             badge={buildMachine.badge}
             isIntegrationsPanelOpen={isIntegrationsPanelOpen}
             setIsIntegrationsPanelOpen={setIsIntegrationsPanelOpen}
+            onIntegrationsPanelClose={handleIntegrationsPanelClose}
             integrationsPanelMode={integrationsPanelMode}
             onNodeSelect={handleNodeSelectFromPanel}
             addingAfterNodeName={addingAfterNodeName}

@@ -56,6 +56,7 @@ interface FlowV2BuilderContentProps {
   // Integrations panel
   isIntegrationsPanelOpen: boolean
   setIsIntegrationsPanelOpen: (open: boolean) => void
+  onIntegrationsPanelClose?: () => void // Optional handler for when panel closes (to clear related state)
   integrationsPanelMode?: 'trigger' | 'action'
   onNodeSelect: (nodeData: any) => void
   addingAfterNodeName?: string | null // Name of the node we're adding after (for context display)
@@ -96,6 +97,7 @@ export function FlowV2BuilderContent({
   badge,
   isIntegrationsPanelOpen,
   setIsIntegrationsPanelOpen,
+  onIntegrationsPanelClose,
   integrationsPanelMode,
   onNodeSelect,
   addingAfterNodeName,
@@ -377,7 +379,10 @@ export function FlowV2BuilderContent({
           >
             <IntegrationsSidePanel
               isOpen={isIntegrationsPanelOpen}
-              onClose={() => setIsIntegrationsPanelOpen(false)}
+              onClose={() => {
+                setIsIntegrationsPanelOpen(false)
+                onIntegrationsPanelClose?.() // Clear addingAfterNodeId and other state
+              }}
               onNodeSelect={onNodeSelect}
               mode={integrationsPanelMode}
               addingAfterNodeName={addingAfterNodeName}

@@ -26,7 +26,16 @@ export class NodeOutputCache {
     try {
       const { workflowId, userId, nodeId, nodeType, output, input, executionId } = params
 
-      const { error } = await this.supabase
+      logger.info('[NodeOutputCache] Attempting to save output:', {
+        workflowId,
+        userId: userId?.substring(0, 8) + '...',
+        nodeId,
+        nodeType,
+        hasOutput: !!output,
+        outputKeys: output ? Object.keys(output) : []
+      })
+
+      const { data, error } = await this.supabase
         .from('workflow_node_outputs')
         .upsert({
           workflow_id: workflowId,
@@ -40,11 +49,24 @@ export class NodeOutputCache {
         }, {
           onConflict: 'workflow_id,node_id'
         })
+        .select()
 
       if (error) {
-        logger.error('[NodeOutputCache] Failed to save output:', { nodeId, error: error.message })
+        logger.error('[NodeOutputCache] Failed to save output:', {
+          nodeId,
+          workflowId,
+          error: error.message,
+          errorCode: error.code,
+          errorDetails: error.details,
+          errorHint: error.hint
+        })
         return false
       }
+
+      logger.info('[NodeOutputCache] Successfully saved output:', {
+        nodeId,
+        savedRows: data?.length || 0
+      })
 
       logger.debug(`[NodeOutputCache] Saved output for node ${nodeId}`)
       return true
@@ -90,6 +112,8 @@ export class NodeOutputCache {
    */
   async getAllCachedOutputs(workflowId: string): Promise<Record<string, any>> {
     try {
+      logger.info('[NodeOutputCache] Fetching all cached outputs for workflow:', workflowId)
+
       const { data, error } = await this.supabase
         .from('workflow_node_outputs')
         .select('*')
@@ -97,7 +121,11 @@ export class NodeOutputCache {
         .order('executed_at', { ascending: false })
 
       if (error) {
-        logger.error('[NodeOutputCache] Failed to fetch outputs:', error)
+        logger.error('[NodeOutputCache] Failed to fetch outputs:', {
+          workflowId,
+          error: error.message,
+          errorCode: error.code
+        })
         return {}
       }
 
@@ -107,7 +135,10 @@ export class NodeOutputCache {
         outputMap[row.node_id] = row.output_data
       }
 
-      logger.debug(`[NodeOutputCache] Retrieved ${Object.keys(outputMap).length} cached outputs for workflow ${workflowId}`)
+      logger.info(`[NodeOutputCache] Retrieved ${Object.keys(outputMap).length} cached outputs for workflow ${workflowId}`, {
+        nodeIds: Object.keys(outputMap),
+        workflowId
+      })
       return outputMap
     } catch (error: any) {
       logger.error('[NodeOutputCache] Error fetching all outputs:', error)
