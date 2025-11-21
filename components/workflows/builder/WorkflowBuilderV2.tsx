@@ -2445,12 +2445,17 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
     setSelectedNodeId(selectedId)
 
+    // Only open integrations panel for action_placeholder if we're not already configuring a node
+    // This prevents the panel from re-opening after selecting a node and closing the config modal
     if (first?.type === 'action_placeholder') {
-      console.log('🔄 [WorkflowBuilder] action_placeholder selected, opening integrations panel')
-      setConfiguringNode(null)
-      openIntegrationsPanel('action')
+      // Check if config modal is open or integrations panel is already open
+      // If so, don't interrupt the user's flow
+      if (!configuringNode && !isIntegrationsPanelOpen) {
+        console.log('🔄 [WorkflowBuilder] action_placeholder selected, opening integrations panel')
+        openIntegrationsPanel('action')
+      }
     }
-  }, [openIntegrationsPanel])
+  }, [openIntegrationsPanel, configuringNode, isIntegrationsPanelOpen])
 
   // Handler for adding node after another (from plus button)
   const handleAddNodeAfterClick = useCallback((afterNodeId: string | null) => {
