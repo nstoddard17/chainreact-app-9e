@@ -1,10 +1,10 @@
-import { FileSpreadsheet, Plus, Edit, List, Search, Trash2 } from "lucide-react"
+import { FileSpreadsheet, Plus, Edit, List, Search, Trash2, GitMerge, FilePlus } from "lucide-react"
 import { NodeComponent } from "../../types"
 
 export const microsoftExcelNodes: NodeComponent[] = [
   {
     type: "microsoft_excel_trigger_new_row",
-    title: "New Row",
+    title: "New Row in Worksheet",
     description: "Triggers when a new row is added to an Excel worksheet",
     icon: FileSpreadsheet,
     providerId: "microsoft-excel",
@@ -208,6 +208,77 @@ export const microsoftExcelNodes: NodeComponent[] = [
         label: "Timestamp",
         type: "string",
         description: "ISO timestamp when the row was updated"
+      }
+    ],
+  },
+  {
+    type: "microsoft_excel_trigger_new_table_row",
+    title: "New Row in Table",
+    description: "Triggers when a new row is added to an Excel table",
+    icon: List,
+    providerId: "microsoft-excel",
+    category: "Productivity",
+    isTrigger: true,
+    producesOutput: true,
+    requiredIntegration: "onedrive",
+    configSchema: [
+      {
+        name: "workbookId",
+        label: "Workbook",
+        type: "select",
+        dynamic: "microsoft-excel_workbooks",
+        required: true,
+        loadOnMount: true,
+        placeholder: "Select a workbook",
+        description: "Choose a workbook from your OneDrive account"
+      },
+      {
+        name: "tableName",
+        label: "Table",
+        type: "select",
+        dynamic: "microsoft-excel_tables",
+        required: true,
+        dependsOn: "workbookId",
+        placeholder: "Select a table",
+        description: "The Excel table to monitor for new rows"
+      },
+    ],
+    outputSchema: [
+      {
+        name: "rowIndex",
+        label: "Row Index",
+        type: "number",
+        description: "The index of the new row in the table"
+      },
+      {
+        name: "values",
+        label: "Row Values",
+        type: "array",
+        description: "Array of cell values in the new row"
+      },
+      {
+        name: "rowData",
+        label: "Row Data",
+        type: "object",
+        description: "Row data as key-value pairs (column headers as keys)"
+      },
+      {
+        name: "tableName",
+        label: "Table Name",
+        type: "string",
+        description: "Name of the table where row was added"
+      },
+      {
+        name: "workbookId",
+        label: "Workbook ID",
+        type: "string",
+        description: "ID of the workbook"
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "ISO timestamp when the row was added"
       }
     ],
   },
@@ -745,6 +816,543 @@ export const microsoftExcelNodes: NodeComponent[] = [
         label: "Range",
         type: "string",
         description: "The range that was queried"
+      }
+    ]
+  },
+  {
+    type: "microsoft_excel_action_add_table_row",
+    title: "Add Row to Table",
+    description: "Add a new row to an Excel table with automatic formatting and formulas",
+    icon: Plus,
+    providerId: "microsoft-excel",
+    requiredIntegration: "onedrive",
+    requiredScopes: ["https://graph.microsoft.com/Files.ReadWrite.All"],
+    category: "Productivity",
+    isTrigger: false,
+    producesOutput: true,
+    configSchema: [
+      {
+        name: "workbookId",
+        label: "Workbook",
+        type: "select",
+        dynamic: "microsoft-excel_workbooks",
+        required: true,
+        loadOnMount: true,
+        placeholder: "Select a workbook",
+        description: "The Excel file containing the table",
+        helpText: "Start typing to search through your workbooks"
+      },
+      {
+        name: "tableName",
+        label: "Table",
+        type: "select",
+        dynamic: "microsoft-excel_tables",
+        required: true,
+        dependsOn: "workbookId",
+        placeholder: "Select a table",
+        description: "The table to add a row to",
+        helpText: "Tables automatically apply formatting and formulas to new rows"
+      },
+      {
+        name: "columnMapping",
+        label: "Column Values",
+        type: "microsoft_excel_column_mapper",
+        required: true,
+        dependsOn: "tableName",
+        dataSource: "table_columns",
+        description: "Map data to table columns",
+        helpText: "Select a column from your table, then choose what data should go there"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "rowIndex",
+        label: "Row Index",
+        type: "number",
+        description: "The index of the new row in the table",
+        example: 5
+      },
+      {
+        name: "values",
+        label: "Row Values",
+        type: "array",
+        description: "The data that was added to the row",
+        example: [["John Doe", "john@example.com", "Active"]]
+      },
+      {
+        name: "tableName",
+        label: "Table Name",
+        type: "string",
+        description: "The name of the table",
+        example: "CustomersTable"
+      },
+      {
+        name: "workbookId",
+        label: "Workbook ID",
+        type: "string",
+        description: "The ID of the workbook",
+        example: "01ABC123DEF456789"
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "When the row was added",
+        example: "2024-01-15T10:30:00Z"
+      }
+    ]
+  },
+  {
+    type: "microsoft_excel_action_find_or_create_row",
+    title: "Find or Create Row",
+    description: "Search for a row by column value, update if found, create if not found",
+    icon: GitMerge,
+    providerId: "microsoft-excel",
+    requiredIntegration: "onedrive",
+    requiredScopes: ["https://graph.microsoft.com/Files.ReadWrite.All"],
+    category: "Productivity",
+    isTrigger: false,
+    producesOutput: true,
+    configSchema: [
+      {
+        name: "workbookId",
+        label: "Workbook",
+        type: "select",
+        dynamic: "microsoft-excel_workbooks",
+        required: true,
+        loadOnMount: true,
+        placeholder: "Select a workbook",
+        description: "The Excel file to search in"
+      },
+      {
+        name: "worksheetName",
+        label: "Worksheet",
+        type: "select",
+        dynamic: "microsoft-excel_worksheets",
+        required: true,
+        dependsOn: "workbookId",
+        placeholder: "Select a worksheet",
+        description: "The worksheet to search in"
+      },
+      {
+        name: "searchColumn",
+        label: "Search Column",
+        type: "select",
+        dynamic: "microsoft-excel_columns",
+        required: true,
+        dependsOn: "worksheetName",
+        placeholder: "Select column to search",
+        description: "Which column to search for the value",
+        helpText: "The row will be identified by matching this column's value"
+      },
+      {
+        name: "searchValue",
+        label: "Search Value",
+        type: "text",
+        required: true,
+        placeholder: "Enter value to search for",
+        description: "The value to look for in the search column",
+        helpText: "If a row with this value exists, it will be updated. If not, a new row will be created."
+      },
+      {
+        name: "updateIfFound",
+        label: "Update if Found",
+        type: "boolean",
+        required: false,
+        defaultValue: true,
+        description: "Update the row if found, or just return it",
+        helpText: "If enabled, matching rows will be updated with new data. If disabled, matching rows are returned unchanged."
+      },
+      {
+        name: "columnMapping",
+        label: "Column Values",
+        type: "microsoft_excel_column_mapper",
+        required: true,
+        dependsOn: "worksheetName",
+        description: "Map data to columns",
+        helpText: "These values will be used for creating new rows or updating existing rows (if Update if Found is enabled)"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "found",
+        label: "Found",
+        type: "boolean",
+        description: "Whether an existing row was found",
+        example: true
+      },
+      {
+        name: "created",
+        label: "Created",
+        type: "boolean",
+        description: "Whether a new row was created",
+        example: false
+      },
+      {
+        name: "updated",
+        label: "Updated",
+        type: "boolean",
+        description: "Whether an existing row was updated",
+        example: true
+      },
+      {
+        name: "action",
+        label: "Action Performed",
+        type: "string",
+        description: "What action was taken: found, created, or updated",
+        example: "updated"
+      },
+      {
+        name: "rowNumber",
+        label: "Row Number",
+        type: "number",
+        description: "The row number in the worksheet",
+        example: 5
+      },
+      {
+        name: "rowData",
+        label: "Row Data",
+        type: "object",
+        description: "The complete row data as key-value pairs",
+        example: { "Name": "John Doe", "Email": "john@example.com", "Status": "Active" }
+      },
+      {
+        name: "workbookId",
+        label: "Workbook ID",
+        type: "string",
+        description: "The ID of the workbook"
+      },
+      {
+        name: "worksheetName",
+        label: "Worksheet Name",
+        type: "string",
+        description: "The name of the worksheet"
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "When the action was performed"
+      }
+    ]
+  },
+  {
+    type: "microsoft_excel_action_create_worksheet",
+    title: "Create Worksheet",
+    description: "Create a new worksheet (tab) in an Excel workbook",
+    icon: FilePlus,
+    providerId: "microsoft-excel",
+    requiredIntegration: "onedrive",
+    requiredScopes: ["https://graph.microsoft.com/Files.ReadWrite.All"],
+    category: "Productivity",
+    isTrigger: false,
+    producesOutput: true,
+    configSchema: [
+      {
+        name: "workbookId",
+        label: "Workbook",
+        type: "select",
+        dynamic: "microsoft-excel_workbooks",
+        required: true,
+        loadOnMount: true,
+        placeholder: "Select a workbook",
+        description: "The Excel file to add the worksheet to"
+      },
+      {
+        name: "worksheetName",
+        label: "Worksheet Name",
+        type: "text",
+        required: true,
+        placeholder: "e.g., Q1 Sales, Project Tasks",
+        description: "The name for the new worksheet tab",
+        helpText: "Choose a unique name that doesn't already exist in the workbook"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "worksheetId",
+        label: "Worksheet ID",
+        type: "string",
+        description: "Unique identifier for the created worksheet",
+        example: "01AZJL5PN6Y2GOVW7725BZO354PWSELRRZ"
+      },
+      {
+        name: "worksheetName",
+        label: "Worksheet Name",
+        type: "string",
+        description: "Name of the created worksheet",
+        example: "Q1 Sales"
+      },
+      {
+        name: "position",
+        label: "Position",
+        type: "number",
+        description: "Position of the worksheet in the workbook (0-indexed)",
+        example: 2
+      },
+      {
+        name: "visibility",
+        label: "Visibility",
+        type: "string",
+        description: "Visibility status of the worksheet",
+        example: "Visible"
+      },
+      {
+        name: "workbookId",
+        label: "Workbook ID",
+        type: "string",
+        description: "ID of the parent workbook"
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "When the worksheet was created",
+        example: "2024-01-15T10:30:00Z"
+      }
+    ]
+  },
+  {
+    type: "microsoft_excel_action_rename_worksheet",
+    title: "Rename Worksheet",
+    description: "Rename an existing worksheet (tab) in an Excel workbook",
+    icon: Edit,
+    providerId: "microsoft-excel",
+    requiredIntegration: "onedrive",
+    requiredScopes: ["https://graph.microsoft.com/Files.ReadWrite.All"],
+    category: "Productivity",
+    isTrigger: false,
+    producesOutput: true,
+    configSchema: [
+      {
+        name: "workbookId",
+        label: "Workbook",
+        type: "select",
+        dynamic: "microsoft-excel_workbooks",
+        required: true,
+        loadOnMount: true,
+        placeholder: "Select a workbook",
+        description: "The Excel file containing the worksheet"
+      },
+      {
+        name: "worksheetName",
+        label: "Worksheet to Rename",
+        type: "select",
+        dynamic: "microsoft-excel_worksheets",
+        required: true,
+        dependsOn: "workbookId",
+        placeholder: "Select worksheet to rename",
+        description: "The existing worksheet tab to rename"
+      },
+      {
+        name: "newWorksheetName",
+        label: "New Name",
+        type: "text",
+        required: true,
+        placeholder: "e.g., Q2 Sales Data",
+        description: "The new name for the worksheet",
+        helpText: "Choose a unique name that doesn't already exist in the workbook"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "worksheetId",
+        label: "Worksheet ID",
+        type: "string",
+        description: "Unique identifier for the worksheet",
+        example: "01AZJL5PN6Y2GOVW7725BZO354PWSELRRZ"
+      },
+      {
+        name: "oldName",
+        label: "Old Name",
+        type: "string",
+        description: "Previous name of the worksheet",
+        example: "Q1 Sales"
+      },
+      {
+        name: "newName",
+        label: "New Name",
+        type: "string",
+        description: "New name of the worksheet",
+        example: "Q2 Sales Data"
+      },
+      {
+        name: "position",
+        label: "Position",
+        type: "number",
+        description: "Position of the worksheet in the workbook (0-indexed)",
+        example: 2
+      },
+      {
+        name: "workbookId",
+        label: "Workbook ID",
+        type: "string",
+        description: "ID of the parent workbook"
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "When the worksheet was renamed",
+        example: "2024-01-15T10:30:00Z"
+      }
+    ]
+  },
+  {
+    type: "microsoft_excel_action_delete_worksheet",
+    title: "Delete Worksheet",
+    description: "Delete a worksheet (tab) from an Excel workbook",
+    icon: Trash2,
+    providerId: "microsoft-excel",
+    requiredIntegration: "onedrive",
+    requiredScopes: ["https://graph.microsoft.com/Files.ReadWrite.All"],
+    category: "Productivity",
+    isTrigger: false,
+    producesOutput: true,
+    configSchema: [
+      {
+        name: "workbookId",
+        label: "Workbook",
+        type: "select",
+        dynamic: "microsoft-excel_workbooks",
+        required: true,
+        loadOnMount: true,
+        placeholder: "Select a workbook",
+        description: "The Excel file containing the worksheet"
+      },
+      {
+        name: "worksheetName",
+        label: "Worksheet to Delete",
+        type: "select",
+        dynamic: "microsoft-excel_worksheets",
+        required: true,
+        dependsOn: "workbookId",
+        placeholder: "Select worksheet to delete",
+        description: "The worksheet tab to remove from the workbook",
+        helpText: "Warning: This action cannot be undone. All data in the worksheet will be permanently deleted."
+      }
+    ],
+    outputSchema: [
+      {
+        name: "deleted",
+        label: "Deleted",
+        type: "boolean",
+        description: "Confirmation that the worksheet was deleted",
+        example: true
+      },
+      {
+        name: "worksheetName",
+        label: "Worksheet Name",
+        type: "string",
+        description: "Name of the deleted worksheet",
+        example: "Old Data"
+      },
+      {
+        name: "workbookId",
+        label: "Workbook ID",
+        type: "string",
+        description: "ID of the parent workbook"
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "When the worksheet was deleted",
+        example: "2024-01-15T10:30:00Z"
+      }
+    ]
+  },
+  {
+    type: "microsoft_excel_action_add_multiple_rows",
+    title: "Add Multiple Rows",
+    description: "Add multiple rows to a worksheet in a single batch operation",
+    icon: List,
+    providerId: "microsoft-excel",
+    requiredIntegration: "onedrive",
+    requiredScopes: ["https://graph.microsoft.com/Files.ReadWrite.All"],
+    category: "Productivity",
+    isTrigger: false,
+    producesOutput: true,
+    configSchema: [
+      {
+        name: "workbookId",
+        label: "Workbook",
+        type: "select",
+        dynamic: "microsoft-excel_workbooks",
+        required: true,
+        loadOnMount: true,
+        placeholder: "Select a workbook",
+        description: "The Excel file to add rows to"
+      },
+      {
+        name: "worksheetName",
+        label: "Worksheet",
+        type: "select",
+        dynamic: "microsoft-excel_worksheets",
+        required: true,
+        dependsOn: "workbookId",
+        placeholder: "Select a worksheet",
+        description: "The worksheet to add rows to"
+      },
+      {
+        name: "rows",
+        label: "Rows Data",
+        type: "array",
+        required: true,
+        placeholder: "Array of row objects",
+        description: "Array of objects, where each object represents a row to add",
+        helpText: "Use output from a previous step that returns an array of data objects. Each object should have keys matching the worksheet column headers."
+      },
+      {
+        name: "columnMapping",
+        label: "Column Mapping (Optional)",
+        type: "microsoft_excel_column_mapper",
+        required: false,
+        dependsOn: "worksheetName",
+        description: "Optional: Map specific values to columns if not using direct field names",
+        helpText: "If your array objects don't match column names exactly, use this to map the data"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "rowsAdded",
+        label: "Rows Added",
+        type: "number",
+        description: "Number of rows successfully added",
+        example: 25
+      },
+      {
+        name: "firstRowNumber",
+        label: "First Row Number",
+        type: "number",
+        description: "Row number of the first added row",
+        example: 10
+      },
+      {
+        name: "lastRowNumber",
+        label: "Last Row Number",
+        type: "number",
+        description: "Row number of the last added row",
+        example: 34
+      },
+      {
+        name: "worksheetName",
+        label: "Worksheet Name",
+        type: "string",
+        description: "Name of the worksheet"
+      },
+      {
+        name: "workbookId",
+        label: "Workbook ID",
+        type: "string",
+        description: "ID of the workbook"
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "When the rows were added",
+        example: "2024-01-15T10:30:00Z"
       }
     ]
   }

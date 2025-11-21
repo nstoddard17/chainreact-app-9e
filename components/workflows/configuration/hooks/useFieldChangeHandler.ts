@@ -634,7 +634,59 @@ export function useFieldChangeHandler({
    * Handle OneDrive-specific field changes
    */
   const handleOneDriveFieldChange = useCallback(async (fieldName: string, value: any): Promise<boolean> => {
+    // Log all OneDrive field changes for debugging
+    if (nodeInfo?.providerId === 'onedrive') {
+      logger.debug('🔍 [OneDrive] Field change detected:', { fieldName, value, nodeType: nodeInfo?.type });
+    }
+
     if (nodeInfo?.providerId !== 'onedrive') return false;
+
+    // Handle uploadedFiles changes to auto-fill fileName
+    if (fieldName === 'uploadedFiles' && value) {
+      logger.debug('📎 [OneDrive] uploadedFiles changed, attempting auto-fill:', {
+        value,
+        isArray: Array.isArray(value),
+        isFileList: value instanceof FileList,
+        length: value.length,
+        firstItem: value[0]
+      });
+
+      // Extract fileName from uploaded file
+      let autoFillName = '';
+
+      // Handle FileList objects (from file upload component)
+      if (value instanceof FileList && value.length > 0) {
+        const file = value[0];
+        autoFillName = file.name || '';
+        logger.debug('📎 [OneDrive] Extracted from FileList:', { name: file.name, result: autoFillName });
+      }
+      // Handle array of File objects
+      else if (Array.isArray(value) && value.length > 0) {
+        const file = value[0];
+        autoFillName = file.fileName || file.name || '';
+        logger.debug('📎 [OneDrive] Extracted from array:', { fileName: file.fileName, name: file.name, result: autoFillName });
+      }
+      // Handle single File object
+      else if (value.name) {
+        autoFillName = value.name || '';
+        logger.debug('📎 [OneDrive] Extracted from single file:', { name: value.name, result: autoFillName });
+      }
+      // Handle object with fileName or name property
+      else if (value.fileName) {
+        autoFillName = value.fileName || '';
+        logger.debug('📎 [OneDrive] Extracted from object with fileName:', { fileName: value.fileName, result: autoFillName });
+      }
+
+      // Auto-fill fileName with the uploaded file's name
+      if (autoFillName) {
+        logger.debug('✨ [OneDrive] Auto-filling fileName with:', autoFillName);
+        setValue('fileName', autoFillName);
+      } else {
+        logger.warn('⚠️ [OneDrive] Could not extract fileName from uploaded file:', value);
+      }
+
+      return true;
+    }
 
     // Handle folderId changes for OneDrive
     if (fieldName === 'folderId') {

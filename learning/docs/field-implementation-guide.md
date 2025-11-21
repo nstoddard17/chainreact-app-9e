@@ -144,6 +144,222 @@ const actionHandlers = {
 }
 ```
 
+## Connect Button (Link to Previous Node Outputs)
+
+The **Connect Button** allows users to link a field to outputs from previous workflow nodes (or AI-generated values), enabling dynamic data flow between nodes.
+
+### What is the Connect Button?
+The connect button appears as a small button/icon next to fields that allows users to:
+- Select outputs from previous workflow nodes
+- Connect fields to AI-generated values
+- Dynamically populate the field with data from earlier steps
+- Create data pipelines between workflow actions
+
+### How to Add the Connect Button
+
+**✅ CHECKLIST - Verify ALL items:**
+- [ ] Field has `supportsAI: true` property
+- [ ] Field type supports connect button (see below)
+- [ ] Tested: Button appears in UI next to the field label
+- [ ] Tested: Can select previous node outputs
+- [ ] Tested: Selected value displays correctly
+- [ ] Tested: Workflow executes with connected value
+
+### Implementation
+
+**IMPORTANT:** Use `supportsAI: true` (NOT `showConnectButton` or `hasConnectButton`)
+
+Add `supportsAI: true` to the field configuration:
+
+```typescript
+{
+  name: "description",
+  label: "Description",
+  type: "textarea",
+  required: false,
+  placeholder: "Enter description",
+  supportsAI: true  // ✅ THIS ENABLES THE CONNECT BUTTON
+}
+```
+
+**For Rich Text Fields (email-rich-text, message, body, content):**
+
+Rich text fields like `email-rich-text` support the connect button directly with `supportsAI: true`:
+
+```typescript
+{
+  name: "message",
+  label: "Message",
+  type: "email-rich-text",  // Rich text editor
+  required: true,
+  placeholder: "Enter your message",
+  supportsAI: true  // ✅ THIS ENABLES THE CONNECT BUTTON
+}
+```
+
+**Implementation Details:**
+- Location: `components/workflows/configuration/fields/FieldRenderer.tsx`
+- Function: `shouldUseConnectMode()`
+- The function checks for `supportsAI: true` FIRST (lines 269-278)
+- If `supportsAI: true`, the connect button is enabled regardless of field type
+- Simple fields (subject, email, etc.) get connect mode automatically
+- Rich text fields need explicit `supportsAI: true` to enable the button
+
+### Field Types That Support Connect Button
+
+✅ **Supported Types:**
+- `text` - Single-line text input (auto-enabled for simple fields like subject, email)
+- `textarea` - Multi-line text input
+- `email-rich-text` - Rich text editor with formatting (requires `supportsAI: true`)
+- `email` - Email input fields
+- `email-autocomplete` - Email autocomplete fields
+- `datetime` - Date/time pickers (with `supportsAI: true`)
+- `number` - Numeric inputs (with `supportsAI: true`)
+- `date` - Date pickers (with `supportsAI: true`)
+- `datetime-local` - Local date/time pickers (with `supportsAI: true`)
+
+❌ **Not Supported (without explicit opt-in):**
+- `select` - Dropdown selections (needs `connectButton: true` or `supportsVariables: true`)
+- `boolean` - Checkboxes/toggles (needs explicit opt-in)
+- Dynamic fields (already have their own data sources)
+
+### Examples
+
+**✅ CORRECT - Text field with connect button:**
+```typescript
+{
+  name: "subject",
+  label: "Meeting Subject",
+  type: "text",
+  required: true,
+  placeholder: "Enter meeting subject",
+  supportsAI: true  // ✅ Connect button will appear
+}
+```
+
+**✅ CORRECT - Date/time field with connect button:**
+```typescript
+{
+  name: "startTime",
+  label: "Start Time",
+  type: "datetime",
+  required: true,
+  supportsAI: true  // ✅ Connect button will appear
+}
+```
+
+**✅ CORRECT - Email autocomplete with connect button:**
+```typescript
+{
+  name: "attendees",
+  label: "Attendees",
+  type: "email-autocomplete",
+  dynamic: "outlook-enhanced-recipients",
+  required: false,
+  placeholder: "Select or enter attendee email addresses",
+  supportsAI: true  // ✅ Connect button will appear
+}
+```
+
+**✅ CORRECT - Regular textarea with connect button:**
+```typescript
+{
+  name: "description",
+  label: "Description",
+  type: "textarea",
+  required: false,
+  placeholder: "Meeting description",
+  supportsAI: true  // ✅ Connect button will appear
+}
+```
+
+**✅ CORRECT - Rich text editor with connect button:**
+```typescript
+{
+  name: "message",
+  label: "Message",
+  type: "email-rich-text",
+  required: true,
+  placeholder: "Enter your message",
+  dependsOn: "channelId",
+  visibilityCondition: { field: "channelId", operator: "isNotEmpty" },
+  supportsAI: true  // ✅ Connect button will appear
+}
+```
+
+**❌ INCORRECT - Using wrong property name:**
+```typescript
+{
+  name: "description",
+  label: "Description",
+  type: "textarea",
+  required: false,
+  placeholder: "Enter description",
+  showConnectButton: true  // ❌ WRONG - should be supportsAI: true
+}
+```
+
+**❌ INCORRECT - Missing supportsAI:**
+```typescript
+{
+  name: "description",
+  label: "Description",
+  type: "textarea",
+  required: false,
+  placeholder: "Enter description"
+  // ❌ NO CONNECT BUTTON - missing supportsAI: true
+}
+```
+
+**❌ INCORRECT - Select field without opt-in:**
+```typescript
+{
+  name: "priority",
+  label: "Priority",
+  type: "select",  // ❌ Select fields need explicit opt-in
+  supportsAI: true,  // This won't work without connectButton: true
+  options: [...]
+}
+```
+
+### Common Mistakes to Avoid
+
+1. **Using wrong property name**
+   - ❌ `showConnectButton: true` - WRONG
+   - ❌ `hasConnectButton: true` - WRONG (old approach)
+   - ✅ `supportsAI: true` - CORRECT
+
+2. **Forgetting `supportsAI: true`**
+   - This is a common mistake - the property MUST be present
+   - Always check the field definition includes this property
+
+2. **Using wrong field type**
+   - Connect button only works with text, textarea, and email types
+   - Don't try to add it to select, boolean, or date fields
+
+3. **Making field required**
+   - If field is required AND has connect button, ensure proper validation
+   - Consider making field optional when using connect button
+
+4. **Not testing the button**
+   - Always verify the button appears in the UI
+   - Test selecting a previous node's output
+   - Verify the workflow executes with connected data
+
+### When to Use Connect Button
+
+**✅ Use connect button when:**
+- Field should accept dynamic data from previous steps
+- Users need to chain workflow actions together
+- Field value depends on earlier computations
+- Creating flexible, reusable workflows
+
+**❌ Don't use connect button when:**
+- Field requires specific format or validation
+- Field is a selection from predefined options (use select/dynamic)
+- Field is a date, boolean, or number with specific constraints
+- Field is already dynamic (loading from API)
+
 ## Field Types and Their Requirements
 
 ### Dynamic Select Fields
@@ -208,6 +424,9 @@ const actionHandlers = {
 - [ ] Dependent fields update when parent changes
 - [ ] Conditional fields show/hide correctly
 - [ ] Preview features work (if applicable)
+- [ ] **Connect button appears (if `supportsAI: true`)**
+- [ ] **Connect button allows selecting previous node outputs**
+- [ ] **Connected values display and execute correctly**
 - [ ] Backend action uses field value correctly
 - [ ] Workflow executes successfully with field value
 - [ ] Error states handled gracefully

@@ -539,6 +539,7 @@ const dropboxMappings: Record<string, FieldMapping> = {
 
 // Microsoft Outlook field mappings
 const outlookMappings: Record<string, FieldMapping> = {
+  // Email Triggers
   "microsoft-outlook_trigger_new_email": {
     from: "outlook-enhanced-recipients",
     folder: "outlook_folders",
@@ -546,23 +547,104 @@ const outlookMappings: Record<string, FieldMapping> = {
   "microsoft-outlook_trigger_email_sent": {
     to: "outlook-enhanced-recipients",
   },
+  "microsoft-outlook_trigger_email_flagged": {
+    folder: "outlook_folders",
+  },
+  "microsoft-outlook_trigger_new_attachment": {
+    folder: "outlook_folders",
+  },
+
+  // Calendar Triggers
+  "microsoft-outlook_trigger_new_calendar_event": {
+    calendarId: "outlook_calendars",
+  },
+  "microsoft-outlook_trigger_updated_calendar_event": {
+    calendarId: "outlook_calendars",
+  },
+  "microsoft-outlook_trigger_deleted_calendar_event": {
+    calendarId: "outlook_calendars",
+  },
+  "microsoft-outlook_trigger_calendar_event_start": {
+    calendarId: "outlook_calendars",
+  },
+
+  // Contact Triggers
+  "microsoft-outlook_trigger_new_contact": {},
+  "microsoft-outlook_trigger_updated_contact": {},
+
+  // Email Actions
   "microsoft-outlook_action_send_email": {
     to: "outlook-enhanced-recipients",
     cc: "outlook-enhanced-recipients",
     bcc: "outlook-enhanced-recipients",
   },
+  "microsoft-outlook_action_reply_to_email": {
+    emailId: "outlook_messages",
+  },
   "microsoft-outlook_action_forward_email": {
+    emailId: "outlook_messages",
+    to: "outlook-enhanced-recipients",
+    cc: "outlook-enhanced-recipients",
+  },
+  "microsoft-outlook_action_create_draft_email": {
     to: "outlook-enhanced-recipients",
     cc: "outlook-enhanced-recipients",
     bcc: "outlook-enhanced-recipients",
-    messageId: "outlook_messages",
   },
-  "microsoft-outlook_action_create_meeting": {
-    attendees: "outlook-enhanced-recipients",
+  "microsoft-outlook_action_move_email": {
+    emailId: "outlook_messages",
+    destinationFolderId: "outlook_folders",
   },
+  "microsoft-outlook_action_delete_email": {
+    emailId: "outlook_messages",
+  },
+  "microsoft-outlook_action_add_categories": {
+    emailId: "outlook_messages",
+  },
+  "microsoft-outlook_action_search_email": {
+    folderId: "outlook_folders",
+  },
+  "microsoft-outlook_action_fetch_emails": {
+    folderId: "outlook_folders",
+  },
+
+  // Calendar Actions
   "microsoft-outlook_action_create_calendar_event": {
     attendees: "outlook-enhanced-recipients",
     calendarId: "outlook_calendars",
+  },
+  "microsoft-outlook_action_update_calendar_event": {
+    calendarId: "outlook_calendars",
+    attendees: "outlook-enhanced-recipients",
+  },
+  "microsoft-outlook_action_delete_calendar_event": {
+    calendarId: "outlook_calendars",
+  },
+  "microsoft-outlook_action_add_attendees": {
+    calendarId: "outlook_calendars",
+    attendees: "outlook-enhanced-recipients",
+  },
+  "microsoft-outlook_action_get_calendar_events": {
+    calendarId: "outlook_calendars",
+  },
+
+  // Contact Actions
+  "microsoft-outlook_action_create_contact": {},
+  "microsoft-outlook_action_update_contact": {},
+  "microsoft-outlook_action_delete_contact": {},
+  "microsoft-outlook_action_find_contact": {},
+
+  // Attachment Actions
+  "microsoft-outlook_action_download_attachment": {
+    emailId: "outlook_messages",
+  },
+  "microsoft-outlook_action_list_attachments": {
+    emailId: "outlook_messages",
+  },
+
+  // Legacy mappings (may be deprecated)
+  "microsoft-outlook_action_create_meeting": {
+    attendees: "outlook-enhanced-recipients",
   },
   "microsoft-outlook_action_add_folder": {
     messageId: "outlook_messages",
@@ -571,28 +653,11 @@ const outlookMappings: Record<string, FieldMapping> = {
   "microsoft-outlook_action_archive_email": {
     messageId: "outlook_messages",
   },
-  "microsoft-outlook_action_search_email": {
-    folderId: "outlook_folders",
-  },
-  "microsoft-outlook_action_move_email": {
-    messageId: "outlook_messages",
-    sourceFolderId: "outlook_folders",
-    destinationFolderId: "outlook_folders",
-  },
   "microsoft-outlook_action_mark_as_read": {
     messageId: "outlook_messages",
   },
   "microsoft-outlook_action_mark_as_unread": {
     messageId: "outlook_messages",
-  },
-  "microsoft-outlook_action_reply_to_email": {
-    messageId: "outlook_messages",
-  },
-  "microsoft-outlook_action_fetch_emails": {
-    folderId: "outlook_folders",
-  },
-  "microsoft-outlook_action_get_calendar_events": {
-    calendarId: "outlook_calendars",
   },
 };
 
