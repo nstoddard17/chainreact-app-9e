@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
-import { getFlowRepository, getRouteClient } from "@/src/lib/workflows/builder/api/helpers"
+import { getFlowRepository, getRouteClient, getServiceClient } from "@/src/lib/workflows/builder/api/helpers"
 import { publishRevision } from "@/src/lib/workflows/builder/publish"
 import { ensureWorkspaceRole } from "@/src/lib/workflows/builder/workspace"
 
@@ -51,7 +51,9 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
     return NextResponse.json({ ok: false, error: parsed.error.format() }, { status: 400 })
   }
 
-  const repository = await getFlowRepository(supabase)
+  // Use service client to bypass RLS on workflows_revisions table
+  const serviceClient = await getServiceClient()
+  const repository = await getFlowRepository(serviceClient)
 
   let revision = parsed.data.revisionId
     ? await repository.loadRevisionById(parsed.data.revisionId)

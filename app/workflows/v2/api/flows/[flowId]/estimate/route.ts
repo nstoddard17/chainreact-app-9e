@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 
-import { getRouteClient, getFlowRepository } from "@/src/lib/workflows/builder/api/helpers"
+import { getRouteClient, getFlowRepository, getServiceClient } from "@/src/lib/workflows/builder/api/helpers"
 import { FlowSchema } from "@/src/lib/workflows/builder/schema"
 import { estimateFlowCost } from "@/src/lib/workflows/builder/costing"
 
@@ -17,7 +17,9 @@ export async function GET(_: Request, context: { params: Promise<{ flowId: strin
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })
   }
 
-  const repository = await getFlowRepository(supabase)
+  // Use service client to bypass RLS on workflows_revisions table
+  const serviceClient = await getServiceClient()
+  const repository = await getFlowRepository(serviceClient)
   const revision = await repository.loadRevision({ flowId })
   if (!revision) {
     return NextResponse.json({ ok: false, error: "Flow not found" }, { status: 404 })

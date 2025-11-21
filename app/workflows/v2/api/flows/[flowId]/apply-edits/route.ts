@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 
 import { FlowSchema } from "@/src/lib/workflows/builder/schema"
-import { getRouteClient, getFlowRepository } from "@/src/lib/workflows/builder/api/helpers"
+import { getRouteClient, getFlowRepository, getServiceClient } from "@/src/lib/workflows/builder/api/helpers"
 
 const ApplyEditsSchema = z.object({
   flow: FlowSchema,
@@ -76,7 +76,9 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
     return NextResponse.json({ ok: false, error: "Flow not found" }, { status: 404 })
   }
 
-  const repository = await getFlowRepository(supabase)
+  // Use service client to bypass RLS on workflows_revisions table
+  const serviceClient = await getServiceClient()
+  const repository = await getFlowRepository(serviceClient)
 
   const { error: definitionError } = await supabase
     .from("flow_v2_definitions")

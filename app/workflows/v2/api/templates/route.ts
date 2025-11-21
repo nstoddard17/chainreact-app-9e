@@ -3,7 +3,7 @@ import { z } from "zod"
 
 import { FlowSchema } from "@/src/lib/workflows/builder/schema"
 import { listTemplates, saveTemplate } from "@/src/lib/workflows/builder/templates"
-import { getFlowRepository, getRouteClient } from "@/src/lib/workflows/builder/api/helpers"
+import { getFlowRepository, getRouteClient, getServiceClient } from "@/src/lib/workflows/builder/api/helpers"
 import { ensureWorkspaceRole } from "@/src/lib/workflows/builder/workspace"
 
 const CreateTemplateSchema = z.object({
@@ -101,7 +101,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: message }, { status })
   }
 
-  const repository = await getFlowRepository(supabase)
+  // Use service client to bypass RLS on workflows_revisions table
+  const serviceClient = await getServiceClient()
+  const repository = await getFlowRepository(serviceClient)
   const revision = await repository.loadRevision({ flowId: parsed.data.flowId })
   if (!revision) {
     return NextResponse.json({ ok: false, error: "Flow not found" }, { status: 404 })

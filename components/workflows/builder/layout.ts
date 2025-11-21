@@ -12,7 +12,7 @@ import dagre from 'dagre'
  * Layout constants - matches values in tokens.css
  */
 export const LAYOUT = {
-  nodeWidth: 300,
+  nodeWidth: 360, // Match placeholder/custom node width (w-[360px])
   nodeGapX: 160,
   nodeGapY: 96,
   canvasPadding: 64, // fitView padding in px

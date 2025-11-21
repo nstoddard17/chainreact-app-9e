@@ -22,13 +22,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { CheckCircle2, Plus, ExternalLink, MoreVertical, Unplug, RefreshCw, Settings, AlertCircle, Shield, Eye, Home, Users, Building } from "lucide-react"
+import { CheckCircle2, Plus, ExternalLink, MoreVertical, Unplug, RefreshCw, Settings, AlertCircle, Shield, Eye, Home, Users, Building, Share2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { logger } from "@/lib/utils/logger"
 import { IntegrationService } from "@/services/integration-service"
 import { getIntegrationLogoClasses, getIntegrationLogoPath } from "@/lib/integrations/logoStyles"
 import { useTheme } from "next-themes"
 import { AppsWorkspaceGroupView } from "@/components/apps/AppsWorkspaceGroupView"
+import { ShareConnectionDialog } from "@/components/workflows/configuration/ShareConnectionDialog"
 import { useWorkspaces } from "@/hooks/useWorkspaces"
 import {
   Tooltip,
@@ -55,6 +56,8 @@ export function AppsContent() {
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null)
   const [loading, setLocalLoading] = useState<Record<string, boolean>>({})
   const [initialLoadComplete, setInitialLoadComplete] = useState(false)
+  const [shareDialogOpen, setShareDialogOpen] = useState(false)
+  const [integrationToShare, setIntegrationToShare] = useState<{ id: string; provider: string; email?: string; displayName?: string } | null>(null)
   const { toast } = useToast()
 
   // Filter to only show workspaces where user can manage apps (owner or admin)
@@ -624,6 +627,20 @@ export function AppsContent() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
+                          onClick={() => {
+                            setIntegrationToShare({
+                              id: integration.id,
+                              provider: provider.id,
+                              email: integration.email,
+                              displayName: integration.account_name || integration.email || provider.name
+                            })
+                            setShareDialogOpen(true)
+                          }}
+                        >
+                          <Share2 className="w-4 h-4 mr-2" />
+                          Share
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
                           onClick={() => handleReconnect(provider.id)}
                           disabled={loading[provider.id]}
                         >
@@ -674,6 +691,32 @@ export function AppsContent() {
           </Button>
         </div>
       </div>
+
+      {/* Share Connection Dialog */}
+      {integrationToShare && (
+        <ShareConnectionDialog
+          open={shareDialogOpen}
+          onOpenChange={(open) => {
+            setShareDialogOpen(open)
+            if (!open) {
+              setIntegrationToShare(null)
+            }
+          }}
+          integrationId={integrationToShare.id}
+          providerId={integrationToShare.provider}
+          providerName={providers.find(p => p.id === integrationToShare.provider)?.name || integrationToShare.provider}
+          email={integrationToShare.email}
+          displayName={integrationToShare.displayName}
+          onShareUpdated={() => {
+            toast({
+              title: "Sharing updated",
+              description: "Your connection sharing settings have been saved.",
+            })
+            setShareDialogOpen(false)
+            setIntegrationToShare(null)
+          }}
+        />
+      )}
     </div>
   )
 }
