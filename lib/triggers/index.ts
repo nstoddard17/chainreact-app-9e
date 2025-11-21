@@ -28,6 +28,7 @@ const microsoftProviders = [
   'microsoft',
   'microsoft-outlook',
   'microsoft-onenote',
+  'microsoft-excel',
   'onedrive'
 ]
 

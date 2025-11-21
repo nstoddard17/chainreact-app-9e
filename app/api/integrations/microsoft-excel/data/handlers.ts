@@ -15,6 +15,30 @@ import {
 import { logger } from '@/lib/utils/logger'
 
 const GRAPH_API_BASE = 'https://graph.microsoft.com/v1.0'
+const DEFAULT_TIMEOUT = 15000 // 15 seconds for Graph API calls
+
+/**
+ * Fetch with timeout for Graph API calls
+ */
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number = DEFAULT_TIMEOUT): Promise<Response> {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    })
+    return response
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      throw new Error(`Request timed out after ${timeoutMs}ms`)
+    }
+    throw error
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
 
 /**
  * Get decrypted access token
@@ -34,38 +58,137 @@ async function getAccessToken(integration: MicrosoftExcelIntegration): Promise<s
 
 /**
  * Fetch workbooks from OneDrive
+ * Uses multiple strategies for reliability:
+ * 1. First tries listing root folder and common locations
+ * 2. Falls back to search API if direct listing finds nothing
  */
 const fetchWorkbooks: ExcelDataHandler = async (integration: MicrosoftExcelIntegration, options: ExcelHandlerOptions) => {
   const accessToken = await getAccessToken(integration)
+  const allWorkbooks: Map<string, any> = new Map()
 
   try {
-    // Search for Excel files in OneDrive
-    const searchUrl = `${GRAPH_API_BASE}/me/drive/search(q='.xlsx')?$select=id,name,webUrl,createdDateTime,lastModifiedDateTime`
+    // Strategy 1: List root folder and common folders in PARALLEL for speed
+    logger.debug('[Microsoft Excel] Fetching workbooks from multiple locations in parallel...')
 
-    const response = await fetch(searchUrl, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
+    const headers = {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    }
+
+    // Define all folder paths to check
+    const folderPaths = [
+      '', // root
+      'Documents',
+      'Excel',
+      'Spreadsheets',
+      'Work',
+      'Shared'
+    ]
+
+    // Build all fetch promises
+    const fetchPromises = folderPaths.map(async (folderPath) => {
+      try {
+        const url = folderPath
+          ? `${GRAPH_API_BASE}/me/drive/root:/${folderPath}:/children?$filter=file ne null&$select=id,name,webUrl,createdDateTime,lastModifiedDateTime,file&$top=100`
+          : `${GRAPH_API_BASE}/me/drive/root/children?$filter=file ne null&$select=id,name,webUrl,createdDateTime,lastModifiedDateTime,file&$top=200`
+
+        const response = await fetchWithTimeout(url, { headers }, 10000)
+
+        if (response.ok) {
+          const data = await response.json()
+          return { folderPath: folderPath || 'root', files: data.value || [] }
+        }
+        return { folderPath: folderPath || 'root', files: [] }
+      } catch (error) {
+        // Folder doesn't exist or request failed, return empty
+        return { folderPath: folderPath || 'root', files: [] }
       }
     })
 
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(`Failed to fetch workbooks: ${error}`)
+    // Execute all requests in parallel
+    const results = await Promise.all(fetchPromises)
+
+    // Collect all Excel files from all folders
+    for (const result of results) {
+      for (const file of result.files) {
+        if (file.name?.toLowerCase().endsWith('.xlsx') || file.name?.toLowerCase().endsWith('.xls')) {
+          allWorkbooks.set(file.id, file)
+        }
+      }
+      if (result.files.length > 0) {
+        logger.debug(`[Microsoft Excel] Found files in ${result.folderPath}: ${result.files.filter((f: any) => f.name?.toLowerCase().endsWith('.xlsx') || f.name?.toLowerCase().endsWith('.xls')).length} Excel files`)
+      }
     }
 
-    const data = await response.json()
-    const workbooks = data.value || []
+    // Strategy 2: Use search API as fallback if we found nothing
+    if (allWorkbooks.size === 0) {
+      logger.debug('[Microsoft Excel] No workbooks found via direct listing, trying search API...')
+      try {
+        const searchUrl = `${GRAPH_API_BASE}/me/drive/search(q='.xlsx')?$select=id,name,webUrl,createdDateTime,lastModifiedDateTime&$top=100`
+        const searchResponse = await fetchWithTimeout(searchUrl, { headers }, 15000)
 
-    // Format for dropdown
-    return workbooks.map((workbook: any) => ({
-      value: workbook.id,
-      label: workbook.name.replace('.xlsx', ''),
-      description: `Last modified: ${new Date(workbook.lastModifiedDateTime).toLocaleDateString()}`
-    }))
+        if (searchResponse.ok) {
+          const searchData = await searchResponse.json()
+          const searchFiles = searchData.value || []
+
+          for (const file of searchFiles) {
+            if (file.name?.toLowerCase().endsWith('.xlsx') || file.name?.toLowerCase().endsWith('.xls')) {
+              allWorkbooks.set(file.id, file)
+            }
+          }
+          logger.debug(`[Microsoft Excel] Search API found ${searchFiles.length} files`)
+        }
+      } catch (searchError) {
+        logger.warn('[Microsoft Excel] Search API failed:', searchError)
+      }
+    }
+
+    // Strategy 3: List all recent files if still nothing
+    if (allWorkbooks.size === 0) {
+      logger.debug('[Microsoft Excel] Trying recent files endpoint...')
+      try {
+        const recentUrl = `${GRAPH_API_BASE}/me/drive/recent?$select=id,name,webUrl,createdDateTime,lastModifiedDateTime,file&$top=100`
+        const recentResponse = await fetchWithTimeout(recentUrl, { headers }, 10000)
+
+        if (recentResponse.ok) {
+          const recentData = await recentResponse.json()
+          const recentFiles = recentData.value || []
+
+          for (const file of recentFiles) {
+            if (file.name?.toLowerCase().endsWith('.xlsx') || file.name?.toLowerCase().endsWith('.xls')) {
+              allWorkbooks.set(file.id, file)
+            }
+          }
+          logger.debug(`[Microsoft Excel] Recent files found ${allWorkbooks.size} Excel files`)
+        }
+      } catch (recentError) {
+        logger.warn('[Microsoft Excel] Recent files failed:', recentError)
+      }
+    }
+
+    // Convert Map to array and format for dropdown
+    const workbooks = Array.from(allWorkbooks.values())
+
+    logger.debug(`[Microsoft Excel] Total unique workbooks found: ${workbooks.length}`)
+
+    if (workbooks.length === 0) {
+      logger.warn('[Microsoft Excel] No Excel workbooks found in OneDrive')
+      return []
+    }
+
+    // Format for dropdown, sort by last modified
+    return workbooks
+      .sort((a, b) => new Date(b.lastModifiedDateTime || 0).getTime() - new Date(a.lastModifiedDateTime || 0).getTime())
+      .map((workbook: any) => ({
+        value: workbook.id,
+        label: workbook.name.replace(/\.(xlsx|xls)$/i, ''),
+        description: workbook.lastModifiedDateTime
+          ? `Last modified: ${new Date(workbook.lastModifiedDateTime).toLocaleDateString()}`
+          : undefined
+      }))
 
   } catch (error) {
-    logger.error('Error fetching workbooks:', error)
+    logger.error('[Microsoft Excel] Error fetching workbooks:', error)
     throw error
   }
 }
@@ -85,7 +208,7 @@ const fetchWorksheets: ExcelDataHandler = async (integration: MicrosoftExcelInte
   try {
     const url = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets`
 
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
@@ -107,7 +230,7 @@ const fetchWorksheets: ExcelDataHandler = async (integration: MicrosoftExcelInte
     }))
 
   } catch (error) {
-    logger.error('Error fetching worksheets:', error)
+    logger.error('[Microsoft Excel] Error fetching worksheets:', error)
     throw error
   }
 }
@@ -126,9 +249,9 @@ const fetchColumns: ExcelDataHandler = async (integration: MicrosoftExcelIntegra
 
   try {
     // Get the first row (headers) from the worksheet
-    const url = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets('${worksheetName}')/range(address='1:1')`
+    const url = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets('${encodeURIComponent(worksheetName)}')/range(address='1:1')`
 
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
@@ -153,7 +276,7 @@ const fetchColumns: ExcelDataHandler = async (integration: MicrosoftExcelIntegra
       }))
 
   } catch (error) {
-    logger.error('Error fetching columns:', error)
+    logger.error('[Microsoft Excel] Error fetching columns:', error)
     throw error
   }
 }
@@ -172,9 +295,9 @@ const fetchColumnValues: ExcelDataHandler = async (integration: MicrosoftExcelIn
 
   try {
     // First get the headers to find column index
-    const headersUrl = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets('${worksheetName}')/range(address='1:1')`
+    const headersUrl = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets('${encodeURIComponent(worksheetName)}')/range(address='1:1')`
 
-    const headersResponse = await fetch(headersUrl, {
+    const headersResponse = await fetchWithTimeout(headersUrl, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
@@ -197,9 +320,9 @@ const fetchColumnValues: ExcelDataHandler = async (integration: MicrosoftExcelIn
     const columnLetter = String.fromCharCode(65 + columnIndex)
 
     // Get all values from that column (limit to first 100 rows for performance)
-    const valuesUrl = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets('${worksheetName}')/range(address='${columnLetter}2:${columnLetter}100')`
+    const valuesUrl = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets('${encodeURIComponent(worksheetName)}')/range(address='${columnLetter}2:${columnLetter}100')`
 
-    const valuesResponse = await fetch(valuesUrl, {
+    const valuesResponse = await fetchWithTimeout(valuesUrl, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
@@ -226,7 +349,7 @@ const fetchColumnValues: ExcelDataHandler = async (integration: MicrosoftExcelIn
     }))
 
   } catch (error) {
-    logger.error('Error fetching column values:', error)
+    logger.error('[Microsoft Excel] Error fetching column values:', error)
     throw error
   }
 }
@@ -241,7 +364,7 @@ const fetchFolders: ExcelDataHandler = async (integration: MicrosoftExcelIntegra
     // Get root folder and its children
     const url = `${GRAPH_API_BASE}/me/drive/root/children?$filter=folder ne null&$select=id,name,folder`
 
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
@@ -268,7 +391,7 @@ const fetchFolders: ExcelDataHandler = async (integration: MicrosoftExcelIntegra
     return folderOptions
 
   } catch (error) {
-    logger.error('Error fetching folders:', error)
+    logger.error('[Microsoft Excel] Error fetching folders:', error)
     throw error
   }
 }
@@ -287,9 +410,9 @@ const fetchDataPreview: ExcelDataHandler = async (integration: MicrosoftExcelInt
 
   try {
     // First get the used range to know actual data extent
-    const usedRangeUrl = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets('${worksheetName}')/usedRange`
+    const usedRangeUrl = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets('${encodeURIComponent(worksheetName)}')/usedRange`
 
-    const usedRangeResponse = await fetch(usedRangeUrl, {
+    const usedRangeResponse = await fetchWithTimeout(usedRangeUrl, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
@@ -348,7 +471,7 @@ const fetchDataPreview: ExcelDataHandler = async (integration: MicrosoftExcelInt
 
 
   } catch (error) {
-    logger.error('Error fetching data preview:', error)
+    logger.error('[Microsoft Excel] Error fetching data preview:', error)
     throw error
   }
 }
@@ -368,7 +491,7 @@ const fetchTables: ExcelDataHandler = async (integration: MicrosoftExcelIntegrat
   try {
     const url = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/tables`
 
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
@@ -391,7 +514,7 @@ const fetchTables: ExcelDataHandler = async (integration: MicrosoftExcelIntegrat
     }))
 
   } catch (error) {
-    logger.error('Error fetching tables:', error)
+    logger.error('[Microsoft Excel] Error fetching tables:', error)
     throw error
   }
 }
@@ -409,9 +532,9 @@ const fetchTableColumns: ExcelDataHandler = async (integration: MicrosoftExcelIn
   const accessToken = await getAccessToken(integration)
 
   try {
-    const url = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/tables/${tableName}/columns`
+    const url = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/tables/${encodeURIComponent(tableName)}/columns`
 
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
@@ -434,7 +557,7 @@ const fetchTableColumns: ExcelDataHandler = async (integration: MicrosoftExcelIn
     }))
 
   } catch (error) {
-    logger.error('Error fetching table columns:', error)
+    logger.error('[Microsoft Excel] Error fetching table columns:', error)
     throw error
   }
 }

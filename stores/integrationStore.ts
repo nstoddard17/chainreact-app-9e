@@ -982,7 +982,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
       }
       
       // Microsoft services DO NOT share authentication - each requires separate connection
-      // Unlike Google services, Microsoft services (OneNote, Outlook, Teams, OneDrive) each need
+      // Unlike Google services, Microsoft services (OneNote, Outlook, Teams, OneDrive, Excel) each need
       // their own OAuth connection and should not be considered connected just because one is connected
 
       // logger.debug('🔍 [getConnectedProviders] Final result:', connectedProviders)
@@ -1206,19 +1206,19 @@ export const useIntegrationStore = create<IntegrationStore>()(
           "https://graph.microsoft.com/Notes.ReadWrite.All",
           "https://graph.microsoft.com/Files.Read"
         ]
-        
+
         const shortFormScopes = [
           "User.Read",
           "Notes.ReadWrite.All",
           "Files.Read"
         ]
-        
+
         // Check if each required scope is present in either fully qualified or short form
         const missingScopes = requiredScopes.filter((scope, index) => {
           const shortForm = shortFormScopes[index]
           return !grantedScopes.includes(scope) && !grantedScopes.includes(shortForm)
         })
-        
+
         if (missingScopes.length > 0) {
           logger.warn(`❌ Missing scopes for ${providerId}:`, missingScopes)
           return {
@@ -1228,7 +1228,37 @@ export const useIntegrationStore = create<IntegrationStore>()(
           }
         }
       }
-      
+
+      // Check for Microsoft Excel specific scope requirements
+      if (providerId === "microsoft-excel") {
+        const requiredScopes = [
+          "https://graph.microsoft.com/User.Read",
+          "https://graph.microsoft.com/Files.Read",
+          "https://graph.microsoft.com/Files.ReadWrite"
+        ]
+
+        const shortFormScopes = [
+          "User.Read",
+          "Files.Read",
+          "Files.ReadWrite"
+        ]
+
+        // Check if each required scope is present in either fully qualified or short form
+        const missingScopes = requiredScopes.filter((scope, index) => {
+          const shortForm = shortFormScopes[index]
+          return !grantedScopes.includes(scope) && !grantedScopes.includes(shortForm)
+        })
+
+        if (missingScopes.length > 0) {
+          logger.warn(`❌ Missing scopes for ${providerId}:`, missingScopes)
+          return {
+            needsReconnection: true,
+            reason: `Excel integration requires additional permissions. Please reconnect your account to grant the necessary access.`,
+            missingScopes
+          }
+        }
+      }
+
       return { needsReconnection: false, reason: "All required scopes present" }
     },
   }

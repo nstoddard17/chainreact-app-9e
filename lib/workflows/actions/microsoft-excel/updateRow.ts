@@ -33,10 +33,10 @@ export async function updateMicrosoftExcelRow(
       updateMappingKeys: updateMapping ? Object.keys(updateMapping) : 'undefined'
     });
 
-    // Get access token for OneDrive (Microsoft Graph API)
-    const accessToken = await getDecryptedAccessToken(userId, 'onedrive')
+    // Get access token for Microsoft Excel (Microsoft Graph API)
+    const accessToken = await getDecryptedAccessToken(userId, 'microsoft-excel')
     if (!accessToken) {
-      throw new Error('No OneDrive access token found. Please connect your OneDrive account.')
+      throw new Error('No Microsoft Excel access token found. Please connect your Microsoft Excel account.')
     }
 
     // Validate required fields

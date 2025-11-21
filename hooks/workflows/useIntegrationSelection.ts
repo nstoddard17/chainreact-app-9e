@@ -175,7 +175,6 @@ export function useIntegrationSelection() {
     }
 
     // Check for Microsoft services - each service needs its own connection
-    // EXCEPT: Microsoft Excel uses OneDrive's authentication
     if (integrationId.startsWith('microsoft-') || integrationId === 'onedrive') {
       let checkIds = [integrationId]
       if (integrationId === 'microsoft-onenote') {
@@ -184,9 +183,6 @@ export function useIntegrationSelection() {
         checkIds.push('outlook')
       } else if (integrationId === 'microsoft-teams') {
         checkIds.push('teams')
-      } else if (integrationId === 'microsoft-excel') {
-        // Excel uses OneDrive's authentication
-        checkIds.push('onedrive')
       }
       return checkIds.some(id =>
         storeIntegrations.some(i => i.provider === id && isConnectedStatus(i.status))

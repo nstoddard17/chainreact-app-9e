@@ -479,12 +479,9 @@ function CustomNode({ id, data, selected }: NodeProps) {
       return false
     }
 
-    // Special case: Excel uses OneDrive's OAuth connection
-    const actualProvider = providerId === 'microsoft-excel' ? 'onedrive' : providerId
-
     // Check if integration is connected
     const isConnected = integrations.some(
-      integration => integration.provider === actualProvider && integration.status === 'connected'
+      integration => integration.provider === providerId && integration.status === 'connected'
     )
 
     return !isConnected
