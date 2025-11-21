@@ -253,14 +253,9 @@ export function FlowEdge({
       }
       desiredVerticalLength = Math.max(correctedTarget.y - correctedSource.y, 0)
       availableVerticalGap = desiredVerticalLength
-    } else if (actualGap >= visibleGap) {
-      correctedTarget.y = targetAnchor
-      correctedSource.y = targetAnchor - visibleGap
-      desiredVerticalLength = visibleGap
-      availableVerticalGap = actualGap
     } else {
       correctedSource.y = sourceAnchor
-      correctedTarget.y = sourceAnchor + actualGap
+      correctedTarget.y = targetAnchor
       desiredVerticalLength = actualGap
       availableVerticalGap = actualGap
     }
