@@ -57,7 +57,7 @@ interface FlowV2BuilderContentProps {
   isIntegrationsPanelOpen: boolean
   setIsIntegrationsPanelOpen: (open: boolean) => void
   integrationsPanelMode?: 'trigger' | 'action'
-  onNodeSelect?: (nodeData: any) => void
+  onNodeSelect: (nodeData: any) => void
 
   // Configuration panel
   onNodeConfigure?: (nodeId: string) => void

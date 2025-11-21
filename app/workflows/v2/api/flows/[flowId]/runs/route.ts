@@ -83,7 +83,6 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
   ensureNodeRegistry()
 
   const runId = uuid()
-  const serviceClient = await getServiceClient()
   const store = createRunStore(serviceClient)
 
   await executeRun({

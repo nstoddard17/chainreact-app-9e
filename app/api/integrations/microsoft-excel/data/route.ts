@@ -1,6 +1,6 @@
 /**
  * Microsoft Excel Integration Data API Route
- * Handles Excel data requests using Microsoft Graph API through OneDrive integration
+ * Handles Excel data requests using Microsoft Graph API
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -40,12 +40,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // For Microsoft Excel, we need to fetch the OneDrive integration
-    // since Excel uses the Graph API through OneDrive authentication
+    // Fetch the Microsoft Excel integration
     let query = supabase
       .from('integrations')
       .select('*')
-      .or('provider.eq.onedrive,provider.eq.microsoft-onedrive,provider.eq.microsoft_onedrive')
+      .eq('provider', 'microsoft-excel')
 
     // Filter by user if we have the userId
     if (userId) {
@@ -55,26 +54,26 @@ export async function POST(req: NextRequest) {
     const { data: integrations, error: integrationError } = await query
 
     if (integrationError || !integrations || integrations.length === 0) {
-      logger.error('❌ [Microsoft Excel API] OneDrive integration not found:', { error: integrationError, userId })
-      return errorResponse('Microsoft Excel requires OneDrive connection. Please connect your OneDrive account first.'
+      logger.error('❌ [Microsoft Excel API] Integration not found:', { error: integrationError, userId })
+      return errorResponse('Microsoft Excel connection not found. Please connect your Microsoft Excel account first.'
       , 404)
     }
 
-    // Use the first connected OneDrive integration
+    // Use the first connected Microsoft Excel integration
     const integration = integrations.find(i => i.status === 'connected')
 
     if (!integration) {
-      logger.error('❌ [Microsoft Excel API] OneDrive integration not connected')
-      return errorResponse('Microsoft Excel requires an active OneDrive connection. Please connect your OneDrive account.', 400, { needsReconnection: true
+      logger.error('❌ [Microsoft Excel API] Integration not connected')
+      return errorResponse('Microsoft Excel is not connected. Please connect your Microsoft Excel account.', 400, { needsReconnection: true
        })
     }
 
     // Validate integration status
     if (integration.status !== 'connected') {
-      logger.error('❌ [Microsoft Excel API] OneDrive integration not connected:', {
+      logger.error('❌ [Microsoft Excel API] Integration not connected:', {
         status: integration.status
       })
-      return errorResponse('OneDrive integration is not connected. Please reconnect your account.', 400, {
+      return errorResponse('Microsoft Excel integration is not connected. Please reconnect your account.', 400, {
         needsReconnection: true,
         currentStatus: integration.status
       })

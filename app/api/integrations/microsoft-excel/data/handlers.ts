@@ -21,14 +21,14 @@ const GRAPH_API_BASE = 'https://graph.microsoft.com/v1.0'
  */
 async function getAccessToken(integration: MicrosoftExcelIntegration): Promise<string> {
   if (!integration.access_token) {
-    throw new Error('No access token found for OneDrive integration')
+    throw new Error('No access token found for Microsoft Excel integration')
   }
 
   try {
     return await decrypt(integration.access_token)
   } catch (error) {
     logger.error('Failed to decrypt access token:', error)
-    throw new Error('Failed to decrypt OneDrive access token')
+    throw new Error('Failed to decrypt Microsoft Excel access token')
   }
 }
 

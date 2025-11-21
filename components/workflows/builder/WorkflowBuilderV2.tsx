@@ -2404,12 +2404,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     }
   }, [])
 
-  // Selection handler
-  const handleSelectionChange = useCallback((params: any) => {
-    const first = params?.nodes?.[0]
-    setSelectedNodeId(first?.id ?? null)
-  }, [])
-
   // Helper to open integrations panel with the correct mode (trigger vs action)
   const openIntegrationsPanel = useCallback((forceMode?: 'trigger' | 'action') => {
     let mode: 'trigger' | 'action'
@@ -2441,6 +2435,22 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     setIntegrationsPanelMode(mode)
     setIsIntegrationsPanelOpen(true)
   }, [builder.nodes, integrations.length, fetchIntegrations, workspaceContext])
+
+  // Selection handler
+  const handleSelectionChange = useCallback((params: any) => {
+    const first = params?.nodes?.[0]
+    const selectedId = first?.id ?? null
+
+    console.log('🔄 [WorkflowBuilder] Selection changed:', { selectedId, nodeType: first?.type, isPlaceholder: first?.data?.isPlaceholder })
+
+    setSelectedNodeId(selectedId)
+
+    if (first?.type === 'action_placeholder') {
+      console.log('🔄 [WorkflowBuilder] action_placeholder selected, opening integrations panel')
+      setConfiguringNode(null)
+      openIntegrationsPanel('action')
+    }
+  }, [openIntegrationsPanel])
 
   // Handler for adding node after another (from plus button)
   const handleAddNodeAfterClick = useCallback((afterNodeId: string | null) => {
@@ -2594,7 +2604,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       })
     }
 
-    // Open config modal immediately
+    // Open config modal immediately after panel closes
+    console.log('🚀 [WorkflowBuilder] Opening config modal for new node:', optimisticNode.id, optimisticNode.data?.type)
     setConfiguringNode(optimisticNode)
 
     // Clear selected node ID
@@ -3034,6 +3045,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       // Check if this is a placeholder node
       if (node.data?.isPlaceholder) {
         console.log('📌 [WorkflowBuilder] Placeholder node clicked, opening integrations panel')
+        setConfiguringNode(null)
 
         // Check if this is the first node in the workflow (trigger position)
         // First node has no incoming edges
@@ -3072,6 +3084,31 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       console.warn('🔧 [WorkflowBuilder] Node not found for configuration:', nodeId)
     }
   }, [reactFlowProps?.nodes, reactFlowProps?.edges, prefetchNodeConfig, openIntegrationsPanel, setSelectedNodeId])
+
+  // Auto-open configuration modal whenever a non-placeholder node becomes selected
+  useEffect(() => {
+    if (!selectedNodeId) return
+    if (configuringNode?.id === selectedNodeId) return
+
+    const selectedNode = reactFlowProps?.nodes?.find((n: any) => n.id === selectedNodeId)
+    if (!selectedNode) return
+
+    const type = selectedNode.type
+    const isPlaceholder =
+      selectedNode.data?.isPlaceholder ||
+      type === 'trigger_placeholder' ||
+      type === 'action_placeholder' ||
+      type === 'addAction' ||
+      type === 'insertAction' ||
+      type === 'chainPlaceholder'
+
+    if (isPlaceholder) return
+
+    // Ensure integrations panel is closed so it doesn't overlap the config modal
+    setIsIntegrationsPanelOpen(false)
+
+    handleNodeConfigure(selectedNodeId)
+  }, [selectedNodeId, configuringNode?.id, reactFlowProps?.nodes, handleNodeConfigure])
 
   // Handle saving node configuration
   const handleSaveNodeConfig = useCallback(async (nodeId: string, config: Record<string, any>) => {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '@/lib/supabase-server'
+import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { logger } from '@/lib/utils/logger'
 import { handleCorsPreFlight, addCorsHeaders } from '@/lib/utils/cors'
 
