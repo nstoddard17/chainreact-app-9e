@@ -2641,3 +2641,8 @@ TypeError: Cannot read properties of null (reading 'owner_id')
 [2025-11-21T15:01:31.034Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (5650 modules)
 [2025-11-21T15:15:18.089Z] [INFO   ]  ✓ Compiled in 898ms (2915 modules)
 [2025-11-21T15:15:18.091Z] [INFO   ]  ✓ Compiled in 894ms (2915 modules)
+[2025-11-21T17:22:26.249Z] [INFO   ] 2025-11-21T17:22:26.244Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-11-21T18:15:33.678Z] [INFO   ]  ✓ Compiled in 1709ms (2902 modules)
+[2025-11-21T18:15:33.684Z] [INFO   ]  ✓ Compiled in 1708ms (2902 modules)
+[2025-11-21T18:15:59.830Z] [INFO   ]  ✓ Compiled in 262ms (2915 modules)
+[2025-11-21T18:15:59.839Z] [INFO   ]  ✓ Compiled in 271ms (2915 modules)

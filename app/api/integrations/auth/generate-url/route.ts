@@ -126,8 +126,7 @@ export async function POST(request: NextRequest) {
       workspaceId?: string
     } = {
       userId: user.id,
-      // Microsoft Excel uses OneDrive provider in the database
-      provider: provider.toLowerCase() === 'microsoft-excel' ? 'onedrive' : provider.toLowerCase(), // Ensure consistent provider naming
+      provider: provider.toLowerCase(), // Ensure consistent provider naming
       reconnect,
       integrationId,
       timestamp: Date.now(),
@@ -255,8 +254,7 @@ export async function POST(request: NextRequest) {
         break
 
       case "microsoft-excel":
-        // Microsoft Excel uses OneDrive's authentication
-        authUrl = await generateOneDriveAuthUrl(finalState)
+        authUrl = await generateMicrosoftExcelAuthUrl(finalState)
         break
 
       case "gitlab":
@@ -1035,6 +1033,30 @@ async function generateOneDriveAuthUrl(state: string): Promise<string> {
   const redirectUri = `${baseUrl}${config.redirectUriPath}`
 
 
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: "code",
+    scope: config.scope || "",
+    prompt: "select_account", // Allow user to choose which account to use
+    state,
+  })
+
+  return `${config.authEndpoint}?${params.toString()}`
+}
+
+async function generateMicrosoftExcelAuthUrl(state: string): Promise<string> {
+  const { getOAuthConfig } = await import("@/lib/integrations/oauthConfig")
+  const config = getOAuthConfig("microsoft-excel")
+  if (!config) throw new Error("Microsoft Excel OAuth config not found")
+
+  const { getOAuthClientCredentials } = await import("@/lib/integrations/oauthConfig")
+  const { clientId } = getOAuthClientCredentials(config)
+  if (!clientId) throw new Error("Microsoft Excel client ID not configured")
+
+  const baseUrl = getBaseUrl()
+  const redirectUri = `${baseUrl}${config.redirectUriPath}`
 
   const params = new URLSearchParams({
     client_id: clientId,

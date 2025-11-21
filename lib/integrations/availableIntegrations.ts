@@ -121,9 +121,9 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
   onedrive: {
     id: "onedrive",
     name: "OneDrive",
-    description: "Store and sync files with Microsoft OneDrive. Also enables Microsoft Excel integration for spreadsheet automation.",
+    description: "Store and sync files with Microsoft OneDrive cloud storage.",
     category: "storage",
-    capabilities: ["File Storage", "File Sync", "Sharing", "Collaboration", "Excel Spreadsheets"],
+    capabilities: ["File Storage", "File Sync", "Sharing", "Collaboration"],
     scopes: ["Files.Read", "Files.ReadWrite"],
     isAvailable: false,
     requiresClientId: "ONEDRIVE_CLIENT_ID",
@@ -131,8 +131,23 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     color: "#0078D4",
     docsUrl: "https://developer.microsoft.com/en-us/onedrive",
     authType: "oauth",
-    searchKeywords: ["onedrive", "microsoft", "storage", "files", "excel", "spreadsheet", "workbook", "worksheet"],
-    additionalInfo: "🎯 Includes Microsoft Excel integration for creating, editing, and managing spreadsheets",
+    searchKeywords: ["onedrive", "microsoft", "storage", "files", "cloud"],
+  },
+
+  "microsoft-excel": {
+    id: "microsoft-excel",
+    name: "Microsoft Excel",
+    description: "Create, edit, and manage spreadsheets with Microsoft Excel Online.",
+    category: "productivity",
+    capabilities: ["Create Spreadsheets", "Read Data", "Update Rows", "Add Rows", "Workbook Management"],
+    scopes: ["Files.Read", "Files.ReadWrite"],
+    isAvailable: false,
+    requiresClientId: "MICROSOFT_EXCEL_CLIENT_ID",
+    requiresClientSecret: "MICROSOFT_EXCEL_CLIENT_SECRET",
+    color: "#217346",
+    docsUrl: "https://learn.microsoft.com/en-us/graph/api/resources/excel",
+    authType: "oauth",
+    searchKeywords: ["excel", "microsoft", "spreadsheet", "workbook", "worksheet", "cells", "rows", "columns"],
   },
 
   // Communication Platforms
