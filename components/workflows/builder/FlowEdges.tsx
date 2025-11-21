@@ -17,6 +17,7 @@ const DEFAULT_COLUMN_X = 400
 const DEFAULT_NODE_WIDTH = 360
 const DEFAULT_NODE_HEIGHT = 120
 const HANDLE_OFFSET = 9 // half of the 18px handle height in CustomNode
+const VERTICAL_BUTTON_POSITION_RATIO = 0.35 // push inline add button closer to source node
 function getNodeRectFromDom(nodeId?: string) {
   if (typeof document === 'undefined' || !nodeId) return null
   const element = document.querySelector<HTMLElement>(`.react-flow__node[data-id="${nodeId}"]`)
@@ -281,9 +282,9 @@ export function FlowEdge({
   const midLabelX = correctedSource.x + edgeVectorX / 2
   const midLabelY = correctedSource.y + edgeVectorY / 2
 
-  // Place the + button at the midpoint of the line
-  const buttonX = midLabelX
-  const buttonY = midLabelY
+  const buttonRatio = isVerticalEdge ? VERTICAL_BUTTON_POSITION_RATIO : 0.5
+  const buttonX = correctedSource.x + edgeVectorX * buttonRatio
+  const buttonY = correctedSource.y + edgeVectorY * buttonRatio
 
   if (process.env.NODE_ENV !== 'production') {
     const length = Math.sqrt(

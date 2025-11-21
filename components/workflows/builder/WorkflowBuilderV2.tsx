@@ -2663,6 +2663,27 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       },
     }
 
+    // Prepare reordered node ID list for persisting backend edge order
+    const reorderableIds = currentNodes
+      .filter((node: any) => isReorderableNode(node))
+      .sort((a: any, b: any) => (a.position?.y ?? 0) - (b.position?.y ?? 0))
+      .map((node: any) => node.id)
+
+    // Remove placeholder anchor if present
+    const linearNodeIds = reorderableIds.filter(id => id !== newNodeId)
+    let orderedNodeIds: string[] = linearNodeIds
+    if (anchorNodeId && orderedNodeIds.includes(anchorNodeId)) {
+      const anchorIndex = orderedNodeIds.indexOf(anchorNodeId)
+      orderedNodeIds = [
+        ...orderedNodeIds.slice(0, anchorIndex + 1),
+        newNodeId,
+        ...orderedNodeIds.slice(anchorIndex + 1)
+      ]
+    } else {
+      orderedNodeIds = [...orderedNodeIds, newNodeId]
+    }
+    orderedNodeIds = Array.from(new Set(orderedNodeIds))
+
     // Close panel immediately for better UX
     setIsIntegrationsPanelOpen(false)
     clearInsertionContext()
@@ -2906,6 +2927,14 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         await actions.moveNodes(nodesToShift)
         console.log('📌 [WorkflowBuilder] Shifted positions persisted')
       }
+      if (orderedNodeIds.length >= 2 && actions?.applyEdits) {
+        console.log('📌 [WorkflowBuilder] Persisting linear order:', orderedNodeIds)
+        try {
+          await actions.applyEdits([{ op: "reorderNodes", nodeIds: orderedNodeIds }])
+        } catch (error) {
+          console.error('[WorkflowBuilder] Failed to persist linear order', error)
+        }
+      }
 
     } catch (error: any) {
       setConfiguringNode(null)
@@ -2944,6 +2973,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
     // Optimistically remove nodes from UI immediately
     let updatedNodes = currentNodes.filter((node: any) => !nodeIdSet.has(node.id))
+    const nodesToShift: Array<{ nodeId: string; position: { x: number; y: number } }> = []
 
     // Shift nodes up if we have a deleted position
     if (deletedNodeY !== null) {
@@ -2954,12 +2984,23 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       // Shift all nodes that were below the deleted node(s)
       updatedNodes = updatedNodes.map((node: any) => {
         if (node.position && node.position.y > deletedNodeY!) {
+          const newY = node.position.y - verticalShift
+          nodesToShift.push({
+            nodeId: node.id,
+            position: {
+              x: node.position.x ?? LINEAR_STACK_X,
+              y: newY,
+            }
+          })
           return {
             ...node,
             position: {
               ...node.position,
-              y: node.position.y - verticalShift
-            }
+              y: newY
+            },
+            positionAbsolute: node.positionAbsolute
+              ? { ...node.positionAbsolute, y: newY }
+              : { ...(node.position ?? { x: LINEAR_STACK_X, y: newY }), y: newY }
           }
         }
         return node
@@ -3059,6 +3100,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     } else {
       builder.setNodes(updatedNodes)
       builder.setEdges(updatedEdges)
+      if (nodesToShift.length > 0) {
+        actions.moveNodes(nodesToShift).catch((error: any) => {
+          console.error('[WorkflowBuilder] Failed to persist node positions after delete', error)
+        })
+      }
     }
 
     // Clear selection when deleting current node(s)
