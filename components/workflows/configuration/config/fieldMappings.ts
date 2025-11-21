@@ -327,6 +327,10 @@ const googleCalendarMappings: Record<string, FieldMapping> = {
     // Note: attendees is a simple email list, doesn't need dynamic loading
     // Removed mapping to avoid dependency on Gmail integration
   },
+  google_calendar_action_move_event: {
+    sourceCalendarId: "google-calendars",
+    destinationCalendarId: "google-calendars",
+  },
   google_calendar_trigger_new_event: {
     calendars: "google-calendars",
   },

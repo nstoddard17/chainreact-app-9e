@@ -8,6 +8,7 @@ import { getCanvasDimensions, LAYOUT } from "./layout"
 const HANDLE_OFFSET = 9
 
 const DEFAULT_NODE_HEIGHT = 120
+const DEFAULT_NODE_WIDTH = 360 // Match placeholder node width (w-[360px])
 
 interface PhantomEdgeOverlayProps {
   nodes: any[]
@@ -51,7 +52,7 @@ export function PhantomEdgeOverlay({ nodes, onAddNode }: PhantomEdgeOverlayProps
     ]
 
     const nodeWidth = widthCandidates.find((value) => Number.isFinite(value) && Number(value) > 0)
-      ?? LAYOUT.nodeWidth
+      ?? DEFAULT_NODE_WIDTH
     const nodeHeight = heightCandidates.find((value) => Number.isFinite(value) && Number(value) > 0)
       ?? DEFAULT_NODE_HEIGHT
 

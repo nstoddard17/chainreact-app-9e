@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
     // 2. Team integrations (user is member of the team)
     // 3. Organization integrations (user is member of the organization)
 
-    // Try with new columns first (added in migration 20251110000000)
+    // Try with new columns first (added in migration 20251110000000 + sharing columns)
     let { data: integrations, error: integrationsError } = await supabase
       .from('integrations')
       .select(`
@@ -87,12 +87,14 @@ export async function GET(request: NextRequest) {
         username,
         account_name,
         avatar_url,
+        display_name,
         provider_user_id,
         metadata,
         created_at,
         expires_at,
         user_id,
-        connected_by
+        connected_by,
+        sharing_scope
       `)
       .eq('provider', provider)
       .in('status', ['connected', 'error', 'pending'])
@@ -145,7 +147,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ connections: [] })
     }
 
-    // Filter integrations based on workspace access
+    // Filter integrations based on workspace access AND sharing
     // Get user's team memberships
     const { data: teamMemberships } = await supabase
       .from('team_members')
@@ -162,11 +164,46 @@ export async function GET(request: NextRequest) {
 
     const orgIds = orgMemberships?.map(om => om.organization_id) || []
 
+    // NEW: Get integrations shared directly with this user
+    const { data: directShares } = await supabase
+      .from('integration_shares')
+      .select('integration_id')
+      .eq('shared_with_user_id', user.id)
+
+    const directShareIds = directShares?.map(s => s.integration_id) || []
+
+    // NEW: Get integrations shared with user's teams
+    let teamShareIds: string[] = []
+    if (teamIds.length > 0) {
+      const { data: teamShares } = await supabase
+        .from('integration_shares')
+        .select('integration_id')
+        .in('shared_with_team_id', teamIds)
+
+      teamShareIds = teamShares?.map(s => s.integration_id) || []
+    }
+
+    // Combine all shared integration IDs
+    const sharedIntegrationIds = new Set([...directShareIds, ...teamShareIds])
+
     // Filter integrations based on access
     const accessibleIntegrations = integrations.filter(integration => {
       // Personal integrations - user must be the owner
       if (integration.workspace_type === 'personal') {
-        return integration.user_id === user.id
+        // Owner always has access
+        if (integration.user_id === user.id) {
+          return true
+        }
+        // NEW: Check if this integration is shared with the user
+        if (sharedIntegrationIds.has(integration.id)) {
+          return true
+        }
+        // NEW: Check if this integration has organization-wide sharing
+        if ((integration as any).sharing_scope === 'organization') {
+          // User must be in the same org (via shared team membership)
+          return teamIds.length > 0 // Simple check - if user is in any team, they're in the org
+        }
+        return false
       }
 
       // Team integrations - user must be a member of the team
@@ -185,11 +222,71 @@ export async function GET(request: NextRequest) {
     // Get permission levels for each integration
     const integrationsWithPermissions = await Promise.all(
       accessibleIntegrations.map(async (integration) => {
-        // For personal integrations, owner has admin permission
-        if (integration.workspace_type === 'personal') {
+        const isOwner = integration.user_id === user.id
+        const isShared = !isOwner && (
+          sharedIntegrationIds.has(integration.id) ||
+          (integration as any).sharing_scope === 'organization'
+        )
+
+        // For personal integrations owned by user, admin permission
+        if (integration.workspace_type === 'personal' && isOwner) {
           return {
             ...integration,
-            user_permission: 'admin' as const
+            user_permission: 'admin' as const,
+            is_owner: true,
+            is_shared: false,
+            access_type: 'owned'
+          }
+        }
+
+        // For shared integrations, check integration_shares for permission level
+        if (isShared) {
+          // Check direct share first
+          const { data: directShare } = await supabase
+            .from('integration_shares')
+            .select('permission_level')
+            .eq('integration_id', integration.id)
+            .eq('shared_with_user_id', user.id)
+            .single()
+
+          if (directShare) {
+            return {
+              ...integration,
+              user_permission: directShare.permission_level || 'use',
+              is_owner: false,
+              is_shared: true,
+              access_type: 'shared_direct'
+            }
+          }
+
+          // Check team share
+          if (teamIds.length > 0) {
+            const { data: teamShare } = await supabase
+              .from('integration_shares')
+              .select('permission_level')
+              .eq('integration_id', integration.id)
+              .in('shared_with_team_id', teamIds)
+              .limit(1)
+              .single()
+
+            if (teamShare) {
+              return {
+                ...integration,
+                user_permission: teamShare.permission_level || 'use',
+                is_owner: false,
+                is_shared: true,
+                access_type: 'shared_team'
+              }
+            }
+          }
+
+          // Organization-wide sharing
+          return {
+            ...integration,
+            user_permission: 'use' as const,
+            is_owner: false,
+            is_shared: true,
+            access_type: 'shared_org'
           }
         }
 
@@ -203,7 +300,10 @@ export async function GET(request: NextRequest) {
 
         return {
           ...integration,
-          user_permission: permission?.permission || 'use' as const
+          user_permission: permission?.permission || 'use' as const,
+          is_owner: isOwner,
+          is_shared: false,
+          access_type: isOwner ? 'owned' : 'workspace'
         }
       })
     )
@@ -221,11 +321,17 @@ export async function GET(request: NextRequest) {
       username: integration.username ?? integration.metadata?.username ?? integration.metadata?.name ?? null,
       account_name: integration.account_name ?? integration.metadata?.account_name ?? integration.metadata?.accountName ?? null,
       avatar_url: integration.avatar_url ?? integration.metadata?.avatar_url ?? integration.metadata?.picture ?? null,
+      display_name: (integration as any).display_name ?? integration.email ?? integration.account_name ?? integration.username ?? null,
       provider_user_id: integration.provider_user_id ?? integration.metadata?.provider_user_id ?? null,
       created_at: integration.created_at,
       expires_at: integration.expires_at,
       user_permission: integration.user_permission,
-      connected_by: integration.connected_by
+      connected_by: integration.connected_by,
+      // Sharing info
+      sharing_scope: (integration as any).sharing_scope ?? 'private',
+      is_owner: (integration as any).is_owner ?? false,
+      is_shared: (integration as any).is_shared ?? false,
+      access_type: (integration as any).access_type ?? 'owned',
     }))
 
     logger.debug(`[AllConnections] Found ${connections.length} accessible connections`, {

@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logger } from '@/lib/utils/logger'
 import { handleCorsPreFlight, addCorsHeaders } from '@/lib/utils/cors'
-import { executeWorkflowFromTrigger } from '@/lib/workflows/engine/workflowEngine'
 import { decryptResourceData } from '@/lib/utils/encryptionCertificate'
 import { decrypt } from '@/lib/security/encryption'
+
+const supabase = createAdminClient()
 
 /**
  * Microsoft Teams Webhook Endpoint
@@ -164,13 +165,11 @@ async function processTeamsNotification(notification: any) {
     )
 
     // Execute the workflow
-    await executeWorkflowFromTrigger({
-      workflowId: webhookConfig.workflow_id,
-      userId: webhookConfig.user_id,
-      triggerType: webhookConfig.trigger_type,
-      triggerData,
-      source: 'webhook'
-    })
+    await executeWorkflow(
+      webhookConfig.workflow_id,
+      webhookConfig.user_id,
+      triggerData
+    )
 
     logger.debug('[Teams Webhook] Successfully processed notification')
   } catch (error: any) {
@@ -484,5 +483,55 @@ async function processLifecycleNotification(notification: any) {
     }
   } catch (error: any) {
     logger.error('[Teams Webhook] Error processing lifecycle notification:', error)
+  }
+}
+
+/**
+ * Execute workflow with trigger data
+ */
+async function executeWorkflow(workflowId: string, userId: string, triggerData: any): Promise<void> {
+  try {
+    logger.debug(`[Teams Webhook] Executing workflow ${workflowId}`)
+
+    // Get workflow details
+    const { data: workflow, error: workflowError } = await supabase
+      .from('workflows')
+      .select('*')
+      .eq('id', workflowId)
+      .eq('status', 'active')
+      .single()
+
+    if (workflowError || !workflow) {
+      logger.error(`[Teams Webhook] Failed to get workflow ${workflowId}:`, workflowError)
+      return
+    }
+
+    logger.debug(`[Teams Webhook] Executing workflow "${workflow.name}"`)
+
+    // Import workflow execution service
+    const { WorkflowExecutionService } = await import('@/lib/services/workflowExecutionService')
+    const workflowExecutionService = new WorkflowExecutionService()
+
+    // Execute the workflow with trigger data as input
+    const executionResult = await workflowExecutionService.executeWorkflow(
+      workflow,
+      triggerData,
+      userId,
+      false, // testMode = false (real trigger)
+      null, // No workflow data override
+      true // skipTriggers = true (already triggered by webhook)
+    )
+
+    logger.debug(`[Teams Webhook] Workflow execution completed:`, {
+      success: !!executionResult.results,
+      executionId: executionResult.executionId,
+      resultsCount: executionResult.results?.length || 0
+    })
+
+  } catch (error: any) {
+    logger.error(`[Teams Webhook] Failed to execute workflow ${workflowId}:`, {
+      message: error.message,
+      stack: error.stack
+    })
   }
 }

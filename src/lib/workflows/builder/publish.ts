@@ -19,19 +19,19 @@ export async function publishRevision({
   const supabase = client ?? (await createSupabaseServiceClient())
 
   await supabase
-    .from("flow_v2_revisions")
+    .from("workflows_revisions")
     .update({ published: false })
-    .eq("flow_id", flowId)
+    .eq("workflow_id", flowId)
 
-  await supabase.from("flow_v2_revisions").update({
+  await supabase.from("workflows_revisions").update({
     published: true,
     published_at: new Date().toISOString(),
     published_by: publishedBy ?? null,
   }).eq("id", revisionId)
 
-  await supabase.from("flow_v2_published_revisions").insert({
+  await supabase.from("workflows_published_revisions").insert({
     id: randomUUID(),
-    flow_id: flowId,
+    workflow_id: flowId,
     revision_id: revisionId,
     published_by: publishedBy ?? null,
     published_at: new Date().toISOString(),
@@ -45,9 +45,9 @@ export async function getLatestPublishedRevision(
 ) {
   const supabase = client ?? (await createSupabaseServiceClient())
   const { data } = await supabase
-    .from("flow_v2_published_revisions")
+    .from("workflows_published_revisions")
     .select("revision_id")
-    .eq("flow_id", flowId)
+    .eq("workflow_id", flowId)
     .order("published_at", { ascending: false })
     .limit(1)
     .maybeSingle()

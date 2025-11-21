@@ -28,6 +28,10 @@ export interface FlowRevisionSummary {
   publishedAt?: string | null
 }
 
+const WORKFLOWS_TABLE = "workflows"
+const WORKFLOWS_REVISIONS_TABLE = "workflows_revisions"
+const LEGACY_CREATE_REVISION_FUNCTIONS = ["workflows_create_revision", "flow_v2_create_revision"] as const
+
 const IsoDateString = z.union([z.string(), z.date()]).transform((value) => {
   const date = typeof value === "string" ? new Date(value) : value
   if (Number.isNaN(date.getTime())) {
@@ -44,7 +48,7 @@ const FlowDefinitionRowSchema = z.object({
 
 const FlowRevisionRowSchema = z.object({
   id: z.string().uuid(),
-  flow_id: z.string().uuid(),
+  workflow_id: z.string().uuid(),
   version: z.number().int().min(0),
   graph: JsonValueSchema,
   created_at: IsoDateString,
@@ -80,23 +84,47 @@ export interface LoadFlowRevisionParams {
 
 export class FlowRepository {
   private readonly client: FlowRepositoryClient
+  private readonly fallbackClient?: FlowRepositoryClient
 
-  constructor(client: FlowRepositoryClient) {
+  constructor(client: FlowRepositoryClient, fallbackClient?: FlowRepositoryClient) {
     this.client = client
+    this.fallbackClient = fallbackClient
   }
 
-  static create(client: FlowRepositoryClient) {
-    return new FlowRepository(client)
+  static create(client: FlowRepositoryClient, fallbackClient?: FlowRepositoryClient) {
+    return new FlowRepository(client, fallbackClient)
+  }
+
+  private shouldUseFallback(error: { message?: string } | null) {
+    if (!error?.message) return false
+    const message = error.message.toLowerCase()
+    return (
+      message.includes("infinite recursion detected") ||
+      message.includes('relation "flow_v2')
+    )
+  }
+
+  private async withFallback<T>(
+    executor: (client: FlowRepositoryClient) => Promise<{ data: T; error: any }>
+  ): Promise<{ data: T; error: any }> {
+    const primary = await executor(this.client)
+    if (!primary?.error || !this.fallbackClient || this.fallbackClient === this.client || !this.shouldUseFallback(primary.error)) {
+      return primary
+    }
+    console.warn("[FlowRepository] Retrying query with privileged client due to policy recursion")
+    return executor(this.fallbackClient)
   }
 
   async createDefinition({ id = randomUUID(), name }: CreateFlowDefinitionParams): Promise<FlowDefinitionRecord> {
     const now = new Date().toISOString()
 
-    const { data, error } = await this.client
-      .from("flow_v2_definitions")
-      .insert({ id, name, created_at: now })
-      .select("id, name, created_at")
-      .single()
+    const { data, error } = await this.withFallback((client) =>
+      client
+        .from(WORKFLOWS_TABLE)
+        .insert({ id, name, created_at: now })
+        .select("id, name, created_at")
+        .single()
+    )
 
     if (error) {
       throw new Error(`Failed to create flow definition: ${error.message}`)
@@ -112,10 +140,12 @@ export class FlowRepository {
   }
 
   async listDefinitions(): Promise<FlowDefinitionRecord[]> {
-    const { data, error } = await this.client
-      .from("flow_v2_definitions")
-      .select("id, name, created_at")
-      .order("created_at", { ascending: false })
+    const { data, error } = await this.withFallback((client) =>
+      client
+        .from(WORKFLOWS_TABLE)
+        .select("id, name, created_at")
+        .order("created_at", { ascending: false })
+    )
 
     if (error) {
       throw new Error(`Failed to list flow definitions: ${error.message}`)
@@ -147,17 +177,19 @@ export class FlowRepository {
     if (typeof version === "number") {
       const now = new Date().toISOString()
 
-      const { data, error } = await this.client
-        .from("flow_v2_revisions")
-        .insert({
-          id,
-          flow_id: flowId,
-          version,
-          graph: validated,
-          created_at: now,
-        })
-        .select("id, flow_id, version, graph, created_at")
-        .single()
+      const { data, error } = await this.withFallback((client) =>
+        client
+          .from(WORKFLOWS_REVISIONS_TABLE)
+          .insert({
+            id,
+            workflow_id: flowId,
+            version,
+            graph: validated,
+            created_at: now,
+          })
+          .select("id, workflow_id, version, graph, created_at")
+          .single()
+      )
 
       if (error) {
         console.error(`[FlowRepository] Insert error for flow ${flowId}:`, error)
@@ -167,7 +199,7 @@ export class FlowRepository {
       const parsed = FlowRevisionRowSchema.parse(data)
       return {
         id: parsed.id,
-        flowId: parsed.flow_id,
+        flowId: parsed.workflow_id,
         version: parsed.version,
         graph: FlowSchema.parse(parsed.graph as JsonValue),
         createdAt: parsed.created_at,
@@ -177,27 +209,52 @@ export class FlowRepository {
     // Use atomic create function that does version increment + insert in one transaction
     const now = new Date().toISOString()
 
-    const { data, error } = await this.client
-      .rpc("flow_v2_create_revision", {
-        p_id: id,
-        p_flow_id: flowId,
-        p_graph: validated,
-        p_created_at: now,
-      })
-      .single()
+    let rpcData: any = null
+    let rpcError: any = null
 
-    if (error) {
+    for (const functionName of LEGACY_CREATE_REVISION_FUNCTIONS) {
+      const { data, error } = await this.client
+        .rpc(functionName, {
+          p_id: id,
+          p_flow_id: flowId,
+          p_graph: validated,
+          p_created_at: now,
+        })
+        .single()
+
+      if (!error) {
+        rpcData = data
+        rpcError = null
+        break
+      }
+
+      rpcError = error
+      const message = error?.message?.toLowerCase() ?? ""
+      if (error?.code === "42883" || message.includes("does not exist")) {
+        continue
+      }
+
+      break
+    }
+
+    if (!rpcData) {
       // Fallback: If RPC function doesn't exist, manually get next version
-      console.warn('[FlowRepository] RPC function failed, using fallback:', error.message)
+      if (rpcError) {
+        console.warn('[FlowRepository] RPC function failed, using fallback:', rpcError.message)
+      } else {
+        console.warn('[FlowRepository] RPC function unavailable, using fallback insert.')
+      }
 
       // Get the current max version
-      const { data: maxVersionData, error: maxVersionError } = await this.client
-        .from("flow_v2_revisions")
-        .select("version")
-        .eq("flow_id", flowId)
-        .order("version", { ascending: false })
-        .limit(1)
-        .maybeSingle()
+      const { data: maxVersionData, error: maxVersionError } = await this.withFallback((client) =>
+        client
+          .from(WORKFLOWS_REVISIONS_TABLE)
+          .select("version")
+          .eq("workflow_id", flowId)
+          .order("version", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      )
 
       if (maxVersionError) {
         throw new Error(`Failed to get max version: ${maxVersionError.message}`)
@@ -206,17 +263,19 @@ export class FlowRepository {
       const nextVersion = (maxVersionData?.version ?? -1) + 1
 
       // Insert with the calculated version
-      const { data: insertData, error: insertError } = await this.client
-        .from("flow_v2_revisions")
-        .insert({
-          id,
-          flow_id: flowId,
-          version: nextVersion,
-          graph: validated,
-          created_at: now,
-        })
-        .select("id, flow_id, version, graph, created_at")
-        .single()
+      const { data: insertData, error: insertError } = await this.withFallback((client) =>
+        client
+          .from(WORKFLOWS_REVISIONS_TABLE)
+          .insert({
+            id,
+            workflow_id: flowId,
+            version: nextVersion,
+            graph: validated,
+            created_at: now,
+          })
+          .select("id, workflow_id, version, graph, created_at")
+          .single()
+      )
 
       if (insertError) {
         throw new Error(`Failed to create flow revision (fallback): ${insertError.message}`)
@@ -225,17 +284,17 @@ export class FlowRepository {
       const parsed = FlowRevisionRowSchema.parse(insertData)
       return {
         id: parsed.id,
-        flowId: parsed.flow_id,
+        flowId: parsed.workflow_id,
         version: parsed.version,
         graph: FlowSchema.parse(parsed.graph as JsonValue),
         createdAt: parsed.created_at,
       }
     }
 
-    const parsed = FlowRevisionRowSchema.parse(data)
+    const parsed = FlowRevisionRowSchema.parse(rpcData)
     return {
       id: parsed.id,
-      flowId: parsed.flow_id,
+      flowId: parsed.workflow_id,
       version: parsed.version,
       graph: FlowSchema.parse(parsed.graph as JsonValue),
       createdAt: parsed.created_at,
@@ -243,18 +302,22 @@ export class FlowRepository {
   }
 
   async loadRevision({ flowId, version }: LoadFlowRevisionParams): Promise<FlowRevisionRecord | null> {
-    const query = this.client
-      .from("flow_v2_revisions")
-      .select("id, flow_id, version, graph, created_at")
-      .eq("flow_id", flowId)
+    const executeQuery = (client: FlowRepositoryClient) => {
+      const query = client
+        .from(WORKFLOWS_REVISIONS_TABLE)
+        .select("id, workflow_id, version, graph, created_at, published, published_at")
+        .eq("workflow_id", flowId)
 
-    if (typeof version === "number") {
-      query.eq("version", version)
-    } else {
-      query.order("version", { ascending: false }).limit(1)
+      if (typeof version === "number") {
+        query.eq("version", version)
+      } else {
+        query.order("version", { ascending: false }).limit(1)
+      }
+
+      return query.maybeSingle()
     }
 
-    const { data, error } = await query.maybeSingle()
+    const { data, error } = await this.withFallback(executeQuery)
 
     if (error) {
       throw new Error(`Failed to load flow revision: ${error.message}`)
@@ -268,7 +331,7 @@ export class FlowRepository {
 
     return {
       id: parsed.id,
-      flowId: parsed.flow_id,
+      flowId: parsed.workflow_id,
       version: parsed.version,
       graph: FlowSchema.parse(parsed.graph as JsonValue),
       createdAt: parsed.created_at,
@@ -278,11 +341,13 @@ export class FlowRepository {
   }
 
   async loadRevisionById(id: string): Promise<FlowRevisionRecord | null> {
-    const { data, error } = await this.client
-      .from("flow_v2_revisions")
-      .select("id, flow_id, version, graph, created_at")
-      .eq("id", id)
-      .maybeSingle()
+    const { data, error } = await this.withFallback((client) =>
+      client
+        .from(WORKFLOWS_REVISIONS_TABLE)
+        .select("id, workflow_id, version, graph, created_at, published, published_at")
+        .eq("id", id)
+        .maybeSingle()
+    )
 
     if (error) {
       throw new Error(`Failed to load flow revision by id: ${error.message}`)
@@ -296,7 +361,7 @@ export class FlowRepository {
 
     return {
       id: parsed.id,
-      flowId: parsed.flow_id,
+      flowId: parsed.workflow_id,
       version: parsed.version,
       graph: FlowSchema.parse(parsed.graph as JsonValue),
       createdAt: parsed.created_at,
@@ -314,11 +379,13 @@ export class FlowRepository {
       published_at: z.union([IsoDateString, z.null()]).optional(),
     })
 
-    const { data, error } = await this.client
-      .from("flow_v2_revisions")
-      .select("id, version, created_at, published, published_at")
-      .eq("flow_id", flowId)
-      .order("version", { ascending: false })
+    const { data, error } = await this.withFallback((client) =>
+      client
+        .from(WORKFLOWS_REVISIONS_TABLE)
+        .select("id, version, created_at, published, published_at")
+        .eq("workflow_id", flowId)
+        .order("version", { ascending: false })
+    )
 
     if (error) {
       throw new Error(`Failed to list revisions: ${error.message}`)

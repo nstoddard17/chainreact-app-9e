@@ -1,19 +1,26 @@
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createBrowserClient } from "@supabase/ssr"
 
 import { logger } from '@/lib/utils/logger'
 import type { Database } from "@/types/supabase"
 
 // Client-side Supabase client - safe to use in client components
+// Migrated from deprecated @supabase/auth-helpers-nextjs to @supabase/ssr
 export function createClient() {
-  return createClientComponentClient<Database>()
+  return createBrowserClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookieEncoding: 'raw' // Use raw encoding to avoid base64- prefix that causes JSON parsing errors
+    }
+  )
 }
 
 // Singleton pattern for client-side usage
-let supabaseClient: ReturnType<typeof createClientComponentClient<Database>> | null = null
+let supabaseClient: ReturnType<typeof createClient> | null = null
 
 export function getSupabaseClient() {
   if (!supabaseClient) {
-    supabaseClient = createClientComponentClient<Database>()
+    supabaseClient = createClient()
   }
   return supabaseClient
 }

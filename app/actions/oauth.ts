@@ -1,15 +1,16 @@
 "use server"
 
-import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
+import { createSupabaseServerActionClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
 import { logger } from '@/lib/utils/logger'
 
+// Migrated from deprecated @supabase/auth-helpers-nextjs to @supabase/ssr
 export async function initiateOAuth(provider: string, reconnect = false, integrationId?: string) {
   try {
     // Verify user session first
-    const supabase = createServerActionClient({ cookies })
+    const supabase = await createSupabaseServerActionClient()
     const {
       data: { user },
       error: userError,

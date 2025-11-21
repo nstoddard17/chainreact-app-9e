@@ -121,7 +121,7 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
 
     try {
       const { data, error } = await supabase
-        .from("workflow_templates")
+        .from("workflows_templates")
         .select(`
           *,
           author:auth.users(email, user_metadata)
@@ -154,7 +154,7 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
       if (!user.user) throw new Error("Not authenticated")
 
       const { data, error } = await supabase
-        .from("workflow_templates")
+        .from("workflows_templates")
         .select("*")
         .eq("author_id", user.user.id)
         .order("created_at", { ascending: false })
@@ -181,7 +181,7 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
 
     try {
       const { data, error } = await supabase
-        .from("workflow_templates")
+        .from("workflows_templates")
         .select(`
           *,
           author:auth.users(email, user_metadata)
@@ -213,7 +213,7 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
 
     try {
       const { data, error } = await supabase
-        .from("workflow_templates")
+        .from("workflows_templates")
         .select(`
           *,
           author:auth.users(email, user_metadata)
@@ -245,7 +245,7 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
 
     try {
       const { data, error } = await supabase
-        .from("workflow_templates")
+        .from("workflows_templates")
         .select(`
           *,
           author:auth.users(email, user_metadata)
@@ -280,7 +280,7 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
       if (!user.user) throw new Error("Not authenticated")
 
       const { data: template, error } = await supabase
-        .from("workflow_templates")
+        .from("workflows_templates")
         .insert({
           ...data,
           author_id: user.user.id,
@@ -313,7 +313,7 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
     }))
 
     try {
-      const { error } = await supabase.from("workflow_templates").update(data).eq("id", id)
+      const { error } = await supabase.from("workflows_templates").update(data).eq("id", id)
 
       if (error) throw error
 
@@ -339,7 +339,7 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
     }))
 
     try {
-      const { error } = await supabase.from("workflow_templates").delete().eq("id", id)
+      const { error } = await supabase.from("workflows_templates").delete().eq("id", id)
 
       if (error) throw error
 
@@ -384,7 +384,7 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
 
       // Get the template data
       const { data: template, error } = await supabase
-        .from("workflow_templates")
+        .from("workflows_templates")
         .select("*")
         .eq("id", templateId)
         .single()

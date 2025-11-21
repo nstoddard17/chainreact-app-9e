@@ -330,6 +330,21 @@ async function saveIntegration(
       integrationData.provider_user_id = providerUserId
     }
 
+    // NEW: Set provider_account_id for multi-account deduplication (non-email accounts)
+    // This is used when email is not available (e.g., Airtable, Trello)
+    const providerAccountId = additionalData.provider_account_id || additionalData.account_id ||
+                              additionalData.workspace_id || providerUserId || null
+    if (providerAccountId) {
+      integrationData.provider_account_id = String(providerAccountId)
+    }
+
+    // NEW: Set display_name for account selector UI
+    // This is shown in dropdowns when user has multiple accounts
+    const displayName = email || accountName || username ||
+                        additionalData.display_name || additionalData.team_name ||
+                        `${provider} Account`
+    integrationData.display_name = displayName
+
     // Store all provider-specific data in metadata JSONB column for additional info
     if (Object.keys(additionalData).length > 0) {
       integrationData.metadata = {
@@ -355,20 +370,39 @@ async function saveIntegration(
     logger.debug(`✅ Updated existing integration: ${state.integrationId}`)
     return state.integrationId
   } else {
-    // EMAIL-BASED DEDUPLICATION: Check if this account already exists
-    // This allows multiple accounts per provider (different emails = different integrations)
+    // ACCOUNT-BASED DEDUPLICATION: Check if this account already exists
+    // This allows multiple accounts per provider (different emails/account_ids = different integrations)
     const email = integrationData.email
+    const providerAccountId = integrationData.provider_account_id
 
-    if (email && workspaceType === 'personal') {
-      // Check if user already has this provider connected with this email
-      const { data: existingIntegration } = await supabase
-        .from('integrations')
-        .select('id')
-        .eq('user_id', state.userId)
-        .eq('provider', provider)
-        .eq('email', email)
-        .eq('workspace_type', 'personal')
-        .single()
+    if (workspaceType === 'personal') {
+      let existingIntegration = null
+
+      // First, try to find by email if available
+      if (email) {
+        const { data } = await supabase
+          .from('integrations')
+          .select('id')
+          .eq('user_id', state.userId)
+          .eq('provider', provider)
+          .eq('email', email)
+          .eq('workspace_type', 'personal')
+          .single()
+        existingIntegration = data
+      }
+
+      // If no email match, try provider_account_id (for non-email providers like Airtable)
+      if (!existingIntegration && providerAccountId) {
+        const { data } = await supabase
+          .from('integrations')
+          .select('id')
+          .eq('user_id', state.userId)
+          .eq('provider', provider)
+          .eq('provider_account_id', providerAccountId)
+          .eq('workspace_type', 'personal')
+          .single()
+        existingIntegration = data
+      }
 
       if (existingIntegration) {
         // Update existing integration (refresh tokens for same account)
@@ -378,11 +412,11 @@ async function saveIntegration(
           .eq('id', existingIntegration.id)
 
         if (error) {
-          logger.error('Error updating integration by email:', error)
+          logger.error('Error updating integration by account:', error)
           throw new Error(`Database Error: ${error.message}`)
         }
 
-        logger.debug(`✅ Updated existing integration by email: ${existingIntegration.id}`)
+        logger.debug(`✅ Updated existing integration by account: ${existingIntegration.id}`)
         return existingIntegration.id
       }
     }

@@ -57,10 +57,7 @@ export async function GET(request: NextRequest) {
     if (filterContext && filterContext !== 'all') {
       let query = supabaseService
         .from("workflows")
-        .select(`
-          *,
-          permissions:workflow_permissions(permission, user_id)
-        `)
+        .select('*')
 
       if (filterContext === 'personal') {
         query = query
@@ -95,10 +92,7 @@ export async function GET(request: NextRequest) {
       queries.push(
         supabaseService
           .from("workflows")
-          .select(`
-            *,
-            permissions:workflow_permissions(permission, user_id)
-          `)
+          .select('*')
           .eq('workspace_type', 'personal')
           .eq('user_id', user.id)
       )
@@ -115,10 +109,7 @@ export async function GET(request: NextRequest) {
         queries.push(
           supabaseService
             .from("workflows")
-            .select(`
-              *,
-              permissions:workflow_permissions(permission, user_id)
-            `)
+            .select('*')
             .eq('workspace_type', 'team')
             .in('workspace_id', teamIds)
         )
@@ -136,10 +127,7 @@ export async function GET(request: NextRequest) {
         queries.push(
           supabaseService
             .from("workflows")
-            .select(`
-              *,
-              permissions:workflow_permissions(permission, user_id)
-            `)
+            .select('*')
             .eq('workspace_type', 'organization')
             .in('workspace_id', orgIds)
         )
@@ -172,22 +160,8 @@ export async function GET(request: NextRequest) {
       return errorResponse(error.message , 500)
     }
 
-    // Process workflows and add user_permission field
-    const processedWorkflows = workflows?.map((workflow: any) => {
-      const { permissions, ...workflowData } = workflow
-
-      // Find the permission for the current user
-      const userPermission = Array.isArray(permissions)
-        ? permissions.find((p: any) => p.user_id === user.id)?.permission
-        : permissions?.permission
-
-      return {
-        ...workflowData,
-        user_permission: userPermission || null
-      }
-    })
-
-    return successResponse({ data: processedWorkflows })
+    // Return workflows directly (permissions join removed due to missing foreign key)
+    return successResponse({ data: workflows })
   } catch (error: any) {
     logger.error('[API /api/workflows] Exception:', error)
     return errorResponse(error.message || "Internal server error", 500)

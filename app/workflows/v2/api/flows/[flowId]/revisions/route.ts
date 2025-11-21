@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 
-import { getRouteClient, getFlowRepository } from "@/src/lib/workflows/builder/api/helpers"
+import { getRouteClient, getFlowRepository, getServiceClient } from "@/src/lib/workflows/builder/api/helpers"
 
 export async function GET(_: Request, context: { params: Promise<{ flowId: string }> }) {
   const { flowId } = await context.params
@@ -15,7 +15,10 @@ export async function GET(_: Request, context: { params: Promise<{ flowId: strin
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })
   }
 
-  const repository = await getFlowRepository(supabase)
+  // Use service client to bypass RLS on workflows_revisions table
+  // which doesn't allow access for flow_v2_definitions workflows
+  const serviceClient = await getServiceClient()
+  const repository = await getFlowRepository(serviceClient)
 
   const definition = await supabase
     .from("flow_v2_definitions")

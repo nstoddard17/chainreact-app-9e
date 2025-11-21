@@ -351,6 +351,27 @@ function applyPlannerEdits(base: Flow, edits: PlannerEdit[]): Flow {
             mappings: [],
           })
         }
+
+        // Recompact node positions to fill gaps
+        // Sort nodes by their current Y position to maintain order
+        const nodesWithPositions = working.nodes.map((node) => {
+          const metadata = (node.metadata ?? {}) as any
+          const currentY = metadata.position?.y ?? 0
+          return { node, currentY }
+        })
+        nodesWithPositions.sort((a, b) => a.currentY - b.currentY)
+
+        // Reassign Y positions with proper spacing
+        const baseY = 120
+        nodesWithPositions.forEach(({ node }, index) => {
+          const metadata = { ...(node.metadata ?? {}) } as any
+          metadata.position = {
+            x: LINEAR_STACK_X,
+            y: baseY + index * DEFAULT_VERTICAL_SPACING,
+          }
+          node.metadata = metadata
+        })
+
         break
       }
       case "reorderNodes": {

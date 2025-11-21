@@ -5,7 +5,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { InfoIcon } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { supabase } from '@/utils/supabaseClient';
 
 import { logger } from '@/lib/utils/logger'
 
@@ -45,7 +45,7 @@ export function OneNoteSelector({
   const [token, setToken] = useState<string | null>(null);
   
   const { user, isAuthenticated } = useAuth();
-  const supabase = createClientComponentClient();
+  // Using supabase from @supabase/ssr (migrated from deprecated @supabase/auth-helpers-nextjs)
   
   // Get the auth token when component mounts
   useEffect(() => {
@@ -59,7 +59,7 @@ export function OneNoteSelector({
     }
     
     getToken();
-  }, [isAuthenticated, user, supabase.auth]);
+  }, [isAuthenticated, user]);
   
   useEffect(() => {
     async function loadData() {

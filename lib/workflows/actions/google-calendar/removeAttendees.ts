@@ -26,6 +26,7 @@ export async function removeGoogleCalendarAttendees(
       calendarId = 'primary',
       eventId,
       attendeesToRemove,
+      removeAllAttendees = false,
       sendNotifications = 'all'
     } = resolvedConfig
 
@@ -40,8 +41,8 @@ export async function removeGoogleCalendarAttendees(
       )
     }
 
-    if (!attendeesToRemove || (Array.isArray(attendeesToRemove) && attendeesToRemove.length === 0)) {
-      throw new Error('At least one attendee email is required to remove')
+    if (!removeAllAttendees && (!attendeesToRemove || (Array.isArray(attendeesToRemove) && attendeesToRemove.length === 0))) {
+      throw new Error('At least one attendee email is required to remove, or enable "Remove all attendees"')
     }
 
     // Get the decrypted access token for Google
@@ -74,30 +75,40 @@ export async function removeGoogleCalendarAttendees(
       }
     }
 
-    // Process attendees to remove
-    const removeList = typeof attendeesToRemove === 'string'
-      ? attendeesToRemove.split(',').map((email: string) => email.trim().toLowerCase())
-      : Array.isArray(attendeesToRemove)
-        ? attendeesToRemove.map((email: any) => email.trim().toLowerCase())
-        : [attendeesToRemove.trim().toLowerCase()]
+    // Handle remove all attendees case
+    let remainingAttendees
+    let removedCount
 
-    const removeSet = new Set(removeList)
+    if (removeAllAttendees) {
+      // Remove all attendees
+      remainingAttendees = []
+      removedCount = existingAttendees.length
+    } else {
+      // Process attendees to remove
+      const removeList = typeof attendeesToRemove === 'string'
+        ? attendeesToRemove.split(',').map((email: string) => email.trim().toLowerCase())
+        : Array.isArray(attendeesToRemove)
+          ? attendeesToRemove.map((email: any) => email.trim().toLowerCase())
+          : [attendeesToRemove.trim().toLowerCase()]
 
-    // Filter out attendees to remove
-    const remainingAttendees = existingAttendees.filter(
-      (attendee: any) => !removeSet.has(attendee.email?.toLowerCase())
-    )
+      const removeSet = new Set(removeList)
 
-    const removedCount = existingAttendees.length - remainingAttendees.length
+      // Filter out attendees to remove
+      remainingAttendees = existingAttendees.filter(
+        (attendee: any) => !removeSet.has(attendee.email?.toLowerCase())
+      )
 
-    if (removedCount === 0) {
-      return {
-        success: true,
-        output: {
-          eventId: eventId,
-          message: 'No matching attendees found to remove',
-          remainingAttendees: existingAttendees,
-          removedCount: 0
+      removedCount = existingAttendees.length - remainingAttendees.length
+
+      if (removedCount === 0) {
+        return {
+          success: true,
+          output: {
+            eventId: eventId,
+            message: 'No matching attendees found to remove',
+            remainingAttendees: existingAttendees,
+            removedCount: 0
+          }
         }
       }
     }
