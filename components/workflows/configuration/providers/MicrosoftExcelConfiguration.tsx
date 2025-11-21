@@ -133,9 +133,9 @@ export function MicrosoftExcelConfiguration({
 
     setLoadingPreview(true);
     try {
-      // Get the Microsoft Excel integration (which uses OneDrive)
+      // Get the Microsoft Excel integration
       const { getIntegrationByProvider } = useIntegrationStore.getState();
-      const excelIntegration = getIntegrationByProvider('microsoft-excel') || getIntegrationByProvider('onedrive');
+      const excelIntegration = getIntegrationByProvider('microsoft-excel');
 
       if (!excelIntegration) {
         logger.error('Microsoft Excel/OneDrive integration not found');

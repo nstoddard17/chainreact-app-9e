@@ -126,8 +126,7 @@ export async function POST(request: NextRequest) {
       workspaceId?: string
     } = {
       userId: user.id,
-      // Microsoft Excel uses OneDrive provider in the database
-      provider: provider.toLowerCase() === 'microsoft-excel' ? 'onedrive' : provider.toLowerCase(), // Ensure consistent provider naming
+      provider: provider.toLowerCase(), // Ensure consistent provider naming
       reconnect,
       integrationId,
       timestamp: Date.now(),
@@ -255,8 +254,7 @@ export async function POST(request: NextRequest) {
         break
 
       case "microsoft-excel":
-        // Microsoft Excel uses OneDrive's authentication
-        authUrl = await generateOneDriveAuthUrl(finalState)
+        authUrl = await generateExcelAuthUrl(finalState)
         break
 
       case "gitlab":
@@ -1046,6 +1044,29 @@ async function generateOneDriveAuthUrl(state: string): Promise<string> {
   })
 
   return `${config.authEndpoint}?${params.toString()}`
+}
+
+async function generateExcelAuthUrl(state: string): Promise<string> {
+  // Excel uses its own OAuth credentials but same Microsoft Graph API
+  const clientId = process.env.EXCEL_CLIENT_ID || process.env.ONEDRIVE_CLIENT_ID || process.env.MICROSOFT_CLIENT_ID
+  if (!clientId) throw new Error("Excel client ID not configured")
+
+  const baseUrl = getBaseUrl()
+  const redirectUri = `${baseUrl}/api/integrations/excel/callback`
+
+  // Excel needs Files.ReadWrite for spreadsheet operations
+  const scope = "openid profile email offline_access https://graph.microsoft.com/User.Read https://graph.microsoft.com/Files.Read https://graph.microsoft.com/Files.ReadWrite"
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: "code",
+    scope: scope,
+    prompt: "select_account", // Allow user to choose which account to use
+    state,
+  })
+
+  return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
 }
 
 function generateGitLabAuthUrl(state: string): string {

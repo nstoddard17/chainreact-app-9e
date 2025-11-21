@@ -258,10 +258,12 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
   /**
    * Extract the provider from trigger type
    * e.g., "microsoft-outlook_trigger_new_email" -> "microsoft-outlook"
+   * e.g., "microsoft_excel_trigger_new_row" -> "microsoft-excel"
    */
   private getProviderFromTriggerType(triggerType: string): string {
     // Extract provider prefix from trigger type
     if (triggerType.startsWith('microsoft-outlook_')) return 'microsoft-outlook'
+    if (triggerType.startsWith('microsoft_excel_')) return 'microsoft-excel'
     if (triggerType.startsWith('teams_')) return 'teams'
     if (triggerType.startsWith('onedrive_')) return 'onedrive'
     // OneNote removed - doesn't support webhooks
@@ -276,7 +278,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
    */
   private getResourceForTrigger(triggerType: string, config?: Record<string, any>): string | null {
     // Strip provider prefix if present (e.g., "microsoft-outlook_trigger_new_email" -> "trigger_new_email")
-    const simplifiedType = triggerType.replace(/^(microsoft-outlook|teams|onedrive)_/, '')
+    const simplifiedType = triggerType.replace(/^(microsoft-outlook|microsoft_excel|teams|onedrive)_/, '')
 
     const resourceMap: Record<string, string | ((config?: Record<string, any>) => string)> = {
       // Email triggers
@@ -308,7 +310,35 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       // OneDrive triggers
       'trigger_file_created': '/me/drive/root',
       'trigger_file_modified': '/me/drive/root',
-      'trigger_file_shared': '/me/drive/root'
+      'trigger_file_shared': '/me/drive/root',
+
+      // Microsoft Excel triggers (use OneDrive file change notifications)
+      // Excel workbook files are stored in OneDrive, so we watch the drive root for changes
+      'trigger_new_row': (config?: Record<string, any>) => {
+        // Watch the specific workbook file for changes if workbookId is provided
+        if (config?.workbookId) {
+          return `/me/drive/items/${config.workbookId}`
+        }
+        return '/me/drive/root'
+      },
+      'trigger_new_worksheet': (config?: Record<string, any>) => {
+        if (config?.workbookId) {
+          return `/me/drive/items/${config.workbookId}`
+        }
+        return '/me/drive/root'
+      },
+      'trigger_updated_row': (config?: Record<string, any>) => {
+        if (config?.workbookId) {
+          return `/me/drive/items/${config.workbookId}`
+        }
+        return '/me/drive/root'
+      },
+      'trigger_new_table_row': (config?: Record<string, any>) => {
+        if (config?.workbookId) {
+          return `/me/drive/items/${config.workbookId}`
+        }
+        return '/me/drive/root'
+      }
 
       // OneNote triggers removed - doesn't support webhooks (API deprecated May 2023)
     }

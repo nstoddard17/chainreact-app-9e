@@ -43,6 +43,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
 
 export function AppsContent() {
   const { providers, integrations, initializeProviders, fetchAllIntegrations, connectIntegration, setLoading, loading: storeLoading } = useIntegrationStore()
@@ -93,7 +94,26 @@ export function AppsContent() {
 
 
   const getConnectionStatus = (providerId: string) => {
-    return integrations.find(i => i.provider === providerId)
+    // Check direct connection first
+    const directConnection = integrations.find(i => i.provider === providerId)
+    if (directConnection) return directConnection
+
+    // Check if this provider shares auth with another provider
+    const config = INTEGRATION_CONFIGS[providerId]
+    if (config?.sharesAuthWith) {
+      const sharedConnection = integrations.find(i => i.provider === config.sharesAuthWith)
+      if (sharedConnection && sharedConnection.status === 'connected') {
+        // Return a synthetic integration object that indicates shared auth
+        return {
+          ...sharedConnection,
+          provider: providerId,
+          _isSharedAuth: true,
+          _sharedWith: config.sharesAuthWith,
+        }
+      }
+    }
+
+    return undefined
   }
 
   const handleConnect = async (providerId: string) => {
@@ -201,8 +221,40 @@ export function AppsContent() {
     return connection && (connection.status === 'expired' || connection.status === 'needs_reauthorization')
   })
 
+  // Create a list of integrations including synthetic shared auth integrations
+  // This is used for the workspace grouped view to show Excel when OneDrive is connected
+  const integrationsWithSharedAuth = (() => {
+    const connectedIntegrations = integrations.filter(i => i.status === 'connected')
+    const sharedAuthIntegrations: typeof connectedIntegrations = []
+
+    // Find all providers that share auth with connected integrations
+    Object.entries(INTEGRATION_CONFIGS).forEach(([providerId, config]) => {
+      if (config.sharesAuthWith) {
+        // Check if the parent provider is connected
+        const parentIntegration = connectedIntegrations.find(i => i.provider === config.sharesAuthWith)
+        if (parentIntegration) {
+          // Check if we don't already have this integration (avoid duplicates)
+          const alreadyExists = connectedIntegrations.some(i => i.provider === providerId)
+          if (!alreadyExists) {
+            // Create a synthetic integration entry
+            sharedAuthIntegrations.push({
+              ...parentIntegration,
+              id: `shared-${providerId}-${parentIntegration.id}`,
+              provider: providerId,
+              // @ts-ignore - adding custom property to indicate shared auth
+              _isSharedAuth: true,
+              _sharedWith: config.sharesAuthWith,
+            })
+          }
+        }
+      }
+    })
+
+    return [...connectedIntegrations, ...sharedAuthIntegrations]
+  })()
+
   const stats = {
-    connected: integrations.filter(i => i.status === 'connected').length,
+    connected: integrationsWithSharedAuth.length,
     available: availableApps.length,
   }
 
@@ -543,8 +595,11 @@ export function AppsContent() {
 
       {/* Workspace Grouped View - Always On */}
       <AppsWorkspaceGroupView
-        integrations={integrations.filter(i => i.status === 'connected')}
+        integrations={integrationsWithSharedAuth}
         renderAppCard={(integration) => {
+            // Check if this is a shared auth integration
+            const isSharedAuth = (integration as any)._isSharedAuth
+            const sharedWith = (integration as any)._sharedWith
             const provider = providers.find(p => p.id === integration.provider)
             if (!provider) return null
 
@@ -571,8 +626,27 @@ export function AppsContent() {
                         <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
                       </div>
                       <div className="flex items-center gap-1 flex-wrap">
+                        {/* Shared Auth Badge */}
+                        {isSharedAuth && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs px-1.5 py-0.5 flex items-center gap-0.5 bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300"
+                                >
+                                  <CheckCircle2 className="w-3 h-3" />
+                                  <span className="hidden sm:inline">via {providers.find(p => p.id === sharedWith)?.name || sharedWith}</span>
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Connected via {providers.find(p => p.id === sharedWith)?.name || sharedWith} - shares the same authentication</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
                         {/* Permission Badge */}
-                        {integration?.user_permission && (
+                        {integration?.user_permission && !isSharedAuth && (
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -611,7 +685,8 @@ export function AppsContent() {
                       </div>
                     </div>
 
-                    {/* Actions Dropdown */}
+                    {/* Actions Dropdown - Only show for non-shared auth integrations */}
+                    {!isSharedAuth && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
@@ -641,11 +716,15 @@ export function AppsContent() {
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
+                    )}
                   </div>
 
                   {/* Connection Details */}
                   {integration && (
                     <div className="text-xs text-muted-foreground space-y-1">
+                      {isSharedAuth && (
+                        <p className="text-blue-600 dark:text-blue-400">Shares connection with {providers.find(p => p.id === sharedWith)?.name || sharedWith}</p>
+                      )}
                       {integration.account_name && <p className="truncate">Account: {integration.account_name}</p>}
                       {integration.email && <p className="truncate">{integration.email}</p>}
                       <p>Connected {new Date(integration.created_at).toLocaleDateString()}</p>

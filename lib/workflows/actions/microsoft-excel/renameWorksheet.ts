@@ -36,18 +36,18 @@ export async function renameMicrosoftExcelWorksheet(
 
   logger.debug('[Microsoft Excel] Renaming worksheet:', { workbookId, worksheetName, newWorksheetName })
 
-  // Get OneDrive integration
+  // Get Microsoft Excel integration
   const supabase = createAdminClient()
   const { data: integration, error } = await supabase
     .from('integrations')
     .select('*')
     .eq('user_id', userId)
-    .eq('provider', 'onedrive')
+    .eq('provider', 'microsoft-excel')
     .eq('status', 'connected')
     .single()
 
   if (error || !integration) {
-    throw new Error('OneDrive integration not found or not connected')
+    throw new Error('Microsoft Excel integration not found or not connected')
   }
 
   // Decrypt access token
