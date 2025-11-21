@@ -7,18 +7,28 @@ import {
   Download,
   List,
   Search,
-  Trash2
+  Trash2,
+  Link,
+  Image,
+  Book,
+  BookOpen,
+  FolderOpen,
+  Zap
 } from "lucide-react"
+import { newNoteTriggerSchema } from "./triggers/newNote.schema"
 
-// Microsoft OneNote Triggers - REMOVED
-// Microsoft Graph doesn't support webhook subscriptions for OneNote resources
+// Microsoft OneNote Triggers
+// Note: Microsoft Graph doesn't support webhook subscriptions for OneNote resources
 // OneNote Webhooks API was deprecated in May 2023
 // See: https://devblogs.microsoft.com/microsoft365dev/onenote-webhooks-api-deprecation/
 //
-// Possible future implementation: Polling-based triggers that check for new/modified notes periodically
-//
-// const onenoteTriggerNewNote: NodeComponent = { ... }
-// const onenoteTriggerNoteModified: NodeComponent = { ... }
+// Implementation: Using polling-based triggers that check for new/modified notes periodically
+
+// Resolve the trigger icon
+const onenoteTriggerNewNote: NodeComponent = {
+  ...newNoteTriggerSchema,
+  icon: FileText
+}
 
 // Microsoft OneNote Actions
 const onenoteActionCreatePage: NodeComponent = {
@@ -31,9 +41,9 @@ const onenoteActionCreatePage: NodeComponent = {
   category: "Productivity",
   isTrigger: false,
   configSchema: [
-    { 
-      name: "notebookId", 
-      label: "Notebook", 
+    {
+      name: "notebookId",
+      label: "Notebook",
       type: "select",
       dynamic: "onenote_notebooks",
       required: true,
@@ -41,44 +51,65 @@ const onenoteActionCreatePage: NodeComponent = {
       loadOnMount: true,
       description: "The notebook where the page will be created"
     },
-    { 
-      name: "sectionId", 
-      label: "Section", 
+    {
+      name: "sectionId",
+      label: "Section",
       type: "select",
       dynamic: "onenote_sections",
-      required: false,
+      required: true,
       placeholder: "Select a section",
       dependsOn: "notebookId",
-      description: "The section where the page will be created (uses default section if not specified)"
+      description: "The section where the page will be created",
+      hidden: {
+        $deps: ["notebookId"],
+        $condition: { notebookId: { $exists: false } }
+      }
     },
-    { 
-      name: "title", 
-      label: "Page Title", 
-      type: "text", 
-      required: true, 
+    {
+      name: "title",
+      label: "Page Title",
+      type: "text",
+      required: true,
       placeholder: "Enter page title",
-      description: "The title of the new page"
-    },
-    { 
-      name: "content", 
-      label: "HTML Content", 
-      type: "textarea", 
-      required: false, 
-      placeholder: "Enter page content (HTML supported)",
-      description: "The HTML content of the page. Supports limited HTML/XHTML tags"
+      description: "The title of the new page",
+      dependsOn: "sectionId",
+      hidden: {
+        $deps: ["sectionId"],
+        $condition: { sectionId: { $exists: false } }
+      }
     },
     {
       name: "contentType",
       label: "Content Type",
       type: "select",
       required: false,
-      defaultValue: "text/html",
+      defaultValue: "text/plain",
       options: [
+        { value: "text/plain", label: "Plain Text" },
         { value: "text/html", label: "HTML" },
-        { value: "application/xhtml+xml", label: "XHTML" },
-        { value: "text/plain", label: "Plain Text" }
+        { value: "application/xhtml+xml", label: "XHTML" }
       ],
-      description: "The format of the content being sent"
+      description: "The format of the content being sent",
+      dependsOn: "sectionId",
+      hidden: {
+        $deps: ["sectionId"],
+        $condition: { sectionId: { $exists: false } }
+      }
+    },
+    {
+      name: "content",
+      label: "Content",
+      type: "textarea",
+      required: false,
+      placeholder: "Enter page content",
+      description: "The content of the page. Supports plain text or HTML depending on Content Type",
+      hasVariablePicker: true,
+      hasConnectButton: true,
+      dependsOn: "sectionId",
+      hidden: {
+        $deps: ["sectionId"],
+        $condition: { sectionId: { $exists: false } }
+      }
     }
   ],
   outputSchema: [
@@ -155,9 +186,9 @@ const onenoteActionCreateSection: NodeComponent = {
   category: "Productivity",
   isTrigger: false,
   configSchema: [
-    { 
-      name: "notebookId", 
-      label: "Notebook", 
+    {
+      name: "notebookId",
+      label: "Notebook",
       type: "select",
       dynamic: "onenote_notebooks",
       required: true,
@@ -165,13 +196,18 @@ const onenoteActionCreateSection: NodeComponent = {
       loadOnMount: true,
       description: "The notebook where the section will be created"
     },
-    { 
-      name: "displayName", 
-      label: "Section Name", 
-      type: "text", 
-      required: true, 
+    {
+      name: "displayName",
+      label: "Section Name",
+      type: "text",
+      required: true,
       placeholder: "Enter section name",
-      description: "The name of the new section"
+      description: "The name of the new section",
+      dependsOn: "notebookId",
+      hidden: {
+        $deps: ["notebookId"],
+        $condition: { notebookId: { $exists: false } }
+      }
     }
   ],
   outputSchema: [
@@ -204,25 +240,33 @@ const onenoteActionUpdatePage: NodeComponent = {
       loadOnMount: true,
       description: "The notebook containing the page"
     },
-    { 
-      name: "sectionId", 
-      label: "Section", 
+    {
+      name: "sectionId",
+      label: "Section",
       type: "select",
       dynamic: "onenote_sections",
       required: true,
       placeholder: "Select a section",
       dependsOn: "notebookId",
-      description: "The section containing the page"
+      description: "The section containing the page",
+      hidden: {
+        $deps: ["notebookId"],
+        $condition: { notebookId: { $exists: false } }
+      }
     },
-    { 
-      name: "pageId", 
-      label: "Page", 
+    {
+      name: "pageId",
+      label: "Page",
       type: "select",
       dynamic: "onenote_pages",
       required: true,
       placeholder: "Select a page to update",
       dependsOn: "sectionId",
-      description: "The page to update"
+      description: "The page to update",
+      hidden: {
+        $deps: ["sectionId"],
+        $condition: { sectionId: { $exists: false } }
+      }
     },
     {
       name: "updateMode",
@@ -236,15 +280,27 @@ const onenoteActionUpdatePage: NodeComponent = {
         { value: "replace", label: "Replace Content" },
         { value: "insert", label: "Insert at Position" }
       ],
-      description: "How to update the page content"
+      description: "How to update the page content",
+      dependsOn: "pageId",
+      hidden: {
+        $deps: ["pageId"],
+        $condition: { pageId: { $exists: false } }
+      }
     },
-    { 
-      name: "content", 
-      label: "New Content", 
-      type: "textarea", 
-      required: true, 
+    {
+      name: "content",
+      label: "New Content",
+      type: "textarea",
+      required: true,
       placeholder: "Enter content to add (HTML supported)",
-      description: "The HTML content to add to the page"
+      description: "The HTML content to add to the page",
+      hasVariablePicker: true,
+      hasConnectButton: true,
+      dependsOn: "pageId",
+      hidden: {
+        $deps: ["pageId"],
+        $condition: { pageId: { $exists: false } }
+      }
     },
     {
       name: "target",
@@ -606,9 +662,9 @@ const onenoteActionDeletePage: NodeComponent = {
   category: "Productivity",
   isTrigger: false,
   configSchema: [
-    { 
-      name: "notebookId", 
-      label: "Notebook", 
+    {
+      name: "notebookId",
+      label: "Notebook",
       type: "select",
       dynamic: "onenote_notebooks",
       required: true,
@@ -616,9 +672,9 @@ const onenoteActionDeletePage: NodeComponent = {
       loadOnMount: true,
       description: "The notebook containing the page"
     },
-    { 
-      name: "sectionId", 
-      label: "Section", 
+    {
+      name: "sectionId",
+      label: "Section",
       type: "select",
       dynamic: "onenote_sections",
       required: true,
@@ -626,9 +682,9 @@ const onenoteActionDeletePage: NodeComponent = {
       dependsOn: "notebookId",
       description: "The section containing the page"
     },
-    { 
-      name: "pageId", 
-      label: "Page", 
+    {
+      name: "pageId",
+      label: "Page",
       type: "select",
       dynamic: "onenote_pages",
       required: true,
@@ -652,20 +708,496 @@ const onenoteActionDeletePage: NodeComponent = {
   ]
 }
 
+const onenoteActionCreateNoteFromUrl: NodeComponent = {
+  type: "microsoft-onenote_action_create_note_from_url",
+  title: "Create Note from URL",
+  description: "Download content from a URL and create a OneNote page",
+  icon: Link,
+  providerId: "microsoft-onenote",
+  requiredScopes: ["Notes.ReadWrite.All"],
+  category: "Productivity",
+  isTrigger: false,
+  configSchema: [
+    {
+      name: "notebookId",
+      label: "Notebook",
+      type: "select",
+      dynamic: "onenote_notebooks",
+      required: true,
+      placeholder: "Select a notebook",
+      loadOnMount: true,
+      description: "The notebook where the page will be created"
+    },
+    {
+      name: "sectionId",
+      label: "Section",
+      type: "select",
+      dynamic: "onenote_sections",
+      required: false,
+      placeholder: "Select a section",
+      dependsOn: "notebookId",
+      description: "The section where the page will be created (uses default section if not specified)"
+    },
+    {
+      name: "sourceUrl",
+      label: "Source URL",
+      type: "text",
+      required: true,
+      placeholder: "https://example.com/page",
+      description: "The URL to download content from"
+    },
+    {
+      name: "title",
+      label: "Page Title",
+      type: "text",
+      required: false,
+      placeholder: "Auto-detect from page (optional)",
+      description: "The title for the new page. If not provided, will use the page title from the URL."
+    }
+  ],
+  outputSchema: [
+    { name: "id", label: "Page ID", type: "string", description: "The unique ID of the created page" },
+    { name: "title", label: "Page Title", type: "string", description: "The title of the page" },
+    { name: "sourceUrl", label: "Source URL", type: "string", description: "The original URL" },
+    { name: "contentUrl", label: "Content URL", type: "string", description: "URL to access the page content" },
+    { name: "webUrl", label: "Web URL", type: "string", description: "URL to view the page in OneNote web app" },
+    { name: "createdDateTime", label: "Created Date", type: "string", description: "When the page was created" }
+  ]
+}
+
+const onenoteActionDeleteSection: NodeComponent = {
+  type: "microsoft-onenote_action_delete_section",
+  title: "Delete Section",
+  description: "Delete a OneNote section and all its pages",
+  icon: Trash2,
+  providerId: "microsoft-onenote",
+  requiredScopes: ["Notes.ReadWrite.All"],
+  category: "Productivity",
+  isTrigger: false,
+  configSchema: [
+    {
+      name: "notebookId",
+      label: "Notebook",
+      type: "select",
+      dynamic: "onenote_notebooks",
+      required: true,
+      placeholder: "Select a notebook",
+      loadOnMount: true,
+      description: "The notebook containing the section"
+    },
+    {
+      name: "sectionId",
+      label: "Section",
+      type: "select",
+      dynamic: "onenote_sections",
+      required: true,
+      placeholder: "Select section to delete",
+      dependsOn: "notebookId",
+      description: "The section to delete"
+    },
+    {
+      name: "confirmDelete",
+      label: "Confirm Deletion",
+      type: "boolean",
+      required: true,
+      defaultValue: false,
+      description: "Confirm that you want to permanently delete this section and all its pages"
+    }
+  ],
+  outputSchema: [
+    { name: "success", label: "Success", type: "boolean", description: "Whether the section was successfully deleted" },
+    { name: "deletedSectionId", label: "Deleted Section ID", type: "string", description: "The ID of the deleted section" },
+    { name: "deletedAt", label: "Deleted At", type: "string", description: "Timestamp when the section was deleted" }
+  ]
+}
+
+const onenoteActionDeleteNotebook: NodeComponent = {
+  type: "microsoft-onenote_action_delete_notebook",
+  title: "Delete Notebook",
+  description: "Delete a OneNote notebook and all its contents",
+  icon: Trash2,
+  providerId: "microsoft-onenote",
+  requiredScopes: ["Notes.ReadWrite.All"],
+  category: "Productivity",
+  isTrigger: false,
+  configSchema: [
+    {
+      name: "notebookId",
+      label: "Notebook",
+      type: "select",
+      dynamic: "onenote_notebooks",
+      required: true,
+      placeholder: "Select notebook to delete",
+      loadOnMount: true,
+      description: "The notebook to delete"
+    },
+    {
+      name: "confirmDelete",
+      label: "Confirm Deletion",
+      type: "boolean",
+      required: true,
+      defaultValue: false,
+      description: "Confirm that you want to permanently delete this notebook and all its contents"
+    }
+  ],
+  outputSchema: [
+    { name: "success", label: "Success", type: "boolean", description: "Whether the notebook was successfully deleted" },
+    { name: "deletedNotebookId", label: "Deleted Notebook ID", type: "string", description: "The ID of the deleted notebook" },
+    { name: "deletedAt", label: "Deleted At", type: "string", description: "Timestamp when the notebook was deleted" }
+  ]
+}
+
+const onenoteActionCreateQuickNote: NodeComponent = {
+  type: "microsoft-onenote_action_create_quick_note",
+  title: "Create Quick Note",
+  description: "Create a new note in the Quick Notes section of your default notebook",
+  icon: Zap,
+  providerId: "microsoft-onenote",
+  requiredScopes: ["Notes.ReadWrite.All"],
+  category: "Productivity",
+  isTrigger: false,
+  configSchema: [
+    {
+      name: "title",
+      label: "Note Title",
+      type: "text",
+      required: true,
+      placeholder: "Enter note title",
+      description: "The title of the quick note"
+    },
+    {
+      name: "content",
+      label: "Content",
+      type: "textarea",
+      required: false,
+      placeholder: "Enter note content",
+      description: "The content of the quick note",
+      hasVariablePicker: true,
+      hasConnectButton: true
+    }
+  ],
+  outputSchema: [
+    { name: "id", label: "Page ID", type: "string", description: "The unique ID of the created page" },
+    { name: "title", label: "Page Title", type: "string", description: "The title of the page" },
+    { name: "contentUrl", label: "Content URL", type: "string", description: "URL to access the page content" },
+    { name: "webUrl", label: "Web URL", type: "string", description: "URL to view the page in OneNote web app" },
+    { name: "createdDateTime", label: "Created Date", type: "string", description: "When the page was created" }
+  ]
+}
+
+const onenoteActionCreateImageNote: NodeComponent = {
+  type: "microsoft-onenote_action_create_image_note",
+  title: "Create Note with Image",
+  description: "Create a OneNote page with an embedded image from a URL",
+  icon: Image,
+  providerId: "microsoft-onenote",
+  requiredScopes: ["Notes.ReadWrite.All"],
+  category: "Productivity",
+  isTrigger: false,
+  configSchema: [
+    {
+      name: "notebookId",
+      label: "Notebook",
+      type: "select",
+      dynamic: "onenote_notebooks",
+      required: true,
+      placeholder: "Select a notebook",
+      loadOnMount: true,
+      description: "The notebook where the page will be created"
+    },
+    {
+      name: "sectionId",
+      label: "Section",
+      type: "select",
+      dynamic: "onenote_sections",
+      required: false,
+      placeholder: "Select a section",
+      dependsOn: "notebookId",
+      description: "The section where the page will be created (uses default section if not specified)",
+      hidden: {
+        $deps: ["notebookId"],
+        $condition: { notebookId: { $exists: false } }
+      }
+    },
+    {
+      name: "title",
+      label: "Page Title",
+      type: "text",
+      required: true,
+      placeholder: "Enter page title",
+      description: "The title of the new page",
+      dependsOn: "notebookId",
+      hidden: {
+        $deps: ["notebookId"],
+        $condition: { notebookId: { $exists: false } }
+      }
+    },
+    {
+      name: "imageUrl",
+      label: "Image URL",
+      type: "text",
+      required: true,
+      placeholder: "https://example.com/image.jpg",
+      description: "The public URL of the image to embed (must be publicly accessible)",
+      dependsOn: "notebookId",
+      hidden: {
+        $deps: ["notebookId"],
+        $condition: { notebookId: { $exists: false } }
+      }
+    },
+    {
+      name: "caption",
+      label: "Image Caption",
+      type: "text",
+      required: false,
+      placeholder: "Optional caption",
+      description: "Optional caption text to display below the image",
+      dependsOn: "notebookId",
+      hidden: {
+        $deps: ["notebookId"],
+        $condition: { notebookId: { $exists: false } }
+      }
+    },
+    {
+      name: "additionalContent",
+      label: "Additional Content",
+      type: "textarea",
+      required: false,
+      placeholder: "Additional text or HTML content",
+      description: "Optional additional content to include on the page",
+      hasVariablePicker: true,
+      hasConnectButton: true,
+      dependsOn: "notebookId",
+      hidden: {
+        $deps: ["notebookId"],
+        $condition: { notebookId: { $exists: false } }
+      }
+    }
+  ],
+  outputSchema: [
+    { name: "id", label: "Page ID", type: "string", description: "The unique ID of the created page" },
+    { name: "title", label: "Page Title", type: "string", description: "The title of the page" },
+    { name: "imageUrl", label: "Image URL", type: "string", description: "The URL of the embedded image" },
+    { name: "contentUrl", label: "Content URL", type: "string", description: "URL to access the page content" },
+    { name: "webUrl", label: "Web URL", type: "string", description: "URL to view the page in OneNote web app" },
+    { name: "createdDateTime", label: "Created Date", type: "string", description: "When the page was created" }
+  ]
+}
+
+const onenoteActionListNotebooks: NodeComponent = {
+  type: "microsoft-onenote_action_list_notebooks",
+  title: "List Notebooks",
+  description: "Get a list of all OneNote notebooks",
+  icon: Book,
+  providerId: "microsoft-onenote",
+  requiredScopes: ["Notes.Read", "Notes.ReadWrite.All"],
+  category: "Productivity",
+  isTrigger: false,
+  configSchema: [
+    {
+      name: "orderBy",
+      label: "Order By",
+      type: "select",
+      required: false,
+      defaultValue: "displayName asc",
+      options: [
+        { value: "displayName asc", label: "Name (A-Z)" },
+        { value: "displayName desc", label: "Name (Z-A)" },
+        { value: "lastModifiedDateTime desc", label: "Last Modified (Newest First)" },
+        { value: "lastModifiedDateTime asc", label: "Last Modified (Oldest First)" },
+        { value: "createdDateTime desc", label: "Created Date (Newest First)" },
+        { value: "createdDateTime asc", label: "Created Date (Oldest First)" }
+      ],
+      description: "How to sort the results"
+    }
+  ],
+  outputSchema: [
+    {
+      name: "notebooks",
+      label: "Notebooks",
+      type: "array",
+      description: "Array of notebooks",
+      items: {
+        type: "object",
+        properties: [
+          { name: "id", label: "Notebook ID", type: "string", description: "The unique ID of the notebook" },
+          { name: "displayName", label: "Notebook Name", type: "string", description: "The name of the notebook" },
+          { name: "createdDateTime", label: "Created Date", type: "string", description: "When the notebook was created" },
+          { name: "lastModifiedDateTime", label: "Last Modified Date", type: "string", description: "When the notebook was last modified" },
+          { name: "isDefault", label: "Is Default", type: "boolean", description: "Whether this is the default notebook" },
+          { name: "isShared", label: "Is Shared", type: "boolean", description: "Whether the notebook is shared" }
+        ]
+      }
+    },
+    { name: "count", label: "Total Count", type: "number", description: "Total number of notebooks" }
+  ]
+}
+
+const onenoteActionListSections: NodeComponent = {
+  type: "microsoft-onenote_action_list_sections",
+  title: "List Sections",
+  description: "Get a list of sections in a OneNote notebook",
+  icon: FolderOpen,
+  providerId: "microsoft-onenote",
+  requiredScopes: ["Notes.Read", "Notes.ReadWrite.All"],
+  category: "Productivity",
+  isTrigger: false,
+  configSchema: [
+    {
+      name: "notebookId",
+      label: "Notebook",
+      type: "select",
+      dynamic: "onenote_notebooks",
+      required: true,
+      placeholder: "Select a notebook",
+      loadOnMount: true,
+      description: "The notebook to list sections from"
+    },
+    {
+      name: "orderBy",
+      label: "Order By",
+      type: "select",
+      required: false,
+      defaultValue: "displayName asc",
+      options: [
+        { value: "displayName asc", label: "Name (A-Z)" },
+        { value: "displayName desc", label: "Name (Z-A)" },
+        { value: "lastModifiedDateTime desc", label: "Last Modified (Newest First)" },
+        { value: "lastModifiedDateTime asc", label: "Last Modified (Oldest First)" },
+        { value: "createdDateTime desc", label: "Created Date (Newest First)" },
+        { value: "createdDateTime asc", label: "Created Date (Oldest First)" }
+      ],
+      description: "How to sort the results"
+    }
+  ],
+  outputSchema: [
+    {
+      name: "sections",
+      label: "Sections",
+      type: "array",
+      description: "Array of sections",
+      items: {
+        type: "object",
+        properties: [
+          { name: "id", label: "Section ID", type: "string", description: "The unique ID of the section" },
+          { name: "displayName", label: "Section Name", type: "string", description: "The name of the section" },
+          { name: "createdDateTime", label: "Created Date", type: "string", description: "When the section was created" },
+          { name: "lastModifiedDateTime", label: "Last Modified Date", type: "string", description: "When the section was last modified" },
+          { name: "isDefault", label: "Is Default", type: "boolean", description: "Whether this is the default section" }
+        ]
+      }
+    },
+    { name: "count", label: "Total Count", type: "number", description: "Total number of sections" }
+  ]
+}
+
+const onenoteActionGetNotebookDetails: NodeComponent = {
+  type: "microsoft-onenote_action_get_notebook_details",
+  title: "Get Notebook Details",
+  description: "Get detailed information about a specific OneNote notebook",
+  icon: BookOpen,
+  providerId: "microsoft-onenote",
+  requiredScopes: ["Notes.Read", "Notes.ReadWrite.All"],
+  category: "Productivity",
+  isTrigger: false,
+  configSchema: [
+    {
+      name: "notebookId",
+      label: "Notebook",
+      type: "select",
+      dynamic: "onenote_notebooks",
+      required: true,
+      placeholder: "Select a notebook",
+      loadOnMount: true,
+      description: "The notebook to get details for"
+    }
+  ],
+  outputSchema: [
+    { name: "id", label: "Notebook ID", type: "string", description: "The unique ID of the notebook" },
+    { name: "displayName", label: "Notebook Name", type: "string", description: "The name of the notebook" },
+    { name: "createdDateTime", label: "Created Date", type: "string", description: "When the notebook was created" },
+    { name: "lastModifiedDateTime", label: "Last Modified Date", type: "string", description: "When the notebook was last modified" },
+    { name: "isDefault", label: "Is Default", type: "boolean", description: "Whether this is the default notebook" },
+    { name: "isShared", label: "Is Shared", type: "boolean", description: "Whether the notebook is shared" },
+    { name: "sectionsUrl", label: "Sections URL", type: "string", description: "URL to access the notebook's sections" },
+    { name: "sectionGroupsUrl", label: "Section Groups URL", type: "string", description: "URL to access the notebook's section groups" },
+    { name: "links", label: "Links", type: "object", description: "Links to access the notebook in various forms" }
+  ]
+}
+
+const onenoteActionGetSectionDetails: NodeComponent = {
+  type: "microsoft-onenote_action_get_section_details",
+  title: "Get Section Details",
+  description: "Get detailed information about a specific OneNote section",
+  icon: FolderOpen,
+  providerId: "microsoft-onenote",
+  requiredScopes: ["Notes.Read", "Notes.ReadWrite.All"],
+  category: "Productivity",
+  isTrigger: false,
+  configSchema: [
+    {
+      name: "notebookId",
+      label: "Notebook",
+      type: "select",
+      dynamic: "onenote_notebooks",
+      required: true,
+      placeholder: "Select a notebook",
+      loadOnMount: true,
+      description: "The notebook containing the section"
+    },
+    {
+      name: "sectionId",
+      label: "Section",
+      type: "select",
+      dynamic: "onenote_sections",
+      required: true,
+      placeholder: "Select a section",
+      dependsOn: "notebookId",
+      description: "The section to get details for"
+    }
+  ],
+  outputSchema: [
+    { name: "id", label: "Section ID", type: "string", description: "The unique ID of the section" },
+    { name: "displayName", label: "Section Name", type: "string", description: "The name of the section" },
+    { name: "createdDateTime", label: "Created Date", type: "string", description: "When the section was created" },
+    { name: "lastModifiedDateTime", label: "Last Modified Date", type: "string", description: "When the section was last modified" },
+    { name: "isDefault", label: "Is Default", type: "boolean", description: "Whether this is the default section" },
+    { name: "pagesUrl", label: "Pages URL", type: "string", description: "URL to access the section's pages" },
+    { name: "links", label: "Links", type: "object", description: "Links to access the section in various forms" }
+  ]
+}
+
 // Export all OneNote nodes
 export const onenoteNodes: NodeComponent[] = [
-  // Note: OneNote triggers removed - Microsoft Graph doesn't support webhook subscriptions for OneNote
-  // OneNote Webhooks API was deprecated in May 2023
-  // Future: Could implement polling-based triggers instead
+  // Triggers (1) - Polling-based
+  onenoteTriggerNewNote,
 
-  // Actions (10)
+  // Actions (19)
+  // Create actions
   onenoteActionCreatePage,
   onenoteActionCreateNotebook,
   onenoteActionCreateSection,
-  onenoteActionUpdatePage,
+  onenoteActionCreateQuickNote,
+  onenoteActionCreateImageNote,
+  onenoteActionCreateNoteFromUrl,
+
+  // Read actions
   onenoteActionGetPageContent,
   onenoteActionGetPages,
+  onenoteActionListNotebooks,
+  onenoteActionListSections,
+  onenoteActionGetNotebookDetails,
+  onenoteActionGetSectionDetails,
+
+  // Update actions
+  onenoteActionUpdatePage,
+
+  // Copy/Search actions
   onenoteActionCopyPage,
   onenoteActionSearch,
+
+  // Delete actions
   onenoteActionDeletePage,
+  onenoteActionDeleteSection,
+  onenoteActionDeleteNotebook,
 ]

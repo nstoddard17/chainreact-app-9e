@@ -308,8 +308,13 @@ const shouldUseConnectMode = (field: ConfigField | NodeField) => {
   }
 
   // Rich text fields - keep variable picker (allow multiple variables + text)
+  // UNLESS explicitly enabled with hasConnectButton
   const richTextFields = ['message', 'body', 'content', 'description', 'text', 'notes']
   if (richTextFields.some(rt => fieldName.includes(rt) || fieldLabel.includes(rt))) {
+    // Allow override with explicit hasConnectButton flag
+    if ((field as any).hasConnectButton === true) {
+      return true
+    }
     return false
   }
 

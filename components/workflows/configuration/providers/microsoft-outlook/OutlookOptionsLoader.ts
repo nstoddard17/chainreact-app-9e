@@ -10,8 +10,13 @@ const fieldToTypeMap: Record<string, string> = {
   attendees: 'outlook-enhanced-recipients',
   folderId: 'outlook_folders',
   folder: 'outlook_folders',
+  destinationFolderId: 'outlook_folders',
   messageId: 'outlook_messages',
-  calendarId: 'outlook_calendars'
+  emailId: 'outlook_messages',
+  calendarId: 'outlook_calendars',
+  eventId: 'outlook_calendar_events',
+  contactId: 'outlook_contacts',
+  attachmentId: 'outlook_attachments'
 }
 
 const supportedFields = new Set(Object.keys(fieldToTypeMap))

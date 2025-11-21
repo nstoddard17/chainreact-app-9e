@@ -38,7 +38,13 @@ import { readGoogleSheetsData, exportGoogleSheetsData, createGoogleSheetsRow, up
 import {
   executeMicrosoftExcelUnifiedAction,
   exportMicrosoftExcelSheet,
-  createMicrosoftExcelWorkbook
+  createMicrosoftExcelWorkbook,
+  addMicrosoftExcelTableRow,
+  findOrCreateMicrosoftExcelRow,
+  createMicrosoftExcelWorksheet,
+  renameMicrosoftExcelWorksheet,
+  deleteMicrosoftExcelWorksheet,
+  addMicrosoftExcelMultipleRows
 } from './microsoft-excel'
 
 // Google Calendar actions
@@ -239,10 +245,44 @@ import {
   onenoteCopyPage,
   onenoteSearch,
   onenoteDeletePage,
+  onenoteDeleteSection,
+  onenoteDeleteNotebook,
+  onenoteCreateNoteFromUrl,
+  onenoteCreateQuickNote,
+  onenoteCreateImageNote,
+  onenoteListNotebooks,
+  onenoteListSections,
+  onenoteGetNotebookDetails,
+  onenoteGetSectionDetails,
 } from './microsoft-onenote'
 
 // OneDrive actions
 import { uploadFileToOneDrive } from './onedrive'
+import { createOnedriveFolder } from './onedrive/createFolder'
+import { deleteOnedriveItem } from './onedrive/deleteItem'
+import { copyOnedriveItem } from './onedrive/copyItem'
+import { moveOnedriveItem } from './onedrive/moveItem'
+import { renameOnedriveItem } from './onedrive/renameItem'
+import { createOnedriveSharingLink } from './onedrive/createSharingLink'
+import { sendOnedriveSharingInvitation } from './onedrive/sendSharingInvitation'
+import { searchOnedriveFiles } from './onedrive/searchFiles'
+import { findOnedriveItemById } from './onedrive/findItemById'
+import { listOnedriveDrives } from './onedrive/listDrives'
+
+// Microsoft Teams actions
+import {
+  replyToTeamsMessage,
+  editTeamsMessage,
+  findTeamsMessage,
+  deleteTeamsMessage,
+  createTeamsGroupChat,
+  getTeamsChannelDetails,
+  addTeamsReaction,
+  removeTeamsReaction,
+  startTeamsMeeting,
+  endTeamsMeeting,
+  updateTeamsMeeting
+} from './teams'
 
 // Facebook actions
 import {
@@ -542,6 +582,18 @@ export const actionHandlerRegistry: Record<string, Function> = {
     exportMicrosoftExcelSheet(params.config, params.userId, params.input),
   "microsoft_excel_action_create_workbook": (params: { config: any; userId: string; input: Record<string, any> }) =>
     createMicrosoftExcelWorkbook(params.config, params.userId, params.input),
+  "microsoft_excel_action_add_table_row": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    addMicrosoftExcelTableRow(params.config, { userId: params.userId }),
+  "microsoft_excel_action_find_or_create_row": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    findOrCreateMicrosoftExcelRow(params.config, params.userId, params.input),
+  "microsoft_excel_action_create_worksheet": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createMicrosoftExcelWorksheet(params.config, { userId: params.userId }),
+  "microsoft_excel_action_rename_worksheet": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    renameMicrosoftExcelWorksheet(params.config, { userId: params.userId }),
+  "microsoft_excel_action_delete_worksheet": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    deleteMicrosoftExcelWorksheet(params.config, { userId: params.userId }),
+  "microsoft_excel_action_add_multiple_rows": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    addMicrosoftExcelMultipleRows(params.config, params.userId, params.input),
 
   // Google Calendar actions - wrapped to handle new calling convention
   "google_calendar_action_create_event": (params: { config: any; userId: string; input: Record<string, any> }) =>
@@ -752,6 +804,30 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "microsoft-outlook_action_send_email": (params: { config: any; userId: string; input: Record<string, any> }) =>
     sendOutlookEmail(params.config, params.userId, params.input),
 
+  // Microsoft Teams actions - wrapped to handle new calling convention
+  "teams_action_reply_to_message": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    replyToTeamsMessage(params.config, params.userId, params.input),
+  "teams_action_edit_message": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    editTeamsMessage(params.config, params.userId, params.input),
+  "teams_action_find_message": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    findTeamsMessage(params.config, params.userId, params.input),
+  "teams_action_delete_message": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    deleteTeamsMessage(params.config, params.userId, params.input),
+  "teams_action_create_group_chat": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createTeamsGroupChat(params.config, params.userId, params.input),
+  "teams_action_get_channel_details": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    getTeamsChannelDetails(params.config, params.userId, params.input),
+  "teams_action_add_reaction": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    addTeamsReaction(params.config, params.userId, params.input),
+  "teams_action_remove_reaction": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    removeTeamsReaction(params.config, params.userId, params.input),
+  "teams_action_start_meeting": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    startTeamsMeeting(params.config, params.userId, params.input),
+  "teams_action_end_meeting": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    endTeamsMeeting(params.config, params.userId, params.input),
+  "teams_action_update_meeting": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    updateTeamsMeeting(params.config, params.userId, params.input),
+
   // HubSpot actions - wrapped to handle new calling convention
   "hubspot_action_create_contact": (params: { config: any; userId: string; input: Record<string, any> }) =>
     createHubSpotContact(params.config, params.userId, params.input),
@@ -839,10 +915,40 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "microsoft-onenote_action_delete_page": (params: { config: any; userId: string; input: Record<string, any> }) =>
     onenoteDeletePage(params.config, params.userId, params.input),
 
+  // New OneNote actions
+  "microsoft-onenote_action_delete_section": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    onenoteDeleteSection(params.config, params.userId, params.input),
+  "microsoft-onenote_action_delete_notebook": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    onenoteDeleteNotebook(params.config, params.userId, params.input),
+  "microsoft-onenote_action_create_note_from_url": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    onenoteCreateNoteFromUrl(params.config, params.userId, params.input),
+  "microsoft-onenote_action_create_quick_note": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    onenoteCreateQuickNote(params.config, params.userId, params.input),
+  "microsoft-onenote_action_create_image_note": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    onenoteCreateImageNote(params.config, params.userId, params.input),
+  "microsoft-onenote_action_list_notebooks": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    onenoteListNotebooks(params.config, params.userId, params.input),
+  "microsoft-onenote_action_list_sections": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    onenoteListSections(params.config, params.userId, params.input),
+  "microsoft-onenote_action_get_notebook_details": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    onenoteGetNotebookDetails(params.config, params.userId, params.input),
+  "microsoft-onenote_action_get_section_details": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    onenoteGetSectionDetails(params.config, params.userId, params.input),
+
   // OneDrive actions - wrapped to handle new calling convention
   "onedrive_action_upload_file": (params: { config: any; userId: string; input: Record<string, any> }) =>
     uploadFileToOneDrive(params.config, params.userId, params.input),
   "onedrive_action_get_file": createExecutionContextWrapper(getOnedriveFile),
+  "onedrive_action_create_folder": createExecutionContextWrapper(createOnedriveFolder),
+  "onedrive_action_delete_item": createExecutionContextWrapper(deleteOnedriveItem),
+  "onedrive_action_copy_item": createExecutionContextWrapper(copyOnedriveItem),
+  "onedrive_action_move_item": createExecutionContextWrapper(moveOnedriveItem),
+  "onedrive_action_rename_item": createExecutionContextWrapper(renameOnedriveItem),
+  "onedrive_action_create_sharing_link": createExecutionContextWrapper(createOnedriveSharingLink),
+  "onedrive_action_send_sharing_invitation": createExecutionContextWrapper(sendOnedriveSharingInvitation),
+  "onedrive_action_search_files": createExecutionContextWrapper(searchOnedriveFiles),
+  "onedrive_action_find_item_by_id": createExecutionContextWrapper(findOnedriveItemById),
+  "onedrive_action_list_drives": createExecutionContextWrapper(listOnedriveDrives),
 
   // Facebook actions - wrapped to handle new calling convention
   "facebook_action_create_post": (params: { config: any; userId: string; input: Record<string, any> }) =>
