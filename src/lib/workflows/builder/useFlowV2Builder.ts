@@ -514,6 +514,26 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
   const isMountedRef = useRef<boolean>(false)
   const deleteNodeRef = useRef<((nodeId: string) => Promise<void>) | null>(null)
 
+  // Track if the workflow has ever had a non-placeholder action node
+  // Once true, the action placeholder should never reappear (persisted in localStorage)
+  const getInitialHasHadAction = () => {
+    if (typeof window !== 'undefined' && flowId) {
+      return localStorage.getItem(`workflow_${flowId}_hasHadAction`) === 'true'
+    }
+    return false
+  }
+  const hasHadActionNodeRef = useRef<boolean>(getInitialHasHadAction())
+
+  // Helper to mark that the workflow has had an action node
+  const markHasHadActionNode = useCallback(() => {
+    if (!hasHadActionNodeRef.current && flowId) {
+      hasHadActionNodeRef.current = true
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(`workflow_${flowId}_hasHadAction`, 'true')
+      }
+    }
+  }, [flowId])
+
   const syncLatestRunId = useCallback(async () => {
     if (!flowId) return
 
@@ -667,6 +687,12 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
         })
       }
 
+      // If workflow has 2+ nodes (trigger + at least one action), mark that it has had action nodes
+      // This prevents the action placeholder from reappearing if all action nodes are deleted
+      if (flow.nodes.length >= 2) {
+        markHasHadActionNode()
+      }
+
       if (flow.nodes.length === 0) {
         // Calculate center position based on viewport
         // Account for agent panel if it's open (default is open on first load)
@@ -717,8 +743,10 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
             },
           },
         ] as ReactFlowEdge[]
-      } else if (flow.nodes.length === 1 && flow.nodes[0].metadata?.isTrigger) {
-        // If we have only a trigger node, add an action placeholder after it
+      } else if (flow.nodes.length === 1 && flow.nodes[0].metadata?.isTrigger && !hasHadActionNodeRef.current) {
+        // If we have only a trigger node AND the workflow has never had an action node,
+        // add an action placeholder after it. Once a real action node has been added
+        // and then deleted, we don't show the placeholder again.
         const triggerNode = graphNodes[0]
         if (triggerNode) {
           const actionPlaceholder: ReactFlowNode = {
@@ -784,7 +812,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       setWorkflowName(flow.name ?? "Untitled Flow")
       setHasUnsavedChanges(false)
     },
-    [getNodes, setEdges, setNodes, setWorkflowName, setHasUnsavedChanges]
+    [getNodes, setEdges, setNodes, setWorkflowName, setHasUnsavedChanges, markHasHadActionNode]
   )
 
   const setLoading = useCallback((isLoading: boolean) => {

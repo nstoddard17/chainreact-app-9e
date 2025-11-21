@@ -3091,9 +3091,14 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   }, [reactFlowProps?.nodes, reactFlowProps?.edges, prefetchNodeConfig, openIntegrationsPanel, setSelectedNodeId])
 
   // Auto-open configuration modal whenever a non-placeholder node becomes selected
+  // BUT NOT when the integrations panel is open (user is adding a new node, not configuring existing)
   useEffect(() => {
     if (!selectedNodeId) return
     if (configuringNode?.id === selectedNodeId) return
+
+    // Don't auto-open config modal when integrations panel is open
+    // This happens when user clicks the plus button to add a new node
+    if (isIntegrationsPanelOpen) return
 
     const selectedNode = reactFlowProps?.nodes?.find((n: any) => n.id === selectedNodeId)
     if (!selectedNode) return
@@ -3113,7 +3118,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     setIsIntegrationsPanelOpen(false)
 
     handleNodeConfigure(selectedNodeId)
-  }, [selectedNodeId, configuringNode?.id, reactFlowProps?.nodes, handleNodeConfigure])
+  }, [selectedNodeId, configuringNode?.id, reactFlowProps?.nodes, handleNodeConfigure, isIntegrationsPanelOpen])
 
   // Handle saving node configuration
   const handleSaveNodeConfig = useCallback(async (nodeId: string, config: Record<string, any>) => {
