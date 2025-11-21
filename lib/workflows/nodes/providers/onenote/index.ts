@@ -240,25 +240,33 @@ const onenoteActionUpdatePage: NodeComponent = {
       loadOnMount: true,
       description: "The notebook containing the page"
     },
-    { 
-      name: "sectionId", 
-      label: "Section", 
+    {
+      name: "sectionId",
+      label: "Section",
       type: "select",
       dynamic: "onenote_sections",
       required: true,
       placeholder: "Select a section",
       dependsOn: "notebookId",
-      description: "The section containing the page"
+      description: "The section containing the page",
+      hidden: {
+        $deps: ["notebookId"],
+        $condition: { notebookId: { $exists: false } }
+      }
     },
-    { 
-      name: "pageId", 
-      label: "Page", 
+    {
+      name: "pageId",
+      label: "Page",
       type: "select",
       dynamic: "onenote_pages",
       required: true,
       placeholder: "Select a page to update",
       dependsOn: "sectionId",
-      description: "The page to update"
+      description: "The page to update",
+      hidden: {
+        $deps: ["sectionId"],
+        $condition: { sectionId: { $exists: false } }
+      }
     },
     {
       name: "updateMode",
@@ -272,15 +280,27 @@ const onenoteActionUpdatePage: NodeComponent = {
         { value: "replace", label: "Replace Content" },
         { value: "insert", label: "Insert at Position" }
       ],
-      description: "How to update the page content"
+      description: "How to update the page content",
+      dependsOn: "pageId",
+      hidden: {
+        $deps: ["pageId"],
+        $condition: { pageId: { $exists: false } }
+      }
     },
-    { 
-      name: "content", 
-      label: "New Content", 
-      type: "textarea", 
-      required: true, 
+    {
+      name: "content",
+      label: "New Content",
+      type: "textarea",
+      required: true,
       placeholder: "Enter content to add (HTML supported)",
-      description: "The HTML content to add to the page"
+      description: "The HTML content to add to the page",
+      hasVariablePicker: true,
+      hasConnectButton: true,
+      dependsOn: "pageId",
+      hidden: {
+        $deps: ["pageId"],
+        $condition: { pageId: { $exists: false } }
+      }
     },
     {
       name: "target",

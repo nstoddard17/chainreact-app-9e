@@ -59,8 +59,8 @@ export const teamsNodes: NodeComponent[] = [
     configSchema: [
       { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true },
       { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel", dependsOn: "teamId", visibilityCondition: { field: "teamId", operator: "isNotEmpty" } },
-      { name: "message", label: "Message", type: "textarea", required: true, placeholder: "Enter your message" },
-      { name: "attachments", label: "Attachments", type: "file", required: false, accept: ".pdf,.doc,.docx,.txt,.jpg,.png,.gif", multiple: true, placeholder: "Add file attachments (optional)" }
+      { name: "message", label: "Message", type: "email-rich-text", required: true, placeholder: "Enter your message", dependsOn: "channelId", visibilityCondition: { field: "channelId", operator: "isNotEmpty" }, showConnectButton: true },
+      { name: "attachments", label: "Attachments", type: "file", required: false, accept: ".pdf,.doc,.docx,.txt,.jpg,.png,.gif", multiple: true, placeholder: "Add file attachments (optional)", dependsOn: "message", visibilityCondition: { field: "message", operator: "isNotEmpty" } }
     ],
     outputSchema: [
       { name: "messageId", label: "Message ID", type: "string", description: "The ID of the sent message" },
