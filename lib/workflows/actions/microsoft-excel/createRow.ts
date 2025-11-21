@@ -15,10 +15,10 @@ export async function createMicrosoftExcelRow(
     const resolvedConfig = resolveValue(config, input)
     const { workbookId, worksheetName, insertPosition = 'append', specificRow, fieldMapping } = resolvedConfig
 
-    // Get access token for OneDrive (Microsoft Graph API)
-    const accessToken = await getDecryptedAccessToken(userId, 'onedrive')
+    // Get access token for Microsoft Excel (Microsoft Graph API)
+    const accessToken = await getDecryptedAccessToken(userId, 'microsoft-excel')
     if (!accessToken) {
-      throw new Error('No OneDrive access token found. Please connect your OneDrive account.')
+      throw new Error('No Microsoft Excel access token found. Please connect your Microsoft Excel account.')
     }
 
     // Validate required fields

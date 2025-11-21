@@ -173,8 +173,10 @@ function ConfigurationForm({
   const [airtableTableSchema, setAirtableTableSchema] = useState<any>(null);
 
   const { validateRequiredFields, getMissingRequiredFields, getAllRequiredFields } = useFieldValidation({ nodeInfo, values });
-  
+
   const { getIntegrationByProvider, getAllIntegrationsByProvider, getIntegrationById, hasMultipleAccounts, connectIntegration, fetchIntegrations, deleteIntegration, reconnectIntegration } = useIntegrationStore();
+  // Subscribe to integrations to trigger re-render when they change (important for shared auth like Excel/OneDrive)
+  const integrations = useIntegrationStore(state => state.integrations);
   const { currentWorkflow, updateNode } = useWorkflowStore();
 
   // Extract provider and node type (safe even if nodeInfo is null)
@@ -182,15 +184,17 @@ function ConfigurationForm({
   const nodeType = nodeInfo?.type;
 
   // Determine whether this node/provider should bypass connection requirements
-  const providerToCheck = provider === 'microsoft-excel' ? 'onedrive' : provider;
+  const providerToCheck = provider;
   const skipConnectionCheck =
     isNodeTypeConnectionExempt(nodeType) ||
     isProviderConnectionExempt(providerToCheck);
 
   // Only look up integrations when we truly require them
-  const integration = !skipConnectionCheck && providerToCheck
-    ? getIntegrationByProvider(providerToCheck)
-    : null;
+  // Use useMemo to ensure this recalculates when integrations change
+  const integration = React.useMemo(() => {
+    if (skipConnectionCheck || !providerToCheck) return null;
+    return getIntegrationByProvider(providerToCheck);
+  }, [skipConnectionCheck, providerToCheck, getIntegrationByProvider, integrations]);
 
   // NEW: Multi-account support - get all accounts for this provider
   const allIntegrations = !skipConnectionCheck && providerToCheck
@@ -262,12 +266,13 @@ function ConfigurationForm({
     }
   }, [nodeInfo?.providerId, nodeInfo?.type, initialData]);
 
-  // Ensure Google providers appear connected by fetching integrations if store hasn't resolved yet
+  // Ensure Google providers and Microsoft Excel appear connected by fetching integrations if store hasn't resolved yet
   const hasRequestedIntegrationsRef = useRef(false);
   useEffect(() => {
     if (!provider) return;
     const isGoogleProvider = provider === 'google-sheets' || provider === 'google_drive' || provider === 'google-drive' || provider === 'google-docs' || provider === 'google_calendar' || provider === 'google-calendar' || provider === 'google' || provider === 'gmail';
-    if (isGoogleProvider && !integration && !hasRequestedIntegrationsRef.current) {
+    const isMicrosoftExcel = provider === 'microsoft-excel';
+    if ((isGoogleProvider || isMicrosoftExcel) && !integration && !hasRequestedIntegrationsRef.current) {
       hasRequestedIntegrationsRef.current = true;
       // Non-forced fetch to avoid wiping cache mid-UI, just ensure the store has data
       try { fetchIntegrations(false); } catch {}
@@ -358,14 +363,26 @@ function ConfigurationForm({
   // Ref to track which fields have already loaded options to prevent infinite loops
   const loadedFieldsWithValues = useRef<Set<string>>(new Set());
 
-  // Ref to track if we've auto-loaded fields to prevent duplicate loads
+  // Ref to track if we've auto-loaded fields to prevent duplicate loads within the same render cycle
   const hasAutoLoadedRef = useRef(false);
+
+  // Reset hasAutoLoadedRef on mount to ensure fresh load each time modal opens
+  useEffect(() => {
+    if (hasAutoLoadedRef.current) {
+      hasAutoLoadedRef.current = false;
+    }
+  }, [nodeInfo?.type, currentNodeId]);
 
   // Auto-load all dynamic dropdown fields when modal opens
   useEffect(() => {
-    if (!nodeInfo?.configSchema || hasAutoLoadedRef.current) return;
+    if (!nodeInfo?.configSchema) return;
 
-    // Mark as loaded to prevent duplicate calls
+    // Check if we've already loaded in this mount cycle
+    if (hasAutoLoadedRef.current) {
+      return;
+    }
+
+    // Mark as loaded for this mount cycle
     hasAutoLoadedRef.current = true;
 
     // Find all dynamic fields that don't depend on other fields (can be loaded immediately)
@@ -395,11 +412,7 @@ function ConfigurationForm({
 
     // Load all fields in parallel for instant UX
     if (fieldsToLoad.length > 0) {
-      logger.debug(`🚀 [ConfigForm] Auto-loading ${fieldsToLoad.length} dynamic fields on modal open:`,
-        fieldsToLoad.map(f => f.fieldName));
-      loadOptionsParallel(fieldsToLoad).catch(error => {
-        logger.error('[ConfigForm] Auto-load failed:', error);
-      });
+      loadOptionsParallel(fieldsToLoad);
     }
   }, [nodeInfo?.configSchema, loadOptionsParallel, values, initialData]);
 
@@ -778,6 +791,8 @@ function ConfigurationForm({
   // Track if we've already loaded on mount to prevent duplicate calls
   const hasLoadedOnMount = useRef(false);
   const previousNodeKeyRef = useRef<string | null>(null);
+  // Track which node type key was last loaded to detect node type changes
+  const lastLoadedNodeTypeKeyRef = useRef<string | null>(null);
   // Counter that increments when modal reopens to force reload
   const [reloadCounter, setReloadCounter] = useState(0);
 
@@ -812,8 +827,7 @@ function ConfigurationForm({
 
     // Skip integration fetch for providers that don't need it or already have their integration loaded
     // Check if we already have the integration for this provider
-    // For Microsoft Excel, we need to check OneDrive connection
-    const providerToCheck = nodeInfo?.providerId === 'microsoft-excel' ? 'onedrive' : nodeInfo?.providerId;
+    const providerToCheck = nodeInfo?.providerId;
     const existingIntegration = getIntegrationByProvider(providerToCheck || '');
     const skipIntegrationFetch = nodeInfo?.providerId === 'logic' ||
                                  nodeInfo?.providerId === 'core' ||
@@ -858,6 +872,8 @@ function ConfigurationForm({
     // Always reset to ensure fresh data loads every time
     hasLoadedOnMount.current = false;
     loadedFieldsWithValues.current.clear();
+    // Allow auto-load effect to run again when the modal is reopened or node changes
+    hasAutoLoadedRef.current = false;
 
     // Store the previous node ID to check if we're opening the same node
     const prevNodeKey = `${nodeInfo?.id}-${nodeInfo?.type}`;
@@ -883,10 +899,13 @@ function ConfigurationForm({
       resetOptions('boardId');
     }
 
-    // For Microsoft Excel, always clear workbooks to get fresh data
-    if (nodeInfo?.providerId === 'microsoft-excel' && isNewNode) {
-      logger.debug('🔄 [ConfigForm] Clearing Microsoft Excel workbook cache on modal reopen');
+    // For Microsoft Excel, always clear workbooks to get fresh data when switching nodes
+    if (nodeInfo?.providerId === 'microsoft-excel') {
+      logger.debug('🔄 [ConfigForm] Clearing Microsoft Excel workbook cache on node switch');
       resetOptions('workbookId');
+      // Also reset dependent fields
+      resetOptions('worksheetName');
+      resetOptions('tableName');
     }
 
     // For Airtable, don't reset bases as they rarely change
@@ -945,6 +964,14 @@ function ConfigurationForm({
           needsConnection
         });
       }
+      if (nodeInfo?.providerId === 'microsoft-excel') {
+        console.log('⏭️ [ConfigForm] Microsoft Excel - Skipping loadOnMount - integration not connected yet', {
+          providerId: nodeInfo?.providerId,
+          nodeType: nodeInfo?.type,
+          needsConnection,
+          integrationStatus: integration?.status
+        });
+      }
       logger.debug('⏭️ [ConfigForm] Skipping loadOnMount - integration not connected yet', {
         providerId: nodeInfo?.providerId,
         nodeType: nodeInfo?.type
@@ -971,6 +998,21 @@ function ConfigurationForm({
       });
     }
 
+    // Track node type changes to force reload even with same node ID
+    const currentNodeTypeKey = `${nodeInfo?.id}-${nodeInfo?.type}`;
+    const nodeTypeChanged = currentNodeTypeKey !== lastLoadedNodeTypeKeyRef.current;
+
+    // If node type changed, reset the hasLoadedOnMount flag
+    if (nodeTypeChanged) {
+      hasLoadedOnMount.current = false;
+      if (nodeInfo?.providerId === 'microsoft-excel') {
+        console.log('🔄 [ConfigForm] Microsoft Excel - Node type changed, resetting hasLoadedOnMount', {
+          previous: lastLoadedNodeTypeKeyRef.current,
+          current: currentNodeTypeKey
+        });
+      }
+    }
+
     // Find fields that should load on mount
     const fieldsToLoad = nodeInfo.configSchema.filter((field: any) => {
       // Skip dynamic_fields type - they handle their own data loading
@@ -979,7 +1021,7 @@ function ConfigurationForm({
       // Check if field should load on mount
       if (field.loadOnMount === true && field.dynamic) {
         // Only load if we haven't loaded this node's fields yet
-        // Don't check dynamicOptions or values here as it causes dependency issues
+        // Use nodeTypeKey to ensure we reload when switching node types
         const shouldLoad = !hasLoadedOnMount.current;
 
         if (nodeInfo?.providerId === 'gmail') {
@@ -1003,8 +1045,12 @@ function ConfigurationForm({
       if (nodeInfo?.providerId === 'gmail') {
         console.log('🚀 [ConfigForm] Gmail - Loading fields on mount IN PARALLEL:', fieldsToLoad.map((f: any) => f.name));
       }
+      if (nodeInfo?.providerId === 'microsoft-excel') {
+        console.log('🚀 [ConfigForm] Microsoft Excel - Loading fields on mount IN PARALLEL:', fieldsToLoad.map((f: any) => f.name));
+      }
       logger.debug('🚀 [ConfigForm] Loading fields on mount IN PARALLEL:', fieldsToLoad.map((f: any) => f.name));
       hasLoadedOnMount.current = true; // Mark that we've loaded
+      lastLoadedNodeTypeKeyRef.current = currentNodeTypeKey; // Track which node type we loaded for
 
       // Load ALL fields in parallel for instant UX
       loadOptionsParallel(
@@ -1019,6 +1065,14 @@ function ConfigurationForm({
       });
     } else if (nodeInfo?.providerId === 'gmail') {
       console.log('⏭️ [ConfigForm] Gmail - No fields to load on mount');
+    } else if (nodeInfo?.providerId === 'microsoft-excel') {
+      console.log('⏭️ [ConfigForm] Microsoft Excel - No fields to load on mount', {
+        hasLoadedOnMount: hasLoadedOnMount.current,
+        currentNodeTypeKey,
+        lastLoadedNodeTypeKey: lastLoadedNodeTypeKeyRef.current,
+        nodeTypeChanged,
+        configSchemaFields: nodeInfo.configSchema.map((f: any) => ({ name: f.name, loadOnMount: f.loadOnMount, dynamic: f.dynamic }))
+      });
     }
   }, [nodeInfo?.id, nodeInfo?.type, currentNodeId, isInitialLoading, loadOptionsParallel, needsConnection, reloadCounter]); // Track node identity changes, connection state, and reload trigger
 
@@ -1387,10 +1441,8 @@ function ConfigurationForm({
     if (!provider || isProviderConnectionExempt(provider) || isNodeTypeConnectionExempt(nodeInfo?.type)) {
       return;
     }
-    // For Microsoft Excel, we need to connect OneDrive instead
-    const providerToConnect = provider === 'microsoft-excel' ? 'onedrive' : provider;
     try {
-      await connectIntegration(providerToConnect);
+      await connectIntegration(provider);
       // After successful connection, reload options for dynamic fields
       if (nodeInfo?.configSchema) {
         for (const field of nodeInfo.configSchema) {
