@@ -946,8 +946,8 @@ const outlookActionCreateCalendarEvent: NodeComponent = {
     { name: "calendarId", label: "Calendar", type: "combobox", required: true, creatable: true, dynamic: true, loadOnMount: true, placeholder: "Select a calendar or type to create new" },
 
     // General Section
-    { name: "subject", label: "Subject", type: "text", required: true, placeholder: "Event subject" },
-    { name: "body", label: "Description", type: "textarea", required: false, placeholder: "Event description" },
+    { name: "subject", label: "Subject", type: "text", required: true, placeholder: "Event subject", dependsOn: "calendarId", hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } } },
+    { name: "body", label: "Description", type: "textarea", required: false, placeholder: "Event description", supportsAI: true, dependsOn: "calendarId", hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } } },
 
     // Simple Date/Time Fields
     { name: "eventDate", label: "Date", type: "select", required: true, defaultValue: "today", options: [
@@ -959,8 +959,8 @@ const outlookActionCreateCalendarEvent: NodeComponent = {
       { value: "custom_days", label: "In X days..." },
       { value: "next_weekday", label: "Next specific weekday..." },
       { value: "specific", label: "Pick a specific date..." }
-    ]},
-    { name: "customDays", label: "Number of days from now", type: "number", required: false, visibilityCondition: { field: "eventDate", operator: "equals", value: "custom_days" }, placeholder: "Enter number of days (e.g., 5)", min: 1, max: 365 },
+    ], dependsOn: "calendarId", hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } }},
+    { name: "customDays", label: "Number of days from now", type: "number", required: false, visibilityCondition: { field: "eventDate", operator: "equals", value: "custom_days" }, placeholder: "Enter number of days (e.g., 5)", min: 1, max: 365, dependsOn: "calendarId", hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } } },
     { name: "nextWeekday", label: "Select weekday", type: "select", required: false, visibilityCondition: { field: "eventDate", operator: "equals", value: "next_weekday" }, options: [
       { value: "monday", label: "Next Monday" },
       { value: "tuesday", label: "Next Tuesday" },
@@ -969,8 +969,8 @@ const outlookActionCreateCalendarEvent: NodeComponent = {
       { value: "friday", label: "Next Friday" },
       { value: "saturday", label: "Next Saturday" },
       { value: "sunday", label: "Next Sunday" }
-    ]},
-    { name: "specificDate", label: "Specific Date", type: "date", required: false, visibilityCondition: { field: "eventDate", operator: "equals", value: "specific" } },
+    ], dependsOn: "calendarId", hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } }},
+    { name: "specificDate", label: "Specific Date", type: "date", required: false, visibilityCondition: { field: "eventDate", operator: "equals", value: "specific" }, dependsOn: "calendarId", hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } } },
 
     { name: "eventTime", label: "Start Time", type: "select", required: true, defaultValue: "09:00", options: [
       { value: "current", label: "Current Time" },
@@ -988,8 +988,8 @@ const outlookActionCreateCalendarEvent: NodeComponent = {
       { value: "19:00", label: "7:00 PM" },
       { value: "20:00", label: "8:00 PM" },
       { value: "custom", label: "Custom time..." }
-    ]},
-    { name: "customTime", label: "Custom Time", type: "time", required: false, visibilityCondition: { field: "eventTime", operator: "equals", value: "custom" } },
+    ], dependsOn: "calendarId", hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } }},
+    { name: "customTime", label: "Custom Time", type: "time", required: false, visibilityCondition: { field: "eventTime", operator: "equals", value: "custom" }, dependsOn: "calendarId", hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } } },
 
     { name: "duration", label: "Duration", type: "select", required: true, defaultValue: "60", options: [
       { value: "allday", label: "All Day" },
@@ -1001,9 +1001,9 @@ const outlookActionCreateCalendarEvent: NodeComponent = {
       { value: "240", label: "4 hours" },
       { value: "480", label: "All Day (8 hours)" },
       { value: "custom", label: "Custom end time..." }
-    ]},
-    { name: "customEndDate", label: "End Date", type: "date", required: false, visibilityCondition: { field: "duration", operator: "equals", value: "custom" } },
-    { name: "customEndTime", label: "End Time", type: "time", required: false, visibilityCondition: { field: "duration", operator: "equals", value: "custom" } },
+    ], dependsOn: "calendarId", hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } }},
+    { name: "customEndDate", label: "End Date", type: "date", required: false, visibilityCondition: { field: "duration", operator: "equals", value: "custom" }, dependsOn: "calendarId", hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } } },
+    { name: "customEndTime", label: "End Time", type: "time", required: false, visibilityCondition: { field: "duration", operator: "equals", value: "custom" }, dependsOn: "calendarId", hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } } },
 
     // Time Zone (applies to both modes)
     { name: "timeZone", label: "Time Zone", type: "combobox", required: false, defaultValue: "user-timezone", creatable: true, placeholder: "Select or type timezone", options: [
@@ -1025,12 +1025,12 @@ const outlookActionCreateCalendarEvent: NodeComponent = {
       { value: "Asia/Kolkata", label: "Mumbai (IST)" },
       { value: "Australia/Sydney", label: "Sydney (AEDT/AEST)" },
       { value: "Pacific/Auckland", label: "Auckland (NZDT/NZST)" }
-    ], description: "Your timezone will be automatically detected and set as the default" },
+    ], description: "Your timezone will be automatically detected and set as the default", dependsOn: "calendarId", hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } } },
 
     // Other Fields
-    { name: "attendees", label: "Attendees", type: "email-autocomplete", required: false, placeholder: "Enter attendee email addresses...", dynamic: "outlook-enhanced-recipients" },
-    { name: "location", label: "Location", type: "location-autocomplete", required: false, placeholder: "Enter location or address" },
-    { name: "locations", label: "Additional Locations", type: "text", required: false, placeholder: "Additional location details" },
+    { name: "attendees", label: "Attendees", type: "email-autocomplete", required: false, placeholder: "Enter attendee email addresses...", dynamic: "outlook-enhanced-recipients", dependsOn: "calendarId", hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } } },
+    { name: "location", label: "Location", type: "location-autocomplete", required: false, placeholder: "Enter location or address", dependsOn: "calendarId", hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } } },
+    { name: "locations", label: "Additional Locations", type: "text", required: false, placeholder: "Additional location details", dependsOn: "calendarId", hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } } },
     
     // Scheduling Section
     { name: "recurrence", label: "Repeat", type: "select", required: false, defaultValue: "none", options: [
@@ -1041,17 +1041,17 @@ const outlookActionCreateCalendarEvent: NodeComponent = {
       { value: "RRULE:FREQ=MONTHLY", label: "Monthly" },
       { value: "RRULE:FREQ=YEARLY", label: "Yearly" },
       { value: "custom", label: "Custom" }
-    ]},
-    { name: "customRecurrence", label: "Custom Recurrence", type: "text", required: false, placeholder: "Enter custom RRULE", visibilityCondition: { field: "recurrence", operator: "equals", value: "custom" } },
-    { name: "repeatUntil", label: "Repeat Until", type: "date", required: false, placeholder: "End date for recurring events" },
-    
+    ], dependsOn: "calendarId", hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } }},
+    { name: "customRecurrence", label: "Custom Recurrence", type: "text", required: false, placeholder: "Enter custom RRULE", visibilityCondition: { field: "recurrence", operator: "equals", value: "custom" }, dependsOn: "calendarId", hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } } },
+    { name: "repeatUntil", label: "Repeat Until", type: "date", required: false, placeholder: "End date for recurring events", dependsOn: "calendarId", hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } } },
+
     // Meeting Options Section
-    { name: "isOnlineMeeting", label: "Online Meeting", type: "boolean", required: false, defaultValue: false },
+    { name: "isOnlineMeeting", label: "Online Meeting", type: "boolean", required: false, defaultValue: false, dependsOn: "calendarId", hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } } },
     { name: "onlineMeetingProvider", label: "Meeting Provider", type: "select", required: false, defaultValue: "teamsForBusiness", options: [
       { value: "teamsForBusiness", label: "Microsoft Teams" },
       { value: "skypeForBusiness", label: "Skype for Business" },
       { value: "skypeForConsumer", label: "Skype" }
-    ], visibilityCondition: { field: "isOnlineMeeting", operator: "equals", value: true } },
+    ], visibilityCondition: { field: "isOnlineMeeting", operator: "equals", value: true }, dependsOn: "calendarId", hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } } },
     
     // Reminder Section
     { name: "reminderMinutesBeforeStart", label: "Reminder", type: "select", required: false, defaultValue: "15", options: [
@@ -1066,20 +1066,20 @@ const outlookActionCreateCalendarEvent: NodeComponent = {
       { value: "1440", label: "1 day before" },
       { value: "2880", label: "2 days before" },
       { value: "10080", label: "1 week before" }
-    ]},
-    
+    ], dependsOn: "calendarId", hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } }},
+
     // Appearance and Options Section
     { name: "importance", label: "Importance", type: "select", required: false, defaultValue: "normal", options: [
       { value: "low", label: "Low" },
       { value: "normal", label: "Normal" },
       { value: "high", label: "High" }
-    ]},
+    ], dependsOn: "calendarId", hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } }},
     { name: "sensitivity", label: "Sensitivity", type: "select", required: false, defaultValue: "normal", options: [
       { value: "normal", label: "Normal" },
       { value: "personal", label: "Personal" },
       { value: "private", label: "Private" },
       { value: "confidential", label: "Confidential" }
-    ]}
+    ], dependsOn: "calendarId", hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } }}
   ],
   producesOutput: true,
   outputSchema: [
@@ -1124,7 +1124,9 @@ const outlookActionGetEmails: NodeComponent = {
       type: "text",
       required: true,
       placeholder: "e.g., from:bob@example.com hasAttachments:true",
-      description: "Use Outlook search operators like 'from:', 'to:', 'subject:', 'hasAttachments:true', etc."
+      description: "Use Outlook search operators like 'from:', 'to:', 'subject:', 'hasAttachments:true', etc.",
+      dependsOn: "folderId",
+      hidden: { $deps: ["folderId"], $condition: { folderId: { $exists: false } } }
     },
     {
       name: "maxResults",
@@ -1133,21 +1135,27 @@ const outlookActionGetEmails: NodeComponent = {
       required: false,
       placeholder: "10",
       description: "Maximum number of messages to retrieve (between 1-15)",
-      defaultValue: 10
+      defaultValue: 10,
+      dependsOn: "folderId",
+      hidden: { $deps: ["folderId"], $condition: { folderId: { $exists: false } } }
     },
     {
       name: "startDate",
       label: "Start Date",
       type: "date",
       required: true,
-      description: "Only fetch emails after this date"
+      description: "Only fetch emails after this date",
+      dependsOn: "folderId",
+      hidden: { $deps: ["folderId"], $condition: { folderId: { $exists: false } } }
     },
     {
       name: "endDate",
       label: "End Date",
       type: "date",
       required: false,
-      description: "Only fetch emails before this date"
+      description: "Only fetch emails before this date",
+      dependsOn: "folderId",
+      hidden: { $deps: ["folderId"], $condition: { folderId: { $exists: false } } }
     },
     {
       name: "includeDeleted",
@@ -1155,7 +1163,9 @@ const outlookActionGetEmails: NodeComponent = {
       type: "boolean",
       required: false,
       defaultValue: false,
-      description: "Include messages from Deleted Items folder"
+      description: "Include messages from Deleted Items folder",
+      dependsOn: "folderId",
+      hidden: { $deps: ["folderId"], $condition: { folderId: { $exists: false } } }
     }
   ],
   outputSchema: [
@@ -1369,7 +1379,7 @@ const outlookActionUpdateCalendarEvent: NodeComponent = {
     { name: "eventId", label: "Event ID", type: "text", required: true, placeholder: "ID of event to update", description: "The ID of the calendar event you want to update" },
     { name: "calendarId", label: "Calendar", type: "select", required: false, dynamic: true, loadOnMount: true, placeholder: "Select calendar (optional)" },
     { name: "subject", label: "Subject", type: "text", required: false, placeholder: "New event subject" },
-    { name: "body", label: "Description", type: "textarea", required: false, placeholder: "New event description" },
+    { name: "body", label: "Description", type: "textarea", required: false, placeholder: "New event description", supportsAI: true },
     { name: "startDateTime", label: "Start Date/Time", type: "datetime-local", required: false },
     { name: "endDateTime", label: "End Date/Time", type: "datetime-local", required: false },
     { name: "location", label: "Location", type: "location-autocomplete", required: false, placeholder: "New location" },

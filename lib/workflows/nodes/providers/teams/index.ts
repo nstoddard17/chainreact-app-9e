@@ -1,4 +1,4 @@
-import { MessageSquare, Calendar, Hash, UserPlus, FileText, Users, Plus } from "lucide-react"
+import { MessageSquare, Calendar, Hash, UserPlus, FileText, Users, Plus, Reply, AtSign, Edit, Trash2, Info, MessageCircle, Smile, Video, Play, Square } from "lucide-react"
 import { NodeComponent } from "../../types"
 
 export const teamsNodes: NodeComponent[] = [
@@ -227,6 +227,388 @@ export const teamsNodes: NodeComponent[] = [
         { value: "private", label: "Private" },
         { value: "public", label: "Public" }
       ] }
+    ]
+  },
+  // New Triggers
+  {
+    type: "teams_trigger_new_reply",
+    title: "New Reply to Message",
+    description: "Triggers when someone replies to a message in a channel",
+    icon: Reply,
+    providerId: "teams",
+    category: "Communication",
+    isTrigger: true,
+    producesOutput: true,
+    configSchema: [
+      { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true },
+      { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel to monitor", dependsOn: "teamId", visibilityCondition: { field: "teamId", operator: "isNotEmpty" } }
+    ],
+    outputSchema: [
+      { name: "replyId", label: "Reply ID", type: "string", description: "The ID of the reply" },
+      { name: "parentMessageId", label: "Parent Message ID", type: "string", description: "The ID of the message being replied to" },
+      { name: "content", label: "Reply Content", type: "string", description: "The content of the reply" },
+      { name: "senderId", label: "Sender ID", type: "string", description: "The ID of the reply sender" },
+      { name: "senderName", label: "Sender Name", type: "string", description: "The name of the reply sender" },
+      { name: "channelId", label: "Channel ID", type: "string", description: "The ID of the channel" },
+      { name: "timestamp", label: "Reply Time", type: "string", description: "When the reply was posted (ISO 8601 format)" }
+    ]
+  },
+  {
+    type: "teams_trigger_channel_mention",
+    title: "New Channel Mention",
+    description: "Triggers when a user or keyword is mentioned in a channel",
+    icon: AtSign,
+    providerId: "teams",
+    category: "Communication",
+    isTrigger: true,
+    producesOutput: true,
+    configSchema: [
+      { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true },
+      { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel to monitor", dependsOn: "teamId", visibilityCondition: { field: "teamId", operator: "isNotEmpty" } },
+      { name: "keywords", label: "Keywords to Monitor", type: "textarea", required: false, placeholder: "Enter keywords to monitor (one per line). Leave empty to monitor all mentions." }
+    ],
+    outputSchema: [
+      { name: "messageId", label: "Message ID", type: "string", description: "The ID of the message with the mention" },
+      { name: "content", label: "Message Content", type: "string", description: "The content of the message" },
+      { name: "mentionedUsers", label: "Mentioned Users", type: "array", description: "Array of mentioned user IDs" },
+      { name: "mentionedKeywords", label: "Mentioned Keywords", type: "array", description: "Array of mentioned keywords" },
+      { name: "senderId", label: "Sender ID", type: "string", description: "The ID of the message sender" },
+      { name: "senderName", label: "Sender Name", type: "string", description: "The name of the message sender" },
+      { name: "timestamp", label: "Message Time", type: "string", description: "When the message was posted (ISO 8601 format)" }
+    ]
+  },
+  {
+    type: "teams_trigger_new_chat",
+    title: "New Chat",
+    description: "Triggers when a new chat conversation is created",
+    icon: MessageCircle,
+    providerId: "teams",
+    category: "Communication",
+    isTrigger: true,
+    producesOutput: true,
+    configSchema: [],
+    outputSchema: [
+      { name: "chatId", label: "Chat ID", type: "string", description: "The ID of the new chat" },
+      { name: "chatType", label: "Chat Type", type: "string", description: "Type of chat (oneOnOne, group, meeting)" },
+      { name: "topic", label: "Chat Topic", type: "string", description: "The topic of the chat" },
+      { name: "createdDateTime", label: "Created Time", type: "string", description: "When the chat was created (ISO 8601 format)" },
+      { name: "members", label: "Members", type: "array", description: "Array of chat members" }
+    ]
+  },
+  {
+    type: "teams_trigger_new_chat_message",
+    title: "New Chat Message",
+    description: "Triggers when a new message is posted in any chat",
+    icon: MessageSquare,
+    providerId: "teams",
+    category: "Communication",
+    isTrigger: true,
+    producesOutput: true,
+    configSchema: [
+      { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: false, placeholder: "Select a chat (leave empty to monitor all chats)" }
+    ],
+    outputSchema: [
+      { name: "messageId", label: "Message ID", type: "string", description: "The ID of the message" },
+      { name: "chatId", label: "Chat ID", type: "string", description: "The ID of the chat" },
+      { name: "content", label: "Message Content", type: "string", description: "The content of the message" },
+      { name: "senderId", label: "Sender ID", type: "string", description: "The ID of the message sender" },
+      { name: "senderName", label: "Sender Name", type: "string", description: "The name of the message sender" },
+      { name: "timestamp", label: "Message Time", type: "string", description: "When the message was posted (ISO 8601 format)" }
+    ]
+  },
+  {
+    type: "teams_trigger_new_channel",
+    title: "New Channel",
+    description: "Triggers when a new channel is created in a team",
+    icon: Hash,
+    providerId: "teams",
+    category: "Communication",
+    isTrigger: true,
+    producesOutput: true,
+    configSchema: [
+      { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team to monitor", loadOnMount: true }
+    ],
+    outputSchema: [
+      { name: "channelId", label: "Channel ID", type: "string", description: "The ID of the new channel" },
+      { name: "channelName", label: "Channel Name", type: "string", description: "The name of the new channel" },
+      { name: "description", label: "Description", type: "string", description: "The channel description" },
+      { name: "membershipType", label: "Membership Type", type: "string", description: "Type of channel (standard, private)" },
+      { name: "createdDateTime", label: "Created Time", type: "string", description: "When the channel was created (ISO 8601 format)" }
+    ]
+  },
+  // New Actions
+  {
+    type: "teams_action_reply_to_message",
+    title: "Reply to Channel Message",
+    description: "Reply to a specific message in a channel",
+    icon: Reply,
+    providerId: "teams",
+    requiredScopes: ["ChannelMessage.Send"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true },
+      { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel", dependsOn: "teamId", visibilityCondition: { field: "teamId", operator: "isNotEmpty" } },
+      { name: "messageId", label: "Message ID", type: "text", required: true, placeholder: "Enter the ID of the message to reply to" },
+      { name: "replyContent", label: "Reply Message", type: "textarea", required: true, placeholder: "Enter your reply" }
+    ],
+    outputSchema: [
+      { name: "replyId", label: "Reply ID", type: "string", description: "The ID of the reply message" },
+      { name: "parentMessageId", label: "Parent Message ID", type: "string", description: "The ID of the parent message" },
+      { name: "timestamp", label: "Sent Time", type: "string", description: "When the reply was sent (ISO 8601 format)" },
+      { name: "success", label: "Success Status", type: "boolean", description: "Whether the reply was sent successfully" }
+    ]
+  },
+  {
+    type: "teams_action_edit_message",
+    title: "Edit Message",
+    description: "Edit an existing message in a channel or chat",
+    icon: Edit,
+    providerId: "teams",
+    requiredScopes: ["ChannelMessage.Edit"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "messageType", label: "Message Type", type: "select", required: true, defaultValue: "channel", options: [
+        { value: "channel", label: "Channel Message" },
+        { value: "chat", label: "Chat Message" }
+      ] },
+      { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true, visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
+      { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel", dependsOn: "teamId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
+      { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
+      { name: "messageId", label: "Message ID", type: "text", required: true, placeholder: "Enter the ID of the message to edit" },
+      { name: "newContent", label: "New Message Content", type: "textarea", required: true, placeholder: "Enter the new message content" }
+    ],
+    outputSchema: [
+      { name: "messageId", label: "Message ID", type: "string", description: "The ID of the edited message" },
+      { name: "updatedDateTime", label: "Updated Time", type: "string", description: "When the message was edited (ISO 8601 format)" },
+      { name: "success", label: "Success Status", type: "boolean", description: "Whether the message was edited successfully" }
+    ]
+  },
+  {
+    type: "teams_action_find_message",
+    title: "Find Message by ID",
+    description: "Retrieve details of a specific message",
+    icon: Info,
+    providerId: "teams",
+    requiredScopes: ["ChannelMessage.Read.All"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "messageType", label: "Message Type", type: "select", required: true, defaultValue: "channel", options: [
+        { value: "channel", label: "Channel Message" },
+        { value: "chat", label: "Chat Message" }
+      ] },
+      { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true, visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
+      { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel", dependsOn: "teamId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
+      { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
+      { name: "messageId", label: "Message ID", type: "text", required: true, placeholder: "Enter the message ID" }
+    ],
+    outputSchema: [
+      { name: "messageId", label: "Message ID", type: "string", description: "The ID of the message" },
+      { name: "content", label: "Message Content", type: "string", description: "The content of the message" },
+      { name: "senderId", label: "Sender ID", type: "string", description: "The ID of the sender" },
+      { name: "senderName", label: "Sender Name", type: "string", description: "The name of the sender" },
+      { name: "createdDateTime", label: "Created Time", type: "string", description: "When the message was created" },
+      { name: "attachments", label: "Attachments", type: "array", description: "Array of attachments" },
+      { name: "reactions", label: "Reactions", type: "array", description: "Array of reactions" }
+    ]
+  },
+  {
+    type: "teams_action_delete_message",
+    title: "Delete Message",
+    description: "Delete a message from a channel or chat",
+    icon: Trash2,
+    providerId: "teams",
+    requiredScopes: ["ChannelMessage.Edit"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "messageType", label: "Message Type", type: "select", required: true, defaultValue: "channel", options: [
+        { value: "channel", label: "Channel Message" },
+        { value: "chat", label: "Chat Message" }
+      ] },
+      { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true, visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
+      { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel", dependsOn: "teamId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
+      { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
+      { name: "messageId", label: "Message ID", type: "text", required: true, placeholder: "Enter the ID of the message to delete" }
+    ],
+    outputSchema: [
+      { name: "success", label: "Success Status", type: "boolean", description: "Whether the message was deleted successfully" },
+      { name: "deletedMessageId", label: "Deleted Message ID", type: "string", description: "The ID of the deleted message" }
+    ]
+  },
+  {
+    type: "teams_action_create_group_chat",
+    title: "Create Group Chat",
+    description: "Create a new group chat with multiple users",
+    icon: Users,
+    providerId: "teams",
+    requiredScopes: ["Chat.Create"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "topic", label: "Chat Topic", type: "text", required: false, placeholder: "Enter chat topic (optional)" },
+      { name: "members", label: "Members", type: "email-autocomplete", dynamic: "outlook-enhanced-recipients", required: true, placeholder: "Select or enter member email addresses" },
+      { name: "initialMessage", label: "Initial Message", type: "textarea", required: false, placeholder: "Send an initial message (optional)" }
+    ],
+    outputSchema: [
+      { name: "chatId", label: "Chat ID", type: "string", description: "The ID of the created chat" },
+      { name: "chatType", label: "Chat Type", type: "string", description: "Type of chat (group)" },
+      { name: "topic", label: "Chat Topic", type: "string", description: "The topic of the chat" },
+      { name: "createdDateTime", label: "Created Time", type: "string", description: "When the chat was created (ISO 8601 format)" },
+      { name: "success", label: "Success Status", type: "boolean", description: "Whether the chat was created successfully" }
+    ]
+  },
+  {
+    type: "teams_action_get_channel_details",
+    title: "Get Channel Details",
+    description: "Retrieve detailed information about a channel",
+    icon: Info,
+    providerId: "teams",
+    requiredScopes: ["Channel.ReadBasic.All"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true },
+      { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel", dependsOn: "teamId", visibilityCondition: { field: "teamId", operator: "isNotEmpty" } }
+    ],
+    outputSchema: [
+      { name: "channelId", label: "Channel ID", type: "string", description: "The ID of the channel" },
+      { name: "displayName", label: "Channel Name", type: "string", description: "The name of the channel" },
+      { name: "description", label: "Description", type: "string", description: "The channel description" },
+      { name: "email", label: "Channel Email", type: "string", description: "The email address of the channel" },
+      { name: "membershipType", label: "Membership Type", type: "string", description: "Type of channel (standard, private)" },
+      { name: "createdDateTime", label: "Created Time", type: "string", description: "When the channel was created" },
+      { name: "webUrl", label: "Web URL", type: "string", description: "URL to the channel in Teams" }
+    ]
+  },
+  // Message Reactions
+  {
+    type: "teams_action_add_reaction",
+    title: "Add Reaction to Message",
+    description: "Add an emoji reaction to a message",
+    icon: Smile,
+    providerId: "teams",
+    requiredScopes: ["ChannelMessage.Send"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "messageType", label: "Message Type", type: "select", required: true, defaultValue: "channel", options: [
+        { value: "channel", label: "Channel Message" },
+        { value: "chat", label: "Chat Message" }
+      ] },
+      { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true, visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
+      { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel", dependsOn: "teamId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
+      { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
+      { name: "messageId", label: "Message ID", type: "text", required: true, placeholder: "Enter the ID of the message" },
+      { name: "reactionType", label: "Reaction", type: "select", required: true, options: [
+        { value: "like", label: "👍 Like" },
+        { value: "heart", label: "❤️ Heart" },
+        { value: "laugh", label: "😂 Laugh" },
+        { value: "surprised", label: "😮 Surprised" },
+        { value: "sad", label: "😢 Sad" },
+        { value: "angry", label: "😠 Angry" }
+      ] }
+    ],
+    outputSchema: [
+      { name: "success", label: "Success Status", type: "boolean", description: "Whether the reaction was added successfully" },
+      { name: "messageId", label: "Message ID", type: "string", description: "The ID of the message" },
+      { name: "reactionType", label: "Reaction Type", type: "string", description: "The type of reaction added" }
+    ]
+  },
+  {
+    type: "teams_action_remove_reaction",
+    title: "Remove Reaction from Message",
+    description: "Remove an emoji reaction from a message",
+    icon: Smile,
+    providerId: "teams",
+    requiredScopes: ["ChannelMessage.Send"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "messageType", label: "Message Type", type: "select", required: true, defaultValue: "channel", options: [
+        { value: "channel", label: "Channel Message" },
+        { value: "chat", label: "Chat Message" }
+      ] },
+      { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true, visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
+      { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel", dependsOn: "teamId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
+      { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
+      { name: "messageId", label: "Message ID", type: "text", required: true, placeholder: "Enter the ID of the message" },
+      { name: "reactionType", label: "Reaction", type: "select", required: true, options: [
+        { value: "like", label: "👍 Like" },
+        { value: "heart", label: "❤️ Heart" },
+        { value: "laugh", label: "😂 Laugh" },
+        { value: "surprised", label: "😮 Surprised" },
+        { value: "sad", label: "😢 Sad" },
+        { value: "angry", label: "😠 Angry" }
+      ] }
+    ],
+    outputSchema: [
+      { name: "success", label: "Success Status", type: "boolean", description: "Whether the reaction was removed successfully" },
+      { name: "messageId", label: "Message ID", type: "string", description: "The ID of the message" }
+    ]
+  },
+  // Meeting Controls
+  {
+    type: "teams_action_start_meeting",
+    title: "Start Online Meeting",
+    description: "Start an instant online meeting",
+    icon: Video,
+    providerId: "teams",
+    requiredScopes: ["OnlineMeetings.ReadWrite"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "subject", label: "Meeting Subject", type: "text", required: true, placeholder: "Enter meeting subject" },
+      { name: "participants", label: "Participants", type: "email-autocomplete", dynamic: "outlook-enhanced-recipients", required: false, placeholder: "Add participants (optional)" },
+      { name: "startDateTime", label: "Start Time", type: "datetime-local", required: false, placeholder: "Leave empty to start immediately" },
+      { name: "endDateTime", label: "End Time", type: "datetime-local", required: false, placeholder: "Leave empty for no end time" }
+    ],
+    outputSchema: [
+      { name: "meetingId", label: "Meeting ID", type: "string", description: "The ID of the meeting" },
+      { name: "joinUrl", label: "Join URL", type: "string", description: "URL to join the meeting" },
+      { name: "subject", label: "Subject", type: "string", description: "The meeting subject" },
+      { name: "startDateTime", label: "Start Time", type: "string", description: "When the meeting starts" },
+      { name: "success", label: "Success Status", type: "boolean", description: "Whether the meeting was created successfully" }
+    ]
+  },
+  {
+    type: "teams_action_end_meeting",
+    title: "End Online Meeting",
+    description: "End an ongoing online meeting",
+    icon: Square,
+    providerId: "teams",
+    requiredScopes: ["OnlineMeetings.ReadWrite"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "meetingId", label: "Meeting ID", type: "text", required: true, placeholder: "Enter the ID of the meeting to end" }
+    ],
+    outputSchema: [
+      { name: "success", label: "Success Status", type: "boolean", description: "Whether the meeting was ended successfully" },
+      { name: "meetingId", label: "Meeting ID", type: "string", description: "The ID of the ended meeting" }
+    ]
+  },
+  {
+    type: "teams_action_update_meeting",
+    title: "Update Online Meeting",
+    description: "Update meeting details",
+    icon: Edit,
+    providerId: "teams",
+    requiredScopes: ["OnlineMeetings.ReadWrite"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "meetingId", label: "Meeting ID", type: "text", required: true, placeholder: "Enter the meeting ID" },
+      { name: "subject", label: "New Subject", type: "text", required: false, placeholder: "Enter new meeting subject (optional)" },
+      { name: "startDateTime", label: "New Start Time", type: "datetime-local", required: false, placeholder: "Change start time (optional)" },
+      { name: "endDateTime", label: "New End Time", type: "datetime-local", required: false, placeholder: "Change end time (optional)" }
+    ],
+    outputSchema: [
+      { name: "meetingId", label: "Meeting ID", type: "string", description: "The ID of the meeting" },
+      { name: "subject", label: "Subject", type: "string", description: "The updated meeting subject" },
+      { name: "success", label: "Success Status", type: "boolean", description: "Whether the meeting was updated successfully" }
     ]
   },
 ]

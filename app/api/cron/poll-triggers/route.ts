@@ -3,6 +3,7 @@ import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-re
 import { createAdminClient } from '@/lib/supabase/admin';
 import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine';
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes';
+import { pollOneNoteForNewNotes, getLastPollTime, updateLastPollTime } from '@/lib/workflows/triggers/polling/onenote';
 
 import { logger } from '@/lib/utils/logger'
 
@@ -26,11 +27,15 @@ export async function GET() {
       );
 
       for (const triggerNode of pollingTriggers) {
-        // This is where you would implement the provider-specific logic to fetch new data.
-        // For demonstration, I'll simulate finding new data.
-        const newData = await fetchDataForPollingTrigger(triggerNode, workflow.user_id);
+        const newData = await fetchDataForPollingTrigger(
+          triggerNode,
+          workflow.user_id,
+          workflow.id
+        );
 
         if (newData && newData.length > 0) {
+          logger.debug(`Found ${newData.length} new items for workflow ${workflow.id}`);
+
           for (const item of newData) {
             const executionSession = await executionEngine.createExecutionSession(
               workflow.id,
@@ -53,17 +58,46 @@ export async function GET() {
   }
 }
 
-async function fetchDataForPollingTrigger(triggerNode: any, userId: string): Promise<any[]> {
+async function fetchDataForPollingTrigger(
+  triggerNode: any,
+  userId: string,
+  workflowId: string
+): Promise<any[]> {
   const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === triggerNode.data.type);
   if (!nodeComponent) return [];
 
   logger.debug(`Polling for ${nodeComponent.title} for user ${userId}...`);
 
-  // In a real implementation, you would:
-  // 1. Use the `getApiClientForNode` logic to get an authenticated client.
-  // 2. Call the provider's API to check for new data since the last poll.
-  // 3. You'd need to store a cursor or timestamp of the last poll to avoid duplicates.
-  
-  // Simulating finding one new item.
-  return [{ id: crypto.randomUUID(), message: 'This is a new item found via polling.' }];
+  // Handle OneNote polling trigger
+  if (triggerNode.data.type === 'microsoft-onenote_trigger_new_note') {
+    try {
+      const config = triggerNode.data.config || {};
+      const lastPollTime = await getLastPollTime(workflowId, triggerNode.id);
+
+      const newNotes = await pollOneNoteForNewNotes(
+        userId,
+        workflowId,
+        {
+          notebookId: config.notebookId,
+          sectionId: config.sectionId,
+          pollingInterval: config.pollingInterval
+        },
+        lastPollTime || undefined
+      );
+
+      // Update last poll time if we found notes
+      if (newNotes.length > 0) {
+        await updateLastPollTime(workflowId, triggerNode.id);
+      }
+
+      return newNotes;
+    } catch (error: any) {
+      logger.error('Error polling OneNote trigger:', { error: error.message, userId, workflowId });
+      return [];
+    }
+  }
+
+  // For other polling triggers, return empty array (to be implemented)
+  logger.debug(`No polling handler implemented for ${nodeComponent.title}`);
+  return [];
 }

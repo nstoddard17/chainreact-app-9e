@@ -44,6 +44,34 @@ When searching for code to remove or fix:
 
 ## 🎯 API & FIELD IMPLEMENTATION
 
+### Webhook-First Implementation - MANDATORY
+**ALWAYS USE WEBHOOKS INSTEAD OF POLLING UNLESS WEBHOOKS ARE NOT AVAILABLE**
+
+#### The Webhook Rule:
+1. **Research First:** Check if the provider supports webhooks/change notifications
+2. **Prefer Webhooks:** If webhooks exist, implement them - never use polling
+3. **Real-Time > Efficiency:** Webhooks provide instant notifications vs 1-15 minute polling delays
+4. **Resource Efficient:** Webhooks scale better than polling (no constant API calls)
+
+#### Webhook Implementation Checklist:
+- [ ] Check provider's API documentation for webhook/subscription support
+- [ ] Verify webhook event types match our trigger needs
+- [ ] Implement trigger lifecycle handler (onActivate creates webhook, onDeactivate deletes)
+- [ ] Create webhook endpoint at `/app/api/webhooks/[provider]/route.ts`
+- [ ] Handle validation handshakes (many providers send validation requests)
+- [ ] Store webhook IDs in `webhook_configs` table
+- [ ] Implement subscription renewal for expiring webhooks
+- [ ] Add health checks to monitor webhook status
+
+#### Examples of Webhook Implementations:
+- **Microsoft Teams:** Graph API change notifications (this doc)
+- **Gmail:** Google Cloud Pub/Sub push notifications
+- **Slack:** Event Subscriptions API
+- **HubSpot:** Webhook subscriptions for CRM objects
+- **Airtable:** Webhook notifications for base changes
+
+**Only use polling when:** Provider has NO webhook support or webhooks require enterprise plans
+
 ### API Capability Verification - MANDATORY
 **VERIFY API SUPPORT BEFORE ADDING ANY TRIGGER/ACTION FIELDS**
 
