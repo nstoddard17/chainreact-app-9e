@@ -4,8 +4,9 @@ import { ReactFlowProvider } from "@xyflow/react"
 import { WorkflowBuilderV2 } from "@/components/workflows/builder/WorkflowBuilderV2"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { getFlowRepository } from "@/src/lib/workflows/builder/api/helpers"
-import { createSupabaseServerClient } from "@/utils/supabase/server"
+import { createSupabaseServerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 import { requireUsername } from "@/utils/checkUsername"
+import { ensureWorkspaceRole } from "@/src/lib/workflows/builder/workspace"
 
 export const dynamic = "force-dynamic"
 
@@ -19,7 +20,55 @@ export default async function FlowBuilderV2Page({ params }: BuilderPageProps) {
   const { id: flowId } = await params
 
   const supabase = await createSupabaseServerClient()
-  const repository = await getFlowRepository(supabase)
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
+
+  if (userError || !user) {
+    notFound()
+  }
+
+  const serviceClient = await createSupabaseServiceClient()
+  const { data: workflowRow } = await serviceClient
+    .from("workflows")
+    .select("id, owner_id, workspace_id")
+    .eq("id", flowId)
+    .maybeSingle()
+
+  if (!workflowRow) {
+    notFound()
+  }
+
+  let hasAccess = workflowRow.owner_id === user.id
+
+  if (!hasAccess && workflowRow.workspace_id) {
+    try {
+      await ensureWorkspaceRole(serviceClient, workflowRow.workspace_id, user.id, "viewer")
+      hasAccess = true
+    } catch {
+      // ignore
+    }
+  }
+
+  if (!hasAccess) {
+    const { data: sharedAccess } = await serviceClient
+      .from("workflow_permissions")
+      .select("permission")
+      .eq("workflow_id", flowId)
+      .eq("user_id", user.id)
+      .maybeSingle()
+    hasAccess = Boolean(sharedAccess)
+  }
+
+  if (!hasAccess) {
+    notFound()
+  }
+
+  const repository = await getFlowRepository(supabase, {
+    allowServiceFallback: true,
+    fallbackClient: serviceClient,
+  })
   const revision = await repository.loadRevision({ flowId })
 
   if (!revision) {

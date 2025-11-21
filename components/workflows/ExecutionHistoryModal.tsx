@@ -324,91 +324,173 @@ export function ExecutionHistoryModal({
     return `${capitalize(provider)} - ${action.split(' ').map(capitalize).join(' ')}`
   }
 
+  // Calculate summary statistics
+  const stats = {
+    total: history.length,
+    completed: history.filter(e => e.status === 'completed').length,
+    failed: history.filter(e => e.status === 'failed').length,
+    running: history.filter(e => e.status === 'running').length,
+    test: history.filter(e => e.test_mode).length,
+    avgDuration: history
+      .filter(e => e.completed_at)
+      .reduce((acc, e) => {
+        const duration = new Date(e.completed_at!).getTime() - new Date(e.started_at).getTime()
+        return acc + duration
+      }, 0) / (history.filter(e => e.completed_at).length || 1)
+  }
+
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-7xl h-[80vh] max-h-[80vh] p-0 my-auto">
-        <DialogHeader className="px-6 py-4 border-b">
-          <div className="flex items-center justify-between">
-            <div>
-              <DialogTitle className="text-xl font-semibold">
+      <DialogContent className="max-w-7xl h-[85vh] max-h-[85vh] p-0 my-auto">
+        <DialogHeader className="px-6 py-4 border-b bg-gradient-to-r from-gray-50 to-white dark:from-gray-900 dark:to-gray-950">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <DialogTitle className="text-2xl font-semibold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 bg-clip-text text-transparent">
                 Execution History
               </DialogTitle>
-              <DialogDescription>
-                {workflowName} • {history.length} executions
+              <DialogDescription className="text-sm mt-1">
+                {workflowName}
               </DialogDescription>
+
+              {/* Summary Statistics */}
+              <div className="grid grid-cols-5 gap-3 mt-4">
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Activity className="h-3.5 w-3.5 text-gray-600 dark:text-gray-400" />
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Total</span>
+                  </div>
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-green-200 dark:border-green-800 p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+                    <span className="text-xs font-medium text-green-600 dark:text-green-400">Completed</span>
+                  </div>
+                  <div className="text-2xl font-bold text-green-700 dark:text-green-300">{stats.completed}</div>
+                  {stats.total > 0 && (
+                    <div className="text-xs text-green-600 dark:text-green-400 mt-1">
+                      {((stats.completed / stats.total) * 100).toFixed(0)}% success
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-800 p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <XCircle className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
+                    <span className="text-xs font-medium text-red-600 dark:text-red-400">Failed</span>
+                  </div>
+                  <div className="text-2xl font-bold text-red-700 dark:text-red-300">{stats.failed}</div>
+                  {stats.total > 0 && stats.failed > 0 && (
+                    <div className="text-xs text-red-600 dark:text-red-400 mt-1">
+                      {((stats.failed / stats.total) * 100).toFixed(0)}% error rate
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-blue-200 dark:border-blue-800 p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Clock className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                    <span className="text-xs font-medium text-blue-600 dark:text-blue-400">Avg Duration</span>
+                  </div>
+                  <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+                    {formatDuration(stats.avgDuration)}
+                  </div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-purple-200 dark:border-purple-800 p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <TestTube className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+                    <span className="text-xs font-medium text-purple-600 dark:text-purple-400">Test Runs</span>
+                  </div>
+                  <div className="text-2xl font-bold text-purple-700 dark:text-purple-300">{stats.test}</div>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
+
+            <div className="flex items-center gap-2 ml-6">
               <Button
                 size="sm"
                 variant="outline"
                 onClick={() => loadHistory()}
                 disabled={loading}
+                className="h-9"
               >
-                <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+                <RefreshCw className={cn("h-4 w-4 mr-2", loading && "animate-spin")} />
+                Refresh
               </Button>
               <Button
                 size="sm"
                 variant="outline"
                 onClick={handleDownloadHistory}
                 disabled={history.length === 0}
+                className="h-9"
               >
-                <Download className="h-4 w-4" />
+                <Download className="h-4 w-4 mr-2" />
+                Export
               </Button>
               <Button
                 size="sm"
                 variant="outline"
                 onClick={handleClearHistory}
                 disabled={history.length === 0}
+                className="h-9 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
               >
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-4 w-4 mr-2" />
+                Clear
               </Button>
             </div>
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden" style={{ height: 'calc(100% - 80px)' }}>
+        <div className="flex-1 overflow-hidden" style={{ height: 'calc(100% - 240px)' }}>
           <Tabs value={view} onValueChange={(v) => setView(v as 'list' | 'details')} className="h-full flex flex-col">
-            <div className="px-6 py-2 border-b">
+            <div className="px-6 py-3 border-b bg-gray-50 dark:bg-gray-900">
               <div className="flex items-center justify-between">
-                <TabsList>
-                  <TabsTrigger value="list">
-                    <Activity className="h-4 w-4 mr-2" />
-                    Executions
+                <TabsList className="bg-white dark:bg-gray-800">
+                  <TabsTrigger value="list" className="gap-2">
+                    <Activity className="h-4 w-4" />
+                    All Executions
                   </TabsTrigger>
-                  <TabsTrigger value="details" disabled={!selectedExecution}>
-                    <Zap className="h-4 w-4 mr-2" />
-                    Details
+                  <TabsTrigger value="details" disabled={!selectedExecution} className="gap-2">
+                    <Zap className="h-4 w-4" />
+                    Execution Details
                   </TabsTrigger>
                 </TabsList>
 
                 <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-gray-500 mr-1" />
                   <Button
                     size="sm"
                     variant={filter === 'all' ? 'default' : 'outline'}
                     onClick={() => setFilter('all')}
+                    className="h-8"
                   >
-                    All
+                    All ({history.length})
                   </Button>
                   <Button
                     size="sm"
                     variant={filter === 'completed' ? 'default' : 'outline'}
                     onClick={() => setFilter('completed')}
+                    className="h-8"
                   >
-                    Completed
+                    Completed ({stats.completed})
                   </Button>
                   <Button
                     size="sm"
                     variant={filter === 'failed' ? 'default' : 'outline'}
                     onClick={() => setFilter('failed')}
+                    className="h-8"
                   >
-                    Failed
+                    Failed ({stats.failed})
                   </Button>
                   <Button
                     size="sm"
                     variant={filter === 'test' ? 'default' : 'outline'}
                     onClick={() => setFilter('test')}
+                    className="h-8"
                   >
-                    Test
+                    Test ({stats.test})
                   </Button>
                 </div>
               </div>
@@ -417,72 +499,106 @@ export function ExecutionHistoryModal({
             <TabsContent value="list" className="flex-1 m-0 overflow-hidden">
               <ScrollArea className="h-full px-6 py-4">
                 {loading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <RefreshCw className="h-6 w-6 animate-spin text-gray-400" />
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <RefreshCw className="h-8 w-8 animate-spin text-gray-400 mb-3" />
+                    <p className="text-sm text-gray-500">Loading execution history...</p>
                   </div>
                 ) : filteredHistory.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    No execution history found
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <Activity className="h-12 w-12 text-gray-300 dark:text-gray-700 mb-3" />
+                    <p className="text-gray-500 dark:text-gray-400 font-medium">No execution history found</p>
+                    <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
+                      {filter !== 'all' ? 'Try changing your filter' : 'Run your workflow to see execution history'}
+                    </p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    {filteredHistory.map((execution) => (
-                      <Card
-                        key={execution.id}
-                        className="cursor-pointer hover:shadow-md transition-shadow"
-                        onClick={() => handleSelectExecution(execution)}
-                      >
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
-                                {getStatusIcon(execution.status)}
-                                <span className="font-mono text-sm text-gray-600">
-                                  {execution.execution_id}
-                                </span>
-                                {getStatusBadge(execution.status, execution.test_mode)}
+                  <div className="space-y-2">
+                    {filteredHistory.map((execution) => {
+                      const duration = execution.completed_at
+                        ? new Date(execution.completed_at).getTime() - new Date(execution.started_at).getTime()
+                        : null
+
+                      return (
+                        <Card
+                          key={execution.id}
+                          className="cursor-pointer hover:shadow-md hover:border-gray-400 dark:hover:border-gray-600 transition-all group"
+                          onClick={() => handleSelectExecution(execution)}
+                        >
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between gap-4">
+                              {/* Status Icon & ID */}
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="flex-shrink-0">
+                                  {getStatusIcon(execution.status)}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="font-mono text-xs text-gray-500 dark:text-gray-400 truncate">
+                                      {execution.execution_id.slice(0, 8)}
+                                    </span>
+                                    {getStatusBadge(execution.status, execution.test_mode)}
+                                  </div>
+                                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                                    {format(new Date(execution.started_at), 'MMM d, yyyy • HH:mm:ss')}
+                                  </div>
+                                </div>
                               </div>
 
-                              <div className="grid grid-cols-2 gap-4 text-sm">
-                                <div>
-                                  <span className="text-gray-500">Started:</span>{' '}
-                                  {format(new Date(execution.started_at), 'MMM d, yyyy HH:mm:ss')}
-                                </div>
-                                {execution.completed_at && (
-                                  <div>
-                                    <span className="text-gray-500">Duration:</span>{' '}
-                                    {formatDuration(
-                                      new Date(execution.completed_at).getTime() -
-                                      new Date(execution.started_at).getTime()
-                                    )}
+                              {/* Metrics */}
+                              <div className="flex items-center gap-6 flex-shrink-0">
+                                {duration !== null && (
+                                  <div className="text-center">
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Duration</div>
+                                    <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                                      {formatDuration(duration)}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {execution.status === 'running' && (
+                                  <div className="text-center">
+                                    <div className="text-xs text-blue-500 mb-0.5">Running</div>
+                                    <div className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                                      {formatDuration(Date.now() - new Date(execution.started_at).getTime())}
+                                    </div>
                                   </div>
                                 )}
                               </div>
 
-                              {execution.error_message && (
-                                <div className="mt-2 p-2 bg-red-50 rounded text-sm text-red-600">
-                                  {execution.error_message}
-                                </div>
-                              )}
+                              {/* Actions */}
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleCopyExecution(execution)
+                                  }}
+                                  className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                  <Copy className="h-4 w-4" />
+                                </Button>
+                                <ChevronRight className="h-5 w-5 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors" />
+                              </div>
                             </div>
 
-                            <div className="flex items-center gap-2 ml-4">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleCopyExecution(execution)
-                                }}
-                              >
-                                <Copy className="h-4 w-4" />
-                              </Button>
-                              <ChevronRight className="h-4 w-4 text-gray-400" />
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+                            {execution.error_message && (
+                              <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                                <div className="flex items-start gap-2">
+                                  <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-xs font-medium text-red-900 dark:text-red-100 mb-1">Error</div>
+                                    <div className="text-sm text-red-700 dark:text-red-300 break-words">
+                                      {execution.error_message}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      )
+                    })}
                   </div>
                 )}
               </ScrollArea>
@@ -492,139 +608,241 @@ export function ExecutionHistoryModal({
               <ScrollArea className="h-full px-6 py-4">
                 {selectedExecution && (
                   <div className="space-y-4">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-lg">Execution Summary</CardTitle>
+                    {/* Execution Summary Card */}
+                    <Card className="border-2">
+                      <CardHeader className="bg-gradient-to-r from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 pb-4">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-lg font-semibold">Execution Overview</CardTitle>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleCopyExecution(selectedExecution)}
+                          >
+                            <Copy className="h-4 w-4 mr-2" />
+                            Copy Data
+                          </Button>
+                        </div>
                       </CardHeader>
-                      <CardContent>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          <div>
-                            <span className="text-gray-500">Execution ID:</span>{' '}
-                            <span className="font-mono">{selectedExecution.execution_id}</span>
+                      <CardContent className="pt-4">
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                          <div className="space-y-1">
+                            <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">Execution ID</div>
+                            <div className="font-mono text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded border">
+                              {selectedExecution.execution_id}
+                            </div>
                           </div>
-                          <div>
-                            <span className="text-gray-500">Status:</span>{' '}
-                            {getStatusBadge(selectedExecution.status, selectedExecution.test_mode)}
+
+                          <div className="space-y-1">
+                            <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">Status</div>
+                            <div>{getStatusBadge(selectedExecution.status, selectedExecution.test_mode)}</div>
                           </div>
-                          <div>
-                            <span className="text-gray-500">Started:</span>{' '}
-                            {format(new Date(selectedExecution.started_at), 'MMM d, yyyy HH:mm:ss')}
+
+                          <div className="space-y-1">
+                            <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">Started At</div>
+                            <div className="text-sm font-medium">
+                              {format(new Date(selectedExecution.started_at), 'MMM d, yyyy')}
+                            </div>
+                            <div className="text-xs text-gray-600 dark:text-gray-400">
+                              {format(new Date(selectedExecution.started_at), 'HH:mm:ss')}
+                            </div>
                           </div>
+
                           {selectedExecution.completed_at && (
-                            <div>
-                              <span className="text-gray-500">Completed:</span>{' '}
-                              {format(new Date(selectedExecution.completed_at), 'MMM d, yyyy HH:mm:ss')}
+                            <div className="space-y-1">
+                              <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">Duration</div>
+                              <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                                {formatDuration(
+                                  new Date(selectedExecution.completed_at).getTime() -
+                                  new Date(selectedExecution.started_at).getTime()
+                                )}
+                              </div>
                             </div>
                           )}
                         </div>
+
+                        {selectedExecution.error_message && (
+                          <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                            <div className="flex items-start gap-3">
+                              <XCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+                              <div className="flex-1">
+                                <div className="text-sm font-semibold text-red-900 dark:text-red-100 mb-1">
+                                  Execution Failed
+                                </div>
+                                <div className="text-sm text-red-700 dark:text-red-300">
+                                  {selectedExecution.error_message}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
 
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-lg">Execution Steps</CardTitle>
+                    {/* Execution Steps */}
+                    <Card className="border-2">
+                      <CardHeader className="bg-gradient-to-r from-gray-50 to-white dark:from-gray-900 dark:to-gray-950">
+                        <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                          <Zap className="h-5 w-5" />
+                          Execution Steps ({executionSteps.length})
+                        </CardTitle>
                       </CardHeader>
-                      <CardContent>
+                      <CardContent className="pt-4">
                         {stepsLoading ? (
-                          <div className="flex items-center justify-center py-8">
-                            <RefreshCw className="h-6 w-6 animate-spin text-gray-400" />
+                          <div className="flex flex-col items-center justify-center py-12">
+                            <RefreshCw className="h-8 w-8 animate-spin text-gray-400 mb-3" />
+                            <p className="text-sm text-gray-500">Loading execution steps...</p>
                           </div>
                         ) : executionSteps.length === 0 ? (
-                          <div className="text-center py-8 text-gray-500">
-                            No execution steps recorded
+                          <div className="flex flex-col items-center justify-center py-12">
+                            <Code2 className="h-12 w-12 text-gray-300 dark:text-gray-700 mb-3" />
+                            <p className="text-gray-500 dark:text-gray-400 font-medium">No execution steps recorded</p>
                           </div>
                         ) : (
                           <div className="space-y-2">
-                            {executionSteps.map((step) => (
+                            {executionSteps.map((step, index) => (
                               <div
                                 key={step.id}
-                                className="border rounded-lg overflow-hidden"
+                                className="border-2 rounded-lg overflow-hidden hover:border-gray-400 dark:hover:border-gray-600 transition-colors"
                               >
                                 <div
-                                  className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                  className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 cursor-pointer hover:from-gray-100 hover:to-gray-50 dark:hover:from-gray-700 dark:hover:to-gray-800 transition-all"
                                   onClick={() => toggleStepExpanded(step.id)}
                                 >
-                                  <div className="flex items-center gap-3">
-                                    <span className="text-sm font-mono text-gray-600 dark:text-gray-400">
-                                      #{step.step_number}
-                                    </span>
-                                    {getIntegrationIcon(step.node_type)}
-                                    {getStatusIcon(step.status)}
-                                    <div>
-                                      <div className="font-medium text-gray-900 dark:text-gray-100">
+                                  <div className="flex items-center gap-4 flex-1 min-w-0">
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-8 h-8 rounded-full bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600 flex items-center justify-center">
+                                        <span className="text-xs font-bold text-gray-700 dark:text-gray-300">
+                                          {step.step_number}
+                                        </span>
+                                      </div>
+                                      <div className="flex-shrink-0">
+                                        {getIntegrationIcon(step.node_type)}
+                                      </div>
+                                      <div className="flex-shrink-0">
+                                        {getStatusIcon(step.status)}
+                                      </div>
+                                    </div>
+
+                                    <div className="flex-1 min-w-0">
+                                      <div className="font-semibold text-gray-900 dark:text-gray-100 truncate">
                                         {formatNodeName(step.node_name, step.node_type)}
                                       </div>
-                                      <div className="text-xs text-gray-600 dark:text-gray-400">
-                                        {formatDuration(step.duration_ms)}
+                                      <div className="flex items-center gap-3 mt-0.5">
+                                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                                          {formatDuration(step.duration_ms)}
+                                        </span>
+                                        {step.started_at && (
+                                          <span className="text-xs text-gray-400 dark:text-gray-500">
+                                            {format(new Date(step.started_at), 'HH:mm:ss')}
+                                          </span>
+                                        )}
                                       </div>
                                     </div>
                                   </div>
 
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-3 flex-shrink-0">
                                     {step.test_mode_preview && (
-                                      <Badge variant="outline" className="text-blue-600 border-blue-600">
+                                      <Badge variant="outline" className="text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400">
                                         <TestTube className="h-3 w-3 mr-1" />
-                                        Preview
+                                        Test Mode
+                                      </Badge>
+                                    )}
+                                    {step.error_message && (
+                                      <Badge variant="outline" className="text-red-600 dark:text-red-400 border-red-600 dark:border-red-400">
+                                        <AlertCircle className="h-3 w-3 mr-1" />
+                                        Error
                                       </Badge>
                                     )}
                                     {expandedSteps.has(step.id) ? (
-                                      <ChevronDown className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                                      <ChevronDown className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                                     ) : (
-                                      <ChevronRight className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                                      <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                                     )}
                                   </div>
                                 </div>
 
                                 {expandedSteps.has(step.id) && (
-                                  <div className="p-4 border-t bg-white dark:bg-gray-900">
-                                    {/* Display result message if available (human-friendly feedback) */}
+                                  <div className="p-4 border-t-2 bg-white dark:bg-gray-950">
+                                    {/* Display result message if available */}
                                     {step.output_data?.message && (
                                       <div className={cn(
-                                        "mb-4 p-4 rounded-lg border",
+                                        "mb-4 p-4 rounded-lg border-2",
                                         step.status === 'completed'
-                                          ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-900 dark:text-green-100"
-                                          : "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-100"
+                                          ? "bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700"
+                                          : "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700"
                                       )}>
-                                        <div className="flex items-start gap-2">
-                                          <CheckCircle2 className="h-5 w-5 mt-0.5 flex-shrink-0" />
+                                        <div className="flex items-start gap-3">
+                                          <CheckCircle2 className={cn(
+                                            "h-5 w-5 mt-0.5 flex-shrink-0",
+                                            step.status === 'completed'
+                                              ? "text-green-600 dark:text-green-400"
+                                              : "text-blue-600 dark:text-blue-400"
+                                          )} />
                                           <div className="flex-1">
-                                            <div className="font-medium text-sm mb-1">Result</div>
-                                            <div className="text-sm whitespace-pre-wrap">{step.output_data.message}</div>
+                                            <div className={cn(
+                                              "font-semibold text-sm mb-1",
+                                              step.status === 'completed'
+                                                ? "text-green-900 dark:text-green-100"
+                                                : "text-blue-900 dark:text-blue-100"
+                                            )}>
+                                              Result
+                                            </div>
+                                            <div className={cn(
+                                              "text-sm whitespace-pre-wrap",
+                                              step.status === 'completed'
+                                                ? "text-green-800 dark:text-green-200"
+                                                : "text-blue-800 dark:text-blue-200"
+                                            )}>
+                                              {step.output_data.message}
+                                            </div>
                                           </div>
                                         </div>
                                       </div>
                                     )}
 
                                     <Tabs defaultValue="output" className="w-full">
-                                      <TabsList className="grid w-full grid-cols-4">
-                                        <TabsTrigger value="input">Input</TabsTrigger>
-                                        <TabsTrigger value="output">Output</TabsTrigger>
+                                      <TabsList className="grid w-full grid-cols-4 bg-gray-100 dark:bg-gray-800">
+                                        <TabsTrigger value="input" className="gap-2">
+                                          <Code2 className="h-3.5 w-3.5" />
+                                          Input
+                                        </TabsTrigger>
+                                        <TabsTrigger value="output" className="gap-2">
+                                          <Terminal className="h-3.5 w-3.5" />
+                                          Output
+                                        </TabsTrigger>
                                         {step.test_mode_preview && (
-                                          <TabsTrigger value="preview">Preview</TabsTrigger>
+                                          <TabsTrigger value="preview" className="gap-2">
+                                            <Eye className="h-3.5 w-3.5" />
+                                            Preview
+                                          </TabsTrigger>
                                         )}
                                         {step.error_message && (
-                                          <TabsTrigger value="error">Error</TabsTrigger>
+                                          <TabsTrigger value="error" className="gap-2">
+                                            <AlertCircle className="h-3.5 w-3.5" />
+                                            Error
+                                          </TabsTrigger>
                                         )}
                                       </TabsList>
 
                                       <TabsContent value="input" className="mt-4">
-                                        <pre className="text-xs bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-200 p-4 rounded-lg overflow-auto max-h-80 border border-gray-200 dark:border-gray-700">
+                                        <pre className="text-xs bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 p-4 rounded-lg overflow-auto max-h-96 border-2 border-gray-200 dark:border-gray-700 font-mono">
                                           {JSON.stringify(step.input_data, null, 2)}
                                         </pre>
                                       </TabsContent>
 
                                       <TabsContent value="output" className="mt-4">
-                                        <pre className="text-xs bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-200 p-4 rounded-lg overflow-auto max-h-80 border border-gray-200 dark:border-gray-700">
+                                        <pre className="text-xs bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 p-4 rounded-lg overflow-auto max-h-96 border-2 border-gray-200 dark:border-gray-700 font-mono">
                                           {JSON.stringify(step.output_data, null, 2)}
                                         </pre>
                                       </TabsContent>
 
                                       {step.test_mode_preview && (
                                         <TabsContent value="preview" className="mt-4">
-                                          <div className="text-sm text-blue-600 dark:text-blue-400 mb-2">
-                                            What would have been sent:
+                                          <div className="mb-3 flex items-center gap-2 text-sm font-medium text-blue-700 dark:text-blue-300">
+                                            <Eye className="h-4 w-4" />
+                                            What would have been sent in production:
                                           </div>
-                                          <pre className="text-xs bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 p-4 rounded-lg overflow-auto max-h-80 border border-blue-200 dark:border-blue-800">
+                                          <pre className="text-xs bg-blue-50 dark:bg-blue-950 text-blue-900 dark:text-blue-100 p-4 rounded-lg overflow-auto max-h-96 border-2 border-blue-300 dark:border-blue-700 font-mono">
                                             {JSON.stringify(step.test_mode_preview, null, 2)}
                                           </pre>
                                         </TabsContent>
@@ -632,14 +850,29 @@ export function ExecutionHistoryModal({
 
                                       {step.error_message && (
                                         <TabsContent value="error" className="mt-4">
-                                          <div className="text-sm text-red-600 dark:text-red-400 mb-2">
-                                            {step.error_message}
+                                          <div className="p-4 bg-red-50 dark:bg-red-950 border-2 border-red-300 dark:border-red-700 rounded-lg">
+                                            <div className="flex items-start gap-3 mb-3">
+                                              <XCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+                                              <div className="flex-1">
+                                                <div className="font-semibold text-sm text-red-900 dark:text-red-100 mb-1">
+                                                  Error Message
+                                                </div>
+                                                <div className="text-sm text-red-700 dark:text-red-300">
+                                                  {step.error_message}
+                                                </div>
+                                              </div>
+                                            </div>
+                                            {step.error_details && (
+                                              <>
+                                                <div className="text-xs font-medium text-red-900 dark:text-red-100 mb-2">
+                                                  Error Details:
+                                                </div>
+                                                <pre className="text-xs bg-white dark:bg-red-900/20 text-red-900 dark:text-red-100 p-3 rounded overflow-auto max-h-80 border border-red-300 dark:border-red-700 font-mono">
+                                                  {JSON.stringify(step.error_details, null, 2)}
+                                                </pre>
+                                              </>
+                                            )}
                                           </div>
-                                          {step.error_details && (
-                                            <pre className="text-xs bg-red-50 dark:bg-red-900/20 text-red-900 dark:text-red-100 p-4 rounded-lg overflow-auto max-h-80 border border-red-200 dark:border-red-800">
-                                              {JSON.stringify(step.error_details, null, 2)}
-                                            </pre>
-                                          )}
                                         </TabsContent>
                                       )}
                                     </Tabs>

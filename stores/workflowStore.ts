@@ -942,7 +942,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
   pauseWorkflowsForIntegration: async (providerId: string) => {
     const { workflows, updateWorkflow } = get()
     const affectedWorkflows = workflows.filter(workflow =>
-      workflow.nodes.some(node => {
+      Array.isArray(workflow.nodes) && workflow.nodes.some(node => {
         const nodeProvider =
           node.data?.providerId ||
           node.data?.config?.providerId ||

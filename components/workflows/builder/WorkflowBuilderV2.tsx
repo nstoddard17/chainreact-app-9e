@@ -1532,6 +1532,14 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         } else if (incomingEdges.length === 0 && triggerNodeId) {
           nextEdges.push(makeLinearEdge(triggerNodeId, firstNodeId))
         }
+        if (triggerNodeId) {
+          const hasTriggerEdge = nextEdges.some(
+            (edge) => edge.source === triggerNodeId && edge.target === firstNodeId
+          )
+          if (!hasTriggerEdge) {
+            nextEdges.push(makeLinearEdge(triggerNodeId, firstNodeId, incomingEdges[0]))
+          }
+        }
       }
 
       for (let i = 0; i < orderedNodeIds.length - 1; i++) {
@@ -2671,8 +2679,40 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     // Record history snapshot for undo
     builder.pushHistorySnapshot?.(currentNodes, currentEdges)
 
+    // Find the Y position of the deleted node(s) - use the highest (smallest Y) deleted node
+    let deletedNodeY: number | null = null
+    nodeIds.forEach(nodeId => {
+      const node = currentNodes.find((n: any) => n.id === nodeId)
+      if (node && node.position) {
+        if (deletedNodeY === null || node.position.y < deletedNodeY) {
+          deletedNodeY = node.position.y
+        }
+      }
+    })
+
     // Optimistically remove nodes from UI immediately
-    const updatedNodes = currentNodes.filter((node: any) => !nodeIdSet.has(node.id))
+    let updatedNodes = currentNodes.filter((node: any) => !nodeIdSet.has(node.id))
+
+    // Shift nodes up if we have a deleted position
+    if (deletedNodeY !== null) {
+      // Calculate the vertical gap (node height + spacing)
+      // Typical node height is ~100-200px, gap between nodes is ~180px
+      const verticalShift = LINEAR_NODE_VERTICAL_GAP
+
+      // Shift all nodes that were below the deleted node(s)
+      updatedNodes = updatedNodes.map((node: any) => {
+        if (node.position && node.position.y > deletedNodeY!) {
+          return {
+            ...node,
+            position: {
+              ...node.position,
+              y: node.position.y - verticalShift
+            }
+          }
+        }
+        return node
+      })
+    }
 
     // For each deleted node, find incoming and outgoing edges and reconnect them
     const newEdges: any[] = []

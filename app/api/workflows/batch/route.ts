@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
+import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from '@/utils/supabase/server'
 import { logger } from '@/lib/utils/logger'
 
 export const dynamic = 'force-dynamic'
@@ -11,6 +11,7 @@ export const dynamic = 'force-dynamic'
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createSupabaseRouteHandlerClient()
+    const serviceClient = await createSupabaseServiceClient()
 
     // Check authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -39,9 +40,10 @@ export async function POST(request: NextRequest) {
 
     let result: any = { success: true, processed: 0, failed: 0, errors: [] }
 
+    // Use service client for database operations to bypass RLS
     switch (operation) {
       case 'delete':
-        result = await batchDelete(supabase, user.id, workflowIds)
+        result = await batchDelete(serviceClient, user.id, workflowIds)
         break
 
       case 'move':
@@ -51,15 +53,15 @@ export async function POST(request: NextRequest) {
             { status: 400 }
           )
         }
-        result = await batchMove(supabase, user.id, workflowIds, data.folder_id)
+        result = await batchMove(serviceClient, user.id, workflowIds, data.folder_id)
         break
 
       case 'trash':
-        result = await batchMoveToTrash(supabase, user.id, workflowIds)
+        result = await batchMoveToTrash(serviceClient, user.id, workflowIds)
         break
 
       case 'restore':
-        result = await batchRestore(supabase, user.id, workflowIds)
+        result = await batchRestore(serviceClient, user.id, workflowIds)
         break
 
       default:
