@@ -35,7 +35,7 @@ const nextConfig = {
     optimizePackageImports: [
       'lucide-react',
       '@supabase/supabase-js',
-      '@supabase/auth-helpers-nextjs',
+      '@supabase/ssr',
       'recharts',
       '@radix-ui/react-select',
       '@radix-ui/react-dialog',

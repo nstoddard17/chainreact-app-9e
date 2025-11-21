@@ -34,7 +34,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     }
 
     // Get the template data
-    const { data: template, error } = await supabase.from("workflow_templates").select("*").eq("id", params.id).single()
+    const { data: template, error } = await supabase.from("workflows_templates").select("*").eq("id", params.id).single()
 
     if (error) {
       logger.error("Error fetching template:", error)

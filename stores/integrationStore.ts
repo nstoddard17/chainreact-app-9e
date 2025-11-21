@@ -79,6 +79,10 @@ export interface IntegrationStore {
   refreshAllTokens: () => Promise<{ refreshed: number; failed: number }>
   getIntegrationStatus: (providerId: string) => string
   getIntegrationByProvider: (providerId: string) => Integration | null
+  // NEW: Multi-account support
+  getAllIntegrationsByProvider: (providerId: string) => Integration[]
+  getIntegrationById: (integrationId: string) => Integration | null
+  hasMultipleAccounts: (providerId: string) => boolean
   getConnectedProviders: () => string[]
   initializeGlobalPreload: () => Promise<void>
   loadIntegrationData: (
@@ -940,6 +944,56 @@ export const useIntegrationStore = create<IntegrationStore>()(
       }
 
       return integration || null
+    },
+
+    // NEW: Get ALL integrations for a provider (multi-account support)
+    getAllIntegrationsByProvider: (providerId: string) => {
+      const { integrations } = get()
+
+      // For Google services, they might all be under a single 'google' integration
+      const providerMapping: Record<string, string> = {
+        'google-docs': 'google',
+        'google-drive': 'google',
+        'google-sheets': 'google',
+        'google-calendar': 'google',
+        'google_calendar': 'google',
+      }
+
+      const actualProvider = providerMapping[providerId] || providerId
+
+      // Get all integrations matching the provider (exact match first)
+      let matchingIntegrations = integrations.filter((i) => i.provider === providerId)
+
+      // If none found and we have a mapping, try the mapped provider
+      if (matchingIntegrations.length === 0 && actualProvider !== providerId) {
+        matchingIntegrations = integrations.filter((i) => i.provider === actualProvider)
+      }
+
+      // Additional fallback: try with underscore if hyphen fails (or vice versa)
+      if (matchingIntegrations.length === 0) {
+        const alternateProvider = providerId.includes('-')
+          ? providerId.replace(/-/g, '_')
+          : providerId.replace(/_/g, '-')
+        matchingIntegrations = integrations.filter((i) => i.provider === alternateProvider)
+      }
+
+      // Sort by created_at (oldest first for backward compatibility)
+      return matchingIntegrations.sort((a, b) =>
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      )
+    },
+
+    // NEW: Get a specific integration by ID (multi-account support)
+    getIntegrationById: (integrationId: string) => {
+      const { integrations } = get()
+      return integrations.find((i) => i.id === integrationId) || null
+    },
+
+    // NEW: Check if a provider has multiple accounts connected
+    hasMultipleAccounts: (providerId: string) => {
+      const { getAllIntegrationsByProvider } = get()
+      const accounts = getAllIntegrationsByProvider(providerId)
+      return accounts.filter(a => a.status === 'connected').length > 1
     },
 
     getConnectedProviders: () => {

@@ -63,6 +63,7 @@ import { TavilySearchConfiguration } from './providers/utility/TavilySearchConfi
 import { logger } from '@/lib/utils/logger'
 import { collectFieldLabelsFromCache, loadLabelsIntoCache } from '@/lib/workflows/configuration/collect-labels'
 import { isNodeTypeConnectionExempt, isProviderConnectionExempt } from './utils/connectionExemptions'
+import { ServiceConnectionSelector } from './ServiceConnectionSelector'
 
 interface ConfigurationFormProps {
   nodeInfo: any;
@@ -173,7 +174,7 @@ function ConfigurationForm({
 
   const { validateRequiredFields, getMissingRequiredFields, getAllRequiredFields } = useFieldValidation({ nodeInfo, values });
 
-  const { getIntegrationByProvider, connectIntegration, fetchIntegrations } = useIntegrationStore();
+  const { getIntegrationByProvider, getAllIntegrationsByProvider, getIntegrationById, hasMultipleAccounts, connectIntegration, fetchIntegrations, deleteIntegration, reconnectIntegration } = useIntegrationStore();
   // Subscribe to integrations to trigger re-render when they change (important for shared auth like Excel/OneDrive)
   const integrations = useIntegrationStore(state => state.integrations);
   const { currentWorkflow, updateNode } = useWorkflowStore();
@@ -194,6 +195,39 @@ function ConfigurationForm({
     if (skipConnectionCheck || !providerToCheck) return null;
     return getIntegrationByProvider(providerToCheck);
   }, [skipConnectionCheck, providerToCheck, getIntegrationByProvider, integrations]);
+
+  // NEW: Multi-account support - get all accounts for this provider
+  const allIntegrations = !skipConnectionCheck && providerToCheck
+    ? getAllIntegrationsByProvider(providerToCheck)
+    : [];
+  const connectedIntegrations = allIntegrations.filter(i => i.status === 'connected');
+  const showAccountSelector = connectedIntegrations.length > 1;
+
+  // State for selected integration when multiple accounts exist
+  // Initialize from saved node config or use first account
+  const [selectedIntegrationId, setSelectedIntegrationId] = useState<string | undefined>(() => {
+    // Check if node config has a saved integration_id
+    const savedIntegrationId = initialData?.integration_id || values?.integration_id;
+    if (savedIntegrationId) return savedIntegrationId;
+    // Default to first connected integration
+    return connectedIntegrations[0]?.id;
+  });
+
+  // Get the selected integration object
+  const selectedIntegration = selectedIntegrationId
+    ? getIntegrationById(selectedIntegrationId) || integration
+    : integration;
+
+  // Handle account selection change
+  const handleSelectAccount = useCallback((integrationId: string) => {
+    setSelectedIntegrationId(integrationId);
+    // Save to form values so it persists with node config
+    setValues(prev => ({
+      ...prev,
+      integration_id: integrationId
+    }));
+    logger.debug('[ConfigForm] Selected account changed:', { integrationId });
+  }, []);
 
   // Helper function to check if status means connected
   const isConnectedStatus = (status?: string) => {
@@ -600,7 +634,49 @@ function ConfigurationForm({
     if (!initialValues._allFieldsAI) {
       nodeInfo.configSchema.forEach((field: any) => {
         if (field.defaultValue !== undefined && initialValues[field.name] === undefined) {
-          initialValues[field.name] = field.defaultValue;
+          let defaultValue = field.defaultValue;
+
+          // Process dynamic default values
+          if (typeof defaultValue === 'string') {
+            const now = new Date();
+
+            // {{currentDate}} - Current date in YYYY-MM-DD format
+            if (defaultValue === '{{currentDate}}') {
+              const year = now.getFullYear();
+              const month = String(now.getMonth() + 1).padStart(2, '0');
+              const day = String(now.getDate()).padStart(2, '0');
+              defaultValue = `${year}-${month}-${day}`;
+            }
+
+            // {{roundedCurrentTime}} - Current time rounded to nearest 15 minutes
+            else if (defaultValue === '{{roundedCurrentTime}}') {
+              const minutes = now.getMinutes();
+              const roundedMinutes = Math.round(minutes / 15) * 15;
+              const adjustedTime = new Date(now);
+              adjustedTime.setMinutes(roundedMinutes);
+              adjustedTime.setSeconds(0);
+
+              const hours = String(adjustedTime.getHours()).padStart(2, '0');
+              const mins = String(adjustedTime.getMinutes()).padStart(2, '0');
+              defaultValue = `${hours}:${mins}`;
+            }
+
+            // {{roundedCurrentTimePlusOneHour}} - Current time rounded + 1 hour
+            else if (defaultValue === '{{roundedCurrentTimePlusOneHour}}') {
+              const minutes = now.getMinutes();
+              const roundedMinutes = Math.round(minutes / 15) * 15;
+              const adjustedTime = new Date(now);
+              adjustedTime.setMinutes(roundedMinutes);
+              adjustedTime.setSeconds(0);
+              adjustedTime.setHours(adjustedTime.getHours() + 1);
+
+              const hours = String(adjustedTime.getHours()).padStart(2, '0');
+              const mins = String(adjustedTime.getMinutes()).padStart(2, '0');
+              defaultValue = `${hours}:${mins}`;
+            }
+          }
+
+          initialValues[field.name] = defaultValue;
         }
       });
     }
@@ -1409,8 +1485,13 @@ function ConfigurationForm({
     loadingFields,
     loadOptions,
     integrationName,
-    integrationId: integration?.id,
+    integrationId: selectedIntegrationId || selectedIntegration?.id || integration?.id,
     needsConnection,
+    // Multi-account support
+    showAccountSelector,
+    selectedIntegrationId,
+    connectedIntegrations,
+    onSelectAccount: handleSelectAccount,
     onConnectIntegration: handleConnectIntegration,
     aiFields,
     setAiFields,

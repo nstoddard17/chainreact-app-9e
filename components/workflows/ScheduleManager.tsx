@@ -70,7 +70,7 @@ export default function ScheduleManager({ workflowId }: ScheduleManagerProps) {
 
     try {
       const { data, error } = await supabase
-        .from("workflow_schedules")
+        .from("workflows_schedules")
         .select("*")
         .eq("workflow_id", workflowId)
         .order("created_at", { ascending: false })

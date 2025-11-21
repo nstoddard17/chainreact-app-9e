@@ -29,7 +29,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { CheckCircle, AlertCircle, RefreshCw, ExternalLink, Plus, Users, Building2, User, X } from 'lucide-react'
+import { CheckCircle, AlertCircle, RefreshCw, ExternalLink, Plus, Users, Building2, User, X, Share2, UserCheck, UsersIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { fetchWithTimeout } from '@/lib/utils/fetch-with-timeout'
 import { logger } from '@/lib/utils/logger'
@@ -51,6 +51,12 @@ interface Connection {
   user_permission?: 'use' | 'manage' | 'admin'
   created_at?: string
   expires_at?: string | null
+  // Sharing-related fields (from all-connections API)
+  is_owner?: boolean
+  is_shared?: boolean
+  access_type?: 'owned' | 'shared_direct' | 'shared_team' | 'shared_org' | 'workspace'
+  sharing_scope?: 'private' | 'team' | 'organization'
+  connected_by?: string
 }
 
 interface ServiceConnectionSelectorProps {
@@ -342,6 +348,37 @@ export function ServiceConnectionSelector({
     return colors[Math.abs(hash) % colors.length]
   }
 
+  // Get sharing badge info
+  const getSharingBadgeInfo = (conn: Connection): { icon: React.ReactNode; label: string; className: string } | null => {
+    // Only show for shared connections (not owned by current user)
+    if (conn.is_owner || !conn.is_shared) {
+      return null
+    }
+
+    switch (conn.access_type) {
+      case 'shared_direct':
+        return {
+          icon: <UserCheck className="w-3 h-3" />,
+          label: 'Shared',
+          className: 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/50 dark:text-violet-400 dark:border-violet-800/50'
+        }
+      case 'shared_team':
+        return {
+          icon: <UsersIcon className="w-3 h-3" />,
+          label: 'Team',
+          className: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-400 dark:border-blue-800/50'
+        }
+      case 'shared_org':
+        return {
+          icon: <Building2 className="w-3 h-3" />,
+          label: 'Org',
+          className: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/50 dark:text-indigo-400 dark:border-indigo-800/50'
+        }
+      default:
+        return null
+    }
+  }
+
   // Handle delete confirmation
   const handleDeleteClick = (conn: Connection, e: React.MouseEvent) => {
     e.stopPropagation() // Prevent option selection
@@ -433,13 +470,35 @@ export function ServiceConnectionSelector({
           {getAccountDisplay(conn)}
         </span>
 
-        {/* Workspace Type - Icon + Text (Minimal) */}
-        <div className="flex items-center gap-1 text-muted-foreground/70 flex-shrink-0">
-          {getWorkspaceIcon(conn.workspace_type)}
-          <span className="text-[10px] font-medium">
-            {getWorkspaceLabel(conn.workspace_type)}
-          </span>
-        </div>
+        {/* Sharing Badge - Show if connection is shared with user */}
+        {(() => {
+          const sharingBadge = getSharingBadgeInfo(conn)
+          if (sharingBadge) {
+            return (
+              <Badge
+                variant="outline"
+                className={cn(
+                  "text-[9px] h-4 px-1.5 font-medium border flex-shrink-0 flex items-center gap-0.5",
+                  sharingBadge.className
+                )}
+              >
+                {sharingBadge.icon}
+                <span>{sharingBadge.label}</span>
+              </Badge>
+            )
+          }
+          return null
+        })()}
+
+        {/* Workspace Type - Icon + Text (Minimal) - Only show for owned connections */}
+        {(conn.is_owner || !conn.is_shared) && (
+          <div className="flex items-center gap-1 text-muted-foreground/70 flex-shrink-0">
+            {getWorkspaceIcon(conn.workspace_type)}
+            <span className="text-[10px] font-medium">
+              {getWorkspaceLabel(conn.workspace_type)}
+            </span>
+          </div>
+        )}
 
         {conn.status !== 'connected' && (
           <Badge
@@ -454,8 +513,8 @@ export function ServiceConnectionSelector({
           </Badge>
         )}
 
-        {/* Delete button inside dropdown option */}
-        {onDeleteConnection && (
+        {/* Delete button inside dropdown option - Only show for owned connections */}
+        {onDeleteConnection && (conn.is_owner !== false) && (
           <div
             onClick={(e) => {
               e.preventDefault()
@@ -483,7 +542,7 @@ export function ServiceConnectionSelector({
         )}
       </div>
     ),
-    searchValue: `${getAccountDisplay(conn)} ${getWorkspaceLabel(conn.workspace_type)} ${conn.status}`
+    searchValue: `${getAccountDisplay(conn)} ${getWorkspaceLabel(conn.workspace_type)} ${conn.status} ${conn.is_shared ? 'shared' : 'owned'} ${conn.access_type || ''}`
     }
   })
 

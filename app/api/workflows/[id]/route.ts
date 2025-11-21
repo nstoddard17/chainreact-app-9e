@@ -727,7 +727,8 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       logger.warn('⚠️ Failed to cleanup triggers before deletion:', unregisterError)
     }
 
-    const { error } = await supabase
+    // Use service client to bypass RLS for deletion (already verified ownership above)
+    const { error } = await serviceClient
       .from('workflows')
       .delete()
       .eq('id', workflowId)
