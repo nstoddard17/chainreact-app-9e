@@ -144,6 +144,186 @@ const actionHandlers = {
 }
 ```
 
+## Connect Button (Link to Previous Node Outputs)
+
+The **Connect Button** allows users to link a field to outputs from previous workflow nodes, enabling dynamic data flow between nodes.
+
+### What is the Connect Button?
+The connect button appears as a small button/icon next to text fields that allows users to:
+- Select outputs from previous workflow nodes
+- Dynamically populate the field with data from earlier steps
+- Create data pipelines between workflow actions
+
+### How to Add the Connect Button
+
+**✅ CHECKLIST - Verify ALL items:**
+- [ ] Field has `supportsAI: true` property
+- [ ] Field type supports connect button (see below)
+- [ ] Field is NOT required, OR has appropriate fallback handling
+- [ ] Tested: Button appears in UI next to the field
+- [ ] Tested: Can select previous node outputs
+- [ ] Tested: Selected value displays correctly
+- [ ] Tested: Workflow executes with connected value
+
+### Implementation
+
+Add `supportsAI: true` to the field configuration:
+
+```typescript
+{
+  name: "description",
+  label: "Description",
+  type: "textarea",
+  required: false,
+  placeholder: "Enter description",
+  supportsAI: true  // ✅ THIS ENABLES THE CONNECT BUTTON
+}
+```
+
+**For Rich Text Fields (content, message, body, description, text, notes):**
+
+Rich text fields are excluded from connect mode by default to preserve the variable picker functionality (which allows multiple variables + text). To enable the connect button for these fields, use `hasConnectButton: true`:
+
+```typescript
+{
+  name: "content",
+  label: "Content",
+  type: "textarea",
+  required: false,
+  placeholder: "Enter page content",
+  hasVariablePicker: true,  // Keep variable picker
+  hasConnectButton: true    // ✅ ADD THIS to override default behavior
+}
+```
+
+**Implementation Details:**
+- Location: `components/workflows/configuration/fields/FieldRenderer.tsx`
+- Function: `shouldUseConnectMode()`
+- Rich text fields (`content`, `message`, `body`, `description`, `text`, `notes`) default to variable picker mode
+- Setting `hasConnectButton: true` overrides this and enables connect mode
+- This allows the field to switch between text input and dropdown variable selection
+
+### Field Types That Support Connect Button
+
+✅ **Supported Types:**
+- `text` - Single-line text input
+- `textarea` - Multi-line text input (use `hasConnectButton: true` for rich text fields)
+- `email` - Email input fields
+
+❌ **Not Supported:**
+- `select` - Dropdown selections
+- `boolean` - Checkboxes/toggles
+- `date` - Date pickers
+- `number` - Numeric inputs (without supportsAI)
+- Dynamic fields (already have their own data sources)
+
+### Examples
+
+**✅ CORRECT - Text field with connect button:**
+```typescript
+{
+  name: "subject",
+  label: "Subject",
+  type: "text",
+  required: false,
+  placeholder: "Email subject",
+  supportsAI: true  // Connect button will appear
+}
+```
+
+**✅ CORRECT - Regular textarea with connect button:**
+```typescript
+{
+  name: "notes",
+  label: "Notes",
+  type: "textarea",
+  required: false,
+  placeholder: "Additional notes",
+  supportsAI: true  // Connect button will appear
+}
+```
+
+**✅ CORRECT - Rich text field with connect button:**
+```typescript
+{
+  name: "content",
+  label: "Content",
+  type: "textarea",
+  required: false,
+  placeholder: "Enter page content",
+  hasVariablePicker: true,  // Keep variable picker
+  hasConnectButton: true    // Override default to enable connect button
+}
+```
+
+**❌ INCORRECT - Rich text field without hasConnectButton:**
+```typescript
+{
+  name: "content",
+  label: "Content",
+  type: "textarea",
+  required: false,
+  placeholder: "Enter content",
+  supportsAI: true  // ❌ WON'T WORK - rich text fields need hasConnectButton
+}
+```
+
+**❌ INCORRECT - Missing supportsAI:**
+```typescript
+{
+  name: "description",
+  label: "Description",
+  type: "textarea",
+  required: false,
+  placeholder: "Enter description"
+  // ❌ NO CONNECT BUTTON - missing supportsAI: true or hasConnectButton: true
+}
+```
+
+**❌ INCORRECT - Wrong field type:**
+```typescript
+{
+  name: "priority",
+  label: "Priority",
+  type: "select",  // ❌ Select fields don't support connect button
+  supportsAI: true,  // This won't work
+  options: [...]
+}
+```
+
+### Common Mistakes to Avoid
+
+1. **Forgetting `supportsAI: true`**
+   - This is the #1 mistake - the property MUST be present
+   - Always check the field definition includes this property
+
+2. **Using wrong field type**
+   - Connect button only works with text, textarea, and email types
+   - Don't try to add it to select, boolean, or date fields
+
+3. **Making field required**
+   - If field is required AND has connect button, ensure proper validation
+   - Consider making field optional when using connect button
+
+4. **Not testing the button**
+   - Always verify the button appears in the UI
+   - Test selecting a previous node's output
+   - Verify the workflow executes with connected data
+
+### When to Use Connect Button
+
+**✅ Use connect button when:**
+- Field should accept dynamic data from previous steps
+- Users need to chain workflow actions together
+- Field value depends on earlier computations
+- Creating flexible, reusable workflows
+
+**❌ Don't use connect button when:**
+- Field requires specific format or validation
+- Field is a selection from predefined options (use select/dynamic)
+- Field is a date, boolean, or number with specific constraints
+- Field is already dynamic (loading from API)
+
 ## Field Types and Their Requirements
 
 ### Dynamic Select Fields
@@ -208,6 +388,9 @@ const actionHandlers = {
 - [ ] Dependent fields update when parent changes
 - [ ] Conditional fields show/hide correctly
 - [ ] Preview features work (if applicable)
+- [ ] **Connect button appears (if `supportsAI: true`)**
+- [ ] **Connect button allows selecting previous node outputs**
+- [ ] **Connected values display and execute correctly**
 - [ ] Backend action uses field value correctly
 - [ ] Workflow executes successfully with field value
 - [ ] Error states handled gracefully

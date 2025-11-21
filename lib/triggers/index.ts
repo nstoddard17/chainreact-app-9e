@@ -18,15 +18,15 @@ import { HubSpotTriggerLifecycle } from './providers/HubSpotTriggerLifecycle'
 import { MondayTriggerLifecycle } from './providers/MondayTriggerLifecycle'
 import { GumroadTriggerLifecycle } from './providers/GumroadTriggerLifecycle'
 import { WebhookTriggerLifecycle } from './providers/WebhookTriggerLifecycle'
+import { TeamsTriggerLifecycle } from './teams'
 
 import { logger } from '@/lib/utils/logger'
 
-// Register Microsoft Graph provider (all Microsoft services use same lifecycle)
+// Register Microsoft Graph provider (all Microsoft services use same lifecycle except Teams)
 const microsoftLifecycle = new MicrosoftGraphTriggerLifecycle()
 const microsoftProviders = [
   'microsoft',
   'microsoft-outlook',
-  'teams', // NOTE: Teams uses 'teams' not 'microsoft-teams'
   'microsoft-onenote',
   'onedrive'
 ]
@@ -38,6 +38,14 @@ microsoftProviders.forEach(providerId => {
     requiresExternalResources: true,
     description: `Microsoft Graph subscriptions for ${providerId}`
   })
+})
+
+// Register Teams provider with dedicated lifecycle (uses Graph API change notifications)
+triggerLifecycleManager.registerProvider({
+  providerId: 'teams',
+  lifecycle: new TeamsTriggerLifecycle(),
+  requiresExternalResources: true,
+  description: 'Microsoft Teams change notifications for messages, chats, and channels'
 })
 
 // Register Airtable provider
