@@ -39,6 +39,7 @@ interface LegacyAdapterActions {
   applyEdits: (edits: any[]) => Promise<void>
   updateConfig: (nodeId: string, patch: Record<string, any>) => void
   addNode: (type: string, position?: { x: number; y: number }) => Promise<void>
+  moveNodes: (moves: Array<{ nodeId: string; position: { x: number; y: number } }>) => Promise<void>
   deleteNode: (nodeId: string) => Promise<void>
   connectEdge: (link: {
     sourceId: string
@@ -119,6 +120,7 @@ export function useFlowV2LegacyAdapter(flowId: string, options?: { initialRevisi
         },
         updateConfig: builder.actions.updateConfig,
         addNode: builder.actions.addNode,
+        moveNodes: builder.actions.moveNodes,
         deleteNode: builder.actions.deleteNode,
         connectEdge: builder.actions.connectEdge,
         run: builder.actions.run,
