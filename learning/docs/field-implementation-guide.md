@@ -146,11 +146,12 @@ const actionHandlers = {
 
 ## Connect Button (Link to Previous Node Outputs)
 
-The **Connect Button** allows users to link a field to outputs from previous workflow nodes, enabling dynamic data flow between nodes.
+The **Connect Button** allows users to link a field to outputs from previous workflow nodes (or AI-generated values), enabling dynamic data flow between nodes.
 
 ### What is the Connect Button?
-The connect button appears as a small button/icon next to text fields that allows users to:
+The connect button appears as a small button/icon next to fields that allows users to:
 - Select outputs from previous workflow nodes
+- Connect fields to AI-generated values
 - Dynamically populate the field with data from earlier steps
 - Create data pipelines between workflow actions
 
@@ -159,13 +160,14 @@ The connect button appears as a small button/icon next to text fields that allow
 **✅ CHECKLIST - Verify ALL items:**
 - [ ] Field has `supportsAI: true` property
 - [ ] Field type supports connect button (see below)
-- [ ] Field is NOT required, OR has appropriate fallback handling
-- [ ] Tested: Button appears in UI next to the field
+- [ ] Tested: Button appears in UI next to the field label
 - [ ] Tested: Can select previous node outputs
 - [ ] Tested: Selected value displays correctly
 - [ ] Tested: Workflow executes with connected value
 
 ### Implementation
+
+**IMPORTANT:** Use `supportsAI: true` (NOT `showConnectButton` or `hasConnectButton`)
 
 Add `supportsAI: true` to the field configuration:
 
@@ -180,41 +182,45 @@ Add `supportsAI: true` to the field configuration:
 }
 ```
 
-**For Rich Text Fields (content, message, body, description, text, notes):**
+**For Rich Text Fields (email-rich-text, message, body, content):**
 
-Rich text fields are excluded from connect mode by default to preserve the variable picker functionality (which allows multiple variables + text). To enable the connect button for these fields, use `hasConnectButton: true`:
+Rich text fields like `email-rich-text` support the connect button directly with `supportsAI: true`:
 
 ```typescript
 {
-  name: "content",
-  label: "Content",
-  type: "textarea",
-  required: false,
-  placeholder: "Enter page content",
-  hasVariablePicker: true,  // Keep variable picker
-  hasConnectButton: true    // ✅ ADD THIS to override default behavior
+  name: "message",
+  label: "Message",
+  type: "email-rich-text",  // Rich text editor
+  required: true,
+  placeholder: "Enter your message",
+  supportsAI: true  // ✅ THIS ENABLES THE CONNECT BUTTON
 }
 ```
 
 **Implementation Details:**
 - Location: `components/workflows/configuration/fields/FieldRenderer.tsx`
 - Function: `shouldUseConnectMode()`
-- Rich text fields (`content`, `message`, `body`, `description`, `text`, `notes`) default to variable picker mode
-- Setting `hasConnectButton: true` overrides this and enables connect mode
-- This allows the field to switch between text input and dropdown variable selection
+- The function checks for `supportsAI: true` FIRST (lines 269-278)
+- If `supportsAI: true`, the connect button is enabled regardless of field type
+- Simple fields (subject, email, etc.) get connect mode automatically
+- Rich text fields need explicit `supportsAI: true` to enable the button
 
 ### Field Types That Support Connect Button
 
 ✅ **Supported Types:**
-- `text` - Single-line text input
-- `textarea` - Multi-line text input (use `hasConnectButton: true` for rich text fields)
+- `text` - Single-line text input (auto-enabled for simple fields like subject, email)
+- `textarea` - Multi-line text input
+- `email-rich-text` - Rich text editor with formatting (requires `supportsAI: true`)
 - `email` - Email input fields
+- `email-autocomplete` - Email autocomplete fields
+- `datetime` - Date/time pickers (with `supportsAI: true`)
+- `number` - Numeric inputs (with `supportsAI: true`)
+- `date` - Date pickers (with `supportsAI: true`)
+- `datetime-local` - Local date/time pickers (with `supportsAI: true`)
 
-❌ **Not Supported:**
-- `select` - Dropdown selections
-- `boolean` - Checkboxes/toggles
-- `date` - Date pickers
-- `number` - Numeric inputs (without supportsAI)
+❌ **Not Supported (without explicit opt-in):**
+- `select` - Dropdown selections (needs `connectButton: true` or `supportsVariables: true`)
+- `boolean` - Checkboxes/toggles (needs explicit opt-in)
 - Dynamic fields (already have their own data sources)
 
 ### Examples
@@ -223,48 +229,73 @@ Rich text fields are excluded from connect mode by default to preserve the varia
 ```typescript
 {
   name: "subject",
-  label: "Subject",
+  label: "Meeting Subject",
   type: "text",
+  required: true,
+  placeholder: "Enter meeting subject",
+  supportsAI: true  // ✅ Connect button will appear
+}
+```
+
+**✅ CORRECT - Date/time field with connect button:**
+```typescript
+{
+  name: "startTime",
+  label: "Start Time",
+  type: "datetime",
+  required: true,
+  supportsAI: true  // ✅ Connect button will appear
+}
+```
+
+**✅ CORRECT - Email autocomplete with connect button:**
+```typescript
+{
+  name: "attendees",
+  label: "Attendees",
+  type: "email-autocomplete",
+  dynamic: "outlook-enhanced-recipients",
   required: false,
-  placeholder: "Email subject",
-  supportsAI: true  // Connect button will appear
+  placeholder: "Select or enter attendee email addresses",
+  supportsAI: true  // ✅ Connect button will appear
 }
 ```
 
 **✅ CORRECT - Regular textarea with connect button:**
 ```typescript
 {
-  name: "notes",
-  label: "Notes",
+  name: "description",
+  label: "Description",
   type: "textarea",
   required: false,
-  placeholder: "Additional notes",
-  supportsAI: true  // Connect button will appear
+  placeholder: "Meeting description",
+  supportsAI: true  // ✅ Connect button will appear
 }
 ```
 
-**✅ CORRECT - Rich text field with connect button:**
+**✅ CORRECT - Rich text editor with connect button:**
 ```typescript
 {
-  name: "content",
-  label: "Content",
-  type: "textarea",
-  required: false,
-  placeholder: "Enter page content",
-  hasVariablePicker: true,  // Keep variable picker
-  hasConnectButton: true    // Override default to enable connect button
+  name: "message",
+  label: "Message",
+  type: "email-rich-text",
+  required: true,
+  placeholder: "Enter your message",
+  dependsOn: "channelId",
+  visibilityCondition: { field: "channelId", operator: "isNotEmpty" },
+  supportsAI: true  // ✅ Connect button will appear
 }
 ```
 
-**❌ INCORRECT - Rich text field without hasConnectButton:**
+**❌ INCORRECT - Using wrong property name:**
 ```typescript
 {
-  name: "content",
-  label: "Content",
+  name: "description",
+  label: "Description",
   type: "textarea",
   required: false,
-  placeholder: "Enter content",
-  supportsAI: true  // ❌ WON'T WORK - rich text fields need hasConnectButton
+  placeholder: "Enter description",
+  showConnectButton: true  // ❌ WRONG - should be supportsAI: true
 }
 ```
 
@@ -276,25 +307,30 @@ Rich text fields are excluded from connect mode by default to preserve the varia
   type: "textarea",
   required: false,
   placeholder: "Enter description"
-  // ❌ NO CONNECT BUTTON - missing supportsAI: true or hasConnectButton: true
+  // ❌ NO CONNECT BUTTON - missing supportsAI: true
 }
 ```
 
-**❌ INCORRECT - Wrong field type:**
+**❌ INCORRECT - Select field without opt-in:**
 ```typescript
 {
   name: "priority",
   label: "Priority",
-  type: "select",  // ❌ Select fields don't support connect button
-  supportsAI: true,  // This won't work
+  type: "select",  // ❌ Select fields need explicit opt-in
+  supportsAI: true,  // This won't work without connectButton: true
   options: [...]
 }
 ```
 
 ### Common Mistakes to Avoid
 
-1. **Forgetting `supportsAI: true`**
-   - This is the #1 mistake - the property MUST be present
+1. **Using wrong property name**
+   - ❌ `showConnectButton: true` - WRONG
+   - ❌ `hasConnectButton: true` - WRONG (old approach)
+   - ✅ `supportsAI: true` - CORRECT
+
+2. **Forgetting `supportsAI: true`**
+   - This is a common mistake - the property MUST be present
    - Always check the field definition includes this property
 
 2. **Using wrong field type**

@@ -38,7 +38,13 @@ import { readGoogleSheetsData, exportGoogleSheetsData, createGoogleSheetsRow, up
 import {
   executeMicrosoftExcelUnifiedAction,
   exportMicrosoftExcelSheet,
-  createMicrosoftExcelWorkbook
+  createMicrosoftExcelWorkbook,
+  addMicrosoftExcelTableRow,
+  findOrCreateMicrosoftExcelRow,
+  createMicrosoftExcelWorksheet,
+  renameMicrosoftExcelWorksheet,
+  deleteMicrosoftExcelWorksheet,
+  addMicrosoftExcelMultipleRows
 } from './microsoft-excel'
 
 // Google Calendar actions
@@ -576,6 +582,18 @@ export const actionHandlerRegistry: Record<string, Function> = {
     exportMicrosoftExcelSheet(params.config, params.userId, params.input),
   "microsoft_excel_action_create_workbook": (params: { config: any; userId: string; input: Record<string, any> }) =>
     createMicrosoftExcelWorkbook(params.config, params.userId, params.input),
+  "microsoft_excel_action_add_table_row": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    addMicrosoftExcelTableRow(params.config, { userId: params.userId }),
+  "microsoft_excel_action_find_or_create_row": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    findOrCreateMicrosoftExcelRow(params.config, params.userId, params.input),
+  "microsoft_excel_action_create_worksheet": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createMicrosoftExcelWorksheet(params.config, { userId: params.userId }),
+  "microsoft_excel_action_rename_worksheet": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    renameMicrosoftExcelWorksheet(params.config, { userId: params.userId }),
+  "microsoft_excel_action_delete_worksheet": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    deleteMicrosoftExcelWorksheet(params.config, { userId: params.userId }),
+  "microsoft_excel_action_add_multiple_rows": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    addMicrosoftExcelMultipleRows(params.config, params.userId, params.input),
 
   // Google Calendar actions - wrapped to handle new calling convention
   "google_calendar_action_create_event": (params: { config: any; userId: string; input: Record<string, any> }) =>

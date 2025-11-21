@@ -1,0 +1,115 @@
+/**
+ * Add Row to Excel Table Action
+ * Adds a new row to an Excel table using Microsoft Graph API
+ */
+
+import { createAdminClient } from '@/lib/supabase/admin'
+import { decrypt } from '@/lib/security/encryption'
+import { logger } from '@/lib/utils/logger'
+
+const GRAPH_API_BASE = 'https://graph.microsoft.com/v1.0'
+
+interface AddTableRowConfig {
+  workbookId: string
+  tableName: string
+  columnMapping: Record<string, any>
+}
+
+interface AddTableRowOutput {
+  rowIndex: number
+  values: any[][]
+  tableName: string
+  workbookId: string
+  timestamp: string
+}
+
+/**
+ * Add a row to an Excel table
+ */
+export async function addMicrosoftExcelTableRow(
+  config: AddTableRowConfig,
+  context: { userId: string }
+): Promise<AddTableRowOutput> {
+  const { workbookId, tableName, columnMapping } = config
+  const { userId } = context
+
+  logger.debug('[Microsoft Excel] Adding row to table:', { workbookId, tableName })
+
+  // Get OneDrive integration
+  const supabase = createAdminClient()
+  const { data: integration, error } = await supabase
+    .from('integrations')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('provider', 'onedrive')
+    .eq('status', 'connected')
+    .single()
+
+  if (error || !integration) {
+    throw new Error('OneDrive integration not found or not connected')
+  }
+
+  // Decrypt access token
+  const accessToken = await decrypt(integration.access_token)
+
+  try {
+    // First, get the table columns to ensure correct order
+    const columnsUrl = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/tables/${tableName}/columns`
+
+    const columnsResponse = await fetch(columnsUrl, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    if (!columnsResponse.ok) {
+      const error = await columnsResponse.text()
+      throw new Error(`Failed to fetch table columns: ${error}`)
+    }
+
+    const columnsData = await columnsResponse.json()
+    const columns = columnsData.value || []
+
+    // Build the row values array in the correct column order
+    const rowValues: any[] = columns.map((column: any) => {
+      const columnName = column.name
+      return columnMapping[columnName] !== undefined ? columnMapping[columnName] : ''
+    })
+
+    // Add the row to the table
+    const addRowUrl = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/tables/${tableName}/rows`
+
+    const addRowResponse = await fetch(addRowUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        values: [rowValues]
+      })
+    })
+
+    if (!addRowResponse.ok) {
+      const error = await addRowResponse.text()
+      throw new Error(`Failed to add row to table: ${error}`)
+    }
+
+    const result = await addRowResponse.json()
+
+    logger.debug('[Microsoft Excel] Successfully added row to table')
+
+    return {
+      rowIndex: result.index || 0,
+      values: result.values || [rowValues],
+      tableName,
+      workbookId,
+      timestamp: new Date().toISOString()
+    }
+
+  } catch (error: any) {
+    logger.error('[Microsoft Excel] Error adding row to table:', error)
+    throw new Error(`Failed to add row to table: ${error.message}`)
+  }
+}

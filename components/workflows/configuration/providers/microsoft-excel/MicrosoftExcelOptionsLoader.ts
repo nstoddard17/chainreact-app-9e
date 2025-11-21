@@ -15,6 +15,7 @@ export class MicrosoftExcelOptionsLoader implements ProviderOptionsLoader {
   private supportedFields = [
     'workbookId',
     'worksheetName',
+    'tableName',
     'filterColumn',
     'filterValue',
     'sortColumn',
@@ -26,7 +27,8 @@ export class MicrosoftExcelOptionsLoader implements ProviderOptionsLoader {
     'dateColumn',
     'folderPath',
     'columnMapping',
-    'dataPreview'
+    'dataPreview',
+    'tableColumn'
   ];
 
   canHandle(fieldName: string, providerId: string): boolean {
@@ -73,6 +75,9 @@ export class MicrosoftExcelOptionsLoader implements ProviderOptionsLoader {
             case 'worksheetName':
               apiDataType = 'worksheets';
               break;
+            case 'tableName':
+              apiDataType = 'tables';
+              break;
             case 'filterColumn':
             case 'sortColumn':
             case 'updateColumn':
@@ -80,6 +85,9 @@ export class MicrosoftExcelOptionsLoader implements ProviderOptionsLoader {
             case 'deleteColumn':
             case 'dateColumn':
               apiDataType = 'columns';
+              break;
+            case 'tableColumn':
+              apiDataType = 'table_columns';
               break;
             case 'filterValue':
             case 'updateValue':
@@ -142,8 +150,8 @@ export class MicrosoftExcelOptionsLoader implements ProviderOptionsLoader {
 
       // Handle dependencies based on the data type
       if (dependsOnValue) {
-        // For worksheets that depend on workbookId
-        if (dataType === 'worksheets' && dependsOnValue) {
+        // For worksheets/tables that depend on workbookId
+        if ((dataType === 'worksheets' || dataType === 'tables') && dependsOnValue) {
           requestBody.options.workbookId = dependsOnValue;
         }
         // For columns that depend on both workbookId and worksheetName
@@ -154,6 +162,19 @@ export class MicrosoftExcelOptionsLoader implements ProviderOptionsLoader {
           } else {
             // If we only have a single value, we need the workbookId from allValues
             requestBody.options.worksheetName = dependsOnValue;
+            if (allValues?.workbookId) {
+              requestBody.options.workbookId = allValues.workbookId;
+            }
+          }
+        }
+        // For table columns that depend on both workbookId and tableName
+        else if (dataType === 'table_columns' && dependsOnValue) {
+          if (typeof dependsOnValue === 'object') {
+            if (dependsOnValue.workbookId) requestBody.options.workbookId = dependsOnValue.workbookId;
+            if (dependsOnValue.tableName) requestBody.options.tableName = dependsOnValue.tableName;
+          } else {
+            // If we only have a single value, we need the workbookId from allValues
+            requestBody.options.tableName = dependsOnValue;
             if (allValues?.workbookId) {
               requestBody.options.workbookId = allValues.workbookId;
             }
