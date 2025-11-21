@@ -163,16 +163,146 @@ export interface ExecuteActionParams {
   executionMode?: 'sandbox' | 'live' | 'production'
 }
 
-export async function getDecryptedAccessToken(userId: string, provider: string): Promise<string> {
+/**
+ * Get decrypted access token by integration ID
+ * Use this when you have a specific integration_id (multi-account support)
+ */
+export async function getDecryptedAccessTokenById(integrationId: string): Promise<string> {
   try {
     const supabase = await createSupabaseServerClient()
-    
-    // Get the user's integration
+
+    // Get the integration by ID
+    const { data: integration, error } = await supabase
+      .from("integrations")
+      .select("*")
+      .eq("id", integrationId)
+      .single()
+
+    if (error) {
+      logger.error(`Database error fetching integration ${integrationId}:`, error)
+      throw new Error(`Database error: ${error.message}`)
+    }
+
+    if (!integration) {
+      throw new Error(`No integration found with ID ${integrationId}`)
+    }
+
+    return decryptIntegrationToken(integration)
+  } catch (error: any) {
+    logger.error(`Error in getDecryptedAccessTokenById:`, {
+      message: error.message,
+      integrationId
+    })
+    throw error
+  }
+}
+
+/**
+ * Get integration record by ID (useful for getting provider info, tokens, etc.)
+ */
+export async function getIntegrationById(integrationId: string): Promise<any> {
+  const supabase = await createSupabaseServerClient()
+
+  const { data: integration, error } = await supabase
+    .from("integrations")
+    .select("*")
+    .eq("id", integrationId)
+    .single()
+
+  if (error) {
+    logger.error(`Database error fetching integration ${integrationId}:`, error)
+    throw new Error(`Database error: ${error.message}`)
+  }
+
+  if (!integration) {
+    throw new Error(`No integration found with ID ${integrationId}`)
+  }
+
+  return integration
+}
+
+/**
+ * Internal function to decrypt an integration's access token
+ */
+async function decryptIntegrationToken(integration: any): Promise<string> {
+  // Cast the integration to the proper type
+  const typedIntegration = integration as unknown as Integration
+
+  // Check if token needs refresh
+  const shouldRefresh = TokenRefreshService.shouldRefreshToken(typedIntegration, {
+    accessTokenExpiryThreshold: 5 // Refresh if expiring within 5 minutes
+  })
+
+  let accessToken = integration.access_token
+
+  if (shouldRefresh.shouldRefresh && integration.refresh_token) {
+    logger.debug(`Refreshing token for ${integration.provider}: ${shouldRefresh.reason}`)
+
+    const refreshResult = await TokenRefreshService.refreshTokenForProvider(
+      integration.provider,
+      integration.refresh_token,
+      typedIntegration
+    )
+
+    if (refreshResult.success && refreshResult.accessToken) {
+      accessToken = refreshResult.accessToken
+      logger.debug(`Token refresh successful for ${integration.provider}`)
+    } else {
+      logger.error(`Token refresh failed for ${integration.provider}:`, refreshResult.error)
+      throw new Error(`Failed to refresh ${integration.provider} token: ${refreshResult.error}`)
+    }
+  }
+
+  if (!accessToken) {
+    throw new Error(`No valid access token for ${integration.provider}`)
+  }
+
+  const secret = await getSecret("encryption_key")
+  if (!secret) {
+    logger.error("Encryption key not found in environment")
+    throw new Error("Encryption secret not configured. Please set ENCRYPTION_KEY environment variable.")
+  }
+
+  logger.debug(`Attempting to decrypt access token for ${integration.provider}`)
+
+  try {
+    const decryptedToken = decrypt(accessToken, secret)
+    logger.debug(`Successfully decrypted access token for ${integration.provider}`)
+    return decryptedToken
+  } catch (decryptError: any) {
+    logger.error(`Decryption failed for ${integration.provider}:`, {
+      error: decryptError.message,
+      tokenFormat: accessToken.includes(':') ? 'encrypted' : 'plain',
+      tokenLength: accessToken.length
+    })
+
+    // If the token doesn't have the expected format, it might be stored as plain text
+    if (!accessToken.includes(':')) {
+      logger.debug(`Token for ${integration.provider} appears to be stored as plain text, returning as-is`)
+      return accessToken
+    }
+
+    throw new Error(`Failed to decrypt ${integration.provider} access token: ${decryptError.message}`)
+  }
+}
+
+export async function getDecryptedAccessToken(userId: string, provider: string, integrationId?: string): Promise<string> {
+  try {
+    // NEW: If integrationId is provided, use it directly (multi-account support)
+    if (integrationId) {
+      return getDecryptedAccessTokenById(integrationId)
+    }
+
+    const supabase = await createSupabaseServerClient()
+
+    // Get the user's integration (fallback: first account for backward compatibility)
     const { data: integration, error } = await supabase
       .from("integrations")
       .select("*")
       .eq("user_id", userId)
       .eq("provider", provider)
+      .order("created_at", { ascending: true }) // Use oldest (first connected) for backward compatibility
+      .limit(1)
       .single()
 
     if (error) {
@@ -184,70 +314,8 @@ export async function getDecryptedAccessToken(userId: string, provider: string):
       throw new Error(`No integration found for ${provider}`)
     }
 
-    // Cast the integration to the proper type
-    const typedIntegration = integration as unknown as Integration
-
-    // Check if token needs refresh
-    const shouldRefresh = TokenRefreshService.shouldRefreshToken(typedIntegration, {
-      accessTokenExpiryThreshold: 5 // Refresh if expiring within 5 minutes
-    })
-
-    let accessToken = integration.access_token
-
-    if (shouldRefresh.shouldRefresh && integration.refresh_token) {
-      logger.debug(`Refreshing token for ${provider}: ${shouldRefresh.reason}`)
-      
-      const refreshResult = await TokenRefreshService.refreshTokenForProvider(
-        integration.provider,
-        integration.refresh_token,
-        typedIntegration
-      )
-
-      if (refreshResult.success && refreshResult.accessToken) {
-        accessToken = refreshResult.accessToken
-        logger.debug(`Token refresh successful for ${provider}`)
-      } else {
-        logger.error(`Token refresh failed for ${provider}:`, refreshResult.error)
-        throw new Error(`Failed to refresh ${provider} token: ${refreshResult.error}`)
-      }
-    }
-
-    if (!accessToken) {
-      throw new Error(`No valid access token for ${provider}`)
-    }
-
-    const secret = await getSecret("encryption_key")
-    if (!secret) {
-      logger.error("Encryption key not found in environment")
-      throw new Error("Encryption secret not configured. Please set ENCRYPTION_KEY environment variable.")
-    }
-
-    logger.debug(`Attempting to decrypt access token for ${provider}`)
-    logger.debug(`Token format check:`, {
-      hasColon: accessToken.includes(':'),
-      tokenLength: accessToken.length,
-      tokenPreview: `${accessToken.substring(0, 20) }...`
-    })
-    
-    try {
-    const decryptedToken = decrypt(accessToken, secret)
-    logger.debug(`Successfully decrypted access token for ${provider}`)
-    return decryptedToken
-    } catch (decryptError: any) {
-      logger.error(`Decryption failed for ${provider}:`, {
-        error: decryptError.message,
-        tokenFormat: accessToken.includes(':') ? 'encrypted' : 'plain',
-        tokenLength: accessToken.length
-      })
-      
-      // If the token doesn't have the expected format, it might be stored as plain text
-      if (!accessToken.includes(':')) {
-        logger.debug(`Token for ${provider} appears to be stored as plain text, returning as-is`)
-        return accessToken
-      }
-      
-      throw new Error(`Failed to decrypt ${provider} access token: ${decryptError.message}`)
-    }
+    // Use shared decryption function
+    return decryptIntegrationToken(integration)
   } catch (error: any) {
     logger.error(`Error in getDecryptedAccessToken for ${provider}:`, {
       message: error.message,

@@ -13,6 +13,8 @@ import { supabase } from '@/utils/supabaseClient';
 import { getProviderDisplayName } from '@/lib/utils/provider-names';
 
 import { logger } from '@/lib/utils/logger'
+import { ServiceConnectionSelector } from '../ServiceConnectionSelector'
+import { Integration } from '@/stores/integrationStore'
 
 // Constants - defined outside component to prevent re-creation on every render
 const PREVIEW_LIMIT_OPTIONS = [
@@ -60,6 +62,11 @@ interface GenericConfigurationProps {
   setAiFields?: (fields: Record<string, boolean>) => void;
   isConnectedToAIAgent?: boolean;
   loadingFields?: Set<string>;
+  // Multi-account support
+  showAccountSelector?: boolean;
+  selectedIntegrationId?: string;
+  connectedIntegrations?: Integration[];
+  onSelectAccount?: (integrationId: string) => void;
 }
 
 export function GenericConfiguration({
@@ -84,6 +91,11 @@ export function GenericConfiguration({
   setAiFields = () => {},
   isConnectedToAIAgent = false,
   loadingFields: loadingFieldsProp,
+  // Multi-account support
+  showAccountSelector = false,
+  selectedIntegrationId,
+  connectedIntegrations = [],
+  onSelectAccount,
 }: GenericConfigurationProps) {
 
   // Debug: Log dynamicOptions for HubSpot
@@ -1140,6 +1152,36 @@ export function GenericConfiguration({
       isEditMode={isEditMode}
       isFormValid={isFormValid}
     >
+      {/* Multi-account selector - shown when user has multiple accounts for this provider */}
+      {showAccountSelector && connectedIntegrations.length > 1 && onSelectAccount && (
+        <div className="mb-4 pb-4 border-b border-slate-200 dark:border-slate-700">
+          <ServiceConnectionSelector
+            providerId={nodeInfo?.providerId || ''}
+            providerName={integrationName || nodeInfo?.providerId || 'Service'}
+            connections={connectedIntegrations.map(i => ({
+              id: i.id,
+              provider: i.provider,
+              email: i.email,
+              username: i.username,
+              accountName: i.account_name,
+              avatar_url: i.avatar_url,
+              status: i.status as any,
+              workspace_type: i.workspace_type,
+              workspace_id: i.workspace_id,
+            }))}
+            selectedConnection={connectedIntegrations.find(i => i.id === selectedIntegrationId) ? {
+              id: selectedIntegrationId!,
+              provider: connectedIntegrations.find(i => i.id === selectedIntegrationId)?.provider || '',
+              email: connectedIntegrations.find(i => i.id === selectedIntegrationId)?.email,
+              status: 'connected',
+            } : undefined}
+            onSelectConnection={onSelectAccount}
+            onConnect={onConnectIntegration}
+            autoFetch={false}
+          />
+        </div>
+      )}
+
       {hasTabBasedFields ? (
         // New tab-based rendering
         <Tabs defaultValue="basic" className="w-full">

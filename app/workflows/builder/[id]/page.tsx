@@ -18,7 +18,6 @@ export default async function FlowBuilderV2Page({ params }: BuilderPageProps) {
   await requireUsername()
 
   const { id: flowId } = await params
-
   const supabase = await createSupabaseServerClient()
   const {
     data: { user },
@@ -30,24 +29,35 @@ export default async function FlowBuilderV2Page({ params }: BuilderPageProps) {
   }
 
   const serviceClient = await createSupabaseServiceClient()
+
+  // Check both workflows table (v1) and flow_v2_definitions table (v2)
   const { data: workflowRow } = await serviceClient
     .from("workflows")
     .select("id, owner_id, workspace_id")
     .eq("id", flowId)
     .maybeSingle()
 
-  if (!workflowRow) {
+  const { data: flowV2Row } = await serviceClient
+    .from("flow_v2_definitions")
+    .select("id, owner_id, workspace_id")
+    .eq("id", flowId)
+    .maybeSingle()
+
+  // Use whichever row exists (v1 or v2)
+  const flowRow = workflowRow || flowV2Row
+
+  if (!flowRow) {
     notFound()
   }
 
-  let hasAccess = workflowRow.owner_id === user.id
+  let hasAccess = flowRow.owner_id === user.id
 
-  if (!hasAccess && workflowRow.workspace_id) {
+  if (!hasAccess && flowRow.workspace_id) {
     try {
-      await ensureWorkspaceRole(serviceClient, workflowRow.workspace_id, user.id, "viewer")
+      await ensureWorkspaceRole(serviceClient, flowRow.workspace_id, user.id, "viewer")
       hasAccess = true
     } catch {
-      // ignore
+      // User doesn't have workspace access
     }
   }
 
@@ -65,11 +75,16 @@ export default async function FlowBuilderV2Page({ params }: BuilderPageProps) {
     notFound()
   }
 
-  const repository = await getFlowRepository(supabase, {
-    allowServiceFallback: true,
-    fallbackClient: serviceClient,
-  })
-  const revision = await repository.loadRevision({ flowId })
+  // Use service client directly for loading revisions to bypass RLS
+  // RLS on workflows_revisions may not allow access for flow_v2_definitions workflows
+  const repository = await getFlowRepository(serviceClient)
+
+  let revision
+  try {
+    revision = await repository.loadRevision({ flowId })
+  } catch {
+    // Error loading revision
+  }
 
   if (!revision) {
     notFound()

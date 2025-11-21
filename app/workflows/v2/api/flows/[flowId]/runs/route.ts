@@ -58,7 +58,9 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
     return NextResponse.json({ ok: false, error: message }, { status })
   }
 
-  const repository = await getFlowRepository(supabase)
+  // Use service client to bypass RLS on workflows_revisions table
+  const serviceClient = await getServiceClient()
+  const repository = await getFlowRepository(serviceClient)
   let revision = parsed.data.revisionId
     ? await repository.loadRevisionById(parsed.data.revisionId)
     : null

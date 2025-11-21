@@ -54,8 +54,9 @@ export async function POST(_: Request, context: { params: Promise<{ runId: strin
     return NextResponse.json({ ok: false, error: message }, { status })
   }
 
-  const repository = await getFlowRepository(supabase)
+  // Use service client to bypass RLS on workflows_revisions table
   const serviceClient = await getServiceClient()
+  const repository = await getFlowRepository(serviceClient)
   const store = createRunStore(serviceClient)
 
   try {

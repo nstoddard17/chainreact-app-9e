@@ -56,21 +56,83 @@ export class WorkflowExecutor {
         }
       }
 
-      const requiredIntegrations: string[] = workflow.nodes
-        .map((node: any) => node.data.providerId)
-        .filter((providerId: any): providerId is string => !!providerId)
+      // NEW: Build list of required integrations with integration_id support
+      // Nodes can now specify a specific integration_id for multi-account support
+      interface IntegrationRequirement {
+        provider: string
+        integrationId?: string  // If specified, use this specific account
+        nodeId: string
+      }
+
+      const requiredIntegrations: IntegrationRequirement[] = workflow.nodes
+        .filter((node: any) => node.data.providerId)
+        .map((node: any) => ({
+          provider: node.data.providerId,
+          integrationId: node.data.config?.integration_id || node.data.integration_id,
+          nodeId: node.id
+        }))
+
+      // Dedupe by integration_id if specified, otherwise by provider
+      const uniqueIntegrations = new Map<string, IntegrationRequirement>()
+      for (const req of requiredIntegrations) {
+        const key = req.integrationId || `provider:${req.provider}`
+        if (!uniqueIntegrations.has(key)) {
+          uniqueIntegrations.set(key, req)
+        }
+      }
 
       const integrationResults = await Promise.all(
-        [...new Set(requiredIntegrations)].map(async (provider: string) => {
-          const { data: integration, error } = await supabase
-            .from("integrations")
-            .select("*")
-            .eq("user_id", context.userId)
-            .eq("provider", provider)
-            .single()
+        Array.from(uniqueIntegrations.values()).map(async (req) => {
+          let integration = null
+          let error = null
+
+          // If integration_id is specified, fetch by ID (multi-account)
+          // Also validate user has access (owner or shared with them)
+          if (req.integrationId) {
+            const result = await supabase
+              .from("integrations")
+              .select("*")
+              .eq("id", req.integrationId)
+              .single()
+            integration = result.data
+            error = result.error
+
+            // If found, verify user has access (owner or shared)
+            if (integration && integration.user_id !== context.userId) {
+              // Check if integration is shared with user
+              const hasAccess = await this.checkIntegrationAccess(supabase, req.integrationId, context.userId)
+              if (!hasAccess) {
+                logger.warn(`[WorkflowExecutor] User ${context.userId} does not have access to integration ${req.integrationId}`)
+                integration = null
+                error = { message: "Access denied to shared integration" }
+              }
+            }
+          } else {
+            // Fallback: fetch by provider (backward compatibility - uses first account)
+            // First try owned integrations
+            const ownedResult = await supabase
+              .from("integrations")
+              .select("*")
+              .eq("user_id", context.userId)
+              .eq("provider", req.provider)
+              .eq("status", "connected")
+              .order("created_at", { ascending: true })
+              .limit(1)
+              .single()
+
+            if (ownedResult.data) {
+              integration = ownedResult.data
+              error = null
+            } else {
+              // If no owned integration, try shared integrations
+              const sharedResult = await this.getSharedIntegration(supabase, context.userId, req.provider)
+              integration = sharedResult
+              error = sharedResult ? null : { message: "No integration found" }
+            }
+          }
 
           if (error || !integration) {
-            return { valid: false, requiresReauth: true, provider }
+            return { valid: false, requiresReauth: true, provider: req.provider, integrationId: req.integrationId }
           }
 
           // Check if token needs refresh
@@ -86,13 +148,12 @@ export class WorkflowExecutor {
             )
 
             if (refreshResult.success) {
-              return { valid: true, requiresReauth: false, provider }
-            } 
-              return { valid: false, requiresReauth: true, provider }
-            
+              return { valid: true, requiresReauth: false, provider: req.provider, integrationId: req.integrationId }
+            }
+            return { valid: false, requiresReauth: true, provider: req.provider, integrationId: req.integrationId }
           }
 
-          return { valid: true, requiresReauth: false, provider }
+          return { valid: true, requiresReauth: false, provider: req.provider, integrationId: req.integrationId }
         })
       )
 
@@ -310,6 +371,165 @@ export class WorkflowExecutor {
 
       default:
         return true
+    }
+  }
+
+  /**
+   * Check if user has access to a shared integration
+   * Returns true if user is owner, has direct share, team share, or org-wide access
+   */
+  private async checkIntegrationAccess(supabase: any, integrationId: string, userId: string): Promise<boolean> {
+    try {
+      // Check for direct share with user
+      const { data: directShare } = await supabase
+        .from("integration_shares")
+        .select("id")
+        .eq("integration_id", integrationId)
+        .eq("shared_with_user_id", userId)
+        .limit(1)
+        .single()
+
+      if (directShare) {
+        return true
+      }
+
+      // Get user's team memberships
+      const { data: teamMemberships } = await supabase
+        .from("team_members")
+        .select("team_id")
+        .eq("user_id", userId)
+
+      const teamIds = teamMemberships?.map((tm: any) => tm.team_id) || []
+
+      // Check for team share
+      if (teamIds.length > 0) {
+        const { data: teamShare } = await supabase
+          .from("integration_shares")
+          .select("id")
+          .eq("integration_id", integrationId)
+          .in("shared_with_team_id", teamIds)
+          .limit(1)
+          .single()
+
+        if (teamShare) {
+          return true
+        }
+      }
+
+      // Check for organization-wide sharing
+      const { data: integration } = await supabase
+        .from("integrations")
+        .select("sharing_scope, user_id")
+        .eq("id", integrationId)
+        .single()
+
+      if (integration?.sharing_scope === "organization" && teamIds.length > 0) {
+        // User is in a team, check if they share org with integration owner
+        const { data: sharedTeam } = await supabase
+          .from("team_members")
+          .select("team_id")
+          .eq("user_id", integration.user_id)
+          .in("team_id", teamIds)
+          .limit(1)
+          .single()
+
+        if (sharedTeam) {
+          return true
+        }
+      }
+
+      return false
+    } catch (error: any) {
+      logger.error("[WorkflowExecutor] Error checking integration access:", error)
+      return false
+    }
+  }
+
+  /**
+   * Get a shared integration for a user by provider
+   * Searches direct shares, team shares, and org-wide shares
+   */
+  private async getSharedIntegration(supabase: any, userId: string, provider: string): Promise<any> {
+    try {
+      // Get user's team memberships
+      const { data: teamMemberships } = await supabase
+        .from("team_members")
+        .select("team_id")
+        .eq("user_id", userId)
+
+      const teamIds = teamMemberships?.map((tm: any) => tm.team_id) || []
+
+      // Check for directly shared integrations
+      const { data: directShares } = await supabase
+        .from("integration_shares")
+        .select("integration_id")
+        .eq("shared_with_user_id", userId)
+
+      const directShareIds = directShares?.map((s: any) => s.integration_id) || []
+
+      // Check for team-shared integrations
+      let teamShareIds: string[] = []
+      if (teamIds.length > 0) {
+        const { data: teamShares } = await supabase
+          .from("integration_shares")
+          .select("integration_id")
+          .in("shared_with_team_id", teamIds)
+
+        teamShareIds = teamShares?.map((s: any) => s.integration_id) || []
+      }
+
+      const sharedIds = [...new Set([...directShareIds, ...teamShareIds])]
+
+      // First try to find a shared integration by ID
+      if (sharedIds.length > 0) {
+        const { data: sharedIntegration } = await supabase
+          .from("integrations")
+          .select("*")
+          .in("id", sharedIds)
+          .eq("provider", provider)
+          .eq("status", "connected")
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .single()
+
+        if (sharedIntegration) {
+          return sharedIntegration
+        }
+      }
+
+      // Check for organization-wide shared integrations
+      if (teamIds.length > 0) {
+        // Get users who share teams with current user
+        const { data: teammates } = await supabase
+          .from("team_members")
+          .select("user_id")
+          .in("team_id", teamIds)
+          .neq("user_id", userId)
+
+        const teammateIds = [...new Set(teammates?.map((t: any) => t.user_id) || [])]
+
+        if (teammateIds.length > 0) {
+          const { data: orgSharedIntegration } = await supabase
+            .from("integrations")
+            .select("*")
+            .in("user_id", teammateIds)
+            .eq("provider", provider)
+            .eq("status", "connected")
+            .eq("sharing_scope", "organization")
+            .order("created_at", { ascending: true })
+            .limit(1)
+            .single()
+
+          if (orgSharedIntegration) {
+            return orgSharedIntegration
+          }
+        }
+      }
+
+      return null
+    } catch (error: any) {
+      logger.error("[WorkflowExecutor] Error getting shared integration:", error)
+      return null
     }
   }
 }

@@ -33,6 +33,8 @@ export interface WorkflowNode {
       isValid?: boolean
       message?: string
     }
+    // Multi-account support - specific integration to use for this node
+    integration_id?: string
   }
 }
 

@@ -181,16 +181,35 @@ export function FlowEdge({
 
   const correctedSource = { x: sourceX, y: sourceY }
   const correctedTarget = { x: targetX, y: targetY }
+
+  // Check if this is a vertical edge (source bottom to target top)
+  // Also consider it vertical if positions are undefined (React Flow hasn't initialized yet)
+  // or if source is above target (typical workflow layout)
   const isVerticalEdge = sourcePosition === Position.Bottom && targetPosition === Position.Top
+  const likelyVertical = isVerticalEdge ||
+    (sourcePosition === undefined && targetPosition === undefined) ||
+    (sourceY < targetY && Math.abs(sourceX - targetX) < 100) // Source above target, roughly aligned
 
   let desiredVerticalLength = 0
   let availableVerticalGap = 0
 
-  if (isVerticalEdge) {
+  if (isVerticalEdge || likelyVertical) {
     const sourceBase = getStoredPosition(sourceNode)
     const targetBase = getStoredPosition(targetNode)
     const width = getNodeWidth(sourceNode ?? targetNode, sourceRect ?? targetRect)
-    const columnCenter = (sourceBase?.x ?? targetBase?.x ?? DEFAULT_COLUMN_X) + width / 2
+    const fallbackCenter =
+      Number.isFinite(sourceX)
+        ? sourceX
+        : Number.isFinite(targetX)
+          ? targetX
+          : DEFAULT_COLUMN_X + width / 2
+
+    const columnCenter =
+      sourceBase && typeof sourceBase.x === 'number'
+        ? sourceBase.x + width / 2
+        : targetBase && typeof targetBase.x === 'number'
+          ? targetBase.x + width / 2
+          : fallbackCenter
 
     correctedSource.x = columnCenter
     correctedTarget.x = columnCenter

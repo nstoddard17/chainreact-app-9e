@@ -63,6 +63,7 @@ import { TavilySearchConfiguration } from './providers/utility/TavilySearchConfi
 import { logger } from '@/lib/utils/logger'
 import { collectFieldLabelsFromCache, loadLabelsIntoCache } from '@/lib/workflows/configuration/collect-labels'
 import { isNodeTypeConnectionExempt, isProviderConnectionExempt } from './utils/connectionExemptions'
+import { ServiceConnectionSelector } from './ServiceConnectionSelector'
 
 interface ConfigurationFormProps {
   nodeInfo: any;
@@ -173,7 +174,7 @@ function ConfigurationForm({
 
   const { validateRequiredFields, getMissingRequiredFields, getAllRequiredFields } = useFieldValidation({ nodeInfo, values });
   
-  const { getIntegrationByProvider, connectIntegration, fetchIntegrations } = useIntegrationStore();
+  const { getIntegrationByProvider, getAllIntegrationsByProvider, getIntegrationById, hasMultipleAccounts, connectIntegration, fetchIntegrations, deleteIntegration, reconnectIntegration } = useIntegrationStore();
   const { currentWorkflow, updateNode } = useWorkflowStore();
 
   // Extract provider and node type (safe even if nodeInfo is null)
@@ -190,6 +191,39 @@ function ConfigurationForm({
   const integration = !skipConnectionCheck && providerToCheck
     ? getIntegrationByProvider(providerToCheck)
     : null;
+
+  // NEW: Multi-account support - get all accounts for this provider
+  const allIntegrations = !skipConnectionCheck && providerToCheck
+    ? getAllIntegrationsByProvider(providerToCheck)
+    : [];
+  const connectedIntegrations = allIntegrations.filter(i => i.status === 'connected');
+  const showAccountSelector = connectedIntegrations.length > 1;
+
+  // State for selected integration when multiple accounts exist
+  // Initialize from saved node config or use first account
+  const [selectedIntegrationId, setSelectedIntegrationId] = useState<string | undefined>(() => {
+    // Check if node config has a saved integration_id
+    const savedIntegrationId = initialData?.integration_id || values?.integration_id;
+    if (savedIntegrationId) return savedIntegrationId;
+    // Default to first connected integration
+    return connectedIntegrations[0]?.id;
+  });
+
+  // Get the selected integration object
+  const selectedIntegration = selectedIntegrationId
+    ? getIntegrationById(selectedIntegrationId) || integration
+    : integration;
+
+  // Handle account selection change
+  const handleSelectAccount = useCallback((integrationId: string) => {
+    setSelectedIntegrationId(integrationId);
+    // Save to form values so it persists with node config
+    setValues(prev => ({
+      ...prev,
+      integration_id: integrationId
+    }));
+    logger.debug('[ConfigForm] Selected account changed:', { integrationId });
+  }, []);
 
   // Helper function to check if status means connected
   const isConnectedStatus = (status?: string) => {
@@ -1399,8 +1433,13 @@ function ConfigurationForm({
     loadingFields,
     loadOptions,
     integrationName,
-    integrationId: integration?.id,
+    integrationId: selectedIntegrationId || selectedIntegration?.id || integration?.id,
     needsConnection,
+    // Multi-account support
+    showAccountSelector,
+    selectedIntegrationId,
+    connectedIntegrations,
+    onSelectAccount: handleSelectAccount,
     onConnectIntegration: handleConnectIntegration,
     aiFields,
     setAiFields,
