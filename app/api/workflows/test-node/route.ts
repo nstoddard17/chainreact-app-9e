@@ -12,8 +12,25 @@ export async function POST(request: Request) {
   try {
     const { nodeType, config, testData, workflowId, nodeId, useCachedData } = await request.json()
 
+    logger.info('[test-node] Received request:', {
+      nodeType,
+      workflowId: workflowId || 'NOT PROVIDED',
+      nodeId: nodeId || 'NOT PROVIDED',
+      useCachedData,
+      hasConfig: !!config,
+      hasTestData: !!testData
+    })
+
     if (!nodeType) {
       return errorResponse("Node type is required" , 400)
+    }
+
+    if (!workflowId) {
+      logger.warn('[test-node] workflowId not provided - caching will be disabled')
+    }
+
+    if (!nodeId) {
+      logger.warn('[test-node] nodeId not provided - caching will be disabled')
     }
 
     const supabase = await createSupabaseRouteHandlerClient()
