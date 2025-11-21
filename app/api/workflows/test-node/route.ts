@@ -42,22 +42,10 @@ export async function POST(request: Request) {
       }
     }
 
-    // Create test context with sample data
+    // Create test context - testData should contain actual outputs from previous nodes
+    // The caller is responsible for providing real node outputs in the correct structure
     const testContext = {
-      data: testData || {
-        // Default sample data for testing
-        name: "John Doe",
-        email: "john@example.com", 
-        status: "active",
-        amount: 100,
-        date: "2024-01-15",
-        items: ["item1", "item2", "item3"],
-        user: {
-          id: "123",
-          name: "John Doe",
-          email: "john@example.com"
-        }
-      },
+      data: testData || {},
       userId: user.id,
       workflowId: "test-workflow",
       testMode: true

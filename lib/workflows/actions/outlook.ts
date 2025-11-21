@@ -13,7 +13,7 @@ export async function sendOutlookEmail(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
 
     const {
       to,

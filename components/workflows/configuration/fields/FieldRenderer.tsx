@@ -12,6 +12,32 @@ import { HelpCircle, Mail, Hash, Calendar, FileText, Link, User, MessageSquare, 
 import { FileUpload } from "@/components/ui/file-upload";
 import { cn } from "@/lib/utils";
 import { SimpleVariablePicker } from "./SimpleVariablePicker";
+
+/**
+ * Helper function to recursively get ALL previous nodes in the workflow
+ * Not just the immediate parent, but all ancestors
+ */
+function getAllPreviousNodeIds(currentNodeId: string, edges: any[]): string[] {
+  const findPreviousNodes = (nodeId: string, visited = new Set<string>()): string[] => {
+    if (visited.has(nodeId)) return []
+    visited.add(nodeId)
+
+    const incomingEdges = edges.filter((edge: any) => edge.target === nodeId)
+    if (incomingEdges.length === 0) return []
+
+    const sourceNodeIds = incomingEdges.map((edge: any) => edge.source)
+    const allPreviousNodes: string[] = [...sourceNodeIds]
+
+    sourceNodeIds.forEach(sourceId => {
+      const previousNodes = findPreviousNodes(sourceId, visited)
+      allPreviousNodes.push(...previousNodes)
+    })
+
+    return allPreviousNodes
+  }
+
+  return findPreviousNodes(currentNodeId)
+}
 import { MultiCombobox } from "@/components/ui/combobox";
 import { TimePicker } from "@/components/ui/time-picker";
 import EnhancedFileInput from "./EnhancedFileInput";
@@ -39,10 +65,9 @@ import { generatePlaceholder, generateHelpText, generateExamples, getKeyboardHin
 import { EmptyStateCard } from "../EmptyStateCard";
 
 // Integration-specific field components
-import { TimePicker15Min } from './TimePicker15Min';
+import { GoogleTimePicker } from './GoogleTimePicker';
 import { TimezonePicker } from './TimezonePicker';
 import { RecurrencePicker } from './RecurrencePicker';
-import { GoogleMeetButton } from './GoogleMeetButton';
 import { GooglePlacesAutocomplete } from './GooglePlacesAutocomplete';
 import { NotificationBuilder } from './NotificationBuilder';
 import { ColorSelect } from './ColorSelect';
@@ -1029,6 +1054,7 @@ export function FieldRenderer({
         
       case "email-rich-text":
         // Enhanced rich text editor specifically for email composition
+        // Support connect mode for body fields via explicit flag
         return (
           <EmailRichTextEditor
             value={value || ""}
@@ -1038,6 +1064,9 @@ export function FieldRenderer({
             integrationProvider={field.provider || 'gmail'}
             userId={user?.id}
             workflowNodes={workflowData?.nodes}
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
+            enableConnectMode={shouldUseConnectMode(field)}
             className={cn(
               error && "border-red-500"
             )}
@@ -1673,26 +1702,49 @@ export function FieldRenderer({
         if (isConnectedMode && workflowData && currentNodeId) {
           console.log('🔌 [FieldRenderer] Connect mode ACTIVE - showing variable dropdown');
 
-          // Get upstream nodes (nodes that connect to the current node)
+          // Get ALL upstream nodes (all previous nodes in the workflow, not just immediate parents)
           const nodeById = new Map(workflowData.nodes.map((n: any) => [n.id, n]))
           const edges = workflowData.edges || []
-          const sourceIds = edges
-            .filter((e: any) => e.target === currentNodeId)
-            .map((e: any) => e.source)
+          const sourceIds = getAllPreviousNodeIds(currentNodeId, edges)
 
           const upstreamNodes = sourceIds
             .map((id: string) => nodeById.get(id))
             .filter(Boolean)
             .map((node: any) => {
               const nodeComponent = ALL_NODE_COMPONENTS.find((c: any) => c.type === node.data?.type)
+              let outputSchema = nodeComponent?.outputSchema || []
+
+              // Flatten array properties - if an output has 'properties', include those as individual outputs
+              const flattenedOutputs: any[] = []
+              outputSchema.forEach((output: any) => {
+                // Always include the top-level field
+                flattenedOutputs.push(output)
+
+                // If this is an array with properties, also include the properties as separate fields
+                if (output.type === 'array' && Array.isArray(output.properties)) {
+                  output.properties.forEach((prop: any) => {
+                    flattenedOutputs.push({
+                      ...prop,
+                      name: `${output.name}[].${prop.name}`,
+                      label: prop.label || prop.name, // Just use the property label, node title will be shown separately
+                      _isArrayProperty: true,
+                      _parentArray: output.name,
+                      _parentArrayLabel: output.label || output.name
+                    })
+                  })
+                }
+              })
+
               return {
                 id: node.id,
                 title: node.data?.title || node.data?.label || nodeComponent?.title || 'Unnamed',
                 type: node.data?.type,
-                outputSchema: nodeComponent?.outputSchema || [],
-                providerId: node.data?.providerId
+                outputSchema: flattenedOutputs,
+                providerId: node.data?.providerId,
+                position: node.position || { x: 0, y: 0 }
               }
             })
+            .sort((a: any, b: any) => a.position.y - b.position.y)
 
           // Determine compatible types based on field type
           const getCompatibleTypes = (fieldType: string) => {
@@ -1832,26 +1884,49 @@ export function FieldRenderer({
 
         // If Connect mode is active, show GenericSelectField with upstream variables as options
         if (isConnectedMode && workflowData && currentNodeId) {
-          // Get upstream nodes (nodes that connect to the current node)
+          // Get ALL upstream nodes (all previous nodes in the workflow, not just immediate parents)
           const nodeById = new Map(workflowData.nodes.map((n: any) => [n.id, n]))
           const edges = workflowData.edges || []
-          const sourceIds = edges
-            .filter((e: any) => e.target === currentNodeId)
-            .map((e: any) => e.source)
+          const sourceIds = getAllPreviousNodeIds(currentNodeId, edges)
 
           const upstreamNodes = sourceIds
             .map((id: string) => nodeById.get(id))
             .filter(Boolean)
             .map((node: any) => {
               const nodeComponent = ALL_NODE_COMPONENTS.find((c: any) => c.type === node.data?.type)
+              let outputSchema = nodeComponent?.outputSchema || []
+
+              // Flatten array properties - if an output has 'properties', include those as individual outputs
+              const flattenedOutputs: any[] = []
+              outputSchema.forEach((output: any) => {
+                // Always include the top-level field
+                flattenedOutputs.push(output)
+
+                // If this is an array with properties, also include the properties as separate fields
+                if (output.type === 'array' && Array.isArray(output.properties)) {
+                  output.properties.forEach((prop: any) => {
+                    flattenedOutputs.push({
+                      ...prop,
+                      name: `${output.name}[].${prop.name}`,
+                      label: prop.label || prop.name, // Just use the property label, node title will be shown separately
+                      _isArrayProperty: true,
+                      _parentArray: output.name,
+                      _parentArrayLabel: output.label || output.name
+                    })
+                  })
+                }
+              })
+
               return {
                 id: node.id,
                 title: node.data?.title || node.data?.label || nodeComponent?.title || 'Unnamed',
                 type: node.data?.type,
-                outputSchema: nodeComponent?.outputSchema || [],
-                providerId: node.data?.providerId
+                outputSchema: flattenedOutputs,
+                providerId: node.data?.providerId,
+                position: node.position || { x: 0, y: 0 }
               }
             })
+            .sort((a: any, b: any) => a.position.y - b.position.y)
 
           // Determine compatible types based on field type
           const getCompatibleTypes = (fieldType: string) => {
@@ -1962,26 +2037,49 @@ export function FieldRenderer({
         // If Connect mode is active, show GenericSelectField with upstream variables as options
         if (isConnectedMode && workflowData && currentNodeId) {
           console.log('🔌 [FieldRenderer] Connect mode ACTIVE for multi-select - showing variable dropdown');
-          // Get upstream nodes (nodes that connect to the current node)
+          // Get ALL upstream nodes (all previous nodes in the workflow, not just immediate parents)
           const nodeById = new Map(workflowData.nodes.map((n: any) => [n.id, n]))
           const edges = workflowData.edges || []
-          const sourceIds = edges
-            .filter((e: any) => e.target === currentNodeId)
-            .map((e: any) => e.source)
+          const sourceIds = getAllPreviousNodeIds(currentNodeId, edges)
 
           const upstreamNodes = sourceIds
             .map((id: string) => nodeById.get(id))
             .filter(Boolean)
             .map((node: any) => {
               const nodeComponent = ALL_NODE_COMPONENTS.find((c: any) => c.type === node.data?.type)
+              let outputSchema = nodeComponent?.outputSchema || []
+
+              // Flatten array properties - if an output has 'properties', include those as individual outputs
+              const flattenedOutputs: any[] = []
+              outputSchema.forEach((output: any) => {
+                // Always include the top-level field
+                flattenedOutputs.push(output)
+
+                // If this is an array with properties, also include the properties as separate fields
+                if (output.type === 'array' && Array.isArray(output.properties)) {
+                  output.properties.forEach((prop: any) => {
+                    flattenedOutputs.push({
+                      ...prop,
+                      name: `${output.name}[].${prop.name}`,
+                      label: prop.label || prop.name, // Just use the property label, node title will be shown separately
+                      _isArrayProperty: true,
+                      _parentArray: output.name,
+                      _parentArrayLabel: output.label || output.name
+                    })
+                  })
+                }
+              })
+
               return {
                 id: node.id,
                 title: node.data?.title || node.data?.label || nodeComponent?.title || 'Unnamed',
                 type: node.data?.type,
-                outputSchema: nodeComponent?.outputSchema || [],
-                providerId: node.data?.providerId
+                outputSchema: flattenedOutputs,
+                providerId: node.data?.providerId,
+                position: node.position || { x: 0, y: 0 }
               }
             })
+            .sort((a: any, b: any) => a.position.y - b.position.y)
 
           // Determine compatible types based on field type
           const getCompatibleTypes = (fieldType: string) => {
@@ -2237,7 +2335,7 @@ export function FieldRenderer({
                   htmlFor={`${field.name}-use-now`}
                   className="text-sm text-muted-foreground cursor-pointer font-normal"
                 >
-                  Use current date/time when action runs
+                  {(field as any).toggleLabel || "Use current date/time when action runs"}
                 </Label>
               </div>
             )}
@@ -2762,15 +2860,50 @@ export function FieldRenderer({
         );
 
       case "time-picker-15min":
+      case "google-time-picker": {
+        const toggleFieldName = (field as any).toggleField;
+        const isUsingNow = toggleFieldName && parentValues?.[toggleFieldName] === true;
+
+        const handleUseNowChange = (checked: boolean) => {
+          if (toggleFieldName && setFieldValue) {
+            setFieldValue(toggleFieldName, checked);
+            // Don't clear the time value - keep it so user can see/restore it
+          }
+        };
+
+        const showToggle = !!(field as any).toggleLabel;
+
         return (
-          <TimePicker15Min
-            value={value}
-            onChange={onChange}
-            placeholder={field.placeholder}
-            disabled={field.disabled}
-            className={cn(error && "border-red-500")}
-          />
+          <div className="space-y-2">
+            <GoogleTimePicker
+              value={value}
+              onChange={onChange}
+              placeholder={field.placeholder}
+              disabled={field.disabled || isUsingNow}
+              className={cn(
+                error && "border-red-500",
+                isUsingNow && "opacity-50"
+              )}
+            />
+            {showToggle && (
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id={`${field.name}-use-now`}
+                  checked={isUsingNow}
+                  onCheckedChange={handleUseNowChange}
+                  disabled={field.disabled}
+                />
+                <Label
+                  htmlFor={`${field.name}-use-now`}
+                  className="text-sm text-muted-foreground cursor-pointer font-normal"
+                >
+                  {(field as any).toggleLabel}
+                </Label>
+              </div>
+            )}
+          </div>
         );
+      }
 
       case "timezone-picker":
         return (
@@ -2793,16 +2926,6 @@ export function FieldRenderer({
             placeholder={field.placeholder}
             disabled={field.disabled}
             startDate={parentValues?.startDate}
-            className={cn(error && "border-red-500")}
-          />
-        );
-
-      case "google-meet-button":
-        return (
-          <GoogleMeetButton
-            value={value}
-            onChange={onChange}
-            disabled={field.disabled}
             className={cn(error && "border-red-500")}
           />
         );

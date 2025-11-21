@@ -20,7 +20,7 @@ export async function removeGoogleCalendarAttendees(
         typeof v === 'string' && v.includes('{{') && v.includes('}}')
       )
 
-    const resolvedConfig = needsResolution ? resolveValue(config, { input }) : config
+    const resolvedConfig = needsResolution ? resolveValue(config, input) : config
 
     const {
       calendarId = 'primary',
@@ -31,6 +31,13 @@ export async function removeGoogleCalendarAttendees(
 
     if (!eventId) {
       throw new Error('Event ID is required to remove attendees')
+    }
+
+    // Check if an array was provided instead of a single event ID
+    if (Array.isArray(eventId)) {
+      throw new Error(
+        'Multiple events detected. To remove attendees from multiple events, add a Loop node before this action and use {{loop.currentItem.eventId}} as the Event ID. If you want to remove attendees from only the first event, use {{list_events_node.events.0.eventId}} instead.'
+      )
     }
 
     if (!attendeesToRemove || (Array.isArray(attendeesToRemove) && attendeesToRemove.length === 0)) {

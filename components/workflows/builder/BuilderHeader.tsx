@@ -87,6 +87,8 @@ interface BuilderHeaderProps {
   canUndo?: boolean
   canRedo?: boolean
   setShowExecutionHistory?: (show: boolean) => void
+  onSelectHistoryRun?: (runId: string) => Promise<void> | void
+  activeRunId?: string | null
 }
 
 const BuilderHeaderComponent = ({
@@ -117,6 +119,8 @@ const BuilderHeaderComponent = ({
   canUndo = false,
   canRedo = false,
   setShowExecutionHistory,
+  onSelectHistoryRun,
+  activeRunId,
 }: BuilderHeaderProps) => {
   const router = useRouter()
   const { toast } = useToast()
@@ -837,6 +841,8 @@ const BuilderHeaderComponent = ({
         open={showHistoryDialog}
         onOpenChange={setShowHistoryDialog}
         workflowId={workflowId || ""}
+        onSelectRun={onSelectHistoryRun}
+        activeRunId={activeRunId}
       />
     </>
   )

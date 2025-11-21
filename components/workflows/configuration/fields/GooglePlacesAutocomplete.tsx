@@ -153,12 +153,12 @@ export function GooglePlacesAutocomplete({
         onChange={handleInputChange}
         placeholder={placeholder}
         disabled={disabled}
-        className="!pl-11"
+        className={cn("!pl-11", isLoading && "!pr-11")}
       />
 
-      {/* Loading indicator */}
+      {/* Loading indicator - positioned in center-right of input */}
       {isLoading && (
-        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground animate-spin" />
+        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground animate-spin z-10" />
       )}
 
       {/* Autocomplete dropdown */}

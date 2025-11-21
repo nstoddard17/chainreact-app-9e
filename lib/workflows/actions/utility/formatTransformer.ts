@@ -164,7 +164,7 @@ export async function formatTransformer(
 ): Promise<ActionResult> {
   try {
     // Resolve variables in config
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
 
     const {
       content,

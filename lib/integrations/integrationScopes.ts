@@ -32,7 +32,7 @@ export const INTEGRATION_SCOPES = {
   },
   "google-docs": {
     required: ["https://www.googleapis.com/auth/documents", "https://www.googleapis.com/auth/drive.file"],
-    optional: ["https://www.googleapis.com/auth/drive"],
+    optional: [],
   },
   "google-drive": {
     required: ["https://www.googleapis.com/auth/drive"],

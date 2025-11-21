@@ -21,7 +21,7 @@ export async function moveGoogleCalendarEvent(
         typeof v === 'string' && v.includes('{{') && v.includes('}}')
       )
 
-    const resolvedConfig = needsResolution ? resolveValue(config, { input }) : config
+    const resolvedConfig = needsResolution ? resolveValue(config, input) : config
 
     const {
       sourceCalendarId = 'primary',
@@ -32,6 +32,13 @@ export async function moveGoogleCalendarEvent(
 
     if (!eventId) {
       throw new Error('Event ID is required to move an event')
+    }
+
+    // Check if an array was provided instead of a single event ID
+    if (Array.isArray(eventId)) {
+      throw new Error(
+        'Multiple events detected. To move multiple events, add a Loop node before this action and use {{loop.currentItem.eventId}} as the Event ID. If you want to move only the first event, use {{list_events_node.events.0.eventId}} instead.'
+      )
     }
 
     if (!destinationCalendarId) {

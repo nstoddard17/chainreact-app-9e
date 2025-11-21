@@ -12,7 +12,7 @@ export async function deleteMicrosoftExcelRow(
 ): Promise<ActionResult> {
   try {
     // Resolve configuration with workflow variables
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
 
     logger.debug('🗑️ [Excel Delete] Resolved config:', JSON.stringify(resolvedConfig, null, 2))
 

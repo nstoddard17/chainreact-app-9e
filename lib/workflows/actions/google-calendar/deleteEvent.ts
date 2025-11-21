@@ -20,9 +20,10 @@ export async function deleteGoogleCalendarEvent(
         typeof v === 'string' && v.includes('{{') && v.includes('}}')
       )
 
-    const resolvedConfig = needsResolution ? resolveValue(config, { input }) : config
+    // Pass input directly, not wrapped in an object
+    const resolvedConfig = needsResolution ? resolveValue(config, input) : config
 
-    const {
+    let {
       calendarId = 'primary',
       eventId,
       sendNotifications = 'none'
@@ -30,6 +31,13 @@ export async function deleteGoogleCalendarEvent(
 
     if (!eventId) {
       throw new Error('Event ID is required to delete an event')
+    }
+
+    // Check if an array was provided instead of a single event ID
+    if (Array.isArray(eventId)) {
+      throw new Error(
+        'Multiple events detected. To delete multiple events, add a Loop node before this action and use {{loop.currentItem.eventId}} as the Event ID. If you want to delete only the first event, use {{list_events_node.events.0.eventId}} instead.'
+      )
     }
 
     // Get the decrypted access token for Google
@@ -51,18 +59,16 @@ export async function deleteGoogleCalendarEvent(
     const eventDetails = eventResponse.data
 
     // Determine send notifications parameter
-    let sendUpdates = 'none'
-    if (sendNotifications === 'all') {
-      sendUpdates = 'all'
-    } else if (sendNotifications === 'externalOnly') {
-      sendUpdates = 'externalOnly'
-    }
+    // Google Calendar API expects 'all', 'externalOnly', or 'none'
+    const sendUpdates = sendNotifications === 'all' ? 'all'
+      : sendNotifications === 'externalOnly' ? 'externalOnly'
+      : 'none'
 
-    // Delete the event
+    // Delete the event with sendUpdates parameter
     await calendar.events.delete({
       calendarId: calendarId,
       eventId: eventId,
-      sendUpdates: sendUpdates
+      sendUpdates: sendUpdates as 'all' | 'externalOnly' | 'none'
     })
 
     logger.info('✅ [Google Calendar] Deleted event', {

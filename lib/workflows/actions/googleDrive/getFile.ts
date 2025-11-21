@@ -20,7 +20,7 @@ export async function getGoogleDriveFile(
   });
 
   try {
-    const resolvedConfig = resolveValue(config, { input })
+    const resolvedConfig = resolveValue(config, input)
     
     // Get the file ID
     const fileId = resolvedConfig.fileId

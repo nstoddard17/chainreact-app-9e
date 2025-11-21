@@ -9,84 +9,82 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { History, Clock, Loader2, CheckCircle, XCircle, AlertCircle, Play, TestTube, Coins } from "lucide-react"
-import { format } from "date-fns"
-import { createClient } from "@/utils/supabase/client"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { History, Loader2, CheckCircle2, XCircle, AlertCircle, Play, Download } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { cn } from "@/lib/utils"
 
-interface WorkflowExecution {
+type FlowRunSummary = {
   id: string
+  status: string
+  startedAt: string | null
+  finishedAt: string | null
+  revisionId?: string | null
+  metadata?: Record<string, any>
+}
+
+type RunNodeDetails = {
+  id: string
+  node_id: string
+  status: string
+  duration_ms: number | null
   created_at: string
-  execution_type: 'manual' | 'published' | 'sandbox' | 'live'
-  status: 'success' | 'error' | 'pending'
-  duration_ms: number
-  credits_used: number
-  nodes_executed: number
-  error_message?: string
-  trigger_data?: any
+  output: any
+  error: any
 }
 
 interface WorkflowHistoryDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   workflowId: string
+  onSelectRun?: (runId: string) => Promise<void> | void
+  activeRunId?: string | null
 }
 
 export function WorkflowHistoryDialog({
   open,
   onOpenChange,
   workflowId,
+  onSelectRun,
+  activeRunId,
 }: WorkflowHistoryDialogProps) {
-  const [executions, setExecutions] = useState<WorkflowExecution[]>([])
-  const [loading, setLoading] = useState(true)
-  const [totalCredits, setTotalCredits] = useState(0)
+  const [runs, setRuns] = useState<FlowRunSummary[]>([])
+  const [selectedRun, setSelectedRun] = useState<FlowRunSummary | null>(null)
+  const [nodes, setNodes] = useState<RunNodeDetails[]>([])
+  const [loading, setLoading] = useState(false)
+  const [nodesLoading, setNodesLoading] = useState(false)
   const { toast } = useToast()
-  const supabase = createClient()
 
   useEffect(() => {
-    if (open && workflowId) {
-      loadExecutions()
+    if (open) {
+      void loadRuns()
     }
   }, [open, workflowId])
 
-  const loadExecutions = async () => {
+  const loadRuns = async () => {
     try {
       setLoading(true)
-
-      // Fetch executions from workflow_executions table
-      const { data, error } = await supabase
-        .from('workflow_executions')
-        .select('*')
-        .eq('workflow_id', workflowId)
-        .order('created_at', { ascending: false })
-        .limit(100)
-
-      if (error) throw error
-
-      const executionsData = (data || []).map((exec: any) => ({
-        id: exec.id,
-        created_at: exec.created_at,
-        execution_type: determineExecutionType(exec),
-        status: exec.status || 'success',
-        duration_ms: exec.duration_ms || calculateDuration(exec.created_at, exec.completed_at),
-        credits_used: calculateCredits(exec),
-        nodes_executed: exec.nodes_executed || 0,
-        error_message: exec.error_message,
-        trigger_data: exec.trigger_data,
-      }))
-
-      setExecutions(executionsData)
-
-      // Calculate total credits
-      const total = executionsData.reduce((sum, exec) => sum + exec.credits_used, 0)
-      setTotalCredits(total)
-    } catch (error: any) {
-      console.error('Error loading executions:', error)
+      const response = await fetch(`/workflows/v2/api/flows/${workflowId}/runs/history`)
+      if (!response.ok) {
+        throw new Error("Failed to load runs")
+      }
+      const data = await response.json()
+      setRuns(data.runs || [])
+      if (data.runs?.length) {
+        setSelectedRun((previous) => previous ?? data.runs[0])
+        void loadRunNodes(data.runs[0])
+      } else {
+        setSelectedRun(null)
+        setNodes([])
+      }
+    } catch (error) {
+      console.error("[WorkflowHistoryDialog] loadRuns error:", error)
       toast({
-        title: "Error",
-        description: "Failed to load execution history",
+        title: "Unable to load history",
+        description: "We couldn't fetch workflow runs. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -94,150 +92,122 @@ export function WorkflowHistoryDialog({
     }
   }
 
-  // Determine execution type based on execution data
-  const determineExecutionType = (exec: any): 'manual' | 'published' | 'sandbox' | 'live' => {
-    if (exec.test_mode === true) return 'sandbox'
-    if (exec.is_manual === true) return 'manual'
-    if (exec.trigger_type === 'manual') return 'manual'
-    return 'published'
-  }
-
-  // Calculate execution duration
-  const calculateDuration = (startedAt: string, completedAt?: string): number => {
-    if (!completedAt) return 0
-    const start = new Date(startedAt).getTime()
-    const end = new Date(completedAt).getTime()
-    return end - start
-  }
-
-  // Calculate credits based on execution complexity
-  const calculateCredits = (exec: any): number => {
-    /*
-     * Credit Calculation Formula:
-     *
-     * Base Credits:
-     * - Each node executed: 1 credit
-     *
-     * AI Node Multipliers:
-     * - AI Agent/Router: 5x credits (complex AI operations)
-     * - AI Actions (summarize, extract, etc.): 3x credits
-     *
-     * Integration Multipliers:
-     * - API calls (Gmail, Slack, etc.): 2x credits
-     * - File operations: 1.5x credits
-     *
-     * Execution Time Bonus:
-     * - < 1 second: 0 bonus
-     * - 1-10 seconds: +1 credit
-     * - 10-60 seconds: +3 credits
-     * - > 60 seconds: +5 credits
-     *
-     * Data Volume Bonus:
-     * - Small data (<1KB): 0 bonus
-     * - Medium data (1-100KB): +1 credit
-     * - Large data (>100KB): +3 credits
-     */
-
-    let credits = 0
-
-    // Base credits from nodes executed
-    const nodesExecuted = exec.nodes_executed || 0
-    credits += nodesExecuted
-
-    // AI node multipliers (check if any AI nodes were used)
-    const hasAINodes = exec.ai_nodes_count || 0
-    credits += hasAINodes * 4 // 5x total (1 base + 4 bonus)
-
-    // Integration multipliers
-    const integrationCalls = exec.integration_calls || 0
-    credits += integrationCalls * 1 // 2x total (1 base + 1 bonus)
-
-    // Execution time bonus
-    const durationMs = exec.duration_ms || 0
-    if (durationMs > 60000) credits += 5
-    else if (durationMs > 10000) credits += 3
-    else if (durationMs > 1000) credits += 1
-
-    // Data volume bonus
-    const dataSize = exec.data_size_bytes || 0
-    if (dataSize > 100000) credits += 3
-    else if (dataSize > 1000) credits += 1
-
-    // Minimum 1 credit per execution
-    return Math.max(1, credits)
-  }
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'success':
-        return <CheckCircle className="w-4 h-4 text-green-600" />
-      case 'error':
-        return <XCircle className="w-4 h-4 text-red-600" />
-      default:
-        return <AlertCircle className="w-4 h-4 text-yellow-600" />
+  const loadRunNodes = async (run: FlowRunSummary) => {
+    try {
+      setNodesLoading(true)
+      const response = await fetch(`/workflows/v2/api/runs/${run.id}/nodes`)
+      if (!response.ok) {
+        throw new Error("Failed to load run details")
+      }
+      const data = await response.json()
+      setNodes(data.nodes || [])
+      setSelectedRun(run)
+    } catch (error) {
+      console.error("[WorkflowHistoryDialog] loadRunNodes error:", error)
+      toast({
+        title: "Unable to load run",
+        description: "We couldn't fetch node results for this run.",
+        variant: "destructive",
+      })
+    } finally {
+      setNodesLoading(false)
     }
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'success':
-        return 'bg-green-500'
-      case 'error':
-        return 'bg-red-500'
-      default:
-        return 'bg-yellow-500'
+  const handleSetActiveRun = async (run: FlowRunSummary) => {
+    if (!onSelectRun) return
+    await onSelectRun(run.id)
+    toast({
+      title: "Run selected",
+      description: "Results tabs will now show this run's outputs.",
+    })
+    onOpenChange(false)
+  }
+
+  const exportNodes = () => {
+    if (!selectedRun) return
+    const blob = new Blob([JSON.stringify({ run: selectedRun, nodes }, null, 2)], { type: "application/json" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    const startedAt = selectedRun.startedAt ? new Date(selectedRun.startedAt).toISOString() : "unknown"
+    link.download = `workflow-run-${selectedRun.id}-${startedAt}.json`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
+  const formatTimestamp = (value?: string | null) => {
+    if (!value) return "N/A"
+    try {
+      return new Date(value).toLocaleString()
+    } catch {
+      return value
     }
   }
 
-  const getExecutionTypeLabel = (type: string) => {
-    switch (type) {
-      case 'manual':
-        return 'Manual Run'
-      case 'published':
-        return 'Published Run'
-      case 'sandbox':
-        return 'Sandbox Test'
-      case 'live':
-        return 'Live Test'
-      default:
-        return 'Unknown'
-    }
-  }
-
-  const getExecutionTypeIcon = (type: string) => {
-    switch (type) {
-      case 'sandbox':
-        return <TestTube className="w-3 h-3" />
-      case 'manual':
-      case 'live':
-        return <Play className="w-3 h-3" />
-      default:
-        return <History className="w-3 h-3" />
-    }
-  }
-
-  const formatDuration = (ms: number) => {
+  const formatDuration = (start?: string | null, end?: string | null) => {
+    if (!start || !end) return "—"
+    const ms = new Date(end).getTime() - new Date(start).getTime()
     if (ms < 1000) return `${ms}ms`
     if (ms < 60000) return `${(ms / 1000).toFixed(2)}s`
     const minutes = Math.floor(ms / 60000)
-    const seconds = ((ms % 60000) / 1000).toFixed(0)
+    const seconds = Math.floor((ms % 60000) / 1000)
     return `${minutes}m ${seconds}s`
+  }
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "success":
+        return (
+          <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 border border-emerald-200">
+            <CheckCircle2 className="w-3 h-3 mr-1" />
+            Success
+          </Badge>
+        )
+      case "error":
+        return (
+          <Badge variant="secondary" className="bg-red-100 text-red-700 border border-red-200">
+            <XCircle className="w-3 h-3 mr-1" />
+            Error
+          </Badge>
+        )
+      default:
+        return (
+          <Badge variant="secondary" className="bg-amber-100 text-amber-800 border border-amber-200">
+            <AlertCircle className="w-3 h-3 mr-1" />
+            {status}
+          </Badge>
+        )
+    }
+  }
+
+  const getSourceLabel = (run: FlowRunSummary) => {
+    const source = run.metadata?.source || run.metadata?.trigger || "manual"
+    switch (source) {
+      case "scheduler":
+      case "cron":
+        return "Scheduled Run"
+      case "webhook":
+        return "Webhook"
+      case "node_test":
+        return "Node Test"
+      default:
+        return "Manual"
+    }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[80vh]">
+      <DialogContent className="max-w-5xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <History className="w-5 h-5" />
             Execution History
           </DialogTitle>
-          <DialogDescription className="flex items-center justify-between">
-            <span>View all workflow test runs and executions</span>
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <Coins className="w-4 h-4 text-yellow-600" />
-              <span className="text-foreground">Total Credits: {totalCredits}</span>
-            </div>
+          <DialogDescription>
+            Review past workflow runs and inspect node-level output for each execution.
           </DialogDescription>
         </DialogHeader>
 
@@ -245,83 +215,124 @@ export function WorkflowHistoryDialog({
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
-        ) : executions.length === 0 ? (
+        ) : runs.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
             <History className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p>No execution history yet</p>
-            <p className="text-sm mt-2">Run a test to see execution history</p>
+            <p>No executions yet</p>
+            <p className="text-sm mt-2">Run the workflow or a node test to generate history.</p>
           </div>
         ) : (
-          <ScrollArea className="h-[400px] pr-4">
-            <div className="space-y-2">
-              {executions.map((execution) => (
-                <div
-                  key={execution.id}
-                  className="p-3 border rounded-lg hover:bg-accent/50 transition-colors"
-                >
-                  <div className="flex items-start gap-3">
-                    {/* Status Indicator */}
-                    <div className={`w-2 h-2 rounded-full mt-2 shrink-0 ${getStatusColor(execution.status)}`} />
-
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      {/* Header */}
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm font-medium">
-                          {format(new Date(execution.created_at), 'MMM d')} {format(new Date(execution.created_at), 'h:mm a')}
-                        </span>
-                        <Badge variant="outline" className="text-xs flex items-center gap-1">
-                          {getExecutionTypeIcon(execution.execution_type)}
-                          {getExecutionTypeLabel(execution.execution_type)}
-                        </Badge>
-                      </div>
-
-                      {/* Stats Row */}
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        {/* Credits */}
-                        <div className="flex items-center gap-1 font-medium">
-                          <Coins className="w-3 h-3 text-yellow-600" />
-                          <span className="text-foreground">{execution.credits_used}</span>
-                          <span>credits</span>
-                        </div>
-
-                        {/* Duration */}
-                        <div className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          <span>{formatDuration(execution.duration_ms)}</span>
-                        </div>
-
-                        {/* Status */}
-                        <div className="flex items-center gap-1">
-                          {getStatusIcon(execution.status)}
-                          <span className="capitalize">{execution.status}</span>
-                        </div>
-
-                        {/* Nodes */}
-                        {execution.nodes_executed > 0 && (
-                          <span>{execution.nodes_executed} nodes</span>
-                        )}
-                      </div>
-
-                      {/* Error Message */}
-                      {execution.error_message && (
-                        <div className="mt-2 text-xs text-red-600 bg-red-50 dark:bg-red-950/20 p-2 rounded">
-                          {execution.error_message}
-                        </div>
+          <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4">
+            <Card className="h-[480px] flex flex-col">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-base">Runs</CardTitle>
+              </CardHeader>
+              <ScrollArea className="flex-1">
+                <div className="space-y-2 px-3 pb-4">
+                  {runs.map((run) => (
+                    <button
+                      key={run.id}
+                      onClick={() => void loadRunNodes(run)}
+                      className={cn(
+                        "w-full text-left border rounded-lg px-3 py-2 transition hover:bg-accent",
+                        selectedRun?.id === run.id && "border-primary bg-primary/5",
+                        activeRunId === run.id && "ring-1 ring-primary"
                       )}
-                    </div>
-                  </div>
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-sm">{getSourceLabel(run)}</span>
+                        {getStatusBadge(run.status)}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {formatTimestamp(run.startedAt)}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">
+                        Duration: {formatDuration(run.startedAt, run.finishedAt)}
+                      </div>
+                    </button>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </ScrollArea>
-        )}
+              </ScrollArea>
+            </Card>
 
-        <div className="flex justify-end gap-2 pt-4 border-t">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Close
-          </Button>
-        </div>
+            <Card className="h-[480px] flex flex-col">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-base">
+                  {selectedRun ? `Run ${selectedRun.id.slice(0, 8)}…` : "Select a run"}
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={exportNodes}
+                    disabled={!selectedRun || nodes.length === 0}
+                    className="hidden sm:flex"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Export
+                  </Button>
+                  {selectedRun && (
+                    <Button size="sm" onClick={() => void handleSetActiveRun(selectedRun)}>
+                      <Play className="w-4 h-4 mr-2" />
+                      View in Builder
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="flex-1 overflow-hidden">
+                {nodesLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : nodes.length === 0 ? (
+                  <div className="text-center text-muted-foreground py-12">
+                    Select a run to view node details.
+                  </div>
+                ) : (
+                  <ScrollArea className="h-full pr-4">
+                    <div className="space-y-3">
+                      {nodes.map((node) => (
+                        <div key={node.id} className="border rounded-lg p-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <div>
+                              <p className="text-sm font-medium">{node.node_id}</p>
+                              <p className="text-xs text-muted-foreground">
+                                Started {formatTimestamp(node.created_at)}
+                              </p>
+                            </div>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span>
+                                    {getStatusBadge(node.status)}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  Duration:{" "}
+                                  {node.duration_ms ? `${node.duration_ms}ms` : "not recorded"}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                          {node.output && Object.keys(node.output || {}).length > 0 && (
+                            <pre className="mt-2 rounded bg-muted/40 p-2 text-xs overflow-auto">
+                              {JSON.stringify(node.output, null, 2)}
+                            </pre>
+                          )}
+                          {node.error && (
+                            <pre className="mt-2 rounded bg-red-50 text-red-700 p-2 text-xs overflow-auto border border-red-100">
+                              {JSON.stringify(node.error, null, 2)}
+                            </pre>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   )
