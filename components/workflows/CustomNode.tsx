@@ -608,7 +608,22 @@ function CustomNode({ id, data, selected }: NodeProps) {
   }
   
   // Get execution status indicator for corner
-  const getExecutionStatusIndicator = () => null
+  const getExecutionStatusIndicator = () => {
+    if (visualNodeState !== 'running') {
+      return null
+    }
+
+    return (
+      <div className="absolute top-2 right-9 z-30 pointer-events-none noDrag noPan">
+        <div
+          className="flex h-7 w-7 items-center justify-center rounded-full border border-blue-200/70 bg-white/95 shadow-sm dark:border-blue-500/40 dark:bg-slate-900/90"
+          aria-hidden="true"
+        >
+          <Loader2 className="h-3.5 w-3.5 text-blue-600 animate-spin dark:text-blue-400" />
+        </div>
+      </div>
+    )
+  }
 
   // Get error label for top-left corner
   const getErrorLabel = () => {

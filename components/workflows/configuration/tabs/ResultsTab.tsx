@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useMemo, useState, useEffect } from 'react'
-import { CheckCircle2, XCircle, Clock, Info, TestTube, AlertCircle, RefreshCw, ChevronDown, ChevronRight, Code2 } from 'lucide-react'
+import { CheckCircle2, XCircle, Clock, Info, TestTube, AlertCircle, RefreshCw, ChevronDown, ChevronRight, Code2, Database } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -20,9 +20,16 @@ interface ResultsTabProps {
     timestamp?: string
     error?: string
     rawResponse?: any
+    cachedDataUsed?: number
+    outputCached?: boolean
   }
   onRunTest?: () => void
   isTestingNode?: boolean
+  cachedOutputsInfo?: {
+    available: boolean
+    nodeCount: number
+    availableNodes: string[]
+  }
 }
 
 /**
@@ -42,6 +49,7 @@ export function ResultsTab({
   testResult,
   onRunTest,
   isTestingNode = false,
+  cachedOutputsInfo,
 }: ResultsTabProps) {
   const [showRawResponse, setShowRawResponse] = useState(false)
   const [expandedFields, setExpandedFields] = useState<Record<string, boolean>>({})
@@ -558,27 +566,35 @@ export function ResultsTab({
                   These variables will be available after this node executes
                 </p>
               </div>
-              {onRunTest && (
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={onRunTest}
-                  disabled={isTestingNode}
-                  className="flex items-center gap-2 flex-shrink-0"
-                >
-                  {isTestingNode ? (
-                    <>
-                      <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white" />
-                      Testing...
-                    </>
-                  ) : (
-                    <>
-                      <TestTube className="h-3.5 w-3.5" />
-                      Test Node
-                    </>
-                  )}
-                </Button>
-              )}
+              <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                {onRunTest && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={onRunTest}
+                    disabled={isTestingNode}
+                    className="flex items-center gap-2"
+                  >
+                    {isTestingNode ? (
+                      <>
+                        <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white" />
+                        Testing...
+                      </>
+                    ) : (
+                      <>
+                        <TestTube className="h-3.5 w-3.5" />
+                        Test Node
+                      </>
+                    )}
+                  </Button>
+                )}
+                {cachedOutputsInfo?.available && (
+                  <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 className="h-3 w-3" />
+                    <span>{cachedOutputsInfo.nodeCount} cached output{cachedOutputsInfo.nodeCount !== 1 ? 's' : ''} available</span>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Output Schema - No values yet */}
@@ -655,27 +671,35 @@ export function ResultsTab({
                 Output data and execution details from the most recent test run
               </p>
             </div>
-            {onRunTest && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onRunTest}
-                disabled={isTestingNode}
-                className="flex items-center gap-2 flex-shrink-0"
-              >
-                {isTestingNode ? (
-                  <>
-                    <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-current" />
-                    Testing...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="h-3.5 w-3.5" />
-                    Re-test
-                  </>
-                )}
-              </Button>
-            )}
+            <div className="flex flex-col items-end gap-2 flex-shrink-0">
+              {onRunTest && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onRunTest}
+                  disabled={isTestingNode}
+                  className="flex items-center gap-2"
+                >
+                  {isTestingNode ? (
+                    <>
+                      <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-current" />
+                      Testing...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-3.5 w-3.5" />
+                      Re-test
+                    </>
+                  )}
+                </Button>
+              )}
+              {cachedOutputsInfo?.available && (
+                <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle2 className="h-3 w-3" />
+                  <span>{cachedOutputsInfo.nodeCount} cached output{cachedOutputsInfo.nodeCount !== 1 ? 's' : ''} available</span>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Test Status Summary */}
@@ -725,6 +749,16 @@ export function ResultsTab({
                   </span>
                 </div>
               </div>
+
+              {/* Cached data info */}
+              {testResult?.cachedDataUsed && testResult.cachedDataUsed > 0 && (
+                <div className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 rounded-md px-3 py-2 border border-blue-200 dark:border-blue-800">
+                  <Database className="h-3.5 w-3.5 flex-shrink-0" />
+                  <span>
+                    Used {testResult.cachedDataUsed} cached node output{testResult.cachedDataUsed !== 1 ? 's' : ''} from previous run
+                  </span>
+                </div>
+              )}
 
               {!isSuccess && displayResult.error && (
                 <Alert variant="destructive" className="mt-3">

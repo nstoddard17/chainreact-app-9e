@@ -267,6 +267,13 @@ export function ConfigurationModal({
   const [formSeedVersion, setFormSeedVersion] = useState(0)
   const [activeTab, setActiveTab] = useState<'setup' | 'advanced' | 'results'>('setup')
 
+  // State for cached node outputs
+  const [cachedOutputsInfo, setCachedOutputsInfo] = useState<{
+    available: boolean;
+    nodeCount: number;
+    availableNodes: string[];
+  }>({ available: false, nodeCount: 0, availableNodes: [] })
+
   // Viewport dimensions for panel height calculation (to sit below header)
   const [viewportHeight, setViewportHeight] = useState(0)
   const [viewportWidth, setViewportWidth] = useState(0)
@@ -307,6 +314,28 @@ export function ConfigurationModal({
 
     prevIsOpenRef.current = isOpen
   }, [currentNodeId, isOpen])
+
+  // Fetch cached node outputs info when modal opens
+  useEffect(() => {
+    if (isOpen && workflowData?.id) {
+      fetch(`/api/workflows/cached-outputs?workflowId=${workflowData.id}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setCachedOutputsInfo({
+              available: data.nodeCount > 0,
+              nodeCount: data.nodeCount,
+              availableNodes: Object.keys(data.cachedOutputs || {})
+            })
+          }
+        })
+        .catch(err => {
+          logger.warn('[ConfigModal] Failed to fetch cached outputs info:', err)
+        })
+    } else {
+      setCachedOutputsInfo({ available: false, nodeCount: 0, availableNodes: [] })
+    }
+  }, [isOpen, workflowData?.id])
 
   const effectiveInitialData = React.useMemo(
     () => initialOverride ?? initialData ?? {},
@@ -431,7 +460,10 @@ export function ConfigurationModal({
         body: JSON.stringify({
           nodeType: nodeInfo.type,
           config: cleanConfig,
-          testData: {}
+          testData: {},
+          workflowId: workflowData?.id,
+          nodeId: currentNodeId,
+          useCachedData: true // Automatically use cached data from previous node runs
         })
       })
 
@@ -453,16 +485,24 @@ export function ConfigurationModal({
           timestamp: new Date().toISOString(),
           error: result.testResult?.error,
           message: result.testResult?.message,
-          rawResponse: result.testResult?.output
+          rawResponse: result.testResult?.output,
+          cachedDataUsed: result.cachedData?.loaded ? result.cachedData.nodeCount : 0,
+          outputCached: result.outputCached
         }
       }
 
       setInitialOverride(updatedConfig)
       setFormSeedVersion((prev) => prev + 1)
 
+      // Build description with cached data info
+      let description = result.testResult?.message || "Node executed successfully"
+      if (result.cachedData?.loaded && result.cachedData.nodeCount > 0) {
+        description += ` (used ${result.cachedData.nodeCount} cached node output${result.cachedData.nodeCount > 1 ? 's' : ''})`
+      }
+
       toast({
         title: result.testResult?.success !== false ? "Test passed" : "Test failed",
-        description: result.testResult?.message || "Node executed successfully",
+        description,
         variant: result.testResult?.success !== false ? "default" : "destructive"
       })
 
@@ -492,7 +532,7 @@ export function ConfigurationModal({
     } finally {
       setIsTestingNode(false)
     }
-  }, [nodeInfo, effectiveInitialData, toast])
+  }, [nodeInfo, effectiveInitialData, toast, workflowData?.id, currentNodeId])
 
   const getRouterChainHints = useCallback(() => {
     if (!workflowData || !currentNodeId) return [] as string[];
@@ -860,6 +900,7 @@ export function ConfigurationModal({
                     testResult={effectiveInitialData?.__testResult}
                     onRunTest={handleTestNode}
                     isTestingNode={isTestingNode}
+                    cachedOutputsInfo={cachedOutputsInfo}
                   />
                 </TabsContent>
               </Tabs>

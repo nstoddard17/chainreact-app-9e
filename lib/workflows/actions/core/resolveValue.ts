@@ -120,6 +120,19 @@ export function resolveValue(
   if (typeof value === 'string' && value.includes('{{') && value.includes('}}')) {
     logger.debug('🔍 Resolving variable:', value)
     logger.debug('🔍 Available input keys:', Object.keys(input || {}).join(', '))
+
+    // Log structure of each input key for debugging
+    Object.keys(input || {}).forEach(key => {
+      const val = input[key]
+      if (val && typeof val === 'object') {
+        logger.debug(`🔍 Input[${key}] structure:`, {
+          hasOutput: !!val.output,
+          hasSuccess: typeof val.success !== 'undefined',
+          topLevelKeys: Object.keys(val),
+          outputKeys: val.output ? Object.keys(val.output) : []
+        })
+      }
+    })
   }
   
   // First check if the entire value is a single template
@@ -190,6 +203,11 @@ export function resolveValue(
       // First, try direct node ID access (e.g., {{action-1760677115194.email}})
       if (input && input[nodeIdOrTitle]) {
         const nodeData = input[nodeIdOrTitle]
+        logger.debug(`🔍 Found node data for ${nodeIdOrTitle}:`, {
+          nodeDataType: typeof nodeData,
+          hasOutput: !!nodeData?.output,
+          outputField
+        })
 
         // Navigate through the nested structure
         const fieldValue = outputField.split(".").reduce((acc: any, part: any) => {
@@ -197,6 +215,7 @@ export function resolveValue(
         }, nodeData)
 
         if (fieldValue !== undefined) {
+          logger.debug(`🔍 Resolved ${key} from direct field access:`, fieldValue)
           return fieldValue
         }
 
@@ -207,9 +226,14 @@ export function resolveValue(
           }, nodeData.output)
 
           if (outputFieldValue !== undefined) {
+            logger.debug(`🔍 Resolved ${key} from output property:`, outputFieldValue)
             return outputFieldValue
           }
         }
+
+        logger.debug(`🔍 Could not resolve ${key} - field not found in node data or output`)
+      } else {
+        logger.debug(`🔍 Node ${nodeIdOrTitle} not found in input keys:`, Object.keys(input || {}))
       }
 
       const nodeTitle = nodeIdOrTitle

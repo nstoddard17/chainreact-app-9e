@@ -27,6 +27,7 @@ interface IntegrationsSidePanelProps {
   onClose: () => void
   onNodeSelect: (node: NodeComponent) => void
   mode?: 'trigger' | 'action' // Determines if we show only triggers or only actions
+  addingAfterNodeName?: string | null // Name of the node we're adding after (for context display)
 }
 
 type Category = 'all' | 'apps' | 'logic' | 'ai' | 'data'
@@ -38,7 +39,7 @@ interface Integration {
   logo: string | null
 }
 
-export function IntegrationsSidePanel({ isOpen, onClose, onNodeSelect, mode = 'action' }: IntegrationsSidePanelProps) {
+export function IntegrationsSidePanel({ isOpen, onClose, onNodeSelect, mode = 'action', addingAfterNodeName }: IntegrationsSidePanelProps) {
   const { theme } = useTheme()
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<Category>('all')
@@ -268,6 +269,17 @@ export function IntegrationsSidePanel({ isOpen, onClose, onNodeSelect, mode = 'a
           />
         </div>
       </div>
+
+      {/* Context indicator - Show which node we're adding after */}
+      {addingAfterNodeName && mode === 'action' && (
+        <div className="px-4 py-2 bg-blue-50 dark:bg-blue-950/30 border-b border-blue-100 dark:border-blue-900/50">
+          <p className="text-xs text-blue-700 dark:text-blue-300 flex items-center gap-1.5">
+            <span className="text-blue-500 dark:text-blue-400">↳</span>
+            <span>Adding after</span>
+            <span className="font-medium truncate max-w-[200px]">"{addingAfterNodeName}"</span>
+          </p>
+        </div>
+      )}
 
       {/* Categories - Only show when not viewing integration details */}
       {!selectedIntegration && (

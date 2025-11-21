@@ -12,6 +12,7 @@ type PlannerEdit =
   | { op: "connect"; edge: FlowEdge }
   | { op: "setConfig"; nodeId: string; patch: Record<string, any> }
   | { op: "setInterface"; inputs: FlowInterface["inputs"]; outputs: FlowInterface["outputs"] }
+  | { op: "moveNode"; nodeId: string; position: { x: number; y: number } }
 
 export type OldFlow = Workflow
 export type OldNode = WorkflowNode
@@ -75,7 +76,7 @@ interface RunSummaryPayload {
 
 const JSON_HEADERS = { "Content-Type": "application/json" }
 
-function generateId(prefix: string): string {
+export function generateId(prefix: string): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return `${prefix}-${crypto.randomUUID()}`
   }
@@ -187,8 +188,16 @@ export function oldConnectToEdge(
   }
 }
 
-export function addNodeEdit(type: string, position?: { x: number; y: number }): { op: "addNode"; node: FlowNode } {
-  const nodeId = generateId(type.replace(/\W+/g, "-") || "node")
+export function moveNodeEdit(nodeId: string, position: { x: number; y: number }): { op: "moveNode"; nodeId: string; position: { x: number; y: number } } {
+  return {
+    op: "moveNode",
+    nodeId,
+    position,
+  }
+}
+
+export function addNodeEdit(type: string, position?: { x: number; y: number }, nodeId?: string): { op: "addNode"; node: FlowNode } {
+  const id = nodeId ?? generateId(type.replace(/\W+/g, "-") || "node")
 
   // Look up node definition from ALL_NODE_COMPONENTS
   const nodeDefinition = ALL_NODE_COMPONENTS.find(n => n.type === type)
@@ -200,12 +209,12 @@ export function addNodeEdit(type: string, position?: { x: number; y: number }): 
   const category = nodeDefinition?.category
 
   const finalPosition = position ?? { x: 160, y: 120 }
-  console.log(`📍 [addNodeEdit] Creating node ${nodeId} with position:`, finalPosition)
+  console.log(`📍 [addNodeEdit] Creating node ${id} with position:`, finalPosition)
 
   return {
     op: "addNode",
     node: {
-      id: nodeId,
+      id,
       type,
       label: title,
       description: description,
@@ -268,6 +277,15 @@ function applyEdits(current: Flow, edits: PlannerEdit[]): Flow {
           ...existing,
           inputs: edit.inputs ?? existing.inputs,
           outputs: edit.outputs ?? existing.outputs,
+        }
+        break
+      }
+      case "moveNode": {
+        const target = next.nodes.find((node) => node.id === edit.nodeId)
+        if (target) {
+          const metadata = (target.metadata ?? {}) as any
+          metadata.position = edit.position
+          target.metadata = metadata
         }
         break
       }
