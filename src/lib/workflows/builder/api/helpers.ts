@@ -16,9 +16,21 @@ export async function getServiceClient(): Promise<SupabaseClient<any>> {
   return createSupabaseServiceClient()
 }
 
-export async function getFlowRepository(client?: SupabaseClient<any>): Promise<FlowRepository> {
-  const supabase = client ?? (await getServiceClient())
-  return FlowRepository.create(supabase)
+export async function getFlowRepository(
+  client?: SupabaseClient<any>,
+  options?: { allowServiceFallback?: boolean; fallbackClient?: SupabaseClient<any> }
+): Promise<FlowRepository> {
+  if (!client) {
+    const service = await getServiceClient()
+    return FlowRepository.create(service)
+  }
+
+  if (options?.allowServiceFallback) {
+    const fallbackService = options.fallbackClient ?? (await getServiceClient())
+    return FlowRepository.create(client, fallbackService)
+  }
+
+  return FlowRepository.create(client)
 }
 
 export async function ensureNodeRegistry() {

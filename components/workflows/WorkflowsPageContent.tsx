@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { useWorkflowStore } from '@/stores/workflowStore'
@@ -470,50 +470,54 @@ function WorkflowsContent() {
   // Filter folders to show only children of current folder (for Folders tab)
   const visibleFolders = folders.filter(f => f.parent_folder_id === currentFolderId)
 
-  const filteredAndSortedWorkflows = (isViewingTrash ? trashedWorkflows : activeWorkflows)
-    .filter((w) => {
-      const workflowName = (w.name ?? '').toLowerCase()
-      const matchesSearch = workflowName.includes(searchQuery.toLowerCase())
+  const filteredAndSortedWorkflows = useMemo(() => {
+    const sourceWorkflows = isViewingTrash ? trashedWorkflows : activeWorkflows
+    const searchLower = searchQuery.toLowerCase()
+    const trashFolderId = trashFolder?.id
 
-      let matchesOwnership = true
-      if (ownershipFilter === 'owned') {
-        matchesOwnership = w.user_id === user?.id
-      } else if (ownershipFilter === 'shared') {
-        matchesOwnership = w.user_id !== user?.id
-      }
+    return sourceWorkflows
+      .filter((w) => {
+        const workflowName = (w.name ?? '').toLowerCase()
+        const matchesSearch = workflowName.includes(searchLower)
 
-      let matchesFolder = true
-      if (selectedFolderFilter && !isViewingTrash) {
-        // If a specific folder is selected, only show workflows in that folder
-        matchesFolder = w.folder_id === selectedFolderFilter
-      } else if (!selectedFolderFilter && !isViewingTrash) {
-        // If no folder is selected (All Workflows), exclude trash folder
-        matchesFolder = w.folder_id !== trashFolder?.id
-      }
+        let matchesOwnership = true
+        if (ownershipFilter === 'owned') {
+          matchesOwnership = w.user_id === user?.id
+        } else if (ownershipFilter === 'shared') {
+          matchesOwnership = w.user_id !== user?.id
+        }
 
-      return matchesSearch && matchesOwnership && matchesFolder
-    })
-    .sort((a, b) => {
-      let comparison = 0
+        let matchesFolder = true
+        if (selectedFolderFilter && !isViewingTrash) {
+          matchesFolder = w.folder_id === selectedFolderFilter
+        } else if (!selectedFolderFilter && !isViewingTrash) {
+          matchesFolder = !trashFolderId || w.folder_id !== trashFolderId
+        }
 
-      switch (sortField) {
-        case 'name':
-          comparison = (a.name ?? '').localeCompare(b.name ?? '')
-          break
-        case 'updated_at':
-          comparison =
-            new Date(a.updated_at || a.created_at || 0).getTime() -
-            new Date(b.updated_at || b.created_at || 0).getTime()
-          break
-        case 'status':
-          comparison = (a.status || 'draft').localeCompare(b.status || 'draft')
-          break
-        default:
-          comparison = 0
-      }
+        return matchesSearch && matchesOwnership && matchesFolder
+      })
+      .sort((a, b) => {
+        let comparison = 0
 
-      return sortOrder === 'asc' ? comparison : -comparison
-    })
+        switch (sortField) {
+          case 'name':
+            comparison = (a.name ?? '').localeCompare(b.name ?? '')
+            break
+          case 'updated_at':
+            comparison =
+              new Date(a.updated_at || a.created_at || 0).getTime() -
+              new Date(b.updated_at || b.created_at || 0).getTime()
+            break
+          case 'status':
+            comparison = (a.status || 'draft').localeCompare(b.status || 'draft')
+            break
+          default:
+            comparison = 0
+        }
+
+        return sortOrder === 'asc' ? comparison : -comparison
+      })
+  }, [isViewingTrash, trashedWorkflows, activeWorkflows, searchQuery, ownershipFilter, user?.id, selectedFolderFilter, trashFolder?.id, sortField, sortOrder])
 
   // Filter folders based on search query
   const filteredFolders = visibleFolders.filter((folder) => {
@@ -522,15 +526,16 @@ function WorkflowsContent() {
            (folder.description && folder.description.toLowerCase().includes(searchQuery.toLowerCase()))
   })
 
-  const stats = {
-    total: activeWorkflows.length,
-    active: activeWorkflows.filter(w => w.status === 'active').length,
-    totalExecutions: Object.values(executionStats).reduce((sum, stat) => sum + stat.total, 0),
-    successRate: Object.values(executionStats).reduce((sum, stat) => sum + stat.total, 0) > 0
-      ? Math.round((Object.values(executionStats).reduce((sum, stat) => sum + stat.success, 0) /
-          Object.values(executionStats).reduce((sum, stat) => sum + stat.total, 0)) * 100)
-      : 0
-  }
+  const stats = useMemo(() => {
+    const totalExecs = Object.values(executionStats).reduce((sum, stat) => sum + stat.total, 0)
+    const successExecs = Object.values(executionStats).reduce((sum, stat) => sum + stat.success, 0)
+    return {
+      total: activeWorkflows.length,
+      active: activeWorkflows.filter(w => w.status === 'active').length,
+      totalExecutions: totalExecs,
+      successRate: totalExecs > 0 ? Math.round((successExecs / totalExecs) * 100) : 0
+    }
+  }, [activeWorkflows, executionStats])
   const moveDialogLoading = moveFolderDialog.workflowIds.length > 1
     ? !!loading['move-multi']
     : !!(moveFolderDialog.workflowIds[0] && loading[`move-${moveFolderDialog.workflowIds[0]}`])
@@ -670,37 +675,41 @@ function WorkflowsContent() {
     }
   }
 
-  const handleBulkMove = (workflowIds: string[]) => {
-    if (workflowIds.length === 0) return
-    const firstWorkflow = workflows.find(w => w.id === workflowIds[0])
-    openMoveDialogForWorkflows(workflowIds, workflowIds.length === 1 ? firstWorkflow?.folder_id ?? null : null)
-  }
+  const handleBulkMove = useCallback((ids: string[]) => {
+    if (ids.length === 0) return
+    const firstWorkflow = workflows.find(w => w.id === ids[0])
+    openMoveDialogForWorkflows(ids, ids.length === 1 ? firstWorkflow?.folder_id ?? null : null)
+  }, [workflows])
 
-  const handleBulkShare = (workflowIds: string[]) => {
-    if (workflowIds.length === 0) return
-    openShareDialogForWorkflows(workflowIds)
-  }
+  const handleBulkShare = useCallback((ids: string[]) => {
+    if (ids.length === 0) return
+    openShareDialogForWorkflows(ids)
+  }, [])
 
-  const handleBulkDelete = (workflowIds: string[]) => {
-    if (workflowIds.length === 0) return
-    openDeleteDialogForWorkflows(workflowIds)
-  }
+  const handleBulkDelete = useCallback((ids: string[]) => {
+    if (ids.length === 0) return
+    openDeleteDialogForWorkflows(ids)
+  }, [])
 
-  const handleSelectAll = () => {
+  // Pre-compute workflow IDs for fast select all
+  const allVisibleWorkflowIds = useMemo(() =>
+    filteredAndSortedWorkflows.map((w) => w.id),
+    [filteredAndSortedWorkflows]
+  )
+
+  const handleSelectAll = useCallback(() => {
     if (activeTab === 'workflows') {
-      if (selectedIds.length === filteredAndSortedWorkflows.length) {
-        setSelectedIds([])
-      } else {
-        setSelectedIds(filteredAndSortedWorkflows.map((w) => w.id))
-      }
+      setSelectedIds(prev =>
+        prev.length === allVisibleWorkflowIds.length ? [] : allVisibleWorkflowIds
+      )
     }
-  }
+  }, [activeTab, allVisibleWorkflowIds])
 
-  const handleSelectOne = (id: string) => {
+  const handleSelectOne = useCallback((id: string) => {
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
     )
-  }
+  }, [])
 
   const openRenameDialogForWorkflow = (workflow: any) => {
     setOpenDropdownId(null) // Close any open dropdown
@@ -1678,7 +1687,7 @@ function WorkflowsContent() {
                       variant="ghost"
                       size="sm"
                       className="text-green-600 hover:bg-green-50 h-8"
-                      onClick={() => handleBulkRestore([...selectedIds])}
+                      onClick={() => handleBulkRestore(selectedIds)}
                       disabled={!!loading['restore-multi']}
                     >
                       {loading['restore-multi'] ? (
@@ -1692,7 +1701,7 @@ function WorkflowsContent() {
                       variant="ghost"
                       size="sm"
                       className="text-red-600 hover:bg-red-50 h-8"
-                      onClick={() => handleBulkDelete([...selectedIds])}
+                      onClick={() => handleBulkDelete(selectedIds)}
                     >
                       <Trash2 className="w-4 h-4 mr-1.5" />
                       Delete Forever
@@ -1705,7 +1714,7 @@ function WorkflowsContent() {
                       variant="ghost"
                       size="sm"
                       className="text-indigo-700 hover:bg-indigo-100 h-8"
-                      onClick={() => handleBulkDuplicate([...selectedIds])}
+                      onClick={() => handleBulkDuplicate(selectedIds)}
                       disabled={bulkDuplicateLoading}
                     >
                       {bulkDuplicateLoading ? (
@@ -1719,7 +1728,7 @@ function WorkflowsContent() {
                       variant="ghost"
                       size="sm"
                       className="text-indigo-700 hover:bg-indigo-100 h-8"
-                      onClick={() => handleBulkMove([...selectedIds])}
+                      onClick={() => handleBulkMove(selectedIds)}
                     >
                       <FolderInput className="w-4 h-4 mr-1.5" />
                       Move
@@ -1728,7 +1737,7 @@ function WorkflowsContent() {
                       variant="ghost"
                       size="sm"
                       className="text-indigo-700 hover:bg-indigo-100 h-8"
-                      onClick={() => handleBulkShare([...selectedIds])}
+                      onClick={() => handleBulkShare(selectedIds)}
                     >
                       <Share2 className="w-4 h-4 mr-1.5" />
                       Share
@@ -1737,7 +1746,7 @@ function WorkflowsContent() {
                       variant="ghost"
                       size="sm"
                       className="text-red-600 hover:bg-red-50 h-8"
-                      onClick={() => handleBulkDelete([...selectedIds])}
+                      onClick={() => handleBulkDelete(selectedIds)}
                     >
                       <Trash2 className="w-4 h-4 mr-1.5" />
                       Delete
@@ -1781,7 +1790,7 @@ function WorkflowsContent() {
                   <tr>
                     <th className="w-12 px-6 py-3 text-left">
                       <Checkbox
-                        checked={selectedIds.length === filteredAndSortedWorkflows.length && filteredAndSortedWorkflows.length > 0}
+                        checked={selectedIds.length === allVisibleWorkflowIds.length && allVisibleWorkflowIds.length > 0}
                         onCheckedChange={handleSelectAll}
                       />
                     </th>

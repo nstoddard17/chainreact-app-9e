@@ -519,7 +519,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         label: "Start Date",
         type: "date",
         required: false,
-        defaultValue: "today",
+        defaultValue: "{{currentDate}}",
         toggleLabel: "Use current date when action runs",
         toggleField: "useCurrentStartDate"
       },
@@ -529,7 +529,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         label: "Start Time",
         type: "google-time-picker",
         required: false,
-        defaultValue: "09:00",
+        defaultValue: "{{roundedCurrentTime}}",
         toggleLabel: "Use current time when action runs",
         toggleField: "useCurrentStartTime",
         hidden: {
@@ -543,7 +543,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         label: "End Date",
         type: "date",
         required: false,
-        defaultValue: "today",
+        defaultValue: "{{currentDate}}",
         toggleLabel: "Use current date when action runs",
         toggleField: "useCurrentEndDate"
       },
@@ -553,7 +553,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         label: "End Time",
         type: "google-time-picker",
         required: false,
-        defaultValue: "10:00",
+        defaultValue: "{{roundedCurrentTimePlusOneHour}}",
         toggleLabel: "Use current time when action runs",
         toggleField: "useCurrentEndTime",
         hidden: {
@@ -867,6 +867,7 @@ export const googleCalendarNodes: NodeComponent[] = [
     requiredScopes: ["https://www.googleapis.com/auth/calendar"],
     category: "Productivity",
     configSchema: [
+      // ========== CALENDAR & EVENT ID ==========
       {
         name: "calendarId",
         label: "Calendar",
@@ -883,6 +884,8 @@ export const googleCalendarNodes: NodeComponent[] = [
         required: true,
         description: "The ID of the event to update"
       },
+
+      // ========== EVENT TITLE ==========
       {
         name: "title",
         label: "Event Title",
@@ -890,6 +893,8 @@ export const googleCalendarNodes: NodeComponent[] = [
         placeholder: "Leave empty to keep current title",
         required: false
       },
+
+      // ========== ALL DAY TOGGLE ==========
       {
         name: "allDay",
         label: "All day",
@@ -897,67 +902,158 @@ export const googleCalendarNodes: NodeComponent[] = [
         defaultValue: false,
         description: "Event lasts all day"
       },
+
+      // ========== DATE & TIME SECTION ==========
       {
         name: "startDate",
         label: "Start Date",
         type: "date",
         required: false,
-        hidden: {
-          $deps: ["allDay"],
-          $condition: { allDay: { $exists: false } }
-        }
+        defaultValue: "{{currentDate}}",
+        toggleLabel: "Use current date when action runs",
+        toggleField: "useCurrentStartDate"
       },
+
       {
         name: "startTime",
         label: "Start Time",
         type: "google-time-picker",
         required: false,
+        defaultValue: "{{roundedCurrentTime}}",
+        toggleLabel: "Use current time when action runs",
+        toggleField: "useCurrentStartTime",
         hidden: {
           $deps: ["allDay"],
           $condition: { allDay: { $eq: true } }
         }
       },
+
       {
         name: "endDate",
         label: "End Date",
         type: "date",
         required: false,
-        hidden: {
-          $deps: ["allDay"],
-          $condition: { allDay: { $exists: false } }
-        }
+        defaultValue: "{{currentDate}}",
+        toggleLabel: "Use current date when action runs",
+        toggleField: "useCurrentEndDate"
       },
+
       {
         name: "endTime",
         label: "End Time",
         type: "google-time-picker",
         required: false,
+        defaultValue: "{{roundedCurrentTimePlusOneHour}}",
+        toggleLabel: "Use current time when action runs",
+        toggleField: "useCurrentEndTime",
         hidden: {
           $deps: ["allDay"],
           $condition: { allDay: { $eq: true } }
         }
       },
+
+      {
+        name: "separateTimezones",
+        label: "Use separate start and end time zones",
+        type: "boolean",
+        defaultValue: false,
+        hidden: {
+          $deps: ["allDay"],
+          $condition: { allDay: { $eq: true } }
+        }
+      },
+
+      {
+        name: "startTimeZone",
+        label: "Event Start Time Zone",
+        type: "select",
+        defaultValue: getUserTimeZone(),
+        required: false,
+        hidden: {
+          $deps: ["allDay"],
+          $condition: { allDay: { $eq: true } }
+        },
+        options: [
+          { value: "America/New_York", label: "Eastern Time (ET)" },
+          { value: "America/Chicago", label: "Central Time (CT)" },
+          { value: "America/Denver", label: "Mountain Time (MT)" },
+          { value: "America/Los_Angeles", label: "Pacific Time (PT)" },
+          { value: "America/Anchorage", label: "Alaska Time (AKT)" },
+          { value: "Pacific/Honolulu", label: "Hawaii Time (HST)" },
+          { value: "UTC", label: "UTC (Coordinated Universal Time)" },
+          { value: "Europe/London", label: "London (GMT/BST)" },
+          { value: "Europe/Paris", label: "Paris (CET/CEST)" },
+          { value: "Europe/Berlin", label: "Berlin (CET/CEST)" },
+          { value: "Europe/Moscow", label: "Moscow (MSK)" },
+          { value: "Asia/Tokyo", label: "Tokyo (JST)" },
+          { value: "Asia/Shanghai", label: "Shanghai (CST)" },
+          { value: "Asia/Dubai", label: "Dubai (GST)" },
+          { value: "Asia/Kolkata", label: "Mumbai (IST)" },
+          { value: "Australia/Sydney", label: "Sydney (AEDT/AEST)" },
+          { value: "Pacific/Auckland", label: "Auckland (NZDT/NZST)" }
+        ]
+      },
+
+      {
+        name: "endTimeZone",
+        label: "Event End Time Zone",
+        type: "select",
+        defaultValue: getUserTimeZone(),
+        required: false,
+        hidden: {
+          $deps: ["separateTimezones", "allDay"],
+          $condition: {
+            $or: [
+              { separateTimezones: { $eq: false } },
+              { separateTimezones: { $exists: false } },
+              { allDay: { $eq: true } }
+            ]
+          }
+        },
+        options: [
+          { value: "America/New_York", label: "Eastern Time (ET)" },
+          { value: "America/Chicago", label: "Central Time (CT)" },
+          { value: "America/Denver", label: "Mountain Time (MT)" },
+          { value: "America/Los_Angeles", label: "Pacific Time (PT)" },
+          { value: "America/Anchorage", label: "Alaska Time (AKT)" },
+          { value: "Pacific/Honolulu", label: "Hawaii Time (HST)" },
+          { value: "UTC", label: "UTC (Coordinated Universal Time)" },
+          { value: "Europe/London", label: "London (GMT/BST)" },
+          { value: "Europe/Paris", label: "Paris (CET/CEST)" },
+          { value: "Europe/Berlin", label: "Berlin (CET/CEST)" },
+          { value: "Europe/Moscow", label: "Moscow (MSK)" },
+          { value: "Asia/Tokyo", label: "Tokyo (JST)" },
+          { value: "Asia/Shanghai", label: "Shanghai (CST)" },
+          { value: "Asia/Dubai", label: "Dubai (GST)" },
+          { value: "Asia/Kolkata", label: "Mumbai (IST)" },
+          { value: "Australia/Sydney", label: "Sydney (AEDT/AEST)" },
+          { value: "Pacific/Auckland", label: "Auckland (NZDT/NZST)" }
+        ]
+      },
+
+      // ========== EVENT DETAILS SECTION ==========
+      {
+        name: "googleMeet",
+        label: "Add Google Meet video conferencing",
+        type: "boolean",
+        defaultValue: false,
+        description: "Automatically create a Google Meet link for this event"
+      },
+
       {
         name: "location",
-        label: "Location",
+        label: "Add location",
         type: "google-places-autocomplete",
         placeholder: "Leave empty to keep current location"
       },
+
       {
-        name: "description",
-        label: "Description",
-        type: "textarea",
-        placeholder: "Leave empty to keep current description"
+        name: "notifications",
+        label: "Notifications",
+        type: "notification-builder",
+        description: "Add multiple notifications with different timing"
       },
-      {
-        name: "attendees",
-        label: "Update Attendees",
-        type: "contact-picker",
-        dynamic: "gmail-recent-recipients",
-        loadOnMount: true,
-        placeholder: "Leave empty to keep current attendees",
-        description: "Replaces all attendees with new list"
-      },
+
       {
         name: "colorId",
         label: "Color",
@@ -979,16 +1075,97 @@ export const googleCalendarNodes: NodeComponent[] = [
           { value: "11", label: "Tomato", color: "#dc2127" }
         ]
       },
+
+      {
+        name: "transparency",
+        label: "Show as",
+        type: "select",
+        options: [
+          { value: "transparent", label: "Free" },
+          { value: "opaque", label: "Busy" }
+        ]
+      },
+
+      {
+        name: "visibility",
+        label: "Visibility",
+        type: "select",
+        options: [
+          { value: "default", label: "Default visibility" },
+          { value: "public", label: "Public" },
+          { value: "private", label: "Private" }
+        ]
+      },
+
+      {
+        name: "description",
+        label: "Add description",
+        type: "textarea",
+        placeholder: "Leave empty to keep current description"
+      },
+
+      // ========== GUESTS SECTION ==========
+      {
+        name: "attendees",
+        label: "Add guests",
+        type: "contact-picker",
+        dynamic: "gmail-recent-recipients",
+        loadOnMount: true,
+        placeholder: "Leave empty to keep current attendees",
+        description: "Replaces all attendees with new list"
+      },
+
       {
         name: "sendNotifications",
-        label: "Send notifications",
+        label: "Send invitations",
         type: "select",
         defaultValue: "all",
         options: [
           { value: "all", label: "Send to all guests" },
           { value: "externalOnly", label: "Send to guests outside your organization" },
           { value: "none", label: "Don't send" }
-        ]
+        ],
+        visibilityCondition: {
+          field: "attendees",
+          operator: "equals",
+          value: true
+        }
+      },
+
+      {
+        name: "guestsCanInviteOthers",
+        label: "Guests can invite others",
+        type: "boolean",
+        defaultValue: true,
+        visibilityCondition: {
+          field: "attendees",
+          operator: "equals",
+          value: true
+        }
+      },
+
+      {
+        name: "guestsCanSeeOtherGuests",
+        label: "Guests can see guest list",
+        type: "boolean",
+        defaultValue: true,
+        visibilityCondition: {
+          field: "attendees",
+          operator: "equals",
+          value: true
+        }
+      },
+
+      {
+        name: "guestsCanModify",
+        label: "Guests can modify event",
+        type: "boolean",
+        defaultValue: false,
+        visibilityCondition: {
+          field: "attendees",
+          operator: "equals",
+          value: true
+        }
       }
     ],
     outputSchema: [
@@ -1785,13 +1962,24 @@ export const googleCalendarNodes: NodeComponent[] = [
         description: "The ID of the event to remove attendees from"
       },
       {
+        name: "removeAllAttendees",
+        label: "Remove all attendees",
+        type: "toggle",
+        defaultValue: false,
+        description: "When enabled, removes all attendees from the event"
+      },
+      {
         name: "attendeesToRemove",
         label: "Attendees to Remove",
         type: "tags",
         placeholder: "Type email and press Enter",
         required: true,
         description: "Email addresses of attendees to remove",
-        tooltip: "Press Enter after typing each email to add it as a pill"
+        tooltip: "Press Enter after typing each email to add it as a pill",
+        hidden: {
+          $deps: ["removeAllAttendees"],
+          $condition: { removeAllAttendees: true }
+        }
       },
       {
         name: "sendNotifications",
@@ -1868,7 +2056,6 @@ export const googleCalendarNodes: NodeComponent[] = [
         dynamic: "google-calendars",
         loadOnMount: true,
         required: true,
-        defaultValue: "primary",
         description: "Calendar where the event currently exists"
       },
       {

@@ -587,7 +587,49 @@ function ConfigurationForm({
     if (!initialValues._allFieldsAI) {
       nodeInfo.configSchema.forEach((field: any) => {
         if (field.defaultValue !== undefined && initialValues[field.name] === undefined) {
-          initialValues[field.name] = field.defaultValue;
+          let defaultValue = field.defaultValue;
+
+          // Process dynamic default values
+          if (typeof defaultValue === 'string') {
+            const now = new Date();
+
+            // {{currentDate}} - Current date in YYYY-MM-DD format
+            if (defaultValue === '{{currentDate}}') {
+              const year = now.getFullYear();
+              const month = String(now.getMonth() + 1).padStart(2, '0');
+              const day = String(now.getDate()).padStart(2, '0');
+              defaultValue = `${year}-${month}-${day}`;
+            }
+
+            // {{roundedCurrentTime}} - Current time rounded to nearest 15 minutes
+            else if (defaultValue === '{{roundedCurrentTime}}') {
+              const minutes = now.getMinutes();
+              const roundedMinutes = Math.round(minutes / 15) * 15;
+              const adjustedTime = new Date(now);
+              adjustedTime.setMinutes(roundedMinutes);
+              adjustedTime.setSeconds(0);
+
+              const hours = String(adjustedTime.getHours()).padStart(2, '0');
+              const mins = String(adjustedTime.getMinutes()).padStart(2, '0');
+              defaultValue = `${hours}:${mins}`;
+            }
+
+            // {{roundedCurrentTimePlusOneHour}} - Current time rounded + 1 hour
+            else if (defaultValue === '{{roundedCurrentTimePlusOneHour}}') {
+              const minutes = now.getMinutes();
+              const roundedMinutes = Math.round(minutes / 15) * 15;
+              const adjustedTime = new Date(now);
+              adjustedTime.setMinutes(roundedMinutes);
+              adjustedTime.setSeconds(0);
+              adjustedTime.setHours(adjustedTime.getHours() + 1);
+
+              const hours = String(adjustedTime.getHours()).padStart(2, '0');
+              const mins = String(adjustedTime.getMinutes()).padStart(2, '0');
+              defaultValue = `${hours}:${mins}`;
+            }
+          }
+
+          initialValues[field.name] = defaultValue;
         }
       });
     }

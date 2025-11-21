@@ -98,8 +98,33 @@ export function FlowEdge({
   sourceHandle,
   data
 }: EdgeProps) {
-  const sourceNode = useStore((state) => state.nodeInternals?.get(source) ?? null, (a, b) => a?.id === b?.id)
-  const targetNode = useStore((state) => state.nodeInternals?.get(target) ?? null, (a, b) => a?.id === b?.id)
+  // Use a more aggressive selector that forces re-render on position changes
+  const sourceNode = useStore(
+    (state) => {
+      const node = state.nodeInternals?.get(source)
+      return node ? {
+        id: node.id,
+        position: node.position,
+        positionAbsolute: node.positionAbsolute,
+        width: node.width,
+        height: node.height,
+        data: node.data
+      } : null
+    }
+  )
+  const targetNode = useStore(
+    (state) => {
+      const node = state.nodeInternals?.get(target)
+      return node ? {
+        id: node.id,
+        position: node.position,
+        positionAbsolute: node.positionAbsolute,
+        width: node.width,
+        height: node.height,
+        data: node.data
+      } : null
+    }
+  )
 
   const getNodeWidth = (node: any, rect?: DOMRect | null) => {
     if (!node) return DEFAULT_NODE_WIDTH
@@ -141,7 +166,19 @@ export function FlowEdge({
   const sourceRect = getNodeRectFromDom(source)
   const targetRect = getNodeRectFromDom(target)
 
-  const getStoredPosition = (node: any) => node?.positionAbsolute ?? node?.position ?? null
+  // Get stored position with fallback chain to ensure we always have coordinates
+  const getStoredPosition = (node: any) => {
+    // Try positionAbsolute first (most accurate during animations)
+    if (node?.positionAbsolute && typeof node.positionAbsolute.x === 'number' && typeof node.positionAbsolute.y === 'number') {
+      return node.positionAbsolute
+    }
+    // Fall back to position if positionAbsolute is not available
+    if (node?.position && typeof node.position.x === 'number' && typeof node.position.y === 'number') {
+      return node.position
+    }
+    return null
+  }
+
   const correctedSource = { x: sourceX, y: sourceY }
   const correctedTarget = { x: targetX, y: targetY }
   const isVerticalEdge = sourcePosition === Position.Bottom && targetPosition === Position.Top
@@ -160,6 +197,8 @@ export function FlowEdge({
 
     const sourceHeight = getNodeHeight(sourceNode, sourceRect)
 
+    // Always prefer stored positions over the React Flow provided coordinates
+    // This ensures edges stay connected even during position updates
     const sourceAnchor =
       sourceBase && typeof sourceBase.y === 'number'
         ? sourceBase.y + sourceHeight - HANDLE_OFFSET / 2
@@ -178,9 +217,20 @@ export function FlowEdge({
 
     const actualGap = targetAnchor - sourceAnchor
 
+    // Only use fallback if actualGap is invalid AND we don't have stored positions
     if (!Number.isFinite(actualGap) || actualGap <= 0) {
-      correctedSource.y = fallbackSourceY
-      correctedTarget.y = Math.max(fallbackTargetY, fallbackSourceY)
+      // If we have at least one stored position, calculate from there
+      if (sourceBase && typeof sourceBase.y === 'number') {
+        correctedSource.y = sourceBase.y + sourceHeight - HANDLE_OFFSET / 2
+        correctedTarget.y = correctedSource.y + visibleGap
+      } else if (targetBase && typeof targetBase.y === 'number') {
+        correctedTarget.y = targetBase.y + HANDLE_OFFSET / 2
+        correctedSource.y = correctedTarget.y - visibleGap
+      } else {
+        // No stored positions available, use React Flow's coordinates
+        correctedSource.y = fallbackSourceY
+        correctedTarget.y = Math.max(fallbackTargetY, fallbackSourceY)
+      }
       desiredVerticalLength = Math.max(correctedTarget.y - correctedSource.y, 0)
       availableVerticalGap = desiredVerticalLength
     } else if (actualGap >= visibleGap) {

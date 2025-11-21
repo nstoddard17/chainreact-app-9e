@@ -104,7 +104,7 @@ export async function instantiateTemplate({
   const repository = await FlowRepository.create(supabase)
   const newFlowId = randomUUID()
 
-  await supabase.from("flow_v2_definitions").insert({
+  await supabase.from("workflows").insert({
     id: newFlowId,
     name: name ?? `${template.name} Copy`,
     workspace_id: workspaceId ?? null,

@@ -389,9 +389,14 @@ npm run lint          # Run linter
 **Supabase Database:**
 ```bash
 supabase migration new <name>  # Create migration
-supabase db push               # Apply to remote
+supabase db push --db-url "$POSTGRES_URL_NON_POOLING"  # Apply to remote
 supabase db reset/pull/diff    # Local ops
 ```
+
+**CLI Fix - IMPORTANT:**
+- Always use `--db-url` with non-pooling URL (port 5432, not 6543)
+- Get URL from `.env.local`: `POSTGRES_URL_NON_POOLING`
+- Pooler connections cause SASL auth errors
 
 **Migration Rules:**
 - Never modify existing migrations after push
