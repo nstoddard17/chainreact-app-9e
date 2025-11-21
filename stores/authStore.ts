@@ -2,7 +2,7 @@
 
 import { create } from "zustand"
 import { persist, createJSONStorage } from "zustand/middleware"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+// Using @supabase/ssr via supabaseClient (migrated from deprecated @supabase/auth-helpers-nextjs)
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { supabase } from "@/utils/supabaseClient"
 import { useEffect } from "react"

@@ -323,3 +323,4 @@ Import trace for requested module:
 [2025-11-21T03:29:02.794Z] [INFO   ]  ✓ Compiled in 785ms (2867 modules)
 [2025-11-21T03:29:30.666Z] [INFO   ]  ✓ Compiled in 371ms (2867 modules)
 [2025-11-21T05:31:45.722Z] [INFO   ]  ✓ Compiled in 4.2s (2915 modules)
+[2025-11-21T06:14:17.915Z] [WARN   ]  ⚠ Found a change in next.config.mjs. Restarting the server to apply the changes...

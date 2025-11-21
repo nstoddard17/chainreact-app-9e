@@ -1,0 +1,24 @@
+=== Log Session Started: 2025-11-21T06:09:11.750Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-11-21T06:09:11.750Z] [INFO   ] File logging initialized
+[2025-11-21T06:09:11.750Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-21_00-09-11.log
+[2025-11-21T06:09:11.753Z] [INFO   ] 📁 File logging enabled
+[2025-11-21T06:09:11.753Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-21_00-09-11.log
+[2025-11-21T06:09:11.753Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-21_00-09-11.log
+[2025-11-21T06:09:11.753Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-21_00-09-11.log
+[2025-11-21T06:09:11.753Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-21_00-09-11.log
+[2025-11-21T06:09:11.753Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-11-21T06:09:11.753Z] [DEBUG  ] 📁 File logging system initialized
+[2025-11-21T06:09:11.784Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 4.8s
+[2025-11-21T06:09:12.801Z] [INFO   ] 2025-11-21T06:09:12.801Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-11-21T06:09:14.868Z] [INFO   ] 2025-11-21T06:09:14.868Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-11-21T06:09:14.868Z] [INFO   ] 2025-11-21T06:09:14.868Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-21T06:09:15.608Z] [INFO   ] 2025-11-21T06:09:15.608Z [DEBUG] Discord Gateway initialization complete
+[2025-11-21T06:09:15.610Z] [INFO   ] 2025-11-21T06:09:15.610Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-11-21T06:09:15.793Z] [INFO   ] 2025-11-21T06:09:15.793Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-21T06:09:15.793Z] [INFO   ] 2025-11-21T06:09:15.793Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-21T06:14:17.891Z] [WARN   ]  [33m[1m⚠[22m[39m Found a change in next.config.mjs. Restarting the server to apply the changes...

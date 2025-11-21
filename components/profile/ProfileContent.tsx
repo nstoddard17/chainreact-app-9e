@@ -76,44 +76,5 @@ export default function ProfileContent() {
   )
 }
 
-// Optional: Server component to prefetch data
-export async function getServerSideProps() {
-  try {
-    // This example uses Next.js Pages Router
-    // For App Router, you would use a Server Component instead
-    const { createServerComponentClient } = await import("@supabase/auth-helpers-nextjs")
-    const { cookies } = await import("next/headers")
-    
-    const supabase = createServerComponentClient({ cookies })
-    
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser()
-
-    if (userError || !user) {
-      throw new Error("Not authenticated")
-    }
-    
-    // Fetch user profile
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .select('id, username, full_name, first_name, last_name, avatar_url, company, job_title, role, updated_at')
-      .eq('id', user.id)
-      .single()
-      
-    if (error || !data) {
-      return { props: {} }
-    }
-    
-    // Pass data to client
-    return {
-      props: {
-        serverProfile: data
-      }
-    }
-  } catch (error) {
-    logger.error("Error in getServerSideProps:", error)
-    return { props: {} }
-  }
-} 
+// Note: This component uses App Router client component pattern
+// Server-side data fetching should be done in a parent Server Component if needed 
