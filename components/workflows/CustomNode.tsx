@@ -907,6 +907,84 @@ function CustomNode({ id, data, selected }: NodeProps) {
     return `Required fields: ${fieldsToShow.map(getFieldLabel).join(', ')}`
   }, [isIntegrationDisconnected, hasValidationIssues, validationState])
 
+  const nodeRanSuccessfully = executionStatus === 'completed' && !error
+
+  const showCompleteStatusBadge =
+    !nodeRanSuccessfully &&
+    !error &&
+    !isIntegrationDisconnected &&
+    !hasValidationIssues &&
+    !needsSetup
+
+  const showIncompleteStatusBadge =
+    !nodeRanSuccessfully &&
+    !error &&
+    !isIntegrationDisconnected &&
+    (hasValidationIssues || needsSetup)
+
+  const statusBadgeBase = "inline-flex items-center justify-center rounded-full border shadow-sm w-6 h-6"
+
+  const executionSuccessBadge = useMemo(() => {
+    if (!nodeRanSuccessfully) return null
+
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className={`${statusBadgeBase} border-emerald-300 bg-emerald-50 text-emerald-700`}>
+              <CheckCircle2 className="w-3.5 h-3.5" />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="top" align="end">
+            Last run completed successfully.
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    )
+  }, [nodeRanSuccessfully])
+
+  const completionStatusBadge = useMemo(() => {
+    if (!showCompleteStatusBadge) return null
+
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className={`${statusBadgeBase} border-foreground/20 bg-background text-foreground`}>
+              <CheckCircle2 className="w-3.5 h-3.5" />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="top" align="end">
+            This node is fully configured.
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    )
+  }, [showCompleteStatusBadge])
+
+  const incompleteStatusBadge = useMemo(() => {
+    if (!showIncompleteStatusBadge) return null
+
+    const reason =
+      validationMessage ||
+      (needsSetup ? 'Additional setup is required for this node.' : 'Missing required information.')
+
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className={`${statusBadgeBase} border-amber-200 bg-amber-50 text-amber-700`}>
+              <AlertCircle className="w-3.5 h-3.5" />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="top" align="end" className="max-w-[240px] whitespace-pre-wrap text-xs">
+            {reason}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    )
+  }, [showIncompleteStatusBadge, validationMessage, needsSetup])
+
   const badgeVariantStyles: Record<string, string> = {
     success: 'border-green-500 text-green-600 bg-green-50',
     warning: 'border-amber-500 text-amber-600 bg-amber-50',
@@ -1181,63 +1259,56 @@ function CustomNode({ id, data, selected }: NodeProps) {
 
   const statusIndicator = React.useMemo(() => {
     if (!aiStatus) return null
+    if (executionStatus === 'completed') return null
 
-    if (executionStatus === 'completed') {
-      return null
-    }
+    const loadingStatuses = new Set(['preparing', 'creating', 'configuring', 'configured', 'testing', 'retesting', 'fixing', 'testing_successful'])
+    const baseClasses = "inline-flex items-center justify-center w-6 h-6 rounded-full border shadow-sm"
 
     if (aiStatus === 'error') {
       return (
-        <div className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 border border-red-200">
-          <AlertTriangle className="w-3 h-3" />
-          <span>Needs Attention</span>
-        </div>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className={`${baseClasses} border-amber-300 bg-amber-50 text-amber-700`}>
+                <AlertTriangle className="w-3.5 h-3.5" />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top" align="end">
+              Node encountered an error while running.
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       )
     }
 
-    const activeStatuses = new Set(['preparing', 'creating', 'configuring', 'configured', 'testing', 'retesting', 'fixing', 'testing_successful'])
-    if (!activeStatuses.has(aiStatus)) {
+    if (!loadingStatuses.has(aiStatus)) {
       return null
     }
 
-    let statusText = 'Configuring'
-    let badgeClass = 'bg-sky-100 text-sky-700 border border-sky-200'
-    let showSpinner = false
-
-    switch (aiStatus) {
-      case 'testing':
-      case 'retesting':
-        statusText = 'Testing'
-        badgeClass = 'bg-amber-100 text-amber-700 border border-amber-200'
-        showSpinner = true
-        break
-      case 'fixing':
-        statusText = 'Fixing'
-        badgeClass = 'bg-orange-100 text-orange-700 border border-orange-200'
-        showSpinner = true
-        break
-      case 'testing_successful':
-        statusText = 'Testing is Successful'
-        badgeClass = 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-        break
-      case 'preparing':
-      case 'creating':
-      case 'configuring':
-      case 'configured':
-      default:
-        statusText = 'Configuring'
-        badgeClass = 'bg-sky-100 text-sky-700 border border-sky-200'
-        showSpinner = true
-        break
-    }
+    const tooltipText =
+      aiStatus === 'testing' || aiStatus === 'retesting'
+        ? 'Node is currently testing.'
+        : aiStatus === 'fixing'
+        ? 'Node is auto-resolving issues.'
+        : 'Node is being configured.'
 
     return (
-      <div className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${badgeClass}`}>
-        {showSpinner && <Loader2 className="w-3 h-3 animate-spin" />}
-        <span>{statusText}</span>
-      </div>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className={`${baseClasses} border-sky-200 bg-sky-50 text-sky-700`}>
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="top" align="end">
+            {tooltipText}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     )
-  }, [aiStatus])
+  }, [aiStatus, executionStatus])
+
+  const activeStatusBadge = statusIndicator ?? executionSuccessBadge ?? completionStatusBadge ?? incompleteStatusBadge
 
   useEffect(() => {
     if (typeof updateNodeInternals === 'function') {
@@ -1601,18 +1672,20 @@ function CustomNode({ id, data, selected }: NodeProps) {
               <GripVertical className="w-3 h-3" />
             </button>
           )}
-      {/* Three-dots menu - Always visible in top-right corner */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            className="absolute top-2 right-2 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors noDrag noPan z-20"
-            onClick={(e) => e.stopPropagation()}
-            aria-label="Node menu"
-          >
-            <MoreVertical className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56" align="end">
+      {/* Three-dots menu with badge slot */}
+      <div className="absolute top-2 right-2 flex items-center gap-1 z-30">
+        {activeStatusBadge}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors noDrag noPan"
+              onClick={(e) => e.stopPropagation()}
+              aria-label="Node menu"
+            >
+              <MoreVertical className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-56" align="end">
           {selectedNodeIds && selectedNodeIds.length > 1 && selectedNodeIds.includes(id) ? (
             <DropdownMenuItem
               onClick={(e) => {
@@ -1689,7 +1762,8 @@ function CustomNode({ id, data, selected }: NodeProps) {
             </>
           )}
         </DropdownMenuContent>
-      </DropdownMenu>
+        </DropdownMenu>
+      </div>
 
       {/* Execution status indicator */}
       {getExecutionStatusIndicator()}
@@ -1845,9 +1919,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
                     <h3 className="text-lg font-semibold text-foreground whitespace-nowrap overflow-hidden text-ellipsis flex-1">
                       {title || (component && component.title) || 'Unnamed Action'}
                     </h3>
-                    {/* Show either the status indicator OR the badge, not both */}
-                    {statusIndicator}
-                    {!statusIndicator && idleStatus && (
+                    {!activeStatusBadge && idleStatus && (
                       idleStatus.tone === 'success' ? (
                         <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600">
                           <CheckCircle2 className="w-3 h-3" />
@@ -1859,7 +1931,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
                         </span>
                       )
                     )}
-                    {!statusIndicator && !idleStatus && !isAIActive && badgeLabel && !error && !hasValidationIssues && (
+                    {!activeStatusBadge && !idleStatus && !isAIActive && badgeLabel && !error && !hasValidationIssues && (
                       <span className={`inline-flex items-center rounded-full text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 flex-shrink-0 ${badgeClasses}`}>
                         {badgeLabel}
                       </span>

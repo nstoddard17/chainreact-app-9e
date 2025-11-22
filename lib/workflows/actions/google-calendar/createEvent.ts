@@ -83,22 +83,27 @@ export async function createGoogleCalendarEvent(
     // Create calendar API client
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client })
 
+    // Helper to format date as YYYY-MM-DD in LOCAL timezone (not UTC)
+    const formatLocalDateHelper = (d: Date): string => {
+      const year = d.getFullYear()
+      const month = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    }
+
     // Parse dates and times with proper validation
     const parseDateTime = (date: string, time: string) => {
       // Handle special date values or use defaults
       if (!date || date === 'today') {
-        date = new Date().toISOString().split('T')[0]
+        // Use local date, not UTC
+        date = formatLocalDateHelper(new Date())
       }
 
       // Handle full ISO timestamps (e.g., from {{NOW}}) - extract just the date part
       if (date.includes('T')) {
         // If it's a UTC ISO string, convert to local date
         if (date.includes('Z')) {
-          const dateObj = new Date(date)
-          const year = dateObj.getFullYear()
-          const month = String(dateObj.getMonth() + 1).padStart(2, '0')
-          const day = String(dateObj.getDate()).padStart(2, '0')
-          date = `${year}-${month}-${day}`
+          date = formatLocalDateHelper(new Date(date))
         } else {
           date = date.split('T')[0]
         }
