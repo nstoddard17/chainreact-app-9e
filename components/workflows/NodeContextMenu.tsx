@@ -8,7 +8,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { TestTube, Play, Snowflake, StopCircle, Trash2 } from "lucide-react"
+import { TestTube, Play, Snowflake, Trash2 } from "lucide-react"
 
 interface NodeContextMenuProps {
   children: React.ReactNode
@@ -17,7 +17,6 @@ interface NodeContextMenuProps {
   onTestNode?: (nodeId: string) => void
   onTestFlowFromHere?: (nodeId: string) => void
   onFreeze?: (nodeId: string) => void
-  onStop?: (nodeId: string) => void
   onDelete?: (nodeId: string) => void
   onDeleteSelected?: (nodeIds: string[]) => void
   hasRequiredFieldsMissing?: boolean
@@ -31,7 +30,6 @@ export function NodeContextMenu({
   onTestNode,
   onTestFlowFromHere,
   onFreeze,
-  onStop,
   onDelete,
   onDeleteSelected,
   hasRequiredFieldsMissing = false,
@@ -53,7 +51,8 @@ export function NodeContextMenu({
       <ContextMenuContent className="w-56">
         {isMultiSelect ? (
           <ContextMenuItem
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation()
               void onDeleteSelected?.(selectedNodeIds)
             }}
             className="text-destructive focus:text-destructive"
@@ -64,7 +63,8 @@ export function NodeContextMenu({
         ) : (
           <>
             <ContextMenuItem
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation()
                 console.log('[NodeContextMenu] Test Node clicked:', nodeId, 'Handler exists:', !!onTestNode)
                 if (!hasRequiredFieldsMissing) {
                   onTestNode?.(nodeId)
@@ -76,7 +76,8 @@ export function NodeContextMenu({
               Test Node
             </ContextMenuItem>
             <ContextMenuItem
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation()
                 console.log('[NodeContextMenu] Test Flow from here clicked:', nodeId, 'Handler exists:', !!onTestFlowFromHere, 'Disabled:', hasRequiredFieldsMissing)
                 if (!hasRequiredFieldsMissing) {
                   onTestFlowFromHere?.(nodeId)
@@ -89,7 +90,8 @@ export function NodeContextMenu({
             </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation()
                 if (!hasRequiredFieldsMissing) {
                   onFreeze?.(nodeId)
                 }
@@ -100,19 +102,8 @@ export function NodeContextMenu({
               Freeze
             </ContextMenuItem>
             <ContextMenuItem
-              onClick={() => {
-                if (!hasRequiredFieldsMissing) {
-                  onStop?.(nodeId)
-                }
-              }}
-              disabled={hasRequiredFieldsMissing}
-            >
-              <StopCircle className="w-4 h-4 mr-2" />
-              Stop
-            </ContextMenuItem>
-            <ContextMenuSeparator />
-            <ContextMenuItem
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation()
                 void onDelete?.(nodeId)
               }}
               className="text-destructive focus:text-destructive"

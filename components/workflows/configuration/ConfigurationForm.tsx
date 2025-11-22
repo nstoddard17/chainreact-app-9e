@@ -1,6 +1,6 @@
 "use client"
 // FORCE REBUILD NOW
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Settings } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { useDynamicOptions } from './hooks/useDynamicOptions';
@@ -68,6 +68,7 @@ import { ServiceConnectionSelector } from './ServiceConnectionSelector'
 interface ConfigurationFormProps {
   nodeInfo: any;
   initialData?: Record<string, any>;
+  initialDynamicOptions?: Record<string, any[]>;
   onSave: (data: Record<string, any>) => void;
   onCancel: () => void;
   onBack?: () => void;
@@ -86,6 +87,7 @@ interface ConfigurationFormProps {
 function ConfigurationForm({
   nodeInfo,
   initialData = {},
+  initialDynamicOptions,
   onSave,
   onCancel,
   onBack,
@@ -247,8 +249,15 @@ function ConfigurationForm({
     );
   const integrationName = integrationNameProp || nodeInfo?.label?.split(' ')[0] || provider;
 
-  // Don't use saved dynamic options - always fetch fresh from Airtable
-  const savedDynamicOptions = undefined;
+  const savedDynamicOptions = useMemo(() => {
+    if (initialDynamicOptions && Object.keys(initialDynamicOptions).length > 0) {
+      return initialDynamicOptions
+    }
+    if (initialData?.__dynamicOptions && Object.keys(initialData.__dynamicOptions).length > 0) {
+      return initialData.__dynamicOptions as Record<string, any[]>
+    }
+    return undefined
+  }, [initialDynamicOptions, initialData])
 
   // Load saved labels from config into localStorage cache for instant display
   // This enables the "Zapier experience" where fields show saved values immediately

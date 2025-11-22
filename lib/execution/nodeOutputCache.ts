@@ -35,6 +35,15 @@ export class NodeOutputCache {
         outputKeys: output ? Object.keys(output) : []
       })
 
+      logger.info('[NodeOutputCache] 💾 Attempting upsert:', {
+        workflow_id: workflowId,
+        user_id: userId?.substring(0, 8) + '...',
+        node_id: nodeId,
+        node_type: nodeType,
+        hasOutput: !!(output || {}),
+        outputKeys: output ? Object.keys(output) : []
+      })
+
       const { data, error } = await this.supabase
         .from('workflow_node_outputs')
         .upsert({
@@ -52,7 +61,7 @@ export class NodeOutputCache {
         .select()
 
       if (error) {
-        logger.error('[NodeOutputCache] Failed to save output:', {
+        logger.error('[NodeOutputCache] 💾 UPSERT FAILED:', {
           nodeId,
           workflowId,
           error: error.message,
@@ -62,6 +71,12 @@ export class NodeOutputCache {
         })
         return false
       }
+
+      logger.info('[NodeOutputCache] 💾 UPSERT SUCCESS:', {
+        nodeId,
+        workflowId,
+        savedRows: data?.length || 0
+      })
 
       logger.info('[NodeOutputCache] Successfully saved output:', {
         nodeId,
@@ -131,8 +146,24 @@ export class NodeOutputCache {
 
       const outputMap: Record<string, any> = {}
       for (const row of data || []) {
-        // Store the output data directly, which matches what the node returned
-        outputMap[row.node_id] = row.output_data
+        // The output_data contains the full ActionResult: { success, output: {...}, message }
+        // For variable resolution, we need to extract the actual output fields
+        const outputData = row.output_data
+
+        // If the data has an 'output' property (ActionResult structure), use that
+        // Otherwise use the data directly (for backwards compatibility)
+        if (outputData && typeof outputData === 'object' && outputData.output && typeof outputData.output === 'object') {
+          // ActionResult structure: { success, output: { field1, field2, ... }, message }
+          outputMap[row.node_id] = {
+            ...outputData.output,
+            // Also include success/message at top level for reference
+            __success: outputData.success,
+            __message: outputData.message
+          }
+        } else {
+          // Direct output structure
+          outputMap[row.node_id] = outputData
+        }
       }
 
       logger.info(`[NodeOutputCache] Retrieved ${Object.keys(outputMap).length} cached outputs for workflow ${workflowId}`, {

@@ -208,6 +208,7 @@ export function ConfigurationModal({
   nodeInfo,
   integrationName,
   initialData = {},
+  initialDynamicOptions,
   workflowData,
   currentNodeId,
   nodeTitle,
@@ -341,6 +342,15 @@ export function ConfigurationModal({
     () => initialOverride ?? initialData ?? {},
     [initialOverride, initialData]
   )
+  const effectiveDynamicOptions = React.useMemo(() => {
+    if (initialDynamicOptions && Object.keys(initialDynamicOptions).length > 0) {
+      return initialDynamicOptions
+    }
+    if (effectiveInitialData?.__dynamicOptions && Object.keys(effectiveInitialData.__dynamicOptions).length > 0) {
+      return effectiveInitialData.__dynamicOptions as Record<string, any[]>
+    }
+    return undefined
+  }, [initialDynamicOptions, effectiveInitialData])
 
   // Detect if this is a reopen (has existing config) vs fresh open (empty config)
   // When reopening, we suppress all loading placeholders and show saved values instantly
@@ -452,6 +462,14 @@ export function ConfigurationModal({
         strippedKeys: Object.keys(effectiveInitialData).filter(k => k.startsWith('__test'))
       })
 
+      // CRITICAL DEBUG: Log what we're sending
+      console.log('🔍 [TEST-NODE] Sending request:', {
+        nodeType: nodeInfo.type,
+        config: cleanConfig,
+        workflowId: workflowData?.id,
+        nodeId: currentNodeId
+      })
+
       const response = await fetch('/api/workflows/test-node', {
         method: 'POST',
         headers: {
@@ -463,17 +481,51 @@ export function ConfigurationModal({
           testData: {},
           workflowId: workflowData?.id,
           nodeId: currentNodeId,
-          useCachedData: true // Automatically use cached data from previous node runs
+          useCachedData: true, // Automatically use cached data from previous node runs
+          workflowNodes: workflowData?.nodes // Send workflow nodes for friendly name lookup
         })
       })
 
+      // CRITICAL DEBUG: Log response status
+      console.log('🔍 [TEST-NODE] Response status:', response.status, response.statusText)
+      console.log('🔍 [TEST-NODE] Response ok:', response.ok)
+
       const result = await response.json()
+      console.log('🔍 [TEST-NODE] Parsed JSON result:', result)
 
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to test node')
+        console.error('🔴 [TEST-NODE] Response not OK:', { status: response.status, result })
+
+        // Check if this is a "missing upstream node data" error
+        if (result.debug?.missingNodeNames?.length > 0) {
+          const missingNodes = result.debug.missingNodeNames.join(', ')
+          throw new Error(`Missing data from upstream nodes. Please test these nodes first: ${missingNodes}`)
+        } else if (result.debug?.missingNodes?.length > 0) {
+          const missingNodes = result.debug.missingNodes.join(', ')
+          throw new Error(`Missing data from upstream nodes. Please test these nodes first: ${missingNodes}`)
+        }
+
+        // Use the message from testResult if available (it has better formatting)
+        const errorMessage = result.testResult?.message || result.error || 'Failed to test node'
+        throw new Error(errorMessage)
       }
 
+      // CRITICAL DEBUG: Log to browser console for visibility
+      console.log('🔍 [TEST-NODE] Raw API response:', result)
+      console.log('🔍 [TEST-NODE] testResult:', result.testResult)
+      console.log('🔍 [TEST-NODE] testResult.output:', result.testResult?.output)
+      console.log('🔍 [TEST-NODE] testResult.output keys:', result.testResult?.output ? Object.keys(result.testResult.output) : 'NO OUTPUT')
+
       logger.debug('[ConfigModal] Test completed:', result)
+      logger.debug('[ConfigModal] Test result structure:', {
+        success: result.success,
+        testResultSuccess: result.testResult?.success,
+        testResultOutput: result.testResult?.output,
+        testResultOutputKeys: result.testResult?.output ? Object.keys(result.testResult.output) : [],
+        testResultOutputSample: result.testResult?.output ? JSON.stringify(result.testResult.output).slice(0, 300) : null,
+        nodeInfo: result.nodeInfo,
+        outputSchemaLength: result.nodeInfo?.outputSchema?.length
+      })
 
       // Update the config with test results
       const updatedConfig = {
@@ -491,6 +543,16 @@ export function ConfigurationModal({
         }
       }
 
+      // CRITICAL DEBUG: Log what we're setting
+      console.log('🔍 [TEST-NODE] Setting __testData:', updatedConfig.__testData)
+      console.log('🔍 [TEST-NODE] __testData keys:', Object.keys(updatedConfig.__testData))
+      console.log('🔍 [TEST-NODE] __testResult:', updatedConfig.__testResult)
+
+      logger.debug('[ConfigModal] Updated config __testData:', {
+        testDataKeys: Object.keys(updatedConfig.__testData),
+        testDataSample: JSON.stringify(updatedConfig.__testData).slice(0, 300)
+      })
+
       setInitialOverride(updatedConfig)
       setFormSeedVersion((prev) => prev + 1)
 
@@ -507,6 +569,13 @@ export function ConfigurationModal({
       })
 
     } catch (error: any) {
+      // CRITICAL DEBUG: Log full error details
+      console.error('🔴 [TEST-NODE] Test failed - Full error:', error)
+      console.error('🔴 [TEST-NODE] Error message:', error?.message)
+      console.error('🔴 [TEST-NODE] Error name:', error?.name)
+      console.error('🔴 [TEST-NODE] Error stack:', error?.stack)
+      console.error('🔴 [TEST-NODE] Error stringified:', JSON.stringify(error, Object.getOwnPropertyNames(error || {})))
+
       logger.error('[ConfigModal] Test failed:', error)
 
       // Update with error state
@@ -863,6 +932,7 @@ export function ConfigurationModal({
                     key={`${currentNodeId}-${nodeInfo?.type}-${formSeedVersion}`}
                     nodeInfo={nodeInfo}
                     initialData={effectiveInitialData}
+                    initialDynamicOptions={effectiveDynamicOptions}
                     onSave={handleSubmit}
                     onCancel={handleClose}
                     onBack={onBack}
@@ -901,6 +971,7 @@ export function ConfigurationModal({
                     onRunTest={handleTestNode}
                     isTestingNode={isTestingNode}
                     cachedOutputsInfo={cachedOutputsInfo}
+                    workflowId={workflowData?.id}
                   />
                 </TabsContent>
               </Tabs>

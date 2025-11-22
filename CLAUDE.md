@@ -258,6 +258,33 @@ if (error) {
 - **ALWAYS use ConfigurationContainer**
 - See `/learning/docs/modal-column-overflow-solution.md`
 
+### Menu Item Event Propagation - MANDATORY
+**ALWAYS call `e.stopPropagation()` in menu item click handlers**
+
+When context menus or dropdown menus are rendered inside clickable elements (like workflow nodes), failing to stop event propagation causes the click to bubble up and trigger parent handlers (e.g., opening config modals).
+
+```typescript
+// ✅ CORRECT - prevents event bubbling
+<ContextMenuItem
+  onClick={(e) => {
+    e.stopPropagation()  // ALWAYS add this first
+    doSomething()
+  }}
+>
+
+// ❌ WRONG - event bubbles up to parent
+<ContextMenuItem
+  onClick={() => {
+    doSomething()
+  }}
+>
+```
+
+**Files to watch:**
+- `components/workflows/NodeContextMenu.tsx`
+- `components/workflows/CustomNode.tsx` (DropdownMenu)
+- Any future menus inside clickable elements
+
 ### Workflow Builder Edge Alignment - DO NOT CHANGE
 **CRITICAL: Edge positioning logic prevents lines from appearing under nodes**
 

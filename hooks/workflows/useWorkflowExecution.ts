@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/hooks/use-toast'
 import { useWorkflowStore } from '@/stores/workflowStore'
@@ -44,6 +44,7 @@ export function useWorkflowExecution() {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [sessionUserId, setSessionUserId] = useState<string | null>(null)
   const [pollIntervalId, setPollIntervalId] = useState<NodeJS.Timeout | null>(null)
+  const liveExecutionAbortControllerRef = useRef<AbortController | null>(null)
 
   // Sandbox mode states
   const [sandboxInterceptedActions, setSandboxInterceptedActions] = useState<any[]>([])
@@ -1146,11 +1147,15 @@ export function useWorkflowExecution() {
     try {
       logger.debug('🚀 [Live Mode] Starting parallel execution...')
 
+      const abortController = new AbortController()
+      liveExecutionAbortControllerRef.current = abortController
+
       const response = await fetch('/api/workflows/execute', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        signal: abortController.signal,
         body: JSON.stringify({
           workflowId: currentWorkflow.id,
           testMode: false,  // Use real actions
@@ -1217,15 +1222,21 @@ export function useWorkflowExecution() {
       }
 
     } catch (error: any) {
-      logger.error('❌ [Live Mode] Execution error:', error)
-      addDebugLog('error', 'Live execution failed', { error: error.message })
+      if (error?.name === 'AbortError') {
+        logger.info('⏹️ [Live Mode] Execution aborted by user')
+        addDebugLog('warning', 'Live execution aborted by user')
+      } else {
+        logger.error('❌ [Live Mode] Execution error:', error)
+        addDebugLog('error', 'Live execution failed', { error: error.message })
 
-      toast({
-        title: "Live Execution Failed",
-        description: error.message || "Failed to execute workflow",
-        variant: "destructive",
-      })
+        toast({
+          title: "Live Execution Failed",
+          description: error.message || "Failed to execute workflow",
+          variant: "destructive",
+        })
+      }
     } finally {
+      liveExecutionAbortControllerRef.current = null
       setIsExecuting(false)
       setActiveExecutionNodeId(null)
 
@@ -1264,11 +1275,15 @@ export function useWorkflowExecution() {
     try {
       logger.debug('🔍 [Live Sequential] Starting sequential execution for debugging...')
 
+      const abortController = new AbortController()
+      liveExecutionAbortControllerRef.current = abortController
+
       const response = await fetch('/api/workflows/execute', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        signal: abortController.signal,
         body: JSON.stringify({
           workflowId: currentWorkflow.id,
           testMode: false,  // Use real actions
@@ -1335,15 +1350,21 @@ export function useWorkflowExecution() {
       }
 
     } catch (error: any) {
-      logger.error('❌ [Live Sequential] Execution error:', error)
-      addDebugLog('error', 'Sequential execution failed', { error: error.message })
+      if (error?.name === 'AbortError') {
+        logger.info('⏹️ [Live Sequential] Execution aborted by user')
+        addDebugLog('warning', 'Sequential execution aborted by user')
+      } else {
+        logger.error('❌ [Live Sequential] Execution error:', error)
+        addDebugLog('error', 'Sequential execution failed', { error: error.message })
 
-      toast({
-        title: "Sequential Execution Failed",
-        description: error.message || "Failed to execute workflow",
-        variant: "destructive",
-      })
+        toast({
+          title: "Sequential Execution Failed",
+          description: error.message || "Failed to execute workflow",
+          variant: "destructive",
+        })
+      }
     } finally {
+      liveExecutionAbortControllerRef.current = null
       setIsExecuting(false)
       setActiveExecutionNodeId(null)
 
@@ -1367,6 +1388,49 @@ export function useWorkflowExecution() {
     setStepContinueCallback(null)
     setSkipCallback(null)
   }, [])
+
+  const stopLiveExecution = useCallback(async () => {
+    // Forward to webhook listener cleanup when active
+    if (isListeningForWebhook) {
+      await stopWebhookListening()
+      liveExecutionAbortControllerRef.current = null
+      return
+    }
+
+    // Step mode (manual) runs should reset their internal state
+    if (isStepMode) {
+      stopStepExecution()
+      liveExecutionAbortControllerRef.current = null
+      toast({
+        title: "Step execution stopped",
+        description: "Step-by-step run cancelled.",
+      })
+      addDebugLog('warning', 'Step execution stopped manually')
+      return
+    }
+
+    if (liveExecutionAbortControllerRef.current) {
+      liveExecutionAbortControllerRef.current.abort()
+      liveExecutionAbortControllerRef.current = null
+      setIsExecuting(false)
+      setActiveExecutionNodeId(null)
+      setNodeStatuses({})
+      addDebugLog('warning', 'Live execution cancelled by user')
+      toast({
+        title: "Execution stopped",
+        description: "Workflow run cancelled.",
+      })
+      return
+    }
+
+    if (isExecuting) {
+      // No controller but execution flag is set (fallback)
+      setIsExecuting(false)
+      setActiveExecutionNodeId(null)
+      setNodeStatuses({})
+      addDebugLog('info', 'Execution state reset without active controller')
+    }
+  }, [isListeningForWebhook, stopWebhookListening, isStepMode, stopStepExecution, toast, addDebugLog, isExecuting, setNodeStatuses])
 
   const executeNodeStepByStep = useCallback(async (nodeId: string) => {
     setCurrentNodeId(nodeId)
@@ -1428,6 +1492,14 @@ export function useWorkflowExecution() {
     }
   }, [currentWorkflow?.id, sessionId, sessionUserId, isListeningForWebhook])
 
+  useEffect(() => {
+    return () => {
+      if (liveExecutionAbortControllerRef.current) {
+        liveExecutionAbortControllerRef.current.abort()
+      }
+    }
+  }, [])
+
   return {
     isExecuting,
     setIsExecuting,
@@ -1454,6 +1526,7 @@ export function useWorkflowExecution() {
     skipCallback,
     setSkipCallback,
     pauseExecution,
+    stopLiveExecution,
     stopStepExecution,
     executeNodeStepByStep,
     // Webhook listening
