@@ -26,6 +26,7 @@ interface AIFieldWrapperProps {
   currentNodeId?: string;
   dynamicOptions?: any;
   loadingDynamic?: boolean;
+  loadingFields?: Set<string>;
   nodeInfo?: any;
   onDynamicLoad?: any;
   parentValues?: any;
@@ -34,6 +35,7 @@ interface AIFieldWrapperProps {
   isReadOnly?: boolean;
   isNonEditable?: boolean;
   setFieldValue?: (field: string, value: any) => void;
+  onLabelStore?: (fieldName: string, value: string, label: string) => void;
 }
 
 export function AIFieldWrapper({
@@ -45,6 +47,7 @@ export function AIFieldWrapper({
   currentNodeId,
   dynamicOptions,
   loadingDynamic,
+  loadingFields,
   nodeInfo,
   onDynamicLoad,
   parentValues,
@@ -53,6 +56,7 @@ export function AIFieldWrapper({
   isReadOnly = false,
   isNonEditable = false,
   setFieldValue,
+  onLabelStore,
 }: AIFieldWrapperProps) {
   // Initialize AI mode based on either the prop or if the value is an AI placeholder
   const [isAIMode, setIsAIMode] = useState(
@@ -174,11 +178,13 @@ export function AIFieldWrapper({
             currentNodeId={currentNodeId}
             dynamicOptions={dynamicOptions}
             loadingDynamic={loadingDynamic}
+            loadingFields={loadingFields}
             nodeInfo={nodeInfo}
             onDynamicLoad={onDynamicLoad}
             parentValues={parentValues}
             setFieldValue={setFieldValue}
             aiToggleButton={aiToggleButtonElement}
+            onLabelStore={onLabelStore}
           />
         </div>
       )}

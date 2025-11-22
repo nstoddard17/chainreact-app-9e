@@ -103,12 +103,33 @@ export async function moveGoogleCalendarEvent(
   } catch (error: any) {
     logger.error('❌ [Google Calendar] Error moving event:', error)
 
-    if (error.message?.includes('401') || error.message?.includes('Unauthorized') || error.code === 401) {
+    const errorMessage = error.message || error.errors?.[0]?.message || ''
+
+    if (errorMessage.includes('401') || errorMessage.includes('Unauthorized') || error.code === 401) {
       throw new Error('Google Calendar authentication failed. Please reconnect your account.')
     }
 
-    if (error.message?.includes('404') || error.code === 404) {
+    if (errorMessage.includes('404') || error.code === 404) {
       throw new Error('Event or calendar not found.')
+    }
+
+    // Handle recurring event instance error
+    if (errorMessage.includes('Cannot change the organizer of an instance') ||
+        errorMessage.includes('organizer of an instance')) {
+      throw new Error(
+        'Cannot move this event because it is a single instance of a recurring event. ' +
+        'Google Calendar only allows moving the entire recurring series, not individual occurrences. ' +
+        'To move this event, you would need to either: (1) Move the entire recurring series, or ' +
+        '(2) First delete this instance and create a new standalone event on the destination calendar.'
+      )
+    }
+
+    // Handle permission errors
+    if (errorMessage.includes('forbidden') || errorMessage.includes('403') || error.code === 403) {
+      throw new Error(
+        'Permission denied. You may not have permission to move events from this calendar, ' +
+        'or the event may be owned by someone else.'
+      )
     }
 
     throw error

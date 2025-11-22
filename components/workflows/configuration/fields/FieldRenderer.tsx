@@ -227,6 +227,7 @@ interface FieldProps {
   airtableTableSchema?: any; // Airtable table schema for dynamic field rendering
   airtableBubbleSuggestions?: any[]; // Bubble metadata for Airtable fields
   onAirtableBubbleRemove?: (index: number, suggestion?: any) => void; // Remove persisted Airtable attachment bubble
+  onLabelStore?: (fieldName: string, value: string, label: string) => void; // Store label alongside value for instant display on reopen
 }
 
 /**
@@ -368,6 +369,7 @@ export function FieldRenderer({
   airtableTableSchema,
   airtableBubbleSuggestions = [],
   onAirtableBubbleRemove,
+  onLabelStore,
 }: FieldProps) {
   // State for file-with-toggle mode - moved outside of render function to prevent infinite loop
   const [inputMode, setInputMode] = useState(() => {
@@ -1575,6 +1577,7 @@ export function FieldRenderer({
                 isConnectedToAIAgent={isConnectedToAIAgent}
                 workflowData={workflowData}
                 currentNodeId={currentNodeId}
+                onLabelStore={onLabelStore}
               />
             );
           }
@@ -1848,6 +1851,7 @@ export function FieldRenderer({
                 isConnectedToAIAgent={isConnectedToAIAgent}
                 workflowData={workflowData}
                 currentNodeId={currentNodeId}
+                onLabelStore={onLabelStore}
               />
               {(field as any).showManageButton && (
                 <GmailLabelManager
@@ -1882,6 +1886,7 @@ export function FieldRenderer({
             isConnectedToAIAgent={isConnectedToAIAgent}
             workflowData={workflowData}
             currentNodeId={currentNodeId}
+            onLabelStore={onLabelStore}
           />
         );
 
@@ -1995,6 +2000,7 @@ export function FieldRenderer({
               isConnectedToAIAgent={isConnectedToAIAgent}
               workflowData={workflowData}
               currentNodeId={currentNodeId}
+              onLabelStore={onLabelStore}
             />
           );
         }
@@ -2018,6 +2024,7 @@ export function FieldRenderer({
             workflowData={workflowData}
             currentNodeId={currentNodeId}
             aiToggleButton={aiToggleButton}
+            onLabelStore={onLabelStore}
           />
         );
 
@@ -2166,6 +2173,7 @@ export function FieldRenderer({
             enableConnectMode={shouldUseConnectMode(field)}
             isConnectedMode={isConnectedMode}
             onConnectToggle={handleConnectToggle}
+            onLabelStore={onLabelStore}
           />
         );
 
@@ -2358,11 +2366,6 @@ export function FieldRenderer({
                 Variable value will be resolved when the workflow runs.
               </p>
             )}
-            {isUsingNow && !isVariableValue && (
-              <p className="text-xs text-muted-foreground">
-                Will use today's date ({formatLocalDate(new Date())}) when the workflow runs.
-              </p>
-            )}
           </div>
         );
       }
@@ -2552,7 +2555,9 @@ export function FieldRenderer({
           normalizedDateTime.endsWith('}}') &&
           !isRuntimeNowValue(normalizedDateTime);
 
-        const datetimeValue = useMemo(() => {
+        // Format datetime value for input - using regular function instead of useMemo
+        // to avoid hooks inside switch case (violates Rules of Hooks)
+        const formatDatetimeValue = (): string => {
           if (!value || isVariableDateTime || isUsingNow) return '';
           if (value instanceof Date) {
             // Format as YYYY-MM-DDTHH:mm for datetime-local input
@@ -2575,7 +2580,8 @@ export function FieldRenderer({
             }
           }
           return '';
-        }, [value, isVariableDateTime, isUsingNow]);
+        };
+        const datetimeValue = formatDatetimeValue();
 
         // Check if this field should use connect mode
         const useConnectMode = shouldUseConnectMode(field);
@@ -2655,11 +2661,6 @@ export function FieldRenderer({
             {isVariableDateTime && (
               <p className="text-xs text-muted-foreground">
                 Variable value will be resolved at runtime.
-              </p>
-            )}
-            {isUsingNow && !isVariableDateTime && (
-              <p className="text-xs text-muted-foreground">
-                Will use current date/time ({new Date().toLocaleString()}) when the workflow runs.
               </p>
             )}
           </div>
@@ -2799,6 +2800,7 @@ export function FieldRenderer({
               isConnectedToAIAgent={isConnectedToAIAgent}
               workflowData={workflowData}
               currentNodeId={currentNodeId}
+              onLabelStore={onLabelStore}
             />
           );
         }

@@ -138,21 +138,37 @@ interface UseFlowV2BuilderResult extends ReturnType<typeof useWorkflowBuilder> {
 
 const JSON_HEADERS = { "Content-Type": "application/json" }
 
-async function fetchJson<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
-  const response = await fetch(input, {
-    credentials: "include",
-    ...init,
-    headers: {
-      ...(init?.headers ?? {}),
-    },
-  })
+// Default timeout for API calls - 15 seconds for most operations
+const DEFAULT_TIMEOUT_MS = 15000
 
-  if (!response.ok) {
-    const text = await response.text().catch(() => response.statusText)
-    throw new Error(text || `Request failed (${response.status})`)
+async function fetchJson<T>(input: RequestInfo, init?: RequestInit, timeoutMs: number = DEFAULT_TIMEOUT_MS): Promise<T> {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const response = await fetch(input, {
+      credentials: "include",
+      ...init,
+      headers: {
+        ...(init?.headers ?? {}),
+      },
+      signal: controller.signal,
+    })
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => response.statusText)
+      throw new Error(text || `Request failed (${response.status})`)
+    }
+
+    return (await response.json()) as T
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      throw new Error(`Request timed out after ${timeoutMs}ms`)
+    }
+    throw error
+  } finally {
+    clearTimeout(timeoutId)
   }
-
-  return (await response.json()) as T
 }
 
 function cloneFlow(flow: Flow): Flow {
@@ -583,16 +599,17 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
     if (!flowId) return
 
     try {
-      const response = await fetch(`/api/workflows/cached-outputs?workflowId=${flowId}`, {
-        credentials: 'include'
-      })
+      // Use fetchJson with timeout instead of plain fetch
+      const data = await fetchJson<{ success: boolean; cachedOutputs?: Record<string, CachedNodeOutput>; nodeCount?: number }>(
+        `/api/workflows/cached-outputs?workflowId=${flowId}`,
+        { method: 'GET' },
+        10000 // 10 second timeout for non-critical cached outputs
+      ).catch(() => null) // Silently fail - cached outputs are optional
 
-      if (!response.ok) {
+      if (!data) {
         console.debug("[useFlowV2Builder] Unable to fetch cached outputs")
         return
       }
-
-      const data = await response.json()
 
       if (data.success && data.cachedOutputs) {
         const cachedOutputs = data.cachedOutputs
@@ -623,9 +640,10 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
           )
         }
 
-        console.debug(`[useFlowV2Builder] Loaded ${data.nodeCount} cached outputs for workflow`)
+        console.debug(`[useFlowV2Builder] Loaded ${data.nodeCount ?? 0} cached outputs for workflow`)
       }
     } catch (error) {
+      // Non-critical error - cached outputs are optional
       console.debug("[useFlowV2Builder] Unable to fetch cached outputs", error)
     }
   }, [flowId, setNodes])

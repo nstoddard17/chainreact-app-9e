@@ -23,13 +23,13 @@ export async function getGoogleCalendarFreeBusy(
     const resolvedConfig = needsResolution ? resolveValue(config, input) : config
 
     const {
-      calendarIds,
+      calendarId,
       timeMin,
       timeMax,
       timeZone = 'UTC'
     } = resolvedConfig
 
-    if (!calendarIds || (Array.isArray(calendarIds) && calendarIds.length === 0)) {
+    if (!calendarId || (Array.isArray(calendarId) && calendarId.length === 0)) {
       throw new Error('At least one calendar ID is required')
     }
 
@@ -51,9 +51,13 @@ export async function getGoogleCalendarFreeBusy(
     // Create calendar API client
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client })
 
-    // Parse date strings
+    // Parse date strings - handles datetime-local format (YYYY-MM-DDTHH:mm) and ISO strings
     const parseDate = (dateStr: string): string => {
-      // Handle relative dates
+      if (!dateStr) {
+        throw new Error('Date/time value is required')
+      }
+
+      // Handle relative dates (legacy support)
       if (dateStr === 'today') {
         return new Date().toISOString()
       } else if (dateStr === 'tomorrow') {
@@ -66,20 +70,24 @@ export async function getGoogleCalendarFreeBusy(
         return nextWeek.toISOString()
       }
 
-      // Try to parse as ISO string or create Date object
+      // Try to parse as ISO string or datetime-local format
       try {
-        return new Date(dateStr).toISOString()
+        const date = new Date(dateStr)
+        if (isNaN(date.getTime())) {
+          throw new Error(`Invalid date format: ${dateStr}`)
+        }
+        return date.toISOString()
       } catch (error) {
         throw new Error(`Invalid date format: ${dateStr}`)
       }
     }
 
     // Process calendar IDs
-    const calendarIdList = typeof calendarIds === 'string'
-      ? calendarIds.split(',').map((id: string) => id.trim())
-      : Array.isArray(calendarIds)
-        ? calendarIds
-        : [calendarIds]
+    const calendarIdList = typeof calendarId === 'string'
+      ? calendarId.split(',').map((id: string) => id.trim())
+      : Array.isArray(calendarId)
+        ? calendarId
+        : [calendarId]
 
     const items = calendarIdList.map(id => ({ id }))
 
@@ -95,16 +103,96 @@ export async function getGoogleCalendarFreeBusy(
 
     const freeBusyData = response.data
 
+    // Helper to format date/time in a readable way
+    const formatDateTime = (isoString: string): string => {
+      try {
+        const date = new Date(isoString)
+        return date.toLocaleString('en-US', {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+          timeZone: timeZone
+        })
+      } catch {
+        return isoString
+      }
+    }
+
     // Process the results to make them more user-friendly
     const calendars: Record<string, any> = {}
+    const busyCalendars: string[] = []
+    const freeCalendars: string[] = []
+    const allBusySlots: Array<{ calendar: string; start: string; end: string; startFormatted: string; endFormatted: string; duration: string }> = []
+    let totalBusySlots = 0
 
-    for (const [calendarId, calendarData] of Object.entries(freeBusyData.calendars || {})) {
+    for (const [calId, calendarData] of Object.entries(freeBusyData.calendars || {})) {
       const data = calendarData as any
-      calendars[calendarId] = {
-        busy: data.busy || [],
-        errors: data.errors || [],
-        isBusy: (data.busy || []).length > 0,
-        busySlotCount: (data.busy || []).length
+      const busySlots = data.busy || []
+      const isBusy = busySlots.length > 0
+
+      // Track busy vs free calendars
+      if (isBusy) {
+        busyCalendars.push(calId)
+      } else {
+        freeCalendars.push(calId)
+      }
+
+      // Process each busy slot with formatted times
+      const formattedBusySlots = busySlots.map((slot: any) => {
+        const startDate = new Date(slot.start)
+        const endDate = new Date(slot.end)
+        const durationMs = endDate.getTime() - startDate.getTime()
+        const durationMins = Math.round(durationMs / 60000)
+        const durationStr = durationMins >= 60
+          ? `${Math.floor(durationMins / 60)}h ${durationMins % 60}m`
+          : `${durationMins}m`
+
+        const formattedSlot = {
+          start: slot.start,
+          end: slot.end,
+          startFormatted: formatDateTime(slot.start),
+          endFormatted: formatDateTime(slot.end),
+          duration: durationStr
+        }
+
+        // Add to all busy slots list
+        allBusySlots.push({
+          calendar: calId,
+          ...formattedSlot
+        })
+
+        return formattedSlot
+      })
+
+      totalBusySlots += busySlots.length
+
+      calendars[calId] = {
+        isBusy,
+        busySlotCount: busySlots.length,
+        status: isBusy ? 'Busy' : 'Free',
+        busySlots: formattedBusySlots,
+        errors: data.errors || []
+      }
+    }
+
+    // Sort all busy slots by start time
+    allBusySlots.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+
+    // Generate a human-readable summary
+    const generateSummary = (): string => {
+      const total = calendarIdList.length
+      const busyCount = busyCalendars.length
+      const freeCount = freeCalendars.length
+
+      if (freeCount === total) {
+        return `All ${total} calendar${total > 1 ? 's are' : ' is'} free during this time period.`
+      } else if (busyCount === total) {
+        return `All ${total} calendar${total > 1 ? 's have' : ' has'} busy time slots (${totalBusySlots} total).`
+      } else {
+        return `${freeCount} of ${total} calendar${freeCount > 1 ? 's are' : ' is'} free. ${busyCount} calendar${busyCount > 1 ? 's have' : ' has'} ${totalBusySlots} busy slot${totalBusySlots > 1 ? 's' : ''}.`
       }
     }
 
@@ -117,12 +205,34 @@ export async function getGoogleCalendarFreeBusy(
     return {
       success: true,
       output: {
-        calendars: calendars,
-        timeMin: freeBusyData.timeMin,
-        timeMax: freeBusyData.timeMax,
-        timeZone: timeZone,
-        queriedCalendars: calendarIdList,
-        calendarCount: calendarIdList.length
+        // User-friendly summary fields
+        summary: generateSummary(),
+        totalCalendars: calendarIdList.length,
+        freeCalendarCount: freeCalendars.length,
+        busyCalendarCount: busyCalendars.length,
+        totalBusySlots,
+        allFree: freeCalendars.length === calendarIdList.length,
+        allBusy: busyCalendars.length === calendarIdList.length,
+
+        // Lists of calendar IDs by status
+        freeCalendars,
+        busyCalendars,
+
+        // All busy time slots sorted by start time
+        busyTimeSlots: allBusySlots,
+
+        // Query info
+        queryStart: formatDateTime(freeBusyData.timeMin || parseDate(timeMin)),
+        queryEnd: formatDateTime(freeBusyData.timeMax || parseDate(timeMax)),
+        timeZone,
+
+        // Raw data for advanced use
+        rawData: {
+          calendars,
+          timeMin: freeBusyData.timeMin,
+          timeMax: freeBusyData.timeMax,
+          queriedCalendars: calendarIdList
+        }
       }
     }
   } catch (error: any) {

@@ -2489,9 +2489,10 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
     // Load all fields in parallel using Promise.allSettled
     // Force refresh to ensure fresh data on every modal open
+    // Use silent: false to show loading placeholders for each field
     const results = await Promise.allSettled(
       fields.map(({ fieldName, dependsOn, dependsOnValue }) =>
-        loadOptions(fieldName, dependsOn, dependsOnValue, true, true)
+        loadOptions(fieldName, dependsOn, dependsOnValue, true, false)
       )
     )
 
