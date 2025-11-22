@@ -791,6 +791,78 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     loadChatHistory()
   }, [flowId, flowState?.flow, flowState?.revisionId, authInitialized])
 
+  // Load cached node outputs from Supabase on page refresh
+  // This enables variable resolution from previously tested upstream nodes
+  const hasFetchedCachedOutputsRef = useRef(false)
+
+  useEffect(() => {
+    if (!flowId || !authInitialized || hasFetchedCachedOutputsRef.current) {
+      return
+    }
+
+    const loadCachedOutputs = async () => {
+      try {
+        logger.info('[WorkflowBuilder] Loading cached node outputs for workflow:', flowId)
+        hasFetchedCachedOutputsRef.current = true
+
+        const response = await fetch(`/api/workflows/cached-outputs?workflowId=${flowId}`)
+
+        if (!response.ok) {
+          logger.debug('[WorkflowBuilder] No cached outputs found or error fetching')
+          return
+        }
+
+        const data = await response.json()
+
+        if (!data.success || !data.cachedOutputs) {
+          logger.debug('[WorkflowBuilder] No cached outputs in response')
+          return
+        }
+
+        const cachedOutputs = data.cachedOutputs as Record<string, any>
+        const nodeCount = Object.keys(cachedOutputs).length
+
+        if (nodeCount === 0) {
+          logger.debug('[WorkflowBuilder] No cached outputs to load')
+          return
+        }
+
+        logger.info(`[WorkflowBuilder] Loaded ${nodeCount} cached node outputs:`, {
+          nodeIds: Object.keys(cachedOutputs)
+        })
+
+        // Populate nodeTestCache with cached outputs
+        const newCacheEntries: Record<string, NodeTestCacheEntry> = {}
+
+        for (const [nodeId, cachedData] of Object.entries(cachedOutputs)) {
+          // cachedData structure from API: { nodeId, nodeType, output: { field1, field2, __success, __message }, executedAt }
+          const outputData = cachedData.output || cachedData
+          newCacheEntries[nodeId] = {
+            data: outputData,
+            result: {
+              success: outputData?.__success !== false,
+              timestamp: cachedData.executedAt,
+              message: outputData?.__message || 'Loaded from cache',
+              rawResponse: cachedData
+            }
+          }
+        }
+
+        setNodeTestCache(prev => ({
+          ...prev,
+          ...newCacheEntries
+        }))
+
+        logger.info(`[WorkflowBuilder] Populated nodeTestCache with ${nodeCount} cached entries`)
+
+      } catch (error: any) {
+        logger.error('[WorkflowBuilder] Error loading cached outputs:', error.message)
+      }
+    }
+
+    loadCachedOutputs()
+  }, [flowId, authInitialized])
+
   // Determine when chat persistence should be enabled
   useEffect(() => {
     if (!flowState) {
