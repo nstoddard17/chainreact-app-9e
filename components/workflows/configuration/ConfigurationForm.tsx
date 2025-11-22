@@ -1465,12 +1465,32 @@ function ConfigurationForm({
     }
   };
 
+  // Callback to store labels alongside values for instant display on modal reopen
+  // Labels are stored using _label_fieldName convention
+  // NOTE: This hook MUST be before any early returns to comply with Rules of Hooks
+  const handleLabelStore = useCallback((fieldName: string, value: string, label: string) => {
+    const labelKey = `_label_${fieldName}`;
+    if (label) {
+      setValues(prev => ({
+        ...prev,
+        [labelKey]: label
+      }));
+    } else {
+      // Clear the label if value is cleared
+      setValues(prev => {
+        const newValues = { ...prev };
+        delete newValues[labelKey];
+        return newValues;
+      });
+    }
+  }, []);
+
   // Show loading screen during initial load only when there are dynamic fields to fetch
   const hasDynamicFields = Array.isArray(nodeInfo?.configSchema) && nodeInfo.configSchema.some((field: any) => field?.dynamic);
 
   if ((isInitialLoading || isLoadingDynamicOptions) && hasDynamicFields) {
     return (
-      <ConfigurationLoadingScreen 
+      <ConfigurationLoadingScreen
         integrationName={integrationName}
       />
     );
@@ -1524,7 +1544,9 @@ function ConfigurationForm({
     airtableRecords,
     setAirtableRecords,
     airtableTableSchema,
-    setAirtableTableSchema
+    setAirtableTableSchema,
+    // Label storage for instant display on reopen
+    onLabelStore: handleLabelStore
   };
 
   // Handle AI Message nodes with custom prompt builder

@@ -20,6 +20,8 @@ export class GoogleCalendarOptionsLoader implements ProviderOptionsLoader {
     const handledFields = [
       'calendarId',
       'calendars',
+      'sourceCalendarId',      // For move event action
+      'destinationCalendarId', // For move event action
       'eventId',
       'events'
     ];
@@ -85,8 +87,9 @@ export class GoogleCalendarOptionsLoader implements ProviderOptionsLoader {
       const items = result.data || [];
 
       // Format based on field type
-      if (fieldName === 'calendarId' || fieldName === 'calendars') {
-        // Calendar selection
+      if (fieldName === 'calendarId' || fieldName === 'calendars' ||
+          fieldName === 'sourceCalendarId' || fieldName === 'destinationCalendarId') {
+        // Calendar selection (including source/destination for move event)
         return items.map((calendar: any) => ({
           value: calendar.value || calendar.id,
           label: calendar.name || calendar.summary,
@@ -140,6 +143,7 @@ export class GoogleCalendarOptionsLoader implements ProviderOptionsLoader {
 
     // Calendar and event IDs should be non-empty strings
     if (fieldName === 'calendarId' || fieldName === 'calendars' ||
+        fieldName === 'sourceCalendarId' || fieldName === 'destinationCalendarId' ||
         fieldName === 'eventId' || fieldName === 'events') {
       if (Array.isArray(value)) {
         return value.length > 0 && value.every(v => v && typeof v === 'string');
@@ -166,7 +170,8 @@ export class GoogleCalendarOptionsLoader implements ProviderOptionsLoader {
    * Check if field should load on mount
    */
   shouldLoadOnMount(fieldName: string): boolean {
-    // Calendar fields should load immediately
-    return fieldName === 'calendarId' || fieldName === 'calendars';
+    // Calendar fields should load immediately (including source/destination for move event)
+    return fieldName === 'calendarId' || fieldName === 'calendars' ||
+           fieldName === 'sourceCalendarId' || fieldName === 'destinationCalendarId';
   }
 }

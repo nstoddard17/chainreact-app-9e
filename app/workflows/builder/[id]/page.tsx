@@ -15,10 +15,20 @@ interface BuilderPageProps {
 }
 
 export default async function FlowBuilderV2Page({ params }: BuilderPageProps) {
-  await requireUsername()
+  // Run username check and params resolution in parallel
+  const [_, resolvedParams] = await Promise.all([
+    requireUsername(),
+    params
+  ])
 
-  const { id: flowId } = await params
-  const supabase = await createSupabaseServerClient()
+  const flowId = resolvedParams.id
+
+  // Create clients in parallel
+  const [supabase, serviceClient] = await Promise.all([
+    createSupabaseServerClient(),
+    createSupabaseServiceClient()
+  ])
+
   const {
     data: { user },
     error: userError,
@@ -28,20 +38,22 @@ export default async function FlowBuilderV2Page({ params }: BuilderPageProps) {
     notFound()
   }
 
-  const serviceClient = await createSupabaseServiceClient()
+  // Check both workflows table (v1) and flow_v2_definitions table (v2) IN PARALLEL
+  const [workflowResult, flowV2Result] = await Promise.all([
+    serviceClient
+      .from("workflows")
+      .select("id, owner_id, workspace_id")
+      .eq("id", flowId)
+      .maybeSingle(),
+    serviceClient
+      .from("flow_v2_definitions")
+      .select("id, owner_id, workspace_id")
+      .eq("id", flowId)
+      .maybeSingle()
+  ])
 
-  // Check both workflows table (v1) and flow_v2_definitions table (v2)
-  const { data: workflowRow } = await serviceClient
-    .from("workflows")
-    .select("id, owner_id, workspace_id")
-    .eq("id", flowId)
-    .maybeSingle()
-
-  const { data: flowV2Row } = await serviceClient
-    .from("flow_v2_definitions")
-    .select("id, owner_id, workspace_id")
-    .eq("id", flowId)
-    .maybeSingle()
+  const workflowRow = workflowResult.data
+  const flowV2Row = flowV2Result.data
 
   // Use whichever row exists (v1 or v2)
   const flowRow = workflowRow || flowV2Row

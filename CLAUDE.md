@@ -285,6 +285,38 @@ When context menus or dropdown menus are rendered inside clickable elements (lik
 - `components/workflows/CustomNode.tsx` (DropdownMenu)
 - Any future menus inside clickable elements
 
+### React Hooks Order - MANDATORY
+**ALL hooks MUST be called BEFORE any early returns**
+
+React requires hooks to be called in the same order on every render. Placing hooks after early returns or inside switch/case blocks causes "change in order of Hooks" errors.
+
+```typescript
+// ✅ CORRECT - hooks before early return
+const handleSomething = useCallback(() => {}, []);
+
+if (isLoading) {
+  return <LoadingScreen />;
+}
+
+// ❌ WRONG - hook after early return
+if (isLoading) {
+  return <LoadingScreen />;
+}
+
+const handleSomething = useCallback(() => {}, []); // VIOLATION!
+```
+
+**Rules:**
+1. ALL `useState`, `useCallback`, `useMemo`, `useEffect` must be at the top of the component
+2. NO hooks inside `switch/case` blocks (use regular functions instead)
+3. NO hooks after early `return` statements
+4. Add comment `// NOTE: This hook MUST be before any early returns` when near returns
+
+**Files to watch:**
+- `components/workflows/configuration/ConfigurationForm.tsx`
+- `components/workflows/configuration/fields/FieldRenderer.tsx`
+- Any component with conditional rendering or early returns
+
 ### Workflow Builder Edge Alignment - DO NOT CHANGE
 **CRITICAL: Edge positioning logic prevents lines from appearing under nodes**
 

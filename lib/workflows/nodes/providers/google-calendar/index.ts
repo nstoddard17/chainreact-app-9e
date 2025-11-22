@@ -2170,7 +2170,7 @@ export const googleCalendarNodes: NodeComponent[] = [
     producesOutput: true,
     configSchema: [
       {
-        name: "calendarIds",
+        name: "calendarId",
         label: "Calendars",
         type: "multiselect",
         dynamic: "google-calendars",
@@ -2180,75 +2180,132 @@ export const googleCalendarNodes: NodeComponent[] = [
       },
       {
         name: "timeMin",
-        label: "Start Time",
-        type: "text",
-        placeholder: "today, tomorrow, or ISO date",
+        label: "Start Date/Time",
+        type: "datetime",
         required: true,
-        description: "Start of time range to query (use 'today', 'tomorrow', or ISO date)"
+        supportsRuntimeNow: true,
+        toggleLabel: "Use current date/time when action runs"
       },
       {
         name: "timeMax",
-        label: "End Time",
-        type: "text",
-        placeholder: "next_week, or ISO date",
+        label: "End Date/Time",
+        type: "datetime",
         required: true,
-        description: "End of time range to query (use 'next_week' or ISO date)"
+        supportsRuntimeNow: true,
+        toggleLabel: "Use current date/time when action runs"
       },
       {
         name: "timeZone",
         label: "Time Zone",
         type: "select",
-        defaultValue: "UTC",
+        defaultValue: getUserTimeZone(),
         options: [
-          { value: "UTC", label: "UTC" },
           { value: "America/New_York", label: "Eastern Time (ET)" },
           { value: "America/Chicago", label: "Central Time (CT)" },
           { value: "America/Denver", label: "Mountain Time (MT)" },
           { value: "America/Los_Angeles", label: "Pacific Time (PT)" },
+          { value: "America/Anchorage", label: "Alaska Time (AKT)" },
+          { value: "Pacific/Honolulu", label: "Hawaii Time (HST)" },
+          { value: "UTC", label: "UTC" },
           { value: "Europe/London", label: "London (GMT/BST)" },
           { value: "Europe/Paris", label: "Paris (CET/CEST)" },
+          { value: "Europe/Berlin", label: "Berlin (CET/CEST)" },
+          { value: "Europe/Moscow", label: "Moscow (MSK)" },
           { value: "Asia/Tokyo", label: "Tokyo (JST)" },
-          { value: "Australia/Sydney", label: "Sydney (AEDT/AEST)" }
+          { value: "Asia/Shanghai", label: "Shanghai (CST)" },
+          { value: "Asia/Dubai", label: "Dubai (GST)" },
+          { value: "Asia/Kolkata", label: "India (IST)" },
+          { value: "Australia/Sydney", label: "Sydney (AEDT/AEST)" },
+          { value: "Pacific/Auckland", label: "Auckland (NZDT/NZST)" }
         ],
-        description: "Time zone for the query"
+        description: "Time zone for the query (auto-detected from your browser)"
       }
     ],
     outputSchema: [
+      // User-friendly summary
       {
-        name: "calendars",
-        label: "Calendars",
-        type: "object",
-        description: "Object containing free/busy data for each calendar"
+        name: "summary",
+        label: "Summary",
+        type: "string",
+        description: "Human-readable summary of availability"
       },
       {
-        name: "timeMin",
-        label: "Query Start Time",
-        type: "string",
-        description: "Start time used in the query"
+        name: "allFree",
+        label: "All Free",
+        type: "boolean",
+        description: "True if all calendars are free"
       },
       {
-        name: "timeMax",
-        label: "Query End Time",
+        name: "allBusy",
+        label: "All Busy",
+        type: "boolean",
+        description: "True if all calendars have busy slots"
+      },
+      {
+        name: "totalCalendars",
+        label: "Total Calendars",
+        type: "number",
+        description: "Number of calendars queried"
+      },
+      {
+        name: "freeCalendarCount",
+        label: "Free Calendar Count",
+        type: "number",
+        description: "Calendars with no busy slots"
+      },
+      {
+        name: "busyCalendarCount",
+        label: "Busy Calendar Count",
+        type: "number",
+        description: "Calendars with busy slots"
+      },
+      {
+        name: "totalBusySlots",
+        label: "Total Busy Slots",
+        type: "number",
+        description: "Total busy time slots"
+      },
+      {
+        name: "freeCalendars",
+        label: "Free Calendars",
+        type: "array",
+        description: "Calendar IDs that are free"
+      },
+      {
+        name: "busyCalendars",
+        label: "Busy Calendars",
+        type: "array",
+        description: "Calendar IDs with busy slots"
+      },
+      {
+        name: "busyTimeSlots",
+        label: "Busy Time Slots",
+        type: "array",
+        description: "All busy slots with formatted times"
+      },
+      {
+        name: "queryStart",
+        label: "Query Start",
         type: "string",
-        description: "End time used in the query"
+        description: "Formatted start of query range"
+      },
+      {
+        name: "queryEnd",
+        label: "Query End",
+        type: "string",
+        description: "Formatted end of query range"
       },
       {
         name: "timeZone",
         label: "Time Zone",
         type: "string",
-        description: "Time zone used in the query"
+        description: "Time zone used"
       },
       {
-        name: "queriedCalendars",
-        label: "Queried Calendars",
-        type: "array",
-        description: "List of calendar IDs that were queried"
-      },
-      {
-        name: "calendarCount",
-        label: "Calendar Count",
-        type: "number",
-        description: "Number of calendars queried"
+        name: "rawData",
+        label: "Raw Data",
+        type: "object",
+        description: "Raw API response for advanced use"
       }
     ],
   },

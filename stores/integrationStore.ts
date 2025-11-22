@@ -335,9 +335,9 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
         // Create a promise that we'll track
         ongoingFetchPromise = (async () => {
-          // Set timeout for fetch operation - increased to 60 seconds for slower connections
+          // Set timeout for fetch operation - 20 seconds is reasonable for most connections
           const fetchTimeout = setTimeout(() => {
-            logger.warn('Integration fetch timeout after 60s - aborting request')
+            logger.warn('Integration fetch timeout after 20s - aborting request')
             if (currentAbortController) {
               currentAbortController.abort()
             }
@@ -349,7 +349,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
               integrations: existingIntegrations || [] // Keep existing data
             })
             ongoingFetchPromise = null
-          }, 60000) // 60 seconds for slower connections/large datasets
+          }, 20000) // 20 seconds timeout
 
           try {
             setLoading('integrations', true)

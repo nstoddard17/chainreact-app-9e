@@ -32,6 +32,7 @@ interface GenericSelectFieldProps {
   workflowData?: { nodes: any[], edges: any[] }; // Full workflow data for variable picker
   currentNodeId?: string; // Current node ID for variable picker context
   aiToggleButton?: React.ReactNode; // AI toggle button to render alongside label
+  onLabelStore?: (fieldName: string, value: string, label: string) => void; // Store label alongside value for instant display on reopen
 }
 
 /**
@@ -91,6 +92,7 @@ export function GenericSelectField({
   workflowData,
   currentNodeId,
   aiToggleButton,
+  onLabelStore,
 }: GenericSelectFieldProps) {
   // Cache store - must be at top level
   const { get: getCache, set: setCache, invalidate: invalidateCache } = useConfigCacheStore()
@@ -106,7 +108,17 @@ export function GenericSelectField({
   // Store the display label for the selected value
   // Initialize with cached label for instant display of saved values (Zapier-like UX)
   const [displayLabel, setDisplayLabel] = React.useState<string | null>(() => {
-    // PRIORITY 1: Check for saved labels in parentValues (for Airtable linked record fields)
+    // PRIORITY 1: Check for stored label in form values (_label_fieldName convention)
+    // This is the primary source for instant label display on modal reopen
+    if (value) {
+      const storedLabelKey = `_label_${field.name}`;
+      const storedLabel = parentValues?.[storedLabelKey];
+      if (storedLabel && typeof storedLabel === 'string') {
+        return storedLabel;
+      }
+    }
+
+    // PRIORITY 2: Check for saved labels in parentValues (for Airtable linked record fields)
     // This ensures linked record fields NEVER show IDs, always labels
     if (value && field.name?.startsWith('airtable_field_')) {
       const labelMetadataKey = `${field.name}_labels`;
@@ -116,7 +128,7 @@ export function GenericSelectField({
       }
     }
 
-    // PRIORITY 2: Try to load cached label from localStorage
+    // PRIORITY 3: Try to load cached label from localStorage
     if (typeof window !== 'undefined' && value) {
       try {
         const raw = window.localStorage.getItem(labelCacheKeyForInit);
@@ -1214,12 +1226,16 @@ export function GenericSelectField({
               // Clear display label when value is cleared
               if (!newValue) {
                 setDisplayLabel(null);
+                // Also clear stored label
+                onLabelStore?.(field.name, '', '');
               } else if (newValue.startsWith('{{') && newValue.endsWith('}}')) {
                 // Set friendly label for variables
                 const friendlyLabel = getFriendlyVariableLabel(newValue, workflowNodes);
                 setDisplayLabel(friendlyLabel);
                 if (friendlyLabel) {
                   saveLabelToCache(newValue, friendlyLabel);
+                  // Store label in form values for instant display on reopen
+                  onLabelStore?.(field.name, newValue, friendlyLabel);
                 }
               } else {
                 // For regular options, find the label and cache it immediately
@@ -1228,9 +1244,11 @@ export function GenericSelectField({
                   return String(optValue) === String(newValue);
                 });
                 if (option) {
-                  const label = option.label || option.name || option.value || option.id;
+                  const label = typeof option.label === 'string' ? option.label : (option.name || option.value || option.id);
                   setDisplayLabel(label);
                   saveLabelToCache(String(newValue), label);
+                  // Store label in form values for instant display on reopen
+                  onLabelStore?.(field.name, String(newValue), label);
                 }
               }
             }}
@@ -1310,12 +1328,16 @@ export function GenericSelectField({
             // Clear display label when value is cleared
             if (!newValue) {
               setDisplayLabel(null);
+              // Also clear stored label
+              onLabelStore?.(field.name, '', '');
             } else if (typeof newValue === 'string' && newValue.startsWith('{{') && newValue.endsWith('}}')) {
               // Set friendly label for variables
               const friendlyLabel = getFriendlyVariableLabel(newValue, workflowNodes);
               setDisplayLabel(friendlyLabel);
               if (friendlyLabel) {
                 saveLabelToCache(newValue, friendlyLabel);
+                // Store label in form values for instant display on reopen
+                onLabelStore?.(field.name, newValue, friendlyLabel);
               }
             } else {
               // For regular options, find the label and cache it immediately
@@ -1324,9 +1346,11 @@ export function GenericSelectField({
                 return String(optValue) === String(newValue);
               });
               if (option) {
-                const label = option.label || option.name || option.value || option.id;
+                const label = typeof option.label === 'string' ? option.label : (option.name || option.value || option.id);
                 setDisplayLabel(label);
                 saveLabelToCache(String(newValue), label);
+                // Store label in form values for instant display on reopen
+                onLabelStore?.(field.name, String(newValue), label);
               }
             }
           }}

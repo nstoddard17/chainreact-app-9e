@@ -67,6 +67,8 @@ interface GenericConfigurationProps {
   selectedIntegrationId?: string;
   connectedIntegrations?: Integration[];
   onSelectAccount?: (integrationId: string) => void;
+  // Label storage for instant display on reopen
+  onLabelStore?: (fieldName: string, value: string, label: string) => void;
 }
 
 export function GenericConfiguration({
@@ -96,6 +98,8 @@ export function GenericConfiguration({
   selectedIntegrationId,
   connectedIntegrations = [],
   onSelectAccount,
+  // Label storage for instant display on reopen
+  onLabelStore,
 }: GenericConfigurationProps) {
 
   // Debug: Log dynamicOptions for HubSpot
@@ -576,6 +580,8 @@ export function GenericConfiguration({
             // Props specific to AIFieldWrapper
             isAIEnabled={isAIEnabled}
             onAIToggle={isConnectedToAIAgent ? handleAIToggle : undefined}
+            // Label storage for instant display on reopen
+            onLabelStore={onLabelStore}
           />
         </div>
       );
