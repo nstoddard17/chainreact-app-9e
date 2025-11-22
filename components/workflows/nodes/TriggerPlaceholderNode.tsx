@@ -2,7 +2,7 @@
 
 import React, { useState } from "react"
 import { Handle, Position } from "@xyflow/react"
-import { Zap, TestTube, Play, Snowflake, StopCircle, Trash2, MoreHorizontal, Edit2, Copy, FileText } from "lucide-react"
+import { Zap, TestTube, Play, Snowflake, Trash2, MoreHorizontal, Edit2, Copy, FileText } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -185,10 +185,6 @@ export function TriggerPlaceholderNode({ id, data, selected }: TriggerPlaceholde
           <DropdownMenuItem disabled>
             <Snowflake className="w-4 h-4 mr-2" />
             Freeze
-          </DropdownMenuItem>
-          <DropdownMenuItem disabled>
-            <StopCircle className="w-4 h-4 mr-2" />
-            Stop
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleDelete} disabled={isPlaceholder} className="text-destructive focus:text-destructive">

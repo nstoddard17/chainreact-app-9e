@@ -12,6 +12,7 @@ import { isNodeTypeConnectionExempt, isProviderConnectionExempt } from '../utils
 interface SetupTabProps {
   nodeInfo: any
   initialData?: Record<string, any>
+  initialDynamicOptions?: Record<string, any[]>
   onSave: (data: Record<string, any>) => void
   onCancel: () => void
   onBack?: () => void

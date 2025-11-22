@@ -64,9 +64,44 @@ function extractNodeIdsFromVariables(variables: string[]): string[] {
   return nodeIds
 }
 
+/**
+ * Get a user-friendly name for a node ID
+ */
+function getNodeFriendlyName(nodeId: string, workflowNodes?: any[]): string {
+  // First try to find the node in the workflow and get its custom title
+  if (workflowNodes) {
+    const node = workflowNodes.find((n: any) => n.id === nodeId)
+    if (node?.data?.title) {
+      return node.data.title
+    }
+    // If no custom title, try to get the node type and look up its title
+    if (node?.data?.type) {
+      const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === node.data.type)
+      if (nodeComponent?.title) {
+        return nodeComponent.title
+      }
+    }
+  }
+
+  // Try to extract node type from the ID (format: type-uuid)
+  const typeMatch = nodeId.match(/^(.+)-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i)
+  if (typeMatch) {
+    const nodeType = typeMatch[1]
+    const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === nodeType)
+    if (nodeComponent?.title) {
+      return nodeComponent.title
+    }
+    // Format the type nicely if no title found
+    return nodeType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+  }
+
+  // Fallback to the raw ID (truncated)
+  return nodeId.length > 30 ? nodeId.substring(0, 30) + '...' : nodeId
+}
+
 export async function POST(request: Request) {
   try {
-    const { nodeType, config, testData, workflowId, nodeId, useCachedData } = await request.json()
+    const { nodeType, config, testData, workflowId, nodeId, useCachedData, workflowNodes } = await request.json()
 
     logger.info('[test-node] Received request:', {
       nodeType,
@@ -122,6 +157,7 @@ export async function POST(request: Request) {
 
     if (workflowId && useCachedData !== false) {
       try {
+        logger.info(`[test-node] Attempting to load cached outputs for workflow ${workflowId}`)
         cachedOutputs = await nodeOutputCache.getAllCachedOutputs(workflowId)
         const cachedNodeIds = Object.keys(cachedOutputs)
         cachedDataInfo = {
@@ -129,10 +165,21 @@ export async function POST(request: Request) {
           nodeCount: cachedNodeIds.length,
           availableNodes: cachedNodeIds
         }
-        logger.debug(`[test-node] Loaded ${cachedNodeIds.length} cached outputs for workflow ${workflowId}`)
+        logger.info(`[test-node] Loaded ${cachedNodeIds.length} cached outputs for workflow ${workflowId}`, {
+          nodeIds: cachedNodeIds,
+          sampleData: cachedNodeIds.length > 0 ? {
+            firstNodeId: cachedNodeIds[0],
+            firstNodeKeys: Object.keys(cachedOutputs[cachedNodeIds[0]] || {})
+          } : null
+        })
       } catch (cacheError: any) {
-        logger.warn(`[test-node] Failed to load cached outputs:`, cacheError)
+        logger.error(`[test-node] Failed to load cached outputs:`, {
+          error: cacheError.message,
+          workflowId
+        })
       }
+    } else {
+      logger.info(`[test-node] Skipping cached outputs: workflowId=${workflowId}, useCachedData=${useCachedData}`)
     }
 
     // Merge cached outputs with provided testData
@@ -192,6 +239,9 @@ export async function POST(request: Request) {
         })
 
         if (missingNodeIds.length > 0) {
+          // Get friendly names for the missing nodes
+          const missingNodeNames = missingNodeIds.map(id => getNodeFriendlyName(id, workflowNodes))
+
           // Provide helpful error message about running upstream nodes first
           return jsonResponse({
             success: false,
@@ -199,12 +249,13 @@ export async function POST(request: Request) {
               success: false,
               output: {
                 error: true,
-                errorMessage: `Missing data from upstream node(s). Please run the following node(s) first: ${missingNodeIds.join(', ')}`,
+                errorMessage: `Missing data from upstream node(s). Please test the following node(s) first: ${missingNodeNames.join(', ')}`,
                 unresolvedVariables: unresolvedVars,
                 missingNodes: missingNodeIds,
+                missingNodeNames: missingNodeNames,
                 availableNodes: availableNodeIds
               },
-              message: `❌ Cannot resolve variables: ${unresolvedVars.join(', ')}\n\nThis node references output from other nodes that haven't been tested yet. Please test the upstream node(s) first, then try again.`
+              message: `❌ Missing upstream data\n\nThis node uses variables from: ${missingNodeNames.join(', ')}\n\nPlease test those node(s) first, then try again.`
             },
             nodeInfo: {
               type: nodeType,
@@ -215,10 +266,11 @@ export async function POST(request: Request) {
             debug: {
               unresolvedVariables: unresolvedVars,
               missingNodes: missingNodeIds,
+              missingNodeNames: missingNodeNames,
               availableNodes: availableNodeIds,
               hint: 'Run the upstream nodes first to cache their outputs'
             }
-          }, 400)
+          }, { status: 400 })
         }
       }
     }
@@ -253,14 +305,26 @@ export async function POST(request: Request) {
       logger.debug('[test-node] Execution completed:', {
         success: testResult.success,
         hasOutput: !!testResult.output,
-        outputKeys: testResult.output ? Object.keys(testResult.output) : []
+        outputKeys: testResult.output ? Object.keys(testResult.output) : [],
+        outputSample: testResult.output ? JSON.stringify(testResult.output).slice(0, 300) : null,
+        message: testResult.message
       })
 
       // Save the test result to cache (if workflowId is provided)
       // This allows subsequent nodes to use this output as cached data
       if (workflowId && nodeId && testResult.success !== false) {
         try {
-          await nodeOutputCache.saveNodeOutput({
+          logger.info('[test-node] 💾 Saving test result to cache:', {
+            workflowId,
+            nodeId,
+            nodeType,
+            userId: user.id?.substring(0, 8) + '...',
+            outputKeys: testResult.output ? Object.keys(testResult.output) : [],
+            hasOutput: !!testResult.output,
+            success: testResult.success
+          })
+
+          const saveSuccess = await nodeOutputCache.saveNodeOutput({
             workflowId,
             userId: user.id,
             nodeId,
@@ -268,9 +332,17 @@ export async function POST(request: Request) {
             output: testResult,
             input: testContext.data
           })
-          logger.debug(`[test-node] Cached output for node ${nodeId}`)
+
+          logger.info(`[test-node] 💾 Cache save result: ${saveSuccess ? 'SUCCESS' : 'FAILED'}`, {
+            workflowId,
+            nodeId
+          })
         } catch (cacheError: any) {
-          logger.warn(`[test-node] Failed to cache test result:`, cacheError)
+          logger.error(`[test-node] 💾 Failed to cache test result:`, {
+            error: cacheError.message,
+            workflowId,
+            nodeId
+          })
         }
       }
     } catch (error: any) {
@@ -295,7 +367,7 @@ export async function POST(request: Request) {
       }
     }
 
-    return jsonResponse({
+    const apiResponse = {
       success: testResult.success !== false, // Return actual success/failure
       testResult,
       nodeInfo: {
@@ -315,7 +387,16 @@ export async function POST(request: Request) {
           typeof v === 'string' && v.includes('{{') && v.includes('}}')
         )
       }
+    }
+
+    logger.debug('[test-node] Sending API response:', {
+      success: apiResponse.success,
+      testResultOutput: apiResponse.testResult?.output ? Object.keys(apiResponse.testResult.output) : [],
+      testResultOutputSample: apiResponse.testResult?.output ? JSON.stringify(apiResponse.testResult.output).slice(0, 300) : null,
+      outputSchemaLength: apiResponse.nodeInfo?.outputSchema?.length || 0
     })
+
+    return jsonResponse(apiResponse)
 
   } catch (error: any) {
     logger.error("Node test error:", error)

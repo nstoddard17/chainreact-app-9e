@@ -45,15 +45,30 @@ export async function GET(request: Request) {
     }
 
     // Transform into a map for easy access
+    // The output_data contains the full ActionResult: { success, output: {...}, message }
+    // We need to extract the actual output fields for variable resolution
     const outputMap: Record<string, any> = {}
-    for (const output of outputs || []) {
-      outputMap[output.node_id] = {
-        nodeId: output.node_id,
-        nodeType: output.node_type,
-        output: output.output_data,
-        input: output.input_data,
-        executedAt: output.executed_at,
-        executionId: output.execution_id
+    for (const row of outputs || []) {
+      const outputData = row.output_data
+
+      // Extract the actual output fields from the ActionResult structure
+      let extractedOutput = outputData
+      if (outputData && typeof outputData === 'object' && outputData.output && typeof outputData.output === 'object') {
+        // ActionResult structure: { success, output: { field1, field2, ... }, message }
+        extractedOutput = {
+          ...outputData.output,
+          __success: outputData.success,
+          __message: outputData.message
+        }
+      }
+
+      outputMap[row.node_id] = {
+        nodeId: row.node_id,
+        nodeType: row.node_type,
+        output: extractedOutput,
+        input: row.input_data,
+        executedAt: row.executed_at,
+        executionId: row.execution_id
       }
     }
 

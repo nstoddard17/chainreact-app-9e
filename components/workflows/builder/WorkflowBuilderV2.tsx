@@ -75,6 +75,7 @@ import { BuildChoreographer } from "@/lib/workflows/ai-agent/build-choreography"
 import { ChatService, type ChatMessage } from "@/lib/workflows/ai-agent/chat-service"
 import { CostTracker, estimateWorkflowCost } from "@/lib/workflows/ai-agent/cost-tracker"
 import { CostDisplay } from "@/components/workflows/ai-agent/CostDisplay"
+import { WorkflowStatusBar } from "./WorkflowStatusBar"
 import { useAuthStore } from "@/stores/authStore"
 import { useIntegrationSelection } from "@/hooks/workflows/useIntegrationSelection"
 import { swapProviderInPlan, canSwapProviders } from "@/lib/workflows/ai-agent/providerSwapping"
@@ -345,6 +346,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [addingAfterNodeId, setAddingAfterNodeId] = useState<string | null>(null) // Persists while integrations panel is open
   const [isFlowTesting, setIsFlowTesting] = useState(false) // True while testing flow from a node
+  const [flowTestStatus, setFlowTestStatus] = useState<{ total: number; currentIndex: number; currentNodeLabel?: string } | null>(null)
   const [isIntegrationsPanelOpen, setIsIntegrationsPanelOpen] = useState(false)
   const pendingInsertionRef = useRef<{
     sourceId: string | null
@@ -353,6 +355,86 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     targetHandle: string | null
   } | null>(null)
   const [isStructureTransitioning, setIsStructureTransitioning] = useState(false)
+  const endStructureTransitionRef = useRef<number | null>(null)
+  const flowTestAbortRef = useRef(false)
+  const flowTestPendingNodesRef = useRef<Set<string>>(new Set())
+
+  const endStructureTransition = useCallback(() => {
+    if (typeof window === 'undefined') {
+      setIsStructureTransitioning(false)
+      return
+    }
+    if (endStructureTransitionRef.current) {
+      cancelAnimationFrame(endStructureTransitionRef.current)
+      endStructureTransitionRef.current = null
+    }
+    const schedule = () => requestAnimationFrame(() => {
+      endStructureTransitionRef.current = null
+      setIsStructureTransitioning(false)
+    })
+    endStructureTransitionRef.current = requestAnimationFrame(() => {
+      endStructureTransitionRef.current = schedule()
+    })
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (endStructureTransitionRef.current) {
+        cancelAnimationFrame(endStructureTransitionRef.current)
+      }
+    }
+  }, [])
+
+  const resetPendingFlowNodes = useCallback(() => {
+    const pendingIds = Array.from(flowTestPendingNodesRef.current)
+    if (pendingIds.length === 0) return
+    const pendingSet = new Set(pendingIds)
+
+    if (reactFlowInstanceRef.current) {
+      pendingIds.forEach(nodeId => {
+        setNodeState(reactFlowInstanceRef.current, nodeId, 'ready')
+      })
+    }
+
+    builder?.setNodes?.((nodes: any[]) =>
+      nodes.map((node: any) => {
+        if (!pendingSet.has(node.id)) {
+          return node
+        }
+
+        if (node.data?.executionStatus !== 'running' && !node.data?.isActiveExecution) {
+          return node
+        }
+
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            executionStatus: null,
+            isActiveExecution: false,
+          },
+        }
+      })
+    )
+
+    flowTestPendingNodesRef.current.clear()
+    setFlowTestStatus(null)
+  }, [builder?.setNodes])
+
+  const handleStopFlowTest = useCallback((nodeId?: string) => {
+    if (!isFlowTesting && flowTestPendingNodesRef.current.size === 0) {
+      return
+    }
+    console.log('[WorkflowBuilder] Stop requested', { nodeId })
+    flowTestAbortRef.current = true
+    resetPendingFlowNodes()
+    setIsFlowTesting(false)
+    setFlowTestStatus(null)
+    toast({
+      title: "Testing stopped",
+      description: "Flow test cancelled.",
+    })
+  }, [isFlowTesting, resetPendingFlowNodes, toast])
 
   const setInsertionContext = useCallback((
     sourceId: string | null,
@@ -1995,6 +2077,16 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       })
 
       // Call test-node API
+      console.log('🔍 [WorkflowBuilder] Sending test request:', {
+        nodeType: node.data?.type,
+        workflowId: flowId,
+        workflowIdType: typeof flowId,
+        workflowIdIsUUID: flowId ? /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(flowId) : false,
+        nodeId: nodeId,
+        configKeys: Object.keys(cleanConfig),
+        testDataKeys: Object.keys(testData)
+      })
+
       const response = await fetch('/api/workflows/test-node', {
         method: 'POST',
         headers: {
@@ -2003,14 +2095,32 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         body: JSON.stringify({
           nodeType: node.data?.type,
           config: cleanConfig,
-          testData: testData
+          testData: testData,
+          workflowId: flowId, // Pass workflow ID for caching
+          nodeId: nodeId, // Pass node ID for caching
+          useCachedData: true, // Enable cached data from previous runs
+          workflowNodes: builder?.nodes // Pass nodes for friendly name lookup
         })
       })
 
+      console.log('🔍 [WorkflowBuilder] Response status:', response.status, response.statusText)
+
       const result = await response.json()
+      console.log('🔍 [WorkflowBuilder] Parsed result:', result)
 
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to test node')
+        // Check if this is a "missing upstream node data" error
+        if (result.debug?.missingNodeNames?.length > 0) {
+          const missingNodes = result.debug.missingNodeNames.join(', ')
+          throw new Error(`Missing data from upstream nodes. Please test these nodes first: ${missingNodes}`)
+        } else if (result.debug?.missingNodes?.length > 0) {
+          const missingNodes = result.debug.missingNodes.join(', ')
+          throw new Error(`Missing data from upstream nodes. Please test these nodes first: ${missingNodes}`)
+        }
+
+        // Use the message from testResult if available
+        const errorMessage = result.testResult?.message || result.error || 'Failed to test node'
+        throw new Error(errorMessage)
       }
 
       logger.debug('[WorkflowBuilder] Test completed:', result)
@@ -2079,7 +2189,12 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       )
 
     } catch (error: any) {
-      logger.error('[WorkflowBuilder] Test failed:', error)
+      // Better error logging
+      console.error('🔴 [WorkflowBuilder] Test failed - Full error:', error)
+      console.error('🔴 [WorkflowBuilder] Error message:', error?.message)
+      console.error('🔴 [WorkflowBuilder] Error stringified:', JSON.stringify(error, Object.getOwnPropertyNames(error || {})))
+
+      logger.error('[WorkflowBuilder] Test failed:', error?.message || error)
       setNodeState(reactFlowInstanceRef.current, nodeId, 'failed')
       const errorMetadata = {
         __testData: {},
@@ -2135,6 +2250,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       nodeData: any,
       errorMessage?: string
     ) {
+      // Note: This function tries to persist to a legacy API endpoint.
+      // Main test result caching is now handled by nodeOutputCache in the test-node API.
+      // This is kept for backwards compatibility but failures are logged at debug level only.
       try {
         const response = await fetch(`/workflows/v2/api/flows/${flowId}/nodes/${nodeId}/tests`, {
           method: 'POST',
@@ -2154,8 +2272,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         })
 
         if (!response.ok) {
-          const errorPayload = await response.json().catch(() => ({}))
-          logger.error('[WorkflowBuilder] Failed to persist node test:', errorPayload)
+          // Legacy endpoint may not exist - this is expected, log at debug level only
+          logger.debug('[WorkflowBuilder] Legacy persist endpoint not available (this is OK)')
           return
         }
 
@@ -2164,7 +2282,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           await actions.refreshRun(responseBody.runId)
         }
       } catch (persistError) {
-        logger.error('[WorkflowBuilder] Persist node test error:', persistError)
+        // Legacy endpoint may not exist - this is expected, log at debug level only
+        logger.debug('[WorkflowBuilder] Legacy persist endpoint error (this is OK)')
       }
     }
   }, [builder?.nodes, builder?.setNodes, actions, flowId, toast])
@@ -2175,6 +2294,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     setIsIntegrationsPanelOpen(false)
     setAddingAfterNodeId(null)
     setIsFlowTesting(true)
+    setFlowTestStatus(null)
+    flowTestAbortRef.current = false
+    flowTestPendingNodesRef.current = new Set()
 
     // Suppress config modal from opening when this is triggered
     suppressNodeClickRef.current = nodeId
@@ -2190,6 +2312,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     if (!builder?.nodes || !builder?.edges || !reactFlowInstanceRef.current) {
       logger.error('[WorkflowBuilder] Cannot test flow - builder not ready')
       setIsFlowTesting(false)
+      setFlowTestStatus(null)
       return
     }
 
@@ -2197,6 +2320,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     if (!startNode) {
       logger.error('[WorkflowBuilder] Start node not found:', nodeId)
       setIsFlowTesting(false)
+      setFlowTestStatus(null)
       return
     }
 
@@ -2217,7 +2341,13 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     }
 
     const nodesToTest = getDownstreamNodes(nodeId)
+    flowTestPendingNodesRef.current = new Set(nodesToTest)
     logger.debug('[WorkflowBuilder] Testing flow from node:', nodeId, 'Total nodes:', nodesToTest.length)
+    setFlowTestStatus({
+      total: nodesToTest.length,
+      currentIndex: 0,
+      currentNodeLabel: undefined
+    })
 
     // Sort nodes in execution order (topological sort)
     const sortedNodeIds: string[] = []
@@ -2244,11 +2374,25 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     // Test nodes sequentially, passing output from one to the next
     let currentTestData: Record<string, any> = {}
 
-    for (const nId of sortedNodeIds) {
+    for (let index = 0; index < sortedNodeIds.length; index++) {
+      if (flowTestAbortRef.current) {
+        resetPendingFlowNodes()
+        flowTestAbortRef.current = false
+        setFlowTestStatus(null)
+        return
+      }
+      const nId = sortedNodeIds[index]
       const node = builder.nodes.find((n: any) => n.id === nId)
       if (!node) continue
 
-      logger.debug('[WorkflowBuilder] Testing node in flow:', node.data?.title || node.data?.type)
+      const nodeLabel = node.data?.title || node.data?.label || node.data?.type || `Node ${index + 1}`
+      logger.debug('[WorkflowBuilder] Testing node in flow:', nodeLabel)
+
+      setFlowTestStatus(prev => prev ? {
+        ...prev,
+        currentIndex: Math.min(index + 1, prev.total),
+        currentNodeLabel: nodeLabel
+      } : prev)
 
       // Set node to running state
       setNodeState(reactFlowInstanceRef.current, nId, 'running')
@@ -2282,6 +2426,13 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           throw new Error(result.error || result.testResult?.error || 'Test failed')
         }
 
+        if (flowTestAbortRef.current) {
+          resetPendingFlowNodes()
+          flowTestAbortRef.current = false
+          setFlowTestStatus(null)
+          return
+        }
+
         // Merge the output into currentTestData for the next node
         currentTestData = {
           ...currentTestData,
@@ -2308,12 +2459,14 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         // This ensures the database update and graph refresh complete before setting state
         await new Promise(resolve => setTimeout(resolve, 700))
         setNodeState(reactFlowInstanceRef.current, nId, 'passed')
+        flowTestPendingNodesRef.current.delete(nId)
 
       } catch (error: any) {
         logger.error('[WorkflowBuilder] Flow test failed at node:', node.data?.title, error)
 
         // Set node to failed state
         setNodeState(reactFlowInstanceRef.current, nId, 'failed')
+        flowTestPendingNodesRef.current.delete(nId)
 
         // Update node with error
         if (actions?.updateConfig) {
@@ -2337,8 +2490,15 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
         // Stop testing on error
         setIsFlowTesting(false)
+        setFlowTestStatus(null)
+        flowTestPendingNodesRef.current.clear()
         return
       }
+    }
+
+    if (flowTestAbortRef.current) {
+      flowTestAbortRef.current = false
+      return
     }
 
     setIsFlowTesting(false)
@@ -2346,7 +2506,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       title: "Flow test completed",
       description: `Successfully tested ${sortedNodeIds.length} node(s)`,
     })
-  }, [builder?.nodes, builder?.edges, actions, toast])
+    flowTestPendingNodesRef.current.clear()
+  }, [builder?.nodes, builder?.edges, actions, toast, resetPendingFlowNodes])
 
   const reactFlowProps = useMemo(() => {
     if (!builder) {
@@ -2418,6 +2579,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           onAddNodeAfter: handleAddNodeAfter,
           onTestNode: handleTestNode,
           onTestFlowFromHere: handleTestFlowFromHere,
+          onStop: handleStopFlowTest,
           isBeingConfigured: configuringNode?.id === node.id,
           isBeingReordered: activeReorderDrag?.nodeId === node.id,
           isFlowTesting, // Disable interactions during flow testing
@@ -2478,7 +2640,28 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       nodeTypes: builder.nodeTypes,
       edgeTypes: builder.edgeTypes,
     }
-  }, [builder, handleAddNodeAfter, handleTestNode, handleTestFlowFromHere, handleReorderPointerDown, configuringNode, activeReorderDrag, getReorderableData, reorderDragOffset, reorderPreviewIndex, isFlowTesting])
+  }, [builder, handleAddNodeAfter, handleTestNode, handleTestFlowFromHere, handleStopFlowTest, handleReorderPointerDown, configuringNode, activeReorderDrag, getReorderableData, reorderDragOffset, reorderPreviewIndex, isFlowTesting])
+
+  const activeExecutionNodeName = useMemo(() => {
+    if (!builder?.activeExecutionNodeId) return null
+    const nodes = reactFlowProps?.nodes
+    if (!nodes) return null
+    const match = nodes.find((node: any) => node.id === builder.activeExecutionNodeId)
+    return match?.data?.title || match?.data?.label || match?.data?.type || null
+  }, [builder?.activeExecutionNodeId, reactFlowProps?.nodes])
+
+  const stopLiveExecutionHandler = useMemo(() => {
+    if (typeof builder?.stopLiveExecution === 'function') {
+      return builder.stopLiveExecution
+    }
+    if (builder?.isListeningForWebhook && typeof builder?.stopWebhookListening === 'function') {
+      return builder.stopWebhookListening
+    }
+    if (builder?.isStepMode && typeof builder?.stopStepExecution === 'function') {
+      return builder.stopStepExecution
+    }
+    return undefined
+  }, [builder?.stopLiveExecution, builder?.isListeningForWebhook, builder?.stopWebhookListening, builder?.isStepMode, builder?.stopStepExecution])
 
   // Compute the name of the node we're adding after (for integrations panel context)
   // Uses addingAfterNodeId which persists while panel is open (not selectedNodeId which changes with React Flow selection)
@@ -2905,7 +3088,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       })
     }
 
-    setIsStructureTransitioning(false)
+    endStructureTransition()
 
     // Open config modal immediately after panel closes
     console.log('🚀 [WorkflowBuilder] Opening config modal for new node:', optimisticNode.id, optimisticNode.data?.type)
@@ -3150,7 +3333,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     // The UI is already updated optimistically above - don't let backend response overwrite it
     const deleteEdits = nodeIds.map(nodeId => ({ op: "deleteNode", nodeId }))
     // Re-enable overlays immediately so the phantom edge reflects new layout
-    setIsStructureTransitioning(false)
+    endStructureTransition()
 
     actions.applyEdits(deleteEdits).catch((error: any) => {
       // Rollback on error
@@ -5267,6 +5450,17 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
             />
           </FlowV2BuilderContent>
 
+          <WorkflowStatusBar
+            isFlowTesting={isFlowTesting}
+            flowTestStatus={flowTestStatus}
+            onStopFlowTest={handleStopFlowTest}
+            isExecuting={Boolean(builder?.isExecuting)}
+            isPaused={Boolean(builder?.isPaused)}
+            isListeningForWebhook={Boolean(builder?.isListeningForWebhook)}
+            activeExecutionNodeName={activeExecutionNodeName}
+            onStopExecution={stopLiveExecutionHandler}
+          />
+
           <FlowV2AgentPanel
             layout={{
               isOpen: agentOpen,
@@ -5332,6 +5526,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         // NOTE: We rely on ConfigurationModal's internal effectiveInitialData useMemo
         // to maintain stable reference, not on this calculation
         let initialData: Record<string, any> = { ...(configuringNode?.data?.config || {}) }
+        const savedDynamicOptions = configuringNode?.data?.savedDynamicOptions
 
         // If we don't have config from the node, try localStorage cache
         if (Object.keys(initialData).length === 0) {
@@ -5362,6 +5557,13 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           }
         }
 
+        if (savedDynamicOptions && Object.keys(savedDynamicOptions).length > 0) {
+          initialData = {
+            ...initialData,
+            __dynamicOptions: savedDynamicOptions
+          }
+        }
+
         return (
           <ConfigurationModal
             isOpen={!!configuringNode}
@@ -5373,6 +5575,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
             nodeInfo={nodeInfo}
             integrationName={configuringNode?.data?.providerId || nodeType || 'Unknown'}
             initialData={initialData}
+            initialDynamicOptions={savedDynamicOptions}
             workflowData={{
               nodes: reactFlowProps?.nodes ?? [],
               edges: reactFlowProps?.edges ?? [],

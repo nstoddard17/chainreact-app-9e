@@ -80,6 +80,15 @@ interface NodeSnapshotResult {
   lineage: any[]
 }
 
+interface CachedNodeOutput {
+  nodeId: string
+  nodeType: string
+  output: any
+  input?: any
+  executedAt: string
+  executionId?: string
+}
+
 interface FlowV2BuilderState {
   flowId: string
   flow: Flow | null
@@ -97,6 +106,9 @@ interface FlowV2BuilderState {
   runs: Record<string, RunDetails>
   nodeSnapshots: Record<string, NodeSnapshotResult>
   secrets: Array<{ id: string; name: string }>
+  // Cached outputs from previous node test runs
+  cachedOutputs: Record<string, CachedNodeOutput>
+  cachedOutputsLoaded: boolean
 }
 
 export interface FlowV2BuilderActions {
@@ -516,6 +528,8 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
     runs: {},
     nodeSnapshots: {},
     secrets: [],
+    cachedOutputs: {},
+    cachedOutputsLoaded: false,
   }))
 
   const flowRef = useRef<Flow | null>(null)
@@ -563,6 +577,58 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       console.debug("[useFlowV2Builder] Unable to fetch latest run", error)
     }
   }, [flowId])
+
+  // Load cached outputs for the workflow (from previous test runs)
+  const loadCachedOutputs = useCallback(async () => {
+    if (!flowId) return
+
+    try {
+      const response = await fetch(`/api/workflows/cached-outputs?workflowId=${flowId}`, {
+        credentials: 'include'
+      })
+
+      if (!response.ok) {
+        console.debug("[useFlowV2Builder] Unable to fetch cached outputs")
+        return
+      }
+
+      const data = await response.json()
+
+      if (data.success && data.cachedOutputs) {
+        const cachedOutputs = data.cachedOutputs
+
+        setFlowState((prev) => ({
+          ...prev,
+          cachedOutputs,
+          cachedOutputsLoaded: true,
+        }))
+
+        // Update node data to include hasCachedOutput flag for visual indicator
+        if (setNodes && Object.keys(cachedOutputs).length > 0) {
+          setNodes((nodes: ReactFlowNode[]) =>
+            nodes.map(node => {
+              const hasCached = !!cachedOutputs[node.id]
+              if (hasCached && !(node.data as any)?.hasCachedOutput) {
+                return {
+                  ...node,
+                  data: {
+                    ...node.data,
+                    hasCachedOutput: true,
+                    cachedOutputTimestamp: cachedOutputs[node.id]?.executedAt,
+                  }
+                }
+              }
+              return node
+            })
+          )
+        }
+
+        console.debug(`[useFlowV2Builder] Loaded ${data.nodeCount} cached outputs for workflow`)
+      }
+    } catch (error) {
+      console.debug("[useFlowV2Builder] Unable to fetch cached outputs", error)
+    }
+  }, [flowId, setNodes])
 
   const updateReactFlowGraph = useCallback(
     (flow: Flow) => {
@@ -862,6 +928,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
           error: undefined,
         }))
         void syncLatestRunId()
+        void loadCachedOutputs() // Load cached outputs from previous test runs
       } catch (error: any) {
         setFlowState((prev) => ({
           ...prev,
@@ -904,6 +971,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
         error: undefined,
       }))
       void syncLatestRunId()
+      void loadCachedOutputs() // Load cached outputs from previous test runs
     } catch (error: any) {
       const message = error?.message ?? "Failed to load flow"
       console.error("[useFlowV2Builder] load failed", message)
@@ -914,7 +982,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
     } finally {
       setLoading(false)
     }
-  }, [flowId, setLoading, syncLatestRunId, updateReactFlowGraph])
+  }, [flowId, setLoading, syncLatestRunId, loadCachedOutputs, updateReactFlowGraph])
 
   const ensureFlow = useCallback(async () => {
     if (flowRef.current) {

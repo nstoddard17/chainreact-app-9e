@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useMemo, useState, useEffect } from 'react'
-import { CheckCircle2, XCircle, Clock, Info, TestTube, AlertCircle, RefreshCw, ChevronDown, ChevronRight, Code2, Database } from 'lucide-react'
+import { CheckCircle2, XCircle, Clock, Info, TestTube, AlertCircle, RefreshCw, ChevronDown, ChevronRight, Code2, Database, History } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -30,6 +30,7 @@ interface ResultsTabProps {
     nodeCount: number
     availableNodes: string[]
   }
+  workflowId?: string
 }
 
 /**
@@ -50,6 +51,7 @@ export function ResultsTab({
   onRunTest,
   isTestingNode = false,
   cachedOutputsInfo,
+  workflowId,
 }: ResultsTabProps) {
   const [showRawResponse, setShowRawResponse] = useState(false)
   const [expandedFields, setExpandedFields] = useState<Record<string, boolean>>({})
@@ -57,6 +59,8 @@ export function ResultsTab({
   const [latestExecutionData, setLatestExecutionData] = useState<Record<string, any> | null>(null)
   const [latestExecutionResult, setLatestExecutionResult] = useState<any>(null)
   const [isLoadingLatest, setIsLoadingLatest] = useState(false)
+  const [cachedOutput, setCachedOutput] = useState<any>(null)
+  const [isLoadingCached, setIsLoadingCached] = useState(false)
 
   // Get builder instance to access actions
   const builder = useFlowV2Builder()
@@ -68,12 +72,97 @@ export function ResultsTab({
 
   const outputSchema = nodeComponent?.outputSchema || []
 
-  // Use latest execution data if available, otherwise fall back to test data
-  const displayData = latestExecutionData || testData
-  const displayResult = latestExecutionResult || testResult
+  // Fetch cached output directly from API when component mounts
+  useEffect(() => {
+    const fetchCachedOutput = async () => {
+      if (!workflowId || !currentNodeId || testData) return // Don't fetch if we already have test data
+
+      try {
+        setIsLoadingCached(true)
+        const response = await fetch(`/api/workflows/cached-outputs?workflowId=${workflowId}&nodeId=${currentNodeId}`, {
+          credentials: 'include'
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success && data.cachedOutputs?.[currentNodeId]) {
+            setCachedOutput(data.cachedOutputs[currentNodeId])
+            logger.debug('[ResultsTab] Loaded cached output for node:', currentNodeId)
+          }
+        }
+      } catch (error) {
+        logger.debug('[ResultsTab] Failed to fetch cached output:', error)
+      } finally {
+        setIsLoadingCached(false)
+      }
+    }
+
+    fetchCachedOutput()
+  }, [workflowId, currentNodeId, testData])
+
+  // Extract output data from cached output structure
+  // The cached output has structure: { nodeId, nodeType, output: { success, output: {...}, message }, executedAt }
+  const cachedOutputData = useMemo(() => {
+    if (!cachedOutput?.output) return null
+    // The output field contains the ActionResult with nested output
+    const actionResult = cachedOutput.output
+    if (actionResult?.output && typeof actionResult.output === 'object') {
+      return actionResult.output
+    }
+    // Fallback to direct output if not nested
+    return actionResult
+  }, [cachedOutput])
+
+  const cachedOutputResult = useMemo(() => {
+    if (!cachedOutput?.output) return null
+    const actionResult = cachedOutput.output
+    return {
+      success: actionResult?.success !== false,
+      executionTime: actionResult?.executionTime,
+      timestamp: cachedOutput.executedAt,
+      error: actionResult?.error,
+      message: actionResult?.message,
+      rawResponse: actionResult,
+      fromCache: true
+    }
+  }, [cachedOutput])
+
+  // Use latest execution data if available, then test data, then cached data
+  const displayData = latestExecutionData || testData || cachedOutputData
+  const displayResult = latestExecutionResult || testResult || cachedOutputResult
 
   const hasTestData = displayData && Object.keys(displayData).length > 0
   const hasTestResult = displayResult !== undefined
+  const isFromCache = !latestExecutionData && !testData && cachedOutputData !== null
+
+  // Debug logging to trace data flow issues
+  useEffect(() => {
+    // CRITICAL DEBUG: Log to browser console for visibility
+    console.log('🔍 [ResultsTab] Props received:', {
+      hasTestData,
+      hasTestResult,
+      testData,
+      testDataKeys: testData ? Object.keys(testData) : 'NULL',
+      testResult,
+      displayData,
+      displayDataKeys: displayData ? Object.keys(displayData) : 'NULL',
+      outputSchemaLength: outputSchema?.length || 0
+    })
+
+    logger.debug('[ResultsTab] Data state:', {
+      hasTestData,
+      hasTestResult,
+      isFromCache,
+      testDataKeys: testData ? Object.keys(testData) : [],
+      testDataSample: testData ? JSON.stringify(testData).slice(0, 200) : null,
+      displayDataKeys: displayData ? Object.keys(displayData) : [],
+      displayDataSample: displayData ? JSON.stringify(displayData).slice(0, 200) : null,
+      outputSchemaLength: outputSchema?.length || 0,
+      outputSchemaFields: outputSchema?.map((f: any) => f.name) || [],
+      testResult: testResult ? { success: testResult.success, hasError: !!testResult.error } : null,
+      nodeType: nodeInfo?.type
+    })
+  }, [testData, displayData, testResult, outputSchema, nodeInfo?.type, hasTestData, hasTestResult, isFromCache])
 
   useEffect(() => {
     setLatestExecutionData(null)
@@ -666,15 +755,28 @@ export function ResultsTab({
           {/* Header */}
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-1">
-              <h2 className="text-lg font-semibold text-foreground">Test Execution Results</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-semibold text-foreground">
+                  {isFromCache ? 'Cached Results' : 'Test Execution Results'}
+                </h2>
+                {isFromCache && (
+                  <Badge variant="outline" className="text-[10px] h-5 px-2 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800">
+                    <History className="h-3 w-3 mr-1" />
+                    From previous run
+                  </Badge>
+                )}
+              </div>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Output data and execution details from the most recent test run
+                {isFromCache
+                  ? 'Output data from a previous test run. Re-test to get fresh results.'
+                  : 'Output data and execution details from the most recent test run'
+                }
               </p>
             </div>
             <div className="flex flex-col items-end gap-2 flex-shrink-0">
               {onRunTest && (
                 <Button
-                  variant="outline"
+                  variant={isFromCache ? "default" : "outline"}
                   size="sm"
                   onClick={onRunTest}
                   disabled={isTestingNode}
@@ -687,8 +789,8 @@ export function ResultsTab({
                     </>
                   ) : (
                     <>
-                      <RefreshCw className="h-3.5 w-3.5" />
-                      Re-test
+                      {isFromCache ? <TestTube className="h-3.5 w-3.5" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                      {isFromCache ? 'Test Node' : 'Re-test'}
                     </>
                   )}
                 </Button>
@@ -768,6 +870,37 @@ export function ResultsTab({
                   </AlertDescription>
                 </Alert>
               )}
+            </div>
+          )}
+
+          {/* Debug: Show when test passed but no output data */}
+          {hasTestResult && !hasTestData && isSuccess && (
+            <Alert className="border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/30">
+              <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <AlertDescription className="text-xs text-amber-900 dark:text-amber-200">
+                <p className="font-medium mb-1">Test passed but no output data was returned.</p>
+                <p className="text-[10px] opacity-70">
+                  testData keys: {testData ? Object.keys(testData).join(', ') || '(empty)' : '(null)'}<br/>
+                  displayData keys: {displayData ? Object.keys(displayData).join(', ') || '(empty)' : '(null)'}<br/>
+                  outputSchema fields: {outputSchema?.length || 0}<br/>
+                  testResult.rawResponse: {testResult?.rawResponse ? Object.keys(testResult.rawResponse).join(', ') : '(none)'}
+                </p>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Fallback: If test passed and we have rawResponse but no testData, show rawResponse */}
+          {hasTestResult && !hasTestData && isSuccess && testResult?.rawResponse && Object.keys(testResult.rawResponse).length > 0 && (
+            <div className="space-y-4">
+              <ConfigurationSectionHeader
+                label="Output Data (from rawResponse)"
+                prefix={<Code2 className="h-4 w-4 text-muted-foreground" />}
+              />
+              <div className="rounded-lg border border-border bg-card p-4">
+                <pre className="text-xs font-mono text-foreground whitespace-pre-wrap break-all">
+                  {JSON.stringify(testResult.rawResponse, null, 2)}
+                </pre>
+              </div>
             </div>
           )}
 

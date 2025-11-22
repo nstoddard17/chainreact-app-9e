@@ -3,7 +3,7 @@
 import React, { memo, useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { Handle, Position, type NodeProps, useUpdateNodeInternals, useReactFlow } from "@xyflow/react"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
-import { Trash2, TestTube, Plus, Edit2, Layers, Unplug, Sparkles, ChevronDown, ChevronUp, Loader2, CheckCircle2, AlertTriangle, Info, GitFork, ArrowRight, PlusCircle, AlertCircle, MoreVertical, Play, Snowflake, StopCircle, GripVertical } from "lucide-react"
+import { Trash2, TestTube, Plus, Edit2, Layers, Unplug, Sparkles, ChevronDown, ChevronUp, Loader2, CheckCircle2, AlertTriangle, Info, GitFork, ArrowRight, PlusCircle, AlertCircle, MoreVertical, Play, Snowflake, GripVertical, Database } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -70,7 +70,6 @@ export interface CustomNodeData {
   onTestNode?: (nodeId: string) => void
   onTestFlowFromHere?: (nodeId: string) => void
   onFreeze?: (nodeId: string) => void
-  onStop?: (nodeId: string) => void
   onStartReorder?: (nodeId: string, event: React.PointerEvent) => void
   isReorderable?: boolean
   isBeingReordered?: boolean
@@ -93,6 +92,8 @@ export interface CustomNodeData {
   aiTestSummary?: string | null
   autoExpand?: boolean
   aiFallbackFields?: string[]
+  hasCachedOutput?: boolean // Indicates this node has cached output from a previous test run
+  cachedOutputTimestamp?: string // When the cached output was created
   aiProgressConfig?: {
     key: string
     value: any
@@ -278,7 +279,6 @@ function CustomNode({ id, data, selected }: NodeProps) {
     onTestNode,
     onTestFlowFromHere,
     onFreeze,
-    onStop,
     hasAddButton,
     onStartReorder,
     isReorderable,
@@ -985,6 +985,50 @@ function CustomNode({ id, data, selected }: NodeProps) {
     )
   }, [showIncompleteStatusBadge, validationMessage, needsSetup])
 
+  // Cached output badge - shows when node has cached data from a previous test run
+  const cachedOutputBadge = useMemo(() => {
+    // Only show if we have cached output and no current execution status
+    if (!nodeData.hasCachedOutput || nodeRanSuccessfully || error) return null
+
+    const timestamp = nodeData.cachedOutputTimestamp
+    const timeAgo = timestamp ? (() => {
+      try {
+        const date = new Date(timestamp)
+        const now = new Date()
+        const diffMs = now.getTime() - date.getTime()
+        const diffMins = Math.floor(diffMs / 60000)
+        if (diffMins < 1) return 'just now'
+        if (diffMins < 60) return `${diffMins}m ago`
+        const diffHours = Math.floor(diffMins / 60)
+        if (diffHours < 24) return `${diffHours}h ago`
+        const diffDays = Math.floor(diffHours / 24)
+        return `${diffDays}d ago`
+      } catch {
+        return ''
+      }
+    })() : ''
+
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className={`${statusBadgeBase} border-blue-200 bg-blue-50 dark:bg-blue-950/50 dark:border-blue-800 text-blue-600 dark:text-blue-400`}>
+              <Database className="w-3.5 h-3.5" />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="top" align="end" className="max-w-[240px] text-xs">
+            <div className="space-y-1">
+              <p className="font-medium">Cached results available</p>
+              <p className="text-muted-foreground">
+                This node was tested {timeAgo}. Open the config to see results.
+              </p>
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    )
+  }, [nodeData.hasCachedOutput, nodeData.cachedOutputTimestamp, nodeRanSuccessfully, error])
+
   const badgeVariantStyles: Record<string, string> = {
     success: 'border-green-500 text-green-600 bg-green-50',
     warning: 'border-amber-500 text-amber-600 bg-amber-50',
@@ -1308,7 +1352,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
     )
   }, [aiStatus, executionStatus])
 
-  const activeStatusBadge = statusIndicator ?? executionSuccessBadge ?? completionStatusBadge ?? incompleteStatusBadge
+  const activeStatusBadge = statusIndicator ?? executionSuccessBadge ?? cachedOutputBadge ?? completionStatusBadge ?? incompleteStatusBadge
 
   useEffect(() => {
     if (typeof updateNodeInternals === 'function') {
@@ -1497,7 +1541,6 @@ function CustomNode({ id, data, selected }: NodeProps) {
         onTestNode={onTestNode}
         onTestFlowFromHere={onTestFlowFromHere}
         onFreeze={onFreeze}
-        onStop={onStop}
         onDelete={onDelete}
         onDeleteSelected={onDeleteSelected}
         hasRequiredFieldsMissing={hasRequiredFieldsMissing}
@@ -1613,7 +1656,6 @@ function CustomNode({ id, data, selected }: NodeProps) {
       onTestNode={onTestNode}
       onTestFlowFromHere={onTestFlowFromHere}
       onFreeze={onFreeze}
-      onStop={onStop}
       onDelete={onDelete}
       onDeleteSelected={onDeleteSelected}
       hasRequiredFieldsMissing={hasRequiredFieldsMissing}
@@ -1735,18 +1777,6 @@ function CustomNode({ id, data, selected }: NodeProps) {
               >
                 <Snowflake className="w-4 h-4 mr-2" />
                 Freeze
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation()
-                  if (!hasRequiredFieldsMissing) {
-                    onStop?.(id)
-                  }
-                }}
-                disabled={hasRequiredFieldsMissing}
-              >
-                <StopCircle className="w-4 h-4 mr-2" />
-                Stop
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem

@@ -2,7 +2,7 @@
 
 import React, { useState } from "react"
 import { Handle, Position } from "@xyflow/react"
-import { Play, TestTube, Snowflake, StopCircle, Trash2, MoreHorizontal, Edit2, Copy, FileText } from "lucide-react"
+import { Play, TestTube, Snowflake, Trash2, MoreHorizontal, Edit2, Copy, FileText } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,7 +21,6 @@ interface ActionPlaceholderNodeProps {
     onDuplicate?: (nodeId: string) => void
     onAddNote?: (nodeId: string) => void
     onFreeze?: (nodeId: string) => void
-    onStop?: (nodeId: string) => void
     title?: string
     isPlaceholder?: boolean
   }
@@ -70,12 +69,6 @@ export function ActionPlaceholderNode({ id, data, selected }: ActionPlaceholderN
   const handleFreeze = () => {
     if (data.onFreeze) {
       data.onFreeze(id)
-    }
-  }
-
-  const handleStop = () => {
-    if (data.onStop) {
-      data.onStop(id)
     }
   }
 
@@ -182,10 +175,6 @@ export function ActionPlaceholderNode({ id, data, selected }: ActionPlaceholderN
           <DropdownMenuItem disabled>
             <Snowflake className="w-4 h-4 mr-2" />
             Freeze
-          </DropdownMenuItem>
-          <DropdownMenuItem disabled>
-            <StopCircle className="w-4 h-4 mr-2" />
-            Stop
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleDelete} disabled={isPlaceholder} className="text-destructive focus:text-destructive">
