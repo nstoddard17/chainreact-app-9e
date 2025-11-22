@@ -95,6 +95,11 @@ export async function updateGoogleCalendarEvent(
         date = new Date().toISOString().split('T')[0]
       }
 
+      // Handle full ISO timestamps (e.g., from {{NOW}}) - extract just the date part
+      if (date.includes('T')) {
+        date = date.split('T')[0]
+      }
+
       if (!time || time === 'current') {
         time = new Date().toTimeString().slice(0, 5)
       }
@@ -109,6 +114,19 @@ export async function updateGoogleCalendarEvent(
     const parseDate = (date: string) => {
       if (!date || date === 'today') {
         return new Date().toISOString().split('T')[0]
+      }
+      // Handle full ISO timestamps (e.g., from {{NOW}}) - extract just the date part
+      if (date.includes('T')) {
+        return date.split('T')[0]
+      }
+      // Handle other date formats - try to parse and format as YYYY-MM-DD
+      try {
+        const parsed = new Date(date)
+        if (!isNaN(parsed.getTime())) {
+          return parsed.toISOString().split('T')[0]
+        }
+      } catch {
+        // Fall through to return original
       }
       return date
     }
@@ -131,13 +149,24 @@ export async function updateGoogleCalendarEvent(
     // Handle date/time updates
     if (allDay !== undefined || startDate !== undefined || startTime !== undefined || endDate !== undefined || endTime !== undefined) {
       if (allDay) {
+        // All-day events use 'date' property without timeZone (Google API requirement)
+        const startDateStr = parseDate(startDate || existingEvent.data.start?.date || new Date().toISOString())
+        const endDateStr = parseDate(endDate || startDate || existingEvent.data.end?.date || new Date().toISOString())
+
+        // For all-day events, Google requires end date to be the day AFTER the last day of the event
+        // If start and end are the same, add one day to end
+        let adjustedEndDate = endDateStr
+        if (startDateStr === endDateStr) {
+          const endDateObj = new Date(endDateStr)
+          endDateObj.setDate(endDateObj.getDate() + 1)
+          adjustedEndDate = endDateObj.toISOString().split('T')[0]
+        }
+
         eventData.start = {
-          date: parseDate(startDate || existingEvent.data.start?.date),
-          timeZone: eventStartTimeZone
+          date: startDateStr
         }
         eventData.end = {
-          date: parseDate(endDate || startDate || existingEvent.data.end?.date),
-          timeZone: eventEndTimeZone
+          date: adjustedEndDate
         }
       } else {
         eventData.start = {

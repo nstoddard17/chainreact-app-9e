@@ -1080,6 +1080,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         name: "transparency",
         label: "Show as",
         type: "select",
+        defaultValue: "opaque",
         options: [
           { value: "transparent", label: "Free" },
           { value: "opaque", label: "Busy" }
@@ -1090,6 +1091,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         name: "visibility",
         label: "Visibility",
         type: "select",
+        defaultValue: "default",
         options: [
           { value: "default", label: "Default visibility" },
           { value: "public", label: "Public" },

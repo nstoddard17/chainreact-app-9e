@@ -114,6 +114,7 @@ export interface CustomNodeData {
   reorderDragOffset?: number
   previewOffset?: number
   isBeingReordered?: boolean
+  isFlowTesting?: boolean // Disable interactions during flow testing
   shouldSuppressConfigureClick?: () => boolean
 }
 
@@ -678,8 +679,14 @@ function CustomNode({ id, data, selected }: NodeProps) {
       nodeId: id,
       type,
       hasOnConfigure: !!onConfigure,
-      nodeHasConfiguration: nodeHasConfiguration()
+      nodeHasConfiguration: nodeHasConfiguration(),
+      isFlowTesting: data.isFlowTesting
     })
+
+    // Disable click interactions during flow testing
+    if (data.isFlowTesting) {
+      return
+    }
 
     if (data.shouldSuppressConfigureClick?.()) {
       return
@@ -1423,6 +1430,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
         onDelete={onDelete}
         onDeleteSelected={onDeleteSelected}
         hasRequiredFieldsMissing={hasRequiredFieldsMissing}
+        disabled={data.isFlowTesting}
       >
         <div
           className="relative w-[360px] bg-slate-50/80 rounded-lg shadow-sm border-2 border-slate-200 group transition-all duration-200 overflow-hidden"
@@ -1538,6 +1546,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
       onDelete={onDelete}
       onDeleteSelected={onDeleteSelected}
       hasRequiredFieldsMissing={hasRequiredFieldsMissing}
+      disabled={data.isFlowTesting}
     >
       {/* Wrapper div to contain both node and plus button */}
       <div className="relative" style={{ width: '360px' }}>
@@ -1691,6 +1700,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
           <p className="text-sm text-destructive font-medium">{error}</p>
         </div>
       )}
+      {/* DISABLED: Incomplete banner - commented out per user request
       {!error && !isIntegrationDisconnected && hasValidationIssues && (
         <div className="bg-red-50 border-b border-red-100 px-4 py-3 rounded-t-lg">
           <div className="flex items-start gap-2">
@@ -1703,6 +1713,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
           </div>
         </div>
       )}
+      */}
 
       {/* Execution result message (success, warning, or info from action) */}
       {resultMessage && executionStatus === 'completed' && (
