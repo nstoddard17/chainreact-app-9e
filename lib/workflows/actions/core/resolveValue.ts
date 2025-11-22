@@ -206,7 +206,9 @@ export function resolveValue(
         logger.debug(`🔍 Found node data for ${nodeIdOrTitle}:`, {
           nodeDataType: typeof nodeData,
           hasOutput: !!nodeData?.output,
-          outputField
+          hasSuccess: typeof nodeData?.success !== 'undefined',
+          outputField,
+          topLevelKeys: nodeData && typeof nodeData === 'object' ? Object.keys(nodeData) : []
         })
 
         // Navigate through the nested structure
@@ -219,7 +221,8 @@ export function resolveValue(
           return fieldValue
         }
 
-        // Also check if the field exists in the node's output property
+        // Check if the field exists in the node's output property
+        // This handles cached ActionResult format: { success: true, output: { field: value } }
         if (nodeData.output) {
           const outputFieldValue = outputField.split(".").reduce((acc: any, part: any) => {
             return acc && acc[part]
@@ -231,7 +234,20 @@ export function resolveValue(
           }
         }
 
-        logger.debug(`🔍 Could not resolve ${key} - field not found in node data or output`)
+        // Also check inside output.output for double-nested structures
+        // This handles cases where nodeData = { success, output: { output: { field } } }
+        if (nodeData.output?.output) {
+          const doubleNestedValue = outputField.split(".").reduce((acc: any, part: any) => {
+            return acc && acc[part]
+          }, nodeData.output.output)
+
+          if (doubleNestedValue !== undefined) {
+            logger.debug(`🔍 Resolved ${key} from double-nested output:`, doubleNestedValue)
+            return doubleNestedValue
+          }
+        }
+
+        logger.debug(`🔍 Could not resolve ${key} - field not found in node data, output, or nested output`)
       } else {
         logger.debug(`🔍 Node ${nodeIdOrTitle} not found in input keys:`, Object.keys(input || {}))
       }
@@ -428,7 +444,8 @@ export function resolveValue(
             return fieldValue
           }
 
-          // Also check if the field exists in the node's output property
+          // Check if the field exists in the node's output property
+          // This handles cached ActionResult format: { success: true, output: { field: value } }
           if (nodeData.output) {
             const outputFieldValue = outputField.split(".").reduce((acc: any, part: any) => {
               return acc && acc[part]
@@ -436,6 +453,17 @@ export function resolveValue(
 
             if (outputFieldValue !== undefined) {
               return outputFieldValue
+            }
+          }
+
+          // Also check inside output.output for double-nested structures
+          if (nodeData.output?.output) {
+            const doubleNestedValue = outputField.split(".").reduce((acc: any, part: any) => {
+              return acc && acc[part]
+            }, nodeData.output.output)
+
+            if (doubleNestedValue !== undefined) {
+              return doubleNestedValue
             }
           }
         }

@@ -1915,6 +1915,18 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   }, [activeReorderDrag])
 
   const handleTestNode = useCallback(async (nodeId: string) => {
+    // Close config modal and suppress it from opening when testing
+    setConfiguringNode(null)
+    suppressNodeClickRef.current = nodeId
+    if (suppressNodeClickTimeoutRef.current) {
+      clearTimeout(suppressNodeClickTimeoutRef.current)
+    }
+    suppressNodeClickTimeoutRef.current = setTimeout(() => {
+      if (suppressNodeClickRef.current === nodeId) {
+        suppressNodeClickRef.current = null
+      }
+    }, 500)
+
     const node = builder?.nodes?.find((n: any) => n.id === nodeId)
     if (!node || !reactFlowInstanceRef.current) {
       logger.error('[WorkflowBuilder] Cannot test node - node or ReactFlow instance not found')

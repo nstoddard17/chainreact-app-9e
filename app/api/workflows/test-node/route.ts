@@ -5,8 +5,64 @@ import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-re
 import { executeAction } from "@/lib/workflows/executeNode"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 import { nodeOutputCache } from "@/lib/execution/nodeOutputCache"
+import { resolveValue } from "@/lib/workflows/actions/core/resolveValue"
 
 import { logger } from '@/lib/utils/logger'
+
+/**
+ * Check if a config has unresolved variables and identify which ones
+ */
+function findUnresolvedVariables(config: any, resolvedConfig: any): string[] {
+  const unresolvedVars: string[] = []
+
+  function checkValue(original: any, resolved: any, path: string = '') {
+    if (typeof original === 'string' && original.includes('{{') && original.includes('}}')) {
+      // Extract variable references from the original value
+      const varMatches = original.match(/\{\{([^}]+)\}\}/g) || []
+
+      for (const match of varMatches) {
+        const varName = match.replace(/\{\{|\}\}/g, '').trim()
+
+        // Check if this variable was NOT resolved (still contains template or is undefined)
+        if (resolved === undefined || resolved === null ||
+            (typeof resolved === 'string' && resolved.includes(match))) {
+          unresolvedVars.push(varName)
+        }
+      }
+    } else if (original && typeof original === 'object' && !Array.isArray(original)) {
+      for (const key of Object.keys(original)) {
+        checkValue(original[key], resolved?.[key], path ? `${path}.${key}` : key)
+      }
+    } else if (Array.isArray(original)) {
+      original.forEach((item, idx) => {
+        checkValue(item, resolved?.[idx], `${path}[${idx}]`)
+      })
+    }
+  }
+
+  checkValue(config, resolvedConfig)
+  return [...new Set(unresolvedVars)] // Remove duplicates
+}
+
+/**
+ * Extract node IDs from variable references
+ */
+function extractNodeIdsFromVariables(variables: string[]): string[] {
+  const nodeIds: string[] = []
+  for (const varName of variables) {
+    // Check if it's a node reference (contains a dot and doesn't start with common prefixes)
+    if (varName.includes('.') &&
+        !varName.startsWith('data.') &&
+        !varName.startsWith('trigger.') &&
+        varName !== 'NOW' && varName !== 'now') {
+      const nodeId = varName.split('.')[0]
+      if (nodeId && !nodeIds.includes(nodeId)) {
+        nodeIds.push(nodeId)
+      }
+    }
+  }
+  return nodeIds
+}
 
 export async function POST(request: Request) {
   try {
@@ -108,6 +164,63 @@ export async function POST(request: Request) {
       userId: user.id,
       workflowId: workflowId || "test-workflow",
       testMode: true
+    }
+
+    // Pre-check: Try resolving variables to detect unresolved references
+    // This provides better error messages to users about missing upstream node data
+    const hasVariables = Object.values(config || {}).some((v: any) =>
+      typeof v === 'string' && v.includes('{{') && v.includes('}}')
+    )
+
+    if (hasVariables) {
+      const resolvedConfig = resolveValue(config, mergedData)
+      const unresolvedVars = findUnresolvedVariables(config, resolvedConfig)
+
+      if (unresolvedVars.length > 0) {
+        // Extract which nodes we need data from
+        const neededNodeIds = extractNodeIdsFromVariables(unresolvedVars)
+        const availableNodeIds = Object.keys(cachedOutputs)
+
+        // Check if this is a "missing cached data" issue vs other resolution failure
+        const missingNodeIds = neededNodeIds.filter(id => !availableNodeIds.includes(id))
+
+        logger.warn('[test-node] Unresolved variables detected:', {
+          unresolvedVars,
+          neededNodeIds,
+          availableNodeIds,
+          missingNodeIds
+        })
+
+        if (missingNodeIds.length > 0) {
+          // Provide helpful error message about running upstream nodes first
+          return jsonResponse({
+            success: false,
+            testResult: {
+              success: false,
+              output: {
+                error: true,
+                errorMessage: `Missing data from upstream node(s). Please run the following node(s) first: ${missingNodeIds.join(', ')}`,
+                unresolvedVariables: unresolvedVars,
+                missingNodes: missingNodeIds,
+                availableNodes: availableNodeIds
+              },
+              message: `❌ Cannot resolve variables: ${unresolvedVars.join(', ')}\n\nThis node references output from other nodes that haven't been tested yet. Please test the upstream node(s) first, then try again.`
+            },
+            nodeInfo: {
+              type: nodeType,
+              title: nodeComponent.title,
+              description: nodeComponent.description
+            },
+            cachedData: cachedDataInfo,
+            debug: {
+              unresolvedVariables: unresolvedVars,
+              missingNodes: missingNodeIds,
+              availableNodes: availableNodeIds,
+              hint: 'Run the upstream nodes first to cache their outputs'
+            }
+          }, 400)
+        }
+      }
     }
 
     let testResult: any
