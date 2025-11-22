@@ -746,10 +746,19 @@ export function FieldRenderer({
     onChange(checked);
   };
 
+  // Helper to format date as YYYY-MM-DD in LOCAL timezone (not UTC)
+  // Using toISOString() causes date to shift when in timezones behind UTC
+  const formatLocalDate = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // Handles date field changes
   const handleDateChange = (date: Date | undefined) => {
-    // Use YYYY-MM-DD format to match Airtable's date format
-    onChange(date ? date.toISOString().split('T')[0] : null);
+    // Use YYYY-MM-DD format in local timezone to match user's expected date
+    onChange(date ? formatLocalDate(date) : null);
   };
 
   // Get user session for email signature integration
@@ -2270,15 +2279,20 @@ export function FieldRenderer({
           trimmedDateValue.endsWith('}}') &&
           !isRuntimeNowValue(trimmedDateValue);
 
-        // Format date value for input
+        // Format date value for input - use local timezone to avoid date shift
         let formattedDateValue = '';
         if (value && !isUsingNow && !isVariableValue) {
           if (value instanceof Date) {
-            formattedDateValue = value.toISOString().split('T')[0];
+            formattedDateValue = formatLocalDate(value);
           } else if (typeof value === 'string') {
-            const date = new Date(value);
-            if (!isNaN(date.getTime())) {
-              formattedDateValue = date.toISOString().split('T')[0];
+            // If already in YYYY-MM-DD format, use as-is
+            if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+              formattedDateValue = value;
+            } else {
+              const date = new Date(value);
+              if (!isNaN(date.getTime())) {
+                formattedDateValue = formatLocalDate(date);
+              }
             }
           }
         }
@@ -2344,6 +2358,11 @@ export function FieldRenderer({
                 Variable value will be resolved when the workflow runs.
               </p>
             )}
+            {isUsingNow && !isVariableValue && (
+              <p className="text-xs text-muted-foreground">
+                Will use today's date ({formatLocalDate(new Date())}) when the workflow runs.
+              </p>
+            )}
           </div>
         );
       }
@@ -2376,18 +2395,26 @@ export function FieldRenderer({
 
         const startDateValue = (() => {
           if (!rawStartValue || startIsVariable) return '';
+          // If already in YYYY-MM-DD format, use as-is
+          if (/^\d{4}-\d{2}-\d{2}$/.test(rawStartValue)) {
+            return rawStartValue;
+          }
           const date = new Date(rawStartValue);
           if (!isNaN(date.getTime())) {
-            return date.toISOString().split('T')[0];
+            return formatLocalDate(date);
           }
           return '';
         })();
 
         const endDateValue = (() => {
           if (!rawEndValue || endIsVariable) return '';
+          // If already in YYYY-MM-DD format, use as-is
+          if (/^\d{4}-\d{2}-\d{2}$/.test(rawEndValue)) {
+            return rawEndValue;
+          }
           const date = new Date(rawEndValue);
           if (!isNaN(date.getTime())) {
-            return date.toISOString().split('T')[0];
+            return formatLocalDate(date);
           }
           return '';
         })();
@@ -2628,6 +2655,11 @@ export function FieldRenderer({
             {isVariableDateTime && (
               <p className="text-xs text-muted-foreground">
                 Variable value will be resolved at runtime.
+              </p>
+            )}
+            {isUsingNow && !isVariableDateTime && (
+              <p className="text-xs text-muted-foreground">
+                Will use current date/time ({new Date().toLocaleString()}) when the workflow runs.
               </p>
             )}
           </div>

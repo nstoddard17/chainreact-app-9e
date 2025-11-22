@@ -90,6 +90,20 @@ export async function createGoogleCalendarEvent(
         date = new Date().toISOString().split('T')[0]
       }
 
+      // Handle full ISO timestamps (e.g., from {{NOW}}) - extract just the date part
+      if (date.includes('T')) {
+        // If it's a UTC ISO string, convert to local date
+        if (date.includes('Z')) {
+          const dateObj = new Date(date)
+          const year = dateObj.getFullYear()
+          const month = String(dateObj.getMonth() + 1).padStart(2, '0')
+          const day = String(dateObj.getDate()).padStart(2, '0')
+          date = `${year}-${month}-${day}`
+        } else {
+          date = date.split('T')[0]
+        }
+      }
+
       // Handle special time values or use defaults
       if (!time || time === 'current') {
         time = new Date().toTimeString().slice(0, 5)
@@ -140,11 +154,26 @@ export async function createGoogleCalendarEvent(
     // Handle all-day events
     if (allDay) {
       // For all-day events, only use date (no timeZone field)
+      const startDateStr = parseDate(startDate)
+      const endDateStr = parseDate(endDate || startDate)
+
+      // For all-day events, Google requires end date to be the day AFTER the last day of the event
+      // If start and end are the same, add one day to end
+      let adjustedEndDate = endDateStr
+      if (startDateStr === endDateStr) {
+        const endDateObj = new Date(endDateStr)
+        endDateObj.setDate(endDateObj.getDate() + 1)
+        const year = endDateObj.getFullYear()
+        const month = String(endDateObj.getMonth() + 1).padStart(2, '0')
+        const day = String(endDateObj.getDate()).padStart(2, '0')
+        adjustedEndDate = `${year}-${month}-${day}`
+      }
+
       eventData.start = {
-        date: parseDate(startDate)
+        date: startDateStr
       }
       eventData.end = {
-        date: parseDate(endDate || startDate)
+        date: adjustedEndDate
       }
     } else {
       // Regular timed event

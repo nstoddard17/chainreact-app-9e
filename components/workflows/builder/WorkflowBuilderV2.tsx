@@ -344,6 +344,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   const [nameDirty, setNameDirty] = useState(false)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [addingAfterNodeId, setAddingAfterNodeId] = useState<string | null>(null) // Persists while integrations panel is open
+  const [isFlowTesting, setIsFlowTesting] = useState(false) // True while testing flow from a node
   const [isIntegrationsPanelOpen, setIsIntegrationsPanelOpen] = useState(false)
   const pendingInsertionRef = useRef<{
     sourceId: string | null
@@ -351,6 +352,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     sourceHandle: string | null
     targetHandle: string | null
   } | null>(null)
+  const [isStructureTransitioning, setIsStructureTransitioning] = useState(false)
 
   const setInsertionContext = useCallback((
     sourceId: string | null,
@@ -2156,6 +2158,12 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   }, [builder?.nodes, builder?.setNodes, actions, flowId, toast])
 
   const handleTestFlowFromHere = useCallback(async (nodeId: string) => {
+    // Close config modal and integrations panel, disable interactions during testing
+    setConfiguringNode(null)
+    setIsIntegrationsPanelOpen(false)
+    setAddingAfterNodeId(null)
+    setIsFlowTesting(true)
+
     // Suppress config modal from opening when this is triggered
     suppressNodeClickRef.current = nodeId
     if (suppressNodeClickTimeoutRef.current) {
@@ -2169,12 +2177,14 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
     if (!builder?.nodes || !builder?.edges || !reactFlowInstanceRef.current) {
       logger.error('[WorkflowBuilder] Cannot test flow - builder not ready')
+      setIsFlowTesting(false)
       return
     }
 
     const startNode = builder.nodes.find((n: any) => n.id === nodeId)
     if (!startNode) {
       logger.error('[WorkflowBuilder] Start node not found:', nodeId)
+      setIsFlowTesting(false)
       return
     }
 
@@ -2314,10 +2324,12 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         })
 
         // Stop testing on error
+        setIsFlowTesting(false)
         return
       }
     }
 
+    setIsFlowTesting(false)
     toast({
       title: "Flow test completed",
       description: `Successfully tested ${sortedNodeIds.length} node(s)`,
@@ -2396,6 +2408,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           onTestFlowFromHere: handleTestFlowFromHere,
           isBeingConfigured: configuringNode?.id === node.id,
           isBeingReordered: activeReorderDrag?.nodeId === node.id,
+          isFlowTesting, // Disable interactions during flow testing
           reorderDragOffset:
             activeReorderDrag?.nodeId === node.id ? reorderDragOffset : 0,
           previewOffset: previewOffsets.get(node.id) ?? 0,
@@ -2453,7 +2466,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       nodeTypes: builder.nodeTypes,
       edgeTypes: builder.edgeTypes,
     }
-  }, [builder, handleAddNodeAfter, handleTestNode, handleTestFlowFromHere, handleReorderPointerDown, configuringNode, activeReorderDrag, getReorderableData, reorderDragOffset, reorderPreviewIndex])
+  }, [builder, handleAddNodeAfter, handleTestNode, handleTestFlowFromHere, handleReorderPointerDown, configuringNode, activeReorderDrag, getReorderableData, reorderDragOffset, reorderPreviewIndex, isFlowTesting])
 
   // Compute the name of the node we're adding after (for integrations panel context)
   // Uses addingAfterNodeId which persists while panel is open (not selectedNodeId which changes with React Flow selection)
@@ -2608,6 +2621,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     })
 
     if (!actions || !builder) return
+
+    setIsStructureTransitioning(true)
 
     const currentNodes = builder.nodes ?? []
     const insertionContext = pendingInsertionRef.current
@@ -2878,6 +2893,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       })
     }
 
+    setIsStructureTransitioning(false)
+
     // Open config modal immediately after panel closes
     console.log('🚀 [WorkflowBuilder] Opening config modal for new node:', optimisticNode.id, optimisticNode.data?.type)
     setConfiguringNode(optimisticNode)
@@ -2950,6 +2967,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   // Node deletion with optimistic update for instant feedback
   const handleDeleteNodes = useCallback(async (nodeIds: string[]) => {
     if (!actions || !builder || nodeIds.length === 0) return
+
+    setIsStructureTransitioning(true)
 
     const nodeIdSet = new Set(nodeIds)
 
@@ -3118,6 +3137,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     // Persist to backend without waiting for response
     // The UI is already updated optimistically above - don't let backend response overwrite it
     const deleteEdits = nodeIds.map(nodeId => ({ op: "deleteNode", nodeId }))
+    // Re-enable overlays immediately so the phantom edge reflects new layout
+    setIsStructureTransitioning(false)
+
     actions.applyEdits(deleteEdits).catch((error: any) => {
       // Rollback on error
       builder.setNodes(currentNodes)
@@ -3325,6 +3347,12 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
   // Handle node configuration (click or manual trigger)
   const handleNodeConfigure = useCallback(async (nodeId: string) => {
+    // Don't allow opening config modal during flow testing
+    if (isFlowTesting) {
+      console.log('🔧 [WorkflowBuilder] Ignoring configure request during flow testing')
+      return
+    }
+
     const node = reactFlowProps?.nodes?.find((n: any) => n.id === nodeId)
     if (node) {
       console.log('🔧 [WorkflowBuilder] Opening configuration for node:', nodeId, node)
@@ -3371,10 +3399,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     } else {
       console.warn('🔧 [WorkflowBuilder] Node not found for configuration:', nodeId)
     }
-  }, [reactFlowProps?.nodes, reactFlowProps?.edges, prefetchNodeConfig, openIntegrationsPanel, setSelectedNodeId, clearInsertionContext])
+  }, [reactFlowProps?.nodes, reactFlowProps?.edges, prefetchNodeConfig, openIntegrationsPanel, setSelectedNodeId, clearInsertionContext, isFlowTesting])
 
   // Auto-open configuration modal whenever a non-placeholder node becomes selected
   // BUT NOT when the integrations panel is open (user is adding a new node, not configuring existing)
+  // AND NOT when flow testing is in progress
   useEffect(() => {
     if (!selectedNodeId) return
     if (configuringNode?.id === selectedNodeId) return
@@ -3382,6 +3411,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     // Don't auto-open config modal when integrations panel is open
     // This happens when user clicks the plus button to add a new node
     if (isIntegrationsPanelOpen) return
+
+    // Don't auto-open config modal during flow testing
+    if (isFlowTesting) return
 
     const selectedNode = reactFlowProps?.nodes?.find((n: any) => n.id === selectedNodeId)
     if (!selectedNode) return
@@ -3402,7 +3434,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     clearInsertionContext() // Clear the "adding after" context
 
     handleNodeConfigure(selectedNodeId)
-  }, [selectedNodeId, configuringNode?.id, reactFlowProps?.nodes, handleNodeConfigure, isIntegrationsPanelOpen, clearInsertionContext])
+  }, [selectedNodeId, configuringNode?.id, reactFlowProps?.nodes, handleNodeConfigure, isIntegrationsPanelOpen, clearInsertionContext, isFlowTesting])
 
   // Handle saving node configuration
   const handleSaveNodeConfig = useCallback(async (nodeId: string, config: Record<string, any>) => {
@@ -5208,7 +5240,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
             onUndoToPreviousStage={handleUndoToPreviousStage}
             onCancelBuild={handleCancelBuild}
             onAddNodeAfter={handleAddNodeAfterClick}
-            disablePhantomOverlay={Boolean(activeReorderDrag)}
+            disablePhantomOverlay={Boolean(activeReorderDrag || isStructureTransitioning || isFlowTesting)}
           >
             {/* Path Labels Overlay - Zapier-style floating pills */}
             <PathLabelsOverlay

@@ -21,6 +21,7 @@ interface NodeContextMenuProps {
   onDelete?: (nodeId: string) => void
   onDeleteSelected?: (nodeIds: string[]) => void
   hasRequiredFieldsMissing?: boolean
+  disabled?: boolean // Disable context menu during flow testing
 }
 
 export function NodeContextMenu({
@@ -34,9 +35,15 @@ export function NodeContextMenu({
   onDelete,
   onDeleteSelected,
   hasRequiredFieldsMissing = false,
+  disabled = false,
 }: NodeContextMenuProps) {
   // Check if multiple nodes are selected and this node is one of them
   const isMultiSelect = selectedNodeIds.length > 1 && selectedNodeIds.includes(nodeId)
+
+  // When disabled, just render children without context menu
+  if (disabled) {
+    return <>{children}</>
+  }
 
   return (
     <ContextMenu>
