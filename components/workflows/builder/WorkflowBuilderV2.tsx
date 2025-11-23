@@ -668,36 +668,49 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         // Convert nodes to edit operations
         const edits: any[] = []
 
-        // Add nodes
+        // Add nodes - include required label and io fields for FlowNode schema
         for (const node of data.nodes) {
+          const nodeType = node.type || node.data?.type
+          const nodeLabel = node.data?.title || node.data?.label || node.label || nodeType || 'Node'
+
           edits.push({
             op: 'addNode',
             node: {
               id: node.id,
-              type: node.type || node.data?.type,
+              type: nodeType,
+              label: nodeLabel, // Required by FlowNode schema
+              io: node.io || {}, // Required by FlowNode schema (can be empty object)
+              config: node.data?.config || node.config || {},
+              inPorts: node.inPorts || [],
+              outPorts: node.outPorts || [],
+              // Keep legacy data structure for React Flow compatibility
               position: node.position,
               data: {
                 ...node.data,
-                title: node.data?.title || node.data?.label,
-                type: node.data?.type || node.type,
+                title: nodeLabel,
+                type: nodeType,
                 providerId: node.data?.providerId,
-                config: node.data?.config || {},
+                config: node.data?.config || node.config || {},
               },
             },
           })
         }
 
-        // Add edges/connections
+        // Add edges/connections using the 'connect' operation with proper FlowEdge format
         const connections = data.edges || data.connections || []
         for (const edge of connections) {
           edits.push({
-            op: 'connectEdge',
+            op: 'connect',
             edge: {
-              id: edge.id,
-              source: edge.source,
-              target: edge.target,
-              sourceHandle: edge.sourceHandle || 'source',
-              targetHandle: edge.targetHandle || 'target',
+              id: edge.id || `edge-${edge.source}-${edge.target}`,
+              from: {
+                nodeId: edge.source,
+                portId: edge.sourceHandle || undefined, // Optional portId per EdgeEndpointSchema
+              },
+              to: {
+                nodeId: edge.target,
+                portId: edge.targetHandle || undefined, // Optional portId per EdgeEndpointSchema
+              },
             },
           })
         }
