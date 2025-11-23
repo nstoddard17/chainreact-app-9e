@@ -54,10 +54,18 @@ export async function POST(request: Request) {
       startNodeId,
     })
 
+    // Check if workflow was paused (HITL)
+    const isPaused = result?.mainResult?.__paused || false
+    const pausedNodeId = result?.mainResult?.__pausedNodeId
+    const pausedNodeName = result?.mainResult?.__pausedNodeName
+
     return jsonResponse({
       success: true,
       sessionId: executionSession.id,
       result,
+      paused: isPaused,
+      pausedNodeId,
+      pausedNodeName,
     })
   } catch (error: any) {
     logger.error("Advanced workflow execution error:", error)

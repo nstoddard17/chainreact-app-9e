@@ -9,6 +9,52 @@ import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { ConfigurationSectionHeader } from '../components/ConfigurationSectionHeader'
 import { useFlowV2Builder } from '@/src/lib/workflows/builder/useFlowV2Builder'
 import { logger } from '@/lib/utils/logger'
+import { flattenOutputFields } from '@/components/workflows/configuration/hooks/useUpstreamVariables'
+import { navigateArrayPath } from '@/lib/workflows/actions/core/resolveValue'
+
+const MAX_OBJECT_PREVIEW_FIELDS = 4
+
+function isValueEmpty(value: any): boolean {
+  if (value === undefined || value === null) return true
+  if (typeof value === 'string') return value.trim() === ''
+  if (Array.isArray(value)) return value.length === 0
+  if (typeof value === 'object') return Object.keys(value).length === 0
+  return false
+}
+
+function formatPreviewValue(value: any): string {
+  if (value === null || value === undefined) return '—'
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  if (value instanceof Date) return value.toISOString()
+  return JSON.stringify(value)
+}
+
+function renderObjectPreview(obj: Record<string, any> | null | undefined) {
+  if (!obj || typeof obj !== 'object') return null
+
+  const entries = Object.entries(obj)
+  if (entries.length === 0) return null
+
+  const previewEntries = entries.slice(0, MAX_OBJECT_PREVIEW_FIELDS)
+  const remainingCount = entries.length - previewEntries.length
+
+  return (
+    <div className="rounded bg-muted/30 p-3 border border-border text-xs">
+      <dl className="space-y-1">
+        {previewEntries.map(([key, val]) => (
+          <div key={key} className="flex items-start gap-2">
+            <dt className="text-muted-foreground min-w-[90px] font-medium">{key}</dt>
+            <dd className="text-foreground break-words flex-1">{formatPreviewValue(val)}</dd>
+          </div>
+        ))}
+      </dl>
+      {remainingCount > 0 && (
+        <p className="text-[11px] text-muted-foreground mt-2">+{remainingCount} more field{remainingCount === 1 ? '' : 's'}</p>
+      )}
+    </div>
+  )
+}
 
 interface ResultsTabProps {
   nodeInfo: any
@@ -71,6 +117,7 @@ export function ResultsTab({
   }, [nodeInfo?.type])
 
   const outputSchema = nodeComponent?.outputSchema || []
+  const flattenedOutputSchema = useMemo(() => flattenOutputFields(outputSchema), [outputSchema])
 
   // Fetch cached output directly from API when component mounts
   useEffect(() => {
@@ -146,7 +193,7 @@ export function ResultsTab({
       testResult,
       displayData,
       displayDataKeys: displayData ? Object.keys(displayData) : 'NULL',
-      outputSchemaLength: outputSchema?.length || 0
+      outputSchemaLength: flattenedOutputSchema?.length || 0
     })
 
     logger.debug('[ResultsTab] Data state:', {
@@ -157,12 +204,12 @@ export function ResultsTab({
       testDataSample: testData ? JSON.stringify(testData).slice(0, 200) : null,
       displayDataKeys: displayData ? Object.keys(displayData) : [],
       displayDataSample: displayData ? JSON.stringify(displayData).slice(0, 200) : null,
-      outputSchemaLength: outputSchema?.length || 0,
-      outputSchemaFields: outputSchema?.map((f: any) => f.name) || [],
+      outputSchemaLength: flattenedOutputSchema?.length || 0,
+      outputSchemaFields: flattenedOutputSchema?.map((f: any) => f.name) || [],
       testResult: testResult ? { success: testResult.success, hasError: !!testResult.error } : null,
       nodeType: nodeInfo?.type
     })
-  }, [testData, displayData, testResult, outputSchema, nodeInfo?.type, hasTestData, hasTestResult, isFromCache])
+  }, [testData, displayData, testResult, flattenedOutputSchema, nodeInfo?.type, hasTestData, hasTestResult, isFromCache])
 
   useEffect(() => {
     setLatestExecutionData(null)
@@ -632,7 +679,7 @@ export function ResultsTab({
   }
 
   // Show output schema even without test data
-  const showOutputSchema = outputSchema.length > 0
+  const showOutputSchema = flattenedOutputSchema.length > 0
 
   // Empty state - show schema but no values
   if (!hasTestData && !hasTestResult && showOutputSchema) {
@@ -688,7 +735,7 @@ export function ResultsTab({
 
             {/* Output Schema - No values yet */}
             <div className="space-y-2">
-              {outputSchema.map((field) => (
+              {flattenedOutputSchema.map((field) => (
                 <div
                   key={field.name}
                   className="rounded-lg border border-border bg-card p-4 hover:border-border transition-colors"
@@ -882,7 +929,7 @@ export function ResultsTab({
                 <p className="text-[10px] opacity-70">
                   testData keys: {testData ? Object.keys(testData).join(', ') || '(empty)' : '(null)'}<br/>
                   displayData keys: {displayData ? Object.keys(displayData).join(', ') || '(empty)' : '(null)'}<br/>
-                  outputSchema fields: {outputSchema?.length || 0}<br/>
+                  outputSchema fields: {flattenedOutputSchema?.length || 0}<br/>
                   testResult.rawResponse: {testResult?.rawResponse ? Object.keys(testResult.rawResponse).join(', ') : '(none)'}
                 </p>
               </AlertDescription>
@@ -913,11 +960,11 @@ export function ResultsTab({
               />
 
               <div className="space-y-2">
-                {outputSchema.map((field) => {
-                  const value = displayData[field.name]
-                  const hasValue = value !== undefined && value !== null
+                {flattenedOutputSchema.map((field) => {
+                  const value = displayData ? navigateArrayPath(displayData, field.name) : undefined
+                  const hasValue = !isValueEmpty(value)
                   const isArray = Array.isArray(value)
-                  const isObject = typeof value === 'object' && value !== null && !isArray
+                  const isObject = !isArray && typeof value === 'object' && value !== null
                   const isExpanded = expandedFields[field.name] || false
 
                   return (
@@ -948,7 +995,7 @@ export function ResultsTab({
                       {hasValue ? (
                         <div className="space-y-2">
                           {/* Table view for arrays */}
-                          {isArray && field.type === 'array' && value.length > 0 && typeof value[0] === 'object' ? (
+                          {isArray && value.length > 0 && typeof value[0] === 'object' ? (
                             <>
                               {/* Special handling for Airtable records with nested 'fields' property */}
                               {value[0].fields && typeof value[0].fields === 'object' ? (
@@ -976,6 +1023,7 @@ export function ResultsTab({
                             </div>
                           ) : isObject ? (
                             <>
+                              {renderObjectPreview(value)}
                               <button
                                 onClick={() => setExpandedFields(prev => ({ ...prev, [field.name]: !prev[field.name] }))}
                                 className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"

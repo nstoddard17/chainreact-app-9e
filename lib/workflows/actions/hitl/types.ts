@@ -8,7 +8,7 @@ export interface HITLConfig {
   discordChannelId?: string
 
   // Auto-context detection (new)
-  autoDetectContext?: boolean
+  autoDetectContext?: boolean | string  // Can be boolean (legacy) or "true"/"false" string (new dropdown)
   customMessage?: string
 
   // Manual mode (legacy)

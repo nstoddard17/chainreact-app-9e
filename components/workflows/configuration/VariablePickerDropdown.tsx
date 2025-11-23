@@ -8,7 +8,7 @@
  * Uses the same format as VariableSelectionDropdown for consistency.
  *
  * Features:
- * - Triggered by 🔗 icon button
+ * - Triggered by {} button
  * - Searchable list of variables
  * - Organized by node with headers
  * - Click to insert variable reference
@@ -26,7 +26,6 @@ import {
 } from '@/components/ui/command'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Link2 } from 'lucide-react'
 import { StaticIntegrationLogo } from '@/components/ui/static-integration-logo'
 import { cn } from '@/lib/utils'
 import { useUpstreamVariables } from './hooks/useUpstreamVariables'
@@ -85,11 +84,12 @@ export function VariablePickerDropdown({
   const defaultTrigger = (
     <Button
       variant="ghost"
-      size="sm"
-      className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+      size="icon"
+      className="h-8 w-8 text-muted-foreground hover:text-foreground"
       type="button"
+      title="Insert workflow variable"
     >
-      <Link2 className="h-4 w-4" />
+      <span className="text-sm font-mono font-semibold">{`{}`}</span>
     </Button>
   )
 
@@ -128,26 +128,30 @@ export function VariablePickerDropdown({
               >
                 {node.outputs.map((field: any) => {
                   const variableRef = `{{${node.id}.${field.name}}}`
+                  const secondaryLabel = field.label && field.label !== field.name ? field.label : null
+                  const descriptionText = secondaryLabel
+                    ? `${secondaryLabel}${field.description ? ` • ${field.description}` : ''}`
+                    : (field.description ? field.description : `From ${node.title}`)
 
                   return (
                     <CommandItem
                       key={`${node.id}.${field.name}`}
-                      value={`${node.title} ${field.label || field.name} ${field.type || ''}`}
+                      value={`${node.title} ${field.name} ${secondaryLabel || ''} ${field.type || ''}`}
                       onSelect={() => {
                         onSelect(variableRef)
                         setIsOpen(false)
                       }}
                       className="px-2 py-2"
-                    >
-                      <div className="flex w-full items-center gap-3">
-                        <div className="flex-1">
-                          <p className="text-sm font-medium leading-tight">
-                            {field.label || field.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {field.description ? field.description : `From ${node.title}`}
-                          </p>
-                        </div>
+                      >
+                        <div className="flex w-full items-center gap-3">
+                          <div className="flex-1">
+                            <p className="text-sm font-medium leading-tight">
+                              {field.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {descriptionText}
+                            </p>
+                          </div>
                         <Badge variant="secondary" className="text-[10px] uppercase tracking-tight">
                           {field.type || 'text'}
                         </Badge>

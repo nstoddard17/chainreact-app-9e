@@ -26,7 +26,7 @@ import { InlineNodePicker } from './InlineNodePicker'
 import type { NodeComponent } from '@/lib/workflows/nodes/types'
 import { FieldVisibilityEngine } from '@/lib/workflows/fields/visibility'
 
-export type NodeState = 'skeleton' | 'ready' | 'running' | 'passed' | 'failed'
+export type NodeState = 'skeleton' | 'ready' | 'running' | 'passed' | 'failed' | 'paused'
 
 const AI_STATUS_HIDE_BADGE_STATES = new Set([
   'preparing',
@@ -209,12 +209,13 @@ function CustomNode({ id, data, selected }: NodeProps) {
   const nodeState = nodeData.state || 'ready'
   const isSkeletonState = nodeState === 'skeleton'
   const visualNodeState = useMemo<NodeState>(() => {
-    if (nodeState === 'running' || nodeState === 'passed' || nodeState === 'failed') {
+    if (nodeState === 'running' || nodeState === 'passed' || nodeState === 'failed' || nodeState === 'paused') {
       return nodeState
     }
     if (nodeData.executionStatus === 'running' || nodeData.isActiveExecution) return 'running'
     if (nodeData.executionStatus === 'completed' || nodeData.executionStatus === 'success') return 'passed'
     if (nodeData.executionStatus === 'error') return 'failed'
+    if (nodeData.executionStatus === 'paused') return 'paused'
     return nodeState
   }, [nodeData.executionStatus, nodeData.isActiveExecution, nodeState])
 
@@ -239,6 +240,12 @@ function CustomNode({ id, data, selected }: NodeProps) {
           background: 'linear-gradient(180deg, rgba(254, 242, 242, 0.95), rgba(254, 226, 226, 0.95))',
           borderColor: 'rgba(248, 113, 113, 0.4)',
           boxShadow: '0 4px 12px rgba(248, 113, 113, 0.16)',
+        }
+      case 'paused':
+        return {
+          background: 'linear-gradient(180deg, rgba(254, 243, 199, 0.95), rgba(253, 230, 138, 0.95))',
+          borderColor: 'rgba(245, 158, 11, 0.4)',
+          boxShadow: '0 4px 12px rgba(245, 158, 11, 0.16)',
         }
       default:
         return baseStyle
@@ -583,8 +590,8 @@ function CustomNode({ id, data, selected }: NodeProps) {
       return ""
     }
 
-    // If nodeState is handling the styling (running/passed/failed), don't add conflicting styles
-    if (visualNodeState === 'running' || visualNodeState === 'passed' || visualNodeState === 'failed') {
+    // If nodeState is handling the styling (running/passed/failed/paused), don't add conflicting styles
+    if (visualNodeState === 'running' || visualNodeState === 'passed' || visualNodeState === 'failed' || visualNodeState === 'paused') {
       return ""
     }
 
@@ -1669,7 +1676,8 @@ function CustomNode({ id, data, selected }: NodeProps) {
           } ${getExecutionStatusStyle()} ${
             visualNodeState === 'running' ? 'node-running' :
             visualNodeState === 'passed' ? 'node-passed' :
-            visualNodeState === 'failed' ? 'node-failed' : ''
+            visualNodeState === 'failed' ? 'node-failed' :
+            visualNodeState === 'paused' ? 'node-paused' : ''
           } ${isBeingReordered ? 'ring-2 ring-primary/50' : ''}`}
           data-testid={`node-${id}`}
           onClick={handleClick}

@@ -5,6 +5,110 @@ import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { extractNodeOutputs, sanitizeAlias } from '../autoMapping'
 import { getActionOutputSchema } from '@/lib/workflows/actions/outputSchemaRegistry'
 
+function mergeOutputDefinitions(...lists: Array<any[] | undefined>): any[] {
+  const merged = new Map<string, any>()
+
+  lists.filter(Boolean).forEach(list => {
+    list!.forEach(field => {
+      if (!field || !field.name) return
+      const existing = merged.get(field.name)
+      if (!existing) {
+        merged.set(field.name, { ...field })
+        return
+      }
+
+      // Fill in missing metadata from subsequent lists
+      if ((!existing.label || existing.label === existing.name) && field.label) {
+        existing.label = field.label
+      }
+      if (!existing.description && field.description) {
+        existing.description = field.description
+      }
+      if (!existing.type && field.type) {
+        existing.type = field.type
+      }
+      if ((!existing.example || existing.example === null) && field.example !== undefined) {
+        existing.example = field.example
+      }
+      if (
+        (existing.type === 'array' || field.type === 'array') &&
+        (!existing.properties || existing.properties.length === 0) &&
+        Array.isArray(field.properties)
+      ) {
+        existing.properties = field.properties
+      }
+    })
+  })
+
+  return Array.from(merged.values())
+}
+
+export function flattenOutputFields(outputs: any[] = [], options?: { includeArrayAggregates?: boolean }): any[] {
+  const includeArrayAggregates = options?.includeArrayAggregates ?? true
+  const flattened: any[] = []
+
+  outputs.forEach((output) => {
+    if (!output) return
+
+    flattened.push({ ...output })
+
+    if (output.type === 'array' && Array.isArray(output.properties)) {
+      const parentLabel = typeof (output.label || output.name) === 'string'
+        ? (output.label || output.name)
+        : (output.name || 'Items')
+
+      output.properties.forEach((prop: any) => {
+        const propLabel = typeof (prop.label || prop.name) === 'string'
+          ? (prop.label || prop.name)
+          : (prop.name || 'Field')
+
+        const baseField = {
+          ...prop,
+          name: `${output.name}[].${prop.name}`,
+          label: propLabel,
+          description: prop.description || `Each ${propLabel} from ${parentLabel}`,
+          type: prop.type || 'string',
+          _isArrayProperty: true,
+          _arrayAccessor: 'all' as const,
+          _parentArray: output.name,
+          _parentArrayLabel: parentLabel
+        }
+        flattened.push(baseField)
+
+        if (includeArrayAggregates) {
+          const firstField = {
+            ...prop,
+            name: `${output.name}[first].${prop.name}`,
+            label: `${propLabel} (First ${parentLabel})`,
+            description: `First ${propLabel} from ${parentLabel}`,
+            type: prop.type || 'string',
+            _isArrayProperty: true,
+            _arrayAccessor: 'first' as const,
+            _parentArray: output.name,
+            _parentArrayLabel: parentLabel
+          }
+
+          const lastField = {
+            ...prop,
+            name: `${output.name}[last].${prop.name}`,
+            label: `${propLabel} (Last ${parentLabel})`,
+            description: `Last ${propLabel} from ${parentLabel}`,
+            type: prop.type || 'string',
+            _isArrayProperty: true,
+            _arrayAccessor: 'last' as const,
+            _parentArray: output.name,
+            _parentArrayLabel: parentLabel
+          }
+
+          flattened.push(firstField, lastField)
+        }
+      })
+    }
+  })
+
+  return flattened
+}
+
 /**
  * Helper function to recursively get ALL previous nodes in the workflow
  * Not just the immediate parent, but all ancestors
@@ -43,6 +147,7 @@ export interface UpstreamVariable {
   isArrayProperty?: boolean
   parentArray?: string
   parentArrayLabel?: string
+  arrayAccessor?: 'all' | 'first' | 'last'
 }
 
 export interface UpstreamNode {
@@ -102,32 +207,13 @@ export function useUpstreamVariables({
         const registryOutputs = getActionOutputSchema(node.data?.type || '', node.data?.config)
         const staticOutputs = nodeComponent?.outputSchema || []
 
-        let outputs = (extractedOutputs && extractedOutputs.length > 0)
-          ? extractedOutputs
-          : (registryOutputs && registryOutputs.length > 0)
-            ? registryOutputs
-            : staticOutputs
+        const outputs = mergeOutputDefinitions(
+          registryOutputs && registryOutputs.length > 0 ? registryOutputs : undefined,
+          extractedOutputs && extractedOutputs.length > 0 ? extractedOutputs : undefined,
+          staticOutputs && staticOutputs.length > 0 ? staticOutputs : undefined
+        )
 
-        // Flatten array properties - if an output has 'properties', include those as individual outputs
-        const flattenedOutputs: any[] = []
-        outputs.forEach((output: any) => {
-          // Always include the top-level field
-          flattenedOutputs.push(output)
-
-          // If this is an array with properties, also include the properties as separate fields
-          if (output.type === 'array' && Array.isArray(output.properties)) {
-            output.properties.forEach((prop: any) => {
-              flattenedOutputs.push({
-                ...prop,
-                name: `${output.name}[].${prop.name}`,
-                label: prop.label || prop.name,
-                _isArrayProperty: true,
-                _parentArray: output.name,
-                _parentArrayLabel: output.label || output.name
-              })
-            })
-          }
-        })
+        const flattenedOutputs = flattenOutputFields(outputs)
 
         const title = node.data?.title || node.data?.label || nodeComponent?.title || 'Unnamed'
 
@@ -160,7 +246,8 @@ export function useUpstreamVariables({
         fullReference: `{{${node.id}.${output.name}}}`,
         isArrayProperty: output._isArrayProperty,
         parentArray: output._parentArray,
-        parentArrayLabel: output._parentArrayLabel
+        parentArrayLabel: output._parentArrayLabel,
+        arrayAccessor: output._arrayAccessor
       }))
     )
   }, [upstreamNodes])

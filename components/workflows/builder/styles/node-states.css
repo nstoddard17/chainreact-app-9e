@@ -142,6 +142,52 @@
   border-color: hsl(var(--destructive) / 0.2) !important;
 }
 
+/* ===== Paused State (HITL) ===== */
+
+/* Paused animation - gentle pulse */
+@keyframes paused-pulse {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Paused state - amber/orange for waiting */
+.workflow-node-card.node-paused {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  border-color: hsl(38 92% 50% / 0.3) !important;
+}
+
+.workflow-node-card.node-paused::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(120deg, hsl(38 92% 50% / 0.08), hsl(38 92% 50% / 0.02));
+  animation: paused-pulse 2s ease-in-out infinite;
+}
+
+/* Paused state badge */
+.badge-paused {
+  background: hsl(38 92% 50% / 0.15);
+  color: hsl(38 92% 50%);
+  border: 1px solid hsl(38 92% 50% / 0.4);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.badge-paused:hover {
+  background: hsl(38 92% 50% / 0.25);
+  border-color: hsl(38 92% 50% / 0.6);
+  transform: translateY(-1px);
+}
+
 /* ===== Reduced Motion Support ===== */
 @media (prefers-reduced-motion: reduce) {
   .workflow-node-card.node-running::before {
@@ -149,10 +195,16 @@
     background-position: 0 0, 0 0;
   }
 
+  .workflow-node-card.node-paused::before {
+    animation: none;
+    opacity: 0.8;
+  }
+
   /* Disable hover transforms for reduced motion */
   .badge-running:hover,
   .badge-passed:hover,
-  .badge-failed:hover {
+  .badge-failed:hover,
+  .badge-paused:hover {
     transform: none;
   }
 }

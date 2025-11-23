@@ -4033,13 +4033,28 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
       const result = await response.json()
 
-      // Result structure: { success: true, sessionId, result: { mainResult: { nodeId: data, ... } } }
+      // Result structure: { success: true, sessionId, result: { mainResult: { nodeId: data, ... } }, paused?, pausedNodeId?, pausedNodeName? }
       const nodeResults = result.result?.mainResult || {}
+      const isPaused = result.paused
+      const pausedNodeId = result.pausedNodeId
+      const pausedNodeName = result.pausedNodeName
 
       // Update nodes based on test results
       const finalNodes = nodes.map((n: any) => {
         // Find result for this node in the mainResult
         const nodeOutput = nodeResults[n.id]
+
+        // Check if this is the paused node
+        if (isPaused && n.id === pausedNodeId) {
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              state: 'paused',
+              testResult: nodeOutput,
+            }
+          }
+        }
 
         if (!nodeOutput) {
           return {
@@ -4065,6 +4080,14 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       })
 
       builder.setNodes(finalNodes)
+
+      // Check if workflow was paused (HITL)
+      if (isPaused) {
+        setIsFlowTestPaused(true)
+        flowTestPausedRef.current = true
+        // Note: Status bar already shows paused state, no toast needed
+        return
+      }
 
       // Check if any nodes failed
       const failedNodes = finalNodes.filter((n: any) => n.data?.state === 'failed')

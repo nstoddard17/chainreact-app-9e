@@ -115,7 +115,11 @@ export function VariableSelectionDropdown({
     if (!node) return value
 
     const field = node.outputs.find((f: any) => f.name === parsed.fieldName)
-    return `${node.title} → ${field?.label || parsed.fieldName}`
+    if (!field) return `${node.title} → ${parsed.fieldName}`
+
+    const secondaryLabel = field.label && field.label !== field.name ? field.label : null
+    const displayName = field.name
+    return secondaryLabel ? `${node.title} → ${displayName} (${secondaryLabel})` : `${node.title} → ${displayName}`
   }
 
   // Only show nodes that expose variables
@@ -205,11 +209,15 @@ export function VariableSelectionDropdown({
                 {node.outputs.map((field: any) => {
                   const variableRef = `{{${node.id}.${field.name}}}`
                   const isSelected = value === variableRef
+                  const secondaryLabel = field.label && field.label !== field.name ? field.label : null
+                  const descriptionText = secondaryLabel
+                    ? `${secondaryLabel}${field.description ? ` • ${field.description}` : ''}`
+                    : (field.description ? field.description : `From ${node.title}`)
 
                   return (
                     <CommandItem
                       key={`${node.id}.${field.name}`}
-                      value={`${node.title} ${field.label || field.name} ${field.type || ''}`}
+                      value={`${node.title} ${field.name} ${secondaryLabel || ''} ${field.type || ''}`}
                       onSelect={() => {
                         onChange(variableRef)
                         setOpen(false)
@@ -219,10 +227,10 @@ export function VariableSelectionDropdown({
                       <div className="flex w-full items-center gap-3">
                         <div className="flex-1">
                           <p className="text-sm font-medium leading-tight">
-                            {field.label || field.name}
+                            {field.name}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {field.description ? field.description : `From ${node.title}`}
+                            {descriptionText}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
