@@ -2338,24 +2338,74 @@ export const googleCalendarNodes: NodeComponent[] = [
       }
     ],
     outputSchema: [
-      // User-friendly summary
       {
         name: "summary",
-        label: "Summary",
+        label: "Overall Summary",
         type: "string",
-        description: "Human-readable summary of availability"
+        description: "High-level explanation of availability across calendars"
       },
       {
-        name: "allFree",
-        label: "All Free",
-        type: "boolean",
-        description: "True if all calendars are free"
+        name: "availabilitySummary",
+        label: "Availability Summary",
+        type: "string",
+        description: "Multi-line breakdown of free/busy hours"
       },
       {
-        name: "allBusy",
-        label: "All Busy",
-        type: "boolean",
-        description: "True if all calendars have busy slots"
+        name: "freeSlotSummaryText",
+        label: "Free Slot Summary (Text)",
+        type: "string",
+        description: "Ready-to-send text summarizing daily free windows"
+      },
+      {
+        name: "freeSlotSummaryLines",
+        label: "Free Slot Summary Lines",
+        type: "array",
+        description: "Array of human-readable lines describing availability"
+      },
+      {
+        name: "freeSlotSummary",
+        label: "Free Slot Summary",
+        type: "array",
+        description: "Structured day-by-day summary of free slots",
+        properties: [
+          { name: "date", label: "Date", type: "string" },
+          { name: "dateFormatted", label: "Date (Formatted)", type: "string" },
+          { name: "dayOfWeek", label: "Day of Week", type: "string" },
+          { name: "isFreeDay", label: "Is Free Day", type: "boolean" },
+          { name: "slotCount", label: "Free Slot Count", type: "number" },
+          { name: "summary", label: "Summary Line", type: "string" },
+          {
+            name: "slots",
+            label: "Slots",
+            type: "array",
+            properties: [
+              { name: "start", label: "Start (ISO)", type: "string" },
+              { name: "end", label: "End (ISO)", type: "string" },
+              { name: "startFormatted", label: "Start", type: "string" },
+              { name: "endFormatted", label: "End", type: "string" },
+              { name: "duration", label: "Duration", type: "string" },
+              { name: "durationMinutes", label: "Duration (Minutes)", type: "number" }
+            ]
+          }
+        ]
+      },
+      {
+        name: "queryStart",
+        label: "Query Start",
+        type: "string",
+        description: "Start of the free/busy query"
+      },
+      {
+        name: "queryEnd",
+        label: "Query End",
+        type: "string",
+        description: "End of the free/busy query"
+      },
+      {
+        name: "timeZone",
+        label: "Time Zone",
+        type: "string",
+        description: "Time zone used for formatting"
       },
       {
         name: "totalCalendars",
@@ -2373,68 +2423,111 @@ export const googleCalendarNodes: NodeComponent[] = [
         name: "busyCalendarCount",
         label: "Busy Calendar Count",
         type: "number",
-        description: "Calendars with busy slots"
+        description: "Calendars containing busy slots"
       },
       {
         name: "totalBusySlots",
         label: "Total Busy Slots",
         type: "number",
-        description: "Total busy time slots"
+        description: "Total number of busy time blocks"
+      },
+      {
+        name: "totalFreeHours",
+        label: "Total Free Hours",
+        type: "number",
+        description: "Total hours available during work hours"
+      },
+      {
+        name: "totalBusyHours",
+        label: "Total Busy Hours",
+        type: "number",
+        description: "Total hours booked during work hours"
+      },
+      {
+        name: "allFree",
+        label: "All Calendars Free",
+        type: "boolean",
+        description: "True if every calendar is free"
+      },
+      {
+        name: "allBusy",
+        label: "All Calendars Busy",
+        type: "boolean",
+        description: "True if every calendar is busy"
       },
       {
         name: "freeCalendars",
         label: "Free Calendars",
         type: "array",
-        description: "Calendar IDs that are free"
+        description: "Calendar IDs that are free during the window"
       },
       {
         name: "busyCalendars",
         label: "Busy Calendars",
         type: "array",
-        description: "Calendar IDs with busy slots"
+        description: "Calendar IDs that have conflicts"
       },
       {
         name: "busyTimeSlots",
         label: "Busy Time Slots",
         type: "array",
-        description: "All busy slots with formatted times"
+        description: "All busy slots with formatted timestamps",
+        properties: [
+          { name: "calendar", label: "Calendar ID", type: "string" },
+          { name: "start", label: "Start (ISO)", type: "string" },
+          { name: "end", label: "End (ISO)", type: "string" },
+          { name: "startFormatted", label: "Start", type: "string" },
+          { name: "endFormatted", label: "End", type: "string" },
+          { name: "duration", label: "Duration", type: "string" }
+        ]
       },
-      {
-        name: "queryStart",
-        label: "Query Start",
-        type: "string",
-        description: "Formatted start of query range"
-      },
-      {
-        name: "queryEnd",
-        label: "Query End",
-        type: "string",
-        description: "Formatted end of query range"
-      },
-      {
-        name: "timeZone",
-        label: "Time Zone",
-        type: "string",
-        description: "Time zone used"
-      },
-      {
-        name: "rawData",
-        label: "Raw Data",
-        type: "object",
-        description: "Raw API response for advanced use"
-      },
-      // Daily summary fields
       {
         name: "dailySummary",
         label: "Daily Summary",
         type: "array",
-        description: "Day-by-day breakdown with events, busy hours, and free slots"
+        description: "Per-day availability breakdown",
+        properties: [
+          { name: "date", label: "Date", type: "string" },
+          { name: "dateFormatted", label: "Date (Formatted)", type: "string" },
+          { name: "dayOfWeek", label: "Day of Week", type: "string" },
+          { name: "isWeekend", label: "Is Weekend", type: "boolean" },
+          { name: "totalEvents", label: "Busy Events", type: "number" },
+          { name: "busyHours", label: "Busy Hours", type: "number" },
+          { name: "freeHours", label: "Free Hours", type: "number" },
+          { name: "availabilityPercent", label: "Availability %", type: "number" },
+          { name: "isFreeDay", label: "Is Free Day", type: "boolean" },
+          {
+            name: "freeSlots",
+            label: "Free Slots",
+            type: "array",
+            properties: [
+              { name: "start", label: "Start (ISO)", type: "string" },
+              { name: "end", label: "End (ISO)", type: "string" },
+              { name: "startFormatted", label: "Start", type: "string" },
+              { name: "endFormatted", label: "End", type: "string" },
+              { name: "duration", label: "Duration", type: "string" },
+              { name: "durationMinutes", label: "Duration (Minutes)", type: "number" }
+            ]
+          },
+          {
+            name: "busySlots",
+            label: "Busy Slots",
+            type: "array",
+            properties: [
+              { name: "start", label: "Start (ISO)", type: "string" },
+              { name: "end", label: "End (ISO)", type: "string" },
+              { name: "startFormatted", label: "Start", type: "string" },
+              { name: "endFormatted", label: "End", type: "string" },
+              { name: "duration", label: "Duration", type: "string" }
+            ]
+          }
+        ]
       },
       {
         name: "freeDays",
         label: "Free Days",
         type: "array",
-        description: "List of dates with no events during work hours"
+        description: "Dates with no meetings during work hours"
       },
       {
         name: "freeDayCount",
@@ -2446,7 +2539,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         name: "busyDays",
         label: "Busy Days",
         type: "array",
-        description: "List of dates with events"
+        description: "Dates that include conflicts"
       },
       {
         name: "busyDayCount",
@@ -2455,46 +2548,60 @@ export const googleCalendarNodes: NodeComponent[] = [
         description: "Number of days with events"
       },
       {
-        name: "availabilitySummary",
-        label: "Availability Summary",
-        type: "string",
-        description: "Human-readable summary of availability across all days"
-      },
-      {
         name: "bestDaysForMeetings",
         label: "Best Days for Meetings",
         type: "array",
-        description: "Days sorted by most availability (most free hours first)"
+        description: "Days sorted by most available time",
+        properties: [
+          { name: "date", label: "Date", type: "string" },
+          { name: "dateFormatted", label: "Date (Formatted)", type: "string" },
+          { name: "dayOfWeek", label: "Day of Week", type: "string" },
+          { name: "freeHours", label: "Free Hours", type: "number" },
+          { name: "availabilityPercent", label: "Availability %", type: "number" },
+          { name: "freeSlotCount", label: "Free Slot Count", type: "number" }
+        ]
       },
       {
         name: "suggestedSlots",
         label: "Suggested Meeting Slots",
         type: "array",
-        description: "Available time slots that fit the configured meeting duration"
+        description: "Available time slots that match the configured duration",
+        properties: [
+          { name: "date", label: "Date", type: "string" },
+          { name: "dateFormatted", label: "Date (Formatted)", type: "string" },
+          { name: "dayOfWeek", label: "Day of Week", type: "string" },
+          { name: "start", label: "Start (ISO)", type: "string" },
+          { name: "end", label: "End (ISO)", type: "string" },
+          { name: "startFormatted", label: "Start", type: "string" },
+          { name: "endFormatted", label: "End", type: "string" },
+          { name: "duration", label: "Duration", type: "string" },
+          { name: "durationMinutes", label: "Duration (Minutes)", type: "number" }
+        ]
       },
       {
         name: "suggestedSlotCount",
         label: "Suggested Slot Count",
         type: "number",
-        description: "Number of available meeting slots found"
-      },
-      {
-        name: "totalFreeHours",
-        label: "Total Free Hours",
-        type: "number",
-        description: "Total free hours during work hours across all days"
-      },
-      {
-        name: "totalBusyHours",
-        label: "Total Busy Hours",
-        type: "number",
-        description: "Total busy hours during work hours across all days"
+        description: "Number of suggested meeting slots"
       },
       {
         name: "workHoursConfig",
         label: "Work Hours Config",
         type: "object",
-        description: "The work hours settings used for calculations"
+        description: "The work hours settings used for calculations",
+        properties: [
+          { name: "start", label: "Start Time", type: "string" },
+          { name: "end", label: "End Time", type: "string" },
+          { name: "meetingDuration", label: "Meeting Duration (Minutes)", type: "number" },
+          { name: "includeWeekends", label: "Include Weekends", type: "boolean" },
+          { name: "multiCalendarMode", label: "Multi-calendar Mode", type: "string" }
+        ]
+      },
+      {
+        name: "rawData",
+        label: "Raw Data",
+        type: "object",
+        description: "Raw API response for advanced use"
       }
     ],
   },

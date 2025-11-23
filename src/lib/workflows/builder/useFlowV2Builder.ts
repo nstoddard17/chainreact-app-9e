@@ -111,9 +111,14 @@ interface FlowV2BuilderState {
   cachedOutputsLoaded: boolean
 }
 
+export interface ApplyEditsOptions {
+  /** Skip updating React Flow graph after API response (for optimistic updates) */
+  skipGraphUpdate?: boolean
+}
+
 export interface FlowV2BuilderActions {
   load: () => Promise<void>
-  applyEdits: (edits: PlannerEdit[]) => Promise<Flow>
+  applyEdits: (edits: PlannerEdit[], options?: ApplyEditsOptions) => Promise<Flow>
   askAgent: (prompt: string) => Promise<AgentResult>
   updateConfig: (nodeId: string, patch: Record<string, any>) => void
   updateFlowName: (name: string) => Promise<void>
@@ -1017,7 +1022,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
   const applyEditsQueue = useRef<Promise<Flow | undefined>>(Promise.resolve(undefined))
 
   const applyEdits = useCallback(
-    async (edits: PlannerEdit[]) => {
+    async (edits: PlannerEdit[], options?: ApplyEditsOptions) => {
       // Queue this request to run after the previous one completes
       const previousRequest = applyEditsQueue.current
 
@@ -1047,7 +1052,12 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
           const updatedFlow = FlowSchema.parse(payload.flow)
           flowRef.current = updatedFlow
           revisionIdRef.current = payload.revisionId ?? revisionIdRef.current
-          updateReactFlowGraph(updatedFlow)
+
+          // Skip graph update for optimistic updates (e.g., node deletion)
+          // The UI was already updated optimistically, so we don't want to overwrite it
+          if (!options?.skipGraphUpdate) {
+            updateReactFlowGraph(updatedFlow)
+          }
 
           setFlowState((prev) => ({
             ...prev,

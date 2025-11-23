@@ -578,30 +578,92 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
   // Keyboard paste handler for importing workflow JSON
   useEffect(() => {
+    // Helper function to sanitize JSON text from various sources
+    const sanitizeJsonText = (text: string): string => {
+      let cleaned = text
+
+      // Remove BOM (Byte Order Mark)
+      cleaned = cleaned.replace(/^\uFEFF/, '')
+
+      // Remove zero-width characters and other invisible Unicode
+      cleaned = cleaned.replace(/[\u200B-\u200D\u200E\u200F\uFEFF\u00A0]/g, ' ')
+
+      // Replace smart quotes with regular quotes
+      cleaned = cleaned.replace(/[\u2018\u2019\u0060\u00B4]/g, "'")
+      cleaned = cleaned.replace(/[\u201C\u201D\u00AB\u00BB]/g, '"')
+
+      // Replace en-dash and em-dash with regular dash
+      cleaned = cleaned.replace(/[\u2013\u2014]/g, '-')
+
+      // Normalize line endings to \n
+      cleaned = cleaned.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+
+      // Remove ALL control characters (0x00-0x1F and 0x7F-0x9F) except newline (0x0A) and tab (0x09)
+      cleaned = cleaned.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '')
+
+      // Try to extract JSON if it's wrapped in markdown code blocks
+      const codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/)
+      if (codeBlockMatch) {
+        cleaned = codeBlockMatch[1]
+      }
+
+      // Trim whitespace
+      cleaned = cleaned.trim()
+
+      // Try to find JSON object/array boundaries and extract just that
+      const jsonStartIndex = cleaned.search(/[{\[]/)
+      const jsonEndIndex = Math.max(cleaned.lastIndexOf('}'), cleaned.lastIndexOf(']'))
+      if (jsonStartIndex !== -1 && jsonEndIndex > jsonStartIndex) {
+        cleaned = cleaned.substring(jsonStartIndex, jsonEndIndex + 1)
+      }
+
+      // Handle newlines inside string values by replacing them with spaces
+      // This regex finds strings and replaces newlines inside them
+      cleaned = cleaned.replace(/"([^"\\]|\\.)*"/g, (match) => {
+        return match.replace(/\n/g, ' ').replace(/\t/g, ' ')
+      })
+
+      return cleaned
+    }
+
     const handlePaste = async (e: ClipboardEvent) => {
+      console.log('[WorkflowBuilder] Paste event detected')
+
       // Don't intercept paste if user is typing in an input/textarea
       const activeElement = document.activeElement
+      const tagName = activeElement?.tagName?.toLowerCase()
+      console.log('[WorkflowBuilder] Active element:', tagName, activeElement?.getAttribute('contenteditable'))
+
       if (
         activeElement instanceof HTMLInputElement ||
         activeElement instanceof HTMLTextAreaElement ||
         activeElement?.getAttribute('contenteditable') === 'true'
       ) {
+        console.log('[WorkflowBuilder] Skipping - user is in input field')
         return
       }
 
       const pastedText = e.clipboardData?.getData('text')
+      console.log('[WorkflowBuilder] Pasted text length:', pastedText?.length)
       if (!pastedText) return
+
+      // Sanitize the pasted text to handle various formats
+      const cleanedText = sanitizeJsonText(pastedText)
+      console.log('[WorkflowBuilder] Cleaned text length:', cleanedText.length)
 
       // Try to parse as JSON
       try {
-        const data = JSON.parse(pastedText)
+        const data = JSON.parse(cleanedText)
+        console.log('[WorkflowBuilder] Parsed JSON:', { hasNodes: !!data.nodes, nodeCount: data.nodes?.length })
 
         // Check if it looks like workflow JSON (has nodes array)
         if (!data.nodes || !Array.isArray(data.nodes)) {
+          console.log('[WorkflowBuilder] Not workflow JSON - no nodes array')
           return // Not workflow JSON, let default paste behavior happen
         }
 
         e.preventDefault() // Prevent default paste behavior
+        console.log('[WorkflowBuilder] Valid workflow JSON detected, importing...')
 
         // Convert nodes to edit operations
         const edits: any[] = []
@@ -640,6 +702,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           })
         }
 
+        console.log('[WorkflowBuilder] Created edits:', edits.length, 'actions available:', !!actions?.applyEdits)
+
         if (edits.length > 0 && actions?.applyEdits) {
           toast({
             title: "Importing workflow...",
@@ -653,15 +717,24 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
               description: `Successfully added ${data.nodes.length} nodes`,
             })
           } catch (error: any) {
+            console.error('[WorkflowBuilder] Import failed:', error)
             toast({
               title: "Import failed",
               description: error?.message || "Failed to import workflow",
               variant: "destructive",
             })
           }
+        } else if (edits.length > 0 && !actions?.applyEdits) {
+          console.warn('[WorkflowBuilder] Cannot import - actions.applyEdits not available')
+          toast({
+            title: "Cannot import",
+            description: "Workflow builder not ready. Please try again.",
+            variant: "destructive",
+          })
         }
-      } catch {
+      } catch (parseError) {
         // Not valid JSON, ignore and let default paste happen
+        console.log('[WorkflowBuilder] Not valid JSON:', parseError)
       }
     }
 
@@ -3596,7 +3669,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     // Re-enable overlays immediately so the phantom edge reflects new layout
     endStructureTransition()
 
-    actions.applyEdits(deleteEdits).catch((error: any) => {
+    // Use skipGraphUpdate to prevent the backend response from overwriting our optimistic update
+    actions.applyEdits(deleteEdits, { skipGraphUpdate: true }).catch((error: any) => {
       // Rollback on error
       builder.setNodes(currentNodes)
       builder.setEdges(currentEdges)
