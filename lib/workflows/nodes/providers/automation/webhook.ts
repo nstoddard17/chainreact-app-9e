@@ -3,6 +3,7 @@
  * Handles HTTP webhook triggers for workflows
  */
 
+import { Webhook } from 'lucide-react'
 import type { NodeComponent } from '../../types'
 
 export const webhookTrigger: NodeComponent = {
@@ -13,6 +14,7 @@ export const webhookTrigger: NodeComponent = {
   isTrigger: true,
   producesOutput: true,
   providerId: "webhook",
+  icon: Webhook,
   configSchema: [
     {
       name: "path",

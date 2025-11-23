@@ -142,7 +142,7 @@ const DEFAULT_SLACK_SECTION_STATE = SLACK_CONFIG_SECTIONS.reduce<Record<string, 
   return acc
 }, {})
 
-const INTERNAL_PROVIDER_IDS = new Set(['logic', 'core', 'manual', 'schedule', 'webhook', 'ai', 'utility', 'openai', 'anthropic', 'google'])
+const INTERNAL_PROVIDER_IDS = new Set(['logic', 'core', 'manual', 'schedule', 'ai', 'utility', 'openai', 'anthropic', 'google'])
 const DEFAULT_PATH_COLORS = ['#2563EB', '#EA580C', '#059669', '#9333EA', '#BE123C', '#14B8A6']
 const ELSE_HANDLE_COLOR = '#64748B'
 

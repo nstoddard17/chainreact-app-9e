@@ -134,6 +134,8 @@ const BuilderHeaderComponent = ({
   const [showShareDialog, setShowShareDialog] = useState(false)
   const [showImportDialog, setShowImportDialog] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showSettingsDialog, setShowSettingsDialog] = useState(false)
+  const [showApiDialog, setShowApiDialog] = useState(false)
   const [shareEmail, setShareEmail] = useState("")
   const [shareMode, setShareMode] = useState<"view" | "edit" | "duplicate">("view")
   const [shareUrl, setShareUrl] = useState("")
@@ -338,7 +340,25 @@ const BuilderHeaderComponent = ({
         throw new Error("Invalid workflow format")
       }
 
-      // TODO: Implement backend API to import workflow
+      // Create a new workflow with the imported data
+      const response = await fetch('/api/workflows', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: data.name || 'Imported Workflow',
+          description: data.description || '',
+          nodes: data.nodes,
+          connections: data.connections,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to import workflow')
+      }
+
+      const result = await response.json()
+
       toast({
         title: "Workflow imported",
         description: "Workflow has been imported successfully.",
@@ -346,11 +366,18 @@ const BuilderHeaderComponent = ({
 
       setImportJson("")
       setShowImportDialog(false)
-      window.location.reload()
-    } catch (_error) {
+
+      // Navigate to the new workflow
+      const workflowIdResult = result.workflow?.id || result.id
+      if (workflowIdResult) {
+        router.push(`/workflows/builder/${workflowIdResult}`)
+      } else {
+        window.location.reload()
+      }
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Invalid workflow JSON format.",
+        description: error.message || "Invalid workflow JSON format.",
         variant: "destructive",
       })
     } finally {
@@ -511,10 +538,7 @@ const BuilderHeaderComponent = ({
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => {
-                      // TODO: Implement Run via API functionality
-                      toast({ title: "Run via API", description: "Coming soon!" })
-                    }}
+                    onClick={() => setShowApiDialog(true)}
                   >
                     <CloudCog className="w-4 h-4" />
                   </Button>
@@ -635,21 +659,7 @@ const BuilderHeaderComponent = ({
                 Versions
               </DropdownMenuItem>
 
-              <DropdownMenuItem onClick={() => {
-                setShowHistoryDialog(true)
-                setShowExecutionHistory?.(true)
-              }}>
-                <History className="w-4 h-4 mr-2" />
-                Workflow History
-              </DropdownMenuItem>
-
-              <DropdownMenuItem onClick={() => {
-                // TODO: Open workflow settings dialog
-                toast({
-                  title: "Workflow Settings",
-                  description: "Settings will be available when publishing the workflow.",
-                })
-              }}>
+              <DropdownMenuItem onClick={() => setShowSettingsDialog(true)}>
                 <Settings className="w-4 h-4 mr-2" />
                 Workflow Settings
               </DropdownMenuItem>
@@ -826,6 +836,170 @@ const BuilderHeaderComponent = ({
               ) : (
                 "Delete Workflow"
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Workflow Settings Dialog */}
+      <Dialog open={showSettingsDialog} onOpenChange={setShowSettingsDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Settings className="w-5 h-5" />
+              Workflow Settings
+            </DialogTitle>
+            <DialogDescription>
+              Configure settings for this workflow.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="workflow-name-settings">Workflow Name</Label>
+              <Input
+                id="workflow-name-settings"
+                value={workflowName}
+                onChange={(e) => setWorkflowName(e.target.value)}
+                placeholder="Enter workflow name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="workflow-description">Description</Label>
+              <Textarea
+                id="workflow-description"
+                placeholder="Add a description for this workflow..."
+                defaultValue={currentWorkflow?.description || ""}
+                rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <div className="flex items-center gap-2">
+                <span
+                  className={cn(
+                    "text-xs px-2 py-1 rounded-full font-medium",
+                    currentWorkflow?.is_active
+                      ? "bg-green-100 text-green-700"
+                      : "bg-gray-100 text-gray-600"
+                  )}
+                >
+                  {currentWorkflow?.is_active ? "Published" : "Draft"}
+                </span>
+                {currentWorkflow?.status && (
+                  <span className="text-xs text-muted-foreground">
+                    ({currentWorkflow.status})
+                  </span>
+                )}
+              </div>
+            </div>
+            {workflowId && (
+              <div className="space-y-2">
+                <Label>Workflow ID</Label>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 px-3 py-2 bg-muted rounded-md text-xs font-mono truncate">
+                    {workflowId}
+                  </code>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(workflowId)
+                      toast({ title: "Copied", description: "Workflow ID copied to clipboard" })
+                    }}
+                  >
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSettingsDialog(false)}>
+              Close
+            </Button>
+            <Button onClick={() => {
+              if (handleSave) {
+                handleSave()
+              }
+              setShowSettingsDialog(false)
+            }}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Run via API Dialog */}
+      <Dialog open={showApiDialog} onOpenChange={setShowApiDialog}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CloudCog className="w-5 h-5" />
+              Run via API
+            </DialogTitle>
+            <DialogDescription>
+              Trigger this workflow programmatically using the API.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>API Endpoint</Label>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 px-3 py-2 bg-muted rounded-md text-xs font-mono break-all">
+                  POST {window?.location?.origin || ''}/api/workflows/{workflowId}/execute
+                </code>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    navigator.clipboard.writeText(
+                      `${window?.location?.origin || ''}/api/workflows/${workflowId}/execute`
+                    )
+                    toast({ title: "Copied", description: "API endpoint copied to clipboard" })
+                  }}
+                >
+                  <Copy className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Example Request</Label>
+              <pre className="px-3 py-2 bg-muted rounded-md text-xs font-mono overflow-auto">
+{`curl -X POST \\
+  ${window?.location?.origin || ''}/api/workflows/${workflowId}/execute \\
+  -H "Authorization: Bearer YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"inputs": {}}'`}
+              </pre>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => {
+                  navigator.clipboard.writeText(
+`curl -X POST \\
+  ${window?.location?.origin || ''}/api/workflows/${workflowId}/execute \\
+  -H "Authorization: Bearer YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"inputs": {}}'`
+                  )
+                  toast({ title: "Copied", description: "cURL command copied to clipboard" })
+                }}
+              >
+                <Copy className="w-4 h-4 mr-2" />
+                Copy cURL Command
+              </Button>
+            </div>
+
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+              <strong>Note:</strong> To use the API, you need to generate an API key from your account settings.
+              The workflow must be published (active) to be triggered via API.
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowApiDialog(false)}>
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>

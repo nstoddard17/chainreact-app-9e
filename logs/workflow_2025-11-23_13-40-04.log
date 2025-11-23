@@ -1,0 +1,271 @@
+=== Log Session Started: 2025-11-23T19:40:04.684Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-11-23T19:40:04.684Z] [INFO   ] File logging initialized
+[2025-11-23T19:40:04.684Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-23_13-40-04.log
+[2025-11-23T19:40:04.686Z] [INFO   ] 📁 File logging enabled
+[2025-11-23T19:40:04.686Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-23_13-40-04.log
+[2025-11-23T19:40:04.686Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-23_13-40-04.log
+[2025-11-23T19:40:04.686Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-23_13-40-04.log
+[2025-11-23T19:40:04.686Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-23_13-40-04.log
+[2025-11-23T19:40:04.686Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-11-23T19:40:04.686Z] [DEBUG  ] 📁 File logging system initialized
+[2025-11-23T19:40:04.711Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 4.1s
+[2025-11-23T19:40:04.842Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 126ms (232 modules)
+[2025-11-23T19:40:05.196Z] [INFO   ] 2025-11-23T19:40:05.195Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/4452e6a9-71b5-462c-b530-f04c980190d3","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15360117796}
+[2025-11-23T19:40:05.688Z] [INFO   ] 2025-11-23T19:40:05.688Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-11-23T19:40:08.191Z] [INFO   ] 2025-11-23T19:40:08.191Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-11-23T19:40:08.191Z] [INFO   ] 2025-11-23T19:40:08.191Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-23T19:40:08.211Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/builder/[id] ...
+[2025-11-23T19:40:08.459Z] [INFO   ] 2025-11-23T19:40:08.459Z [DEBUG] Discord Gateway initialization complete
+[2025-11-23T19:40:08.461Z] [INFO   ] 2025-11-23T19:40:08.461Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-11-23T19:40:08.694Z] [INFO   ] 2025-11-23T19:40:08.694Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-23T19:40:08.694Z] [INFO   ] 2025-11-23T19:40:08.694Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-23T19:40:14.765Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/builder/[id] in 9.5s (6915 modules)
+[2025-11-23T19:40:15.515Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 703ms (1836 modules)
+[2025-11-23T19:40:15.942Z] [INFO   ] 2025-11-23T19:40:15.942Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-23T19:40:15.942Z"}
+[2025-11-23T19:40:15.958Z] [INFO   ] 2025-11-23T19:40:15.958Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-23T19:40:15.958Z"}
+[2025-11-23T19:40:15.958Z] [INFO   ] 2025-11-23T19:40:15.958Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-23T19:40:15.958Z"}
+[2025-11-23T19:40:16.377Z] [INFO   ] 2025-11-23T19:40:16.376Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-23T19:40:17.340Z] [ERROR  ]  [31m[1m⨯[22m[39m window is not defined
+ReferenceError: window is not defined
+    at BuilderHeaderComponent (webpack-internal:///(ssr)/./components/workflows/builder/BuilderHeader.tsx:1767:57)
+    at Object.react_stack_bottom_frame (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:292649)
+    at renderWithHooks (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:114080)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:128752)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:185331)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:203204)
+    at renderChildrenArray (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:200308)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:195061)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:203204)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:176646)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:203204)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:176646)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:203204)
+    at renderChildrenArray (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:200308)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:195061)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+[2025-11-23T19:40:17.393Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-11-23T19:40:18.900Z] [INFO   ] 2025-11-23T19:40:18.900Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/4452e6a9-71b5-462c-b530-f04c980190d3/runs/latest","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15360131501}
+[2025-11-23T19:40:20.391Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/runs/latest in 3.5s (6919 modules)
+[2025-11-23T19:40:21.035Z] [INFO   ] 2025-11-23T19:40:21.035Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/4452e6a9-71b5-462c-b530-f04c980190d3/revisions","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15360133636}
+[2025-11-23T19:40:21.153Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-11-23T19:40:21.332Z] [ERROR  ] 2025-11-23T19:40:21.332Z [ERROR] [runs/latest] Definition query error {"flowId":"4452e6a9-71b5-462c-b530-f04c980190d3","error":"column flow_v2_definitions.created_by does not exist"}
+[2025-11-23T19:40:22.114Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 1461ms (6928 modules)
+[2025-11-23T19:40:22.258Z] [INFO   ] 2025-11-23T19:40:22.258Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-23T19:40:22.258Z","url":"http://localhost:3000/api/integrations"}
+[2025-11-23T19:40:22.337Z] [INFO   ] 2025-11-23T19:40:22.337Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-23T19:40:22.338Z] [INFO   ] 2025-11-23T19:40:22.338Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-23T19:40:22.349Z] [INFO   ] 2025-11-23T19:40:22.348Z [DEBUG] [API /api/workflows] GET request {"filterContext":"ALL (unified view)","workspaceId":null,"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-23T19:40:22.434Z] [INFO   ] 2025-11-23T19:40:22.434Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":15,"permissionsCount":4,"integrationsError":null,"permissionsError":null}
+[2025-11-23T19:40:22.434Z] [INFO   ] 2025-11-23T19:40:22.434Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"c61c89e4-4f78-4069-8bfe-d36dd81cf6fc","provider":"dropbox","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:22.435Z] [INFO   ] 2025-11-23T19:40:22.435Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","permission":"admin"}
+[2025-11-23T19:40:22.435Z] [INFO   ] 2025-11-23T19:40:22.435Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:22.435Z] [INFO   ] 2025-11-23T19:40:22.435Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:22.435Z] [INFO   ] 2025-11-23T19:40:22.435Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f172e387-ab0c-4c6a-975e-1767b2fd37be","provider":"notion","permission":"admin","reason":"default"}
+[2025-11-23T19:40:22.435Z] [INFO   ] 2025-11-23T19:40:22.435Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f367c75b-b4ea-4d0e-96ba-76368f0525a6","provider":"slack","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:22.435Z] [INFO   ] 2025-11-23T19:40:22.435Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f0476067-a30a-4ab4-b9fb-1f5a647a7be7","provider":"facebook","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:22.435Z] [INFO   ] 2025-11-23T19:40:22.435Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:22.435Z] [INFO   ] 2025-11-23T19:40:22.435Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","permission":"admin"}
+[2025-11-23T19:40:22.435Z] [INFO   ] 2025-11-23T19:40:22.435Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:22.435Z] [INFO   ] 2025-11-23T19:40:22.435Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-23T19:40:22.436Z] [INFO   ] 2025-11-23T19:40:22.436Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"dd542556-581b-4711-ae40-304c81619938","provider":"airtable","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:22.436Z] [INFO   ] 2025-11-23T19:40:22.436Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-23T19:40:22.436Z] [INFO   ] 2025-11-23T19:40:22.436Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:22.436Z] [INFO   ] 2025-11-23T19:40:22.436Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:22.436Z] [INFO   ] 2025-11-23T19:40:22.436Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":15,"workspaceType":"personal"}
+[2025-11-23T19:40:22.519Z] [INFO   ] 2025-11-23T19:40:22.519Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-23T19:40:22.519Z","url":"http://localhost:3000/api/integrations"}
+[2025-11-23T19:40:22.604Z] [INFO   ] 2025-11-23T19:40:22.604Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-23T19:40:22.605Z] [INFO   ] 2025-11-23T19:40:22.605Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-23T19:40:22.667Z] [INFO   ] 2025-11-23T19:40:22.667Z [DEBUG] [API /api/workflows] Query result {"filterContext":"ALL","count":0,"error":null}
+[2025-11-23T19:40:22.721Z] [INFO   ] 2025-11-23T19:40:22.721Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":15,"permissionsCount":4,"integrationsError":null,"permissionsError":null}
+[2025-11-23T19:40:22.722Z] [INFO   ] 2025-11-23T19:40:22.722Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"c61c89e4-4f78-4069-8bfe-d36dd81cf6fc","provider":"dropbox","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:22.722Z] [INFO   ] 2025-11-23T19:40:22.722Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","permission":"admin"}
+[2025-11-23T19:40:22.722Z] [INFO   ] 2025-11-23T19:40:22.722Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:22.722Z] [INFO   ] 2025-11-23T19:40:22.722Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:22.722Z] [INFO   ] 2025-11-23T19:40:22.722Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f172e387-ab0c-4c6a-975e-1767b2fd37be","provider":"notion","permission":"admin","reason":"default"}
+[2025-11-23T19:40:22.722Z] [INFO   ] 2025-11-23T19:40:22.722Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f367c75b-b4ea-4d0e-96ba-76368f0525a6","provider":"slack","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:22.722Z] [INFO   ] 2025-11-23T19:40:22.722Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f0476067-a30a-4ab4-b9fb-1f5a647a7be7","provider":"facebook","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:22.722Z] [INFO   ] 2025-11-23T19:40:22.722Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:22.722Z] [INFO   ] 2025-11-23T19:40:22.722Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","permission":"admin"}
+[2025-11-23T19:40:22.722Z] [INFO   ] 2025-11-23T19:40:22.722Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:22.722Z] [INFO   ] 2025-11-23T19:40:22.722Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-23T19:40:22.722Z] [INFO   ] 2025-11-23T19:40:22.722Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"dd542556-581b-4711-ae40-304c81619938","provider":"airtable","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:22.722Z] [INFO   ] 2025-11-23T19:40:22.722Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-23T19:40:22.725Z] [INFO   ] 2025-11-23T19:40:22.722Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:22.725Z] [INFO   ] 2025-11-23T19:40:22.725Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:22.725Z] [INFO   ] 2025-11-23T19:40:22.725Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":15,"workspaceType":"personal"}
+[2025-11-23T19:40:23.117Z] [INFO   ] 2025-11-23T19:40:23.117Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/4452e6a9-71b5-462c-b530-f04c980190d3/revisions/94b520d3-4d90-4c41-9b01-598081f1b851","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15360135718}
+[2025-11-23T19:40:23.644Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/revisions/[revisionId] in 477ms (6930 modules)
+[2025-11-23T19:40:24.107Z] [INFO   ] 2025-11-23T19:40:24.107Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-23T19:40:24.107Z","url":"http://localhost:3000/api/integrations?workspace_type=personal"}
+[2025-11-23T19:40:24.194Z] [INFO   ] 2025-11-23T19:40:24.194Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-23T19:40:24.194Z] [INFO   ] 2025-11-23T19:40:24.194Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-23T19:40:24.328Z] [INFO   ] 2025-11-23T19:40:24.328Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":15,"permissionsCount":4,"integrationsError":null,"permissionsError":null}
+[2025-11-23T19:40:24.329Z] [INFO   ] 2025-11-23T19:40:24.329Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"c61c89e4-4f78-4069-8bfe-d36dd81cf6fc","provider":"dropbox","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:24.329Z] [INFO   ] 2025-11-23T19:40:24.329Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","permission":"admin"}
+[2025-11-23T19:40:24.329Z] [INFO   ] 2025-11-23T19:40:24.329Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:24.329Z] [INFO   ] 2025-11-23T19:40:24.329Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:24.329Z] [INFO   ] 2025-11-23T19:40:24.329Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f172e387-ab0c-4c6a-975e-1767b2fd37be","provider":"notion","permission":"admin","reason":"default"}
+[2025-11-23T19:40:24.329Z] [INFO   ] 2025-11-23T19:40:24.329Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f367c75b-b4ea-4d0e-96ba-76368f0525a6","provider":"slack","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:24.329Z] [INFO   ] 2025-11-23T19:40:24.329Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f0476067-a30a-4ab4-b9fb-1f5a647a7be7","provider":"facebook","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:24.329Z] [INFO   ] 2025-11-23T19:40:24.329Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:24.329Z] [INFO   ] 2025-11-23T19:40:24.329Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","permission":"admin"}
+[2025-11-23T19:40:24.329Z] [INFO   ] 2025-11-23T19:40:24.329Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:24.329Z] [INFO   ] 2025-11-23T19:40:24.329Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-23T19:40:24.329Z] [INFO   ] 2025-11-23T19:40:24.329Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"dd542556-581b-4711-ae40-304c81619938","provider":"airtable","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:24.329Z] [INFO   ] 2025-11-23T19:40:24.329Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-23T19:40:24.329Z] [INFO   ] 2025-11-23T19:40:24.329Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:24.329Z] [INFO   ] 2025-11-23T19:40:24.329Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:24.329Z] [INFO   ] 2025-11-23T19:40:24.329Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":15,"workspaceType":"personal"}
+[2025-11-23T19:40:24.491Z] [INFO   ] 2025-11-23T19:40:24.491Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/4452e6a9-71b5-462c-b530-f04c980190d3/runs/latest","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15360137092}
+[2025-11-23T19:40:24.550Z] [INFO   ] 2025-11-23T19:40:24.550Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-23T19:40:24.550Z","url":"http://localhost:3000/api/integrations"}
+[2025-11-23T19:40:24.631Z] [INFO   ] 2025-11-23T19:40:24.631Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-23T19:40:24.631Z] [INFO   ] 2025-11-23T19:40:24.631Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-23T19:40:24.723Z] [INFO   ] 2025-11-23T19:40:24.723Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":15,"permissionsCount":4,"integrationsError":null,"permissionsError":null}
+[2025-11-23T19:40:24.723Z] [INFO   ] 2025-11-23T19:40:24.723Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"c61c89e4-4f78-4069-8bfe-d36dd81cf6fc","provider":"dropbox","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:24.723Z] [INFO   ] 2025-11-23T19:40:24.723Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","permission":"admin"}
+[2025-11-23T19:40:24.723Z] [INFO   ] 2025-11-23T19:40:24.723Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:24.723Z] [INFO   ] 2025-11-23T19:40:24.723Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:24.723Z] [INFO   ] 2025-11-23T19:40:24.723Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f172e387-ab0c-4c6a-975e-1767b2fd37be","provider":"notion","permission":"admin","reason":"default"}
+[2025-11-23T19:40:24.723Z] [INFO   ] 2025-11-23T19:40:24.723Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f367c75b-b4ea-4d0e-96ba-76368f0525a6","provider":"slack","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:24.723Z] [INFO   ] 2025-11-23T19:40:24.723Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f0476067-a30a-4ab4-b9fb-1f5a647a7be7","provider":"facebook","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:24.723Z] [INFO   ] 2025-11-23T19:40:24.723Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:24.723Z] [INFO   ] 2025-11-23T19:40:24.723Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","permission":"admin"}
+[2025-11-23T19:40:24.723Z] [INFO   ] 2025-11-23T19:40:24.723Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:24.723Z] [INFO   ] 2025-11-23T19:40:24.723Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-23T19:40:24.723Z] [INFO   ] 2025-11-23T19:40:24.723Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"dd542556-581b-4711-ae40-304c81619938","provider":"airtable","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:24.723Z] [INFO   ] 2025-11-23T19:40:24.723Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-23T19:40:24.723Z] [INFO   ] 2025-11-23T19:40:24.723Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:24.723Z] [INFO   ] 2025-11-23T19:40:24.723Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:24.723Z] [INFO   ] 2025-11-23T19:40:24.723Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":15,"workspaceType":"personal"}
+[2025-11-23T19:40:24.784Z] [ERROR  ] 2025-11-23T19:40:24.784Z [ERROR] [runs/latest] Definition query error {"flowId":"4452e6a9-71b5-462c-b530-f04c980190d3","error":"column flow_v2_definitions.created_by does not exist"}
+[2025-11-23T19:40:24.787Z] [INFO   ] 2025-11-23T19:40:24.787Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-23T19:40:24.787Z","url":"http://localhost:3000/api/integrations"}
+[2025-11-23T19:40:24.889Z] [INFO   ] 2025-11-23T19:40:24.889Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-23T19:40:24.890Z] [INFO   ] 2025-11-23T19:40:24.890Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":null}
+[2025-11-23T19:40:24.996Z] [INFO   ] 2025-11-23T19:40:24.996Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":null,"integrationsCount":15,"permissionsCount":4,"integrationsError":null,"permissionsError":null}
+[2025-11-23T19:40:24.997Z] [INFO   ] 2025-11-23T19:40:24.997Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"c61c89e4-4f78-4069-8bfe-d36dd81cf6fc","provider":"dropbox","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:24.997Z] [INFO   ] 2025-11-23T19:40:24.997Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","permission":"admin"}
+[2025-11-23T19:40:24.997Z] [INFO   ] 2025-11-23T19:40:24.997Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:24.997Z] [INFO   ] 2025-11-23T19:40:24.997Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:24.997Z] [INFO   ] 2025-11-23T19:40:24.997Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f172e387-ab0c-4c6a-975e-1767b2fd37be","provider":"notion","permission":"admin","reason":"default"}
+[2025-11-23T19:40:24.997Z] [INFO   ] 2025-11-23T19:40:24.997Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f367c75b-b4ea-4d0e-96ba-76368f0525a6","provider":"slack","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:24.997Z] [INFO   ] 2025-11-23T19:40:24.997Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f0476067-a30a-4ab4-b9fb-1f5a647a7be7","provider":"facebook","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:24.997Z] [INFO   ] 2025-11-23T19:40:24.997Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:24.997Z] [INFO   ] 2025-11-23T19:40:24.997Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","permission":"admin"}
+[2025-11-23T19:40:24.997Z] [INFO   ] 2025-11-23T19:40:24.997Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:24.997Z] [INFO   ] 2025-11-23T19:40:24.997Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-23T19:40:24.997Z] [INFO   ] 2025-11-23T19:40:24.997Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"dd542556-581b-4711-ae40-304c81619938","provider":"airtable","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:24.997Z] [INFO   ] 2025-11-23T19:40:24.997Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-23T19:40:24.997Z] [INFO   ] 2025-11-23T19:40:24.997Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:24.998Z] [INFO   ] 2025-11-23T19:40:24.997Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","permission":"admin","reason":"connected_by"}
+[2025-11-23T19:40:24.998Z] [INFO   ] 2025-11-23T19:40:24.998Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":15,"workspaceType":"personal"}
+[2025-11-23T19:41:14.083Z] [INFO   ] 2025-11-23T19:41:14.083Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/4452e6a9-71b5-462c-b530-f04c980190d3/apply-edits","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15360186684}
+[2025-11-23T19:41:14.716Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/v2/api/flows/[flowId]/apply-edits ...
+[2025-11-23T19:41:14.931Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/v2/api/flows/[flowId]/apply-edits in 747ms (6932 modules)
+[2025-11-23T19:41:15.332Z] [INFO   ] [apply-edits] Original flow size: 273 bytes (0.27 KB)
+[2025-11-23T19:41:15.332Z] [INFO   ] [apply-edits] Sanitized flow size: 273 bytes (0.27 KB), saved 0 bytes
+[2025-11-23T19:41:15.885Z] [INFO   ] [FlowRepository] Creating revision for flow 4452e6a9-71b5-462c-b530-f04c980190d3, JSON size: 273 bytes (0.27 KB)
+[2025-11-23T19:41:18.958Z] [INFO   ] 2025-11-23T19:41:18.957Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/4452e6a9-71b5-462c-b530-f04c980190d3/apply-edits","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15360191558}
+[2025-11-23T19:41:19.381Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/airtable/data ...
+[2025-11-23T19:41:20.494Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/airtable/data in 1635ms (6955 modules)
+[2025-11-23T19:41:20.601Z] [INFO   ] [apply-edits] Original flow size: 717 bytes (0.70 KB)
+[2025-11-23T19:41:20.601Z] [INFO   ] [apply-edits] Sanitized flow size: 717 bytes (0.70 KB), saved 0 bytes
+[2025-11-23T19:41:20.728Z] [INFO   ] 2025-11-23T19:41:20.728Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"dd542556-581b-4711-ae40-304c81619938","dataType":"airtable_bases","status":"connected","hasToken":true}
+[2025-11-23T19:41:20.729Z] [INFO   ] 2025-11-23T19:41:20.728Z [DEBUG] 🔍 Airtable bases fetcher called with integration: {"id":"dd542556-581b-4711-ae40-304c81619938","provider":"airtable","hasToken":true,"tokenLength":334}
+[2025-11-23T19:41:20.729Z] [INFO   ] 2025-11-23T19:41:20.729Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-23T19:41:20.729Z] [INFO   ] 2025-11-23T19:41:20.729Z [DEBUG] 🔍 Fetching Airtable bases from API...
+[2025-11-23T19:41:20.779Z] [INFO   ] 2025-11-23T19:41:20.779Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"dd542556-581b-4711-ae40-304c81619938","dataType":"airtable_bases","status":"connected","hasToken":true}
+[2025-11-23T19:41:20.779Z] [INFO   ] 2025-11-23T19:41:20.779Z [DEBUG] 🔍 Airtable bases fetcher called with integration: {"id":"dd542556-581b-4711-ae40-304c81619938","provider":"airtable","hasToken":true,"tokenLength":334}
+[2025-11-23T19:41:20.779Z] [INFO   ] 2025-11-23T19:41:20.779Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-23T19:41:20.779Z] [INFO   ] 2025-11-23T19:41:20.779Z [DEBUG] 🔍 Fetching Airtable bases from API...
+[2025-11-23T19:41:21.175Z] [INFO   ] 2025-11-23T19:41:21.175Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"dd542556-581b-4711-ae40-304c81619938","dataType":"airtable_bases","status":"connected","hasToken":true}
+[2025-11-23T19:41:21.176Z] [INFO   ] 2025-11-23T19:41:21.176Z [DEBUG] 🔍 Airtable bases fetcher called with integration: {"id":"dd542556-581b-4711-ae40-304c81619938","provider":"airtable","hasToken":true,"tokenLength":334}
+[2025-11-23T19:41:21.176Z] [INFO   ] 2025-11-23T19:41:21.176Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-23T19:41:21.176Z] [INFO   ] 2025-11-23T19:41:21.176Z [DEBUG] 🔍 Fetching Airtable bases from API...
+[2025-11-23T19:41:21.249Z] [INFO   ] [FlowRepository] Creating revision for flow 4452e6a9-71b5-462c-b530-f04c980190d3, JSON size: 717 bytes (0.70 KB)
+[2025-11-23T19:41:21.546Z] [INFO   ] 2025-11-23T19:41:21.546Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"dd542556-581b-4711-ae40-304c81619938","dataType":"airtable_bases","status":"connected","hasToken":true}
+[2025-11-23T19:41:21.546Z] [INFO   ] 2025-11-23T19:41:21.546Z [DEBUG] 🔍 Airtable bases fetcher called with integration: {"id":"dd542556-581b-4711-ae40-304c81619938","provider":"airtable","hasToken":true,"tokenLength":334}
+[2025-11-23T19:41:21.546Z] [INFO   ] 2025-11-23T19:41:21.546Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-23T19:41:21.546Z] [INFO   ] 2025-11-23T19:41:21.546Z [DEBUG] 🔍 Fetching Airtable bases from API...
+[2025-11-23T19:41:22.064Z] [INFO   ] 2025-11-23T19:41:22.064Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"dd542556-581b-4711-ae40-304c81619938","dataType":"airtable_bases","status":"connected","hasToken":true}
+[2025-11-23T19:41:22.064Z] [INFO   ] 2025-11-23T19:41:22.064Z [DEBUG] 🔍 Airtable bases fetcher called with integration: {"id":"dd542556-581b-4711-ae40-304c81619938","provider":"airtable","hasToken":true,"tokenLength":334}
+[2025-11-23T19:41:22.064Z] [INFO   ] 2025-11-23T19:41:22.064Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-23T19:41:22.064Z] [INFO   ] 2025-11-23T19:41:22.064Z [DEBUG] 🔍 Fetching Airtable bases from API...
+[2025-11-23T19:41:22.068Z] [INFO   ] 2025-11-23T19:41:22.068Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"dd542556-581b-4711-ae40-304c81619938","dataType":"airtable_bases","status":"connected","hasToken":true}
+[2025-11-23T19:41:22.068Z] [INFO   ] 2025-11-23T19:41:22.068Z [DEBUG] 🔍 Airtable bases fetcher called with integration: {"id":"dd542556-581b-4711-ae40-304c81619938","provider":"airtable","hasToken":true,"tokenLength":334}
+[2025-11-23T19:41:22.068Z] [INFO   ] 2025-11-23T19:41:22.068Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-23T19:41:22.068Z] [INFO   ] 2025-11-23T19:41:22.068Z [DEBUG] 🔍 Fetching Airtable bases from API...
+[2025-11-23T19:41:22.237Z] [INFO   ] 2025-11-23T19:41:22.237Z [DEBUG] ✅ Airtable bases fetched successfully: 1 bases
+[2025-11-23T19:41:22.237Z] [INFO   ] 2025-11-23T19:41:22.237Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_bases: {"integrationId":"dd542556-581b-4711-ae40-304c81619938","resultCount":1}
+[2025-11-23T19:41:22.276Z] [INFO   ] 2025-11-23T19:41:22.276Z [DEBUG] ✅ Airtable bases fetched successfully: 1 bases
+[2025-11-23T19:41:22.276Z] [INFO   ] 2025-11-23T19:41:22.276Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_bases: {"integrationId":"dd542556-581b-4711-ae40-304c81619938","resultCount":1}
+[2025-11-23T19:41:22.466Z] [INFO   ] 2025-11-23T19:41:22.466Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"dd542556-581b-4711-ae40-304c81619938","dataType":"airtable_bases","status":"connected","hasToken":true}
+[2025-11-23T19:41:22.466Z] [INFO   ] 2025-11-23T19:41:22.466Z [DEBUG] 🔍 Airtable bases fetcher called with integration: {"id":"dd542556-581b-4711-ae40-304c81619938","provider":"airtable","hasToken":true,"tokenLength":334}
+[2025-11-23T19:41:22.466Z] [INFO   ] 2025-11-23T19:41:22.466Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-23T19:41:22.467Z] [INFO   ] 2025-11-23T19:41:22.466Z [DEBUG] 🔍 Fetching Airtable bases from API...
+[2025-11-23T19:41:22.535Z] [INFO   ] 2025-11-23T19:41:22.534Z [DEBUG] ✅ Airtable bases fetched successfully: 1 bases
+[2025-11-23T19:41:22.535Z] [INFO   ] 2025-11-23T19:41:22.535Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_bases: {"integrationId":"dd542556-581b-4711-ae40-304c81619938","resultCount":1}
+[2025-11-23T19:41:22.716Z] [INFO   ] 2025-11-23T19:41:22.716Z [DEBUG] ✅ Airtable bases fetched successfully: 1 bases
+[2025-11-23T19:41:22.717Z] [INFO   ] 2025-11-23T19:41:22.717Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_bases: {"integrationId":"dd542556-581b-4711-ae40-304c81619938","resultCount":1}
+[2025-11-23T19:41:22.814Z] [INFO   ] 2025-11-23T19:41:22.814Z [DEBUG] 🔍 [Airtable API] Processing request: {"integrationId":"dd542556-581b-4711-ae40-304c81619938","dataType":"airtable_bases","status":"connected","hasToken":true}
+[2025-11-23T19:41:22.815Z] [INFO   ] 2025-11-23T19:41:22.815Z [DEBUG] 🔍 Airtable bases fetcher called with integration: {"id":"dd542556-581b-4711-ae40-304c81619938","provider":"airtable","hasToken":true,"tokenLength":334}
+[2025-11-23T19:41:22.815Z] [INFO   ] 2025-11-23T19:41:22.815Z [DEBUG] 🔍 Validating Airtable token...
+[2025-11-23T19:41:22.815Z] [INFO   ] 2025-11-23T19:41:22.815Z [DEBUG] 🔍 Fetching Airtable bases from API...
+[2025-11-23T19:41:23.013Z] [INFO   ] 2025-11-23T19:41:23.013Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/4452e6a9-71b5-462c-b530-f04c980190d3/apply-edits","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15360195614}
+[2025-11-23T19:41:23.130Z] [INFO   ] [apply-edits] Original flow size: 1181 bytes (1.15 KB)
+[2025-11-23T19:41:23.131Z] [INFO   ] [apply-edits] Sanitized flow size: 1181 bytes (1.15 KB), saved 0 bytes
+[2025-11-23T19:41:23.225Z] [INFO   ] 2025-11-23T19:41:23.225Z [DEBUG] ✅ Airtable bases fetched successfully: 1 bases
+[2025-11-23T19:41:23.225Z] [INFO   ] 2025-11-23T19:41:23.225Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_bases: {"integrationId":"dd542556-581b-4711-ae40-304c81619938","resultCount":1}
+[2025-11-23T19:41:23.243Z] [INFO   ] 2025-11-23T19:41:23.243Z [DEBUG] ✅ Airtable bases fetched successfully: 1 bases
+[2025-11-23T19:41:23.244Z] [INFO   ] 2025-11-23T19:41:23.244Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_bases: {"integrationId":"dd542556-581b-4711-ae40-304c81619938","resultCount":1}
+[2025-11-23T19:41:23.444Z] [INFO   ] [FlowRepository] Creating revision for flow 4452e6a9-71b5-462c-b530-f04c980190d3, JSON size: 1181 bytes (1.15 KB)
+[2025-11-23T19:41:23.631Z] [INFO   ] 2025-11-23T19:41:23.631Z [DEBUG] ✅ Airtable bases fetched successfully: 1 bases
+[2025-11-23T19:41:23.631Z] [INFO   ] 2025-11-23T19:41:23.631Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_bases: {"integrationId":"dd542556-581b-4711-ae40-304c81619938","resultCount":1}
+[2025-11-23T19:41:24.354Z] [INFO   ] 2025-11-23T19:41:24.354Z [DEBUG] ✅ Airtable bases fetched successfully: 1 bases
+[2025-11-23T19:41:24.354Z] [INFO   ] 2025-11-23T19:41:24.354Z [DEBUG] ✅ [Airtable API] Successfully processed airtable_bases: {"integrationId":"dd542556-581b-4711-ae40-304c81619938","resultCount":1}
+[2025-11-23T19:41:26.882Z] [INFO   ] 2025-11-23T19:41:26.881Z [DEBUG] [Middleware] Username check: {"path":"/workflows/v2/api/flows/4452e6a9-71b5-462c-b530-f04c980190d3/apply-edits","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15360199482}
+[2025-11-23T19:41:26.958Z] [INFO   ] [apply-edits] Original flow size: 734 bytes (0.72 KB)
+[2025-11-23T19:41:26.958Z] [INFO   ] [apply-edits] Sanitized flow size: 734 bytes (0.72 KB), saved 0 bytes
+[2025-11-23T19:41:27.232Z] [INFO   ] [FlowRepository] Creating revision for flow 4452e6a9-71b5-462c-b530-f04c980190d3, JSON size: 734 bytes (0.72 KB)

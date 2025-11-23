@@ -3822,15 +3822,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         if (!n) return false
         const nodeType = n.data?.type || n.type
         const nodeDefinition = nodeComponentMap.get(nodeType)
-        const isTrigger = n.data?.isTrigger || nodeDefinition?.isTrigger || false
-        console.log('🔍 [DELETE] Checking node for trigger:', {
-          nodeId: n.id,
-          nodeType,
-          dataIsTrigger: n.data?.isTrigger,
-          nodeDefIsTrigger: nodeDefinition?.isTrigger,
-          finalIsTrigger: isTrigger,
-        })
-        return isTrigger
+        return n.data?.isTrigger || nodeDefinition?.isTrigger || false
       })
 
     // Check if all real (non-placeholder) nodes are being deleted
@@ -3840,17 +3832,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     // Check if trigger is deleted but other action nodes remain
     const triggerDeletedButActionsRemain = deletedTriggerNode && realNodes.length > 0
 
-    console.log('🔍 [DELETE] Decision state:', {
-      nodeIds,
-      deletedTriggerNode: deletedTriggerNode ? { id: deletedTriggerNode.id, type: deletedTriggerNode.data?.type } : null,
-      updatedNodesCount: updatedNodes.length,
-      realNodesCount: realNodes.length,
-      shouldResetToPlaceholders,
-      triggerDeletedButActionsRemain,
-    })
-
     if (triggerDeletedButActionsRemain) {
-      console.log('✅ [DELETE] Trigger deleted with actions remaining - adding placeholder')
 
       // Get the deleted trigger's position
       const triggerPosition = deletedTriggerNode.position || { x: LINEAR_STACK_X, y: 100 }
@@ -3890,11 +3872,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
       builder.setNodes(updatedNodes)
       builder.setEdges(updatedEdges)
-      if (nodesToShift.length > 0) {
-        actions.moveNodes(nodesToShift).catch((error: any) => {
-          console.error('[WorkflowBuilder] Failed to persist node positions after delete', error)
-        })
-      }
+      // Note: Don't call moveNodes here - it causes a race condition.
+      // The backend's applyPlannerEdits already handles position recompaction on delete.
     } else if (shouldResetToPlaceholders) {
       // Calculate center position based on viewport and agent panel
       const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920
@@ -3955,11 +3934,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     } else {
       builder.setNodes(updatedNodes)
       builder.setEdges(updatedEdges)
-      if (nodesToShift.length > 0) {
-        actions.moveNodes(nodesToShift).catch((error: any) => {
-          console.error('[WorkflowBuilder] Failed to persist node positions after delete', error)
-        })
-      }
+      // Note: Don't call moveNodes here - it causes a race condition.
+      // The backend's applyPlannerEdits already handles position recompaction on delete.
     }
 
     // Clear selection when deleting current node(s)
