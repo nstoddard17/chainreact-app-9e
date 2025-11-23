@@ -83,7 +83,7 @@ import { matchTemplate, logTemplateMatch, logTemplateMiss } from "@/lib/workflow
 import { logPrompt, updatePrompt } from "@/lib/workflows/ai-agent/promptAnalytics"
 import { logger } from '@/lib/utils/logger'
 import { useAppContext } from "@/lib/contexts/AppContext"
-import { generateId } from "@/src/lib/workflows/compat/v2Adapter"
+import { generateId, addNodeEdit, oldConnectToEdge } from "@/src/lib/workflows/compat/v2Adapter"
 
 type PendingChatMessage = {
   localId: string
@@ -3610,55 +3610,39 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     setSelectedNodeId(null)
 
     try {
-      // Save node to database using the pre-generated ID
-      // This ensures the optimistic node ID matches the backend node ID
-      console.log('📌 [WorkflowBuilder] Saving node:', nodeData.type, 'at position:', position, 'with ID:', newNodeId)
-      await actions.addNode(nodeData.type, position, newNodeId)
+      // Batch all backend operations into a single applyEdits call with skipGraphUpdate
+      // This prevents multiple updateReactFlowGraph calls that would overwrite our optimistic update
+      const edits: any[] = []
 
-      console.log('📌 [WorkflowBuilder] Node saved successfully')
+      // 1. Add the new node
+      edits.push(addNodeEdit(nodeData.type, position, newNodeId))
 
-      // Now create the edges in the backend
+      // 2. Create edges
       if (anchorNodeId && !replacingPlaceholder) {
         if (isInsertingBetween && originalTargetNodeId) {
-          // We're inserting between two nodes - create both edges
-          console.log('🔗 [WorkflowBuilder] Creating edges for insertion between', anchorNodeId, 'and', originalTargetNodeId)
-          await actions.connectEdge({
-            sourceId: anchorNodeId,
-            targetId: newNodeId,
-            sourceHandle: originalSourceHandle
-          })
-          await actions.connectEdge({
-            sourceId: newNodeId,
-            targetId: originalTargetNodeId,
-            sourceHandle: 'source',
-            targetHandle: originalTargetHandle
-          })
+          // Inserting between two nodes - create both edges
+          edits.push(oldConnectToEdge(anchorNodeId, newNodeId, originalSourceHandle, 'target'))
+          edits.push(oldConnectToEdge(newNodeId, originalTargetNodeId, 'source', originalTargetHandle))
         } else {
-          // We're adding at the end - create single edge
-          console.log('🔗 [WorkflowBuilder] Creating edge from', anchorNodeId, 'to', newNodeId)
-          await actions.connectEdge({
-            sourceId: anchorNodeId,
-            targetId: newNodeId,
-            sourceHandle: 'source'
-          })
+          // Adding at the end - create single edge
+          edits.push(oldConnectToEdge(anchorNodeId, newNodeId, 'source', 'target'))
         }
       }
 
-      // Persist the position shifts to the backend AFTER addNode and edges complete
-      // This ensures the shifted positions are saved and won't be overwritten by updateReactFlowGraph
-      if (nodesToShift.length > 0) {
-        console.log('📌 [WorkflowBuilder] Persisting shifted positions:', nodesToShift)
-        await actions.moveNodes(nodesToShift)
-        console.log('📌 [WorkflowBuilder] Shifted positions persisted')
+      // 3. Move shifted nodes
+      nodesToShift.forEach(({ nodeId, position: pos }) => {
+        edits.push({ op: "moveNode", nodeId, position: pos })
+      })
+
+      // 4. Reorder nodes if needed
+      if (orderedNodeIds.length >= 2) {
+        edits.push({ op: "reorderNodes", nodeIds: orderedNodeIds })
       }
-      if (orderedNodeIds.length >= 2 && actions?.applyEdits) {
-        console.log('📌 [WorkflowBuilder] Persisting linear order:', orderedNodeIds)
-        try {
-          await actions.applyEdits([{ op: "reorderNodes", nodeIds: orderedNodeIds }])
-        } catch (error) {
-          console.error('[WorkflowBuilder] Failed to persist linear order', error)
-        }
-      }
+
+      // Execute all edits in one batch with skipGraphUpdate to preserve optimistic update
+      console.log('📌 [WorkflowBuilder] Batching', edits.length, 'edits with skipGraphUpdate')
+      await actions.applyEdits(edits, { skipGraphUpdate: true })
+      console.log('📌 [WorkflowBuilder] All edits persisted successfully')
 
       // If we replaced a trigger placeholder and action placeholder should be preserved,
       // ensure it's still in the graph (updateReactFlowGraph might have removed it)
@@ -3753,10 +3737,26 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
     // Optimistically remove nodes from UI immediately
     let updatedNodes = currentNodes.filter((node: any) => !nodeIdSet.has(node.id))
+    // Check if a trigger node is being deleted EARLY so we can skip shifting
+    // (when replacing a trigger with a placeholder, we don't want to shift the action nodes)
+    const deletedTriggerNodeEarly = nodeIds
+      .map(id => currentNodes.find((n: any) => n.id === id))
+      .find((n: any) => {
+        if (!n) return false
+        const nodeType = n.data?.type || n.type
+        const nodeDefinition = nodeComponentMap.get(nodeType)
+        return n.data?.isTrigger || nodeDefinition?.isTrigger || false
+      })
+
+    // Check if trigger is being deleted but action nodes will remain
+    const realNodesAfterDelete = updatedNodes.filter((n: any) => !n.data?.isPlaceholder)
+    const willReplaceTriggerWithPlaceholder = deletedTriggerNodeEarly && realNodesAfterDelete.length > 0
+
     const nodesToShift: Array<{ nodeId: string; position: { x: number; y: number } }> = []
 
     // Shift nodes up if we have a deleted position
-    if (deletedNodeY !== null) {
+    // BUT skip shifting if we're replacing a trigger with a placeholder (positions should stay the same)
+    if (deletedNodeY !== null && !willReplaceTriggerWithPlaceholder) {
       // Calculate the vertical gap (node height + spacing)
       // Typical node height is ~100-200px, gap between nodes is ~180px
       const verticalShift = LINEAR_NODE_VERTICAL_GAP
@@ -3814,28 +3814,17 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       ...newEdges
     ]
 
-    // Check if a trigger node is being deleted
-    // Check both data.isTrigger AND look up node definition from ALL_NODE_COMPONENTS
-    const deletedTriggerNode = nodeIds
-      .map(id => currentNodes.find((n: any) => n.id === id))
-      .find((n: any) => {
-        if (!n) return false
-        const nodeType = n.data?.type || n.type
-        const nodeDefinition = nodeComponentMap.get(nodeType)
-        return n.data?.isTrigger || nodeDefinition?.isTrigger || false
-      })
-
-    // Check if all real (non-placeholder) nodes are being deleted
-    const realNodes = updatedNodes.filter((n: any) => !n.data?.isPlaceholder)
+    // Use the early-computed values for trigger deletion check
+    // (deletedTriggerNodeEarly and willReplaceTriggerWithPlaceholder computed above)
+    const deletedTriggerNode = deletedTriggerNodeEarly
+    const realNodes = realNodesAfterDelete
     const shouldResetToPlaceholders = realNodes.length === 0 && updatedNodes.length === 0
-
-    // Check if trigger is deleted but other action nodes remain
-    const triggerDeletedButActionsRemain = deletedTriggerNode && realNodes.length > 0
+    const triggerDeletedButActionsRemain = willReplaceTriggerWithPlaceholder
 
     if (triggerDeletedButActionsRemain) {
 
       // Get the deleted trigger's position
-      const triggerPosition = deletedTriggerNode.position || { x: LINEAR_STACK_X, y: 100 }
+      const triggerPosition = deletedTriggerNode!.position || { x: LINEAR_STACK_X, y: 100 }
 
       // Create trigger placeholder at the same position
       const triggerPlaceholder = {
@@ -3850,7 +3839,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       }
 
       // Find the first action node (the one that was connected to the trigger)
-      const outgoingEdge = currentEdges.find((e: any) => e.source === deletedTriggerNode.id)
+      const outgoingEdge = currentEdges.find((e: any) => e.source === deletedTriggerNode!.id)
       const firstActionNodeId = outgoingEdge?.target
 
       // Add the trigger placeholder to the updated nodes

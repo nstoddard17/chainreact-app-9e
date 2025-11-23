@@ -931,7 +931,7 @@ const BuilderHeaderComponent = ({
 
       {/* Run via API Dialog */}
       <Dialog open={showApiDialog} onOpenChange={setShowApiDialog}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="w-[95vw] max-w-[700px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CloudCog className="w-5 h-5" />
