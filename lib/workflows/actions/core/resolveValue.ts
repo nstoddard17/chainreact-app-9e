@@ -385,7 +385,7 @@ export function resolveValue(
         })
 
         // Check if outputField contains array notation (e.g., events[].description)
-        const hasArrayNotation = outputField.includes('[]') || /\[\d+\]/.test(outputField)
+        const hasArrayNotation = /\[(?:\d+|\*|first|last)\]/.test(outputField)
 
         // Navigate through the nested structure
         // Use navigateArrayPath for paths with array notation, otherwise use simple reduce
@@ -627,7 +627,7 @@ export function resolveValue(
         logger.debug(`[EMBEDDED] Resolving node reference: nodeId="${nodeIdOrTitle}", field="${outputField}"`)
 
         // Check if outputField contains array notation
-        const hasArrayNotation = outputField.includes('[]') || /\[\d+\]/.test(outputField)
+        const hasArrayNotation = /\[(?:\d+|\*|first|last)\]/.test(outputField)
         logger.debug(`[EMBEDDED] Has array notation: ${hasArrayNotation}`)
 
         // Try direct node ID access

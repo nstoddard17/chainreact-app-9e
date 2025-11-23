@@ -576,6 +576,99 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
+  // Keyboard paste handler for importing workflow JSON
+  useEffect(() => {
+    const handlePaste = async (e: ClipboardEvent) => {
+      // Don't intercept paste if user is typing in an input/textarea
+      const activeElement = document.activeElement
+      if (
+        activeElement instanceof HTMLInputElement ||
+        activeElement instanceof HTMLTextAreaElement ||
+        activeElement?.getAttribute('contenteditable') === 'true'
+      ) {
+        return
+      }
+
+      const pastedText = e.clipboardData?.getData('text')
+      if (!pastedText) return
+
+      // Try to parse as JSON
+      try {
+        const data = JSON.parse(pastedText)
+
+        // Check if it looks like workflow JSON (has nodes array)
+        if (!data.nodes || !Array.isArray(data.nodes)) {
+          return // Not workflow JSON, let default paste behavior happen
+        }
+
+        e.preventDefault() // Prevent default paste behavior
+
+        // Convert nodes to edit operations
+        const edits: any[] = []
+
+        // Add nodes
+        for (const node of data.nodes) {
+          edits.push({
+            op: 'addNode',
+            node: {
+              id: node.id,
+              type: node.type || node.data?.type,
+              position: node.position,
+              data: {
+                ...node.data,
+                title: node.data?.title || node.data?.label,
+                type: node.data?.type || node.type,
+                providerId: node.data?.providerId,
+                config: node.data?.config || {},
+              },
+            },
+          })
+        }
+
+        // Add edges/connections
+        const connections = data.edges || data.connections || []
+        for (const edge of connections) {
+          edits.push({
+            op: 'connectEdge',
+            edge: {
+              id: edge.id,
+              source: edge.source,
+              target: edge.target,
+              sourceHandle: edge.sourceHandle || 'source',
+              targetHandle: edge.targetHandle || 'target',
+            },
+          })
+        }
+
+        if (edits.length > 0 && actions?.applyEdits) {
+          toast({
+            title: "Importing workflow...",
+            description: `Adding ${data.nodes.length} nodes`,
+          })
+
+          try {
+            await actions.applyEdits(edits)
+            toast({
+              title: "Workflow imported",
+              description: `Successfully added ${data.nodes.length} nodes`,
+            })
+          } catch (error: any) {
+            toast({
+              title: "Import failed",
+              description: error?.message || "Failed to import workflow",
+              variant: "destructive",
+            })
+          }
+        }
+      } catch {
+        // Not valid JSON, ignore and let default paste happen
+      }
+    }
+
+    window.addEventListener('paste', handlePaste)
+    return () => window.removeEventListener('paste', handlePaste)
+  }, [actions, toast])
+
   const [agentOpen, setAgentOpen] = useState(true)
   const [agentInput, setAgentInput] = useState("")
   const [agentMessages, setAgentMessages] = useState<ChatMessage[]>([])

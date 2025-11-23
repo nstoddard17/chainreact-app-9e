@@ -43,24 +43,22 @@ export function formatVariableForDisplay(
     if (parsed.kind === 'node' && parsed.nodeId) {
       const node = nodes?.find(n => n.id === parsed.nodeId)
       if (node) {
-        const fieldName = parsed.fieldPath[0] || ''
-        const outputField = node.outputSchema?.find(f => f.name === fieldName)
-
-        // Get provider name (formatted nicely)
         const providerName = node.providerId
           ? formatProviderName(node.providerId)
           : getProviderFromNodeType(node.type)
 
-        // Get node title (sanitized for display)
         const nodeTitle = sanitizeForDisplay(node.title || getNodeTypeLabel(node.type))
+        const fieldPathText = parsed.fieldPath.length > 0
+          ? parsed.fieldPath.join('.')
+          : ''
 
-        // Get field label (sanitized for display)
-        const fieldLabel = sanitizeForDisplay(outputField?.label || fieldName)
-
-        // Format: Provider.NodeTitle.FieldLabel (e.g., Google_Calendar.List_Events.eventId)
+        const segments = [nodeTitle]
+        if (fieldPathText) {
+          segments.push(fieldPathText)
+        }
         const humanReadable = providerName
-          ? `${providerName}.${nodeTitle}.${fieldLabel}`
-          : `${nodeTitle}.${fieldLabel}`
+          ? `${providerName}.${segments.join('.')}`
+          : segments.join('.')
 
         displayValue = displayValue.replace(fullMatch, `{{${humanReadable}}}`)
       }

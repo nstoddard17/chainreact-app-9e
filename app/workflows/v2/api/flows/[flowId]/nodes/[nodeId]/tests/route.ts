@@ -74,6 +74,12 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
 
   const revisionId = revision.data?.id ?? null
 
+  // If no revision exists, we can't create a run record (revision_id is required)
+  // Just return success - the main test caching is handled by nodeOutputCache in test-node API
+  if (!revisionId) {
+    return NextResponse.json({ ok: true, runId: null, skipped: true, reason: "No revision found for flow" })
+  }
+
   const runId = uuid()
   const now = new Date().toISOString()
 
