@@ -617,10 +617,23 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         cleaned = cleaned.substring(jsonStartIndex, jsonEndIndex + 1)
       }
 
-      // Handle newlines inside string values by replacing them with spaces
-      // This regex finds strings and replaces newlines inside them
+      // Handle newlines inside string values
+      // This handles cases where JSON was wrapped/formatted with line breaks
+      // e.g., "HTTP Reque\n  st" -> "HTTP Request" (mid-word, lowercase follows)
+      // e.g., "Webhook\n  Trigger" -> "Webhook Trigger" (new word, uppercase follows)
       cleaned = cleaned.replace(/"([^"\\]|\\.)*"/g, (match) => {
-        return match.replace(/\n/g, ' ').replace(/\t/g, ' ')
+        let result = match
+        // Step 1: Mid-word continuation - if lowercase letter follows newline/whitespace,
+        // it's a continuation of the same word, so remove newline and whitespace entirely
+        result = result.replace(/\n\s*([a-z])/g, '$1')
+        // Step 2: New word or other content - uppercase letter or non-letter follows
+        // Replace newline and whitespace with single space
+        result = result.replace(/\n\s*/g, ' ')
+        // Step 3: Replace tabs with spaces
+        result = result.replace(/\t/g, ' ')
+        // Step 4: Collapse multiple spaces into single space
+        result = result.replace(/ {2,}/g, ' ')
+        return result
       })
 
       return cleaned
@@ -665,14 +678,147 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         e.preventDefault() // Prevent default paste behavior
         console.log('[WorkflowBuilder] Valid workflow JSON detected, importing...')
 
+        // Build set of valid node types for validation
+        const validNodeTypes = new Set(ALL_NODE_COMPONENTS.map(n => n.type))
+
+        // Find existing placeholder nodes to use their positions
+        const currentNodes = Array.isArray(builder.nodes) ? builder.nodes : []
+
+        // DEBUG: Log all current nodes with full details
+        console.log('[WorkflowBuilder] DEBUG - All current nodes:', currentNodes.map((n: any) => ({
+          id: n.id,
+          type: n.type,
+          dataType: n.data?.type,
+          dataIsPlaceholder: n.data?.isPlaceholder,
+          position: n.position,
+          positionAbsolute: n.positionAbsolute
+        })))
+
+        // Check for placeholder nodes by type or data.type or isPlaceholder flag
+        const triggerPlaceholder = currentNodes.find((n: any) =>
+          n.type === 'trigger_placeholder' ||
+          n.data?.type === 'trigger_placeholder' ||
+          n.id === 'trigger-placeholder' ||
+          (n.data?.isPlaceholder && n.data?.type?.includes('trigger'))
+        )
+        const actionPlaceholder = currentNodes.find((n: any) =>
+          n.type === 'action_placeholder' ||
+          n.data?.type === 'action_placeholder' ||
+          n.id === 'action-placeholder' ||
+          (n.data?.isPlaceholder && n.data?.type?.includes('action'))
+        )
+
+        console.log('[WorkflowBuilder] DEBUG - Placeholder search results:', {
+          triggerPlaceholder: triggerPlaceholder ? { id: triggerPlaceholder.id, type: triggerPlaceholder.type, position: triggerPlaceholder.position } : null,
+          actionPlaceholder: actionPlaceholder ? { id: actionPlaceholder.id, type: actionPlaceholder.type, position: actionPlaceholder.position } : null
+        })
+
+        // Sort nodes by Y position to get consistent ordering
+        const sortedNodes = [...currentNodes].sort((a: any, b: any) =>
+          (a.position?.y || 0) - (b.position?.y || 0)
+        )
+
+        // Calculate positions - use placeholder positions (which are screen-responsive)
+        // Fallback to defaults if no placeholders exist
+        const DEFAULT_VERTICAL_SPACING = 180
+        const DEFAULT_START_Y = 120
+        const DEFAULT_X = 400
+
+        // Get X and Y positions from placeholders, or use defaults
+        let nodeX: number
+        let triggerY: number
+        let actionY: number
+        let positionSource = 'default'
+
+        // Get X position from placeholder (placeholders use dynamic centerX based on viewport)
+        if (triggerPlaceholder?.position?.x) {
+          nodeX = triggerPlaceholder.position.x
+          positionSource = 'triggerPlaceholder'
+        } else if (actionPlaceholder?.position?.x) {
+          nodeX = actionPlaceholder.position.x
+          positionSource = 'actionPlaceholder'
+        } else if (sortedNodes[0]?.position?.x) {
+          nodeX = sortedNodes[0].position.x
+          positionSource = 'firstExistingNode'
+        } else {
+          nodeX = DEFAULT_X
+          positionSource = 'default'
+        }
+
+        // Get Y positions
+        if (triggerPlaceholder?.position) {
+          triggerY = triggerPlaceholder.position.y
+        } else if (sortedNodes[0]?.position) {
+          triggerY = sortedNodes[0].position.y
+        } else {
+          triggerY = DEFAULT_START_Y
+        }
+
+        if (actionPlaceholder?.position) {
+          actionY = actionPlaceholder.position.y
+        } else if (sortedNodes[1]?.position) {
+          actionY = sortedNodes[1].position.y
+        } else {
+          actionY = triggerY + DEFAULT_VERTICAL_SPACING
+        }
+
+        console.log('[WorkflowBuilder] DEBUG - Final positions:', {
+          positionSource,
+          nodeX,
+          triggerY,
+          actionY,
+          hasTriggerPlaceholder: !!triggerPlaceholder,
+          hasActionPlaceholder: !!actionPlaceholder,
+          triggerPlaceholderPos: triggerPlaceholder?.position,
+          actionPlaceholderPos: actionPlaceholder?.position
+        })
+
         // Convert nodes to edit operations
         const edits: any[] = []
+        const invalidNodes: string[] = []
+        const validNodes: any[] = []
+        const placeholdersToDelete: string[] = []
 
-        // Add nodes - include required label and io fields for FlowNode schema
-        for (const node of data.nodes) {
+        // Collect placeholders to delete
+        if (triggerPlaceholder) placeholdersToDelete.push(triggerPlaceholder.id)
+        if (actionPlaceholder) placeholdersToDelete.push(actionPlaceholder.id)
+
+        // Validate and add nodes - include required label and io fields for FlowNode schema
+        for (let i = 0; i < data.nodes.length; i++) {
+          const node = data.nodes[i]
           const nodeType = node.type || node.data?.type
-          const nodeLabel = node.data?.title || node.data?.label || node.label || nodeType || 'Node'
 
+          // Check if node type exists
+          if (!validNodeTypes.has(nodeType)) {
+            invalidNodes.push(nodeType)
+            console.warn(`[WorkflowBuilder] Invalid node type: ${nodeType}`)
+            continue // Skip invalid nodes
+          }
+
+          const nodeComponent = ALL_NODE_COMPONENTS.find(n => n.type === nodeType)
+          const nodeLabel = node.data?.title || node.data?.label || node.label || nodeComponent?.title || nodeType || 'Node'
+          const providerId = node.data?.providerId || nodeComponent?.providerId
+
+          // Determine position: Use nodeX (from placeholder) for X, calculated Y from placeholders
+          let position: { x: number; y: number }
+          if (i === 0) {
+            // First node uses trigger Y position
+            position = { x: nodeX, y: triggerY }
+          } else if (i === 1) {
+            // Second node uses action Y position
+            position = { x: nodeX, y: actionY }
+          } else {
+            // Subsequent nodes stack below with vertical spacing
+            position = { x: nodeX, y: actionY + (DEFAULT_VERTICAL_SPACING * (i - 1)) }
+          }
+
+          console.log(`[WorkflowBuilder] DEBUG - Node ${i} (${node.id}) position:`, {
+            assignedPosition: position,
+            originalPosition: node.position,
+            index: i
+          })
+
+          validNodes.push(node)
           edits.push({
             op: 'addNode',
             node: {
@@ -683,22 +829,59 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
               config: node.data?.config || node.config || {},
               inPorts: node.inPorts || [],
               outPorts: node.outPorts || [],
-              // Keep legacy data structure for React Flow compatibility
-              position: node.position,
+              // Position must be stored in metadata.position (FlowNode schema doesn't have position field)
+              metadata: {
+                position: position,
+                isTrigger: i === 0, // First node is typically the trigger
+                providerId: providerId,
+              },
               data: {
                 ...node.data,
                 title: nodeLabel,
                 type: nodeType,
-                providerId: node.data?.providerId,
+                providerId: providerId,
                 config: node.data?.config || node.config || {},
               },
             },
           })
         }
 
-        // Add edges/connections using the 'connect' operation with proper FlowEdge format
+        // Delete placeholder nodes after adding real nodes
+        for (const placeholderId of placeholdersToDelete) {
+          edits.push({
+            op: 'deleteNode',
+            nodeId: placeholderId,
+          })
+        }
+
+        // Show error for invalid node types
+        if (invalidNodes.length > 0) {
+          toast({
+            title: "Invalid node types",
+            description: `The following node types don't exist: ${invalidNodes.join(', ')}`,
+            variant: "destructive",
+          })
+        }
+
+        // If no valid nodes, don't proceed
+        if (validNodes.length === 0) {
+          toast({
+            title: "Import failed",
+            description: "No valid nodes found in the JSON",
+            variant: "destructive",
+          })
+          return
+        }
+
+        // Add edges/connections - only for valid nodes
+        const validNodeIds = new Set(validNodes.map((n: any) => n.id))
         const connections = data.edges || data.connections || []
         for (const edge of connections) {
+          // Only add edge if both source and target are valid nodes
+          if (!validNodeIds.has(edge.source) || !validNodeIds.has(edge.target)) {
+            console.warn(`[WorkflowBuilder] Skipping edge ${edge.id} - connects to invalid node`)
+            continue
+          }
           edits.push({
             op: 'connect',
             edge: {
@@ -720,14 +903,14 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         if (edits.length > 0 && actions?.applyEdits) {
           toast({
             title: "Importing workflow...",
-            description: `Adding ${data.nodes.length} nodes`,
+            description: `Adding ${validNodes.length} nodes`,
           })
 
           try {
             await actions.applyEdits(edits)
             toast({
               title: "Workflow imported",
-              description: `Successfully added ${data.nodes.length} nodes`,
+              description: `Successfully added ${validNodes.length} nodes${invalidNodes.length > 0 ? ` (${invalidNodes.length} skipped)` : ''}`,
             })
           } catch (error: any) {
             console.error('[WorkflowBuilder] Import failed:', error)
@@ -753,7 +936,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
     window.addEventListener('paste', handlePaste)
     return () => window.removeEventListener('paste', handlePaste)
-  }, [actions, toast])
+  }, [actions, toast, builder.nodes])
 
   const [agentOpen, setAgentOpen] = useState(true)
   const [agentInput, setAgentInput] = useState("")
@@ -3175,6 +3358,15 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       ? currentNodes.find((n: any) => n.id === anchorNodeId && n.data?.isPlaceholder)
       : null
 
+    // Check if we're replacing the trigger placeholder and action placeholder exists
+    const isReplacingTriggerPlaceholder = replacingPlaceholder?.id === 'trigger-placeholder'
+    const actionPlaceholder = currentNodes.find((n: any) =>
+      n.id === 'action-placeholder' ||
+      n.type === 'action_placeholder' ||
+      n.data?.type === 'action_placeholder'
+    )
+    const shouldPreserveActionPlaceholder = isReplacingTriggerPlaceholder && actionPlaceholder
+
     let position = nodeData.position || { x: 400, y: 300 }
 
     // If replacing placeholder, use its position
@@ -3245,16 +3437,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     setIsIntegrationsPanelOpen(false)
     clearInsertionContext()
 
-    // Debug: Log current state before calculating insertion plan
-    console.log('🔍 [WorkflowBuilder] Insert calculation state:', {
-      anchorNodeId,
-      selectedNodeId,
-      replacingPlaceholder: !!replacingPlaceholder,
-      currentNodesCount: currentNodes.length,
-      edgesCount: builder.edges?.length ?? 0,
-      edges: builder.edges?.map((e: any) => ({ source: e.source, target: e.target }))
-    })
-
     const nodesById = new Map(currentNodes.map((node: any) => [node.id, node]))
     const outgoingEdges =
       anchorNodeId && !replacingPlaceholder && Array.isArray(builder.edges)
@@ -3290,12 +3472,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
     const isInsertingBetween = Boolean(originalTargetNodeId && !replacingPlaceholder)
 
-    console.log('🔍 [WorkflowBuilder] Insertion between check:', {
-      originalEdge: originalEdge ? { source: originalEdge.source, target: originalEdge.target } : null,
-      originalTargetNodeId,
-      isInsertingBetween
-    })
-
     // Calculate which nodes need to be shifted BEFORE optimistic update
     // so we can persist them to the backend after addNode
     const nodesToShift: Array<{ nodeId: string; position: { x: number; y: number } }> = []
@@ -3319,8 +3495,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           })
         }
       })
-
-      console.log('🔄 [WorkflowBuilder] Nodes to shift:', nodesToShift)
     }
 
     // Add optimistic node to canvas immediately for instant feedback
@@ -3336,14 +3510,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       if (isInsertingBetween && anchorNodeId) {
         const verticalShift = LINEAR_NODE_VERTICAL_GAP // 180px
 
-        console.log('🔄 [WorkflowBuilder] Shifting nodes down:', {
-          isInsertingBetween,
-          anchorNodeId,
-          originalTargetNodeId,
-          insertPosition: position,
-          verticalShift
-        })
-
         // Find all nodes that are below the insertion point and shift them down
         // Use the anchorNode's Y position as the threshold since we're inserting AFTER it
         const selectedNode = newNodes.find(n => n.id === anchorNodeId)
@@ -3354,7 +3520,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           // Don't shift the selected node itself
           if (node.position && node.position.y > thresholdY && node.id !== anchorNodeId) {
             const newY = node.position.y + verticalShift
-            console.log(`🔄 [WorkflowBuilder] Shifting node ${node.id} from Y=${node.position.y} to Y=${newY}`)
             const nextPosition = {
               ...node.position,
               y: newY
@@ -3495,6 +3660,60 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         }
       }
 
+      // If we replaced a trigger placeholder and action placeholder should be preserved,
+      // ensure it's still in the graph (updateReactFlowGraph might have removed it)
+      if (shouldPreserveActionPlaceholder && actionPlaceholder) {
+        builder.setNodes((nodes: any[]) => {
+          // Check if action placeholder already exists
+          const hasActionPlaceholder = nodes.some((n: any) =>
+            n.id === 'action-placeholder' ||
+            n.type === 'action_placeholder' ||
+            n.data?.type === 'action_placeholder'
+          )
+          if (hasActionPlaceholder) {
+            return nodes
+          }
+          // Add action placeholder with position below the new trigger
+          const triggerNode = nodes.find((n: any) => n.id === newNodeId)
+          const placeholderPosition = triggerNode
+            ? { x: triggerNode.position.x, y: triggerNode.position.y + 180 }
+            : actionPlaceholder.position
+          return [
+            ...nodes,
+            {
+              id: 'action-placeholder',
+              type: 'action_placeholder',
+              position: placeholderPosition,
+              data: {
+                type: 'action_placeholder',
+                isPlaceholder: true,
+                title: 'Action',
+              },
+            }
+          ]
+        })
+        // Also ensure edge from trigger to action placeholder exists
+        builder.setEdges((edges: any[]) => {
+          const hasEdgeToPlaceholder = edges.some((e: any) =>
+            e.target === 'action-placeholder' && e.source === newNodeId
+          )
+          if (hasEdgeToPlaceholder) {
+            return edges
+          }
+          return [
+            ...edges,
+            {
+              id: `${newNodeId}-action-placeholder`,
+              source: newNodeId,
+              target: 'action-placeholder',
+              sourceHandle: 'source',
+              targetHandle: 'target',
+              type: 'custom',
+            }
+          ]
+        })
+      }
+
     } catch (error: any) {
       setConfiguringNode(null)
       toast({
@@ -3595,13 +3814,88 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       ...newEdges
     ]
 
+    // Check if a trigger node is being deleted
+    // Check both data.isTrigger AND look up node definition from ALL_NODE_COMPONENTS
+    const deletedTriggerNode = nodeIds
+      .map(id => currentNodes.find((n: any) => n.id === id))
+      .find((n: any) => {
+        if (!n) return false
+        const nodeType = n.data?.type || n.type
+        const nodeDefinition = nodeComponentMap.get(nodeType)
+        const isTrigger = n.data?.isTrigger || nodeDefinition?.isTrigger || false
+        console.log('🔍 [DELETE] Checking node for trigger:', {
+          nodeId: n.id,
+          nodeType,
+          dataIsTrigger: n.data?.isTrigger,
+          nodeDefIsTrigger: nodeDefinition?.isTrigger,
+          finalIsTrigger: isTrigger,
+        })
+        return isTrigger
+      })
+
     // Check if all real (non-placeholder) nodes are being deleted
     const realNodes = updatedNodes.filter((n: any) => !n.data?.isPlaceholder)
     const shouldResetToPlaceholders = realNodes.length === 0 && updatedNodes.length === 0
 
-    if (shouldResetToPlaceholders) {
-      console.log('🔄 [WorkflowBuilder] All nodes deleted, resetting to placeholder state')
+    // Check if trigger is deleted but other action nodes remain
+    const triggerDeletedButActionsRemain = deletedTriggerNode && realNodes.length > 0
 
+    console.log('🔍 [DELETE] Decision state:', {
+      nodeIds,
+      deletedTriggerNode: deletedTriggerNode ? { id: deletedTriggerNode.id, type: deletedTriggerNode.data?.type } : null,
+      updatedNodesCount: updatedNodes.length,
+      realNodesCount: realNodes.length,
+      shouldResetToPlaceholders,
+      triggerDeletedButActionsRemain,
+    })
+
+    if (triggerDeletedButActionsRemain) {
+      console.log('✅ [DELETE] Trigger deleted with actions remaining - adding placeholder')
+
+      // Get the deleted trigger's position
+      const triggerPosition = deletedTriggerNode.position || { x: LINEAR_STACK_X, y: 100 }
+
+      // Create trigger placeholder at the same position
+      const triggerPlaceholder = {
+        id: 'trigger-placeholder',
+        type: 'trigger_placeholder',
+        position: { x: triggerPosition.x, y: triggerPosition.y },
+        data: {
+          type: 'trigger_placeholder',
+          isPlaceholder: true,
+          title: 'Trigger',
+        },
+      }
+
+      // Find the first action node (the one that was connected to the trigger)
+      const outgoingEdge = currentEdges.find((e: any) => e.source === deletedTriggerNode.id)
+      const firstActionNodeId = outgoingEdge?.target
+
+      // Add the trigger placeholder to the updated nodes
+      updatedNodes = [triggerPlaceholder as any, ...updatedNodes]
+
+      // If there was a connected action node, create an edge from placeholder to it
+      if (firstActionNodeId) {
+        const placeholderEdge = {
+          id: `trigger-placeholder-${firstActionNodeId}`,
+          source: 'trigger-placeholder',
+          target: firstActionNodeId,
+          type: 'custom',
+          sourceHandle: 'source',
+          targetHandle: 'target',
+        }
+        // Add the new edge (updatedEdges already has edges without the deleted node's connections)
+        updatedEdges.push(placeholderEdge)
+      }
+
+      builder.setNodes(updatedNodes)
+      builder.setEdges(updatedEdges)
+      if (nodesToShift.length > 0) {
+        actions.moveNodes(nodesToShift).catch((error: any) => {
+          console.error('[WorkflowBuilder] Failed to persist node positions after delete', error)
+        })
+      }
+    } else if (shouldResetToPlaceholders) {
       // Calculate center position based on viewport and agent panel
       const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920
       const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 1080
@@ -3694,7 +3988,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         variant: "destructive",
       })
     })
-  }, [actions, builder, toast, agentOpen, agentPanelWidth, configuringNode])
+  }, [actions, builder, toast, agentOpen, agentPanelWidth, configuringNode, nodeComponentMap])
 
   const handleNodeDelete = useCallback(async (nodeId: string) => {
     await handleDeleteNodes([nodeId])

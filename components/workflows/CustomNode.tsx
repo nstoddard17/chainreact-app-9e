@@ -142,7 +142,7 @@ const DEFAULT_SLACK_SECTION_STATE = SLACK_CONFIG_SECTIONS.reduce<Record<string, 
   return acc
 }, {})
 
-const INTERNAL_PROVIDER_IDS = new Set(['logic', 'core', 'manual', 'schedule', 'webhook', 'ai', 'utility'])
+const INTERNAL_PROVIDER_IDS = new Set(['logic', 'core', 'manual', 'schedule', 'webhook', 'ai', 'utility', 'openai', 'anthropic', 'google'])
 const DEFAULT_PATH_COLORS = ['#2563EB', '#EA580C', '#059669', '#9333EA', '#BE123C', '#14B8A6']
 const ELSE_HANDLE_COLOR = '#64748B'
 
@@ -1547,6 +1547,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
         selectedNodeIds={selectedNodeIds}
         onTestNode={onTestNode}
         onTestFlowFromHere={onTestFlowFromHere}
+        onRename={() => handleStartEditTitle()}
         onFreeze={onFreeze}
         onDelete={onDelete}
         onDeleteSelected={onDeleteSelected}
@@ -1662,6 +1663,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
       selectedNodeIds={selectedNodeIds}
       onTestNode={onTestNode}
       onTestFlowFromHere={onTestFlowFromHere}
+      onRename={() => handleStartEditTitle()}
       onFreeze={onFreeze}
       onDelete={onDelete}
       onDeleteSelected={onDeleteSelected}
@@ -1772,6 +1774,16 @@ function CustomNode({ id, data, selected }: NodeProps) {
               >
                 <Play className="w-4 h-4 mr-2" />
                 Test Flow from here
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleStartEditTitle()
+                }}
+              >
+                <Edit2 className="w-4 h-4 mr-2" />
+                Rename
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -1954,7 +1966,14 @@ function CustomNode({ id, data, selected }: NodeProps) {
               ) : (
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-1.5">
-                    <h3 className="text-lg font-semibold text-foreground whitespace-nowrap overflow-hidden text-ellipsis flex-1">
+                    <h3
+                      className="text-lg font-semibold text-foreground whitespace-nowrap overflow-hidden text-ellipsis flex-1 cursor-text"
+                      onDoubleClick={(e) => {
+                        e.stopPropagation()
+                        handleStartEditTitle()
+                      }}
+                      title="Double-click to rename"
+                    >
                       {title || (component && component.title) || 'Unnamed Action'}
                     </h3>
                     {!activeStatusBadge && idleStatus && (

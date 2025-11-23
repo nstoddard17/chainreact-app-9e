@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import { getRouteClient } from "@/src/lib/workflows/builder/api/helpers"
 import { ensureWorkspaceRole } from "@/src/lib/workflows/builder/workspace"
+import { logger } from "@/lib/utils/logger"
 
 export async function GET(_: Request, context: { params: Promise<{ flowId: string }> }) {
   const { flowId } = await context.params
@@ -13,29 +14,44 @@ export async function GET(_: Request, context: { params: Promise<{ flowId: strin
   } = await supabase.auth.getUser()
 
   if (userError || !user) {
+    logger.debug("[runs/latest] Unauthorized", { flowId, userError: userError?.message })
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })
   }
 
   const definition = await supabase
     .from("flow_v2_definitions")
-    .select("workspace_id")
+    .select("workspace_id, created_by")
     .eq("id", flowId)
     .maybeSingle()
 
   if (definition.error) {
+    logger.error("[runs/latest] Definition query error", { flowId, error: definition.error.message })
     return NextResponse.json({ ok: false, error: definition.error.message }, { status: 500 })
   }
 
   if (!definition.data) {
+    logger.debug("[runs/latest] Flow not found", { flowId })
     return NextResponse.json({ ok: false, error: "Flow not found" }, { status: 404 })
   }
 
-  try {
-    await ensureWorkspaceRole(supabase, definition.data.workspace_id, user.id, "viewer")
-  } catch (error: any) {
-    const status = error?.status === 403 ? 403 : 500
-    const message = status === 403 ? "Forbidden" : error?.message ?? "Unable to fetch run"
-    return NextResponse.json({ ok: false, error: message }, { status })
+  // Check access: either created_by matches user, or workspace role check passes
+  const isCreator = definition.data.created_by === user.id
+
+  // Only check workspace role if workspace_id exists AND user is not the creator
+  if (definition.data.workspace_id && !isCreator) {
+    try {
+      await ensureWorkspaceRole(supabase, definition.data.workspace_id, user.id, "viewer")
+    } catch (error: any) {
+      // All workspace errors should be treated as 403 (Forbidden)
+      // Database errors in getWorkspaceRole now log but don't throw
+      logger.debug("[runs/latest] Workspace role check failed, user not authorized", {
+        flowId,
+        workspaceId: definition.data.workspace_id,
+        userId: user.id,
+        error: error?.message,
+      })
+      return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 })
+    }
   }
 
   const { data: run, error: runError } = await supabase
@@ -48,6 +64,7 @@ export async function GET(_: Request, context: { params: Promise<{ flowId: strin
     .maybeSingle()
 
   if (runError) {
+    logger.error("[runs/latest] Run query error", { flowId, error: runError.message })
     return NextResponse.json({ ok: false, error: runError.message }, { status: 500 })
   }
 

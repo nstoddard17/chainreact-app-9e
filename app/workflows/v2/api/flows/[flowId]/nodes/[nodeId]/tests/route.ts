@@ -52,12 +52,15 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
     return NextResponse.json({ ok: false, error: "Flow not found" }, { status: 404 })
   }
 
-  try {
-    await ensureWorkspaceRole(supabase, definition.data.workspace_id, user.id, "editor")
-  } catch (error: any) {
-    const status = error?.status === 403 ? 403 : 500
-    const message = status === 403 ? "Forbidden" : error?.message ?? "Unable to persist test result"
-    return NextResponse.json({ ok: false, error: message }, { status })
+  // Only check workspace role if workspace_id exists (older flows may not have one)
+  if (definition.data.workspace_id) {
+    try {
+      await ensureWorkspaceRole(supabase, definition.data.workspace_id, user.id, "editor")
+    } catch (error: any) {
+      const status = error?.status === 403 ? 403 : 500
+      const message = status === 403 ? "Forbidden" : error?.message ?? "Unable to persist test result"
+      return NextResponse.json({ ok: false, error: message }, { status })
+    }
   }
 
   const revision = await supabase

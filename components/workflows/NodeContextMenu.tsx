@@ -8,7 +8,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { TestTube, Play, Snowflake, Trash2 } from "lucide-react"
+import { TestTube, Play, Snowflake, Trash2, Edit2 } from "lucide-react"
 
 interface NodeContextMenuProps {
   children: React.ReactNode
@@ -16,6 +16,7 @@ interface NodeContextMenuProps {
   selectedNodeIds?: string[]
   onTestNode?: (nodeId: string) => void
   onTestFlowFromHere?: (nodeId: string) => void
+  onRename?: (nodeId: string) => void
   onFreeze?: (nodeId: string) => void
   onDelete?: (nodeId: string) => void
   onDeleteSelected?: (nodeIds: string[]) => void
@@ -29,6 +30,7 @@ export function NodeContextMenu({
   selectedNodeIds = [],
   onTestNode,
   onTestFlowFromHere,
+  onRename,
   onFreeze,
   onDelete,
   onDeleteSelected,
@@ -87,6 +89,16 @@ export function NodeContextMenu({
             >
               <Play className="w-4 h-4 mr-2" />
               Test Flow from here
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+            <ContextMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                onRename?.(nodeId)
+              }}
+            >
+              <Edit2 className="w-4 h-4 mr-2" />
+              Rename
             </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem

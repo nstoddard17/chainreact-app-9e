@@ -301,6 +301,10 @@ function reorderLinearChain(flow: Flow, orderedNodeIds: string[]) {
   const currentPositions = deduped.map((nodeId) => getNodePosition(nodeId))
   const baseY = currentPositions.length > 0 ? Math.min(...currentPositions) : 0
 
+  // Get the X position from the first node to preserve horizontal alignment
+  const firstNode = flow.nodes.find((n) => n.id === deduped[0])
+  const baseX = (firstNode?.metadata as any)?.position?.x ?? LINEAR_STACK_X
+
   deduped.forEach((nodeId, index) => {
     const node = flow.nodes.find((n) => n.id === nodeId)
     if (!node) {
@@ -309,7 +313,7 @@ function reorderLinearChain(flow: Flow, orderedNodeIds: string[]) {
     const metadata = { ...(node.metadata ?? {}) }
     const position = {
       ...(metadata.position ?? {}),
-      x: LINEAR_STACK_X,
+      x: baseX,
       y: baseY + index * DEFAULT_VERTICAL_SPACING,
     }
     metadata.position = position
@@ -369,6 +373,9 @@ function applyPlannerEdits(base: Flow, edits: PlannerEdit[]): Flow {
         const incomingEdge = working.edges.find((edge) => edge.to.nodeId === edit.nodeId)
         const outgoingEdge = working.edges.find((edge) => edge.from.nodeId === edit.nodeId)
 
+        // Check if we're deleting a placeholder node (don't recompact positions for placeholders)
+        const isPlaceholderDelete = edit.nodeId.includes('placeholder')
+
         // Remove the node
         working.nodes = working.nodes.filter((node) => node.id !== edit.nodeId)
 
@@ -387,25 +394,31 @@ function applyPlannerEdits(base: Flow, edits: PlannerEdit[]): Flow {
           })
         }
 
-        // Recompact node positions to fill gaps
-        // Sort nodes by their current Y position to maintain order
-        const nodesWithPositions = working.nodes.map((node) => {
-          const metadata = (node.metadata ?? {}) as any
-          const currentY = metadata.position?.y ?? 0
-          return { node, currentY }
-        })
-        nodesWithPositions.sort((a, b) => a.currentY - b.currentY)
+        // Only recompact positions when deleting real nodes, not placeholders
+        // Placeholders are removed during paste operations where new nodes already have correct positions
+        if (!isPlaceholderDelete) {
+          // Recompact node positions to fill gaps
+          // Sort nodes by their current Y position to maintain order
+          const nodesWithPositions = working.nodes.map((node) => {
+            const metadata = (node.metadata ?? {}) as any
+            const currentX = metadata.position?.x ?? LINEAR_STACK_X
+            const currentY = metadata.position?.y ?? 0
+            return { node, currentX, currentY }
+          })
+          nodesWithPositions.sort((a, b) => a.currentY - b.currentY)
 
-        // Reassign Y positions with proper spacing
-        const baseY = 120
-        nodesWithPositions.forEach(({ node }, index) => {
-          const metadata = { ...(node.metadata ?? {}) } as any
-          metadata.position = {
-            x: LINEAR_STACK_X,
-            y: baseY + index * DEFAULT_VERTICAL_SPACING,
-          }
-          node.metadata = metadata
-        })
+          // Get the X position from the first node (all nodes should share the same X in a vertical stack)
+          const baseX = nodesWithPositions[0]?.currentX ?? LINEAR_STACK_X
+          const baseY = 120
+          nodesWithPositions.forEach(({ node }, index) => {
+            const metadata = { ...(node.metadata ?? {}) } as any
+            metadata.position = {
+              x: baseX,
+              y: baseY + index * DEFAULT_VERTICAL_SPACING,
+            }
+            node.metadata = metadata
+          })
+        }
 
         break
       }
@@ -440,9 +453,11 @@ function flowToReactFlowNodes(flow: Flow, onDelete?: (nodeId: string) => void): 
     const metadata = (node.metadata ?? {}) as any
     const defaultY = 120 + index * 180
     const rawPosition = metadata.position ?? { x: LINEAR_STACK_X, y: defaultY }
+    // Use saved X position if available, otherwise default to LINEAR_STACK_X
+    const positionX = rawPosition.x ?? LINEAR_STACK_X
     const positionY = rawPosition.y ?? defaultY
     const position = {
-      x: LINEAR_STACK_X,
+      x: positionX,
       y: positionY,
     }
 
@@ -450,6 +465,7 @@ function flowToReactFlowNodes(flow: Flow, onDelete?: (nodeId: string) => void): 
       index,
       savedPosition: metadata.position,
       defaultY,
+      finalX: positionX,
       finalY: positionY
     })
 
@@ -560,25 +576,17 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
   const isMountedRef = useRef<boolean>(false)
   const deleteNodeRef = useRef<((nodeId: string) => Promise<void>) | null>(null)
 
-  // Track if the workflow has ever had a non-placeholder action node
-  // Once true, the action placeholder should never reappear (persisted in localStorage)
-  const getInitialHasHadAction = () => {
-    if (typeof window !== 'undefined' && flowId) {
-      return localStorage.getItem(`workflow_${flowId}_hasHadAction`) === 'true'
-    }
-    return false
-  }
-  const hasHadActionNodeRef = useRef<boolean>(getInitialHasHadAction())
+  // Track if the workflow has ever had a non-placeholder action node IN THIS SESSION
+  // Once true, the action placeholder should never reappear for this session
+  // But if they leave and come back, the placeholder will show again if only trigger exists
+  const hasHadActionNodeRef = useRef<boolean>(false)
 
-  // Helper to mark that the workflow has had an action node
+  // Helper to mark that the workflow has had an action node this session
   const markHasHadActionNode = useCallback(() => {
-    if (!hasHadActionNodeRef.current && flowId) {
+    if (!hasHadActionNodeRef.current) {
       hasHadActionNodeRef.current = true
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(`workflow_${flowId}_hasHadAction`, 'true')
-      }
     }
-  }, [flowId])
+  }, [])
 
   const syncLatestRunId = useCallback(async () => {
     if (!flowId) return
@@ -673,8 +681,9 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       let graphNodes = flowToReactFlowNodes(flow, deleteNodeRef.current ?? undefined).map(node => {
         const existing = existingNodeMap.get(node.id)
         if (existing) {
+          // Preserve the existing position (which may be from placeholder or saved)
           const alignedPosition = {
-            x: LINEAR_STACK_X,
+            x: existing.position?.x ?? node.position.x,
             y: existing.position?.y ?? node.position.y,
           }
           return {
@@ -714,11 +723,11 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
           return {
             ...node,
             position: {
-              x: LINEAR_STACK_X,
+              x: placeholder.position?.x ?? node.position.x,
               y: placeholder.position?.y ?? node.position.y,
             },
             positionAbsolute: {
-              x: LINEAR_STACK_X,
+              x: placeholder.position?.x ?? node.position.x,
               y: placeholder.position?.y ?? node.position.y,
             },
           }
@@ -727,29 +736,16 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
         return node
       })
 
-      if (typeof window !== "undefined") {
-        console.clear()
-      }
+      // NOTE: Removed console.clear() to preserve paste handler debug logs
       debugLog("updateReactFlowGraph", {
         nodesReceived: flow.nodes.length,
         placeholdersReused: placeholderQueue.filter(entry => entry.consumed).length,
       })
       debugLogNodes("Before alignment", graphNodes)
 
-      // Normalize horizontal alignment so nodes stay in a single vertical stack.
-      graphNodes = graphNodes.map(node => {
-        if (!shouldAlignToLinearColumn(node)) {
-          return node
-        }
-
-        return {
-          ...node,
-          position: {
-            ...node.position,
-            x: LINEAR_STACK_X,
-          },
-        }
-      })
+      // Note: We no longer force X alignment to LINEAR_STACK_X here
+      // Nodes now preserve their saved X position (which comes from placeholder positions)
+      // This allows the dynamic centering based on viewport to work correctly
       debugLogNodes("After alignment", graphNodes)
       debugLog("Alignment snapshot", {
         linearX: LINEAR_STACK_X,
@@ -777,15 +773,6 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       // Zapier-style placeholder nodes: If workflow is empty, add trigger + action placeholders
       // If workflow has only a trigger, add just the action placeholder
       // Note: onConfigure handler will be added by WorkflowBuilderV2 when it enriches nodes
-      console.log('🔍 [updateReactFlowGraph] flow.nodes.length:', flow.nodes.length)
-      if (flow.nodes.length > 0) {
-        console.log('🔍 [updateReactFlowGraph] First node:', {
-          id: flow.nodes[0].id,
-          type: flow.nodes[0].type,
-          metadata: flow.nodes[0].metadata,
-          isTrigger: flow.nodes[0].metadata?.isTrigger
-        })
-      }
 
       // If workflow has 2+ nodes (trigger + at least one action), mark that it has had action nodes
       // This prevents the action placeholder from reappearing if all action nodes are deleted
@@ -843,12 +830,17 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
             },
           },
         ] as ReactFlowEdge[]
-      } else if (flow.nodes.length === 1 && flow.nodes[0].metadata?.isTrigger && !hasHadActionNodeRef.current) {
+      } else if (flow.nodes.length === 1 && !hasHadActionNodeRef.current) {
+        // Check if the single node is a trigger - check both metadata and node definition
+        const singleNode = flow.nodes[0]
+        const nodeDefinition = ALL_NODE_COMPONENTS.find(c => c.type === singleNode.type)
+        const isTriggerNode = singleNode.metadata?.isTrigger || nodeDefinition?.isTrigger || false
+
         // If we have only a trigger node AND the workflow has never had an action node,
         // add an action placeholder after it. Once a real action node has been added
         // and then deleted, we don't show the placeholder again.
         const triggerNode = graphNodes[0]
-        if (triggerNode) {
+        if (isTriggerNode && triggerNode) {
           const actionPlaceholder: ReactFlowNode = {
             id: 'action-placeholder',
             type: 'action_placeholder',
