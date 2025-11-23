@@ -11,8 +11,8 @@ export const hitlAction: NodeComponent = {
   title: "Ask Human via Chat",
   description: "Pause workflow and have an AI-powered conversation with a human before continuing",
   icon: MessageCircle,
-  category: "Automation",
-  providerId: "ask-human",
+  category: "AI & Intelligence",
+  providerId: "ai",
   isTrigger: false,
   producesOutput: true,
   configSchema: [
@@ -115,6 +115,20 @@ export const hitlAction: NodeComponent = {
       uiTab: "basic"
     },
     {
+      name: "autoDetectContext",
+      label: "Message Mode",
+      type: "select",
+      description: "How to format the initial message sent to the conversation",
+      required: false,
+      options: [
+        { value: "true", label: "Smart (AI auto-formats based on workflow data)" },
+        { value: "false", label: "Manual (Use custom message template)" }
+      ],
+      defaultValue: "true",
+      uiTab: "basic",
+      help: "Smart mode intelligently formats emails, chat messages, and other data. Manual mode lets you write your own message."
+    },
+    {
       name: "initialMessage",
       label: "Initial Message",
       type: "discord-rich-text",
@@ -123,7 +137,8 @@ export const hitlAction: NodeComponent = {
       placeholder: "**Workflow Paused for Review**\n\nHere's the data from the previous step:\n{{*}}\n\nLet me know when you're ready to continue!",
       required: false,
       defaultValue: "**Workflow Paused for Review**\n\nHere's the data from the previous step:\n{{*}}\n\nLet me know when you're ready to continue!",
-      uiTab: "advanced"
+      showWhen: { autoDetectContext: "false" },
+      uiTab: "basic"
     },
     {
       name: "contextData",
@@ -133,7 +148,8 @@ export const hitlAction: NodeComponent = {
       placeholder: '{{*}}',
       required: false,
       defaultValue: '{{*}}',
-      uiTab: "advanced"
+      showWhen: { autoDetectContext: "false" },
+      uiTab: "basic"
     },
     {
       name: "systemPrompt",

@@ -41,8 +41,7 @@ import {
   Copy,
   Check,
   Gauge,
-  Key,
-  Paperclip
+  Key
 } from 'lucide-react'
 import { LightningLoader } from '@/components/ui/lightning-loader'
 import { useToast } from '@/hooks/use-toast'
@@ -461,12 +460,12 @@ export function AIAgentConfigContent({
                   <Popover open={variablesOpen} onOpenChange={setVariablesOpen}>
                     <PopoverTrigger asChild>
                       <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 w-7 p-0"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
                         title="Insert variables from trigger or previous steps"
                       >
-                        <Paperclip className="w-3.5 h-3.5" />
+                        <span className="text-xs font-mono font-semibold">{`{}`}</span>
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-80 p-0" align="end" side="bottom" sideOffset={4}>
@@ -551,13 +550,13 @@ export function AIAgentConfigContent({
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 w-7 p-0"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-foreground"
                           onClick={handleImprovePrompt}
                           disabled={isImproving}
                         >
-                          {isImproving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                          {isImproving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent side="top">

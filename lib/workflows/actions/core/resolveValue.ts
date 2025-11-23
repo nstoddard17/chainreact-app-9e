@@ -8,29 +8,36 @@ import { logger } from '@/lib/utils/logger'
  * - Returns the first item's field value for single-value contexts
  * - Returns array of all values when appropriate
  */
-function navigateArrayPath(obj: any, path: string): any {
+export function navigateArrayPath(obj: any, path: string): any {
   if (!obj || !path) {
     logger.debug(`[navigateArrayPath] Early return - obj: ${!!obj}, path: "${path}"`)
     return undefined
   }
 
   // Split path into segments, handling array notation
-  const segments: Array<{ key: string; arrayAccess?: 'all' | number }> = []
+  const segments: Array<{ key: string; arrayAccess?: 'all' | number | 'first' | 'last' }> = []
 
   // Parse path like "events[].description" or "items[0].name"
   const pathParts = path.split('.')
-  logger.debug(`[navigateArrayPath] Navigating path "${path}", parts: ${JSON.stringify(pathParts)}`)
+  logger.debug(`[navigateArrayPath] START - Navigating path "${path}", pathParts: ${JSON.stringify(pathParts)}, objKeys: ${Object.keys(obj).slice(0, 10).join(', ')}`)
 
   for (const part of pathParts) {
     // Check for array notation: field[], field[0], field[*]
-    const arrayMatch = part.match(/^([^\[]+)\[(\d*|\*)?]$/)
+    const arrayMatch = part.match(/^([^\[]+)\[(\d+|last|first|\*)?]$/)
     if (arrayMatch) {
       const key = arrayMatch[1]
       const indexStr = arrayMatch[2]
 
-      if (indexStr === '' || indexStr === '*') {
+      // When the path uses bare [] (no explicit matcher) the regex captures
+      // undefined for the second group, so treat that the same as an empty
+      // string to ensure we still record the array access segment.
+      if (indexStr === undefined || indexStr === '' || indexStr === '*') {
         // [] or [*] means access all items (or first for single-value context)
         segments.push({ key, arrayAccess: 'all' })
+      } else if (indexStr === 'first') {
+        segments.push({ key, arrayAccess: 'first' })
+      } else if (indexStr === 'last') {
+        segments.push({ key, arrayAccess: 'last' })
       } else if (indexStr !== undefined) {
         // [0], [1], etc. - specific index
         segments.push({ key, arrayAccess: parseInt(indexStr, 10) })
@@ -40,17 +47,29 @@ function navigateArrayPath(obj: any, path: string): any {
     }
   }
 
+  logger.debug(`[navigateArrayPath] Parsed segments: ${JSON.stringify(segments)}`)
+
   // Navigate through the segments
   let current: any = obj
 
   for (let i = 0; i < segments.length; i++) {
-    if (current === undefined || current === null) return undefined
+    if (current === undefined || current === null) {
+      logger.debug(`[navigateArrayPath] Early exit: current is ${current} at segment ${i}`)
+      return undefined
+    }
 
     const segment = segments[i]
+    logger.debug(`[navigateArrayPath] Processing segment ${i}: key="${segment.key}", arrayAccess=${segment.arrayAccess}`)
 
     // Access the key
+    const prevCurrent = current
     current = current[segment.key]
-    if (current === undefined || current === null) return undefined
+    logger.debug(`[navigateArrayPath] Accessed key "${segment.key}": ${current === undefined ? 'undefined' : (Array.isArray(current) ? `array[${current.length}]` : typeof current)}`)
+
+    if (current === undefined || current === null) {
+      logger.debug(`[navigateArrayPath] Key "${segment.key}" not found in object with keys: ${Object.keys(prevCurrent || {}).join(', ')}`)
+      return undefined
+    }
 
     // Handle array access
     if (segment.arrayAccess !== undefined) {
@@ -71,35 +90,72 @@ function navigateArrayPath(obj: any, path: string): any {
 
         if (remainingPath) {
           // Map over array and get nested value from each item
-          logger.debug(`[navigateArrayPath] Mapping over ${current.length} items with remaining path: "${remainingPath}"`)
+          logger.debug(`[navigateArrayPath] ARRAY MAPPING - array length: ${current.length}, remaining path: "${remainingPath}"`)
+
+          // Log first few items' keys to help debug missing fields
+          if (current.length > 0) {
+            const firstItemKeys = Object.keys(current[0] || {}).join(', ')
+            logger.debug(`[navigateArrayPath] First item keys: ${firstItemKeys}`)
+          }
+
           const rawValues = current.map((item: any, idx: number) => {
             const val = navigateArrayPath(item, remainingPath)
             if (idx < 3) {  // Log first 3 items for debugging
-              logger.debug(`[navigateArrayPath] Item ${idx} has keys: ${Object.keys(item || {}).slice(0, 5).join(', ')}, resolved to: ${typeof val === 'string' ? val.slice(0, 50) : val}`)
+              logger.debug(`[navigateArrayPath] Item ${idx} resolved "${remainingPath}" to: ${val === undefined ? 'undefined' : (typeof val === 'string' ? `"${val.slice(0, 50)}"` : val)}`)
             }
             return val
           })
+
+          // Filter out undefined, null, and empty strings
           const values = rawValues.filter((v: any) => v !== undefined && v !== null && v !== '')
 
-          logger.debug(`[navigateArrayPath] Raw values count: ${rawValues.length}, filtered values count: ${values.length}`)
+          logger.debug(`[navigateArrayPath] ARRAY RESULT - raw count: ${rawValues.length}, filtered count: ${values.length}, undefinedCount: ${rawValues.filter(v => v === undefined).length}`)
 
           // For single-value contexts (like text fields), return first value
           // For array contexts, return all values joined with proper formatting
-          // Return empty string for empty arrays to signal "resolved but empty" vs "not found"
+          // IMPORTANT: Return empty string for empty arrays to signal "resolved but empty" vs "not found"
+          // This allows downstream code to distinguish between "field exists but all values are empty"
+          // vs "field doesn't exist at all"
           if (values.length === 0) {
-            logger.debug(`[navigateArrayPath] Array path resolved to empty - array length: ${current.length}, remaining path: ${remainingPath}`)
+            logger.debug(`[navigateArrayPath] ⚠️ All array items had undefined/null/empty for "${remainingPath}" - returning empty string`)
             return ''  // Return empty string instead of undefined for empty results
           }
           if (values.length === 1) {
+            logger.debug(`[navigateArrayPath] ✅ Single value result:`, values[0])
             return values[0]
           }
-          // Multiple values - join with comma and space for proper formatting
-          return values.join(', ')
+
+          const allPrimitive = values.every((v: any) => (
+            typeof v === 'string' ||
+            typeof v === 'number' ||
+            typeof v === 'boolean'
+          ))
+
+          if (!allPrimitive) {
+            logger.debug(`[navigateArrayPath] ✅ Returning array of ${values.length} non-primitive values`)
+            return values
+          }
+
+          const joinedResult = values.join(', ')
+          logger.debug(`[navigateArrayPath] ✅ Multiple primitive values joined: "${joinedResult.slice(0, 100)}..."`)
+          return joinedResult
         } else {
           // No remaining path, return first item for single-value context
           // Return empty string if array is empty
           return current.length > 0 ? current[0] : ''
         }
+      } else if (segment.arrayAccess === 'first') {
+        if (current.length === 0) {
+          logger.debug('[navigateArrayPath] Requested [first] on empty array, returning empty string')
+          return ''
+        }
+        current = current[0]
+      } else if (segment.arrayAccess === 'last') {
+        if (current.length === 0) {
+          logger.debug('[navigateArrayPath] Requested [last] on empty array, returning empty string')
+          return ''
+        }
+        current = current[current.length - 1]
       } else {
         // Specific index
         current = current[segment.arrayAccess]
@@ -568,26 +624,44 @@ export function resolveValue(
         const nodeIdOrTitle = parts[0]
         const outputField = parts.slice(1).join(".")
 
+        logger.debug(`[EMBEDDED] Resolving node reference: nodeId="${nodeIdOrTitle}", field="${outputField}"`)
+
         // Check if outputField contains array notation
         const hasArrayNotation = outputField.includes('[]') || /\[\d+\]/.test(outputField)
+        logger.debug(`[EMBEDDED] Has array notation: ${hasArrayNotation}`)
 
         // Try direct node ID access
         if (input && input[nodeIdOrTitle]) {
           const nodeData = input[nodeIdOrTitle]
+          const nodeDataKeys = Object.keys(nodeData || {}).slice(0, 15)
+          logger.debug(`[EMBEDDED] ✅ Found node data for "${nodeIdOrTitle}", keys: ${nodeDataKeys.join(', ')}`)
+
+          // For array paths, verify the array exists before calling navigateArrayPath
+          if (hasArrayNotation) {
+            const arrayFieldName = outputField.split('[')[0]  // e.g., "events" from "events[].description"
+            const arrayField = nodeData[arrayFieldName]
+            logger.debug(`[EMBEDDED] Array field "${arrayFieldName}": exists=${arrayField !== undefined}, isArray=${Array.isArray(arrayField)}, length=${Array.isArray(arrayField) ? arrayField.length : 'N/A'}`)
+          }
 
           // Navigate through the nested structure
           let fieldValue: any
           if (hasArrayNotation) {
+            logger.debug(`[EMBEDDED] Calling navigateArrayPath with outputField: "${outputField}"`)
             fieldValue = navigateArrayPath(nodeData, outputField)
+            logger.debug(`[EMBEDDED] navigateArrayPath returned: ${fieldValue === undefined ? 'undefined' : (fieldValue === '' ? '""(empty string)' : (typeof fieldValue === 'string' ? `"${fieldValue.slice(0, 100)}"` : fieldValue))}`)
           } else {
             fieldValue = outputField.split(".").reduce((acc: any, part: any) => {
               return acc && acc[part]
             }, nodeData)
           }
 
+          // Check for both undefined AND empty string (empty string is valid resolution)
+          // Empty string means "field was found but all values were empty/missing" - still resolved!
           if (fieldValue !== undefined) {
+            logger.debug(`[EMBEDDED] ✅ Resolved to: ${fieldValue === '' ? '""(empty string - valid resolution)' : (typeof fieldValue === 'string' ? `"${fieldValue.slice(0, 100)}"` : fieldValue)}`)
             return fieldValue
           }
+          logger.debug(`[EMBEDDED] ❌ fieldValue is undefined (not resolved), trying nodeData.output...`)
 
           // Check if the field exists in the node's output property
           // This handles cached ActionResult format: { success: true, output: { field: value } }
@@ -631,6 +705,8 @@ export function resolveValue(
       }
 
       // If we can't resolve it, return the original template
+      logger.debug(`[EMBEDDED] ❌ FAILED to resolve variable "${key}", returning original: "${match}"`)
+      logger.debug(`[EMBEDDED] Available input keys: ${Object.keys(input || {}).join(', ')}`)
       return match
     })
     

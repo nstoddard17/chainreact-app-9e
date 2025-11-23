@@ -507,8 +507,11 @@ export async function executeHITL(
     const supabase = await createSupabaseServerClient()
 
     // 1. Format context from previous node (auto-detect or manual)
+    // Handle autoDetectContext as both boolean (legacy) and string (new dropdown)
+    const isAutoDetect = config.autoDetectContext === true || config.autoDetectContext === 'true'
+
     let contextText = ''
-    if (config.autoDetectContext) {
+    if (isAutoDetect) {
       // Auto-detect: format the previous node's output nicely
       contextText = formatPreviousNodeContext(input)
       logger.debug('[HITL] Auto-detected context', { contextLength: contextText.length })
@@ -543,7 +546,7 @@ export async function executeHITL(
     let aiDraftedOpening: string | null = null
     let contextSection = ''
 
-    if (config.autoDetectContext) {
+    if (isAutoDetect) {
       const openingResult = await generateInitialAssistantOpening(
         enhancedSystemPrompt,
         contextText,
@@ -559,7 +562,7 @@ export async function executeHITL(
 
     // 6. Build initial message using enhanced conversation system
     let resolvedInitialMessage = ''
-    if (config.autoDetectContext) {
+    if (isAutoDetect) {
       // Use enhanced AI-powered message generation
       try {
         resolvedInitialMessage = await generateContextAwareMessage(input, config)

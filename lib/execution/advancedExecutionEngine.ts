@@ -763,6 +763,21 @@ export class AdvancedExecutionEngine {
 
       const nodeResult = await this.executeNode(currentNode, workflow, nodeContext);
 
+      // Check if workflow was paused (HITL)
+      if (nodeResult.__paused) {
+        logger.info(`⏸️ Workflow paused at node ${nodeResult.__pausedNodeId} - stopping execution loop`)
+        logInfo(sessionId, `Workflow paused at node ${nodeResult.__pausedNodeName}`)
+
+        // Return with pause information
+        return {
+          ...currentData,
+          [currentNode.id]: nodeResult[currentNode.id],
+          __paused: true,
+          __pausedNodeId: nodeResult.__pausedNodeId,
+          __pausedNodeName: nodeResult.__pausedNodeName
+        }
+      }
+
       // Extract just the new result for this node
       const newNodeResult = nodeResult[currentNode.id];
 
@@ -926,6 +941,39 @@ export class AdvancedExecutionEngine {
           message: errorMessage
         })
         throw new Error(errorMessage)
+      }
+
+      // Check if this action is requesting a workflow pause (HITL)
+      if (actionResult.pauseExecution) {
+        logger.info(`⏸️ Node ${node.id} requesting workflow pause (HITL)`)
+        logInfo(context.session.id, `Workflow paused at node: ${node.data?.title || node.data?.type}`, {
+          nodeId: node.id,
+          reason: 'HITL conversation initiated'
+        })
+
+        // Update the execution session to paused status
+        await this.supabase
+          .from('workflow_execution_sessions')
+          .update({
+            status: 'paused',
+            current_step: node.id,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', context.session.id)
+
+        // Update progress tracker
+        if (this.progressTracker) {
+          await this.progressTracker.pause(node.id, node.data?.title || 'Human input required')
+        }
+
+        // Return with pause flag so the caller knows to stop
+        return {
+          ...context.data,
+          [node.id]: actionResult,
+          __paused: true,
+          __pausedNodeId: node.id,
+          __pausedNodeName: node.data?.title || node.data?.type
+        }
       }
 
       // Build the result in the expected format for the execution engine

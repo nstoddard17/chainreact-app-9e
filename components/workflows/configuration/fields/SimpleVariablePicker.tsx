@@ -11,8 +11,9 @@ import { useToast } from '@/hooks/use-toast'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { apiClient } from '@/lib/apiClient'
 import { useWorkflowTestStore } from '@/stores/workflowTestStore'
-import { resolveVariableValue, getNodeVariableValues } from '@/lib/workflows/variableResolution'
+import { getNodeVariableValues } from '@/lib/workflows/variableResolution'
 import { logger } from '@/lib/utils/logger'
+import { useUpstreamVariables } from '../hooks/useUpstreamVariables'
 
 interface SimpleVariablePickerProps {
   workflowData?: { nodes: any[], edges: any[] }
@@ -51,84 +52,21 @@ function SimpleVariablePickerComponent({
     clearTestResults
   } = useWorkflowTestStore()
 
-  const getPreviousNodeIds = (): string[] => {
-    if (!workflowData || !currentNodeId) return []
+  const { upstreamNodes } = useUpstreamVariables({
+    workflowData,
+    currentNodeId
+  })
 
-    const findPreviousNodes = (nodeId: string, visited = new Set<string>()): string[] => {
-      if (visited.has(nodeId)) return []
-      visited.add(nodeId)
-
-      const incomingEdges = workflowData.edges.filter(edge => edge.target === nodeId)
-      if (incomingEdges.length === 0) return []
-
-      const sourceNodeIds = incomingEdges.map(edge => edge.source)
-      const allPreviousNodes: string[] = [...sourceNodeIds]
-
-      sourceNodeIds.forEach(sourceId => {
-        const previousNodes = findPreviousNodes(sourceId, visited)
-        allPreviousNodes.push(...previousNodes)
-      })
-
-      return allPreviousNodes
-    }
-
-    return findPreviousNodes(currentNodeId)
-  }
-
-  // Get nodes to display - previous nodes only when in a node config
-  // Memoize allNodes to prevent recreation on every render
-  const allNodes = useMemo(() => {
-    return workflowData?.nodes?.map((node: any) => {
-      const outputs = node.data?.outputSchema || []
-
-      // Flatten array properties - if an output has 'properties', include those as individual outputs
-      const flattenedOutputs: any[] = []
-      outputs.forEach((output: any) => {
-        // Always include the top-level field
-        flattenedOutputs.push(output)
-
-        // If this is an array with properties, also include the properties as separate fields
-        if (output.type === 'array' && Array.isArray(output.properties)) {
-          output.properties.forEach((prop: any) => {
-            flattenedOutputs.push({
-              ...prop,
-              name: `${output.name}[].${prop.name}`,
-              label: prop.label || prop.name, // Just use the property label, node title will be shown separately
-              _isArrayProperty: true,
-              _parentArray: output.name,
-              _parentArrayLabel: output.label || output.name
-            })
-          })
-        }
-      })
-
-      return {
-        id: node.id,
-        title: node.data?.title || node.data?.type || 'Unknown Node',
-        outputs: flattenedOutputs,
-        position: node.position || { x: 0, y: 0 }
-      }
-    }) || []
-  }, [workflowData?.nodes])
-
-  const previousNodeIdSet = useMemo(() => {
-    if (!workflowData || !currentNodeId) return new Set<string>()
-    return new Set(getPreviousNodeIds())
-  }, [workflowData, currentNodeId])
-
-  // Memoize nodes to prevent recreation on every render
+  // Normalize upstream node data for the simple picker UI
   const nodes = useMemo(() => {
-    const filtered = currentNodeId
-      ? allNodes.filter(node => {
-          if (node.id === currentNodeId) return false
-          const hasOutputs = node.outputs && node.outputs.length > 0
-          return hasOutputs && previousNodeIdSet.has(node.id)
-        })
-      : allNodes.filter(node => node.outputs && node.outputs.length > 0)
-
-    // Sort by Y position (top to bottom order in the workflow builder)
-    return filtered.sort((a, b) => a.position.y - b.position.y)
-  }, [allNodes, currentNodeId, previousNodeIdSet])
+    return upstreamNodes.map(node => ({
+      id: node.id,
+      title: node.title,
+      type: node.type,
+      outputs: node.outputs,
+      position: node.position || { x: 0, y: 0 }
+    }))
+  }, [upstreamNodes])
 
   // Function to get relevant AI agent outputs based on current node type
   // Memoized to prevent recreation on every render
@@ -399,9 +337,10 @@ function SimpleVariablePickerComponent({
   return (
     <Popover open={isOpen} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
-        <Button 
-          size="sm"
-          className="h-10 w-10 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 rounded-md"
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-muted-foreground hover:text-foreground"
           type="button"
           title="Insert workflow variable"
         >
@@ -515,7 +454,7 @@ function SimpleVariablePickerComponent({
                     {isExpanded && hasOutputs && (
                       <div className="bg-gray-50 border-t border-gray-100">
                         {node.outputs.map((output: any) => {
-                          const variableRef = `{{${node.title}.${output.label || output.name}}}`
+                          const variableRef = `{{${node.id}.${output.name}}}`
                           const variableValue = getVariableValue(node.id, output.name)
                           const hasValue = variableValue !== null
                           
