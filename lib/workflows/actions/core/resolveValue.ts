@@ -1,6 +1,116 @@
 import { logger } from '@/lib/utils/logger'
 
 /**
+ * Navigate through an object using a path that may contain array notation
+ * Handles paths like "events[].description" or "items[0].name"
+ *
+ * For [] notation without index:
+ * - Returns the first item's field value for single-value contexts
+ * - Returns array of all values when appropriate
+ */
+function navigateArrayPath(obj: any, path: string): any {
+  if (!obj || !path) {
+    logger.debug(`[navigateArrayPath] Early return - obj: ${!!obj}, path: "${path}"`)
+    return undefined
+  }
+
+  // Split path into segments, handling array notation
+  const segments: Array<{ key: string; arrayAccess?: 'all' | number }> = []
+
+  // Parse path like "events[].description" or "items[0].name"
+  const pathParts = path.split('.')
+  logger.debug(`[navigateArrayPath] Navigating path "${path}", parts: ${JSON.stringify(pathParts)}`)
+
+  for (const part of pathParts) {
+    // Check for array notation: field[], field[0], field[*]
+    const arrayMatch = part.match(/^([^\[]+)\[(\d*|\*)?]$/)
+    if (arrayMatch) {
+      const key = arrayMatch[1]
+      const indexStr = arrayMatch[2]
+
+      if (indexStr === '' || indexStr === '*') {
+        // [] or [*] means access all items (or first for single-value context)
+        segments.push({ key, arrayAccess: 'all' })
+      } else if (indexStr !== undefined) {
+        // [0], [1], etc. - specific index
+        segments.push({ key, arrayAccess: parseInt(indexStr, 10) })
+      }
+    } else {
+      segments.push({ key: part })
+    }
+  }
+
+  // Navigate through the segments
+  let current: any = obj
+
+  for (let i = 0; i < segments.length; i++) {
+    if (current === undefined || current === null) return undefined
+
+    const segment = segments[i]
+
+    // Access the key
+    current = current[segment.key]
+    if (current === undefined || current === null) return undefined
+
+    // Handle array access
+    if (segment.arrayAccess !== undefined) {
+      if (!Array.isArray(current)) {
+        logger.debug(`[navigateArrayPath] Expected array at ${segment.key} but got ${typeof current}`)
+        return undefined
+      }
+
+      logger.debug(`[navigateArrayPath] Array at "${segment.key}" has ${current.length} items`)
+
+      if (segment.arrayAccess === 'all') {
+        // For [] notation, get remaining path and map over array
+        const remainingPath = segments.slice(i + 1).map(s => {
+          if (s.arrayAccess === 'all') return `${s.key}[]`
+          if (s.arrayAccess !== undefined) return `${s.key}[${s.arrayAccess}]`
+          return s.key
+        }).join('.')
+
+        if (remainingPath) {
+          // Map over array and get nested value from each item
+          logger.debug(`[navigateArrayPath] Mapping over ${current.length} items with remaining path: "${remainingPath}"`)
+          const rawValues = current.map((item: any, idx: number) => {
+            const val = navigateArrayPath(item, remainingPath)
+            if (idx < 3) {  // Log first 3 items for debugging
+              logger.debug(`[navigateArrayPath] Item ${idx} has keys: ${Object.keys(item || {}).slice(0, 5).join(', ')}, resolved to: ${typeof val === 'string' ? val.slice(0, 50) : val}`)
+            }
+            return val
+          })
+          const values = rawValues.filter((v: any) => v !== undefined && v !== null && v !== '')
+
+          logger.debug(`[navigateArrayPath] Raw values count: ${rawValues.length}, filtered values count: ${values.length}`)
+
+          // For single-value contexts (like text fields), return first value
+          // For array contexts, return all values joined with proper formatting
+          // Return empty string for empty arrays to signal "resolved but empty" vs "not found"
+          if (values.length === 0) {
+            logger.debug(`[navigateArrayPath] Array path resolved to empty - array length: ${current.length}, remaining path: ${remainingPath}`)
+            return ''  // Return empty string instead of undefined for empty results
+          }
+          if (values.length === 1) {
+            return values[0]
+          }
+          // Multiple values - join with comma and space for proper formatting
+          return values.join(', ')
+        } else {
+          // No remaining path, return first item for single-value context
+          // Return empty string if array is empty
+          return current.length > 0 ? current[0] : ''
+        }
+      } else {
+        // Specific index
+        current = current[segment.arrayAccess]
+      }
+    }
+  }
+
+  return current
+}
+
+/**
  * Format all input data into a readable string
  */
 function formatAllInputData(input: any): string {
@@ -118,20 +228,25 @@ export function resolveValue(
 
   // Debug logging for variable resolution
   if (typeof value === 'string' && value.includes('{{') && value.includes('}}')) {
-    logger.debug('🔍 Resolving variable:', value)
-    logger.debug('🔍 Available input keys:', Object.keys(input || {}).join(', '))
+    logger.debug('🔍 [RESOLVE_VALUE] Attempting to resolve variable:', value)
+    logger.debug('🔍 [RESOLVE_VALUE] Available input keys:', Object.keys(input || {}).join(', '))
+    logger.debug('🔍 [RESOLVE_VALUE] Input keys count:', Object.keys(input || {}).length)
 
-    // Log structure of each input key for debugging
+    // Log structure of each input key for debugging (enhanced for array debugging)
     Object.keys(input || {}).forEach(key => {
       const val = input[key]
-      if (val && typeof val === 'object') {
-        logger.debug(`🔍 Input[${key}] structure:`, {
-          hasOutput: !!val.output,
-          hasSuccess: typeof val.success !== 'undefined',
-          topLevelKeys: Object.keys(val),
-          outputKeys: val.output ? Object.keys(val.output) : []
-        })
-      }
+      logger.debug(`🔍 [RESOLVE_VALUE] Key "${key}":`, {
+        type: typeof val,
+        isArray: Array.isArray(val),
+        isObject: val && typeof val === 'object' && !Array.isArray(val),
+        hasOutput: val?.output !== undefined,
+        hasEvents: val?.events !== undefined,
+        eventsLength: Array.isArray(val?.events) ? val.events.length : 'n/a',
+        firstEventKeys: Array.isArray(val?.events) && val.events.length > 0
+          ? Object.keys(val.events[0] || {}).slice(0, 8).join(', ')
+          : 'n/a',
+        topLevelKeys: val && typeof val === 'object' ? Object.keys(val).slice(0, 10) : 'n/a'
+      })
     })
   }
   
@@ -201,20 +316,31 @@ export function resolveValue(
       const outputField = parts.slice(1).join(".")
 
       // First, try direct node ID access (e.g., {{action-1760677115194.email}})
+      logger.debug(`🔍 [RESOLVE_VALUE] Looking for node ID "${nodeIdOrTitle}" in input keys:`, Object.keys(input || {}))
       if (input && input[nodeIdOrTitle]) {
         const nodeData = input[nodeIdOrTitle]
-        logger.debug(`🔍 Found node data for ${nodeIdOrTitle}:`, {
+        logger.debug(`✅ [RESOLVE_VALUE] FOUND node data for "${nodeIdOrTitle}":`, {
           nodeDataType: typeof nodeData,
           hasOutput: !!nodeData?.output,
           hasSuccess: typeof nodeData?.success !== 'undefined',
+          hasEvents: !!nodeData?.events,
           outputField,
           topLevelKeys: nodeData && typeof nodeData === 'object' ? Object.keys(nodeData) : []
         })
 
+        // Check if outputField contains array notation (e.g., events[].description)
+        const hasArrayNotation = outputField.includes('[]') || /\[\d+\]/.test(outputField)
+
         // Navigate through the nested structure
-        const fieldValue = outputField.split(".").reduce((acc: any, part: any) => {
-          return acc && acc[part]
-        }, nodeData)
+        // Use navigateArrayPath for paths with array notation, otherwise use simple reduce
+        let fieldValue: any
+        if (hasArrayNotation) {
+          fieldValue = navigateArrayPath(nodeData, outputField)
+        } else {
+          fieldValue = outputField.split(".").reduce((acc: any, part: any) => {
+            return acc && acc[part]
+          }, nodeData)
+        }
 
         if (fieldValue !== undefined) {
           logger.debug(`🔍 Resolved ${key} from direct field access:`, fieldValue)
@@ -224,9 +350,14 @@ export function resolveValue(
         // Check if the field exists in the node's output property
         // This handles cached ActionResult format: { success: true, output: { field: value } }
         if (nodeData.output) {
-          const outputFieldValue = outputField.split(".").reduce((acc: any, part: any) => {
-            return acc && acc[part]
-          }, nodeData.output)
+          let outputFieldValue: any
+          if (hasArrayNotation) {
+            outputFieldValue = navigateArrayPath(nodeData.output, outputField)
+          } else {
+            outputFieldValue = outputField.split(".").reduce((acc: any, part: any) => {
+              return acc && acc[part]
+            }, nodeData.output)
+          }
 
           if (outputFieldValue !== undefined) {
             logger.debug(`🔍 Resolved ${key} from output property:`, outputFieldValue)
@@ -237,9 +368,14 @@ export function resolveValue(
         // Also check inside output.output for double-nested structures
         // This handles cases where nodeData = { success, output: { output: { field } } }
         if (nodeData.output?.output) {
-          const doubleNestedValue = outputField.split(".").reduce((acc: any, part: any) => {
-            return acc && acc[part]
-          }, nodeData.output.output)
+          let doubleNestedValue: any
+          if (hasArrayNotation) {
+            doubleNestedValue = navigateArrayPath(nodeData.output.output, outputField)
+          } else {
+            doubleNestedValue = outputField.split(".").reduce((acc: any, part: any) => {
+              return acc && acc[part]
+            }, nodeData.output.output)
+          }
 
           if (doubleNestedValue !== undefined) {
             logger.debug(`🔍 Resolved ${key} from double-nested output:`, doubleNestedValue)
@@ -247,9 +383,10 @@ export function resolveValue(
           }
         }
 
-        logger.debug(`🔍 Could not resolve ${key} - field not found in node data, output, or nested output`)
+        logger.debug(`❌ [RESOLVE_VALUE] Could not resolve "${key}" - field "${outputField}" not found in node data, output, or nested output`)
       } else {
-        logger.debug(`🔍 Node ${nodeIdOrTitle} not found in input keys:`, Object.keys(input || {}))
+        logger.debug(`❌ [RESOLVE_VALUE] Node ID "${nodeIdOrTitle}" NOT FOUND in input keys:`, Object.keys(input || {}))
+        logger.debug(`❌ [RESOLVE_VALUE] This is likely a data flow issue - the previous node output is not keyed correctly`)
       }
 
       const nodeTitle = nodeIdOrTitle
@@ -426,19 +563,27 @@ export function resolveValue(
         }
       }
 
-      // Handle node output references (e.g., {{action-123.user.name}})
+      // Handle node output references (e.g., {{action-123.user.name}} or {{action-123.events[].description}})
       if (parts.length >= 2) {
         const nodeIdOrTitle = parts[0]
         const outputField = parts.slice(1).join(".")
+
+        // Check if outputField contains array notation
+        const hasArrayNotation = outputField.includes('[]') || /\[\d+\]/.test(outputField)
 
         // Try direct node ID access
         if (input && input[nodeIdOrTitle]) {
           const nodeData = input[nodeIdOrTitle]
 
           // Navigate through the nested structure
-          const fieldValue = outputField.split(".").reduce((acc: any, part: any) => {
-            return acc && acc[part]
-          }, nodeData)
+          let fieldValue: any
+          if (hasArrayNotation) {
+            fieldValue = navigateArrayPath(nodeData, outputField)
+          } else {
+            fieldValue = outputField.split(".").reduce((acc: any, part: any) => {
+              return acc && acc[part]
+            }, nodeData)
+          }
 
           if (fieldValue !== undefined) {
             return fieldValue
@@ -447,9 +592,14 @@ export function resolveValue(
           // Check if the field exists in the node's output property
           // This handles cached ActionResult format: { success: true, output: { field: value } }
           if (nodeData.output) {
-            const outputFieldValue = outputField.split(".").reduce((acc: any, part: any) => {
-              return acc && acc[part]
-            }, nodeData.output)
+            let outputFieldValue: any
+            if (hasArrayNotation) {
+              outputFieldValue = navigateArrayPath(nodeData.output, outputField)
+            } else {
+              outputFieldValue = outputField.split(".").reduce((acc: any, part: any) => {
+                return acc && acc[part]
+              }, nodeData.output)
+            }
 
             if (outputFieldValue !== undefined) {
               return outputFieldValue
@@ -458,9 +608,14 @@ export function resolveValue(
 
           // Also check inside output.output for double-nested structures
           if (nodeData.output?.output) {
-            const doubleNestedValue = outputField.split(".").reduce((acc: any, part: any) => {
-              return acc && acc[part]
-            }, nodeData.output.output)
+            let doubleNestedValue: any
+            if (hasArrayNotation) {
+              doubleNestedValue = navigateArrayPath(nodeData.output.output, outputField)
+            } else {
+              doubleNestedValue = outputField.split(".").reduce((acc: any, part: any) => {
+                return acc && acc[part]
+              }, nodeData.output.output)
+            }
 
             if (doubleNestedValue !== undefined) {
               return doubleNestedValue

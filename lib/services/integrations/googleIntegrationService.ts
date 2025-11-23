@@ -185,22 +185,50 @@ export class GoogleIntegrationService {
       }
     }
 
+    // DEBUG: Log context.data to trace variable resolution
+    logger.debug('📊 [GoogleIntegrationService] Context data for Calendar action:', {
+      nodeType,
+      nodeId: node.id,
+      hasContextData: !!context.data,
+      contextDataKeys: context.data ? Object.keys(context.data) : [],
+      configText: config?.text,
+      configHasVariables: config?.text?.includes('{{')
+    })
+
     switch (nodeType) {
       case "calendar_create_event":
       case "google_calendar_action_create_event":
         const { createGoogleCalendarEvent } = await import('@/lib/workflows/actions/google-calendar/createEvent')
         return await createGoogleCalendarEvent(config, context.userId, context.data || {})
-        
+
+      case "google_calendar_action_quick_add_event":
+        // DEBUG: Log exactly what we're passing to the quick add function
+        logger.debug('🔍 [GoogleIntegrationService] Quick Add Event - passing data:', {
+          configText: config?.text,
+          contextDataKeys: Object.keys(context.data || {}),
+          contextDataSample: JSON.stringify(context.data || {}, null, 2).substring(0, 500)
+        })
+        const { quickAddGoogleCalendarEvent } = await import('@/lib/workflows/actions/google-calendar/quickAddEvent')
+        return await quickAddGoogleCalendarEvent(config, context.userId, context.data || {})
+
+      case "google_calendar_action_list_events":
+        const { listGoogleCalendarEvents } = await import('@/lib/workflows/actions/google-calendar/listEvents')
+        return await listGoogleCalendarEvents(config, context.userId, context.data || {})
+
+      case "google_calendar_action_get_free_busy":
+        const { getGoogleCalendarFreeBusy } = await import('@/lib/workflows/actions/google-calendar/getFreeBusy')
+        return await getGoogleCalendarFreeBusy(config, context.userId, context.data || {})
+
       case "calendar_update_event":
       case "google_calendar_action_update_event":
         // TODO: Implement when action is available
         throw new Error("Google Calendar update event is not yet implemented")
-        
+
       case "calendar_delete_event":
       case "google_calendar_action_delete_event":
         // TODO: Implement when action is available
         throw new Error("Google Calendar delete event is not yet implemented")
-        
+
       default:
         throw new Error(`Google Calendar action '${nodeType}' is not yet implemented`)
     }

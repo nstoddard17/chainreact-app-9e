@@ -1745,9 +1745,9 @@ export const googleCalendarNodes: NodeComponent[] = [
         name: "text",
         label: "Natural Language Text",
         type: "textarea",
-        placeholder: "e.g., 'Lunch with John tomorrow at noon' or 'Meeting next Monday 2pm-3pm'",
+        placeholder: "e.g., 'Lunch with {{trigger.name}} tomorrow at noon'",
         required: true,
-        description: "Describe the event in natural language - Google will parse dates, times, and details"
+        description: "Describe the event in natural language. Use variables like {{trigger.name}} to insert dynamic data. Google will parse dates, times, and details."
       },
       {
         name: "sendNotifications",
@@ -2078,6 +2078,18 @@ export const googleCalendarNodes: NodeComponent[] = [
         description: "Calendar to move the event to"
       },
       {
+        name: "recurringEventHandling",
+        label: "If event is a recurring instance",
+        type: "select",
+        defaultValue: "move_series",
+        options: [
+          { value: "move_series", label: "Move entire recurring series" },
+          { value: "copy_instance", label: "Copy instance to new calendar (deletes original)" },
+          { value: "skip", label: "Skip and continue workflow" }
+        ],
+        description: "Google Calendar doesn't allow moving single instances of recurring events. Choose how to handle this."
+      },
+      {
         name: "sendNotifications",
         label: "Send notifications",
         type: "select",
@@ -2155,6 +2167,42 @@ export const googleCalendarNodes: NodeComponent[] = [
         label: "Status",
         type: "string",
         description: "Event status after move"
+      },
+      {
+        name: "action",
+        label: "Action Taken",
+        type: "string",
+        description: "What action was performed: 'moved', 'moved_series', 'copied_instance', or 'skipped'"
+      },
+      {
+        name: "skipped",
+        label: "Was Skipped",
+        type: "boolean",
+        description: "True if the event was skipped (recurring instance with skip mode)"
+      },
+      {
+        name: "skipReason",
+        label: "Skip Reason",
+        type: "string",
+        description: "Explanation of why the event was skipped (if applicable)"
+      },
+      {
+        name: "originalInstanceId",
+        label: "Original Instance ID",
+        type: "string",
+        description: "The original recurring instance ID (if series was moved or instance was copied)"
+      },
+      {
+        name: "movedSeriesId",
+        label: "Moved Series ID",
+        type: "string",
+        description: "The base recurring event ID that was moved (if move_series mode was used)"
+      },
+      {
+        name: "originalDeleted",
+        label: "Original Deleted",
+        type: "boolean",
+        description: "True if the original event was deleted (copy_instance mode)"
       }
     ],
   },
@@ -2219,6 +2267,74 @@ export const googleCalendarNodes: NodeComponent[] = [
           { value: "Pacific/Auckland", label: "Auckland (NZDT/NZST)" }
         ],
         description: "Time zone for the query (auto-detected from your browser)"
+      },
+      {
+        name: "workHoursStart",
+        label: "Work Hours Start",
+        type: "select",
+        defaultValue: "09:00",
+        options: [
+          { value: "00:00", label: "12:00 AM (Midnight)" },
+          { value: "06:00", label: "6:00 AM" },
+          { value: "07:00", label: "7:00 AM" },
+          { value: "08:00", label: "8:00 AM" },
+          { value: "09:00", label: "9:00 AM" },
+          { value: "10:00", label: "10:00 AM" },
+          { value: "11:00", label: "11:00 AM" },
+          { value: "12:00", label: "12:00 PM (Noon)" }
+        ],
+        description: "Start of work hours for calculating free slots"
+      },
+      {
+        name: "workHoursEnd",
+        label: "Work Hours End",
+        type: "select",
+        defaultValue: "17:00",
+        options: [
+          { value: "14:00", label: "2:00 PM" },
+          { value: "15:00", label: "3:00 PM" },
+          { value: "16:00", label: "4:00 PM" },
+          { value: "17:00", label: "5:00 PM" },
+          { value: "18:00", label: "6:00 PM" },
+          { value: "19:00", label: "7:00 PM" },
+          { value: "20:00", label: "8:00 PM" },
+          { value: "21:00", label: "9:00 PM" },
+          { value: "23:59", label: "11:59 PM (End of day)" }
+        ],
+        description: "End of work hours for calculating free slots"
+      },
+      {
+        name: "meetingDuration",
+        label: "Suggested Meeting Duration",
+        type: "select",
+        defaultValue: "30",
+        options: [
+          { value: "15", label: "15 minutes" },
+          { value: "30", label: "30 minutes" },
+          { value: "45", label: "45 minutes" },
+          { value: "60", label: "1 hour" },
+          { value: "90", label: "1.5 hours" },
+          { value: "120", label: "2 hours" }
+        ],
+        description: "Duration to use when suggesting available meeting slots"
+      },
+      {
+        name: "includeWeekends",
+        label: "Include Weekends",
+        type: "toggle",
+        defaultValue: false,
+        description: "Include Saturday and Sunday in daily summaries and suggestions"
+      },
+      {
+        name: "multiCalendarMode",
+        label: "Multi-Calendar Availability",
+        type: "select",
+        defaultValue: "any_free",
+        options: [
+          { value: "any_free", label: "At least one calendar free" },
+          { value: "all_free", label: "All calendars must be free" }
+        ],
+        description: "How to determine availability when checking multiple calendars"
       }
     ],
     outputSchema: [
@@ -2306,6 +2422,79 @@ export const googleCalendarNodes: NodeComponent[] = [
         label: "Raw Data",
         type: "object",
         description: "Raw API response for advanced use"
+      },
+      // Daily summary fields
+      {
+        name: "dailySummary",
+        label: "Daily Summary",
+        type: "array",
+        description: "Day-by-day breakdown with events, busy hours, and free slots"
+      },
+      {
+        name: "freeDays",
+        label: "Free Days",
+        type: "array",
+        description: "List of dates with no events during work hours"
+      },
+      {
+        name: "freeDayCount",
+        label: "Free Day Count",
+        type: "number",
+        description: "Number of completely free days"
+      },
+      {
+        name: "busyDays",
+        label: "Busy Days",
+        type: "array",
+        description: "List of dates with events"
+      },
+      {
+        name: "busyDayCount",
+        label: "Busy Day Count",
+        type: "number",
+        description: "Number of days with events"
+      },
+      {
+        name: "availabilitySummary",
+        label: "Availability Summary",
+        type: "string",
+        description: "Human-readable summary of availability across all days"
+      },
+      {
+        name: "bestDaysForMeetings",
+        label: "Best Days for Meetings",
+        type: "array",
+        description: "Days sorted by most availability (most free hours first)"
+      },
+      {
+        name: "suggestedSlots",
+        label: "Suggested Meeting Slots",
+        type: "array",
+        description: "Available time slots that fit the configured meeting duration"
+      },
+      {
+        name: "suggestedSlotCount",
+        label: "Suggested Slot Count",
+        type: "number",
+        description: "Number of available meeting slots found"
+      },
+      {
+        name: "totalFreeHours",
+        label: "Total Free Hours",
+        type: "number",
+        description: "Total free hours during work hours across all days"
+      },
+      {
+        name: "totalBusyHours",
+        label: "Total Busy Hours",
+        type: "number",
+        description: "Total busy hours during work hours across all days"
+      },
+      {
+        name: "workHoursConfig",
+        label: "Work Hours Config",
+        type: "object",
+        description: "The work hours settings used for calculations"
       }
     ],
   },
