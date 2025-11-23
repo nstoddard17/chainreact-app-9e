@@ -203,7 +203,9 @@ export async function POST(request: Request) {
       status,
       folder_id,
       workspace_type = 'personal',
-      workspace_id = null
+      workspace_id = null,
+      nodes = [],
+      connections = []
     } = body
 
     logger.debug('[API /api/workflows] POST request', {
@@ -244,8 +246,8 @@ export async function POST(request: Request) {
         workspace_id,
         created_by: user.id,
         last_modified_by: user.id,
-        nodes: [],
-        connections: [],
+        nodes: Array.isArray(nodes) ? nodes : [],
+        connections: Array.isArray(connections) ? connections : [],
         status: status || "draft",
       })
       .select()

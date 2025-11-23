@@ -461,14 +461,6 @@ function flowToReactFlowNodes(flow: Flow, onDelete?: (nodeId: string) => void): 
       y: positionY,
     }
 
-    console.log(`📍 [flowToReactFlowNodes] Node ${node.id}:`, {
-      index,
-      savedPosition: metadata.position,
-      defaultY,
-      finalX: positionX,
-      finalY: positionY
-    })
-
     const catalogNode = NODE_COMPONENT_MAP.get(node.type)
     const providerId = metadata.providerId ?? catalogNode?.providerId
     const icon = catalogNode?.icon
@@ -870,6 +862,51 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
               stroke: '#d0d6e0',
             },
       } as ReactFlowEdge)
+        }
+      } else if (flow.nodes.length > 0) {
+        // Check if there are action nodes but no trigger node
+        // This happens when a trigger is deleted but actions remain
+        const hasTrigger = flow.nodes.some((node) => {
+          const nodeDef = ALL_NODE_COMPONENTS.find(c => c.type === node.type)
+          return node.metadata?.isTrigger || nodeDef?.isTrigger || false
+        })
+
+        if (!hasTrigger) {
+          // Find the topmost node (smallest Y position) to place trigger placeholder above it
+          const sortedNodes = [...graphNodes].sort((a, b) => a.position.y - b.position.y)
+          const topNode = sortedNodes[0]
+
+          if (topNode) {
+            const triggerPlaceholder: ReactFlowNode = {
+              id: 'trigger-placeholder',
+              type: 'trigger_placeholder',
+              position: {
+                x: topNode.position.x,
+                y: topNode.position.y - 180 // Place 180px above the first node
+              },
+              data: {
+                type: 'trigger_placeholder',
+                isPlaceholder: true,
+                title: 'Trigger',
+              },
+            }
+
+            // Add trigger placeholder at the beginning
+            graphNodes = [triggerPlaceholder, ...graphNodes]
+
+            // Add edge from trigger placeholder to the first action node
+            edges.push({
+              id: `trigger-placeholder-${topNode.id}`,
+              source: 'trigger-placeholder',
+              target: topNode.id,
+              sourceHandle: 'source',
+              targetHandle: 'target',
+              type: 'custom',
+              style: {
+                stroke: '#d0d6e0',
+              },
+            } as ReactFlowEdge)
+          }
         }
       }
 
