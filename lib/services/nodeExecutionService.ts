@@ -269,10 +269,10 @@ export class NodeExecutionService {
   }
 
   private async executeConnectedNodes(
-    sourceNode: any, 
-    allNodes: any[], 
-    connections: any[], 
-    context: ExecutionContext, 
+    sourceNode: any,
+    allNodes: any[],
+    connections: any[],
+    context: ExecutionContext,
     result: any
   ) {
     const outgoingConnections = connections.filter((conn: any) => conn.source === sourceNode.id)
@@ -286,6 +286,14 @@ export class NodeExecutionService {
     })
     logger.debug(`📌 Original context userId: ${context.userId}`)
 
+    // DEBUG: Log what we're keying the result under
+    logger.debug(`🔑 [DATA FLOW] Keying result under sourceNode.id: "${sourceNode.id}"`, {
+      resultType: typeof result,
+      resultKeys: result && typeof result === 'object' ? Object.keys(result) : 'not an object',
+      hasEvents: result?.events !== undefined,
+      eventsCount: Array.isArray(result?.events) ? result.events.length : 'not an array'
+    })
+
     for (const connection of routedConnections) {
       const connectedNode = allNodes.find((node: any) => node.id === connection.target)
       if (!connectedNode) {
@@ -293,13 +301,29 @@ export class NodeExecutionService {
         continue
       }
 
+      // Build updated context with data keyed by source node ID for variable resolution
+      // This allows variables like {{node-id.field}} to resolve properly
       const updatedContext: ExecutionContext = {
         ...context,
-        data: { ...context.data, ...result }
+        data: {
+          ...context.data,
+          // Key the result by source node ID for variable resolution
+          [sourceNode.id]: result,
+          // Also merge flat for backward compatibility with direct field access
+          ...result
+        }
       }
 
+      // DEBUG: Log all keys in the updated context data
+      logger.debug(`📊 [DATA FLOW] Updated context data keys for ${connectedNode.id}:`, {
+        allDataKeys: Object.keys(updatedContext.data),
+        hasSourceNodeKey: !!updatedContext.data[sourceNode.id],
+        sourceNodeKeyType: typeof updatedContext.data[sourceNode.id]
+      })
+
       logger.debug(`📌 Updated context userId for node ${connectedNode.id}: ${updatedContext.userId}`, {
-        viaHandle: connection.sourceHandle || 'default'
+        viaHandle: connection.sourceHandle || 'default',
+        dataKeys: Object.keys(updatedContext.data).slice(0, 10) // Log first 10 keys
       })
 
       if (!updatedContext.userId) {

@@ -6,8 +6,30 @@ import { google } from 'googleapis'
 import { logger } from '@/lib/utils/logger'
 
 /**
+ * Check if an event ID is a recurring instance (contains underscore with date)
+ * Recurring instance IDs look like: baseEventId_20231115T100000Z
+ */
+function isRecurringInstance(eventId: string): boolean {
+  // Recurring instances have format: baseId_YYYYMMDDTHHMMSSZ
+  return /_\d{8}T\d{6}Z$/.test(eventId)
+}
+
+/**
+ * Extract the base recurring event ID from an instance ID
+ */
+function getBaseEventId(eventId: string): string {
+  const match = eventId.match(/^(.+)_\d{8}T\d{6}Z$/)
+  return match ? match[1] : eventId
+}
+
+/**
  * Google Calendar move event handler
  * Moves an event from one calendar to another
+ *
+ * Supports three modes for recurring event instances:
+ * - move_series: Move the entire recurring series
+ * - copy_instance: Copy the instance to new calendar (delete original + create copy)
+ * - skip: Skip recurring instances and continue workflow
  */
 export async function moveGoogleCalendarEvent(
   config: any,
@@ -27,6 +49,7 @@ export async function moveGoogleCalendarEvent(
       sourceCalendarId = 'primary',
       destinationCalendarId,
       eventId,
+      recurringEventHandling = 'move_series',
       sendNotifications = 'all'
     } = resolvedConfig
 
@@ -60,14 +83,170 @@ export async function moveGoogleCalendarEvent(
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client })
 
     // Determine send notifications parameter
-    let sendUpdates = 'none'
+    let sendUpdates: 'all' | 'externalOnly' | 'none' = 'none'
     if (sendNotifications === 'all') {
       sendUpdates = 'all'
     } else if (sendNotifications === 'externalOnly') {
       sendUpdates = 'externalOnly'
     }
 
-    // Move the event
+    // Check if this is a recurring instance
+    const isInstance = isRecurringInstance(eventId)
+
+    if (isInstance) {
+      logger.info('🔄 [Google Calendar] Detected recurring event instance', {
+        eventId,
+        handling: recurringEventHandling
+      })
+
+      switch (recurringEventHandling) {
+        case 'move_series': {
+          // Move the entire recurring series instead
+          const baseEventId = getBaseEventId(eventId)
+          logger.info('🔄 [Google Calendar] Moving entire series', { baseEventId })
+
+          const response = await calendar.events.move({
+            calendarId: sourceCalendarId,
+            eventId: baseEventId,
+            destination: destinationCalendarId,
+            sendUpdates: sendUpdates
+          })
+
+          const movedEvent = response.data
+
+          logger.info('✅ [Google Calendar] Moved entire recurring series', {
+            eventId: baseEventId,
+            from: sourceCalendarId,
+            to: destinationCalendarId,
+            title: movedEvent.summary
+          })
+
+          return {
+            success: true,
+            output: {
+              eventId: movedEvent.id,
+              htmlLink: movedEvent.htmlLink,
+              summary: movedEvent.summary,
+              description: movedEvent.description,
+              location: movedEvent.location,
+              start: movedEvent.start,
+              end: movedEvent.end,
+              sourceCalendarId: sourceCalendarId,
+              destinationCalendarId: destinationCalendarId,
+              movedAt: new Date().toISOString(),
+              status: movedEvent.status,
+              action: 'moved_series',
+              originalInstanceId: eventId,
+              movedSeriesId: baseEventId
+            }
+          }
+        }
+
+        case 'copy_instance': {
+          // Get the original event details
+          const originalEvent = await calendar.events.get({
+            calendarId: sourceCalendarId,
+            eventId: eventId
+          })
+
+          const eventData = originalEvent.data
+
+          // Create a copy on the destination calendar
+          const newEvent = await calendar.events.insert({
+            calendarId: destinationCalendarId,
+            sendUpdates: sendUpdates,
+            requestBody: {
+              summary: eventData.summary,
+              description: eventData.description,
+              location: eventData.location,
+              start: eventData.start,
+              end: eventData.end,
+              attendees: eventData.attendees,
+              colorId: eventData.colorId,
+              transparency: eventData.transparency,
+              visibility: eventData.visibility,
+              reminders: eventData.reminders,
+              // Note: We don't copy recurrence since this is a single instance copy
+            }
+          })
+
+          // Delete the original instance (creates an exception in the recurring series)
+          await calendar.events.delete({
+            calendarId: sourceCalendarId,
+            eventId: eventId,
+            sendUpdates: sendUpdates
+          })
+
+          logger.info('✅ [Google Calendar] Copied recurring instance to new calendar', {
+            originalEventId: eventId,
+            newEventId: newEvent.data.id,
+            from: sourceCalendarId,
+            to: destinationCalendarId,
+            title: newEvent.data.summary
+          })
+
+          return {
+            success: true,
+            output: {
+              eventId: newEvent.data.id,
+              htmlLink: newEvent.data.htmlLink,
+              summary: newEvent.data.summary,
+              description: newEvent.data.description,
+              location: newEvent.data.location,
+              start: newEvent.data.start,
+              end: newEvent.data.end,
+              sourceCalendarId: sourceCalendarId,
+              destinationCalendarId: destinationCalendarId,
+              movedAt: new Date().toISOString(),
+              status: newEvent.data.status,
+              action: 'copied_instance',
+              originalInstanceId: eventId,
+              originalDeleted: true
+            }
+          }
+        }
+
+        case 'skip': {
+          // Skip this recurring instance
+          logger.info('⏭️ [Google Calendar] Skipping recurring event instance', {
+            eventId,
+            from: sourceCalendarId,
+            to: destinationCalendarId
+          })
+
+          // Get event details for the output
+          const skippedEvent = await calendar.events.get({
+            calendarId: sourceCalendarId,
+            eventId: eventId
+          })
+
+          return {
+            success: true,
+            output: {
+              eventId: eventId,
+              htmlLink: skippedEvent.data.htmlLink,
+              summary: skippedEvent.data.summary,
+              description: skippedEvent.data.description,
+              location: skippedEvent.data.location,
+              start: skippedEvent.data.start,
+              end: skippedEvent.data.end,
+              sourceCalendarId: sourceCalendarId,
+              destinationCalendarId: destinationCalendarId,
+              movedAt: null,
+              status: 'skipped',
+              action: 'skipped',
+              skipped: true,
+              skipReason: 'Event is a recurring instance. Configure "recurringEventHandling" to move the series or copy the instance.'
+            }
+          }
+        }
+
+        default:
+          throw new Error(`Unknown recurringEventHandling mode: ${recurringEventHandling}`)
+      }
+    }
+
+    // Standard move for non-recurring events
     const response = await calendar.events.move({
       calendarId: sourceCalendarId,
       eventId: eventId,
@@ -97,7 +276,8 @@ export async function moveGoogleCalendarEvent(
         sourceCalendarId: sourceCalendarId,
         destinationCalendarId: destinationCalendarId,
         movedAt: new Date().toISOString(),
-        status: movedEvent.status
+        status: movedEvent.status,
+        action: 'moved'
       }
     }
   } catch (error: any) {
@@ -113,14 +293,12 @@ export async function moveGoogleCalendarEvent(
       throw new Error('Event or calendar not found.')
     }
 
-    // Handle recurring event instance error
+    // Handle recurring event instance error (fallback if our detection missed it)
     if (errorMessage.includes('Cannot change the organizer of an instance') ||
         errorMessage.includes('organizer of an instance')) {
       throw new Error(
         'Cannot move this event because it is a single instance of a recurring event. ' +
-        'Google Calendar only allows moving the entire recurring series, not individual occurrences. ' +
-        'To move this event, you would need to either: (1) Move the entire recurring series, or ' +
-        '(2) First delete this instance and create a new standalone event on the destination calendar.'
+        'Change the "If event is a recurring instance" setting to either "Move entire series" or "Copy instance to new calendar".'
       )
     }
 

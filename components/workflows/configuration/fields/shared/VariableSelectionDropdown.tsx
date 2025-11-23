@@ -15,37 +15,10 @@ import {
   CommandItem,
   CommandList
 } from '@/components/ui/command'
-import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { StaticIntegrationLogo } from '@/components/ui/static-integration-logo'
-import { extractNodeOutputs, sanitizeAlias } from '../../autoMapping'
-
-/**
- * Helper function to recursively get ALL previous nodes in the workflow
- * Not just the immediate parent, but all ancestors
- */
-function getAllPreviousNodeIds(currentNodeId: string, edges: any[]): string[] {
-  const findPreviousNodes = (nodeId: string, visited = new Set<string>()): string[] => {
-    if (visited.has(nodeId)) return []
-    visited.add(nodeId)
-
-    const incomingEdges = edges.filter((edge: any) => edge.target === nodeId)
-    if (incomingEdges.length === 0) return []
-
-    const sourceNodeIds = incomingEdges.map((edge: any) => edge.source)
-    const allPreviousNodes: string[] = [...sourceNodeIds]
-
-    sourceNodeIds.forEach(sourceId => {
-      const previousNodes = findPreviousNodes(sourceId, visited)
-      allPreviousNodes.push(...previousNodes)
-    })
-
-    return allPreviousNodes
-  }
-
-  return findPreviousNodes(currentNodeId)
-}
+import { useUpstreamVariables, formatProviderName, UpstreamNode } from '../../hooks/useUpstreamVariables'
 
 interface VariableSelectionDropdownProps {
   workflowData: { nodes: any[]; edges: any[] }
@@ -106,71 +79,11 @@ export function VariableSelectionDropdown({
     }
   }, [disabled, open])
 
-  // Get upstream nodes (nodes that connect to the current node)
-  interface UpstreamNode {
-    id: string
-    title: string
-    alias: string
-    type?: string
-    providerId?: string
-    outputs: any[]
-  }
-
-  const upstreamNodes = useMemo<UpstreamNode[]>(() => {
-    const nodeById = new Map(workflowData.nodes.map(n => [n.id, n]))
-    const edges = workflowData.edges || []
-
-    // Find ALL previous nodes (all ancestors, not just immediate parents)
-    const sourceIds = getAllPreviousNodeIds(currentNodeId, edges)
-
-    const nodes = sourceIds
-      .map(id => nodeById.get(id))
-      .filter(Boolean)
-      .map(node => {
-        const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === node.data?.type)
-        const baseOutputs = extractNodeOutputs(node as any)
-        let outputs = (baseOutputs && baseOutputs.length > 0)
-          ? baseOutputs
-          : (nodeComponent?.outputSchema || [])
-
-        // Flatten array properties - if an output has 'properties', include those as individual outputs
-        const flattenedOutputs: any[] = []
-        outputs.forEach((output: any) => {
-          // Always include the top-level field
-          flattenedOutputs.push(output)
-
-          // If this is an array with properties, also include the properties as separate fields
-          // These will be accessible via events[].fieldName syntax
-          if (output.type === 'array' && Array.isArray(output.properties)) {
-            output.properties.forEach((prop: any) => {
-              flattenedOutputs.push({
-                ...prop,
-                name: `${output.name}[].${prop.name}`,
-                label: prop.label || prop.name, // Just use the property label, node title will be shown separately
-                _isArrayProperty: true,
-                _parentArray: output.name,
-                _parentArrayLabel: output.label || output.name
-              })
-            })
-          }
-        })
-
-        const title = node.data?.title || node.data?.label || nodeComponent?.title || 'Unnamed'
-
-        return {
-          id: node.id,
-          title,
-          alias: sanitizeAlias(node.data?.label || node.data?.title || node.data?.type || node.id),
-          type: node.data?.type,
-          outputs: flattenedOutputs,
-          providerId: node.data?.providerId || nodeComponent?.providerId,
-          position: node.position || { x: 0, y: 0 }, // Include position for sorting
-        }
-      })
-
-    // Sort by Y position (top to bottom order in the workflow builder)
-    return nodes.sort((a, b) => a.position.y - b.position.y)
-  }, [workflowData, currentNodeId])
+  // Use shared hook to get upstream nodes (same data as VariablePickerDropdown)
+  const { upstreamNodes, hasUpstreamNodes, hasVariables } = useUpstreamVariables({
+    workflowData,
+    currentNodeId
+  })
 
   // Parse the current value to extract node ID and field name
   const parseVariable = (varString: string) => {
@@ -211,11 +124,8 @@ export function VariableSelectionDropdown({
     [upstreamNodes]
   )
 
-  const hasUpstreamNodes = upstreamNodes.length > 0
-  const hasContent = nodesWithVariables.length > 0
-
   // If no variables, show message directly in the trigger
-  if (!hasUpstreamNodes || !hasContent) {
+  if (!hasUpstreamNodes || !hasVariables) {
     const emptyMessage = !hasUpstreamNodes
       ? "No upstream nodes found. Connect nodes to this one to see available data."
       : "No variables available. The connected nodes don't output any data."

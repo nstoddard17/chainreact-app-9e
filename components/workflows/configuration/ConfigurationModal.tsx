@@ -64,6 +64,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { computeAutoMappingEntries } from "./autoMapping"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { SetupTab, AdvancedTab, ResultsTab } from "./tabs"
+import { AIAgentConfigContent } from "./AIAgentConfigContent"
 import { getProviderBrandName } from "@/lib/integrations/brandNames"
 import { StaticIntegrationLogo } from "@/components/ui/static-integration-logo"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -848,7 +849,21 @@ export function ConfigurationModal({
               </div>
             </div>
 
-            {nodeInfo && (
+            {/* AI Agent gets its own specialized config UI */}
+            {nodeInfo && nodeInfo.type === 'ai_agent' && (
+              <AIAgentConfigContent
+                initialData={effectiveInitialData}
+                onSave={handleSubmit}
+                onCancel={handleClose}
+                nodes={workflowData?.nodes || []}
+                edges={workflowData?.edges || []}
+                currentNodeId={currentNodeId}
+                workflowId={workflowData?.id}
+              />
+            )}
+
+            {/* All other nodes use the standard tabs */}
+            {nodeInfo && nodeInfo.type !== 'ai_agent' && (
               <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="flex-1 flex flex-col min-h-0 overflow-hidden max-w-full">
                 {/* Tab Navigation - Minimal Underline Style */}
                 <TabsList className="px-4 pt-3 border-b border-border bg-transparent w-full flex justify-start gap-0 rounded-none h-auto">

@@ -347,6 +347,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   const [addingAfterNodeId, setAddingAfterNodeId] = useState<string | null>(null) // Persists while integrations panel is open
   const [isFlowTesting, setIsFlowTesting] = useState(false) // True while testing flow from a node
   const [flowTestStatus, setFlowTestStatus] = useState<{ total: number; currentIndex: number; currentNodeLabel?: string } | null>(null)
+  const [isFlowTestPaused, setIsFlowTestPaused] = useState(false) // True when flow test is paused
+  const [isNodeTesting, setIsNodeTesting] = useState(false) // True while testing a single node
+  const [nodeTestingName, setNodeTestingName] = useState<string | null>(null) // Name of node being tested
   const [isIntegrationsPanelOpen, setIsIntegrationsPanelOpen] = useState(false)
   const pendingInsertionRef = useRef<{
     sourceId: string | null
@@ -357,6 +360,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   const [isStructureTransitioning, setIsStructureTransitioning] = useState(false)
   const endStructureTransitionRef = useRef<number | null>(null)
   const flowTestAbortRef = useRef(false)
+  const flowTestPausedRef = useRef(false) // Ref for checking pause state in async loop
+  const flowTestResumeResolverRef = useRef<(() => void) | null>(null) // Resolver to resume paused test
+  const nodeTestAbortControllerRef = useRef<AbortController | null>(null) // For stopping single node tests
   const flowTestPendingNodesRef = useRef<Set<string>>(new Set())
 
   const endStructureTransition = useCallback(() => {
@@ -427,14 +433,63 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     }
     console.log('[WorkflowBuilder] Stop requested', { nodeId })
     flowTestAbortRef.current = true
+    flowTestPausedRef.current = false
+    // Resume if paused so the loop can exit
+    if (flowTestResumeResolverRef.current) {
+      flowTestResumeResolverRef.current()
+      flowTestResumeResolverRef.current = null
+    }
     resetPendingFlowNodes()
     setIsFlowTesting(false)
+    setIsFlowTestPaused(false)
     setFlowTestStatus(null)
     toast({
       title: "Testing stopped",
       description: "Flow test cancelled.",
     })
   }, [isFlowTesting, resetPendingFlowNodes, toast])
+
+  const handlePauseFlowTest = useCallback(() => {
+    if (!isFlowTesting || isFlowTestPaused) return
+    console.log('[WorkflowBuilder] Pausing flow test')
+    flowTestPausedRef.current = true
+    setIsFlowTestPaused(true)
+    toast({
+      title: "Test paused",
+      description: "Click play to resume testing.",
+    })
+  }, [isFlowTesting, isFlowTestPaused, toast])
+
+  const handleResumeFlowTest = useCallback(() => {
+    if (!isFlowTesting || !isFlowTestPaused) return
+    console.log('[WorkflowBuilder] Resuming flow test')
+    flowTestPausedRef.current = false
+    setIsFlowTestPaused(false)
+    // Resolve the pause promise to continue the loop
+    if (flowTestResumeResolverRef.current) {
+      flowTestResumeResolverRef.current()
+      flowTestResumeResolverRef.current = null
+    }
+    toast({
+      title: "Test resumed",
+      description: "Continuing workflow test.",
+    })
+  }, [isFlowTesting, isFlowTestPaused, toast])
+
+  const handleStopNodeTest = useCallback(() => {
+    if (!isNodeTesting) return
+    console.log('[WorkflowBuilder] Stopping single node test')
+    if (nodeTestAbortControllerRef.current) {
+      nodeTestAbortControllerRef.current.abort()
+      nodeTestAbortControllerRef.current = null
+    }
+    setIsNodeTesting(false)
+    setNodeTestingName(null)
+    toast({
+      title: "Test stopped",
+      description: "Node test cancelled.",
+    })
+  }, [isNodeTesting, toast])
 
   const setInsertionContext = useCallback((
     sourceId: string | null,
@@ -2095,6 +2150,15 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
     const config = node.data?.config || {}
 
+    // Get the node name for the status bar
+    const nodeName = node.data?.title || node.data?.label || node.data?.type || 'Node'
+    setIsNodeTesting(true)
+    setNodeTestingName(nodeName)
+
+    // Set up AbortController for stopping the test
+    const abortController = new AbortController()
+    nodeTestAbortControllerRef.current = abortController
+
     try {
       logger.debug('[WorkflowBuilder] Testing node:', { nodeId, nodeType: node.data?.type })
 
@@ -2172,7 +2236,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           nodeId: nodeId, // Pass node ID for caching
           useCachedData: true, // Enable cached data from previous runs
           workflowNodes: builder?.nodes // Pass nodes for friendly name lookup
-        })
+        }),
+        signal: abortController.signal, // Allow aborting the request
       })
 
       console.log('🔍 [WorkflowBuilder] Response status:', response.status, response.statusText)
@@ -2261,6 +2326,13 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       )
 
     } catch (error: any) {
+      // Check if the request was aborted (user clicked stop)
+      if (error.name === 'AbortError') {
+        logger.debug('[WorkflowBuilder] Node test was aborted by user')
+        setNodeState(reactFlowInstanceRef.current, nodeId, 'idle')
+        return
+      }
+
       // Better error logging
       console.error('🔴 [WorkflowBuilder] Test failed - Full error:', error)
       console.error('🔴 [WorkflowBuilder] Error message:', error?.message)
@@ -2315,6 +2387,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         description: error.message || "Failed to execute test",
         variant: "destructive"
       })
+    } finally {
+      // Clear single node testing state and abort controller ref
+      nodeTestAbortControllerRef.current = null
+      setIsNodeTesting(false)
+      setNodeTestingName(null)
     }
     async function persistNodeTestResult(
       status: 'success' | 'error',
@@ -2366,8 +2443,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     setIsIntegrationsPanelOpen(false)
     setAddingAfterNodeId(null)
     setIsFlowTesting(true)
+    setIsFlowTestPaused(false)
     setFlowTestStatus(null)
     flowTestAbortRef.current = false
+    flowTestPausedRef.current = false
+    flowTestResumeResolverRef.current = null
     flowTestPendingNodesRef.current = new Set()
 
     // Suppress config modal from opening when this is triggered
@@ -2447,12 +2527,28 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     let currentTestData: Record<string, any> = {}
 
     for (let index = 0; index < sortedNodeIds.length; index++) {
+      // Check for abort
       if (flowTestAbortRef.current) {
         resetPendingFlowNodes()
         flowTestAbortRef.current = false
         setFlowTestStatus(null)
         return
       }
+
+      // Check for pause - wait until resumed or aborted
+      if (flowTestPausedRef.current) {
+        await new Promise<void>((resolve) => {
+          flowTestResumeResolverRef.current = resolve
+        })
+        // After resume, check if we should abort
+        if (flowTestAbortRef.current) {
+          resetPendingFlowNodes()
+          flowTestAbortRef.current = false
+          setFlowTestStatus(null)
+          return
+        }
+      }
+
       const nId = sortedNodeIds[index]
       const node = builder.nodes.find((n: any) => n.id === nId)
       if (!node) continue
@@ -5531,6 +5627,12 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
             isListeningForWebhook={Boolean(builder?.isListeningForWebhook)}
             activeExecutionNodeName={activeExecutionNodeName}
             onStopExecution={stopLiveExecutionHandler}
+            isNodeTesting={isNodeTesting}
+            nodeTestingName={nodeTestingName}
+            onStopNodeTest={handleStopNodeTest}
+            isFlowTestPaused={isFlowTestPaused}
+            onPauseFlowTest={handlePauseFlowTest}
+            onResumeFlowTest={handleResumeFlowTest}
           />
 
           <FlowV2AgentPanel
