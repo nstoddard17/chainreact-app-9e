@@ -459,6 +459,37 @@ export async function getGoogleCalendarFreeBusy(
         freeSlotCount: day.freeSlots.length
       }))
 
+    // Build friendly free slot summaries for easy email output
+    const freeSlotSummary = dailySummaries.map(day => {
+      const slotStrings = day.freeSlots.map(slot => `${slot.startFormatted}-${slot.endFormatted}`)
+      const summaryLine = slotStrings.length > 0
+        ? `${day.dateFormatted} - ${slotStrings.join(', ')}`
+        : `${day.dateFormatted} - No availability during work hours`
+
+      return {
+        date: day.date,
+        dateFormatted: day.dateFormatted,
+        dayOfWeek: day.dayOfWeek,
+        isFreeDay: day.isFreeDay,
+        slotCount: day.freeSlots.length,
+        summary: summaryLine,
+        slots: day.freeSlots
+      }
+    })
+
+    const freeSlotSummaryLines = freeSlotSummary.map(entry => entry.summary)
+    const freeSlotSummaryText = (() => {
+      const availableLines = freeSlotSummary
+        .filter(entry => entry.slotCount > 0)
+        .map(entry => entry.summary)
+
+      if (availableLines.length === 0) {
+        return 'No availability during the selected work hours.'
+      }
+
+      return availableLines.join('\n')
+    })()
+
     // Generate a human-readable summary
     const generateSummary = (): string => {
       const total = calendarIdList.length
@@ -552,6 +583,9 @@ export async function getGoogleCalendarFreeBusy(
         suggestedSlotCount: suggestedSlots.length,
         totalFreeHours: Math.round(totalFreeHours * 10) / 10,
         totalBusyHours: Math.round(totalBusyHours * 10) / 10,
+        freeSlotSummary,
+        freeSlotSummaryLines,
+        freeSlotSummaryText,
         workHoursConfig: {
           start: workHoursStart,
           end: workHoursEnd,
