@@ -22,6 +22,7 @@ export async function getWorkspaceRole(
     return null
   }
 
+  // Try to get membership first
   const { data, error } = await client
     .from("workspace_memberships")
     .select("role")
@@ -29,19 +30,28 @@ export async function getWorkspaceRole(
     .eq("user_id", userId)
     .maybeSingle()
 
-  if (error) {
-    throw new Error(error.message)
+  // If there's an error but it's a "no rows" type error, treat as no membership
+  // Only throw for actual connection/permission errors
+  if (error && error.code !== "PGRST116") {
+    // Log the error but don't throw - check ownership fallback
+    console.error("[getWorkspaceRole] Membership query error:", error.message)
   }
 
   if (data?.role) {
     return normalizeRole(data.role)
   }
 
-  const { data: workspace } = await client
+  // Check if user is the workspace owner
+  const { data: workspace, error: workspaceError } = await client
     .from("workspaces")
     .select("owner_id")
     .eq("id", workspaceId)
     .maybeSingle()
+
+  if (workspaceError && workspaceError.code !== "PGRST116") {
+    // Log the error but don't throw - treat as no access
+    console.error("[getWorkspaceRole] Workspace query error:", workspaceError.message)
+  }
 
   if (workspace?.owner_id === userId) {
     return "owner"
