@@ -96,14 +96,11 @@ export function VariableAwareTextarea({
 
     const nodeTitle = sanitizeForDisplay(node.title || 'Node')
 
-    // Find the field label from outputs
-    const field = node.outputs?.find((f: any) => f.name === fieldName)
-    const fieldLabel = sanitizeForDisplay(field?.label || fieldName)
+    const fieldPath = fieldName
 
-    // Format: Provider.NodeTitle.FieldLabel or NodeTitle.FieldLabel
     return providerName
-      ? `{{${providerName}.${nodeTitle}.${fieldLabel}}}`
-      : `{{${nodeTitle}.${fieldLabel}}}`
+      ? `{{${providerName}.${nodeTitle}.${fieldPath}}}`
+      : `{{${nodeTitle}.${fieldPath}}}`
   }, [nodeMap, formatProviderName, sanitizeForDisplay])
 
   // Parse actual value and build variable mappings
