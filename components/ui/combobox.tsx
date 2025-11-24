@@ -204,22 +204,29 @@ export function Combobox({
       return;
     }
 
-    // Smart input mode: Only pre-fill for creatable fields (fields that allow custom input)
-    // For searchable fields, keep the input empty to allow searching through options
-    // This allows users to easily edit (type to replace) or search (clear and type)
+    // Smart input mode: Only pre-fill for custom values (not existing options).
+    // For existing options, keep the search blank so the create button doesn't appear.
     if (open && selectedOption && creatable) {
-      const currentValue = String(selectedOption.label)
-      setInputValue(currentValue)
+      const optionFromList = localOptions.find(opt => opt.value === selectedOption.value);
+      const optionFlag = (optionFromList as any)?.isExisting;
+      const isExisting = optionFromList ? optionFlag !== false : (selectedOption as any)?.isExisting === true;
 
-      // Auto-select the text so user can type to replace or click to edit
-      setTimeout(() => {
-        inputRef.current?.select()
-      }, 0)
+      if (!isExisting) {
+        const currentValue = String(selectedOption.label);
+        setInputValue(currentValue);
+
+        // Auto-select the text so user can type to replace or click to edit
+        setTimeout(() => {
+          inputRef.current?.select();
+        }, 0);
+      } else {
+        setInputValue("");
+      }
     } else if (!open) {
       // Clear when dropdown closes
-      setInputValue("")
+      setInputValue("");
     }
-  }, [open, selectedOption, creatable])
+  }, [open, selectedOption, creatable, localOptions])
 
   const handleSelect = (currentValue: string) => {
     // Set selecting flag to prevent cascading state updates in useEffect
@@ -1068,7 +1075,7 @@ export function MultiCombobox({
           <div
             className="border-t border-gray-200 dark:border-gray-700 p-2 bg-blue-50 dark:bg-blue-950/20 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
             onClick={() => {
-              const newOption = { value: inputValue.trim(), label: inputValue.trim() }
+              const newOption = { value: inputValue.trim(), label: inputValue.trim(), isExisting: false }
               setOptions((prev) => [...prev, newOption])
               onChange([...value, inputValue.trim()])
               setInputValue("")
