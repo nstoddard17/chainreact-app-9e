@@ -60,23 +60,25 @@ export function WorkflowVersionsDialog({
     try {
       setLoading(true)
 
-      // Fetch versions from workflow_versions table
+      // Try to fetch versions from workflow_versions table
       const { data, error } = await supabase
         .from('workflow_versions')
         .select('*')
         .eq('workflow_id', workflowId)
         .order('created_at', { ascending: false })
 
-      if (error) throw error
+      // If table doesn't exist or other error, just show empty state
+      if (error) {
+        console.log('Workflow versions not available:', error.message)
+        setVersions([])
+        return
+      }
 
       setVersions(data || [])
     } catch (error: any) {
       console.error('Error loading versions:', error)
-      toast({
-        title: "Error",
-        description: "Failed to load workflow versions",
-        variant: "destructive",
-      })
+      // Don't show error toast, just show empty state
+      setVersions([])
     } finally {
       setLoading(false)
     }
@@ -124,8 +126,8 @@ export function WorkflowVersionsDialog({
         ) : versions.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
             <GitBranch className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p>No version history yet</p>
-            <p className="text-sm mt-2">Versions are saved automatically when you make changes</p>
+            <p>No version history available</p>
+            <p className="text-sm mt-2">Version tracking will be available in a future update</p>
           </div>
         ) : (
           <ScrollArea className="h-[400px] pr-4">

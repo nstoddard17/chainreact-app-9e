@@ -4,6 +4,7 @@ import { createRunStore } from "@/src/lib/workflows/builder/api/helpers"
 import { getRouteClient, getServiceClient, getFlowRepository, uuid } from "@/src/lib/workflows/builder/api/helpers"
 import { runFromHere } from "@/src/lib/workflows/builder/runner/execute"
 import { ensureWorkspaceRole } from "@/src/lib/workflows/builder/workspace"
+import { queryWithTableFallback } from "@/src/lib/workflows/builder/api/tableFallback"
 
 export async function POST(_: Request, context: { params: Promise<{ runId: string; nodeId: string }> }) {
   const { runId, nodeId } = await context.params
@@ -18,11 +19,20 @@ export async function POST(_: Request, context: { params: Promise<{ runId: strin
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })
   }
 
-  const run = await supabase
-    .from("flow_v2_runs")
-    .select("flow_id")
-    .eq("id", runId)
-    .maybeSingle()
+  const run = await queryWithTableFallback([
+    () =>
+      supabase
+        .from("workflows_runs")
+        .select("workflow_id")
+        .eq("id", runId)
+        .maybeSingle(),
+    () =>
+      supabase
+        .from("flow_v2_runs")
+        .select("flow_id")
+        .eq("id", runId)
+        .maybeSingle(),
+  ])
 
   if (run.error) {
     return NextResponse.json({ ok: false, error: run.error.message }, { status: 500 })
@@ -32,11 +42,26 @@ export async function POST(_: Request, context: { params: Promise<{ runId: strin
     return NextResponse.json({ ok: false, error: "Run not found" }, { status: 404 })
   }
 
-  const definition = await supabase
-    .from("flow_v2_definitions")
-    .select("workspace_id")
-    .eq("id", run.data.flow_id)
-    .maybeSingle()
+  const workflowId = run.data.workflow_id ?? run.data.flow_id
+
+  if (!workflowId) {
+    return NextResponse.json({ ok: false, error: "Flow not found" }, { status: 404 })
+  }
+
+  const definition = await queryWithTableFallback([
+    () =>
+      supabase
+        .from("workflows")
+        .select("workspace_id")
+        .eq("id", workflowId)
+        .maybeSingle(),
+    () =>
+      supabase
+        .from("flow_v2_definitions")
+        .select("workspace_id")
+        .eq("id", workflowId)
+        .maybeSingle(),
+  ])
 
   if (definition.error) {
     return NextResponse.json({ ok: false, error: definition.error.message }, { status: 500 })

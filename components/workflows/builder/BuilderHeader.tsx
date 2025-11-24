@@ -143,8 +143,14 @@ const BuilderHeaderComponent = ({
   const [importJson, setImportJson] = useState("")
   const [isImporting, setIsImporting] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState(false)
+  const [siteOrigin, setSiteOrigin] = useState("")
 
   const isSavingRef = useRef(false)
+
+  // Set origin on client side only (SSR safe)
+  useEffect(() => {
+    setSiteOrigin(window.location.origin)
+  }, [])
   const isNavigatingRef = useRef(false)
 
   // Prefetch workflows page for instant back navigation
@@ -931,7 +937,7 @@ const BuilderHeaderComponent = ({
 
       {/* Run via API Dialog */}
       <Dialog open={showApiDialog} onOpenChange={setShowApiDialog}>
-        <DialogContent className="w-[95vw] max-w-[700px]">
+        <DialogContent className="w-[95vw] max-w-[850px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CloudCog className="w-5 h-5" />
@@ -941,19 +947,20 @@ const BuilderHeaderComponent = ({
               Trigger this workflow programmatically using the API.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4 w-full">
             <div className="space-y-2">
               <Label>API Endpoint</Label>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 px-3 py-2 bg-muted rounded-md text-xs font-mono break-all">
-                  POST {window?.location?.origin || ''}/api/workflows/{workflowId}/execute
+              <div className="flex items-start gap-2">
+                <code className="flex-1 min-w-0 px-3 py-2 bg-muted rounded-md text-xs font-mono break-all">
+                  POST {siteOrigin}/api/workflows/{workflowId}/execute
                 </code>
                 <Button
                   variant="outline"
                   size="sm"
+                  className="shrink-0"
                   onClick={() => {
                     navigator.clipboard.writeText(
-                      `${window?.location?.origin || ''}/api/workflows/${workflowId}/execute`
+                      `${siteOrigin}/api/workflows/${workflowId}/execute`
                     )
                     toast({ title: "Copied", description: "API endpoint copied to clipboard" })
                   }}
@@ -965,9 +972,8 @@ const BuilderHeaderComponent = ({
 
             <div className="space-y-2">
               <Label>Example Request</Label>
-              <pre className="px-3 py-2 bg-muted rounded-md text-xs font-mono overflow-auto">
-{`curl -X POST \\
-  ${window?.location?.origin || ''}/api/workflows/${workflowId}/execute \\
+              <pre className="px-3 py-2 bg-muted rounded-md text-xs font-mono overflow-x-auto whitespace-pre">
+{`curl -X POST ${siteOrigin}/api/workflows/${workflowId}/execute \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{"inputs": {}}'`}
@@ -978,8 +984,7 @@ const BuilderHeaderComponent = ({
                 className="w-full"
                 onClick={() => {
                   navigator.clipboard.writeText(
-`curl -X POST \\
-  ${window?.location?.origin || ''}/api/workflows/${workflowId}/execute \\
+`curl -X POST ${siteOrigin}/api/workflows/${workflowId}/execute \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{"inputs": {}}'`
@@ -992,7 +997,7 @@ const BuilderHeaderComponent = ({
               </Button>
             </div>
 
-            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700 p-3 text-sm text-amber-800 dark:text-amber-200">
               <strong>Note:</strong> To use the API, you need to generate an API key from your account settings.
               The workflow must be published (active) to be triggered via API.
             </div>

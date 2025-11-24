@@ -3,6 +3,7 @@ import { z } from "zod"
 
 import { getRouteClient } from "@/src/lib/workflows/builder/api/helpers"
 import { ensureWorkspaceRole } from "@/src/lib/workflows/builder/workspace"
+import { queryWithTableFallback } from "@/src/lib/workflows/builder/api/tableFallback"
 
 const QuerySchema = z.object({
   limit: z
@@ -14,6 +15,7 @@ const QuerySchema = z.object({
 
 export async function GET(request: Request, context: { params: Promise<{ flowId: string }> }) {
   const { flowId } = await context.params
+  const workflowId = flowId
 
   const { searchParams } = new URL(request.url)
   const parsedQuery = QuerySchema.safeParse(Object.fromEntries(searchParams.entries()))
@@ -29,11 +31,20 @@ export async function GET(request: Request, context: { params: Promise<{ flowId:
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })
   }
 
-  const definition = await supabase
-    .from("flow_v2_definitions")
-    .select("workspace_id")
-    .eq("id", flowId)
-    .maybeSingle()
+  const definition = await queryWithTableFallback([
+    () =>
+      supabase
+        .from("workflows")
+        .select("workspace_id")
+        .eq("id", workflowId)
+        .maybeSingle(),
+    () =>
+      supabase
+        .from("flow_v2_definitions")
+        .select("workspace_id")
+        .eq("id", workflowId)
+        .maybeSingle(),
+  ])
 
   if (definition.error) {
     return NextResponse.json({ ok: false, error: definition.error.message }, { status: 500 })
@@ -54,25 +65,37 @@ export async function GET(request: Request, context: { params: Promise<{ flowId:
     }
   }
 
-  const { data: runs, error: runsError } = await supabase
-    .from("flow_v2_runs")
-    .select("id, status, started_at, finished_at, revision_id, metadata")
-    .eq("flow_id", flowId)
-    .order("started_at", { ascending: false })
-    .limit(limit)
+  const runsResult = await queryWithTableFallback([
+    () =>
+      supabase
+        .from("workflow_executions")
+        .select("id, status, started_at, completed_at")
+        .eq("workflow_id", workflowId)
+        .order("started_at", { ascending: false })
+        .limit(limit),
+    () =>
+      supabase
+        .from("flow_v2_runs")
+        .select("id, status, started_at, finished_at, revision_id, metadata")
+        .eq("flow_id", workflowId)
+        .order("started_at", { ascending: false })
+        .limit(limit),
+  ])
 
-  if (runsError) {
-    return NextResponse.json({ ok: false, error: runsError.message }, { status: 500 })
+  if (runsResult.error) {
+    return NextResponse.json({ ok: false, error: runsResult.error.message }, { status: 500 })
   }
+
+  const runs = runsResult.data
 
   return NextResponse.json({
     ok: true,
-    runs: (runs ?? []).map((run) => ({
+    runs: (runs ?? []).map((run: any) => ({
       id: run.id,
       status: run.status,
       startedAt: run.started_at,
-      finishedAt: run.finished_at,
-      revisionId: run.revision_id,
+      finishedAt: run.completed_at ?? run.finished_at,
+      revisionId: run.revision_id ?? null,
       metadata: run.metadata ?? {},
     })),
   })

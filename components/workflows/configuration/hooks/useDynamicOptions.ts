@@ -561,7 +561,9 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       try {
       // Special handling for Discord guilds
       // Support both 'guildId' (standard Discord actions) and 'discordGuildId' (HITL)
-      if ((fieldName === 'guildId' || fieldName === 'discordGuildId') && providerId === 'discord') {
+      // HITL nodes have providerId: "ai" but need Discord guild access
+      const isHitlNodeType = nodeType === 'hitl_conversation'
+      if ((fieldName === 'guildId' || fieldName === 'discordGuildId') && (providerId === 'discord' || isHitlNodeType)) {
         const isHitlNode = nodeType === 'hitl_conversation'
         const hasAdminPrivileges = (guild: any) => {
           if (!guild) return false
@@ -744,7 +746,8 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
       // Special handling for Discord channels using cache store
       // Support both 'channelId' (standard Discord actions) and 'discordChannelId' (HITL)
-      if ((fieldName === 'channelId' || fieldName === 'discordChannelId') && providerId === 'discord') {
+      // HITL nodes have providerId: "ai" but need Discord channel access
+      if ((fieldName === 'channelId' || fieldName === 'discordChannelId') && (providerId === 'discord' || isHitlNodeType)) {
         if (!dependsOnValue) {
           setDynamicOptions(prev => ({
             ...prev,

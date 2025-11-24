@@ -124,6 +124,18 @@ export function Combobox({
   const [open, setOpen] = React.useState(false)
   const uniqueId = React.useId()
 
+  // Debug log for creatable and onSearchChange props
+  React.useEffect(() => {
+    if (placeholder?.toLowerCase().includes('sender') || placeholder?.toLowerCase().includes('from')) {
+      console.log('🔧 [Combobox] From field props:', {
+        creatable,
+        hasOnSearchChange: !!onSearchChange,
+        optionsCount: options.length,
+        placeholder
+      });
+    }
+  }, [creatable, onSearchChange, options.length, placeholder]);
+
   const handleOpenChange = (newOpen: boolean) => {
     setOpen(newOpen);
     onOpenChange?.(newOpen);
@@ -174,11 +186,24 @@ export function Combobox({
 
   // Fix selectedOption logic - check if value exists in options or is a custom value
   // MUST be defined before the useEffect that references it
-  const selectedOption = localOptions.find((option) => option.value === value) ||
-    (value && displayLabel ? { value, label: displayLabel } : null) ||
-    (value && creatable ? { value, label: value } : null);
+  // Memoized to prevent creating new object references on each render
+  const selectedOption = React.useMemo(() => {
+    const found = localOptions.find((option) => option.value === value);
+    if (found) return found;
+    if (value && displayLabel) return { value, label: displayLabel };
+    if (value && creatable) return { value, label: value };
+    return null;
+  }, [localOptions, value, displayLabel, creatable]);
+
+  // Track if we're in the middle of a selection to prevent cascading updates
+  const isSelectingRef = React.useRef(false);
 
   React.useEffect(() => {
+    // Skip if we're in the middle of selecting (prevents cascading state updates)
+    if (isSelectingRef.current) {
+      return;
+    }
+
     // Smart input mode: Only pre-fill for creatable fields (fields that allow custom input)
     // For searchable fields, keep the input empty to allow searching through options
     // This allows users to easily edit (type to replace) or search (clear and type)
@@ -197,6 +222,9 @@ export function Combobox({
   }, [open, selectedOption, creatable])
 
   const handleSelect = (currentValue: string) => {
+    // Set selecting flag to prevent cascading state updates in useEffect
+    isSelectingRef.current = true;
+
     // Allow clearing when empty string is passed
     if (currentValue === "") {
       onChange("")
@@ -206,12 +234,24 @@ export function Combobox({
     }
     setInputValue("")
     setOpen(false)
+
+    // Clear the selecting flag after the current event loop completes
+    // This allows state updates to settle before re-enabling the useEffect
+    setTimeout(() => {
+      isSelectingRef.current = false;
+    }, 0)
   }
 
   const handleClear = (e: React.MouseEvent) => {
     e.stopPropagation()
+    // Set selecting flag to prevent cascading state updates
+    isSelectingRef.current = true;
     onChange("")
     setInputValue("")
+    // Clear the selecting flag after the current event loop completes
+    setTimeout(() => {
+      isSelectingRef.current = false;
+    }, 0)
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -228,15 +268,18 @@ export function Combobox({
 
     // If onSearchChange callback is provided, debounce the search
     if (onSearchChange) {
+      console.log('🔍 [Combobox] Input changed, scheduling search:', { search, hasCallback: !!onSearchChange });
       // Clear previous timer
       if (searchTimerRef.current) {
         clearTimeout(searchTimerRef.current);
       }
 
-      // Set new timer for debounced search (1.5 seconds after last keystroke)
+      // Set new timer for debounced search (300ms after last keystroke)
+      // Note: Parent component may add additional debouncing
       searchTimerRef.current = setTimeout(() => {
+        console.log('🔍 [Combobox] Calling onSearchChange with:', search);
         onSearchChange(search);
-      }, 1500);
+      }, 300);
     }
   }
 

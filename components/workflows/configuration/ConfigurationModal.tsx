@@ -859,6 +859,9 @@ export function ConfigurationModal({
                 edges={workflowData?.edges || []}
                 currentNodeId={currentNodeId}
                 workflowId={workflowData?.id}
+                onRunTest={handleTestNode}
+                isTestingNode={isTestingNode}
+                nodeInfo={nodeInfo}
               />
             )}
 

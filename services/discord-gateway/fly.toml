@@ -1,0 +1,27 @@
+# fly.toml for Discord Gateway - must run continuously
+app = 'chainreact-discord-gateway'
+primary_region = 'ewr'
+
+[build]
+
+# Discord Gateway is NOT an HTTP service - it's a persistent WebSocket connection
+# We use http_service just for health checks, but disable auto-stop
+[http_service]
+  internal_port = 3001
+  force_https = true
+  auto_stop_machines = false   # NEVER stop - Discord needs persistent connection
+  auto_start_machines = true
+  min_machines_running = 1     # Always keep 1 running
+  processes = ['app']
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "30s"
+    method = "GET"
+    path = "/health"
+
+[[vm]]
+  memory = '256mb'  # Discord bot doesn't need much RAM
+  cpu_kind = 'shared'
+  cpus = 1

@@ -7,9 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Slider } from '@/components/ui/slider'
@@ -17,43 +15,36 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import {
   Sparkles,
   Brain,
-  Lightbulb,
-  Variable,
   Loader2,
   Zap,
-  DollarSign,
-  Clock,
   ChevronDown,
   ChevronRight,
-  Play,
   Wand2,
   FileText,
   Mail,
-  MessageSquare,
   Filter,
   Languages,
   BarChart3,
   Target,
   Settings2,
-  TestTube,
   Shield,
-  Database,
-  Copy,
-  Check,
   Gauge,
-  Key
+  Key,
+  Wrench,
+  SlidersHorizontal,
+  TestTube2
 } from 'lucide-react'
-import { LightningLoader } from '@/components/ui/lightning-loader'
 import { useToast } from '@/hooks/use-toast'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
-import { extractNodeOutputs, sanitizeAlias } from './autoMapping'
+import { extractNodeOutputs } from './autoMapping'
 import { StaticIntegrationLogo } from '@/components/ui/static-integration-logo'
 import { cn } from '@/lib/utils'
 import { logger } from '@/lib/utils/logger'
+import { ResultsTab } from './tabs/ResultsTab'
 
 // Auto-resize textarea helper
 const autoResizeTextarea = (textarea: HTMLTextAreaElement | null) => {
@@ -88,6 +79,10 @@ interface AIAgentConfigContentProps {
   edges?: any[]
   currentNodeId?: string
   workflowId?: string
+  // Testing props - passed from ConfigurationModal
+  onRunTest?: () => void
+  isTestingNode?: boolean
+  nodeInfo?: any
 }
 
 // Enhanced model definitions with visual metadata
@@ -167,42 +162,42 @@ const PROMPT_TEMPLATES = [
     name: 'Summarize',
     icon: FileText,
     category: 'Transform',
-    prompt: 'Summarize the following content in {{style}} format:\n\n{{trigger.content}}',
+    prompt: 'Summarize the following content concisely:\n\n{{input}}\n\nProvide a clear, structured summary.',
   },
   {
     id: 'respond-email',
     name: 'Email Reply',
     icon: Mail,
     category: 'Generate',
-    prompt: 'Write a professional response to this email:\n\nFrom: {{trigger.email.from}}\nSubject: {{trigger.email.subject}}\nBody: {{trigger.email.body}}\n\nTone: {{tone}}',
+    prompt: 'Write a professional email response based on this context:\n\n{{input}}\n\nKeep the tone professional and helpful.',
   },
   {
     id: 'classify',
     name: 'Classify',
     icon: Filter,
     category: 'Analyze',
-    prompt: 'Classify this message into one of these categories: {{categories}}\n\nMessage: {{trigger.message}}\n\nProvide classification and confidence.',
+    prompt: 'Classify the following into appropriate categories:\n\n{{input}}\n\nProvide the classification with confidence level.',
   },
   {
     id: 'extract',
     name: 'Extract',
     icon: Target,
     category: 'Transform',
-    prompt: 'Extract the following from this text:\n- {{fields}}\n\nText: {{trigger.content}}\n\nReturn as JSON.',
+    prompt: 'Extract key information from this text:\n\n{{input}}\n\nReturn the extracted data as structured JSON.',
   },
   {
     id: 'translate',
     name: 'Translate',
     icon: Languages,
     category: 'Transform',
-    prompt: 'Translate to {{language}}:\n\n{{trigger.text}}',
+    prompt: 'Translate the following text:\n\n{{input}}\n\nMaintain the original meaning and tone.',
   },
   {
     id: 'sentiment',
     name: 'Sentiment',
     icon: BarChart3,
     category: 'Analyze',
-    prompt: 'Analyze sentiment of:\n\n{{trigger.content}}\n\nReturn: sentiment, confidence, key phrases.',
+    prompt: 'Analyze the sentiment of:\n\n{{input}}\n\nReturn: sentiment (positive/negative/neutral), confidence, and key phrases.',
   },
 ]
 
@@ -213,10 +208,13 @@ export function AIAgentConfigContent({
   nodes,
   edges = [],
   currentNodeId,
-  workflowId
+  workflowId,
+  onRunTest,
+  isTestingNode = false,
+  nodeInfo
 }: AIAgentConfigContentProps) {
   const { toast } = useToast()
-  const [activeTab, setActiveTab] = useState('prompt')
+  const [activeTab, setActiveTab] = useState('setup')
   const [config, setConfig] = useState({
     prompt: '',
     model: 'gpt-4o-mini',
@@ -245,13 +243,9 @@ export function AIAgentConfigContent({
   })
 
   const [isImproving, setIsImproving] = useState(false)
-  const [isTesting, setIsTesting] = useState(false)
-  const [testResult, setTestResult] = useState<any>(null)
-  const [testInput, setTestInput] = useState('{\n  "message": "I need help with my order #12345"\n}')
   const [estimatedCost, setEstimatedCost] = useState(0)
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
-  const [copiedTemplate, setCopiedTemplate] = useState<string | null>(null)
-  const [advancedOpen, setAdvancedOpen] = useState(false)
+  const [instructionsOpen, setInstructionsOpen] = useState(false)
   const [variablesOpen, setVariablesOpen] = useState(false)
   const promptRef = useRef<HTMLTextAreaElement>(null)
 
@@ -319,10 +313,25 @@ export function AIAgentConfigContent({
     }
     setIsImproving(true)
     try {
+      // Build list of available variables from upstream nodes
+      const availableVariables = upstreamNodes.flatMap(node =>
+        node.outputs.map((output: any) => ({
+          reference: `{{${node.id}.${output.name}}}`,
+          nodeTitle: node.title,
+          fieldName: output.label || output.name,
+          fieldType: output.type || 'string',
+          description: output.description
+        }))
+      )
+
       const response = await fetch('/api/workflows/ai/improve-prompt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: config.prompt, context: { model: config.model } })
+        body: JSON.stringify({
+          prompt: config.prompt,
+          context: { model: config.model },
+          availableVariables
+        })
       })
       const data = await response.json()
       if (data.success && data.improvedPrompt) {
@@ -343,42 +352,6 @@ export function AIAgentConfigContent({
     toast({ title: "Template Applied", description: `"${template.name}" loaded` })
   }
 
-  const handleTestPrompt = async () => {
-    if (!config.prompt.trim()) {
-      toast({ title: "Prompt Required", description: "Enter a prompt to test", variant: "destructive" })
-      return
-    }
-    setIsTesting(true)
-    setTestResult(null)
-    try {
-      let parsedInput = {}
-      try { parsedInput = JSON.parse(testInput) } catch { parsedInput = { message: testInput } }
-
-      const response = await fetch('/api/workflows/ai/test-prompt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: config.prompt,
-          systemInstructions: config.customInstructions,
-          model: config.model,
-          temperature: config.temperature,
-          maxTokens: config.maxTokens,
-          input: parsedInput
-        })
-      })
-      const data = await response.json()
-      if (data.success) {
-        setTestResult({ output: data.output, tokensUsed: data.tokensUsed, cost: data.cost, latency: data.latency })
-      } else {
-        throw new Error(data.error || 'Test failed')
-      }
-    } catch (error: any) {
-      setTestResult({ error: error.message || 'Test failed' })
-    } finally {
-      setIsTesting(false)
-    }
-  }
-
   const handleSave = () => {
     if (!config.prompt) {
       toast({ title: "Prompt Required", description: "Please provide a prompt", variant: "destructive" })
@@ -396,6 +369,18 @@ export function AIAgentConfigContent({
 
   const tempInfo = getTemperatureLabel(config.temperature)
 
+  // Build nodeInfo for ResultsTab if not provided
+  const effectiveNodeInfo = nodeInfo || {
+    type: 'ai_agent',
+    title: 'AI Agent',
+    providerId: 'ai',
+    outputSchema: [
+      { name: 'output', label: 'AI Response', type: 'string' },
+      { name: 'tokensUsed', label: 'Tokens Used', type: 'number' },
+      { name: 'cost', label: 'Cost', type: 'number' },
+    ]
+  }
+
   return (
     <div className="flex flex-col h-full">
       {/* Cost Badge */}
@@ -405,28 +390,35 @@ export function AIAgentConfigContent({
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-        <TabsList className="px-2 pt-2 bg-transparent w-full flex justify-start gap-1 rounded-none h-auto border-b">
-          <TabsTrigger value="prompt" className="text-xs px-3 py-1.5 data-[state=active]:bg-primary/10">
-            <Wand2 className="w-3 h-3 mr-1" />Prompt
+        {/* Tab Navigation - Matching standard ConfigurationModal style */}
+        <TabsList className="px-4 pt-3 border-b border-border bg-transparent w-full flex justify-start gap-0 rounded-none h-auto">
+          <TabsTrigger
+            value="setup"
+            className="flex items-center gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:font-semibold data-[state=active]:shadow-none bg-transparent hover:bg-muted/50 transition-colors px-5 py-3 text-sm font-medium text-muted-foreground"
+          >
+            <Wrench className="h-4 w-4" />
+            Setup
           </TabsTrigger>
-          <TabsTrigger value="model" className="text-xs px-3 py-1.5 data-[state=active]:bg-primary/10">
-            <Brain className="w-3 h-3 mr-1" />Model
+          <TabsTrigger
+            value="advanced"
+            className="flex items-center gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:font-semibold data-[state=active]:shadow-none bg-transparent hover:bg-muted/50 transition-colors px-5 py-3 text-sm font-medium text-muted-foreground"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            Advanced
           </TabsTrigger>
-          <TabsTrigger value="output" className="text-xs px-3 py-1.5 data-[state=active]:bg-primary/10">
-            <Database className="w-3 h-3 mr-1" />Output
-          </TabsTrigger>
-          <TabsTrigger value="advanced" className="text-xs px-3 py-1.5 data-[state=active]:bg-primary/10">
-            <Settings2 className="w-3 h-3 mr-1" />More
-          </TabsTrigger>
-          <TabsTrigger value="test" className="text-xs px-3 py-1.5 data-[state=active]:bg-primary/10">
-            <TestTube className="w-3 h-3 mr-1" />Test
+          <TabsTrigger
+            value="results"
+            className="flex items-center gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:font-semibold data-[state=active]:shadow-none bg-transparent hover:bg-muted/50 transition-colors px-5 py-3 text-sm font-medium text-muted-foreground"
+          >
+            <TestTube2 className="h-4 w-4" />
+            Results
           </TabsTrigger>
         </TabsList>
 
         <div className="flex-1 overflow-y-auto">
-          {/* PROMPT TAB */}
-          <TabsContent value="prompt" className="mt-0 p-4 space-y-4">
-            {/* Templates */}
+          {/* SETUP TAB - Prompt, Model, Templates */}
+          <TabsContent value="setup" className="mt-0 p-4 space-y-4">
+            {/* Quick Templates */}
             <div className="space-y-2">
               <Label className="text-xs font-medium">Quick Templates</Label>
               <div className="grid grid-cols-3 gap-1.5">
@@ -560,7 +552,7 @@ export function AIAgentConfigContent({
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent side="top">
-                        <p className="text-xs">Improve prompt with AI - converts your text into a structured prompt</p>
+                        <p className="text-xs">Improve prompt with AI</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
@@ -570,8 +562,8 @@ export function AIAgentConfigContent({
                 ref={promptRef}
                 placeholder={`Describe what the AI should do...
 
-Example: Analyze {{trigger.message}} and:
-1. Identify the main concern
+Example: Analyze the incoming message and:
+1. Identify the main topic
 2. Draft a helpful response`}
                 value={config.prompt}
                 onChange={(e) => {
@@ -584,10 +576,10 @@ Example: Analyze {{trigger.message}} and:
             </div>
 
             {/* Additional Instructions */}
-            <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+            <Collapsible open={instructionsOpen} onOpenChange={setInstructionsOpen}>
               <CollapsibleTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground p-0">
-                  {advancedOpen ? <ChevronDown className="w-3 h-3 mr-1" /> : <ChevronRight className="w-3 h-3 mr-1" />}
+                  {instructionsOpen ? <ChevronDown className="w-3 h-3 mr-1" /> : <ChevronRight className="w-3 h-3 mr-1" />}
                   Additional Instructions
                 </Button>
               </CollapsibleTrigger>
@@ -597,20 +589,20 @@ Example: Analyze {{trigger.message}} and:
 
 Example:
 - Always maintain a professional tone
-- Our refund policy is 30 days
-- Escalate billing complaints to a human`}
+- Keep responses concise
+- Escalate urgent issues`}
                   value={config.customInstructions}
                   onChange={(e) => handleFieldChange('customInstructions', e.target.value)}
                   className="min-h-[80px] text-xs"
                 />
               </CollapsibleContent>
             </Collapsible>
-          </TabsContent>
 
-          {/* MODEL TAB */}
-          <TabsContent value="model" className="mt-0 p-4 space-y-4">
+            <Separator />
+
+            {/* Model Selection */}
             <div className="space-y-2">
-              <Label className="text-xs font-medium">Select Model</Label>
+              <Label className="text-xs font-medium">Model</Label>
               <div className="space-y-2">
                 {Object.entries(AI_MODELS).map(([key, model]) => {
                   const isSelected = config.model === key
@@ -673,9 +665,10 @@ Example:
                 <span className="text-[10px] text-muted-foreground">🎨</span>
               </div>
             </div>
+          </TabsContent>
 
-            <Separator />
-
+          {/* ADVANCED TAB - API, Output, Guardrails */}
+          <TabsContent value="advanced" className="mt-0 p-4 space-y-4">
             {/* API Source */}
             <div className="space-y-2">
               <Label className="text-xs font-medium">API Source</Label>
@@ -705,10 +698,24 @@ Example:
                 <Input type="password" placeholder="sk-..." value={config.customApiKey} onChange={(e) => handleFieldChange('customApiKey', e.target.value)} className="text-xs mt-2" />
               )}
             </div>
-          </TabsContent>
 
-          {/* OUTPUT TAB */}
-          <TabsContent value="output" className="mt-0 p-4 space-y-4">
+            <Separator />
+
+            {/* Token & Timeout Settings */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-[10px]">Max Tokens</Label>
+                <Input type="number" min={100} max={4000} value={config.maxTokens} onChange={(e) => handleFieldChange('maxTokens', Number(e.target.value))} className="text-xs h-8" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px]">Timeout (sec)</Label>
+                <Input type="number" min={5} max={120} value={config.timeout} onChange={(e) => handleFieldChange('timeout', Number(e.target.value))} className="text-xs h-8" />
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Output Settings */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div>
@@ -724,55 +731,37 @@ Example:
                   <p className="text-[9px] text-muted-foreground">Access: <code className="bg-muted px-1 rounded">{'{{ai_agent.' + config.outputMapping.responseField + '}}'}</code></p>
                 </div>
               )}
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-xs font-medium">Extract JSON</Label>
+                  <p className="text-[10px] text-muted-foreground">Parse structured data</p>
+                </div>
+                <Switch checked={config.outputMapping.extractJson} onCheckedChange={(c) => handleOutputMappingChange('extractJson', c)} />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Output Format Hint</Label>
+                <Textarea
+                  value={config.outputFormat}
+                  onChange={(e) => handleFieldChange('outputFormat', e.target.value)}
+                  placeholder="e.g., subject, body, urgency"
+                  className="min-h-[60px] text-xs"
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-xs">Include Emojis</Label>
+                  <p className="text-[9px] text-muted-foreground">For Slack, SMS, etc.</p>
+                </div>
+                <Switch checked={config.includeEmojis} onCheckedChange={(c) => handleFieldChange('includeEmojis', c)} />
+              </div>
             </div>
 
             <Separator />
 
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-xs font-medium">Extract JSON</Label>
-                <p className="text-[10px] text-muted-foreground">Parse structured data</p>
-              </div>
-              <Switch checked={config.outputMapping.extractJson} onCheckedChange={(c) => handleOutputMappingChange('extractJson', c)} />
-            </div>
-
-            <Separator />
-
-            <div className="space-y-2">
-              <Label className="text-xs font-medium">Output Format Hint</Label>
-              <Textarea
-                value={config.outputFormat}
-                onChange={(e) => handleFieldChange('outputFormat', e.target.value)}
-                placeholder="e.g., subject, body, urgency"
-                className="min-h-[60px] text-xs"
-              />
-            </div>
-
-          </TabsContent>
-
-          {/* ADVANCED TAB */}
-          <TabsContent value="advanced" className="mt-0 p-4 space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-[10px]">Max Tokens</Label>
-                <Input type="number" min={100} max={4000} value={config.maxTokens} onChange={(e) => handleFieldChange('maxTokens', Number(e.target.value))} className="text-xs h-8" />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-[10px]">Timeout (sec)</Label>
-                <Input type="number" min={5} max={120} value={config.timeout} onChange={(e) => handleFieldChange('timeout', Number(e.target.value))} className="text-xs h-8" />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-xs">Include Emojis</Label>
-                <p className="text-[9px] text-muted-foreground">For Slack, SMS, etc.</p>
-              </div>
-              <Switch checked={config.includeEmojis} onCheckedChange={(c) => handleFieldChange('includeEmojis', c)} />
-            </div>
-
-            <Separator />
-
+            {/* Guardrails */}
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <Shield className="w-3 h-3" />
@@ -807,48 +796,17 @@ Example:
             </div>
           </TabsContent>
 
-          {/* TEST TAB */}
-          <TabsContent value="test" className="mt-0 p-4 space-y-4">
-            <div className="space-y-2">
-              <Label className="text-xs font-medium">Test Input (JSON)</Label>
-              <Textarea
-                value={testInput}
-                onChange={(e) => setTestInput(e.target.value)}
-                className="min-h-[100px] font-mono text-xs"
-              />
-              <Button onClick={handleTestPrompt} disabled={isTesting || !config.prompt.trim()} className="w-full">
-                {isTesting ? <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Testing...</> : <><Play className="w-3 h-3 mr-1" />Run Test</>}
-              </Button>
-            </div>
-
-            {testResult && (
-              <div className="space-y-2">
-                <Label className="text-xs font-medium">Results</Label>
-                {testResult.error ? (
-                  <Alert variant="destructive"><AlertDescription className="text-xs">{testResult.error}</AlertDescription></Alert>
-                ) : (
-                  <>
-                    <div className="grid grid-cols-3 gap-2 text-center">
-                      <div className="bg-muted rounded p-2">
-                        <p className="text-[9px] text-muted-foreground">Latency</p>
-                        <p className="text-xs font-semibold">{testResult.latency}ms</p>
-                      </div>
-                      <div className="bg-muted rounded p-2">
-                        <p className="text-[9px] text-muted-foreground">Tokens</p>
-                        <p className="text-xs font-semibold">{testResult.tokensUsed}</p>
-                      </div>
-                      <div className="bg-muted rounded p-2">
-                        <p className="text-[9px] text-muted-foreground">Cost</p>
-                        <p className="text-xs font-semibold">${testResult.cost?.toFixed(5)}</p>
-                      </div>
-                    </div>
-                    <div className="border rounded p-2 max-h-[200px] overflow-y-auto">
-                      <pre className="text-[10px] font-mono whitespace-pre-wrap">{typeof testResult.output === 'string' ? testResult.output : JSON.stringify(testResult.output, null, 2)}</pre>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
+          {/* RESULTS TAB - Using shared ResultsTab component */}
+          <TabsContent value="results" className="flex-1 min-h-0 overflow-hidden mt-0 p-0">
+            <ResultsTab
+              nodeInfo={effectiveNodeInfo}
+              currentNodeId={currentNodeId}
+              testData={initialData?.__testData}
+              testResult={initialData?.__testResult}
+              onRunTest={onRunTest}
+              isTestingNode={isTestingNode}
+              workflowId={workflowId}
+            />
           </TabsContent>
         </div>
       </Tabs>

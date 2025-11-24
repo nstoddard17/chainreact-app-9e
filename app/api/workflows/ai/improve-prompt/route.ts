@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { prompt, context } = body
+    const { prompt, context, availableVariables } = body
 
     if (!prompt || typeof prompt !== 'string') {
       return errorResponse('Prompt is required', 400)
@@ -34,17 +34,39 @@ export async function POST(request: NextRequest) {
       apiKey: process.env.OPENAI_API_KEY
     })
 
+    // Build the available variables section for the system prompt
+    let variablesSection = ''
+    if (availableVariables && Array.isArray(availableVariables) && availableVariables.length > 0) {
+      const variablesList = availableVariables.map((v: any) => {
+        const desc = v.description ? ` - ${v.description}` : ''
+        return `  - ${v.reference} (${v.fieldType}) from "${v.nodeTitle}": ${v.fieldName}${desc}`
+      }).join('\n')
+
+      variablesSection = `
+AVAILABLE VARIABLES FROM THIS WORKFLOW:
+${variablesList}
+
+IMPORTANT: You MUST only use the variables listed above. Do not invent or guess variable names.
+If you need data that isn't available, use a descriptive placeholder like {{your_data_here}} and note it needs to be configured.
+`
+    } else {
+      variablesSection = `
+NO UPSTREAM VARIABLES AVAILABLE:
+This node has no previous steps to pull data from.
+Use generic placeholders like {{input}} or {{data}} that the user can replace, or write the prompt without variables.
+`
+    }
+
     const systemPrompt = `You are an expert prompt engineer. Your task is to improve user prompts for AI workflow automation.
 
 IMPROVEMENT GUIDELINES:
 1. Make the prompt clear and specific
 2. Add structure (numbered steps, bullet points)
-3. Include relevant variable placeholders like {{trigger.field}}
+3. Use ONLY the available variables listed below - do not invent variable names
 4. Specify the desired output format
 5. Add context clues for better AI understanding
 6. Keep the core intent but enhance clarity
-7. If the prompt mentions data, suggest appropriate variable references
-
+${variablesSection}
 USER CONTEXT:
 - Tone preference: ${context?.tone || 'professional'}
 - Verbosity: ${context?.verbosity || 'concise'}
@@ -54,7 +76,7 @@ RULES:
 - Maintain the original intent
 - Don't add unnecessary complexity
 - Keep it actionable and clear
-- Use {{variable.path}} syntax for data references
+- ONLY use variables from the AVAILABLE VARIABLES list above
 - Return ONLY the improved prompt, no explanations`
 
     const response = await openai.chat.completions.create({

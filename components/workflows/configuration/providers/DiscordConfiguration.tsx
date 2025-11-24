@@ -676,9 +676,12 @@ export function DiscordConfiguration({
 
   // Check if we're loading a specific field
   const isFieldLoading = (fieldName: string) => {
-    // For guildId, only check specific loading states, not global loadingDynamic
+    // For guildId, check specific loading states AND loadingDynamic (for initial loadOnMount loading)
     if (fieldName === 'guildId') {
-      return localLoadingFields.has(fieldName) || loadingFields?.has(fieldName);
+      // Only show loading if we don't have any guild options yet (initial load)
+      const hasGuildOptions = dynamicOptions.guildId && dynamicOptions.guildId.length > 0;
+      const isInitialLoading = loadingDynamic && !hasGuildOptions;
+      return localLoadingFields.has(fieldName) || loadingFields?.has(fieldName) || isInitialLoading;
     }
     // For channelId, include the after bot add loading state
     if (fieldName === 'channelId') {
