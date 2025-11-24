@@ -31,7 +31,8 @@ function formatEmailField(data: any[]): FormattedOption[] {
     type: item.type,
     isGroup: item.isGroup,
     groupId: item.groupId,
-    members: item.members
+    members: item.members,
+    isExisting: item.isExisting ?? true
   }));
 }
 

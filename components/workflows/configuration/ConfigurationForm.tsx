@@ -161,7 +161,19 @@ function ConfigurationForm({
     }
     return fields;
   });
-  const [loadingFields, setLoadingFields] = useState<Set<string>>(new Set());
+  // Initialize loadingFields with loadOnMount fields to show loading state immediately on first render
+  // This prevents a brief flash of empty dropdowns before the useEffect triggers loading
+  const [loadingFields, setLoadingFields] = useState<Set<string>>(() => {
+    const initialLoadingFields = new Set<string>();
+    if (nodeInfo?.configSchema) {
+      nodeInfo.configSchema.forEach((field: any) => {
+        if (field.loadOnMount === true && field.dynamic) {
+          initialLoadingFields.add(field.name);
+        }
+      });
+    }
+    return initialLoadingFields;
+  });
   
   // Provider-specific state
   const [selectedRecord, setSelectedRecord] = useState<any>(null);
