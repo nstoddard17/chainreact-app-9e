@@ -6,6 +6,7 @@ import { executeRun } from "@/src/lib/workflows/builder/runner/execute"
 import { ensureNodeRegistry, getServiceClient, getRouteClient, getFlowRepository, uuid, createRunStore } from "@/src/lib/workflows/builder/api/helpers"
 import { ensureWorkspaceRole } from "@/src/lib/workflows/builder/workspace"
 import { getLatestPublishedRevision as getLatestPublishedRevisionService } from "@/src/lib/workflows/builder/publish"
+import { queryWithTableFallback } from "@/src/lib/workflows/builder/api/tableFallback"
 
 const StartRunSchema = z.object({
   inputs: z.any().optional(),
@@ -36,11 +37,20 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })
   }
 
-  const definition = await supabase
-    .from("flow_v2_definitions")
-    .select("workspace_id")
-    .eq("id", flowId)
-    .maybeSingle()
+  const definition = await queryWithTableFallback([
+    () =>
+      supabase
+        .from("workflows")
+        .select("workspace_id")
+        .eq("id", flowId)
+        .maybeSingle(),
+    () =>
+      supabase
+        .from("flow_v2_definitions")
+        .select("workspace_id")
+        .eq("id", flowId)
+        .maybeSingle(),
+  ])
 
   if (definition.error) {
     return NextResponse.json({ ok: false, error: definition.error.message }, { status: 500 })

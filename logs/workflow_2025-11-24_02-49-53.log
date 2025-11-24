@@ -1,0 +1,72 @@
+=== Log Session Started: 2025-11-24T08:49:53.682Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-11-24T08:49:53.683Z] [INFO   ] File logging initialized
+[2025-11-24T08:49:53.683Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-24_02-49-53.log
+[2025-11-24T08:49:53.690Z] [INFO   ] Deleted old log file: workflow_2025-11-16_23-10-16.log
+[2025-11-24T08:49:53.692Z] [INFO   ] Deleted old log file: workflow_2025-11-16_23-06-43.log
+[2025-11-24T08:49:53.693Z] [INFO   ] Deleted old log file: workflow_2025-11-16_22-59-43.log
+[2025-11-24T08:49:53.694Z] [INFO   ] Deleted old log file: workflow_2025-11-16_23-03-53.log
+[2025-11-24T08:49:53.695Z] [INFO   ] Deleted old log file: workflow_2025-11-16_11-26-06.log
+[2025-11-24T08:49:53.696Z] [INFO   ] Deleted old log file: workflow_2025-11-16_22-39-29.log
+[2025-11-24T08:49:53.699Z] [INFO   ] Deleted old log file: workflow_2025-11-16_22-42-53.log
+[2025-11-24T08:49:53.702Z] [INFO   ] Deleted old log file: workflow_2025-11-16_22-30-42.log
+[2025-11-24T08:49:53.704Z] [INFO   ] Deleted old log file: workflow_2025-11-16_21-58-26.log
+[2025-11-24T08:49:53.708Z] [INFO   ] Deleted old log file: workflow_2025-11-16_21-29-16.log
+[2025-11-24T08:49:53.711Z] [INFO   ] Deleted old log file: workflow_2025-11-16_19-01-05.log
+[2025-11-24T08:49:53.718Z] [INFO   ] Deleted old log file: workflow_2025-11-16_17-46-34.log
+[2025-11-24T08:49:53.718Z] [INFO   ] 📁 File logging enabled
+[2025-11-24T08:49:53.718Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-24_02-49-53.log
+[2025-11-24T08:49:53.718Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-24_02-49-53.log
+[2025-11-24T08:49:53.718Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-24_02-49-53.log
+[2025-11-24T08:49:53.718Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-24_02-49-53.log
+[2025-11-24T08:49:53.718Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-11-24T08:49:53.718Z] [DEBUG  ] 📁 File logging system initialized
+[2025-11-24T08:49:53.733Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 3.9s
+[2025-11-24T08:49:54.733Z] [INFO   ] 2025-11-24T08:49:54.733Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-11-24T08:49:56.734Z] [INFO   ] 2025-11-24T08:49:56.734Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-11-24T08:49:56.734Z] [INFO   ] 2025-11-24T08:49:56.734Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-24T08:49:56.941Z] [INFO   ] 2025-11-24T08:49:56.941Z [DEBUG] Discord Gateway initialization complete
+[2025-11-24T08:49:56.942Z] [INFO   ] 2025-11-24T08:49:56.942Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-11-24T08:49:57.133Z] [INFO   ] 2025-11-24T08:49:57.133Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-24T08:49:57.134Z] [INFO   ] 2025-11-24T08:49:57.134Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-24T08:54:49.401Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-11-24T08:54:49.798Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1050ms (3335 modules)
+[2025-11-24T09:39:48.914Z] [ERROR  ] Unexpected token 'I', "Internal s"... is not valid JSON
+AuthUnknownError: Unexpected token 'I', "Internal s"... is not valid JSON
+    at handleError (webpack-internal:///(rsc)/./node_modules/@supabase/auth-js/dist/module/lib/fetch.js:45:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async _handleRequest (webpack-internal:///(rsc)/./node_modules/@supabase/auth-js/dist/module/lib/fetch.js:123:9)
+    at async _request (webpack-internal:///(rsc)/./node_modules/@supabase/auth-js/dist/module/lib/fetch.js:105:18)
+    at async eval (webpack-internal:///(rsc)/./node_modules/@supabase/auth-js/dist/module/GoTrueClient.js:1543:24)
+    at async eval (webpack-internal:///(rsc)/./node_modules/@supabase/auth-js/dist/module/lib/helpers.js:204:36)
+[2025-11-24T09:39:48.914Z] [ERROR  ] Unexpected token 'I', "Internal s"... is not valid JSON
+AuthUnknownError: Unexpected token 'I', "Internal s"... is not valid JSON
+    at handleError (webpack-internal:///(rsc)/./node_modules/@supabase/auth-js/dist/module/lib/fetch.js:45:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async _handleRequest (webpack-internal:///(rsc)/./node_modules/@supabase/auth-js/dist/module/lib/fetch.js:123:9)
+    at async _request (webpack-internal:///(rsc)/./node_modules/@supabase/auth-js/dist/module/lib/fetch.js:105:18)
+    at async eval (webpack-internal:///(rsc)/./node_modules/@supabase/auth-js/dist/module/GoTrueClient.js:1543:24)
+    at async eval (webpack-internal:///(rsc)/./node_modules/@supabase/auth-js/dist/module/lib/helpers.js:204:36)
+[2025-11-24T11:11:15.237Z] [INFO   ] 2025-11-24T11:11:15.237Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-24T11:11:15.296Z] [INFO   ] 2025-11-24T11:11:15.296Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-11-24T11:11:15.670Z] [INFO   ] 2025-11-24T11:11:15.670Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-24T11:11:15.672Z] [INFO   ] 2025-11-24T11:11:15.672Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-24T13:25:19.760Z] [INFO   ] 2025-11-24T13:25:19.759Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-11-24T13:49:03.910Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 348ms (232 modules)
+[2025-11-24T13:49:04.554Z] [INFO   ]  [37m[1m○[22m[39m Compiling /auth/login ...
+[2025-11-24T13:49:08.793Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /auth/login in 4.7s (4632 modules)
+[2025-11-24T13:49:09.165Z] [INFO   ] 2025-11-24T13:49:09.165Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-24T13:49:09.165Z"}
+[2025-11-24T13:49:09.170Z] [INFO   ] 2025-11-24T13:49:09.170Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-24T13:49:09.170Z"}
+[2025-11-24T13:49:09.170Z] [INFO   ] 2025-11-24T13:49:09.170Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-24T13:49:09.170Z"}
+[2025-11-24T13:49:09.708Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 902ms (764 modules)
+[2025-11-24T13:49:11.192Z] [INFO   ]  [37m[1m○[22m[39m Compiling /icon.png ...
+[2025-11-24T13:49:11.242Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /icon.png in 841ms (3884 modules)
+[2025-11-24T13:49:22.578Z] [INFO   ] 2025-11-24T13:49:22.578Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-24T13:49:22.578Z"}
+[2025-11-24T13:49:22.584Z] [INFO   ] 2025-11-24T13:49:22.583Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-24T13:49:22.583Z"}
+[2025-11-24T13:49:22.584Z] [INFO   ] 2025-11-24T13:49:22.584Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-24T13:49:22.584Z"}
+
+=== Log Session Ended: 2025-11-24T13:49:29.048Z ===

@@ -146,13 +146,15 @@ export function GenericConfiguration({
     fieldName: string,
     dependsOn?: string,
     dependsOnValue?: any,
-    forceReload?: boolean
+    forceReload?: boolean,
+    silent?: boolean
   ) => {
     logger.debug('🔍 [GenericConfig] handleDynamicLoad called:', {
       fieldName,
       dependsOn,
       dependsOnValue,
-      forceReload
+      forceReload,
+      silent
     });
 
     const field = nodeInfo?.configSchema?.find((f: any) => f.name === fieldName);
@@ -172,14 +174,14 @@ export function GenericConfiguration({
       // If explicit dependencies are provided, use them
       if (dependsOn && dependsOnValue !== undefined) {
         logger.debug('🔄 [GenericConfig] Calling loadOptions with dependencies:', { fieldName, dependsOn, dependsOnValue, forceReload });
-        await loadOptions(fieldName, dependsOn, dependsOnValue, forceReload);
+        await loadOptions(fieldName, dependsOn, dependsOnValue, forceReload, silent);
       }
       // Otherwise check field's defined dependencies - get values from ref (avoids dependency on values prop)
       else if (field.dependsOn) {
         const parentValue = valuesRef.current[field.dependsOn];
         if (parentValue) {
           logger.debug('🔄 [GenericConfig] Calling loadOptions with field dependencies:', { fieldName, dependsOn: field.dependsOn, dependsOnValue: parentValue, forceReload });
-          await loadOptions(fieldName, field.dependsOn, parentValue, forceReload);
+          await loadOptions(fieldName, field.dependsOn, parentValue, forceReload, silent);
         } else {
           // Field has dependency but no value yet - don't try to load
           logger.debug('⏸️ [GenericConfig] Skipping load - field has dependency but no parent value:', { fieldName, dependsOn: field.dependsOn });
@@ -195,7 +197,7 @@ export function GenericConfiguration({
       // No dependencies, just load the field
       else {
         logger.debug('🔄 [GenericConfig] Calling loadOptions without dependencies:', { fieldName, forceReload });
-        await loadOptions(fieldName, undefined, undefined, forceReload);
+        await loadOptions(fieldName, undefined, undefined, forceReload, silent);
       }
     } catch (error) {
       logger.error('❌ [GenericConfig] Error loading dynamic options:', error);

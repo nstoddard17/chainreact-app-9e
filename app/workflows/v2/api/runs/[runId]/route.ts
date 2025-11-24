@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { getRouteClient } from "@/src/lib/workflows/builder/api/helpers"
+import { queryWithTableFallback } from "@/src/lib/workflows/builder/api/tableFallback"
 
 export async function GET(_: Request, context: { params: Promise<{ runId: string }> }) {
   const { runId } = await context.params
@@ -14,11 +15,20 @@ export async function GET(_: Request, context: { params: Promise<{ runId: string
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })
   }
 
-  const { data: run, error } = await supabase
-    .from("flow_v2_runs")
-    .select("id, flow_id, revision_id, status, inputs, metadata, started_at, finished_at, estimated_cost, actual_cost")
-    .eq("id", runId)
-    .maybeSingle()
+  const { data: run, error } = await queryWithTableFallback([
+    () =>
+      supabase
+        .from("workflows_runs")
+        .select("id, workflow_id, revision_id, status, inputs, metadata, started_at, finished_at, estimated_cost, actual_cost")
+        .eq("id", runId)
+        .maybeSingle(),
+    () =>
+      supabase
+        .from("flow_v2_runs")
+        .select("id, flow_id, revision_id, status, inputs, metadata, started_at, finished_at, estimated_cost, actual_cost")
+        .eq("id", runId)
+        .maybeSingle(),
+  ])
 
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
@@ -28,17 +38,35 @@ export async function GET(_: Request, context: { params: Promise<{ runId: string
     return NextResponse.json({ ok: false, error: "Run not found" }, { status: 404 })
   }
 
-  const { data: nodes } = await supabase
-    .from("flow_v2_run_nodes")
-    .select("node_id, status, input, output, error, attempts, duration_ms, cost, estimated_cost, token_count, created_at")
-    .eq("run_id", runId)
-    .order("created_at", { ascending: true })
+  const { data: nodes } = await queryWithTableFallback([
+    () =>
+      supabase
+        .from("workflows_run_nodes")
+        .select("node_id, status, input, output, error, attempts, duration_ms, cost, estimated_cost, token_count, created_at")
+        .eq("run_id", runId)
+        .order("created_at", { ascending: true }),
+    () =>
+      supabase
+        .from("flow_v2_run_nodes")
+        .select("node_id, status, input, output, error, attempts, duration_ms, cost, estimated_cost, token_count, created_at")
+        .eq("run_id", runId)
+        .order("created_at", { ascending: true }),
+  ])
 
-  const { data: logs } = await supabase
-    .from("flow_v2_node_logs")
-    .select("id, node_id, status, latency_ms, cost, retries, created_at")
-    .eq("run_id", runId)
-    .order("created_at", { ascending: true })
+  const { data: logs } = await queryWithTableFallback([
+    () =>
+      supabase
+        .from("workflows_node_logs")
+        .select("id, node_id, status, latency_ms, cost, retries, created_at")
+        .eq("run_id", runId)
+        .order("created_at", { ascending: true }),
+    () =>
+      supabase
+        .from("flow_v2_node_logs")
+        .select("id, node_id, status, latency_ms, cost, retries, created_at")
+        .eq("run_id", runId)
+        .order("created_at", { ascending: true }),
+  ])
 
   const nodesList = nodes ?? []
   const successCount = nodesList.filter((row) => row.status === "success").length
@@ -51,7 +79,7 @@ export async function GET(_: Request, context: { params: Promise<{ runId: string
     ok: true,
     run: {
       id: run.id,
-      flowId: run.flow_id,
+      flowId: run.workflow_id ?? run.flow_id,
       revisionId: run.revision_id,
       status: run.status,
       inputs: run.inputs,

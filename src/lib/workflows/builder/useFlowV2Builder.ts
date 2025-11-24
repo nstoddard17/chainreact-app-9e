@@ -25,6 +25,7 @@ type PlannerEdit =
   | { op: "deleteNode"; nodeId: string }
   | { op: "reorderNodes"; nodeIds: string[] }
   | { op: "moveNode"; nodeId: string; position: { x: number; y: number } }
+  | { op: "updateNode"; nodeId: string; updates: { title?: string; description?: string } }
 
 interface AgentResult {
   edits: PlannerEdit[]
@@ -435,6 +436,20 @@ function applyPlannerEdits(base: Flow, edits: PlannerEdit[]): Flow {
         }
         break
       }
+      case "updateNode": {
+        const target = working.nodes.find((node) => node.id === edit.nodeId)
+        if (target) {
+          // Update label (title) - this is what flowToReactFlowNodes uses for the title
+          if (edit.updates.title !== undefined) {
+            target.label = edit.updates.title
+          }
+          // Update description if provided
+          if (edit.updates.description !== undefined) {
+            target.description = edit.updates.description
+          }
+        }
+        break
+      }
       default: {
         const exhaustive: never = edit
         throw new Error(`Unhandled edit operation: ${(exhaustive as any)?.op}`)
@@ -495,6 +510,11 @@ function flowToReactFlowEdges(flow: Flow): ReactFlowEdge[] {
     target: edge.to.nodeId,
     sourceHandle: edge.from.portId,
     targetHandle: edge.to.portId,
+    type: "custom",
+    style: {
+      stroke: "#d0d6e0",
+      strokeWidth: 1.5,
+    },
     data: {
       mappings: edge.mappings ?? [],
     },
@@ -910,14 +930,21 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
         }
       }
 
-      if (edges.length === 0 && graphNodes.length >= 2) {
-        const sortedLinearNodes = [...graphNodes]
-          .filter((node) => node.type !== 'action_placeholder' && node.type !== 'trigger_placeholder')
-          .sort((a, b) => a.position.y - b.position.y)
+      const sortedLinearNodes = [...graphNodes]
+        .filter((node) => node.type !== 'action_placeholder' && node.type !== 'trigger_placeholder')
+        .sort((a, b) => a.position.y - b.position.y)
+
+      if (sortedLinearNodes.length >= 2) {
+        const edgeKey = (edge: ReactFlowEdge) => `${edge.source}->${edge.target}`
+        const existingEdges = new Set(edges.map(edgeKey))
 
         for (let i = 0; i < sortedLinearNodes.length - 1; i++) {
           const current = sortedLinearNodes[i]
           const next = sortedLinearNodes[i + 1]
+          const key = `${current.id}->${next.id}`
+          if (existingEdges.has(key)) {
+            continue
+          }
 
           edges.push({
             id: `${current.id}-${next.id}-synthetic`,
@@ -933,6 +960,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
               synthetic: true,
             },
           } as ReactFlowEdge)
+          existingEdges.add(key)
         }
       }
 

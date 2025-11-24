@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { getRouteClient } from "@/src/lib/workflows/builder/api/helpers"
 import { ensureWorkspaceRole } from "@/src/lib/workflows/builder/workspace"
 import { logger } from "@/lib/utils/logger"
+import { queryWithTableFallback } from "@/src/lib/workflows/builder/api/tableFallback"
 
 export async function GET(_: Request, context: { params: Promise<{ flowId: string }> }) {
   const { flowId } = await context.params
@@ -18,11 +19,20 @@ export async function GET(_: Request, context: { params: Promise<{ flowId: strin
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })
   }
 
-  const definition = await supabase
-    .from("flow_v2_definitions")
-    .select("workspace_id, created_by")
-    .eq("id", flowId)
-    .maybeSingle()
+  const definition = await queryWithTableFallback([
+    () =>
+      supabase
+        .from("workflows")
+        .select("workspace_id, created_by")
+        .eq("id", flowId)
+        .maybeSingle(),
+    () =>
+      supabase
+        .from("flow_v2_definitions")
+        .select("workspace_id, created_by")
+        .eq("id", flowId)
+        .maybeSingle(),
+  ])
 
   if (definition.error) {
     logger.error("[runs/latest] Definition query error", { flowId, error: definition.error.message })
@@ -54,14 +64,26 @@ export async function GET(_: Request, context: { params: Promise<{ flowId: strin
     }
   }
 
-  const { data: run, error: runError } = await supabase
-    .from("flow_v2_runs")
-    .select("id, status, started_at, finished_at, revision_id")
-    .eq("flow_id", flowId)
-    .order("finished_at", { ascending: false })
-    .order("started_at", { ascending: false })
-    .limit(1)
-    .maybeSingle()
+  const { data: run, error: runError } = await queryWithTableFallback([
+    () =>
+      supabase
+        .from("workflows_runs")
+        .select("id, status, started_at, finished_at, revision_id")
+        .eq("workflow_id", flowId)
+        .order("finished_at", { ascending: false })
+        .order("started_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    () =>
+      supabase
+        .from("flow_v2_runs")
+        .select("id, status, started_at, finished_at, revision_id")
+        .eq("flow_id", flowId)
+        .order("finished_at", { ascending: false })
+        .order("started_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+  ])
 
   if (runError) {
     logger.error("[runs/latest] Run query error", { flowId, error: runError.message })

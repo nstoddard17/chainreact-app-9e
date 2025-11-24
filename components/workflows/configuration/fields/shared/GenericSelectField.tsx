@@ -252,14 +252,38 @@ export function GenericSelectField({
   }, [field.dynamic, field.name, field.dependsOn, parentValues, cachedDynamicLoad, onDynamicLoad, isRefreshing]);
 
   // Handle search query changes (debounced search for fields like gmail-recent-emails)
+  // Note: Combobox already debounces by 300ms before calling this
   const handleSearchChange = React.useCallback(async (query: string) => {
+    console.log('🔍 [GenericSelectField] handleSearchChange called:', {
+      fieldName: field.name,
+      query,
+      fieldDynamic: field.dynamic,
+      hasOnDynamicLoad: !!onDynamicLoad,
+      isSearchable: (field as any).searchable
+    });
+
     // Only enable search for specific dynamic fields that support it
-    if (!field.dynamic || !onDynamicLoad) return;
+    if (!field.dynamic || !onDynamicLoad) {
+      console.log('❌ [GenericSelectField] Search skipped - no dynamic or onDynamicLoad');
+      return;
+    }
 
-    // Only enable for searchable fields (like gmail-recent-emails)
-    const searchableFields = ['gmail-recent-emails'];
-    if (!searchableFields.includes(field.dynamic)) return;
+    // Only enable for searchable fields or fields with searchable: true
+    const searchableFields = ['gmail-recent-emails', 'gmail_from_addresses', 'gmail-enhanced-recipients', 'gmail_recent_senders', 'gmail-recent-senders'];
+    if (!searchableFields.includes(field.dynamic) && !(field as any).searchable) {
+      console.log('❌ [GenericSelectField] Search skipped - field not in searchableFields:', field.dynamic);
+      return;
+    }
 
+    // Require minimum characters to search (Gmail senders can search after 1 char for quicker suggestions)
+    const minSearchLength = field.dynamic === 'gmail_recent_senders' ? 1 : 2;
+    if (query.length < minSearchLength) {
+      console.log('❌ [GenericSelectField] Search skipped - query too short:', query.length);
+      setSearchQuery('');
+      return;
+    }
+
+    console.log('✅ [GenericSelectField] Proceeding with search for:', query);
     setSearchQuery(query);
     setIsSearching(true);
 
@@ -270,7 +294,9 @@ export function GenericSelectField({
       // The API handler will receive this as part of options
       // Search is always silent since we're filtering existing data
       await onDynamicLoad(field.name, 'searchQuery', query, true, true);
+      console.log('✅ [GenericSelectField] Search completed for:', query);
     } catch (error) {
+      console.error('❌ [GenericSelectField] Search error:', error);
       logger.error('[GenericSelectField] Search error:', error);
     } finally {
       setIsSearching(false);

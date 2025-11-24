@@ -214,7 +214,7 @@ interface FieldProps {
   dynamicOptions?: Record<string, { value: string; label: string; fields?: any[] }[]>;
   loadingDynamic?: boolean;
   loadingFields?: Set<string>; // Loading states for individual fields
-  onDynamicLoad?: (fieldName: string, dependsOn?: string, dependsOnValue?: any, forceRefresh?: boolean) => Promise<void>;
+  onDynamicLoad?: (fieldName: string, dependsOn?: string, dependsOnValue?: any, forceRefresh?: boolean, silent?: boolean) => Promise<void>;
   nodeInfo?: any; // Node information for context-aware field behavior
   bubbleValues?: string[]; // Values that have bubbles created
   selectedValues?: string[]; // Selected values from bubbles for multi-select fields

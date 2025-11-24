@@ -3550,17 +3550,35 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     // Add optimistic edges immediately
     if (replacingPlaceholder && anchorNodeId) {
       // When replacing a placeholder, update edges that reference the placeholder
+      // and normalize styling so they become solid FlowEdge connectors with plus buttons
       builder.setEdges((edges: any[]) => {
         return edges.map(edge => {
-          // Update edges pointing TO the placeholder
+          let updated = edge
+
           if (edge.target === anchorNodeId) {
-            return { ...edge, target: newNodeId }
+            updated = { ...updated, target: newNodeId }
           }
-          // Update edges FROM the placeholder
           if (edge.source === anchorNodeId) {
-            return { ...edge, source: newNodeId }
+            updated = { ...updated, source: newNodeId }
           }
-          return edge
+
+          if (updated !== edge) {
+            const nextStyle = { ...(updated.style ?? {}) }
+            // Remove placeholder dash styling so the edge matches real nodes
+            delete nextStyle.strokeDasharray
+
+            updated = {
+              ...updated,
+              type: 'custom',
+              style: {
+                stroke: '#d0d6e0',
+                strokeWidth: 1.5,
+                ...nextStyle,
+              },
+            }
+          }
+
+          return updated
         })
       })
     } else if (anchorNodeId) {
