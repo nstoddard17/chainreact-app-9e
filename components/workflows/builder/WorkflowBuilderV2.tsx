@@ -2006,8 +2006,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     // Position will be auto-corrected by the vertical stacking effect
     // Just use a placeholder position for now
     const position = {
-      x: 400,
-      y: afterNode.position.y + 180
+      x: afterNode.position?.x ?? LINEAR_STACK_X,
+      y: afterNode.position.y + LINEAR_NODE_VERTICAL_GAP
     }
 
     try {
@@ -3378,9 +3378,10 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     else if (anchorNodeId) {
       const afterNode = currentNodes.find((n: any) => n.id === anchorNodeId)
       if (afterNode) {
+        const anchorX = afterNode.position?.x ?? LINEAR_STACK_X
         position = {
-          x: 400,
-          y: afterNode.position.y + 180 // Add 180px vertical spacing after the node
+          x: anchorX,
+          y: afterNode.position.y + LINEAR_NODE_VERTICAL_GAP // stack directly under anchor
         }
         console.log('📌 [WorkflowBuilder] Adding node after:', anchorNodeId, 'at position:', position)
       }
