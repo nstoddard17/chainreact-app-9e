@@ -6066,7 +6066,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
             onUndoToPreviousStage={handleUndoToPreviousStage}
             onCancelBuild={handleCancelBuild}
             onAddNodeAfter={handleAddNodeAfterClick}
-            disablePhantomOverlay={Boolean(activeReorderDrag || isStructureTransitioning || isFlowTesting)}
+            disablePhantomOverlay={Boolean(isStructureTransitioning || isFlowTesting)}
           >
             {/* Path Labels Overlay - Zapier-style floating pills */}
             <PathLabelsOverlay
