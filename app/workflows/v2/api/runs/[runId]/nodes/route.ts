@@ -52,8 +52,6 @@ export async function GET(_: Request, context: { params: Promise<{ runId: string
         status: run.status,
         startedAt: run.started_at,
         finishedAt: run.completed_at,
-        metadata: {},
-        revisionId: null,
         flowId: run.workflow_id,
       },
       nodes: (nodes ?? []).map((node) => ({

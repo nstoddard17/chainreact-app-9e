@@ -1,7 +1,7 @@
 "use client"
 
-import React, { useEffect, useRef, useState } from "react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Combobox } from "@/components/ui/combobox";
 import { cn } from "@/lib/utils";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -93,14 +93,9 @@ function DiscordServerFieldComponent({
 
   // Discord-specific loading behavior for dropdown open
   const handleServerFieldOpen = (open: boolean) => {
-    // Don't reload if we already have options loaded or if we're currently loading
-    if (options.length > 0 || isLoading || hasAttemptedLoad.current) {
-      return;
-    }
-    
+    if (!open) return;
     // Load servers when dropdown opens if not already loaded
-    if (open && field.dynamic && onDynamicLoad) {
-      // Loading servers on dropdown open
+    if (!hasAttemptedLoad.current && field.dynamic && onDynamicLoad && !isLoading && options.length === 0) {
       hasAttemptedLoad.current = true;
       onDynamicLoad(field.name);
     }
@@ -238,109 +233,103 @@ function DiscordServerFieldComponent({
     }
   }
 
+  // Compute display label for current selection
+  const displayLabel = useMemo(() => {
+    if (!selectValue) return null;
+    const fromOptions = displayOptions.find(
+      (opt) => String(opt.value || opt.id) === selectValue
+    );
+    if (fromOptions) return fromOptions.label || fromOptions.name || fromOptions.value || fromOptions.id;
+    const saved = getSavedLabel(selectValue);
+    return saved || null;
+  }, [displayOptions, selectValue]);
+
+  // Map options to combobox format
+  const comboboxOptions = displayOptions.map((server: any) => ({
+    value: String(server.value || server.id),
+    label: server.label || server.name || server.value || server.id,
+    description: server.approximate_member_count
+      ? `${server.approximate_member_count.toLocaleString()} members`
+      : undefined
+  }));
+
+  const placeholderText = (isLoading || isInitialLoad) && !displayLabel
+    ? "Loading Discord servers..."
+    : "Select a Discord server";
+
   return (
     <div className="w-full space-y-2">
       <div className="flex items-center gap-2">
-        <Select
-          value={selectValue}
-          onValueChange={(selectedValue) => {
-            onChange(selectedValue);
-            try {
-              const selectedOption = displayOptions.find(
-                (opt) => String(opt.value || opt.id) === selectedValue
-              );
-              if (selectedOption) {
-                const storageKey = `discord_server_label_${selectedValue}`;
-                localStorage.setItem(
-                  storageKey,
-                  selectedOption.label || selectedOption.name || selectedOption.value || selectedOption.id
+        <div className="flex-1 min-w-0">
+          <Combobox
+            value={selectValue}
+            onChange={(selectedValue) => {
+              onChange(selectedValue);
+              try {
+                const selectedOption = displayOptions.find(
+                  (opt) => String(opt.value || opt.id) === selectedValue
                 );
+                if (selectedOption) {
+                  const storageKey = `discord_server_label_${selectedValue}`;
+                  localStorage.setItem(
+                    storageKey,
+                    selectedOption.label || selectedOption.name || selectedOption.value || selectedOption.id
+                  );
+                }
+              } catch (e) {
+                logger.error('Error saving label to storage:', e);
               }
-            } catch (e) {
-              logger.error('Error saving label to storage:', e);
+            }}
+            options={comboboxOptions}
+            placeholder={placeholderText}
+            searchPlaceholder="Search servers..."
+            emptyPlaceholder={
+              isLoading || isInitialLoad
+                ? "Loading Discord servers..."
+                : "No servers available."
             }
-          }}
-          onOpenChange={handleServerFieldOpen}
-        >
-          <SelectTrigger
-            className={cn(
-              "w-full",
-              (error || processedError) && "border-red-500",
-              (isLoading || isRefreshing) && "opacity-70"
-            )}
-          >
-            <SelectValue
-              placeholder={
-                isLoading || isInitialLoad
-                  ? "Loading Discord servers..."
-                  : "Select a Discord server"
-              }
-            />
-          </SelectTrigger>
-          <SelectContent className="max-h-[280px]">
-            {displayOptions.length > 0 ? (
-              displayOptions.map((server: any) => (
-                <SelectItem
-                  key={server.value || server.id}
-                  value={String(server.value || server.id)}
-                  className="flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-2">
-                    <span>{server.label || server.name || server.value || server.id}</span>
-                    {server.temporary && (
-                      <span className="text-xs text-muted-foreground">(Loading details...)</span>
-                    )}
-                  </div>
-                  {server.approximate_member_count && (
-                    <span className="text-xs text-muted-foreground">
-                      {server.approximate_member_count.toLocaleString()} members
-                    </span>
-                  )}
-                </SelectItem>
-              ))
-            ) : (
-              <div className="p-4 text-center text-sm text-muted-foreground">
-                <p>No servers available for this Discord account.</p>
-                <p className="mt-1 text-xs">
-                  Invite the ChainReact bot to your server or check your Discord permissions.
-                </p>
-              </div>
-            )}
-          </SelectContent>
-        </Select>
+            disabled={isLoading && !displayLabel && comboboxOptions.length === 0}
+            loading={isLoading && !displayLabel && comboboxOptions.length === 0}
+            displayLabel={displayLabel}
+            onOpenChange={handleServerFieldOpen}
+          />
+        </div>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9"
-                disabled={isLoading || isRefreshing}
-                onClick={handleRefresh}
-              >
-                <RefreshCw
-                  className={cn(
-                    "h-4 w-4",
-                    (isLoading || isRefreshing) && "animate-spin"
-                  )}
-                />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="top" align="center">
-              <p className="text-xs">Refresh servers</p>
-            </TooltipContent>
-          </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="flex-shrink-0"
+              disabled={isLoading || isRefreshing}
+              onClick={handleRefresh}
+            >
+              <RefreshCw
+                className={cn(
+                  "h-4 w-4",
+                  (isLoading || isRefreshing) && "animate-spin"
+                )}
+              />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="top" align="center">
+            <p className="text-xs">Refresh servers</p>
+          </TooltipContent>
+        </Tooltip>
       </div>
 
       <div className="flex items-center gap-2">
         <span className="text-xs text-muted-foreground">
           {isLoading || isRefreshing || isInitialLoad
             ? "Loading Discord servers..."
-            : displayOptions.length > 0
+            : comboboxOptions.length > 0
               ? "Discord servers are loaded."
               : "No servers available."}
         </span>
+        {(error || processedError) && (
+          <span className="text-xs text-red-500">{processedError || error}</span>
+        )}
       </div>
     </div>
   );

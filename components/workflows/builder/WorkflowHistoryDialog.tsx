@@ -16,6 +16,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { History, Loader2, CheckCircle2, XCircle, AlertCircle, Play, Download } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import { flowApiUrl } from "@/src/lib/workflows/builder/api/paths"
 
 type FlowRunSummary = {
   id: string
@@ -69,7 +70,7 @@ export function WorkflowHistoryDialog({
       setLoading(true)
 
       // Try v2 API first
-      let response = await fetch(`/workflows/v2/api/flows/${workflowId}/runs/history`)
+      let response = await fetch(flowApiUrl(workflowId, '/runs/history'))
       let data = null
 
       if (response.ok) {
@@ -126,8 +127,8 @@ export function WorkflowHistoryDialog({
     try {
       setNodesLoading(true)
 
-      // Try v2 API first, then fall back to regular API
-      let response = await fetch(`/workflows/v2/api/runs/${run.id}/nodes`)
+      // Try new workflows API first, then fall back to legacy history endpoint
+      let response = await fetch(`/workflows/api/runs/${run.id}/nodes`)
 
       if (!response.ok) {
         // Try regular workflows API for steps

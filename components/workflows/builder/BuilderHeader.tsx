@@ -89,6 +89,10 @@ interface BuilderHeaderProps {
   setShowExecutionHistory?: (show: boolean) => void
   onSelectHistoryRun?: (runId: string) => Promise<void> | void
   activeRunId?: string | null
+  activeRevisionId?: string | null
+  onRestoreVersion?: (revisionId: string) => Promise<void>
+  onGenerateApiKey?: () => Promise<string>
+  canGenerateApiKey?: boolean
 }
 
 const BuilderHeaderComponent = ({
@@ -121,6 +125,10 @@ const BuilderHeaderComponent = ({
   setShowExecutionHistory,
   onSelectHistoryRun,
   activeRunId,
+  activeRevisionId,
+  onRestoreVersion,
+  onGenerateApiKey,
+  canGenerateApiKey = false,
 }: BuilderHeaderProps) => {
   const router = useRouter()
   const { toast } = useToast()
@@ -144,6 +152,8 @@ const BuilderHeaderComponent = ({
   const [isImporting, setIsImporting] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState(false)
   const [siteOrigin, setSiteOrigin] = useState("")
+  const [generatedApiKey, setGeneratedApiKey] = useState<string | null>(null)
+  const [isGeneratingKey, setIsGeneratingKey] = useState(false)
 
   const isSavingRef = useRef(false)
 
@@ -157,6 +167,21 @@ const BuilderHeaderComponent = ({
   useEffect(() => {
     router.prefetch('/workflows')
   }, [router])
+
+  const apiEndpoint = useMemo(() => {
+    const resolvedId = workflowId || "{workflowId}"
+    const origin = siteOrigin || ""
+    return `${origin}/api/workflows/${resolvedId}/execute`
+  }, [siteOrigin, workflowId])
+
+  const curlCommand = useMemo(
+    () =>
+      `curl -X POST ${apiEndpoint} \\
+  -H "Authorization: Bearer YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"inputs": {}}'`,
+    [apiEndpoint]
+  )
 
   const isLiveTestingDisabled = isExecuting || isSaving
 
@@ -229,6 +254,27 @@ const BuilderHeaderComponent = ({
   }, [canDeleteWorkflow, deleteWorkflow, workflowId])
 
   const isActive = currentWorkflow?.status === "active"
+
+  const handleGenerateApiKey = useCallback(async () => {
+    if (!onGenerateApiKey) return
+    try {
+      setIsGeneratingKey(true)
+      const key = await onGenerateApiKey()
+      setGeneratedApiKey(key)
+      if (key) {
+        await navigator.clipboard.writeText(key)
+        toast({ title: "API key created", description: "Key copied to clipboard." })
+      }
+    } catch (error: any) {
+      toast({
+        title: "Failed to create API key",
+        description: error?.message || "Unable to generate API key right now.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsGeneratingKey(false)
+    }
+  }, [onGenerateApiKey, toast])
 
   const handleGenerateShareLink = async () => {
     if (!workflowId) return
@@ -937,7 +983,7 @@ const BuilderHeaderComponent = ({
 
       {/* Run via API Dialog */}
       <Dialog open={showApiDialog} onOpenChange={setShowApiDialog}>
-        <DialogContent className="w-[95vw] max-w-[850px]">
+        <DialogContent className="w-[95vw] sm:max-w-[820px] lg:max-w-[940px] max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CloudCog className="w-5 h-5" />
@@ -947,60 +993,126 @@ const BuilderHeaderComponent = ({
               Trigger this workflow programmatically using the API.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4 w-full">
-            <div className="space-y-2">
-              <Label>API Endpoint</Label>
-              <div className="flex items-start gap-2">
-                <code className="flex-1 min-w-0 px-3 py-2 bg-muted rounded-md text-xs font-mono break-all">
-                  POST {siteOrigin}/api/workflows/{workflowId}/execute
-                </code>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="shrink-0"
-                  onClick={() => {
-                    navigator.clipboard.writeText(
-                      `${siteOrigin}/api/workflows/${workflowId}/execute`
-                    )
-                    toast({ title: "Copied", description: "API endpoint copied to clipboard" })
-                  }}
-                >
-                  <Copy className="w-4 h-4" />
-                </Button>
+          <div className="space-y-6 py-2 w-full">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>API Endpoint</Label>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <code className="flex-1 w-full px-3 py-2 bg-muted rounded-md text-xs font-mono break-all overflow-x-auto">
+                    POST {apiEndpoint}
+                  </code>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full sm:w-auto"
+                    onClick={() => {
+                      navigator.clipboard.writeText(apiEndpoint)
+                      toast({ title: "Copied", description: "API endpoint copied to clipboard" })
+                    }}
+                  >
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
+
+              <div className="space-y-2">
+                <Label>Example Request</Label>
+                <div className="rounded-lg border bg-muted/40">
+                  <pre className="px-3 py-3 text-xs font-mono overflow-x-auto whitespace-pre">{curlCommand}</pre>
+                  <div className="border-t px-3 py-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => {
+                        navigator.clipboard.writeText(curlCommand)
+                        toast({ title: "Copied", description: "cURL command copied to clipboard" })
+                      }}
+                    >
+                      <Copy className="w-4 h-4 mr-2" />
+                      Copy cURL Command
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              </div>
+
+            <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700 p-4 text-sm">
+              <div className="flex items-center gap-2 font-medium text-amber-900 dark:text-amber-50">
+                <CloudCog className="w-4 h-4" />
+                API access reminders
+              </div>
+              <p className="text-amber-800 dark:text-amber-100">
+                Save your latest changes, publish the workflow, and use a generated API key before calling this endpoint. API runs always use the latest published revision.
+              </p>
+              <ul className="space-y-2 text-xs text-amber-800 dark:text-amber-200">
+                <li className="flex gap-2">
+                  <span className="mt-1 block h-1.5 w-1.5 rounded-full bg-amber-500" />
+                  <span>Send your inputs inside the <code className="px-1 py-0.5 bg-amber-100 dark:bg-amber-800/60 rounded">inputs</code> object in the JSON body.</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="mt-1 block h-1.5 w-1.5 rounded-full bg-amber-500" />
+                  <span>Include the bearer token header exactly as shown in the example request.</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="mt-1 block h-1.5 w-1.5 rounded-full bg-amber-500" />
+                  <span>Only published flows run via API; draft edits need a publish before they’re used.</span>
+                </li>
+              </ul>
             </div>
 
-            <div className="space-y-2">
-              <Label>Example Request</Label>
-              <pre className="px-3 py-2 bg-muted rounded-md text-xs font-mono overflow-x-auto whitespace-pre">
-{`curl -X POST ${siteOrigin}/api/workflows/${workflowId}/execute \\
-  -H "Authorization: Bearer YOUR_API_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{"inputs": {}}'`}
-              </pre>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={() => {
-                  navigator.clipboard.writeText(
-`curl -X POST ${siteOrigin}/api/workflows/${workflowId}/execute \\
-  -H "Authorization: Bearer YOUR_API_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{"inputs": {}}'`
-                  )
-                  toast({ title: "Copied", description: "cURL command copied to clipboard" })
-                }}
-              >
-                <Copy className="w-4 h-4 mr-2" />
-                Copy cURL Command
-              </Button>
-            </div>
-
-            <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700 p-3 text-sm text-amber-800 dark:text-amber-200">
-              <strong>Note:</strong> To use the API, you need to generate an API key from your account settings.
-              The workflow must be published (active) to be triggered via API.
-            </div>
+            {onGenerateApiKey && (
+              <div className="space-y-3 rounded-lg border bg-muted/40 p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium">API key</span>
+                    <span className="text-xs text-muted-foreground">
+                      Keys are shown once. Store them securely.
+                    </span>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={handleGenerateApiKey}
+                    disabled={!canGenerateApiKey || isGeneratingKey}
+                  >
+                    {isGeneratingKey ? "Creating…" : "Generate key"}
+                  </Button>
+                </div>
+                {!canGenerateApiKey && (
+                  <p className="text-xs text-muted-foreground">
+                    Publish the workflow to enable API key creation.
+                  </p>
+                )}
+                {generatedApiKey && (
+                  <div className="space-y-2">
+                    <Label>New key</Label>
+                    <div className="flex flex-col gap-2">
+                      <code className="w-full px-3 py-2 bg-background rounded-md text-xs font-mono break-all border">
+                        {generatedApiKey}
+                      </code>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => navigator.clipboard.writeText(generatedApiKey)}
+                        >
+                          Copy key
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => setGeneratedApiKey(null)}
+                        >
+                          Hide key
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowApiDialog(false)}>
@@ -1014,6 +1126,8 @@ const BuilderHeaderComponent = ({
         open={showVersionsDialog}
         onOpenChange={setShowVersionsDialog}
         workflowId={workflowId || ""}
+        activeRevisionId={activeRevisionId || undefined}
+        onRestoreVersion={onRestoreVersion}
       />
 
       <WorkflowHistoryDialog
@@ -1045,5 +1159,7 @@ export const BuilderHeader = React.memo(
     prevProps.canUndo === nextProps.canUndo &&
     prevProps.canRedo === nextProps.canRedo &&
     prevProps.currentWorkflow?.status === nextProps.currentWorkflow?.status &&
-    prevProps.currentWorkflow?.source_template_id === nextProps.currentWorkflow?.source_template_id
+    prevProps.currentWorkflow?.source_template_id === nextProps.currentWorkflow?.source_template_id &&
+    prevProps.canGenerateApiKey === nextProps.canGenerateApiKey &&
+    prevProps.onGenerateApiKey === nextProps.onGenerateApiKey
 )

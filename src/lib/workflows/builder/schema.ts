@@ -105,6 +105,7 @@ export const FlowInterfaceFieldSchema = z.object({
   required: z.boolean().optional(),
   description: z.string().optional(),
   defaultValue: JsonValueSchema.optional(),
+  metadata: z.record(JsonValueSchema).optional(),
 })
 
 export const FlowInterfaceSchema = z.object({

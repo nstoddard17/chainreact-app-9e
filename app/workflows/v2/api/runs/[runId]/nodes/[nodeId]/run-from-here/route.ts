@@ -44,7 +44,7 @@ export async function POST(_: Request, context: { params: Promise<{ runId: strin
     // Get workflow to check ownership
     const { data: workflow, error: workflowError } = await supabase
       .from("workflows")
-      .select("user_id")
+      .select("id, user_id")
       .eq("id", workflowId)
       .maybeSingle()
 

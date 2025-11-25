@@ -19,7 +19,7 @@ export async function GET(_: Request, context: { params: Promise<{ runId: string
     // Get run from workflow_executions
     const { data: run, error } = await supabase
       .from("workflow_executions")
-      .select("id, workflow_id, status, input_data, output_data, started_at, completed_at, execution_time_ms, error_message")
+      .select("id, workflow_id, user_id, status, input_data, output_data, started_at, completed_at, execution_time_ms, error_message")
       .eq("id", runId)
       .maybeSingle()
 
@@ -40,8 +40,8 @@ export async function GET(_: Request, context: { params: Promise<{ runId: string
       .order("started_at", { ascending: true })
 
     const nodesList = nodes ?? []
-    const successCount = nodesList.filter((row) => row.status === "success" || row.status === "completed").length
-    const errorCount = nodesList.filter((row) => row.status === "error" || row.status === "failed").length
+    const successCount = nodesList.filter((row) => row.status === "success").length
+    const errorCount = nodesList.filter((row) => row.status === "error").length
     const pendingCount = nodesList.filter((row) => row.status === "pending" || row.status === "running").length
 
     return NextResponse.json({
@@ -49,16 +49,13 @@ export async function GET(_: Request, context: { params: Promise<{ runId: string
       run: {
         id: run.id,
         flowId: run.workflow_id,
-        revisionId: null,
         status: run.status,
         inputs: run.input_data,
-        globals: {},
+        outputs: run.output_data,
         startedAt: run.started_at,
         finishedAt: run.completed_at,
-        estimatedCost: 0,
-        actualCost: 0,
-        errorMessage: run.error_message,
         executionTimeMs: run.execution_time_ms,
+        errorMessage: run.error_message,
         nodes: nodesList.map((row) => ({
           node_id: row.node_id,
           node_type: row.node_type,
@@ -68,11 +65,12 @@ export async function GET(_: Request, context: { params: Promise<{ runId: string
           error: row.error_message,
           started_at: row.started_at,
           completed_at: row.completed_at,
+          duration_ms: row.started_at && row.completed_at
+            ? new Date(row.completed_at).getTime() - new Date(row.started_at).getTime()
+            : 0,
         })),
-        logs: [],
         summary: {
           totalDurationMs: run.execution_time_ms ?? 0,
-          totalCost: 0,
           successCount,
           errorCount,
           pendingCount,

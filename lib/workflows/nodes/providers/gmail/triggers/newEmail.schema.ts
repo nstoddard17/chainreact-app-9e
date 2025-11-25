@@ -13,11 +13,12 @@ export const newEmailTriggerSchema: NodeComponent = {
     {
       name: "from",
       label: "From",
-      type: "select",
+      type: "email-autocomplete",
       dynamic: "gmail_recent_senders",
       // Allow searching and custom entry so users can add senders not in the initial list
       searchable: true,
       creatable: true,
+      multiple: true,
       required: false,
       loadOnMount: true, // Load senders immediately when modal opens
       placeholder: "Leave blank for any sender",
@@ -77,6 +78,12 @@ export const newEmailTriggerSchema: NodeComponent = {
       rows: 3
     },
     {
+      name: "aiAdvancedHelp",
+      label: "Advanced AI Filter",
+      type: "info",
+      description: "Use the toggles below to control how AI filtering behaves. Fail if AI errors will skip the trigger when the model call fails. Embedding prefilter uses a fast cosine check (needs OpenAI key) before calling the LLM to save cost/latency."
+    },
+    {
       name: "aiFilterConfidence",
       label: "AI Filter Strictness",
       type: "select",
@@ -93,6 +100,22 @@ export const newEmailTriggerSchema: NodeComponent = {
         $deps: ["aiContentFilter"],
         $condition: { aiContentFilter: { $exists: false } }
       }
+    },
+    {
+      name: "aiFailClosed",
+      label: "Advanced: Fail if AI check errors",
+      type: "boolean",
+      required: false,
+      defaultValue: false,
+      description: "If enabled, the trigger will be skipped when the AI filter fails (network/model errors)."
+    },
+    {
+      name: "aiUseEmbeddingPrefilter",
+      label: "Advanced: Use embedding prefilter",
+      type: "boolean",
+      required: false,
+      defaultValue: false,
+      description: "Fast cosine check (requires OpenAI key) before calling the AI model; may reduce cost/latency."
     }
   ],
   outputSchema: [

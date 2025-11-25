@@ -179,7 +179,28 @@ export function ResultsTab({
   const displayResult = latestExecutionResult || testResult || cachedOutputResult
 
   const hasTestData = displayData && Object.keys(displayData).length > 0
-  const hasTestResult = displayResult !== undefined
+  const resultHasRawResponse = useMemo(() => {
+    if (!displayResult?.rawResponse) return false
+    if (typeof displayResult.rawResponse === 'object') {
+      try {
+        return Object.keys(displayResult.rawResponse).length > 0
+      } catch {
+        return true
+      }
+    }
+    return true
+  }, [displayResult])
+
+  const hasMeaningfulResult = Boolean(
+    displayResult &&
+      (displayResult.timestamp ||
+        displayResult.executionTime !== undefined ||
+        displayResult.error ||
+        (typeof displayResult.message === 'string' && displayResult.message.trim().length > 0) ||
+        resultHasRawResponse)
+  )
+  const hasTestResult = hasMeaningfulResult
+  const activeResult = hasTestResult ? displayResult : null
   const isFromCache = !latestExecutionData && !testData && cachedOutputData !== null
 
   // Debug logging to trace data flow issues
@@ -190,7 +211,7 @@ export function ResultsTab({
       hasTestResult,
       testData,
       testDataKeys: testData ? Object.keys(testData) : 'NULL',
-      testResult,
+      testResult: activeResult,
       displayData,
       displayDataKeys: displayData ? Object.keys(displayData) : 'NULL',
       outputSchemaLength: flattenedOutputSchema?.length || 0
@@ -206,10 +227,10 @@ export function ResultsTab({
       displayDataSample: displayData ? JSON.stringify(displayData).slice(0, 200) : null,
       outputSchemaLength: flattenedOutputSchema?.length || 0,
       outputSchemaFields: flattenedOutputSchema?.map((f: any) => f.name) || [],
-      testResult: testResult ? { success: testResult.success, hasError: !!testResult.error } : null,
+      testResult: activeResult ? { success: activeResult.success, hasError: !!activeResult.error } : null,
       nodeType: nodeInfo?.type
     })
-  }, [testData, displayData, testResult, flattenedOutputSchema, nodeInfo?.type, hasTestData, hasTestResult, isFromCache])
+  }, [testData, displayData, testResult, activeResult, flattenedOutputSchema, nodeInfo?.type, hasTestData, hasTestResult, isFromCache])
 
   useEffect(() => {
     setLatestExecutionData(null)
@@ -784,9 +805,9 @@ export function ResultsTab({
     )
   }
 
-  const isSuccess = testResult?.success ?? true
-  const executionTime = testResult?.executionTime
-  const timestamp = testResult?.timestamp
+  const isSuccess = activeResult?.success ?? true
+  const executionTime = activeResult?.executionTime
+  const timestamp = activeResult?.timestamp
 
   return (
     <div className="flex flex-col h-full">
@@ -900,11 +921,11 @@ export function ResultsTab({
               </div>
 
               {/* Cached data info */}
-              {testResult?.cachedDataUsed && testResult.cachedDataUsed > 0 && (
+              {activeResult?.cachedDataUsed && activeResult.cachedDataUsed > 0 && (
                 <div className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 rounded-md px-3 py-2 border border-blue-200 dark:border-blue-800">
                   <Database className="h-3.5 w-3.5 flex-shrink-0" />
                   <span>
-                    Used {testResult.cachedDataUsed} cached node output{testResult.cachedDataUsed !== 1 ? 's' : ''} from previous run
+                    Used {activeResult.cachedDataUsed} cached node output{activeResult.cachedDataUsed !== 1 ? 's' : ''} from previous run
                   </span>
                 </div>
               )}
@@ -930,25 +951,25 @@ export function ResultsTab({
                   testData keys: {testData ? Object.keys(testData).join(', ') || '(empty)' : '(null)'}<br/>
                   displayData keys: {displayData ? Object.keys(displayData).join(', ') || '(empty)' : '(null)'}<br/>
                   outputSchema fields: {flattenedOutputSchema?.length || 0}<br/>
-                  testResult.rawResponse: {testResult?.rawResponse ? Object.keys(testResult.rawResponse).join(', ') : '(none)'}
+                  rawResponse fields: {activeResult?.rawResponse ? Object.keys(activeResult.rawResponse).join(', ') : '(none)'}
                 </p>
               </AlertDescription>
             </Alert>
           )}
 
           {/* Fallback: If test passed and we have rawResponse but no testData, show rawResponse */}
-          {hasTestResult && !hasTestData && isSuccess && testResult?.rawResponse && Object.keys(testResult.rawResponse).length > 0 && (
+          {hasTestResult && !hasTestData && isSuccess && activeResult?.rawResponse && Object.keys(activeResult.rawResponse).length > 0 && (
             <div className="space-y-4">
               <ConfigurationSectionHeader
                 label="Output Data (from rawResponse)"
                 prefix={<Code2 className="h-4 w-4 text-muted-foreground" />}
               />
-              <div className="rounded-lg border border-border bg-card p-4">
-                <pre className="text-xs font-mono text-foreground whitespace-pre-wrap break-all">
-                  {JSON.stringify(testResult.rawResponse, null, 2)}
-                </pre>
+                <div className="rounded-lg border border-border bg-card p-4">
+                  <pre className="text-xs font-mono text-foreground whitespace-pre-wrap break-all">
+                  {JSON.stringify(activeResult.rawResponse, null, 2)}
+                  </pre>
+                </div>
               </div>
-            </div>
           )}
 
           {/* Output Data */}
@@ -1079,7 +1100,7 @@ export function ResultsTab({
           )}
 
           {/* Raw Response Viewer */}
-          {testResult?.rawResponse && (
+          {activeResult?.rawResponse && (
             <div className="space-y-3">
               <button
                 onClick={() => setShowRawResponse(!showRawResponse)}
@@ -1096,7 +1117,7 @@ export function ResultsTab({
               {showRawResponse && (
                 <div className="rounded-lg border border-border bg-muted/30 p-4 overflow-x-auto">
                   <pre className="text-xs font-mono text-foreground whitespace-pre-wrap break-all">
-                    {highlightVariables(JSON.stringify(displayResult.rawResponse, null, 2))}
+                    {highlightVariables(JSON.stringify(activeResult.rawResponse, null, 2))}
                   </pre>
                 </div>
               )}

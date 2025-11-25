@@ -35,7 +35,8 @@ export class WorkflowExecutionService {
     testMode: boolean,
     workflowData?: any,
     skipTriggers: boolean = false,
-    testModeConfig?: TestModeConfig
+    testModeConfig?: TestModeConfig,
+    estimatedTasks?: number
   ) {
     logger.debug("🚀 Starting workflow execution service", {
       testMode,
@@ -168,6 +169,7 @@ export class WorkflowExecutionService {
         status: "running",
         input_data: inputData ?? {},
         started_at: new Date().toISOString(),
+        tasks_used: estimatedTasks ?? null,
       })
       .select()
       .single()

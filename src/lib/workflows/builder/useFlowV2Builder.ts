@@ -7,6 +7,7 @@ import { useWorkflowBuilder } from "@/hooks/workflows/useWorkflowBuilder"
 import { FlowSchema, type Flow, type FlowInterface, type Node as FlowNode, type Edge as FlowEdge } from "./schema"
 import { addNodeEdit, oldConnectToEdge, moveNodeEdit, generateId } from "../compat/v2Adapter"
 import { ALL_NODE_COMPONENTS } from "../../../../lib/workflows/nodes"
+import { flowApiUrl } from "./api/paths"
 
 const LINEAR_STACK_X = 400
 const DEFAULT_VERTICAL_SPACING = 180
@@ -119,6 +120,7 @@ export interface ApplyEditsOptions {
 
 export interface FlowV2BuilderActions {
   load: () => Promise<void>
+  loadRevision: (revisionId: string) => Promise<Flow>
   applyEdits: (edits: PlannerEdit[], options?: ApplyEditsOptions) => Promise<Flow>
   askAgent: (prompt: string) => Promise<AgentResult>
   updateConfig: (nodeId: string, patch: Record<string, any>) => void
@@ -605,7 +607,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
 
     try {
       const payload = await fetchJson<{ run: { id: string } | null }>(
-        `/workflows/v2/api/flows/${flowId}/runs/latest`
+        `${flowApiUrl(flowId, '/runs/latest')}`
       )
 
       if (payload?.run?.id) {
@@ -1024,7 +1026,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
     setLoading(true)
     try {
       const revisionsPayload = await fetchJson<{ revisions?: Array<{ id: string; version: number }> }>(
-        `/workflows/v2/api/flows/${flowId}/revisions`
+        `${flowApiUrl(flowId, '/revisions')}`
       )
       const revisions = (revisionsPayload.revisions ?? []).slice().sort((a, b) => b.version - a.version)
       if (revisions.length === 0) {
@@ -1034,7 +1036,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       const revisionId = revisions[0].id
 
       const revisionPayload = await fetchJson<{ revision: { id: string; flowId: string; graph: Flow } }>(
-        `/workflows/v2/api/flows/${flowId}/revisions/${revisionId}`
+        `${flowApiUrl(flowId, `/revisions/${revisionId}`)}`
       )
 
       const flow = FlowSchema.parse(revisionPayload.revision.graph)
@@ -1078,6 +1080,31 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
   // Queue to ensure only one applyEdits runs at a time (prevents race conditions)
   const applyEditsQueue = useRef<Promise<Flow | undefined>>(Promise.resolve(undefined))
 
+  const setFlowFromRevision = useCallback(
+    (flow: Flow, revisionId?: string, version?: number, options?: { skipGraphUpdate?: boolean }) => {
+      flowRef.current = flow
+      if (revisionId) {
+        revisionIdRef.current = revisionId
+      }
+
+      if (!options?.skipGraphUpdate) {
+        updateReactFlowGraph(flow)
+      }
+
+      setWorkflowName(flow.name ?? "Untitled Flow")
+      setHasUnsavedChanges(false)
+
+      setFlowState((prev) => ({
+        ...prev,
+        flow,
+        revisionId: revisionId ?? prev.revisionId,
+        version: flow.version ?? version ?? prev.version,
+        error: undefined,
+      }))
+    },
+    [setHasUnsavedChanges, setWorkflowName, updateReactFlowGraph]
+  )
+
   const applyEdits = useCallback(
     async (edits: PlannerEdit[], options?: ApplyEditsOptions) => {
       // Queue this request to run after the previous one completes
@@ -1095,7 +1122,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
         setSaving(true)
         try {
           const payload = await fetchJson<{ flow: Flow; revisionId?: string; version?: number }>(
-            `/workflows/v2/api/flows/${flowId}/apply-edits`,
+            `${flowApiUrl(flowId, '/apply-edits')}`,
             {
               method: "POST",
               headers: JSON_HEADERS,
@@ -1107,20 +1134,13 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
           )
 
           const updatedFlow = FlowSchema.parse(payload.flow)
-          flowRef.current = updatedFlow
-          revisionIdRef.current = payload.revisionId ?? revisionIdRef.current
-
           // Skip graph update for optimistic updates (e.g., node deletion)
           // The UI was already updated optimistically, so we don't want to overwrite it
-          if (!options?.skipGraphUpdate) {
-            updateReactFlowGraph(updatedFlow)
-          }
-
+          setFlowFromRevision(updatedFlow, payload.revisionId ?? revisionIdRef.current, payload.version, {
+            skipGraphUpdate: options?.skipGraphUpdate,
+          })
           setFlowState((prev) => ({
             ...prev,
-            flow: updatedFlow,
-            revisionId: payload.revisionId ?? prev.revisionId,
-            version: updatedFlow.version ?? payload.version ?? prev.version,
             revisionCount: (prev.revisionCount ?? 0) + 1,
             pendingAgentEdits: [],
           }))
@@ -1137,7 +1157,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       // Return this specific request (not the queue)
       return thisRequest
     },
-    [ensureFlow, flowId, setSaving, updateReactFlowGraph]
+    [ensureFlow, flowId, setFlowFromRevision, setSaving]
   )
 
   const askAgent = useCallback(
@@ -1148,7 +1168,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
         prerequisites?: string[]
         rationale?: string
         workflowName?: string
-      }>(`/workflows/v2/api/flows/${flowId}/edits`, {
+      }>(flowApiUrl(flowId, '/edits'), {
         method: "POST",
         headers: JSON_HEADERS,
         body: JSON.stringify({
@@ -1242,7 +1262,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       try {
         console.log('[useFlowV2Builder] Calling /apply-edits API...')
         const payload = await fetchJson<{ flow: Flow; revisionId?: string; version?: number }>(
-          `/workflows/v2/api/flows/${flowId}/apply-edits`,
+          `${flowApiUrl(flowId, '/apply-edits')}`,
           {
             method: "POST",
             headers: JSON_HEADERS,
@@ -1322,7 +1342,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
 
   const run = useCallback(
     async (inputs: any) => {
-      const payload = await fetchJson<{ runId: string }>(`/workflows/v2/api/flows/${flowId}/runs`, {
+      const payload = await fetchJson<{ runId: string }>(flowApiUrl(flowId, '/runs'), {
         method: "POST",
         headers: JSON_HEADERS,
         body: JSON.stringify({ inputs }),
@@ -1346,7 +1366,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       }
 
       const payload = await fetchJson<{ runId: string }>(
-        `/workflows/v2/api/runs/${targetRun}/nodes/${nodeId}/run-from-here`,
+        `/workflows/api/runs/${targetRun}/nodes/${nodeId}/run-from-here`,
         {
           method: "POST",
           headers: JSON_HEADERS,
@@ -1371,7 +1391,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
         return null
       }
 
-      const payload = await fetchJson<{ run: RunDetails }>(`/workflows/v2/api/runs/${targetRun}`)
+      const payload = await fetchJson<{ run: RunDetails }>(`/workflows/api/runs/${targetRun}`)
       const runDetails = payload.run
 
       setFlowState((prev) => ({
@@ -1396,7 +1416,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       }
 
       const payload = await fetchJson<{ snapshot?: any; lineage?: any[] }>(
-        `/workflows/v2/api/runs/${targetRun}/nodes/${nodeId}`
+        `/workflows/api/runs/${targetRun}/nodes/${nodeId}`
       )
 
       const result: NodeSnapshotResult = {
@@ -1419,7 +1439,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
 
   const listSecrets = useCallback(async () => {
     const payload = await fetchJson<{ ok: boolean; secrets?: Array<{ id: string; name: string }> }>(
-      `/workflows/v2/api/secrets`
+      `/workflows/api/secrets`
     )
     if (!payload.ok) {
       throw new Error("Failed to list secrets")
@@ -1436,7 +1456,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
 
   const createSecret = useCallback(
     async (name: string, value: string, workspaceId?: string) => {
-      const payload = await fetchJson<{ ok: boolean; secret: { id: string; name: string } }>(`/workflows/v2/api/secrets`, {
+      const payload = await fetchJson<{ ok: boolean; secret: { id: string; name: string } }>(`/workflows/api/secrets`, {
         method: "POST",
         headers: JSON_HEADERS,
         body: JSON.stringify({ name, value, workspaceId }),
@@ -1455,7 +1475,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
 
   const estimate = useCallback(async () => {
     try {
-      const payload = await fetchJson<any>(`/workflows/v2/api/flows/${flowId}/estimate`)
+      const payload = await fetchJson<any>(flowApiUrl(flowId, '/estimate'))
       return payload
     } catch (error) {
       console.warn("[useFlowV2Builder] estimate unavailable", error)
@@ -1464,7 +1484,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
   }, [flowId])
 
   const publish = useCallback(async () => {
-    const payload = await fetchJson<{ revisionId: string }>(`/workflows/v2/api/flows/${flowId}/publish`, {
+    const payload = await fetchJson<{ revisionId: string }>(flowApiUrl(flowId, '/publish'), {
       method: "POST",
       headers: JSON_HEADERS,
       body: JSON.stringify({}),
@@ -1478,9 +1498,35 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
     return payload
   }, [flowId])
 
+  const loadRevision = useCallback(
+    async (revisionId: string) => {
+      setLoading(true)
+      try {
+        const payload = await fetchJson<{ revision: { id: string; flowId: string; graph: Flow; version?: number } }>(
+          `${flowApiUrl(flowId, `/revisions/${revisionId}`)}`
+        )
+        const flow = FlowSchema.parse(payload.revision.graph)
+        setFlowFromRevision(flow, payload.revision.id, payload.revision.version)
+        void syncLatestRunId()
+        return flow
+      } catch (error: any) {
+        const message = error?.message ?? "Failed to load revision"
+        setFlowState((prev) => ({
+          ...prev,
+          error: message,
+        }))
+        throw error
+      } finally {
+        setLoading(false)
+      }
+    },
+    [flowId, setFlowFromRevision, setLoading, syncLatestRunId]
+  )
+
   const actions = useMemo<FlowV2BuilderActions>(
     () => ({
       load,
+      loadRevision,
       applyEdits,
       askAgent,
       updateConfig,
@@ -1505,6 +1551,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       connectEdge,
       createSecret,
       deleteNode,
+      loadRevision,
       moveNodes,
       estimate,
       getNodeSnapshot,

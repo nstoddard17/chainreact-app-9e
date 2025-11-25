@@ -6,6 +6,7 @@ import type { Workflow, WorkflowConnection, WorkflowNode } from "@/stores/workfl
 import type { Flow, Node as FlowNode, Edge as FlowEdge, FlowInterface } from "@/src/lib/workflows/builder/schema"
 import { FlowSchema } from "@/src/lib/workflows/builder/schema"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
+import { flowApiUrl } from "../builder/api/paths"
 
 type PlannerEdit =
   | { op: "addNode"; node: FlowNode }
@@ -302,7 +303,7 @@ function applyEdits(current: Flow, edits: PlannerEdit[]): Flow {
 
 async function getFlow(flowId: string): Promise<FlowFetchResult> {
   const revisionsPayload = await fetchJson<{ revisions?: RevisionSummary[] }>(
-    `/workflows/v2/api/flows/${flowId}/revisions`
+    flowApiUrl(flowId, '/revisions')
   )
 
   const revisions = (revisionsPayload.revisions ?? []).slice().sort((a, b) => b.version - a.version)
@@ -313,7 +314,7 @@ async function getFlow(flowId: string): Promise<FlowFetchResult> {
   const latest = revisions[0]
 
   const revisionPayload = await fetchJson<{ revision: { id: string; flowId: string; graph: Flow } }>(
-    `/workflows/v2/api/flows/${flowId}/revisions/${latest.id}`
+    flowApiUrl(flowId, `/revisions/${latest.id}`)
   )
 
   const parsedFlow = FlowSchema.parse(revisionPayload.revision.graph)
@@ -328,7 +329,7 @@ async function postEdits(flowId: string, baseFlow: Flow, edits: PlannerEdit[]): 
   const nextFlow = applyEdits(baseFlow, edits)
 
   const payload = await fetchJson<{ flow: Flow; revisionId?: string }>(
-    `/workflows/v2/api/flows/${flowId}/apply-edits`,
+    flowApiUrl(flowId, '/apply-edits'),
     {
       method: "POST",
       headers: JSON_HEADERS,
@@ -344,7 +345,7 @@ async function postEdits(flowId: string, baseFlow: Flow, edits: PlannerEdit[]): 
 
 export async function getRevisions(flowId: string): Promise<RevisionSummary[]> {
   const payload = await fetchJson<{ revisions?: RevisionSummary[] }>(
-    `/workflows/v2/api/flows/${flowId}/revisions`
+    flowApiUrl(flowId, '/revisions')
   )
   return payload.revisions ?? []
 }
@@ -352,7 +353,7 @@ export async function getRevisions(flowId: string): Promise<RevisionSummary[]> {
 export async function applyAgentPrompt(flowId: string, promptText: string): Promise<FlowFetchResult> {
   const { flow } = await getFlow(flowId)
   const plannerResult = await fetchJson<{ edits?: PlannerEdit[]; flow?: Flow; errors?: any }>(
-    `/workflows/v2/api/flows/${flowId}/edits`,
+    flowApiUrl(flowId, '/edits'),
     {
       method: "POST",
       headers: JSON_HEADERS,
@@ -372,7 +373,7 @@ export async function applyAgentPrompt(flowId: string, promptText: string): Prom
 }
 
 export async function startRun(flowId: string, inputs: any): Promise<{ runId: string }> {
-  const payload = await fetchJson<{ runId: string }>(`/workflows/v2/api/flows/${flowId}/runs`, {
+  const payload = await fetchJson<{ runId: string }>(flowApiUrl(flowId, '/runs'), {
     method: "POST",
     headers: JSON_HEADERS,
     body: JSON.stringify({ inputs }),
@@ -409,7 +410,7 @@ export async function runFromHere(runId: string, nodeId: string): Promise<{ runI
 
 export async function getEstimate(flowId: string): Promise<any | null> {
   try {
-    return await fetchJson<any>(`/workflows/v2/api/flows/${flowId}/estimate`)
+    return await fetchJson<any>(flowApiUrl(flowId, '/estimate'))
   } catch (error: any) {
     console.warn("[FlowV2Adapter] Estimate unavailable", error)
     return null
@@ -418,7 +419,7 @@ export async function getEstimate(flowId: string): Promise<any | null> {
 
 export async function publish(flowId: string): Promise<{ revisionId: string }> {
   const payload = await fetchJson<{ revisionId: string }>(
-    `/workflows/v2/api/flows/${flowId}/publish`,
+    flowApiUrl(flowId, '/publish'),
     {
       method: "POST",
       headers: JSON_HEADERS,
@@ -705,4 +706,3 @@ export function useFlowV2(flowId: string): UseFlowV2Result {
 
   return { state, flow, actions }
 }
-

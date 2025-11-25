@@ -76,7 +76,6 @@ import { ContactPicker } from './ContactPicker';
 import { GmailEmailField } from "./gmail/GmailEmailField";
 import { GmailAttachmentField } from "./gmail/GmailAttachmentField";
 import { OutlookEmailField } from "./outlook/OutlookEmailField";
-import { DiscordServerField } from "./discord/DiscordServerField";
 import { DiscordChannelField } from "./discord/DiscordChannelField";
 import { DiscordGenericField } from "./discord/DiscordGenericField";
 import { AirtableImageField } from "./airtable/AirtableImageField";
@@ -768,7 +767,9 @@ export function FieldRenderer({
 
   // Render the appropriate field based on type
   const renderFieldByType = () => {
-    const fieldIsLoading = loadingFields?.has(field.name) || false;
+    // Consider both per-field loading set and loadingDynamic flag
+    const fieldIsLoading = (loadingFields?.has(field.name) || loadingDynamic) || false;
+
     // Special handling for Discord slash command trigger
     // Hide all fields except guildId until a server is selected
     if (nodeInfo?.type === 'discord_trigger_slash_command') {
@@ -827,6 +828,16 @@ export function FieldRenderer({
     }
 
     switch (field.type) {
+      case "info":
+        return (
+          <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+            {field.label && (
+              <div className="font-medium text-foreground mb-1">{field.label}</div>
+            )}
+            {field.description && <div>{field.description}</div>}
+          </div>
+        );
+
       case "file-with-toggle":
         // File field with integrated multi-option toggle
         const modes = field.toggleOptions?.modes || ['upload', 'url'];
