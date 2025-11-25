@@ -35,7 +35,21 @@ export async function addMicrosoftExcelMultipleRows(
   userId: string,
   input: Record<string, any>
 ): Promise<{ success: boolean; output: AddMultipleRowsOutput; message: string }> {
-  const { workbookId, worksheetName, rows, columnMapping } = config
+  let { workbookId, worksheetName, rows, columnMapping } = config
+
+  // Transform columnMapping from array format to object format if needed
+  // The UI component (MicrosoftExcelColumnMapper) outputs: [{ column: "Name", value: "John" }]
+  // But we need: { "Name": "John" }
+  if (Array.isArray(columnMapping)) {
+    logger.debug('[Microsoft Excel] Converting array format to object format');
+    const mappingObject: Record<string, any> = {};
+    for (const item of columnMapping) {
+      if (item && item.column && item.value !== undefined) {
+        mappingObject[item.column] = item.value;
+      }
+    }
+    columnMapping = mappingObject;
+  }
 
   logger.debug('[Microsoft Excel] Adding multiple rows:', {
     workbookId,

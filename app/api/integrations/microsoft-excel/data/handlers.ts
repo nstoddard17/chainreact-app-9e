@@ -12,8 +12,6 @@ import {
   ExcelWorksheet
 } from './types'
 
-import { logger } from '@/lib/utils/logger'
-
 const GRAPH_API_BASE = 'https://graph.microsoft.com/v1.0'
 const DEFAULT_TIMEOUT = 15000 // 15 seconds for Graph API calls
 
@@ -51,7 +49,6 @@ async function getAccessToken(integration: MicrosoftExcelIntegration): Promise<s
   try {
     return await decrypt(integration.access_token)
   } catch (error) {
-    logger.error('Failed to decrypt access token:', error)
     throw new Error('Failed to decrypt OneDrive access token')
   }
 }
@@ -68,7 +65,6 @@ const fetchWorkbooks: ExcelDataHandler = async (integration: MicrosoftExcelInteg
 
   try {
     // Strategy 1: List root folder and common folders in PARALLEL for speed
-    logger.debug('[Microsoft Excel] Fetching workbooks from multiple locations in parallel...')
 
     const headers = {
       'Authorization': `Bearer ${accessToken}`,
@@ -115,14 +111,10 @@ const fetchWorkbooks: ExcelDataHandler = async (integration: MicrosoftExcelInteg
           allWorkbooks.set(file.id, file)
         }
       }
-      if (result.files.length > 0) {
-        logger.debug(`[Microsoft Excel] Found files in ${result.folderPath}: ${result.files.filter((f: any) => f.name?.toLowerCase().endsWith('.xlsx') || f.name?.toLowerCase().endsWith('.xls')).length} Excel files`)
-      }
     }
 
     // Strategy 2: Use search API as fallback if we found nothing
     if (allWorkbooks.size === 0) {
-      logger.debug('[Microsoft Excel] No workbooks found via direct listing, trying search API...')
       try {
         const searchUrl = `${GRAPH_API_BASE}/me/drive/search(q='.xlsx')?$select=id,name,webUrl,createdDateTime,lastModifiedDateTime&$top=100`
         const searchResponse = await fetchWithTimeout(searchUrl, { headers }, 15000)
@@ -136,16 +128,14 @@ const fetchWorkbooks: ExcelDataHandler = async (integration: MicrosoftExcelInteg
               allWorkbooks.set(file.id, file)
             }
           }
-          logger.debug(`[Microsoft Excel] Search API found ${searchFiles.length} files`)
         }
       } catch (searchError) {
-        logger.warn('[Microsoft Excel] Search API failed:', searchError)
+        // Search API failed, continue to next strategy
       }
     }
 
     // Strategy 3: List all recent files if still nothing
     if (allWorkbooks.size === 0) {
-      logger.debug('[Microsoft Excel] Trying recent files endpoint...')
       try {
         const recentUrl = `${GRAPH_API_BASE}/me/drive/recent?$select=id,name,webUrl,createdDateTime,lastModifiedDateTime,file&$top=100`
         const recentResponse = await fetchWithTimeout(recentUrl, { headers }, 10000)
@@ -159,20 +149,16 @@ const fetchWorkbooks: ExcelDataHandler = async (integration: MicrosoftExcelInteg
               allWorkbooks.set(file.id, file)
             }
           }
-          logger.debug(`[Microsoft Excel] Recent files found ${allWorkbooks.size} Excel files`)
         }
       } catch (recentError) {
-        logger.warn('[Microsoft Excel] Recent files failed:', recentError)
+        // Recent files failed, continue
       }
     }
 
     // Convert Map to array and format for dropdown
     const workbooks = Array.from(allWorkbooks.values())
 
-    logger.debug(`[Microsoft Excel] Total unique workbooks found: ${workbooks.length}`)
-
     if (workbooks.length === 0) {
-      logger.warn('[Microsoft Excel] No Excel workbooks found in OneDrive')
       return []
     }
 
@@ -188,7 +174,6 @@ const fetchWorkbooks: ExcelDataHandler = async (integration: MicrosoftExcelInteg
       }))
 
   } catch (error) {
-    logger.error('[Microsoft Excel] Error fetching workbooks:', error)
     throw error
   }
 }
@@ -229,54 +214,117 @@ const fetchWorksheets: ExcelDataHandler = async (integration: MicrosoftExcelInte
       label: sheet.name
     }))
 
-  } catch (error) {
-    logger.error('[Microsoft Excel] Error fetching worksheets:', error)
+  } catch (error: any) {
+    console.error('[Microsoft Excel] Error fetching worksheets:', {
+      message: error.message,
+      stack: error.stack,
+      options
+    });
     throw error
   }
 }
 
 /**
  * Fetch columns from a worksheet
+ * Uses the same approach as findOrCreateRow.ts - fetching row 1 without URL encoding
  */
 const fetchColumns: ExcelDataHandler = async (integration: MicrosoftExcelIntegration, options: ExcelHandlerOptions) => {
   const { workbookId, worksheetName } = options
 
+  console.log('[fetchColumns] Called with options:', {
+    workbookId,
+    worksheetName,
+    worksheetNameType: typeof worksheetName,
+    workbookIdType: typeof workbookId,
+    allOptions: options,
+    optionsKeys: Object.keys(options)
+  });
+
   if (!workbookId || !worksheetName) {
+    console.error('[fetchColumns] Missing required parameters:', {
+      hasWorkbookId: !!workbookId,
+      hasWorksheetName: !!worksheetName,
+      workbookId,
+      worksheetName
+    });
     throw new Error('Workbook ID and worksheet name are required to fetch columns')
   }
 
   const accessToken = await getAccessToken(integration)
 
   try {
-    // Get the first row (headers) from the worksheet
-    const url = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets('${encodeURIComponent(worksheetName)}')/range(address='1:1')`
+    // Use usedRange to get the actual data range with values
+    // This is the approach used in updateRow.ts and other working actions
+    const usedRangeUrl = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets('${worksheetName}')/usedRange`
 
-    const response = await fetchWithTimeout(url, {
+    console.log('[fetchColumns] Graph API URL:', usedRangeUrl);
+    console.log('[fetchColumns] Access token length:', accessToken?.length);
+
+    const usedRangeResponse = await fetchWithTimeout(usedRangeUrl, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
       }
     })
 
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(`Failed to fetch columns: ${error}`)
+    if (!usedRangeResponse.ok) {
+      const error = await usedRangeResponse.text()
+      console.error('[fetchColumns] Graph API error response:', error);
+      throw new Error(`Failed to fetch used range: ${error}`)
     }
 
-    const data = await response.json()
-    const headers = data.values?.[0] || []
+    const usedRangeData = await usedRangeResponse.json()
+    console.log('[fetchColumns] Graph API success response:', {
+      hasValues: !!usedRangeData.values,
+      valuesLength: usedRangeData.values?.length,
+      valuesIsArray: Array.isArray(usedRangeData.values),
+      firstRow: usedRangeData.values?.[0],
+      firstRowLength: usedRangeData.values?.[0]?.length
+    });
 
-    // Format for dropdown
-    return headers
-      .filter((header: any) => header && header.toString().trim() !== '')
-      .map((header: string, index: number) => ({
-        value: header,
-        label: header,
-        description: `Column ${String.fromCharCode(65 + index)}`
-      }))
+    // Get the first row as headers
+    const allRows = usedRangeData.values || []
+    if (allRows.length === 0) {
+      console.log('[fetchColumns] No data in worksheet');
+      return []
+    }
 
-  } catch (error) {
-    logger.error('[Microsoft Excel] Error fetching columns:', error)
+    const headers = allRows[0] || []
+    console.log('[fetchColumns] Extracted headers array:', {
+      headers,
+      headersLength: headers.length,
+      headersType: typeof headers,
+      isArray: Array.isArray(headers)
+    });
+
+    // Format for dropdown - filter out empty cells
+    const result = headers
+      .map((header: any, index: number) => {
+        const headerStr = header ? header.toString().trim() : ''
+        console.log(`[fetchColumns] Processing header ${index}:`, { header, headerStr, isEmpty: !headerStr });
+        if (!headerStr) return null
+        return {
+          value: headerStr,
+          label: headerStr,
+          description: `Column ${String.fromCharCode(65 + index)}`
+        }
+      })
+      .filter((item: any) => item !== null)
+
+    console.log('[fetchColumns] Final result:', {
+      resultLength: result.length,
+      result
+    });
+
+    return result
+
+  } catch (error: any) {
+    console.error('[Microsoft Excel] Error fetching columns:', {
+      message: error.message,
+      stack: error.stack,
+      workbookId,
+      worksheetName
+    });
     throw error
   }
 }
@@ -349,7 +397,6 @@ const fetchColumnValues: ExcelDataHandler = async (integration: MicrosoftExcelIn
     }))
 
   } catch (error) {
-    logger.error('[Microsoft Excel] Error fetching column values:', error)
     throw error
   }
 }
@@ -391,7 +438,6 @@ const fetchFolders: ExcelDataHandler = async (integration: MicrosoftExcelIntegra
     return folderOptions
 
   } catch (error) {
-    logger.error('[Microsoft Excel] Error fetching folders:', error)
     throw error
   }
 }
@@ -471,7 +517,6 @@ const fetchDataPreview: ExcelDataHandler = async (integration: MicrosoftExcelInt
 
 
   } catch (error) {
-    logger.error('[Microsoft Excel] Error fetching data preview:', error)
     throw error
   }
 }
@@ -514,7 +559,6 @@ const fetchTables: ExcelDataHandler = async (integration: MicrosoftExcelIntegrat
     }))
 
   } catch (error) {
-    logger.error('[Microsoft Excel] Error fetching tables:', error)
     throw error
   }
 }
@@ -557,7 +601,6 @@ const fetchTableColumns: ExcelDataHandler = async (integration: MicrosoftExcelIn
     }))
 
   } catch (error) {
-    logger.error('[Microsoft Excel] Error fetching table columns:', error)
     throw error
   }
 }

@@ -307,7 +307,9 @@ export const microsoftExcelNodes: NodeComponent[] = [
         type: "textarea",
         required: false,
         placeholder: "Optional description of the workbook",
-        description: "A brief description of what this workbook is for"
+        description: "A brief description of what this workbook is for",
+        hasVariablePicker: true,
+        hasConnectButton: true
       },
       {
         name: "folderPath",
@@ -348,7 +350,9 @@ export const microsoftExcelNodes: NodeComponent[] = [
         required: false,
         placeholder: "Example:\nName,Age,City\nJohn,30,NYC\nJane,25,LA",
         description: "Add starting data to the first worksheet. Paste data in CSV format (values separated by commas, rows separated by line breaks)",
-        helpText: "Format: Use commas to separate columns and new lines to separate rows. First row can be headers."
+        helpText: "Format: Use commas to separate columns and new lines to separate rows. First row can be headers.",
+        hasVariablePicker: true,
+        hasConnectButton: true
       }
     ],
     outputSchema: [
@@ -378,11 +382,12 @@ export const microsoftExcelNodes: NodeComponent[] = [
       }
     ]
   },
+  // === ADD NEW ROW ACTION ===
   {
-    type: "microsoft_excel_unified_action",
-    title: "Manage Excel Data",
-    description: "Add, update, or remove data in Microsoft Excel with visual column mapping",
-    icon: FileSpreadsheet,
+    type: "microsoft_excel_action_add_row",
+    title: "Add New Row",
+    description: "Add a new row to a Microsoft Excel worksheet",
+    icon: Plus,
     isTrigger: false,
     providerId: "microsoft-excel",
     testable: true,
@@ -390,13 +395,6 @@ export const microsoftExcelNodes: NodeComponent[] = [
     requiredScopes: ["https://graph.microsoft.com/Files.ReadWrite.All"],
     category: "Productivity",
     outputSchema: [
-      {
-        name: "action",
-        label: "Action Performed",
-        type: "string",
-        description: "The action that was performed (add, update, or delete)",
-        example: "add"
-      },
       {
         name: "workbookId",
         label: "Workbook ID",
@@ -412,24 +410,17 @@ export const microsoftExcelNodes: NodeComponent[] = [
         example: "Sheet1"
       },
       {
-        name: "rowsAffected",
-        label: "Rows Affected",
-        type: "number",
-        description: "The number of rows that were added, updated, or deleted",
-        example: 5
-      },
-      {
-        name: "rangeModified",
+        name: "range",
         label: "Range Modified",
         type: "string",
         description: "The specific range that was modified in A1 notation",
-        example: "Sheet1!A2:E6"
+        example: "Sheet1!A2:E2"
       },
       {
         name: "values",
         label: "Data Values",
         type: "array",
-        description: "The actual data that was added or updated (not included for delete actions)",
+        description: "The actual data that was added",
         example: [["John Doe", "john@example.com", "Active"]]
       },
       {
@@ -438,17 +429,9 @@ export const microsoftExcelNodes: NodeComponent[] = [
         type: "string",
         description: "When the action was performed",
         example: "2024-01-15T10:30:00Z"
-      },
-      {
-        name: "message",
-        label: "Status Message",
-        type: "string",
-        description: "A human-readable message about the action performed",
-        example: "Successfully added 5 rows to Sheet1"
       }
     ],
     configSchema: [
-      // === WORKBOOK AND WORKSHEET SELECTION (ALWAYS VISIBLE) ===
       {
         name: "workbookId",
         label: "Workbook",
@@ -471,32 +454,12 @@ export const microsoftExcelNodes: NodeComponent[] = [
         description: "The specific worksheet (tab) within the workbook",
         helpText: "Select which worksheet tab to work with"
       },
-
-      // === ACTION SELECTION (VISIBLE AFTER WORKSHEET SELECTION) ===
-      {
-        name: "action",
-        label: "What do you want to do?",
-        type: "select",
-        required: true,
-        dependsOn: "worksheetName",
-        placeholder: "Select an action...",
-        options: [
-          { value: "add", label: "➕ Add new row" },
-          { value: "update", label: "✏️ Update existing row" },
-          { value: "delete", label: "🗑️ Delete row" }
-        ],
-        description: "Choose what action to perform on the workbook",
-        helpText: "Add: Creates a new row in your worksheet. Update: Changes data in existing rows. Delete: Removes rows permanently."
-      },
-
-      // === ADD ROW FIELDS ===
       {
         name: "insertPosition",
         label: "Insert Position",
         type: "select",
         required: false,
-        hidden: true,
-        showIf: (values: any) => values.action === "add",
+        dependsOn: "worksheetName",
         options: [
           { value: "append", label: "Append at the end" },
           { value: "prepend", label: "Insert at the beginning (after headers)" },
@@ -511,8 +474,9 @@ export const microsoftExcelNodes: NodeComponent[] = [
         label: "Row Number",
         type: "number",
         required: false,
+        dependsOn: "insertPosition",
         hidden: true,
-        showIf: (values: any) => values.action === "add" && values.insertPosition === "specific_row",
+        showIf: (values: any) => values.insertPosition === "specific_row",
         placeholder: "Enter row number",
         description: "The specific row number to insert at",
         min: 2,
@@ -523,74 +487,317 @@ export const microsoftExcelNodes: NodeComponent[] = [
         label: "What Data to Add",
         type: "microsoft_excel_column_mapper",
         required: true,
-        hidden: true,
-        showIf: (values: any) => values.action === "add",
         dependsOn: "worksheetName",
         description: "Choose which data goes into which columns",
-        helpText: "Select a column from your worksheet, then choose what data from your workflow should go there. For example, put the 'Email' from your trigger into the 'Email Address' column."
-      },
+        helpText: "Select a column from your worksheet, then choose what data from your workflow should go there."
+      }
+    ],
+  },
 
-      // === UPDATE ROW FIELDS ===
+  // === UPDATE ROW ACTION ===
+  {
+    type: "microsoft_excel_action_update_row",
+    title: "Update Row",
+    description: "Update an existing row in a Microsoft Excel worksheet",
+    icon: Edit,
+    isTrigger: false,
+    providerId: "microsoft-excel",
+    testable: true,
+    requiredIntegration: "microsoft-excel",
+    requiredScopes: ["https://graph.microsoft.com/Files.ReadWrite.All"],
+    category: "Productivity",
+    outputSchema: [
       {
-        name: "updateRowNumber",
-        label: "Selected Row Number",
+        name: "workbookId",
+        label: "Workbook ID",
+        type: "string",
+        description: "The ID of the workbook that was modified",
+        example: "01ABC123DEF456789"
+      },
+      {
+        name: "worksheetName",
+        label: "Worksheet Name",
+        type: "string",
+        description: "The name of the worksheet that was modified",
+        example: "Sheet1"
+      },
+      {
+        name: "rowsUpdated",
+        label: "Rows Updated",
         type: "number",
-        required: false,
-        hidden: true,
-        showIf: (values: any) => false,
-        description: "The row number selected from the preview table"
+        description: "The number of rows that were updated",
+        example: 1
       },
-
-      // === DELETE ROW FIELDS ===
       {
-        name: "deleteRowBy",
+        name: "rowNumbers",
+        label: "Row Numbers",
+        type: "array",
+        description: "The row numbers that were updated",
+        example: [5]
+      },
+      {
+        name: "ranges",
+        label: "Ranges Modified",
+        type: "array",
+        description: "The specific cell ranges that were modified",
+        example: ["Sheet1!A5", "Sheet1!B5"]
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "When the action was performed",
+        example: "2024-01-15T10:30:00Z"
+      }
+    ],
+    configSchema: [
+      {
+        name: "workbookId",
+        label: "Workbook",
+        type: "select",
+        dynamic: "microsoft-excel_workbooks",
+        required: true,
+        loadOnMount: true,
+        placeholder: "Select a workbook",
+        description: "The Excel file you want to work with",
+        helpText: "Start typing to search through your workbooks"
+      },
+      {
+        name: "worksheetName",
+        label: "Worksheet",
+        type: "select",
+        dynamic: "microsoft-excel_worksheets",
+        required: true,
+        dependsOn: "workbookId",
+        placeholder: "Select a worksheet",
+        description: "The specific worksheet (tab) within the workbook",
+        helpText: "Select which worksheet tab to work with"
+      },
+      {
+        name: "hasHeaders",
+        label: "First row contains headers",
+        type: "custom",
+        required: false,
+        dependsOn: "worksheetName",
+        defaultValue: true,
+        description: "Whether the first row of the worksheet contains column headers",
+        helpText: "If checked, row 1 is treated as headers. If unchecked, row 1 can be updated as data."
+      },
+      {
+        name: "findRowBy",
         label: "Find Row By",
         type: "select",
         required: true,
-        hidden: true,
-        showIf: (values: any) => values.action === "delete",
+        dependsOn: "worksheetName",
         options: [
           { value: "row_number", label: "Row number" },
-          { value: "column_value", label: "Column value" },
-          { value: "range", label: "Row range" }
+          { value: "column_value", label: "Column value (search)" }
         ],
-        description: "How to identify which row(s) to delete",
-        helpText: "Row number: Delete a specific row. Column value: Find and delete row where a column contains a specific value. Row range: Delete multiple consecutive rows."
+        description: "How to identify which row to update",
+        helpText: "Row number: Update a specific row. Column value: Find row where a column matches a value."
       },
       {
-        name: "deleteRowNumber",
+        name: "rowNumber",
         label: "Row Number",
         type: "number",
         required: true,
+        dependsOn: "findRowBy",
         hidden: true,
-        showIf: (values: any) => values.action === "delete" && values.deleteRowBy === "row_number",
+        showIf: (values: any) => values.findRowBy === "row_number",
+        placeholder: "Enter row number (e.g. 5)",
+        min: 1,
+        description: "The row number to update",
+        helpText: "Row 1 can be headers or data, depending on your worksheet structure"
+      },
+      {
+        name: "matchColumn",
+        label: "Search Column",
+        type: "select",
+        dynamic: "microsoft-excel_columns",
+        required: true,
+        dependsOn: "worksheetName",
+        hidden: true,
+        showIf: (values: any) => values.findRowBy === "column_value",
+        placeholder: "Select column to search",
+        description: "The column to search for the matching value"
+      },
+      {
+        name: "matchValue",
+        label: "Search Value",
+        type: "text",
+        required: true,
+        dependsOn: "matchColumn",
+        hidden: true,
+        showIf: (values: any) => values.findRowBy === "column_value",
+        placeholder: "Enter value to find",
+        description: "The value to search for in the column",
+        hasVariablePicker: true
+      },
+      {
+        name: "updateMultiple",
+        label: "Update All Matches",
+        type: "boolean",
+        required: false,
+        dependsOn: "matchColumn",
+        hidden: true,
+        showIf: (values: any) => values.findRowBy === "column_value",
+        defaultValue: false,
+        description: "Update all rows that match (if unchecked, only updates first match)"
+      },
+      {
+        name: "updateMapping",
+        label: "Fields to Update",
+        type: "custom",
+        required: true,
+        dependsOn: "worksheetName",
+        description: "Choose which columns to update and their new values",
+        helpText: "Select columns and provide new values. Only the columns you specify will be updated."
+      }
+    ],
+  },
+
+  // === DELETE ROW ACTION ===
+  {
+    type: "microsoft_excel_action_delete_row",
+    title: "Delete Row",
+    description: "Delete a row from a Microsoft Excel worksheet",
+    icon: Trash2,
+    isTrigger: false,
+    providerId: "microsoft-excel",
+    testable: true,
+    requiredIntegration: "microsoft-excel",
+    requiredScopes: ["https://graph.microsoft.com/Files.ReadWrite.All"],
+    category: "Productivity",
+    outputSchema: [
+      {
+        name: "workbookId",
+        label: "Workbook ID",
+        type: "string",
+        description: "The ID of the workbook that was modified",
+        example: "01ABC123DEF456789"
+      },
+      {
+        name: "worksheetName",
+        label: "Worksheet Name",
+        type: "string",
+        description: "The name of the worksheet that was modified",
+        example: "Sheet1"
+      },
+      {
+        name: "rowsDeleted",
+        label: "Rows Deleted",
+        type: "number",
+        description: "The number of rows that were deleted",
+        example: 1
+      },
+      {
+        name: "range",
+        label: "Range Description",
+        type: "string",
+        description: "Description of what was deleted",
+        example: "Row 5"
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "When the action was performed",
+        example: "2024-01-15T10:30:00Z"
+      }
+    ],
+    configSchema: [
+      {
+        name: "workbookId",
+        label: "Workbook",
+        type: "select",
+        dynamic: "microsoft-excel_workbooks",
+        required: true,
+        loadOnMount: true,
+        placeholder: "Select a workbook",
+        description: "The Excel file you want to work with",
+        helpText: "Start typing to search through your workbooks"
+      },
+      {
+        name: "worksheetName",
+        label: "Worksheet",
+        type: "select",
+        dynamic: "microsoft-excel_worksheets",
+        required: true,
+        dependsOn: "workbookId",
+        placeholder: "Select a worksheet",
+        description: "The specific worksheet (tab) within the workbook",
+        helpText: "Select which worksheet tab to work with"
+      },
+      {
+        name: "deleteBy",
+        label: "Find Row By",
+        type: "select",
+        required: true,
+        dependsOn: "worksheetName",
+        options: [
+          { value: "row_number", label: "Row number" },
+          { value: "column_value", label: "Column value (search)" },
+          { value: "range", label: "Row range" }
+        ],
+        description: "How to identify which row(s) to delete",
+        helpText: "Row number: Delete a specific row. Column value: Find and delete row where a column matches. Row range: Delete multiple consecutive rows."
+      },
+      {
+        name: "rowNumber",
+        label: "Row Number",
+        type: "number",
+        required: true,
+        dependsOn: "deleteBy",
+        hidden: true,
+        showIf: (values: any) => values.deleteBy === "row_number",
         placeholder: "Enter row number (e.g. 5)",
         min: 2,
         description: "The row number to delete (2 = first data row)",
         helpText: "Row 1 is usually headers, so data starts at row 2"
       },
-      // Note: deleteSearchColumn, deleteSearchValue, and deleteAll fields are handled
-      // in the MicrosoftExcelDeleteConfirmation component (not in the schema)
-      // === DATA PREVIEW (Shows for update or delete by column) ===
       {
-        name: "dataPreview",
-        label: "Worksheet Preview",
-        type: "microsoft_excel_data_preview",
-        required: false,
+        name: "matchColumn",
+        label: "Search Column",
+        type: "select",
+        dynamic: "microsoft-excel_columns",
+        required: true,
+        dependsOn: "deleteBy",
         hidden: true,
-        showIf: (values: any) => values.worksheetName && (values.action === "update" || (values.action === "delete" && values.deleteRowBy === "column_value")),
-        dependsOn: "worksheetName",
-        description: "Preview of your worksheet data",
-        helpText: "This shows you the first few rows of your worksheet to help you understand the column structure and data types"
+        showIf: (values: any) => values.deleteBy === "column_value",
+        placeholder: "Select column to search",
+        description: "The column to search for the matching value"
       },
-
+      {
+        name: "matchValue",
+        label: "Search Value",
+        type: "text",
+        required: true,
+        dependsOn: "matchColumn",
+        hidden: true,
+        showIf: (values: any) => values.deleteBy === "column_value",
+        placeholder: "Enter value to find",
+        description: "The value to search for in the column",
+        hasVariablePicker: true
+      },
+      {
+        name: "deleteAll",
+        label: "Delete All Matches",
+        type: "boolean",
+        required: false,
+        dependsOn: "matchColumn",
+        hidden: true,
+        showIf: (values: any) => values.deleteBy === "column_value",
+        defaultValue: false,
+        description: "Delete all rows that match (if unchecked, only deletes first match)"
+      },
       {
         name: "startRow",
         label: "Start Row",
         type: "number",
         required: true,
+        dependsOn: "deleteBy",
         hidden: true,
-        showIf: (values: any) => values.action === "delete" && values.deleteRowBy === "range",
+        showIf: (values: any) => values.deleteBy === "range",
         placeholder: "Enter start row number",
         description: "First row to delete in range",
         min: 2,
@@ -601,12 +808,23 @@ export const microsoftExcelNodes: NodeComponent[] = [
         label: "End Row",
         type: "number",
         required: true,
+        dependsOn: "deleteBy",
         hidden: true,
-        showIf: (values: any) => values.action === "delete" && values.deleteRowBy === "range",
+        showIf: (values: any) => values.deleteBy === "range",
         placeholder: "Enter end row number",
         description: "Last row to delete in range",
         min: 2,
         helpText: "The last row number in the range to delete (inclusive)"
+      },
+      {
+        name: "confirmDelete",
+        label: "Confirm Deletion",
+        type: "boolean",
+        required: true,
+        dependsOn: "worksheetName",
+        defaultValue: false,
+        description: "Check this box to confirm you want to delete the row(s)",
+        helpText: "This is a safety check to prevent accidental deletions"
       }
     ],
   },
@@ -899,140 +1117,6 @@ export const microsoftExcelNodes: NodeComponent[] = [
         type: "string",
         description: "When the row was added",
         example: "2024-01-15T10:30:00Z"
-      }
-    ]
-  },
-  {
-    type: "microsoft_excel_action_find_or_create_row",
-    title: "Find or Create Row",
-    description: "Search for a row by column value, update if found, create if not found",
-    icon: GitMerge,
-    providerId: "microsoft-excel",
-    requiredIntegration: "microsoft-excel",
-    requiredScopes: ["https://graph.microsoft.com/Files.ReadWrite.All"],
-    category: "Productivity",
-    isTrigger: false,
-    producesOutput: true,
-    configSchema: [
-      {
-        name: "workbookId",
-        label: "Workbook",
-        type: "select",
-        dynamic: "microsoft-excel_workbooks",
-        required: true,
-        loadOnMount: true,
-        placeholder: "Select a workbook",
-        description: "The Excel file to search in"
-      },
-      {
-        name: "worksheetName",
-        label: "Worksheet",
-        type: "select",
-        dynamic: "microsoft-excel_worksheets",
-        required: true,
-        dependsOn: "workbookId",
-        placeholder: "Select a worksheet",
-        description: "The worksheet to search in"
-      },
-      {
-        name: "searchColumn",
-        label: "Search Column",
-        type: "select",
-        dynamic: "microsoft-excel_columns",
-        required: true,
-        dependsOn: "worksheetName",
-        placeholder: "Select column to search",
-        description: "Which column to search for the value",
-        helpText: "The row will be identified by matching this column's value"
-      },
-      {
-        name: "searchValue",
-        label: "Search Value",
-        type: "text",
-        required: true,
-        placeholder: "Enter value to search for",
-        description: "The value to look for in the search column",
-        helpText: "If a row with this value exists, it will be updated. If not, a new row will be created."
-      },
-      {
-        name: "updateIfFound",
-        label: "Update if Found",
-        type: "boolean",
-        required: false,
-        defaultValue: true,
-        description: "Update the row if found, or just return it",
-        helpText: "If enabled, matching rows will be updated with new data. If disabled, matching rows are returned unchanged."
-      },
-      {
-        name: "columnMapping",
-        label: "Column Values",
-        type: "microsoft_excel_column_mapper",
-        required: true,
-        dependsOn: "worksheetName",
-        description: "Map data to columns",
-        helpText: "These values will be used for creating new rows or updating existing rows (if Update if Found is enabled)"
-      }
-    ],
-    outputSchema: [
-      {
-        name: "found",
-        label: "Found",
-        type: "boolean",
-        description: "Whether an existing row was found",
-        example: true
-      },
-      {
-        name: "created",
-        label: "Created",
-        type: "boolean",
-        description: "Whether a new row was created",
-        example: false
-      },
-      {
-        name: "updated",
-        label: "Updated",
-        type: "boolean",
-        description: "Whether an existing row was updated",
-        example: true
-      },
-      {
-        name: "action",
-        label: "Action Performed",
-        type: "string",
-        description: "What action was taken: found, created, or updated",
-        example: "updated"
-      },
-      {
-        name: "rowNumber",
-        label: "Row Number",
-        type: "number",
-        description: "The row number in the worksheet",
-        example: 5
-      },
-      {
-        name: "rowData",
-        label: "Row Data",
-        type: "object",
-        description: "The complete row data as key-value pairs",
-        example: { "Name": "John Doe", "Email": "john@example.com", "Status": "Active" }
-      },
-      {
-        name: "workbookId",
-        label: "Workbook ID",
-        type: "string",
-        description: "The ID of the workbook"
-      },
-      {
-        name: "worksheetName",
-        label: "Worksheet Name",
-        type: "string",
-        description: "The name of the worksheet"
-      },
-      {
-        name: "timestamp",
-        label: "Timestamp",
-        type: "string",
-        description: "When the action was performed"
       }
     ]
   },

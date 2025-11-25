@@ -1104,6 +1104,15 @@ function ConfigurationForm({
       // This ensures dropdowns are populated when modal opens with a parent value
       if (field.dependsOn) {
         const parentValue = values[field.dependsOn];
+        // Check if options already exist to prevent repeated loads
+        const fieldOptions = dynamicOptions[field.name];
+        const hasExistingOptions = fieldOptions && Array.isArray(fieldOptions) && fieldOptions.length > 0;
+
+        // Skip if already has options (prevents repeated API calls)
+        if (hasExistingOptions) {
+          return false;
+        }
+
         if (parentValue && !loadedFieldsWithValues.current.has(field.name) && !loadingFields.has(field.name)) {
           logger.debug(`🔄 [ConfigForm] Field ${field.name} is dependent on ${field.dependsOn} which has value: ${parentValue}`);
           return true;
@@ -1259,6 +1268,11 @@ function ConfigurationForm({
         // Load if visible and not yet loaded
         // Special case: prevent repeated reloads for Google Sheets sheetName when options exist
         if (nodeInfo?.providerId === 'google-sheets' && field.name === 'sheetName' && hasOptions) {
+          return false;
+        }
+
+        // Special case: prevent repeated reloads for Microsoft Excel dependent fields when options exist
+        if (nodeInfo?.providerId === 'microsoft-excel' && hasOptions) {
           return false;
         }
 

@@ -615,6 +615,9 @@ export async function refreshTokenForProvider(
     } else if (provider === "microsoft-onenote") {
       clientId = process.env.ONENOTE_CLIENT_ID || process.env.MICROSOFT_CLIENT_ID
       clientSecret = process.env.ONENOTE_CLIENT_SECRET || process.env.MICROSOFT_CLIENT_SECRET
+    } else if (provider === "microsoft-excel") {
+      clientId = process.env.EXCEL_CLIENT_ID || process.env.MICROSOFT_CLIENT_ID
+      clientSecret = process.env.EXCEL_CLIENT_SECRET || process.env.MICROSOFT_CLIENT_SECRET
     } else {
       // Use the standard OAuth config for other providers
       const credentials = getOAuthClientCredentials(config)
@@ -818,8 +821,8 @@ export async function refreshTokenForProvider(
         }
       }
 
-      // Special handling for Microsoft-related providers (Teams, OneDrive)
-      else if (provider === "teams" || provider === "onedrive" || provider.startsWith("microsoft")) {
+      // Special handling for Microsoft-related providers (Teams, OneDrive, Excel, etc.)
+      else if (provider === "teams" || provider === "onedrive" || provider === "microsoft-excel" || provider.startsWith("microsoft")) {
         if (verbose) logger.debug(`Microsoft error type: ${responseData.error}`)
         if (responseData.error === "invalid_grant") {
           finalErrorMessage = `${provider} refresh token expired or invalid. User must re-authorize.`
