@@ -37,10 +37,12 @@ import { readGoogleSheetsData, exportGoogleSheetsData, createGoogleSheetsRow, up
 // Microsoft Excel actions
 import {
   executeMicrosoftExcelUnifiedAction,
+  createMicrosoftExcelRow,
+  updateMicrosoftExcelRow,
+  deleteMicrosoftExcelRow,
   exportMicrosoftExcelSheet,
   createMicrosoftExcelWorkbook,
   addMicrosoftExcelTableRow,
-  findOrCreateMicrosoftExcelRow,
   createMicrosoftExcelWorksheet,
   renameMicrosoftExcelWorksheet,
   deleteMicrosoftExcelWorksheet,
@@ -578,14 +580,18 @@ export const actionHandlerRegistry: Record<string, Function> = {
   // Microsoft Excel actions - wrapped to handle new calling convention
   "microsoft_excel_unified_action": (params: { config: any; userId: string; input: Record<string, any> }) =>
     executeMicrosoftExcelUnifiedAction(params.config, params.userId, params.input),
+  "microsoft_excel_action_add_row": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createMicrosoftExcelRow(params.config, params.userId, params.input),
+  "microsoft_excel_action_update_row": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    updateMicrosoftExcelRow(params.config, params.userId, params.input),
+  "microsoft_excel_action_delete_row": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    deleteMicrosoftExcelRow(params.config, params.userId, params.input),
   "microsoft-excel_action_export_sheet": (params: { config: any; userId: string; input: Record<string, any> }) =>
     exportMicrosoftExcelSheet(params.config, params.userId, params.input),
   "microsoft_excel_action_create_workbook": (params: { config: any; userId: string; input: Record<string, any> }) =>
     createMicrosoftExcelWorkbook(params.config, params.userId, params.input),
   "microsoft_excel_action_add_table_row": (params: { config: any; userId: string; input: Record<string, any> }) =>
     addMicrosoftExcelTableRow(params.config, { userId: params.userId }),
-  "microsoft_excel_action_find_or_create_row": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    findOrCreateMicrosoftExcelRow(params.config, params.userId, params.input),
   "microsoft_excel_action_create_worksheet": (params: { config: any; userId: string; input: Record<string, any> }) =>
     createMicrosoftExcelWorksheet(params.config, { userId: params.userId }),
   "microsoft_excel_action_rename_worksheet": (params: { config: any; userId: string; input: Record<string, any> }) =>

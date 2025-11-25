@@ -84,6 +84,7 @@ import { MultipleRecordsField } from "./airtable/MultipleRecordsField";
 import { FieldMapperField } from "./airtable/FieldMapperField";
 import { GoogleDriveFileField } from "./googledrive/GoogleDriveFileField";
 import { GoogleSheetsFindRowPreview } from "../components/google-sheets/GoogleSheetsFindRowPreview";
+import { MicrosoftExcelColumnMapper } from "./microsoft-excel/MicrosoftExcelColumnMapper";
 
 // Shared field components
 import { GenericSelectField } from "./shared/GenericSelectField";
@@ -2829,6 +2830,23 @@ export function FieldRenderer({
             parentValues={parentValues}
             workflowData={workflowData}
             currentNodeId={currentNodeId}
+          />
+        );
+
+      case "microsoft_excel_column_mapper":
+        // Column Mapper for Microsoft Excel - maps values to worksheet columns
+        return (
+          <MicrosoftExcelColumnMapper
+            value={value}
+            onChange={onChange}
+            field={field}
+            nodeInfo={nodeInfo}
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
+            dynamicOptions={dynamicOptions}
+            loadingFields={loadingFields}
+            loadOptions={onDynamicLoad}
+            parentValues={parentValues}
           />
         );
 

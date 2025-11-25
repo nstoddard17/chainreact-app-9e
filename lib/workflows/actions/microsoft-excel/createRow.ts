@@ -13,7 +13,21 @@ export async function createMicrosoftExcelRow(
   try {
     // Resolve configuration with workflow variables
     const resolvedConfig = resolveValue(config, input)
-    const { workbookId, worksheetName, insertPosition = 'append', specificRow, fieldMapping } = resolvedConfig
+    let { workbookId, worksheetName, insertPosition = 'append', specificRow, columnMapping } = resolvedConfig
+
+    // Transform columnMapping from array format to object format if needed
+    // The UI component (MicrosoftExcelColumnMapper) outputs: [{ column: "Name", value: "John" }]
+    // But we need: { "Name": "John" }
+    if (Array.isArray(columnMapping)) {
+      logger.debug('📊 [Excel Create Row] Converting array format to object format');
+      const mappingObject: Record<string, any> = {};
+      for (const item of columnMapping) {
+        if (item && item.column && item.value !== undefined) {
+          mappingObject[item.column] = item.value;
+        }
+      }
+      columnMapping = mappingObject;
+    }
 
     // Get access token for Microsoft Excel (Microsoft Graph API)
     const accessToken = await getDecryptedAccessToken(userId, 'microsoft-excel')
@@ -28,21 +42,21 @@ export async function createMicrosoftExcelRow(
     if (!worksheetName) {
       throw new Error('Worksheet name is required')
     }
-    if (!fieldMapping || Object.keys(fieldMapping).length === 0) {
-      throw new Error('Field mapping is required')
+    if (!columnMapping || Object.keys(columnMapping).length === 0) {
+      throw new Error('Column mapping is required')
     }
 
     // Microsoft Graph API base URL
     const baseUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${workbookId}/workbook`
 
-    // The fieldMapping should already be in the correct order from the column mapper UI
+    // The columnMapping should already be in the correct order from the column mapper UI
     // Extract values in the order they appear in the mapping object
     const values: any[] = []
 
-    logger.debug('📊 [Excel Create Row] Field mapping received:', fieldMapping)
-    logger.debug('📊 [Excel Create Row] Mapping order:', Object.keys(fieldMapping))
+    logger.debug('📊 [Excel Create Row] Column mapping received:', columnMapping)
+    logger.debug('📊 [Excel Create Row] Mapping order:', Object.keys(columnMapping))
 
-    for (const [columnName, value] of Object.entries(fieldMapping)) {
+    for (const [columnName, value] of Object.entries(columnMapping)) {
       values.push(value || '')
       logger.debug(`  Column "${columnName}" -> value: "${value}"`)
     }

@@ -364,7 +364,15 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
     
     // Track the current request ID for this cache key
     activeRequestIds.current.set(requestKey, requestId);
-    
+
+    // Throttle: Skip if same field was loaded recently (within 2 seconds)
+    const THROTTLE_MS = 2000;
+    const lastLoaded = lastLoadedAt.current.get(requestKey);
+    if (!forceRefresh && lastLoaded && Date.now() - lastLoaded < THROTTLE_MS) {
+      logger.debug(`⏱️ [useDynamicOptions] Throttling ${fieldName} - loaded ${Date.now() - lastLoaded}ms ago`);
+      return;
+    }
+
     // Check if field is currently loading
     if (!forceRefresh && loadingFields.current.has(requestKey)) {
       const loadStartTime = loadingStartTimes.current.get(requestKey);
@@ -1344,6 +1352,17 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
             }
           }
 
+          // For Microsoft Excel fields that depend on worksheetName, ensure workbookId is in extraOptions
+          if (providerId === 'microsoft-excel') {
+            const formValues = getFormValues?.() || {};
+            if (!enhancedExtraOptions.workbookId && formValues.workbookId) {
+              enhancedExtraOptions.workbookId = formValues.workbookId;
+            }
+            if (!enhancedExtraOptions.worksheetName && formValues.worksheetName) {
+              enhancedExtraOptions.worksheetName = formValues.worksheetName;
+            }
+          }
+
           // CRITICAL FIX: When field depends on workspace selection, use workspace ID as integration ID
           // This ensures we fetch data from the correct workspace/integration instance
           const actualIntegrationId = dependsOn === 'workspace' && dependsOnValue
@@ -1585,6 +1604,29 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       // For Google Sheets sheets, don't call API without spreadsheetId
       if (fieldName === 'sheetName' && resourceType === 'google-sheets_sheets' && !dependsOnValue) {
         return;
+      }
+
+      // Special handling for Microsoft Excel columns - requires both workbookId and worksheetName
+      if (resourceType === 'microsoft-excel_columns' || resourceType?.startsWith('microsoft-excel_column')) {
+        const formValues = getFormValues?.() || {};
+        const workbookId = extraOptions?.workbookId || formValues.workbookId;
+        const worksheetName = dependsOnValue || extraOptions?.worksheetName || formValues.worksheetName;
+
+        if (!workbookId || !worksheetName) {
+          logger.debug(`⚠️ [useDynamicOptions] Skipping Microsoft Excel columns - missing workbookId or worksheetName:`, {
+            workbookId,
+            worksheetName,
+            fieldName
+          });
+          return;
+        }
+
+        options = {
+          ...options,
+          workbookId,
+          worksheetName
+        };
+        logger.debug(`🔧 [useDynamicOptions] Microsoft Excel columns options:`, options);
       }
       
       // For Airtable fields used by filterField, use records approach to infer fields quickly

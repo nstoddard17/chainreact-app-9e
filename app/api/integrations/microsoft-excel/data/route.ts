@@ -3,21 +3,25 @@
  * Handles Excel data requests using Microsoft Graph API
  */
 
-import { NextRequest, NextResponse } from 'next/server'
-import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
+import { NextRequest } from 'next/server'
+import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
 import { createClient } from "@supabase/supabase-js"
 import { microsoftExcelHandlers } from './handlers'
 import { MicrosoftExcelIntegration } from './types'
-
-import { logger } from '@/lib/utils/logger'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 const supabase = createClient(supabaseUrl, supabaseKey)
 
 export async function POST(req: NextRequest) {
+  let dataType: string | undefined;
+  let options: any = {};
+
   try {
-    const { integrationId, dataType, options = {} } = await req.json()
+    const body = await req.json()
+    dataType = body.dataType;
+    options = body.options || {};
+    const { integrationId } = body
 
     // Validate required parameters
     if (!dataType) {
@@ -36,7 +40,6 @@ export async function POST(req: NextRequest) {
 
       if (!requestingError && requestingIntegration) {
         userId = requestingIntegration.user_id
-        logger.debug('📊 [Microsoft Excel API] Found user from integrationId:', { integrationId, userId })
       }
     }
 
@@ -54,7 +57,6 @@ export async function POST(req: NextRequest) {
     const { data: integrations, error: integrationError } = await query
 
     if (integrationError || !integrations || integrations.length === 0) {
-      logger.error('❌ [Microsoft Excel API] Excel integration not found:', { error: integrationError, userId })
       return errorResponse('Microsoft Excel is not connected. Please connect your Microsoft Excel account first.'
       , 404)
     }
@@ -63,48 +65,26 @@ export async function POST(req: NextRequest) {
     const integration = integrations.find(i => i.status === 'connected')
 
     if (!integration) {
-      logger.error('❌ [Microsoft Excel API] Excel integration not connected')
       return errorResponse('Microsoft Excel requires an active connection. Please connect your Microsoft account.', 400, { needsReconnection: true
        })
     }
 
-    // Validate integration status
-    if (integration.status !== 'connected') {
-      logger.error('❌ [Microsoft Excel API] Excel integration not connected:', {
-        status: integration.status
-      })
-      return errorResponse('Microsoft Excel integration is not connected. Please reconnect your account.', 400, {
-        needsReconnection: true,
-        currentStatus: integration.status
-      })
-    }
+
+    // Normalize the dataType by removing the provider prefix if present
+    // The dataType may come in as "microsoft-excel_columns" or just "columns"
+    const normalizedDataType = dataType.replace(/^microsoft-excel[_-]/, '');
 
     // Get the appropriate handler
-    const handler = microsoftExcelHandlers[dataType]
+    const handler = microsoftExcelHandlers[normalizedDataType]
     if (!handler) {
-      logger.error('❌ [Microsoft Excel API] Unknown data type:', dataType)
       return jsonResponse({
         error: `Unknown Microsoft Excel data type: ${dataType}`,
         availableTypes: Object.keys(microsoftExcelHandlers)
       }, { status: 400 })
     }
 
-    logger.debug(`🔍 [Microsoft Excel API] Processing request:`, {
-      dataType,
-      userId,
-      integrationId,
-      status: integration.status,
-      hasToken: !!integration.access_token,
-      provider: integration.provider,
-      options
-    })
-
     // Execute the handler
     const data = await handler(integration as MicrosoftExcelIntegration, options)
-
-    logger.debug(`✅ [Microsoft Excel API] Successfully processed ${dataType}:`, {
-      resultCount: Array.isArray(data) ? data.length : 1
-    })
 
     return jsonResponse({
       data,
@@ -113,10 +93,12 @@ export async function POST(req: NextRequest) {
     })
 
   } catch (error: any) {
-    logger.error('❌ [Microsoft Excel API] Unexpected error:', {
-      error: error.message,
-      stack: error.stack
-    })
+    console.error('❌ [Microsoft Excel API] Error:', {
+      message: error.message,
+      stack: error.stack,
+      dataType,
+      options
+    });
 
     // Handle authentication errors
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
@@ -130,7 +112,10 @@ export async function POST(req: NextRequest) {
       , 429)
     }
 
-    return errorResponse(error.message || 'Failed to fetch Excel data', 500, { details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    return errorResponse(error.message || 'Failed to fetch Excel data', 500, {
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      dataType,
+      hasOptions: !!options
      })
   }
 }

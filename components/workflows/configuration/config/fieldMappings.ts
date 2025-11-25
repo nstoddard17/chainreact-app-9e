@@ -803,12 +803,6 @@ const microsoftExcelMappings: Record<string, FieldMapping> = {
     tableName: "microsoft-excel_tables",
     columnMapping: "microsoft_excel_column_mapper",
   },
-  "microsoft_excel_action_find_or_create_row": {
-    workbookId: "microsoft-excel_workbooks",
-    worksheetName: "microsoft-excel_worksheets",
-    searchColumn: "microsoft-excel_columns",
-    columnMapping: "microsoft_excel_column_mapper",
-  },
   "microsoft_excel_action_create_worksheet": {
     workbookId: "microsoft-excel_workbooks",
   },
