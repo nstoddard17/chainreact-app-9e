@@ -113,31 +113,31 @@ export default function PlanSelector({ plans = [], currentSubscription, targetPl
   return (
     <div className="space-y-8">
       {!hasStripeConfig && (
-        <Alert className="bg-amber-950/20 border-amber-900/50">
-          <AlertTriangle className="h-4 w-4 text-amber-500" />
-          <AlertDescription className="text-amber-200">
+        <Alert className="bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/50">
+          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+          <AlertDescription className="text-amber-800 dark:text-amber-200">
             Billing integration is currently being set up. Some features may not be available yet.
           </AlertDescription>
         </Alert>
       )}
 
       {error && (
-        <Alert variant="destructive" className="bg-red-950/20 border-red-900/50">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
+        <Alert variant="destructive" className="bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900/50">
+          <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
+          <AlertDescription className="text-red-700 dark:text-red-300">{error}</AlertDescription>
         </Alert>
       )}
 
       <div className="space-y-8">
         {/* Billing Cycle Toggle */}
         <div className="text-center space-y-3">
-          <div className="inline-flex items-center gap-3 bg-slate-900/50 p-1 rounded-full border border-slate-800">
+          <div className="inline-flex items-center gap-3 bg-gray-100 dark:bg-slate-900/50 p-1 rounded-full border border-gray-200 dark:border-slate-800">
             <button
               onClick={() => setBillingCycle("monthly")}
               className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${
                 billingCycle === "monthly"
-                  ? "bg-slate-800 text-white shadow-sm"
-                  : "text-slate-400 hover:text-white"
+                  ? "bg-white dark:bg-slate-800 text-gray-900 dark:text-white shadow-sm"
+                  : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
               }`}
             >
               Monthly
@@ -146,8 +146,8 @@ export default function PlanSelector({ plans = [], currentSubscription, targetPl
               onClick={() => setBillingCycle("annual")}
               className={`px-6 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
                 billingCycle === "annual"
-                  ? "bg-slate-800 text-white shadow-sm"
-                  : "text-slate-400 hover:text-white"
+                  ? "bg-white dark:bg-slate-800 text-gray-900 dark:text-white shadow-sm"
+                  : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
               }`}
             >
               Annual
@@ -156,7 +156,7 @@ export default function PlanSelector({ plans = [], currentSubscription, targetPl
               </span>
             </button>
           </div>
-          <p className="text-slate-500 text-xs">
+          <p className="text-gray-500 dark:text-slate-500 text-xs">
             {billingCycle === "monthly" ? "Billed monthly" : "Billed annually (2 months free)"}. Cancel anytime.
           </p>
         </div>
@@ -250,10 +250,10 @@ function PlanCard({
       <Card
         className={`relative rounded-2xl h-full transition-all duration-300 overflow-hidden ${
           isPopular
-            ? "bg-gradient-to-b from-slate-800/90 to-slate-850/90 border-2 border-blue-500/50 shadow-2xl shadow-blue-950/30 hover:border-blue-500/70"
+            ? "bg-gradient-to-b from-blue-50 to-white dark:from-slate-800/90 dark:to-slate-850/90 border-2 border-blue-400 dark:border-blue-500/50 shadow-xl dark:shadow-blue-950/30 hover:border-blue-500 dark:hover:border-blue-500/70"
             : isFree
-            ? "bg-slate-900/50 border border-slate-700/30 hover:border-slate-600/50"
-            : "bg-slate-900/70 border border-slate-700/50 hover:border-slate-600/70"
+            ? "bg-white dark:bg-slate-900/50 border border-gray-200 dark:border-slate-700/30 hover:border-gray-300 dark:hover:border-slate-600/50"
+            : "bg-white dark:bg-slate-900/70 border border-gray-200 dark:border-slate-700/50 hover:border-gray-300 dark:hover:border-slate-600/70"
         }`}
       >
         {/* Top highlight for Pro */}
@@ -266,27 +266,27 @@ function PlanCard({
           <div className="text-center mb-4">
             <div className="flex items-center justify-center gap-2 mb-1">
               {getTierIcon()}
-              <h3 className={`${isModal ? 'text-xl' : 'text-2xl'} font-bold text-white`}>
+              <h3 className={`${isModal ? 'text-xl' : 'text-2xl'} font-bold text-gray-900 dark:text-white`}>
                 {info.name}
               </h3>
             </div>
-            <p className="text-xs text-slate-400">{info.description}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">{info.description}</p>
           </div>
 
           {/* Price */}
-          <div className="text-center mb-4 pb-4 border-b border-slate-800/50">
+          <div className="text-center mb-4 pb-4 border-b border-gray-200 dark:border-slate-800/50">
             {isEnterprise ? (
-              <div className={`${isModal ? 'text-2xl' : 'text-3xl'} font-bold text-white`}>Custom</div>
+              <div className={`${isModal ? 'text-2xl' : 'text-3xl'} font-bold text-gray-900 dark:text-white`}>Custom</div>
             ) : (
               <>
                 <div className="flex items-baseline justify-center gap-1">
-                  <span className={`${isModal ? 'text-3xl' : 'text-4xl'} font-bold text-white`}>
+                  <span className={`${isModal ? 'text-3xl' : 'text-4xl'} font-bold text-gray-900 dark:text-white`}>
                     ${price === 0 ? '0' : price.toFixed(price % 1 === 0 ? 0 : 2)}
                   </span>
-                  <span className="text-sm text-slate-500">/mo</span>
+                  <span className="text-sm text-gray-500 dark:text-slate-500">/mo</span>
                 </div>
                 {billingCycle === "annual" && !isFree && (
-                  <p className="text-xs text-green-400 mt-1">
+                  <p className="text-xs text-green-600 dark:text-green-400 mt-1">
                     ${((info.price - info.priceAnnual) * 12).toFixed(0)} saved/year
                   </p>
                 )}
@@ -296,17 +296,17 @@ function PlanCard({
 
           {/* Key Limits */}
           <div className="grid grid-cols-2 gap-2 mb-4 text-xs">
-            <div className="bg-slate-800/50 rounded-lg p-2 text-center">
-              <div className="text-blue-300 font-semibold">
+            <div className="bg-gray-100 dark:bg-slate-800/50 rounded-lg p-2 text-center">
+              <div className="text-blue-600 dark:text-blue-300 font-semibold">
                 {limits.tasksPerMonth === -1 ? '∞' : limits.tasksPerMonth.toLocaleString()}
               </div>
-              <div className="text-slate-500">tasks/mo</div>
+              <div className="text-gray-500 dark:text-slate-500">tasks/mo</div>
             </div>
-            <div className="bg-slate-800/50 rounded-lg p-2 text-center">
-              <div className="text-blue-300 font-semibold">
+            <div className="bg-gray-100 dark:bg-slate-800/50 rounded-lg p-2 text-center">
+              <div className="text-blue-600 dark:text-blue-300 font-semibold">
                 {limits.maxTeamMembers === -1 ? '∞' : limits.maxTeamMembers}
               </div>
-              <div className="text-slate-500">members</div>
+              <div className="text-gray-500 dark:text-slate-500">members</div>
             </div>
           </div>
 
@@ -315,8 +315,8 @@ function PlanCard({
             <div className="space-y-2">
               {features.slice(0, isExpanded ? features.length : 4).map((feature, index) => (
                 <div key={index} className="flex items-start gap-2">
-                  <Check className="w-4 h-4 mt-0.5 flex-shrink-0 text-green-500" />
-                  <span className="text-xs text-slate-300">{feature}</span>
+                  <Check className="w-4 h-4 mt-0.5 flex-shrink-0 text-green-600 dark:text-green-500" />
+                  <span className="text-xs text-gray-700 dark:text-slate-300">{feature}</span>
                 </div>
               ))}
             </div>
@@ -324,7 +324,7 @@ function PlanCard({
             {features.length > 4 && (
               <button
                 onClick={onToggleExpand}
-                className="text-xs text-slate-500 hover:text-slate-400 mt-3"
+                className="text-xs text-gray-500 dark:text-slate-500 hover:text-gray-700 dark:hover:text-slate-400 mt-3"
               >
                 {isExpanded ? "Show less ↑" : `+${features.length - 4} more →`}
               </button>
@@ -338,12 +338,12 @@ function PlanCard({
                 isPopular && !isCurrentPlan
                   ? "bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white shadow-lg"
                   : isCurrentPlan
-                  ? "bg-slate-800/30 text-slate-500 cursor-default border border-slate-700/50"
+                  ? "bg-gray-200 dark:bg-slate-700 text-gray-500 dark:text-slate-400 cursor-default border border-gray-300 dark:border-slate-600"
                   : isEnterprise
-                  ? "bg-purple-600/20 border border-purple-500/50 text-purple-300 hover:bg-purple-600/30"
+                  ? "bg-purple-600 hover:bg-purple-700 text-white shadow-md"
                   : isFree && !isCurrentPlan
-                  ? "bg-transparent border-2 border-slate-700 hover:bg-slate-800/50 text-slate-200"
-                  : "bg-slate-800 hover:bg-slate-700 text-white"
+                  ? "bg-gray-600 hover:bg-gray-700 dark:bg-slate-600 dark:hover:bg-slate-500 text-white"
+                  : "bg-gray-900 hover:bg-gray-800 dark:bg-blue-600 dark:hover:bg-blue-500 text-white"
               }`}
               disabled={isProcessing || isCurrentPlan || (isDisabled && !isEnterprise)}
               onClick={onSelect}
@@ -366,7 +366,7 @@ function PlanCard({
 
             {/* Overage info */}
             {info.overageRate && !isCurrentPlan && (
-              <p className="text-xs text-center text-slate-500 mt-2">
+              <p className="text-xs text-center text-gray-500 dark:text-slate-500 mt-2">
                 +${info.overageRate}/task overage
               </p>
             )}

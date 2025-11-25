@@ -11,7 +11,6 @@ import { Progress } from "@/components/ui/progress"
 import {
   Sparkles,
   CheckCircle,
-  ArrowLeft,
   Zap,
   Users,
   Clock,
@@ -19,20 +18,26 @@ import {
   HelpCircle,
   CreditCard,
   RefreshCw,
-  TrendingUp,
-  Layers,
   Bot,
   Webhook,
   Calendar,
   BarChart3,
   Headphones,
-  Building2,
   Crown,
   ChevronDown,
   ChevronUp,
+  Workflow,
+  Activity,
+  Mail,
+  FileText,
+  Database,
+  AlertCircle,
+  X,
+  Check,
 } from "lucide-react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { LoadingScreen } from "@/components/ui/loading-screen"
+import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
 import { PLAN_INFO, PLAN_LIMITS, type PlanTier } from '@/lib/utils/plan-restrictions'
 
 interface BillingContentProps {
@@ -75,30 +80,34 @@ export default function BillingContent({ isModal = false }: BillingContentProps)
 
   if (loading) {
     return (
-      <LoadingScreen
-        title="Loading Billing"
-        description="Fetching your subscription details..."
-        size="lg"
-      />
+      <NewAppLayout title="Billing & Plans" subtitle="Manage your subscription and usage">
+        <LoadingScreen
+          title="Loading Billing"
+          description="Fetching your subscription details..."
+          size="lg"
+        />
+      </NewAppLayout>
     )
   }
 
   if (error) {
     return (
-      <div className="min-h-[400px] flex items-center justify-center">
-        <Card className="bg-red-950/20 border-red-900/50 max-w-md">
-          <CardContent className="pt-6 text-center space-y-4">
-            <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center mx-auto">
-              <HelpCircle className="w-6 h-6 text-red-400" />
-            </div>
-            <div className="text-red-400">{error}</div>
-            <Button onClick={() => fetchAll()} variant="outline" className="border-red-500/50 text-red-400 hover:bg-red-500/10">
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Retry
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <NewAppLayout title="Billing & Plans" subtitle="Manage your subscription and usage">
+        <div className="min-h-[400px] flex items-center justify-center">
+          <Card className="bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900/50 max-w-md">
+            <CardContent className="pt-6 text-center space-y-4">
+              <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-500/20 flex items-center justify-center mx-auto">
+                <HelpCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
+              </div>
+              <div className="text-red-600 dark:text-red-400">{error}</div>
+              <Button onClick={() => fetchAll()} variant="outline" className="border-red-300 dark:border-red-500/50 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/10">
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Retry
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </NewAppLayout>
     )
   }
 
@@ -113,28 +122,8 @@ export default function BillingContent({ isModal = false }: BillingContentProps)
   const tasksLimit = currentLimits.tasksPerMonth
   const tasksPercentage = tasksLimit === -1 ? 0 : Math.min((tasksUsed / tasksLimit) * 100, 100)
 
-  return (
-    <div className={`${isModal ? "" : "min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950"}`}>
-      <div className={`${isModal ? "space-y-6" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10"}`}>
-
-        {/* Header */}
-        {!isModal && (
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                onClick={() => router.back()}
-                className="text-slate-400 hover:text-white hover:bg-slate-800"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-              <div className="h-6 w-px bg-slate-700" />
-              <h1 className="text-2xl font-bold text-white">Billing & Plans</h1>
-            </div>
-          </div>
-        )}
-
+  const content = (
+    <div className={`${isModal ? "space-y-6" : "space-y-8"}`}>
         {/* Welcome Banner */}
         {!isModal && showWelcome && currentSubscription && (
           <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 p-6 rounded-2xl shadow-2xl animate-in fade-in slide-in-from-top-3 duration-500">
@@ -158,15 +147,15 @@ export default function BillingContent({ isModal = false }: BillingContentProps)
 
         {/* Beta Tester Banner */}
         {isBetaTester && (
-          <Card className="bg-gradient-to-r from-purple-950/50 to-blue-950/50 border-purple-500/30">
+          <Card className="bg-gradient-to-r from-purple-100 to-blue-100 dark:from-purple-950/50 dark:to-blue-950/50 border-purple-300 dark:border-purple-500/30">
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
                 <div className="bg-gradient-to-r from-purple-500 to-blue-500 p-3 rounded-xl">
                   <Crown className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-white">Beta Testing Program</h2>
-                  <p className="text-slate-400 mt-1">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">Beta Testing Program</h2>
+                  <p className="text-gray-600 dark:text-slate-400 mt-1">
                     You have full Pro access during the beta period. Thank you for helping us improve!
                   </p>
                 </div>
@@ -179,64 +168,64 @@ export default function BillingContent({ isModal = false }: BillingContentProps)
         {!isModal && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Current Plan */}
-            <Card className="bg-slate-900/50 border-slate-700/50 backdrop-blur-sm">
+            <Card className="bg-white dark:bg-gray-900/50 border-gray-200 dark:border-gray-700/50 backdrop-blur-sm shadow-sm">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-sm text-slate-400">Current Plan</span>
-                  <Badge className={`${
-                    currentTier === 'free' ? 'bg-slate-700 text-slate-300' :
-                    currentTier === 'pro' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' :
-                    currentTier === 'team' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
-                    currentTier === 'business' ? 'bg-purple-500/20 text-purple-400 border-purple-500/30' :
-                    'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                  <span className="text-sm text-gray-500 dark:text-slate-400">Current Plan</span>
+                  <Badge variant="outline" className={`${
+                    currentTier === 'free' ? 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-600' :
+                    currentTier === 'pro' ? 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-500/20 dark:text-blue-400 dark:border-blue-500/30' :
+                    currentTier === 'team' ? 'bg-green-100 text-green-700 border-green-300 dark:bg-green-500/20 dark:text-green-400 dark:border-green-500/30' :
+                    currentTier === 'business' ? 'bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-500/20 dark:text-purple-400 dark:border-purple-500/30' :
+                    'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/30'
                   }`}>
                     {currentPlanInfo.name}
                   </Badge>
                 </div>
-                <div className="text-3xl font-bold text-white mb-1">
-                  ${currentPlanInfo.price}<span className="text-lg font-normal text-slate-500">/mo</span>
+                <div className="text-3xl font-bold text-gray-900 dark:text-white mb-1">
+                  ${currentPlanInfo.price}<span className="text-lg font-normal text-gray-500 dark:text-slate-500">/mo</span>
                 </div>
-                <p className="text-sm text-slate-500">{currentPlanInfo.description}</p>
+                <p className="text-sm text-gray-500 dark:text-slate-500">{currentPlanInfo.description}</p>
               </CardContent>
             </Card>
 
             {/* Task Usage */}
-            <Card className="bg-slate-900/50 border-slate-700/50 backdrop-blur-sm">
+            <Card className="bg-white dark:bg-gray-900/50 border-gray-200 dark:border-gray-700/50 backdrop-blur-sm shadow-sm">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-sm text-slate-400">Tasks This Month</span>
+                  <span className="text-sm text-gray-500 dark:text-slate-400">Tasks This Month</span>
                   <Zap className="w-5 h-5 text-yellow-500" />
                 </div>
-                <div className="text-3xl font-bold text-white mb-2">
+                <div className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
                   {tasksUsed.toLocaleString()}
-                  <span className="text-lg font-normal text-slate-500">
+                  <span className="text-lg font-normal text-gray-500 dark:text-slate-500">
                     /{tasksLimit === -1 ? '∞' : tasksLimit.toLocaleString()}
                   </span>
                 </div>
                 {tasksLimit !== -1 && (
                   <Progress
                     value={tasksPercentage}
-                    className="h-2 bg-slate-800"
+                    className="h-2 bg-gray-200 dark:bg-slate-800"
                   />
                 )}
-                <p className="text-xs text-slate-500 mt-2">
+                <p className="text-xs text-gray-500 dark:text-slate-500 mt-2">
                   {tasksLimit === -1 ? 'Unlimited tasks' : `${Math.max(0, tasksLimit - tasksUsed).toLocaleString()} tasks remaining`}
                 </p>
               </CardContent>
             </Card>
 
             {/* Billing Cycle */}
-            <Card className="bg-slate-900/50 border-slate-700/50 backdrop-blur-sm">
+            <Card className="bg-white dark:bg-gray-900/50 border-gray-200 dark:border-gray-700/50 backdrop-blur-sm shadow-sm">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-sm text-slate-400">Billing</span>
-                  <CreditCard className="w-5 h-5 text-slate-500" />
+                  <span className="text-sm text-gray-500 dark:text-slate-400">Billing</span>
+                  <CreditCard className="w-5 h-5 text-gray-400 dark:text-slate-500" />
                 </div>
-                <div className="text-lg font-semibold text-white mb-1">
+                <div className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
                   {currentSubscription?.billing_cycle === 'yearly' ? 'Annual' : 'Monthly'}
                 </div>
                 {currentSubscription?.current_period_end && (
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-gray-500 dark:text-slate-500">
                     Renews {new Date(currentSubscription.current_period_end).toLocaleDateString('en-US', {
                       month: 'short',
                       day: 'numeric',
@@ -245,7 +234,7 @@ export default function BillingContent({ isModal = false }: BillingContentProps)
                   </p>
                 )}
                 {!currentSubscription && (
-                  <p className="text-sm text-slate-500">No active subscription</p>
+                  <p className="text-sm text-gray-500 dark:text-slate-500">No active subscription</p>
                 )}
               </CardContent>
             </Card>
@@ -255,10 +244,10 @@ export default function BillingContent({ isModal = false }: BillingContentProps)
         {/* Plan Selection Section */}
         <div className={isModal ? "" : "pt-4"}>
           <div className={`text-center ${isModal ? "mb-6" : "mb-10"}`}>
-            <h2 className={`font-bold text-white ${isModal ? "text-2xl mb-2" : "text-3xl mb-3"}`}>
+            <h2 className={`font-bold text-gray-900 dark:text-white ${isModal ? "text-2xl mb-2" : "text-3xl mb-3"}`}>
               {currentSubscription ? "Change Your Plan" : "Choose Your Plan"}
             </h2>
-            <p className="text-slate-400 max-w-2xl mx-auto">
+            <p className="text-gray-600 dark:text-slate-400 max-w-2xl mx-auto">
               Select the plan that best fits your workflow automation needs. Upgrade or downgrade anytime.
             </p>
           </div>
@@ -271,96 +260,24 @@ export default function BillingContent({ isModal = false }: BillingContentProps)
           />
         </div>
 
-        {/* Feature Explanations Section */}
+        {/* Feature Comparison Section */}
         {!isModal && (
-          <div className="pt-8 border-t border-slate-800">
+          <div className="pt-8 border-t border-gray-200 dark:border-slate-800">
             <div className="text-center mb-10">
-              <h3 className="text-2xl font-bold text-white mb-3">Understanding Your Plan</h3>
-              <p className="text-slate-400">Learn what each feature means and how it benefits your workflows</p>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">Compare Plan Features</h3>
+              <p className="text-gray-600 dark:text-slate-400">See exactly what's included in each plan</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Tasks */}
-              <FeatureExplanation
-                icon={<Zap className="w-5 h-5" />}
-                title="Tasks"
-                description="Each workflow step that executes counts as a task. A 5-node workflow uses ~10 tasks per run. Tasks reset monthly."
-                color="yellow"
-              />
-
-              {/* AI Agents */}
-              <FeatureExplanation
-                icon={<Bot className="w-5 h-5" />}
-                title="AI Agents"
-                description="Intelligent automation powered by Claude AI. Create agents that can reason, make decisions, and handle complex multi-step processes."
-                color="purple"
-              />
-
-              {/* Team Members */}
-              <FeatureExplanation
-                icon={<Users className="w-5 h-5" />}
-                title="Team Members"
-                description="Collaborate with your team on workflows. Share integrations, edit together, and manage permissions across your organization."
-                color="blue"
-              />
-
-              {/* Webhooks */}
-              <FeatureExplanation
-                icon={<Webhook className="w-5 h-5" />}
-                title="Webhooks"
-                description="Receive real-time data from external services. Trigger workflows instantly when events happen in your connected apps."
-                color="green"
-              />
-
-              {/* Scheduling */}
-              <FeatureExplanation
-                icon={<Calendar className="w-5 h-5" />}
-                title="Scheduling"
-                description="Run workflows on a schedule - hourly, daily, weekly, or custom cron expressions. Perfect for recurring automation tasks."
-                color="cyan"
-              />
-
-              {/* Analytics */}
-              <FeatureExplanation
-                icon={<BarChart3 className="w-5 h-5" />}
-                title="Advanced Analytics"
-                description="Track workflow performance, execution times, success rates, and usage trends. Identify bottlenecks and optimize your automations."
-                color="pink"
-              />
-
-              {/* History Retention */}
-              <FeatureExplanation
-                icon={<Clock className="w-5 h-5" />}
-                title="History Retention"
-                description="Access logs and execution history for debugging. Free plans keep 7 days; higher tiers retain up to 1 year of history."
-                color="orange"
-              />
-
-              {/* Priority Support */}
-              <FeatureExplanation
-                icon={<Headphones className="w-5 h-5" />}
-                title="Priority Support"
-                description="Get faster response times and dedicated help from our team. Business and Enterprise plans include dedicated success managers."
-                color="indigo"
-              />
-
-              {/* SSO/SAML */}
-              <FeatureExplanation
-                icon={<Shield className="w-5 h-5" />}
-                title="SSO & Security"
-                description="Enterprise-grade security with SAML single sign-on, audit logs, and custom security policies. Available on Enterprise plans."
-                color="red"
-              />
-            </div>
+            <FeatureComparisonTable />
           </div>
         )}
 
         {/* FAQ Section */}
         {!isModal && (
-          <div className="pt-8 border-t border-slate-800">
+          <div className="pt-8 border-t border-gray-200 dark:border-slate-800">
             <div className="text-center mb-10">
-              <h3 className="text-2xl font-bold text-white mb-3">Frequently Asked Questions</h3>
-              <p className="text-slate-400">Common questions about billing and plans</p>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">Frequently Asked Questions</h3>
+              <p className="text-gray-600 dark:text-slate-400">Common questions about billing and plans</p>
             </div>
 
             <div className="max-w-3xl mx-auto space-y-4">
@@ -411,8 +328,8 @@ export default function BillingContent({ isModal = false }: BillingContentProps)
 
         {/* Trust Badges */}
         {!isModal && (
-          <div className="pt-8 border-t border-slate-800">
-            <div className="flex flex-wrap items-center justify-center gap-8 text-slate-500">
+          <div className="pt-8 border-t border-gray-200 dark:border-slate-800">
+            <div className="flex flex-wrap items-center justify-center gap-8 text-gray-500 dark:text-slate-500">
               <div className="flex items-center gap-2">
                 <Shield className="w-5 h-5" />
                 <span className="text-sm">SSL Encrypted</span>
@@ -433,38 +350,325 @@ export default function BillingContent({ isModal = false }: BillingContentProps)
           </div>
         )}
       </div>
-    </div>
   )
-}
 
-// Feature Explanation Component
-interface FeatureExplanationProps {
-  icon: React.ReactNode
-  title: string
-  description: string
-  color: 'yellow' | 'purple' | 'blue' | 'green' | 'cyan' | 'pink' | 'orange' | 'indigo' | 'red'
-}
-
-function FeatureExplanation({ icon, title, description, color }: FeatureExplanationProps) {
-  const colorClasses = {
-    yellow: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
-    purple: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
-    blue: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-    green: 'bg-green-500/10 text-green-400 border-green-500/20',
-    cyan: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
-    pink: 'bg-pink-500/10 text-pink-400 border-pink-500/20',
-    orange: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
-    indigo: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
-    red: 'bg-red-500/10 text-red-400 border-red-500/20',
+  // Wrap with layout if not modal
+  if (isModal) {
+    return content
   }
 
   return (
-    <div className="bg-slate-900/30 border border-slate-800 rounded-xl p-5 hover:border-slate-700 transition-colors">
-      <div className={`w-10 h-10 rounded-lg ${colorClasses[color]} flex items-center justify-center mb-4 border`}>
-        {icon}
-      </div>
-      <h4 className="text-white font-semibold mb-2">{title}</h4>
-      <p className="text-sm text-slate-400 leading-relaxed">{description}</p>
+    <NewAppLayout title="Billing & Plans" subtitle="Manage your subscription and usage">
+      {content}
+    </NewAppLayout>
+  )
+}
+
+// Feature Comparison Table Component
+interface FeatureRow {
+  name: string
+  description: string
+  free: boolean | string
+  pro: boolean | string
+  team: boolean | string
+  business: boolean | string
+  enterprise: boolean | string
+}
+
+const FEATURE_ROWS: FeatureRow[] = [
+  // Core Features
+  {
+    name: "Tasks per Month",
+    description: "Number of workflow task executions included each month",
+    free: "100",
+    pro: "750",
+    team: "2,000",
+    business: "5,000",
+    enterprise: "Unlimited"
+  },
+  {
+    name: "Active Workflows",
+    description: "Number of workflows that can be enabled and triggered simultaneously",
+    free: "3",
+    pro: "Unlimited",
+    team: "Unlimited",
+    business: "Unlimited",
+    enterprise: "Unlimited"
+  },
+  {
+    name: "Total Workflows",
+    description: "Maximum workflows you can create and save",
+    free: "5",
+    pro: "Unlimited",
+    team: "Unlimited",
+    business: "Unlimited",
+    enterprise: "Unlimited"
+  },
+  // Workflow Features
+  {
+    name: "Multi-Step Workflows",
+    description: "Chain multiple actions with conditional logic, loops, and error handling",
+    free: false,
+    pro: true,
+    team: true,
+    business: true,
+    enterprise: true
+  },
+  {
+    name: "Conditional Paths",
+    description: "Add if/else branching logic to route data through different paths",
+    free: false,
+    pro: true,
+    team: true,
+    business: true,
+    enterprise: true
+  },
+  {
+    name: "AI Agents",
+    description: "Claude AI-powered nodes that can reason, analyze, and make decisions",
+    free: false,
+    pro: true,
+    team: true,
+    business: true,
+    enterprise: true
+  },
+  {
+    name: "Webhooks",
+    description: "Receive real-time triggers from external services instantly",
+    free: false,
+    pro: true,
+    team: true,
+    business: true,
+    enterprise: true
+  },
+  {
+    name: "Scheduling",
+    description: "Run workflows on schedules (hourly, daily, weekly, custom cron)",
+    free: false,
+    pro: true,
+    team: true,
+    business: true,
+    enterprise: true
+  },
+  {
+    name: "Premium Integrations",
+    description: "Access all 20+ app connections including CRM, payments, and enterprise tools",
+    free: false,
+    pro: true,
+    team: true,
+    business: true,
+    enterprise: true
+  },
+  {
+    name: "Error Notifications",
+    description: "Get alerted via email, Slack, or webhook when workflows fail",
+    free: false,
+    pro: true,
+    team: true,
+    business: true,
+    enterprise: true
+  },
+  // Collaboration
+  {
+    name: "Team Members",
+    description: "Number of users who can access and collaborate on workflows",
+    free: "1",
+    pro: "1",
+    team: "5",
+    business: "15",
+    enterprise: "Unlimited"
+  },
+  {
+    name: "Team Sharing",
+    description: "Share workflows and integrations across your team",
+    free: false,
+    pro: false,
+    team: true,
+    business: true,
+    enterprise: true
+  },
+  {
+    name: "Shared Workspaces",
+    description: "Collaborative workspaces where teams can build and manage workflows together",
+    free: false,
+    pro: false,
+    team: true,
+    business: true,
+    enterprise: true
+  },
+  // Analytics & Logs
+  {
+    name: "History Retention",
+    description: "How long execution logs are stored for debugging and auditing",
+    free: "7 days",
+    pro: "30 days",
+    team: "90 days",
+    business: "1 year",
+    enterprise: "Unlimited"
+  },
+  {
+    name: "Detailed Logs",
+    description: "Step-by-step execution logs with timestamps, I/O data, and API responses",
+    free: false,
+    pro: true,
+    team: true,
+    business: true,
+    enterprise: true
+  },
+  {
+    name: "Advanced Analytics",
+    description: "Performance dashboards, usage trends, and exportable reports",
+    free: false,
+    pro: false,
+    team: true,
+    business: true,
+    enterprise: true
+  },
+  // Support
+  {
+    name: "Support Level",
+    description: "Response times and support channels available",
+    free: "Community",
+    pro: "Email",
+    team: "Priority (<24h)",
+    business: "Priority (<4h)",
+    enterprise: "Dedicated"
+  },
+  {
+    name: "Dedicated Success Manager",
+    description: "Personal account manager to help optimize your automation strategy",
+    free: false,
+    pro: false,
+    team: false,
+    business: true,
+    enterprise: true
+  },
+  // Enterprise
+  {
+    name: "SSO / SAML",
+    description: "Single sign-on with Okta, Azure AD, OneLogin, and other identity providers",
+    free: false,
+    pro: false,
+    team: false,
+    business: false,
+    enterprise: true
+  },
+  {
+    name: "SLA Guarantee",
+    description: "Guaranteed uptime with service credits if targets are missed",
+    free: false,
+    pro: false,
+    team: false,
+    business: "99.9%",
+    enterprise: "99.99%"
+  },
+  {
+    name: "Custom Contracts",
+    description: "Flexible billing, custom terms, and negotiated pricing",
+    free: false,
+    pro: false,
+    team: false,
+    business: false,
+    enterprise: true
+  },
+  {
+    name: "Overage Rate",
+    description: "Cost per additional task if you exceed your monthly allocation",
+    free: "N/A",
+    pro: "$0.025",
+    team: "$0.020",
+    business: "$0.015",
+    enterprise: "Custom"
+  },
+]
+
+function FeatureComparisonTable() {
+  const [expandedRow, setExpandedRow] = useState<string | null>(null)
+
+  const renderValue = (value: boolean | string) => {
+    if (value === true) {
+      return (
+        <div className="flex justify-center">
+          <div className="w-6 h-6 rounded-full bg-green-100 dark:bg-green-500/20 flex items-center justify-center">
+            <Check className="w-4 h-4 text-green-600 dark:text-green-400" />
+          </div>
+        </div>
+      )
+    }
+    if (value === false) {
+      return (
+        <div className="flex justify-center">
+          <div className="w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+            <X className="w-4 h-4 text-gray-400 dark:text-gray-600" />
+          </div>
+        </div>
+      )
+    }
+    return (
+      <span className="text-sm font-medium text-gray-900 dark:text-white">{value}</span>
+    )
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-gray-200 dark:border-gray-700">
+            <th className="text-left py-4 px-4 text-sm font-semibold text-gray-900 dark:text-white w-1/3">
+              Feature
+            </th>
+            <th className="text-center py-4 px-2 text-sm font-semibold text-gray-500 dark:text-gray-400">
+              Free
+            </th>
+            <th className="text-center py-4 px-2 text-sm font-semibold text-blue-600 dark:text-blue-400">
+              Pro
+            </th>
+            <th className="text-center py-4 px-2 text-sm font-semibold text-green-600 dark:text-green-400">
+              Team
+            </th>
+            <th className="text-center py-4 px-2 text-sm font-semibold text-purple-600 dark:text-purple-400">
+              Business
+            </th>
+            <th className="text-center py-4 px-2 text-sm font-semibold text-amber-600 dark:text-amber-400">
+              Enterprise
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {FEATURE_ROWS.map((feature, index) => (
+            <tr
+              key={feature.name}
+              className={`border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors ${
+                index % 2 === 0 ? 'bg-white dark:bg-transparent' : 'bg-gray-50/50 dark:bg-gray-900/20'
+              }`}
+            >
+              <td className="py-4 px-4">
+                <button
+                  onClick={() => setExpandedRow(expandedRow === feature.name ? null : feature.name)}
+                  className="text-left w-full group"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                      {feature.name}
+                    </span>
+                    <HelpCircle className="w-3.5 h-3.5 text-gray-400 dark:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  {expandedRow === feature.name && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 pr-4">
+                      {feature.description}
+                    </p>
+                  )}
+                </button>
+              </td>
+              <td className="py-4 px-2 text-center">{renderValue(feature.free)}</td>
+              <td className="py-4 px-2 text-center bg-blue-50/50 dark:bg-blue-900/10">{renderValue(feature.pro)}</td>
+              <td className="py-4 px-2 text-center">{renderValue(feature.team)}</td>
+              <td className="py-4 px-2 text-center">{renderValue(feature.business)}</td>
+              <td className="py-4 px-2 text-center">{renderValue(feature.enterprise)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }
@@ -479,21 +683,21 @@ interface FaqItemProps {
 
 function FaqItem({ question, answer, isOpen, onToggle }: FaqItemProps) {
   return (
-    <div className="bg-slate-900/30 border border-slate-800 rounded-xl overflow-hidden">
+    <div className="bg-white dark:bg-gray-900/30 border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden shadow-sm">
       <button
         onClick={onToggle}
-        className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-slate-800/30 transition-colors"
+        className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors"
       >
-        <span className="font-medium text-white">{question}</span>
+        <span className="font-medium text-gray-900 dark:text-white">{question}</span>
         {isOpen ? (
-          <ChevronUp className="w-5 h-5 text-slate-400 flex-shrink-0" />
+          <ChevronUp className="w-5 h-5 text-gray-400 dark:text-slate-400 flex-shrink-0" />
         ) : (
-          <ChevronDown className="w-5 h-5 text-slate-400 flex-shrink-0" />
+          <ChevronDown className="w-5 h-5 text-gray-400 dark:text-slate-400 flex-shrink-0" />
         )}
       </button>
       {isOpen && (
         <div className="px-6 pb-4">
-          <p className="text-slate-400 leading-relaxed">{answer}</p>
+          <p className="text-gray-600 dark:text-slate-400 leading-relaxed">{answer}</p>
         </div>
       )}
     </div>
