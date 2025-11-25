@@ -4,6 +4,8 @@ import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-re
 import { WorkflowExecutionService } from "@/lib/services/workflowExecutionService"
 import { trackBetaTesterActivity } from "@/lib/utils/beta-tester-tracking"
 import { sendWorkflowErrorNotifications, extractErrorMessage } from '@/lib/notifications/errorHandler'
+import { estimateWorkflowTasks } from '@/lib/tasks/taskCosting'
+import { ensureTaskQuota } from '@/lib/tasks/taskQuota'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -333,6 +335,52 @@ export async function POST(request: Request) {
       }
     }
 
+    // ============================================================================
+    // CHECK: Task quota & estimated cost
+    // ============================================================================
+    const { total: estimatedTasks, breakdown: taskBreakdown } = estimateWorkflowTasks(nodes)
+    logger.debug("Task estimate for workflow run", { estimatedTasks, nodes: nodes.length })
+
+    const tasksToConsume = effectiveTestMode ? 0 : estimatedTasks
+    let taskQuotaResult: any = null
+
+    if (!effectiveTestMode) {
+      try {
+        taskQuotaResult = await ensureTaskQuota({
+          supabase,
+          userId,
+          teamId: workflow.team_id,
+          required: tasksToConsume,
+        })
+
+        if (!taskQuotaResult.allowed) {
+          return errorResponse(
+            "Not enough tasks to run this workflow",
+            402,
+            {
+              required: tasksToConsume,
+              remaining: taskQuotaResult.remaining,
+              limit: taskQuotaResult.limit,
+              scope: taskQuotaResult.scope,
+              breakdown: taskBreakdown,
+            }
+          )
+        }
+
+        logger.debug("Task quota reserved", {
+          required: tasksToConsume,
+          remaining: taskQuotaResult.remaining,
+          limit: taskQuotaResult.limit,
+          scope: taskQuotaResult.scope,
+        })
+      } catch (quotaError: any) {
+        logger.error("Task quota check failed", { error: quotaError })
+        return errorResponse(quotaError.message || "Failed to verify task balance", 500)
+      }
+    } else {
+      logger.debug("Test mode detected - skipping task quota enforcement")
+    }
+
     // Execute the workflow using the new service or advanced engine based on mode
     logger.debug("Starting workflow execution with effectiveTestMode:", effectiveTestMode, "executionMode:", executionMode)
 
@@ -420,7 +468,8 @@ export async function POST(request: Request) {
       effectiveTestMode,
       filteredWorkflowData,
       skipTriggers,
-      testModeConfig // Pass enhanced test mode config
+      testModeConfig, // Pass enhanced test mode config
+      tasksToConsume
     )
 
     const isPaused = typeof executionResult === 'object' && executionResult !== null && 'paused' in executionResult && (executionResult as any).paused

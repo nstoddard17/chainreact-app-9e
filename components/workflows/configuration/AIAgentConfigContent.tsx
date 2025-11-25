@@ -27,7 +27,6 @@ import {
   BarChart3,
   Target,
   Settings2,
-  Shield,
   Gauge,
   Key,
   Wrench,
@@ -46,11 +45,19 @@ import { cn } from '@/lib/utils'
 import { logger } from '@/lib/utils/logger'
 import { ResultsTab } from './tabs/ResultsTab'
 
-// Auto-resize textarea helper
+// Auto-resize textarea helper - calculates height based on content
 const autoResizeTextarea = (textarea: HTMLTextAreaElement | null) => {
   if (!textarea) return
   textarea.style.height = 'auto'
   textarea.style.height = `${Math.max(120, textarea.scrollHeight)}px`
+}
+
+// Calculate initial height based on placeholder text (roughly 16px per line + padding)
+const calculatePlaceholderHeight = (placeholderText: string): number => {
+  const lines = placeholderText.split('\n').length
+  const lineHeight = 20 // Approximate line height in pixels
+  const padding = 24 // Top and bottom padding
+  return Math.max(120, lines * lineHeight + padding)
 }
 
 // Get all previous nodes in the workflow
@@ -141,17 +148,6 @@ const AI_MODELS = {
     speed: 3,
     quality: 2,
     recommended: false
-  },
-  'gemini-pro': {
-    name: 'Gemini Pro',
-    provider: 'Google',
-    providerIcon: '/integrations/google.svg',
-    capabilities: ['Multimodal', 'Fast', 'Free tier'],
-    bestFor: 'Multimodal & Google integration',
-    costPer1k: { input: 0.00025, output: 0.0005 },
-    speed: 3,
-    quality: 2,
-    recommended: false
   }
 }
 
@@ -224,21 +220,7 @@ export function AIAgentConfigContent({
     customApiKey: '',
     customInstructions: '',
     outputFormat: '',
-    includeEmojis: false,
     timeout: 30,
-    outputMapping: {
-      saveResponse: true,
-      responseField: 'output',
-      extractJson: false,
-    },
-    guardrails: {
-      requireApproval: false,
-      approvalChannel: '',
-      maxRetries: 2,
-      notifyOnFailure: true,
-      escalationEmail: '',
-      costLimit: 1,
-    },
     ...initialData
   })
 
@@ -248,6 +230,8 @@ export function AIAgentConfigContent({
   const [instructionsOpen, setInstructionsOpen] = useState(false)
   const [variablesOpen, setVariablesOpen] = useState(false)
   const promptRef = useRef<HTMLTextAreaElement>(null)
+  const instructionsRef = useRef<HTMLTextAreaElement>(null)
+  const outputFormatRef = useRef<HTMLTextAreaElement>(null)
 
   // Compute upstream nodes for variable picker
   const upstreamNodes = useMemo(() => {
@@ -273,10 +257,18 @@ export function AIAgentConfigContent({
       })
   }, [nodes, edges, currentNodeId])
 
-  // Auto-resize prompt textarea when content changes
+  // Auto-resize textareas when content changes
   useLayoutEffect(() => {
     autoResizeTextarea(promptRef.current)
   }, [config.prompt])
+
+  useLayoutEffect(() => {
+    autoResizeTextarea(instructionsRef.current)
+  }, [config.customInstructions])
+
+  useLayoutEffect(() => {
+    autoResizeTextarea(outputFormatRef.current)
+  }, [config.outputFormat])
 
   useEffect(() => {
     const model = AI_MODELS[config.model as keyof typeof AI_MODELS]
@@ -290,20 +282,6 @@ export function AIAgentConfigContent({
 
   const handleFieldChange = useCallback((field: string, value: any) => {
     setConfig(prev => ({ ...prev, [field]: value }))
-  }, [])
-
-  const handleGuardrailChange = useCallback((field: string, value: any) => {
-    setConfig(prev => ({
-      ...prev,
-      guardrails: { ...prev.guardrails, [field]: value }
-    }))
-  }, [])
-
-  const handleOutputMappingChange = useCallback((field: string, value: any) => {
-    setConfig(prev => ({
-      ...prev,
-      outputMapping: { ...prev.outputMapping, [field]: value }
-    }))
   }, [])
 
   const handleImprovePrompt = async () => {
@@ -389,9 +367,9 @@ export function AIAgentConfigContent({
         <Badge variant="secondary" className="text-xs">${estimatedCost.toFixed(4)}</Badge>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
         {/* Tab Navigation - Matching standard ConfigurationModal style */}
-        <TabsList className="px-4 pt-3 border-b border-border bg-transparent w-full flex justify-start gap-0 rounded-none h-auto">
+        <TabsList className="px-4 pt-3 border-b border-border bg-transparent w-full flex justify-start gap-0 rounded-none h-auto flex-shrink-0">
           <TabsTrigger
             value="setup"
             className="flex items-center gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:font-semibold data-[state=active]:shadow-none bg-transparent hover:bg-muted/50 transition-colors px-5 py-3 text-sm font-medium text-muted-foreground"
@@ -415,9 +393,9 @@ export function AIAgentConfigContent({
           </TabsTrigger>
         </TabsList>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
           {/* SETUP TAB - Prompt, Model, Templates */}
-          <TabsContent value="setup" className="mt-0 p-4 space-y-4">
+          <TabsContent value="setup" className="mt-0 p-4 pb-4 space-y-4">
             {/* Quick Templates */}
             <div className="space-y-2">
               <Label className="text-xs font-medium">Quick Templates</Label>
@@ -570,8 +548,20 @@ Example: Analyze the incoming message and:
                   handleFieldChange('prompt', e.target.value)
                   autoResizeTextarea(e.target)
                 }}
-                className="min-h-[120px] font-mono text-xs resize-none overflow-hidden"
-                style={{ height: 'auto' }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    setTimeout(() => autoResizeTextarea(e.currentTarget), 0)
+                  }
+                }}
+                className="font-mono text-xs resize-none overflow-hidden"
+                style={{
+                  height: config.prompt ? 'auto' : `${calculatePlaceholderHeight(`Describe what the AI should do...
+
+Example: Analyze the incoming message and:
+1. Identify the main topic
+2. Draft a helpful response`)}px`,
+                  minHeight: '120px'
+                }}
               />
             </div>
 
@@ -585,6 +575,7 @@ Example: Analyze the incoming message and:
               </CollapsibleTrigger>
               <CollapsibleContent className="pt-2">
                 <Textarea
+                  ref={instructionsRef}
                   placeholder={`Add context, rules, or persona...
 
 Example:
@@ -592,8 +583,25 @@ Example:
 - Keep responses concise
 - Escalate urgent issues`}
                   value={config.customInstructions}
-                  onChange={(e) => handleFieldChange('customInstructions', e.target.value)}
-                  className="min-h-[80px] text-xs"
+                  onChange={(e) => {
+                    handleFieldChange('customInstructions', e.target.value)
+                    autoResizeTextarea(e.target)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      setTimeout(() => autoResizeTextarea(e.currentTarget), 0)
+                    }
+                  }}
+                  className="text-xs resize-none overflow-hidden"
+                  style={{
+                    height: config.customInstructions ? 'auto' : `${calculatePlaceholderHeight(`Add context, rules, or persona...
+
+Example:
+- Always maintain a professional tone
+- Keep responses concise
+- Escalate urgent issues`)}px`,
+                    minHeight: '80px'
+                  }}
                 />
               </CollapsibleContent>
             </Collapsible>
@@ -668,7 +676,7 @@ Example:
           </TabsContent>
 
           {/* ADVANCED TAB - API, Output, Guardrails */}
-          <TabsContent value="advanced" className="mt-0 p-4 space-y-4">
+          <TabsContent value="advanced" className="mt-0 p-4 pb-4 space-y-4">
             {/* API Source */}
             <div className="space-y-2">
               <Label className="text-xs font-medium">API Source</Label>
@@ -715,84 +723,34 @@ Example:
 
             <Separator />
 
-            {/* Output Settings */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="text-xs font-medium">Save Response</Label>
-                  <p className="text-[10px] text-muted-foreground">Store for later steps</p>
-                </div>
-                <Switch checked={config.outputMapping.saveResponse} onCheckedChange={(c) => handleOutputMappingChange('saveResponse', c)} />
-              </div>
-              {config.outputMapping.saveResponse && (
-                <div className="space-y-1">
-                  <Label className="text-[10px]">Output Field Name</Label>
-                  <Input value={config.outputMapping.responseField} onChange={(e) => handleOutputMappingChange('responseField', e.target.value)} className="text-xs h-8" />
-                  <p className="text-[9px] text-muted-foreground">Access: <code className="bg-muted px-1 rounded">{'{{ai_agent.' + config.outputMapping.responseField + '}}'}</code></p>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="text-xs font-medium">Extract JSON</Label>
-                  <p className="text-[10px] text-muted-foreground">Parse structured data</p>
-                </div>
-                <Switch checked={config.outputMapping.extractJson} onCheckedChange={(c) => handleOutputMappingChange('extractJson', c)} />
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-xs font-medium">Output Format Hint</Label>
-                <Textarea
-                  value={config.outputFormat}
-                  onChange={(e) => handleFieldChange('outputFormat', e.target.value)}
-                  placeholder="e.g., subject, body, urgency"
-                  className="min-h-[60px] text-xs"
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="text-xs">Include Emojis</Label>
-                  <p className="text-[9px] text-muted-foreground">For Slack, SMS, etc.</p>
-                </div>
-                <Switch checked={config.includeEmojis} onCheckedChange={(c) => handleFieldChange('includeEmojis', c)} />
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Guardrails */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Shield className="w-3 h-3" />
-                <Label className="text-xs font-medium">Guardrails</Label>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="text-[10px]">Require Approval</Label>
-                  <p className="text-[9px] text-muted-foreground">Pause for review</p>
-                </div>
-                <Switch checked={config.guardrails.requireApproval} onCheckedChange={(c) => handleGuardrailChange('requireApproval', c)} />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-[10px]">Max Retries</Label>
-                  <Input type="number" min={0} max={5} value={config.guardrails.maxRetries} onChange={(e) => handleGuardrailChange('maxRetries', Number(e.target.value))} className="text-xs h-8" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[10px]">Cost Limit ($)</Label>
-                  <Input type="number" min={0.01} max={10} step={0.01} value={config.guardrails.costLimit} onChange={(e) => handleGuardrailChange('costLimit', Number(e.target.value))} className="text-xs h-8" />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="text-[10px]">Notify on Failure</Label>
-                </div>
-                <Switch checked={config.guardrails.notifyOnFailure} onCheckedChange={(c) => handleGuardrailChange('notifyOnFailure', c)} />
-              </div>
+            {/* Output Format Hint */}
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">Output Format Hint (Optional)</Label>
+              <p className="text-[10px] text-muted-foreground mb-2">
+                Tell the AI what structured data you want to extract. The AI will automatically parse these fields into <code className="bg-muted px-1 rounded text-[9px]">structured_output</code>
+              </p>
+              <Textarea
+                ref={outputFormatRef}
+                value={config.outputFormat}
+                onChange={(e) => {
+                  handleFieldChange('outputFormat', e.target.value)
+                  autoResizeTextarea(e.target)
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    setTimeout(() => autoResizeTextarea(e.currentTarget), 0)
+                  }
+                }}
+                placeholder={`Examples:
+• customer_name, email, order_number, issue_type
+• sentiment, urgency, category
+• approved: boolean, feedback: string`}
+                className="text-xs resize-none overflow-hidden font-mono"
+                style={{
+                  height: config.outputFormat ? 'auto' : '80px',
+                  minHeight: '80px'
+                }}
+              />
             </div>
           </TabsContent>
 

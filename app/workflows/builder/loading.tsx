@@ -1,10 +1,5 @@
-import { PageLoader } from "@/components/ui/page-loader"
+import { BuilderLoadingSkeleton } from "@/components/common/DashboardLoading"
 
 export default function Loading() {
-  return (
-    <PageLoader
-      message="Loading workflow builder..."
-      timeout={10000}
-    />
-  )
+  return <BuilderLoadingSkeleton />
 }

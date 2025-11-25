@@ -78,12 +78,14 @@ import { CostDisplay } from "@/components/workflows/ai-agent/CostDisplay"
 import { WorkflowStatusBar } from "./WorkflowStatusBar"
 import { useAuthStore } from "@/stores/authStore"
 import { useIntegrationSelection } from "@/hooks/workflows/useIntegrationSelection"
+import { PublishFlowModal } from "./PublishFlowModal"
 import { swapProviderInPlan, canSwapProviders } from "@/lib/workflows/ai-agent/providerSwapping"
 import { matchTemplate, logTemplateMatch, logTemplateMiss } from "@/lib/workflows/ai-agent/templateMatching"
 import { logPrompt, updatePrompt } from "@/lib/workflows/ai-agent/promptAnalytics"
 import { logger } from '@/lib/utils/logger'
 import { useAppContext } from "@/lib/contexts/AppContext"
 import { generateId, addNodeEdit, oldConnectToEdge } from "@/src/lib/workflows/compat/v2Adapter"
+import { flowApiUrl } from "@/src/lib/workflows/builder/api/paths"
 
 type PendingChatMessage = {
   localId: string
@@ -117,6 +119,11 @@ const AGENT_PANEL_MAX_WIDTH = 600 // Large desktop maximum
 const ENABLE_AUTO_STACK = false
 const LINEAR_STACK_X = 400
 const LINEAR_NODE_VERTICAL_GAP = 180
+
+// Node schema lookup for fast access to config/output fields
+const NODE_COMPONENT_MAP = new Map<string, NodeComponent>(
+  ALL_NODE_COMPONENTS.map((node) => [node.type, node])
+)
 
 type MoveNodeResult = { newOrder: string[]; changed: boolean } | null
 
@@ -218,6 +225,92 @@ function computeReactAgentPanelWidth(win?: { innerWidth: number }) {
   // Large Desktop: Scale to 25% of viewport, max 600px
   const scaledWidth = Math.floor(viewportWidth * 0.25)
   return Math.min(scaledWidth, 600)
+}
+
+/**
+ * Build a PlanNode enriched with the node's schema so the agent/UI
+ * know exactly which fields exist for configuration.
+ */
+function buildPlanNodeFromType(nodeType: string, index: number): {
+  planNode: PlanNode
+  initialConfig: Record<string, any>
+} {
+  const nodeComponent = NODE_COMPONENT_MAP.get(nodeType)
+
+  const configFields =
+    nodeComponent?.configSchema?.map((field) => ({
+      name: field.name,
+      label: field.label,
+      type: field.type,
+      required: field.required,
+      dynamic: field.dynamic,
+      options: field.options,
+      placeholder: field.placeholder,
+      defaultValue: field.defaultValue,
+      dependsOn: field.dependsOn,
+      description: field.description,
+      supportsAI: field.supportsAI,
+    })) ?? []
+
+  const outputFields =
+    nodeComponent?.outputSchema?.map((field) => ({
+      name: field.name,
+      label: field.label,
+      type: field.type,
+      description: field.description,
+    })) ?? []
+
+  const planNode: PlanNode = {
+    id: `node-${index}`,
+    title: nodeComponent?.title || nodeType,
+    description: nodeComponent?.description || `${nodeComponent?.title || nodeType} node`,
+    nodeType,
+    providerId: nodeComponent?.providerId,
+    icon: nodeComponent?.icon,
+    requires: {
+      secretNames: [],
+      params: [],
+    },
+    configFields,
+    outputFields,
+  }
+
+  const initialConfig = buildInitialConfigFromFields(configFields)
+
+  return { planNode, initialConfig }
+}
+
+/**
+ * Produce a default config object that includes every required field
+ * (and any defaults) so the agent knows which keys to populate later.
+ */
+function buildInitialConfigFromFields(
+  fields: NonNullable<PlanNode['configFields']>
+): Record<string, any> {
+  const defaults: Record<string, any> = {}
+
+  fields.forEach((field) => {
+    if (field.defaultValue !== undefined) {
+      defaults[field.name] = field.defaultValue
+      return
+    }
+
+    // Always track connection even if empty so the UI knows it's needed
+    if (field.name === 'connection') {
+      defaults[field.name] = ''
+      return
+    }
+
+    if (field.required) {
+      if (field.type === 'boolean') {
+        defaults[field.name] = false
+      } else {
+        defaults[field.name] = ''
+      }
+    }
+  })
+
+  return defaults
 }
 
 /**
@@ -358,12 +451,36 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     targetHandle: string | null
   } | null>(null)
   const [isStructureTransitioning, setIsStructureTransitioning] = useState(false)
+  const [isPublishModalOpen, setIsPublishModalOpen] = useState(false)
+  const [isPublishing, setIsPublishing] = useState(false)
+  const [hasPublishedRevision, setHasPublishedRevision] = useState(false)
   const endStructureTransitionRef = useRef<number | null>(null)
   const flowTestAbortRef = useRef(false)
   const flowTestPausedRef = useRef(false) // Ref for checking pause state in async loop
   const flowTestResumeResolverRef = useRef<(() => void) | null>(null) // Resolver to resume paused test
   const nodeTestAbortControllerRef = useRef<AbortController | null>(null) // For stopping single node tests
   const flowTestPendingNodesRef = useRef<Set<string>>(new Set())
+
+  useEffect(() => {
+    let cancelled = false
+    const loadPublished = async () => {
+      try {
+        const res = await fetch(flowApiUrl(flowId, '/revisions'), { credentials: "include" })
+        if (!res.ok) return
+        const data = await res.json()
+        const published = Boolean(data?.revisions?.some((rev: any) => rev.published))
+        if (!cancelled) {
+          setHasPublishedRevision(published)
+        }
+      } catch {
+        // Ignore publish status fetch errors; UI will prompt publish anyway
+      }
+    }
+    loadPublished()
+    return () => {
+      cancelled = true
+    }
+  }, [flowId])
 
   const endStructureTransition = useCallback(() => {
     if (typeof window === 'undefined') {
@@ -1484,32 +1601,37 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     originalPrompt: string,
     providerMeta?: { category: any; provider: any; allProviders: any[] }
   ) => {
-    // Generate plan from edits
+    // Generate plan from edits with full schema context for each node
+    const initialNodeConfigs: Record<string, Record<string, any>> = {}
+
     const plan: PlanNode[] = (result.edits || [])
       .filter((edit: any) => edit.op === 'addNode')
       .map((edit: any, index: number) => {
         const nodeType = edit.node?.type || 'unknown'
-        const nodeComponent = ALL_NODE_COMPONENTS.find(n => n.type === nodeType)
+        const { planNode, initialConfig } = buildPlanNodeFromType(nodeType, index)
 
-        // Use actual node title instead of Kadabra-style names
-        const displayTitle = nodeComponent?.title || nodeType
-
-        return {
-          id: `node-${index}`,
-          title: displayTitle,
-          description: nodeComponent?.description || `${nodeComponent?.title || nodeType} node`,
-          nodeType,
-          providerId: nodeComponent?.providerId,
-          icon: nodeComponent?.icon,
-          requires: {
-            secretNames: [],
-            params: [],
-          },
+        if (Object.keys(initialConfig).length > 0) {
+          initialNodeConfigs[planNode.id] = initialConfig
         }
+
+        return planNode
       })
 
-    // Silent plan - no assistant message (workflow speaks for itself)
-    const assistantText = ''
+    // Seed node configs so every required field is tracked from the start
+    setNodeConfigs(initialNodeConfigs)
+
+    // Lightweight assistant summary with field awareness
+    const fieldTotals = plan.reduce(
+      (acc, node) => {
+        const fields = node.configFields || []
+        acc.total += fields.length
+        acc.required += fields.filter(f => f.required).length
+        return acc
+      },
+      { total: 0, required: 0 }
+    )
+
+    const assistantText = `Plan ready: ${plan.length} steps with ${fieldTotals.required}/${fieldTotals.total} required fields tracked. I’ll surface the right inputs when you continue.`
     const assistantMeta: Record<string, any> = {
       plan: { edits: result.edits, nodeCount: plan.length }
     }
@@ -2765,7 +2887,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       // Main test result caching is now handled by nodeOutputCache in the test-node API.
       // This is kept for backwards compatibility but failures are logged at debug level only.
       try {
-        const response = await fetch(`/workflows/v2/api/flows/${flowId}/nodes/${nodeId}/tests`, {
+        const response = await fetch(flowApiUrl(flowId, `/nodes/${nodeId}/tests`), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -4324,15 +4446,98 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   const handleToggleLiveWithValidation = useCallback(() => {
     // Check for placeholders - button should be disabled, but just in case
     if (hasPlaceholders()) {
+      toast({
+        title: "Finish setup before publishing",
+        description: "Remove placeholder nodes to publish and enable API runs.",
+        variant: "destructive",
+      })
       return
     }
 
-    // If no placeholders, show coming soon (activation not implemented yet for Flow V2)
-    toast({
-      title: "Coming soon",
-      description: "This action is not yet wired to the Flow v2 backend.",
-    })
+    setIsPublishModalOpen(true)
   }, [hasPlaceholders, toast])
+
+  const handlePublishFlow = useCallback(
+    async (contract: { inputs: any[]; outputs: any[] }) => {
+      if (!actions?.applyEdits || !actions.publish) {
+        return
+      }
+
+      setIsPublishing(true)
+      try {
+        await actions.applyEdits([
+          {
+            op: "setInterface",
+            inputs: contract.inputs ?? [],
+            outputs: contract.outputs ?? [],
+          } as any,
+        ])
+
+        await actions.publish()
+        setHasPublishedRevision(true)
+        toast({
+          title: "Published",
+          description: "Workflow published and API contract saved.",
+        })
+        setIsPublishModalOpen(false)
+      } catch (error: any) {
+        toast({
+          title: "Publish failed",
+          description: error?.message || "Could not publish the workflow.",
+          variant: "destructive",
+        })
+      } finally {
+        setIsPublishing(false)
+      }
+    },
+    [actions, toast]
+  )
+
+  const handleGenerateApiKey = useCallback(async () => {
+    if (!hasPublishedRevision) {
+      throw new Error("Publish the workflow before creating an API key.")
+    }
+    const response = await fetch('/api/developer/api-keys', {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: `${workflowName || "Workflow"} API Key`,
+        scopes: ["workflows:execute"],
+      }),
+    })
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => "")
+      throw new Error(text || "Failed to create API key")
+    }
+
+    const payload = await response.json()
+    if (!payload?.api_key) {
+      throw new Error("API key not returned.")
+    }
+    return payload.api_key as string
+  }, [hasPublishedRevision, workflowName])
+
+  const apiContract = useMemo(
+    () => ({
+      inputs: flowState?.flow?.interface?.inputs ?? [],
+      outputs: flowState?.flow?.interface?.outputs ?? [],
+    }),
+    [flowState?.flow?.interface]
+  )
+
+  const apiNodes = useMemo(
+    () =>
+      (flowState?.flow?.nodes ?? []).map((node: any) => ({
+        id: node.id,
+        label: node.label || node.data?.title || node.data?.label || node.id,
+        type: node.type,
+      })),
+    [flowState?.flow?.nodes]
+  )
 
   // Handle test workflow - run from start to finish
   const handleTestWorkflow = useCallback(async () => {
@@ -4857,6 +5062,42 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
       console.log('[handleBuild] Cached nodes count:', nodesCache.length)
 
+      // STEP 1.5: Read placeholder positions to anchor trigger/action placement
+      const currentNodes = Array.isArray(builder?.nodes) ? builder!.nodes : []
+      const triggerPlaceholder = currentNodes.find((n: any) =>
+        n.type === 'trigger_placeholder' ||
+        n.data?.type === 'trigger_placeholder' ||
+        n.id === 'trigger-placeholder' ||
+        (n.data?.isPlaceholder && n.data?.type?.includes('trigger'))
+      )
+      const actionPlaceholder = currentNodes.find((n: any) =>
+        n.type === 'action_placeholder' ||
+        n.data?.type === 'action_placeholder' ||
+        n.id === 'action-placeholder' ||
+        (n.data?.isPlaceholder && n.data?.type?.includes('action'))
+      )
+      const firstTriggerNode = currentNodes.find((n: any) => n.data?.isTrigger)
+
+      const DEFAULT_VERTICAL_SPACING = 180
+      const DEFAULT_TRIGGER_Y = 200
+      const DEFAULT_X = agentPanelWidth + 400
+
+      const baseX =
+        triggerPlaceholder?.position?.x ??
+        actionPlaceholder?.position?.x ??
+        firstTriggerNode?.position?.x ??
+        DEFAULT_X
+
+      const triggerY =
+        triggerPlaceholder?.position?.y ??
+        firstTriggerNode?.position?.y ??
+        DEFAULT_TRIGGER_Y
+
+      const placeholderSpacing = actionPlaceholder?.position?.y && triggerPlaceholder?.position?.y
+        ? Math.max(140, Math.abs(actionPlaceholder.position.y - triggerPlaceholder.position.y))
+        : undefined
+      const verticalSpacing = placeholderSpacing ?? DEFAULT_VERTICAL_SPACING
+
       // STEP 2: Add nodes ONE AT A TIME with animation
       // Extract node edits (connect edges will be created sequentially)
       const nodeEdits = buildMachine.edits.filter((e: any) => e.op === 'addNode')
@@ -4874,18 +5115,18 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         builder.setNodes([])
         builder.setEdges([])
 
-        // Positioning - nodes in horizontal row
-        // Place nodes AFTER the agent panel with generous offset and centered vertically
-        const BASE_X = agentPanelWidth + 400 // Agent panel width + 400px margin (more right, better centered)
-        const BASE_Y = 350 // Vertical center - more in middle of viewport
-        const H_SPACING = 500 // Wide spacing between nodes
+        // Positioning - stack vertically under trigger placeholder
+        const BASE_X = baseX
+        const BASE_Y = triggerY
+        const VERTICAL_SPACING = verticalSpacing
 
-        console.log('[handleBuild] Node positioning:', {
+        console.log('[handleBuild] Node positioning (placeholder-aware):', {
           agentPanelWidth,
           BASE_X,
           BASE_Y,
-          firstNodeX: BASE_X,
-          secondNodeX: BASE_X + H_SPACING
+          VERTICAL_SPACING,
+          triggerPlaceholder: triggerPlaceholder?.position,
+          actionPlaceholder: actionPlaceholder?.position
         })
 
         // Create all nodes at once (simpler, more reliable)
@@ -4895,8 +5136,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           const catalogNode = ALL_NODE_COMPONENTS.find(c => c.type === plannerNode.type)
 
           const nodePosition = {
-            x: BASE_X + (i * H_SPACING),
-            y: BASE_Y,
+            x: BASE_X,
+            y: BASE_Y + (i * VERTICAL_SPACING),
           }
 
           return {
@@ -4986,6 +5227,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
         // Force positions to stay fixed - check multiple times
         // React Flow sometimes repositions nodes after initial render
+        const intendedPositions: Record<string, { x: number; y: number }> = {}
+        allNodes.forEach((n) => {
+          intendedPositions[n.id] = { ...n.position }
+        })
+
         const fixPositions = () => {
           const currentNodes = reactFlowInstanceRef.current?.getNodes()
           if (!currentNodes) return false
@@ -4996,21 +5242,21 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
           // Check if any Y positions changed
           const needsFixing = currentNodes.some(node => {
-            const originalNode = allNodes.find(n => n.id === node.id)
-            return originalNode && Math.abs(node.position.y - originalNode.position.y) > 5
+            const intended = intendedPositions[node.id]
+            return intended && (
+              Math.abs(node.position.y - intended.y) > 5 ||
+              Math.abs(node.position.x - intended.x) > 5
+            )
           })
 
           if (needsFixing) {
-            console.log('[handleBuild] ⚠️ Positions changed! Forcing back to Y=' + BASE_Y)
+            console.log('[handleBuild] ⚠️ Positions changed! Forcing back to placeholder-aligned stack')
             const fixedNodes = currentNodes.map(node => {
-              const originalNode = allNodes.find(n => n.id === node.id)
-              if (originalNode) {
+              const intended = intendedPositions[node.id]
+              if (intended) {
                 return {
                   ...node,
-                  position: {
-                    ...node.position,
-                    y: BASE_Y, // Force all nodes to same Y
-                  }
+                  position: intended,
                 }
               }
               return node
@@ -5967,6 +6213,12 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     isRunningPreflight: false,
     isStepMode: false,
     listeningMode: false,
+    activeRevisionId: flowState?.revisionId ?? null,
+    onRestoreVersion: actions?.loadRevision
+      ? async (revisionId: string) => {
+          await actions.loadRevision(revisionId)
+        }
+      : undefined,
     handleUndo: builder?.handleUndo ?? comingSoon,
     handleRedo: builder?.handleRedo ?? comingSoon,
     canUndo: builder?.canUndo ?? false,
@@ -5976,7 +6228,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       ? (runId: string) => actions.refreshRun(runId)
       : undefined,
     activeRunId: flowState?.lastRunId,
-  }), [actions, builder, comingSoon, flowId, flowState?.hasUnsavedChanges, flowState?.isSaving, flowState?.lastRunId, handleNameChange, handleTestWorkflow, handleToggleLiveWithValidation, hasPlaceholders, nameDirty, persistName, workflowName])
+    onGenerateApiKey: hasPublishedRevision ? handleGenerateApiKey : undefined,
+    canGenerateApiKey: hasPublishedRevision,
+  }), [actions, builder, comingSoon, flowId, flowState?.hasUnsavedChanges, flowState?.isSaving, flowState?.lastRunId, flowState?.revisionId, handleGenerateApiKey, handleNameChange, handleTestWorkflow, handleToggleLiveWithValidation, hasPlaceholders, hasPublishedRevision, nameDirty, persistName, workflowName])
 
   if (!builder || !actions || flowState?.isLoading) {
     return <WorkflowLoadingScreen />
@@ -6165,6 +6419,15 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       </BuilderLayout>
 
       {/* Configuration Modal - Renders outside layout for proper z-index */}
+      <PublishFlowModal
+        open={isPublishModalOpen}
+        onOpenChange={setIsPublishModalOpen}
+        initialContract={apiContract}
+        nodes={apiNodes}
+        isPublishing={isPublishing}
+        onPublish={handlePublishFlow}
+      />
+
       {configuringNode && (() => {
         const nodeType = configuringNode?.data?.type || configuringNode?.type
         const nodeInfo = nodeType ? getNodeByType(nodeType) : null

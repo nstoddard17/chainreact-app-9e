@@ -70,6 +70,7 @@ interface MultiComboboxProps {
   selectedValues?: string[]; // Values that already have bubbles/are selected
   hideSelectedBadges?: boolean; // Hide badges in the dropdown trigger (for Airtable fields with bubbles)
   showFullEmails?: boolean; // Show full email addresses without truncation
+  showPlaceholderWhenSelected?: boolean; // Force placeholder text even when a value is selected
   onDrop?: (e: React.DragEvent) => void; // Handler for drop events
   onDragOver?: (e: React.DragEvent) => void; // Handler for drag over events
   onDragLeave?: (e: React.DragEvent) => void; // Handler for drag leave events
@@ -264,7 +265,6 @@ export function Combobox({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     setInputValue(newValue);
-    onChange(newValue);
   };
   
   // We need to handle the input within the Command component separately
@@ -685,6 +685,7 @@ export function MultiCombobox({
   selectedValues = [],
   hideSelectedBadges = false,
   showFullEmails = false,
+  showPlaceholderWhenSelected = false,
   onDrop,
   onDragOver,
   onDragLeave,
@@ -888,7 +889,11 @@ export function MultiCombobox({
             disabled={disabled}
           >
           <div className="flex gap-1 flex-1 overflow-hidden">
-            {hideSelectedBadges || selectedOptions.length === 1 ? (
+            {showPlaceholderWhenSelected && selectedOptions.length > 0 ? (
+              <span className="text-gray-900 dark:text-white">
+                {placeholder || "Select option(s)..."}
+              </span>
+            ) : hideSelectedBadges || selectedOptions.length === 1 ? (
               // When badges are hidden OR only one item is selected, show value directly
               selectedOptions.length > 0 ? (
                 <span className="text-gray-900 dark:text-white">

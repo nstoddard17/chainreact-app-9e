@@ -21,7 +21,7 @@ export async function GET(_: Request, context: { params: Promise<{ flowId: strin
     // Get workflow definition
     const { data: workflow, error: workflowError } = await supabase
       .from("workflows")
-      .select("user_id")
+      .select("id, user_id")
       .eq("id", flowId)
       .maybeSingle()
 
@@ -40,10 +40,10 @@ export async function GET(_: Request, context: { params: Promise<{ flowId: strin
       return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 })
     }
 
-    // Query latest execution from workflow_executions table
+    // Query latest execution
     const { data: run, error: runError } = await supabase
       .from("workflow_executions")
-      .select("id, status, started_at, completed_at")
+      .select("id, status, started_at, completed_at, execution_time_ms")
       .eq("workflow_id", flowId)
       .order("started_at", { ascending: false })
       .limit(1)
@@ -62,7 +62,7 @@ export async function GET(_: Request, context: { params: Promise<{ flowId: strin
             status: run.status,
             startedAt: run.started_at,
             finishedAt: run.completed_at,
-            revisionId: null,
+            executionTimeMs: run.execution_time_ms,
           }
         : null,
     })

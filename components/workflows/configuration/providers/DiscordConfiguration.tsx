@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, AlertCircle, ExternalLink, CheckCircle, Check } from "lucide-react";
 import { ConfigurationContainer } from '../components/ConfigurationContainer';
@@ -66,14 +66,23 @@ export function DiscordConfiguration({
   aiFields,
   setAiFields,
   isConnectedToAIAgent,
-  loadingFields = new Set(),
+  loadingFields = new Set<string>(),
 }: DiscordConfigurationProps) {
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [localLoadingFields, setLocalLoadingFields] = useState<Set<string>>(new Set());
   const isLoadingChannels = useRef(false);
   const hasInitializedServers = useRef(false);
+  const hasLoadedGuilds = useRef(false);
   const channelLoadAbortController = useRef<AbortController | null>(null);
   const currentGuildIdRef = useRef<string | null>(null);
+
+  // Merge global loading fields from the parent with Discord-specific loading flags
+  const mergedLoadingFields = useMemo(() => {
+    const merged = new Set<string>();
+    loadingFields?.forEach(field => merged.add(field));
+    localLoadingFields.forEach(field => merged.add(field));
+    return merged;
+  }, [loadingFields, localLoadingFields]);
 
   // Log initial values when component mounts
   useEffect(() => {
@@ -120,6 +129,22 @@ export function DiscordConfiguration({
     checkBotStatus,
     isLoadingChannelsAfterBotAdd
   } = discordState;
+
+  // Ensure Discord servers load as soon as the modal opens (aligned with other dropdowns like Google Calendar)
+  useEffect(() => {
+    const isDiscordNode = nodeInfo?.type?.startsWith('discord_action_') || nodeInfo?.type?.startsWith('discord_trigger_');
+    const hasGuildOptions = Array.isArray(dynamicOptions.guildId) && dynamicOptions.guildId.length > 0;
+
+    if (!isDiscordNode || needsConnection) return;
+    if (hasGuildOptions || hasLoadedGuilds.current) return;
+
+    hasLoadedGuilds.current = true;
+    loadOptions('guildId').catch((err) => {
+      logger.error('❌ [Discord] Failed to load servers on modal open:', err);
+      // Allow retry if first attempt fails
+      hasLoadedGuilds.current = false;
+    });
+  }, [nodeInfo?.type, needsConnection, dynamicOptions.guildId, loadOptions]);
   
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -898,6 +923,7 @@ export function DiscordConfiguration({
                     currentNodeId={currentNodeId}
                     dynamicOptions={dynamicOptions}
                     loadingDynamic={isFieldLoading(field.name)}
+                    loadingFields={mergedLoadingFields}
                     onDynamicLoad={loadOptions}
                     nodeInfo={nodeInfo}
                     parentValues={values}
