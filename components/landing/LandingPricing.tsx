@@ -15,9 +15,9 @@ interface PricingCardProps {
 }
 
 const PricingCard = memo(({ tier, isAnnual, isAuthenticated }: PricingCardProps) => {
-  const info = PLAN_INFO[tier]
-  const features = PLAN_FEATURES[tier]
-  const limits = PLAN_LIMITS[tier]
+  const info = PLAN_INFO[tier] || PLAN_INFO.free
+  const features = PLAN_FEATURES[tier] || PLAN_FEATURES.free
+  const limits = PLAN_LIMITS[tier] || PLAN_LIMITS.free
 
   const price = isAnnual ? info.priceAnnual : info.price
   const isPopular = info.popular

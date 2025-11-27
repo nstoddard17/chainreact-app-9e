@@ -289,6 +289,15 @@ function ConfigurationForm({
 
   // Ensure Google providers and Microsoft Excel appear connected by fetching integrations if store hasn't resolved yet
   const hasRequestedIntegrationsRef = useRef(false);
+
+  // Store values in a ref to create a stable getFormValues callback that doesn't cause loadOptions to be recreated
+  const valuesRef = useRef(values);
+  useEffect(() => {
+    valuesRef.current = values;
+  }, [values]);
+
+  // Stable getFormValues callback - uses ref to avoid recreating loadOptions on every values change
+  const getFormValuesStable = useCallback(() => valuesRef.current, []);
   useEffect(() => {
     if (!provider) return;
     const isGoogleProvider = provider === 'google-sheets' || provider === 'google_drive' || provider === 'google-drive' || provider === 'google-docs' || provider === 'google_calendar' || provider === 'google-calendar' || provider === 'google' || provider === 'gmail';
@@ -362,7 +371,7 @@ function ConfigurationForm({
         });
       }
     },
-    getFormValues: () => values,
+    getFormValues: getFormValuesStable,
     initialOptions: savedDynamicOptions
   });
 

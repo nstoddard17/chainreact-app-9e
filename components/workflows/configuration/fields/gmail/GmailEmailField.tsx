@@ -3,8 +3,9 @@
 import React from "react";
 import { MultiCombobox } from "@/components/ui/combobox";
 import { cn } from "@/lib/utils";
-import { Loader2, X, Mail, RefreshCw } from "lucide-react";
+import { X, Mail, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { LoadingFieldState } from "../shared/LoadingFieldState";
 
 import { logger } from '@/lib/utils/logger'
 
@@ -180,6 +181,14 @@ export function GmailEmailField({
     }
   }, [field.name, value, onChange])
 
+  // Show loading placeholder when loading with no options and no value
+  // This matches the behavior of GenericSelectField for consistency
+  const shouldShowLoadingState = isLoading && processedOptions.length === 0 && valueArray.length === 0;
+
+  if (shouldShowLoadingState) {
+    return <LoadingFieldState message={field.loadingPlaceholder || `Loading ${field.label || 'contacts'}...`} />;
+  }
+
   return (
     <div className="flex items-start gap-2">
       <div className="flex-1 relative">
@@ -212,33 +221,21 @@ export function GmailEmailField({
           value={valueArray}
           onChange={handleChange}
           options={processedOptions}
-          placeholder={
-            isLoading && processedOptions.length === 0
-              ? "Loading recent recipients..."
-              : isLoading
-                ? field.placeholder || `Select ${field.label || field.name}...`
-                : field.placeholder || `Select ${field.label || field.name}...`
-          }
-          searchPlaceholder={isLoading ? "Loading..." : "Search contacts..."}
-          emptyPlaceholder={isLoading ? "Loading contacts..." : "No contacts found"}
+          placeholder={field.placeholder || `Select ${field.label || field.name}...`}
+          searchPlaceholder="Search contacts..."
+          emptyPlaceholder="No contacts found"
           disabled={false}
           creatable={true} // Always allow typing email addresses
           onOpenChange={handleDropdownOpen}
           onDrop={handleVariableDrop}
           className={cn(
-            error && "border-red-500",
-            isLoading && "opacity-70"
+            error && "border-red-500"
           )}
           showFullEmails={true} // Pass prop to show full emails
           hideSelectedBadges={showTagPreview}
           showPlaceholderWhenSelected={showTagPreview}
-          loading={isLoading && processedOptions.length === 0}
+          loading={false} // Don't show loading in combobox since we use LoadingFieldState
         />
-        {isLoading && (
-          <div className="absolute right-9 top-1/2 -translate-y-1/2 pointer-events-none">
-            <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
-          </div>
-        )}
       </div>
       {showTagPreview && onDynamicLoad && (
         <button

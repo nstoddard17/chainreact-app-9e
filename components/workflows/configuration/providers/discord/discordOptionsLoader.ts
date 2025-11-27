@@ -67,7 +67,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
           
           switch (fieldName) {
             case 'guildId':
-              result = await this.loadGuilds(forceRefresh);
+              result = await this.loadGuilds(params);
               break;
 
             case 'channelId':
@@ -194,9 +194,16 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
   // Track active channel loading promises per guildId to prevent duplicates
   private static channelLoadingPromises: Map<string, Promise<FormattedOption[]>> = new Map();
 
-  private async loadGuilds(forceRefresh?: boolean): Promise<FormattedOption[]> {
-    // Build cache key (no integrationId needed for guilds)
-    const cacheKey = buildCacheKey('discord', 'global', 'guildId');
+  private async loadGuilds(params: LoadOptionsParams): Promise<FormattedOption[]> {
+    const { integrationId, forceRefresh, signal } = params;
+
+    if (!integrationId) {
+      logger.debug('🔍 [Discord] Cannot load guilds without integrationId');
+      return [];
+    }
+
+    // Build cache key
+    const cacheKey = buildCacheKey('discord', integrationId, 'guildId');
     const cacheStore = useConfigCacheStore.getState();
 
     // Force refresh handling
@@ -226,11 +233,13 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            integrationId,
             dataType: 'discord_guilds',
             options: {
               requireBotAccess: true
             }
-          })
+          }),
+          signal
         });
 
         if (!response.ok) {

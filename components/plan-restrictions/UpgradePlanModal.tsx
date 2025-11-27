@@ -38,28 +38,28 @@ const featureNames: Record<keyof PlanLimits, string> = {
 export function UpgradePlanModal({ open, onOpenChange, requiredPlan, feature }: UpgradePlanModalProps) {
   const { currentPlan } = usePlanRestrictions()
 
-  // Determine which plan to show
-  const planToShow = requiredPlan || 'professional'
-  const planInfo = PLAN_INFO[planToShow]
-  const planLimits = PLAN_LIMITS[planToShow]
+  // Determine which plan to show (use 'pro' as default instead of 'professional')
+  const planToShow = requiredPlan || 'pro'
+  const planInfo = PLAN_INFO[planToShow] || PLAN_INFO.pro
+  const planLimits = PLAN_LIMITS[planToShow] || PLAN_LIMITS.pro
 
   // Get feature name
   const featureName = feature ? featureNames[feature] : 'This feature'
 
   // Plan-specific features to highlight
   const getKeyFeatures = (plan: PlanTier) => {
-    const limits = PLAN_LIMITS[plan]
+    const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.free
     const features: { icon: any; label: string; value: string }[] = []
 
     // Tasks
     features.push({
       icon: Zap,
       label: 'Tasks per month',
-      value: limits.tasksPerMonth === -1 ? 'Unlimited' : limits.tasksPerMonth.toLocaleString()
+      value: limits?.tasksPerMonth === -1 ? 'Unlimited' : (limits?.tasksPerMonth ?? 100).toLocaleString()
     })
 
     // Workflows
-    if (limits.maxActiveWorkflows === -1) {
+    if (limits?.maxActiveWorkflows === -1) {
       features.push({
         icon: Check,
         label: 'Active workflows',

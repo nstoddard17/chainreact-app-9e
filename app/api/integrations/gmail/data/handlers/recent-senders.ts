@@ -64,40 +64,59 @@ export const getGmailRecentSenders: GmailDataHandler<SenderAddress> = async (int
   console.log('[Gmail Recent Senders] Found messages:', messages.length);
 
   // Fetch details for each message to get sender addresses
+  // Use batched sequential processing to avoid Gmail API rate limits
   const senderSet = new Set<string>();
   const senderDetails: { email: string; name?: string }[] = [];
 
-  await Promise.all(
-    messages.map(async (message: { id: string }) => {
-      try {
-        const detailResponse = await makeGmailApiRequest(
-          `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?format=metadata&metadataHeaders=From`,
-          accessToken
-        );
+  // Process messages in batches of 5 to avoid rate limiting
+  const BATCH_SIZE = 5;
+  const BATCH_DELAY_MS = 100; // Small delay between batches
 
-        if (!detailResponse.ok) return;
+  for (let i = 0; i < messages.length; i += BATCH_SIZE) {
+    const batch = messages.slice(i, i + BATCH_SIZE);
 
-        const detail = await detailResponse.json();
-        const fromHeader = detail.payload?.headers?.find(
-          (h: any) => h.name.toLowerCase() === 'from'
-        );
+    // Process batch in parallel
+    await Promise.all(
+      batch.map(async (message: { id: string }) => {
+        try {
+          const detailResponse = await makeGmailApiRequest(
+            `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?format=metadata&metadataHeaders=From`,
+            accessToken
+          );
 
-        if (fromHeader?.value) {
-          // Parse "Name <email@domain.com>" format
-          const match = fromHeader.value.match(/^(.+?)\s*<(.+?)>$|^(.+)$/);
-          const name = match?.[1]?.trim();
-          const email = match?.[2]?.trim() || match?.[3]?.trim();
+          if (!detailResponse.ok) return;
 
-          if (email && !senderSet.has(email.toLowerCase()) && matchesSearch(email, name)) {
-            senderSet.add(email.toLowerCase());
-            senderDetails.push({ email, name });
+          const detail = await detailResponse.json();
+          const fromHeader = detail.payload?.headers?.find(
+            (h: any) => h.name.toLowerCase() === 'from'
+          );
+
+          if (fromHeader?.value) {
+            // Parse "Name <email@domain.com>" format
+            const match = fromHeader.value.match(/^(.+?)\s*<(.+?)>$|^(.+)$/);
+            const name = match?.[1]?.trim();
+            const email = match?.[2]?.trim() || match?.[3]?.trim();
+
+            if (email && !senderSet.has(email.toLowerCase()) && matchesSearch(email, name)) {
+              senderSet.add(email.toLowerCase());
+              senderDetails.push({ email, name });
+            }
+          }
+        } catch (error) {
+          // Only log once per type of error, not for every message
+          if (!(error as any)?.status || (error as any)?.status !== 429) {
+            console.error(`Error fetching message ${message.id}:`, error);
           }
         }
-      } catch (error) {
-        console.error(`Error fetching message ${message.id}:`, error);
-      }
-    })
-  );
+      })
+    );
+
+    // Add a small delay between batches to avoid rate limiting
+    // But only if there are more batches to process
+    if (i + BATCH_SIZE < messages.length) {
+      await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
+    }
+  }
 
   // Fetch contacts (if scope available)
   const contactSet = new Set<string>();

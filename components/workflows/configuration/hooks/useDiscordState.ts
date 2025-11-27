@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useIntegrationStore } from '@/stores/integrationStore';
 import { getDiscordBotInviteUrl } from '../utils/helpers';
 
@@ -50,7 +50,14 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
   
   // Check if Discord node
   const isDiscordNode = nodeInfo?.providerId === 'discord';
-  
+
+  // Store loadOptions in a ref to prevent infinite re-render loops
+  // When loadOptions changes, we update the ref but don't re-create callbacks that depend on it
+  const loadOptionsRef = useRef(loadOptions);
+  useEffect(() => {
+    loadOptionsRef.current = loadOptions;
+  }, [loadOptions]);
+
   // Function to check Discord bot status in server
   const checkBotStatus = useCallback(async (guildId: string) => {
     if (!guildId || !discordIntegration) return;
@@ -74,7 +81,8 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
       if (newBotStatus.isInGuild && newBotStatus.hasPermissions && !values.channelId) {
         logger.debug('🔍 Bot connected with permissions, loading channels for guild:', guildId);
         // Let the useDynamicOptions hook handle all loading state management
-        loadOptions('channelId', 'guildId', guildId)
+        // Use ref to avoid re-creating this callback when loadOptions changes
+        loadOptionsRef.current('channelId', 'guildId', guildId)
           .then(() => {
             logger.debug('✅ Channels loaded successfully after bot connection');
             // Clear any rate limit errors
@@ -82,7 +90,7 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
           })
           .catch((channelError: any) => {
             logger.error('Failed to load channels after bot connection:', channelError);
-            
+
             // Check if it's a rate limit error
             if (channelError?.message?.includes('rate limit') || channelError?.status === 429) {
               setRateLimitInfo({
@@ -91,13 +99,13 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
                 message: 'Discord API rate limit reached. Please wait a moment before trying again.'
               });
               setChannelLoadingError('Rate limited by Discord. Please wait a moment and try again.');
-              
+
               // Auto-retry after the rate limit expires
               if (channelError.retryAfter) {
                 setTimeout(() => {
                   logger.debug('🔄 Retrying channel load after rate limit...');
                   setRateLimitInfo({ isRateLimited: false });
-                  loadOptions('channelId', 'guildId', guildId);
+                  loadOptionsRef.current('channelId', 'guildId', guildId);
                 }, (channelError.retryAfter + 1) * 1000);
               }
             } else {
@@ -116,7 +124,9 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
     } finally {
       setIsBotStatusChecking(false);
     }
-  }, [discordIntegration, loadOptions]);
+    // IMPORTANT: Do NOT include loadOptions in dependencies - use loadOptionsRef instead to prevent infinite loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [discordIntegration]);
   
   // Function to check bot status in specific channel
   const checkChannelBotStatus = useCallback(async (channelId: string, guildId: string) => {
@@ -267,7 +277,7 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
 
             // Load channels after bot is added
             if (botStatus?.isInGuild && botStatus?.hasPermissions) {
-              loadOptions('channelId', 'guildId', guildId)
+              loadOptionsRef.current('channelId', 'guildId', guildId)
                 .finally(() => {
                   setIsLoadingChannelsAfterBotAdd(false);
                 });
@@ -281,7 +291,7 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
 
                 // Try loading channels again if bot is now detected
                 if (botStatus?.isInGuild && botStatus?.hasPermissions) {
-                  loadOptions('channelId', 'guildId', guildId)
+                  loadOptionsRef.current('channelId', 'guildId', guildId)
                     .finally(() => {
                       setIsLoadingChannelsAfterBotAdd(false);
                     });
