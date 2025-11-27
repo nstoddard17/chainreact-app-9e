@@ -259,6 +259,18 @@ function ConfigurationForm({
       !integration ||
       !isConnectedStatus(integration?.status)
     );
+
+  // Debug logging for Gmail integration status
+  if (provider === 'gmail') {
+    console.log('🔍 [ConfigForm] Gmail integration check:', {
+      provider,
+      skipConnectionCheck,
+      integration: integration ? { id: integration.id, status: integration.status, provider: integration.provider } : null,
+      needsConnection,
+      isConnectedStatus: integration ? isConnectedStatus(integration.status) : 'N/A'
+    });
+  }
+
   const integrationName = integrationNameProp || nodeInfo?.label?.split(' ')[0] || provider;
 
   const savedDynamicOptions = useMemo(() => {

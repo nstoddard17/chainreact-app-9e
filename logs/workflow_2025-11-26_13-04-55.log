@@ -4679,3 +4679,12 @@ GmailApiError: Gmail API rate limit exceeded. Please try again later.
 [2025-11-27T01:14:37.892Z] [INFO   ] 2025-11-27T01:14:37.892Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
 [2025-11-27T01:17:20.276Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/workflows/cached-outputs ...
 [2025-11-27T01:17:22.981Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/workflows/cached-outputs in 3.2s (5226 modules)
+[2025-11-27T01:18:10.875Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-11-27T01:18:11.586Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1340ms (5228 modules)
+[2025-11-27T01:20:16.725Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 11.3s (7140 modules)
+[2025-11-27T01:20:17.081Z] [INFO   ] 2025-11-27T01:20:17.081Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/82bf971e-2cac-4500-bbc1-00577a2ed9df","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15639729682}
+[2025-11-27T01:20:17.478Z] [INFO   ] 2025-11-27T01:20:17.478Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-27T01:21:12.157Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 4.7s (7140 modules)
+[2025-11-27T01:21:12.626Z] [INFO   ] 2025-11-27T01:21:12.626Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/82bf971e-2cac-4500-bbc1-00577a2ed9df","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15639785227}
+[2025-11-27T01:21:13.077Z] [INFO   ] 2025-11-27T01:21:13.076Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-27T01:21:13.190Z] [WARN   ]  [33m[1m⚠[22m[39m Server is approaching the used memory threshold, restarting...
