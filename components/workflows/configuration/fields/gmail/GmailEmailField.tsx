@@ -91,7 +91,10 @@ export function GmailEmailField({
   const handleChange = (newValue: string[]) => {
     onChange(newValue.join(', '));
   };
+  // Show pills above the field only when there are 2+ emails
+  // When there's just 1 email, show it in the field itself
   const showTagPreview = field.name === 'from';
+  const hasMultipleEmails = valueArray.length > 1;
   const handleRemoveTag = (emailToRemove: string) => {
     const newValues = valueArray.filter((email) => email !== emailToRemove);
     handleChange(newValues);
@@ -192,7 +195,8 @@ export function GmailEmailField({
   return (
     <div className="flex items-start gap-2">
       <div className="flex-1 relative">
-        {showTagPreview && valueArray.length > 1 && (
+        {/* Show pills above the field only when there are 2+ emails */}
+        {showTagPreview && hasMultipleEmails && (
           <div className="flex flex-wrap gap-1 mb-2">
             {valueArray.map((email) => (
               <Badge
@@ -232,8 +236,8 @@ export function GmailEmailField({
             error && "border-red-500"
           )}
           showFullEmails={true} // Pass prop to show full emails
-          hideSelectedBadges={showTagPreview}
-          showPlaceholderWhenSelected={showTagPreview}
+          hideSelectedBadges={showTagPreview && hasMultipleEmails} // Only hide badges when showing pills above
+          showPlaceholderWhenSelected={showTagPreview && hasMultipleEmails} // Only show placeholder when pills are above
           loading={false} // Don't show loading in combobox since we use LoadingFieldState
         />
       </div>
