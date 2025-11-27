@@ -63,6 +63,7 @@ interface UpstreamNode {
   providerId?: string
   outputs: any[]
   position?: { x: number; y: number }
+  isTrigger?: boolean
 }
 
 /**
@@ -110,6 +111,7 @@ export function VariableInserterDropdown({
           outputs,
           providerId: node.data?.providerId || nodeComponent?.providerId,
           position: node.position || { x: 0, y: 0 },
+          isTrigger: node.data?.isTrigger || nodeComponent?.isTrigger || false
         }
       })
 
@@ -117,9 +119,10 @@ export function VariableInserterDropdown({
     return nodes.sort((a, b) => (a.position?.y || 0) - (b.position?.y || 0))
   }, [workflowData, currentNodeId])
 
-  // Handle variable selection
-  const handleSelect = (nodeId: string, outputName: string, outputLabel: string) => {
-    const variableRef = `{{${nodeId}.${outputName}}}`
+  // Handle variable selection - use 'trigger' prefix for trigger nodes
+  const handleSelect = (nodeId: string, outputName: string, outputLabel: string, isTrigger?: boolean) => {
+    const referencePrefix = isTrigger ? 'trigger' : nodeId
+    const variableRef = `{{${referencePrefix}.${outputName}}}`
     onSelect(variableRef, outputLabel)
     setOpen(false)
   }
@@ -169,35 +172,39 @@ export function VariableInserterDropdown({
                       </div>
                     }
                   >
-                    {node.outputs.map((output: any) => (
-                      <CommandItem
-                        key={`${node.id}-${output.name}`}
-                        value={`${node.title} ${output.label || output.name}`}
-                        onSelect={() => handleSelect(node.id, output.name, output.label || output.name)}
-                        className="flex items-start gap-3 px-4 py-2"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <span className="font-medium text-sm">
-                              {output.label || output.name}
-                            </span>
-                            {output.type && (
-                              <Badge variant="outline" className="text-xs font-mono">
-                                {output.type}
-                              </Badge>
+                    {node.outputs.map((output: any) => {
+                      // Use 'trigger' as the reference prefix for trigger nodes
+                      const referencePrefix = node.isTrigger ? 'trigger' : node.id
+                      return (
+                        <CommandItem
+                          key={`${node.id}-${output.name}`}
+                          value={`${node.title} ${output.label || output.name}`}
+                          onSelect={() => handleSelect(node.id, output.name, output.label || output.name, node.isTrigger)}
+                          className="flex items-start gap-3 px-4 py-2"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <span className="font-medium text-sm">
+                                {output.label || output.name}
+                              </span>
+                              {output.type && (
+                                <Badge variant="outline" className="text-xs font-mono">
+                                  {output.type}
+                                </Badge>
+                              )}
+                            </div>
+                            {output.description && (
+                              <p className="text-xs text-muted-foreground line-clamp-1">
+                                {output.description}
+                              </p>
                             )}
+                            <code className="text-xs text-muted-foreground/70 font-mono">
+                              {`{{${referencePrefix}.${output.name}}}`}
+                            </code>
                           </div>
-                          {output.description && (
-                            <p className="text-xs text-muted-foreground line-clamp-1">
-                              {output.description}
-                            </p>
-                          )}
-                          <code className="text-xs text-muted-foreground/70 font-mono">
-                            {`{{${node.id}.${output.name}}}`}
-                          </code>
-                        </div>
-                      </CommandItem>
-                    ))}
+                        </CommandItem>
+                      )
+                    })}
                   </CommandGroup>
                 ))
               )}

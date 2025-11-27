@@ -151,8 +151,18 @@ export function Combobox({
   // Ref for the search input to enable auto-select on open
   const inputRef = React.useRef<HTMLInputElement>(null)
 
+  // Update localOptions only when content actually changes, not just reference
+  // This prevents infinite re-render loops when parent recreates options array
   React.useEffect(() => {
-    setLocalOptions(options)
+    setLocalOptions(prev => {
+      // Quick reference check first
+      if (prev === options) return prev;
+      // Compare lengths
+      if (prev.length !== options.length) return options;
+      // Shallow compare values (sufficient for most cases)
+      const changed = options.some((opt, i) => opt.value !== prev[i]?.value);
+      return changed ? options : prev;
+    });
   }, [options])
 
   // Filter options based on search input
@@ -205,6 +215,12 @@ export function Combobox({
       return;
     }
 
+    // For simple dropdowns (disableSearch), skip input value management entirely
+    // This prevents cascading state updates that cause infinite re-render loops
+    if (disableSearch) {
+      return;
+    }
+
     // Smart input mode: Only pre-fill for custom values (not existing options).
     // For existing options, keep the search blank so the create button doesn't appear.
     if (open && selectedOption && creatable) {
@@ -227,18 +243,21 @@ export function Combobox({
       // Clear when dropdown closes
       setInputValue("");
     }
-  }, [open, selectedOption, creatable, localOptions])
+  }, [open, selectedOption, creatable, localOptions, disableSearch])
 
   const handleSelect = (currentValue: string) => {
     // Set selecting flag to prevent cascading state updates in useEffect
     isSelectingRef.current = true;
 
     // Allow clearing when empty string is passed
-    if (currentValue === "") {
-      onChange("")
-    } else {
+    const currentString = currentValue === undefined || currentValue === null ? '' : String(currentValue);
+    const valueString = value === undefined || value === null ? '' : String(value);
+
+    if (currentString === "") {
+      if (currentString !== valueString) onChange("");
+    } else if (currentString !== valueString) {
       // Don't toggle - just select the value (prevents deselection when clicking same value)
-      onChange(currentValue)
+      onChange(currentString);
     }
     setInputValue("")
     setOpen(false)
@@ -713,8 +732,18 @@ export function MultiCombobox({
     return value
   }, [value, selectedValues])
 
+  // Update options only when content actually changes, not just reference
+  // This prevents infinite re-render loops when parent recreates options array
   React.useEffect(() => {
-    setOptions(initialOptions)
+    setOptions(prev => {
+      // Quick reference check first
+      if (prev === initialOptions) return prev;
+      // Compare lengths
+      if (prev.length !== initialOptions.length) return initialOptions;
+      // Shallow compare values (sufficient for most cases)
+      const changed = initialOptions.some((opt, i) => opt.value !== prev[i]?.value);
+      return changed ? initialOptions : prev;
+    });
   }, [initialOptions])
 
   const buildSearchValue = React.useCallback((option: ComboboxOption) => {

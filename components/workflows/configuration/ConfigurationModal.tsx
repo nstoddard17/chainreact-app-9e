@@ -851,18 +851,20 @@ export function ConfigurationModal({
 
             {/* AI Agent gets its own specialized config UI */}
             {nodeInfo && nodeInfo.type === 'ai_agent' && (
-              <AIAgentConfigContent
-                initialData={effectiveInitialData}
-                onSave={handleSubmit}
-                onCancel={handleClose}
-                nodes={workflowData?.nodes || []}
-                edges={workflowData?.edges || []}
-                currentNodeId={currentNodeId}
-                workflowId={workflowData?.id}
-                onRunTest={handleTestNode}
-                isTestingNode={isTestingNode}
-                nodeInfo={nodeInfo}
-              />
+              <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                <AIAgentConfigContent
+                  initialData={effectiveInitialData}
+                  onSave={handleSubmit}
+                  onCancel={handleClose}
+                  nodes={workflowData?.nodes || []}
+                  edges={workflowData?.edges || []}
+                  currentNodeId={currentNodeId}
+                  workflowId={workflowData?.id}
+                  onRunTest={handleTestNode}
+                  isTestingNode={isTestingNode}
+                  nodeInfo={nodeInfo}
+                />
+              </div>
             )}
 
             {/* All other nodes use the standard tabs */}

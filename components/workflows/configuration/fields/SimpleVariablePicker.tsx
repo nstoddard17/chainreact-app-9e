@@ -64,7 +64,8 @@ function SimpleVariablePickerComponent({
       title: node.title,
       type: node.type,
       outputs: node.outputs,
-      position: node.position || { x: 0, y: 0 }
+      position: node.position || { x: 0, y: 0 },
+      isTrigger: node.isTrigger
     }))
   }, [upstreamNodes])
 
@@ -454,7 +455,9 @@ function SimpleVariablePickerComponent({
                     {isExpanded && hasOutputs && (
                       <div className="bg-gray-50 border-t border-gray-100">
                         {node.outputs.map((output: any) => {
-                          const variableRef = `{{${node.id}.${output.name}}}`
+                          // Use 'trigger' as the reference prefix for trigger nodes
+                          const referencePrefix = node.isTrigger ? 'trigger' : node.id
+                          const variableRef = `{{${referencePrefix}.${output.name}}}`
                           const variableValue = getVariableValue(node.id, output.name)
                           const hasValue = variableValue !== null
                           

@@ -127,7 +127,9 @@ export function VariablePickerDropdown({
                 }
               >
                 {node.outputs.map((field: any) => {
-                  const variableRef = `{{${node.id}.${field.name}}}`
+                  // Use 'trigger' as the reference prefix for trigger nodes
+                  const referencePrefix = node.isTrigger ? 'trigger' : node.id
+                  const variableRef = `{{${referencePrefix}.${field.name}}}`
                   const secondaryLabel = field.label && field.label !== field.name ? field.label : null
                   const descriptionText = secondaryLabel
                     ? `${secondaryLabel}${field.description ? ` • ${field.description}` : ''}`

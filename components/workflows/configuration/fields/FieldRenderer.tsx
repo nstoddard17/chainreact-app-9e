@@ -3,7 +3,6 @@
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ConfigField, NodeField, ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes";
 import { Label } from "@/components/ui/label";
@@ -83,6 +82,7 @@ import { MultipleRecordsField } from "./airtable/MultipleRecordsField";
 import { FieldMapperField } from "./airtable/FieldMapperField";
 import { GoogleDriveFileField } from "./googledrive/GoogleDriveFileField";
 import { GoogleSheetsFindRowPreview } from "../components/google-sheets/GoogleSheetsFindRowPreview";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // Shared field components
 import { GenericSelectField } from "./shared/GenericSelectField";
@@ -1709,6 +1709,8 @@ export function FieldRenderer({
 
       case "select":
         // Route to integration-specific select field or generic one
+        // Note: Discord fields now use GenericSelectField like other providers.
+        // The infinite loop issue was fixed by stabilizing getFormValues in ConfigurationForm.tsx
         const selectOptions = Array.isArray(field.options)
           ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
           : fieldOptions;
@@ -1764,7 +1766,8 @@ export function FieldRenderer({
                 type: node.data?.type,
                 outputSchema: flattenedOutputs,
                 providerId: node.data?.providerId,
-                position: node.position || { x: 0, y: 0 }
+                position: node.position || { x: 0, y: 0 },
+                isTrigger: node.data?.isTrigger || nodeComponent?.isTrigger || false
               }
             })
             .sort((a: any, b: any) => a.position.y - b.position.y)
@@ -1789,8 +1792,10 @@ export function FieldRenderer({
           const compatibleTypes = getCompatibleTypes(field.type)
 
           // Convert upstream variables to options format for GenericSelectField
-          const variableOptions = upstreamNodes.flatMap((node: any) =>
-            node.outputSchema
+          // Use 'trigger' as the reference prefix for trigger nodes
+          const variableOptions = upstreamNodes.flatMap((node: any) => {
+            const referencePrefix = node.isTrigger ? 'trigger' : node.id
+            return node.outputSchema
               .filter((outputField: any) => {
                 // If no type filtering needed, show all
                 if (!compatibleTypes) return true
@@ -1798,12 +1803,12 @@ export function FieldRenderer({
                 return compatibleTypes.includes(outputField.type?.toLowerCase())
               })
               .map((outputField: any) => ({
-                value: `{{${node.id}.${outputField.name}}}`,
+                value: `{{${referencePrefix}.${outputField.name}}}`,
                 label: outputField.label || outputField.name,
                 group: node.title,
                 groupIcon: node.providerId ? `/integrations/${node.providerId}.svg` : undefined
               }))
-          )
+          })
 
           console.log('📊 [FieldRenderer] Generated variable options:', {
             upstreamNodesCount: upstreamNodes.length,
@@ -1948,7 +1953,8 @@ export function FieldRenderer({
                 type: node.data?.type,
                 outputSchema: flattenedOutputs,
                 providerId: node.data?.providerId,
-                position: node.position || { x: 0, y: 0 }
+                position: node.position || { x: 0, y: 0 },
+                isTrigger: node.data?.isTrigger || nodeComponent?.isTrigger || false
               }
             })
             .sort((a: any, b: any) => a.position.y - b.position.y)
@@ -1973,8 +1979,10 @@ export function FieldRenderer({
           const compatibleTypes = getCompatibleTypes(field.type)
 
           // Convert upstream variables to options format for GenericSelectField
-          const variableOptions = upstreamNodes.flatMap((node: any) =>
-            node.outputSchema
+          // Use 'trigger' as the reference prefix for trigger nodes
+          const variableOptions = upstreamNodes.flatMap((node: any) => {
+            const referencePrefix = node.isTrigger ? 'trigger' : node.id
+            return node.outputSchema
               .filter((outputField: any) => {
                 // If no type filtering needed, show all
                 if (!compatibleTypes) return true
@@ -1982,12 +1990,12 @@ export function FieldRenderer({
                 return compatibleTypes.includes(outputField.type?.toLowerCase())
               })
               .map((outputField: any) => ({
-                value: `{{${node.id}.${outputField.name}}}`,
+                value: `{{${referencePrefix}.${outputField.name}}}`,
                 label: outputField.label || outputField.name,
                 group: node.title,
                 groupIcon: node.providerId ? `/integrations/${node.providerId}.svg` : undefined
               }))
-          )
+          })
 
           // In Connect mode, only show value if it's already a variable reference (starts with {{)
           // Otherwise, clear it so users only see upstream variables
@@ -2103,7 +2111,8 @@ export function FieldRenderer({
                 type: node.data?.type,
                 outputSchema: flattenedOutputs,
                 providerId: node.data?.providerId,
-                position: node.position || { x: 0, y: 0 }
+                position: node.position || { x: 0, y: 0 },
+                isTrigger: node.data?.isTrigger || nodeComponent?.isTrigger || false
               }
             })
             .sort((a: any, b: any) => a.position.y - b.position.y)
@@ -2128,8 +2137,10 @@ export function FieldRenderer({
           const compatibleTypes = getCompatibleTypes(field.type)
 
           // Convert upstream variables to options format for GenericSelectField
-          const variableOptions = upstreamNodes.flatMap((node: any) =>
-            node.outputSchema
+          // Use 'trigger' as the reference prefix for trigger nodes
+          const variableOptions = upstreamNodes.flatMap((node: any) => {
+            const referencePrefix = node.isTrigger ? 'trigger' : node.id
+            return node.outputSchema
               .filter((outputField: any) => {
                 // If no type filtering needed, show all
                 if (!compatibleTypes) return true
@@ -2137,12 +2148,12 @@ export function FieldRenderer({
                 return compatibleTypes.includes(outputField.type?.toLowerCase())
               })
               .map((outputField: any) => ({
-                value: `{{${node.id}.${outputField.name}}}`,
+                value: `{{${referencePrefix}.${outputField.name}}}`,
                 label: outputField.label || outputField.name,
                 group: node.title,
                 groupIcon: node.providerId ? `/integrations/${node.providerId}.svg` : undefined
               }))
-          )
+          })
 
           // In Connect mode, use VariableSelectionDropdown for proper styling
           return (

@@ -114,12 +114,12 @@ export default function BillingContent({ isModal = false }: BillingContentProps)
   const currentTier = currentSubscription?.plan?.name
     ? mapPlanNameToTier(currentSubscription.plan.name)
     : 'free'
-  const currentPlanInfo = PLAN_INFO[currentTier]
-  const currentLimits = PLAN_LIMITS[currentTier]
+  const currentPlanInfo = PLAN_INFO[currentTier] || PLAN_INFO.free
+  const currentLimits = PLAN_LIMITS[currentTier] || PLAN_LIMITS.free
 
   // Calculate task usage
   const tasksUsed = usage?.execution_count || 0
-  const tasksLimit = currentLimits.tasksPerMonth
+  const tasksLimit = currentLimits?.tasksPerMonth ?? 100
   const tasksPercentage = tasksLimit === -1 ? 0 : Math.min((tasksUsed / tasksLimit) * 100, 100)
 
   const content = (
@@ -136,7 +136,7 @@ export default function BillingContent({ isModal = false }: BillingContentProps)
                 <div>
                   <h2 className="text-2xl font-bold text-white">Welcome to {currentPlanInfo.name}!</h2>
                   <p className="text-white/80 mt-1">
-                    You now have access to {currentLimits.tasksPerMonth === -1 ? 'unlimited' : currentLimits.tasksPerMonth.toLocaleString()} tasks per month.
+                    You now have access to {currentLimits?.tasksPerMonth === -1 ? 'unlimited' : (currentLimits?.tasksPerMonth ?? 100).toLocaleString()} tasks per month.
                   </p>
                 </div>
               </div>
@@ -376,10 +376,10 @@ interface FeatureRow {
 }
 
 const FEATURE_ROWS: FeatureRow[] = [
-  // Core Features
+  // Core Limits - What differentiates plans
   {
     name: "Tasks per Month",
-    description: "Number of workflow task executions included each month",
+    description: "Number of workflow task executions included each month. This is the main usage limit - each workflow step consumes tasks.",
     free: "100",
     pro: "750",
     team: "2,000",
@@ -387,46 +387,28 @@ const FEATURE_ROWS: FeatureRow[] = [
     enterprise: "Unlimited"
   },
   {
-    name: "Active Workflows",
-    description: "Number of workflows that can be enabled and triggered simultaneously",
-    free: "3",
+    name: "Workflows",
+    description: "Create and run unlimited workflows on all plans. Tasks are the natural limiter, not workflow count.",
+    free: "Unlimited",
     pro: "Unlimited",
     team: "Unlimited",
     business: "Unlimited",
     enterprise: "Unlimited"
   },
-  {
-    name: "Total Workflows",
-    description: "Maximum workflows you can create and save",
-    free: "5",
-    pro: "Unlimited",
-    team: "Unlimited",
-    business: "Unlimited",
-    enterprise: "Unlimited"
-  },
-  // Workflow Features
+  // Core Workflow Features - Everyone gets these
   {
     name: "Multi-Step Workflows",
-    description: "Chain multiple actions with conditional logic, loops, and error handling",
-    free: false,
+    description: "Chain multiple actions together with data flowing between steps. Essential for any real automation.",
+    free: true,
     pro: true,
     team: true,
     business: true,
     enterprise: true
   },
   {
-    name: "Conditional Paths",
-    description: "Add if/else branching logic to route data through different paths",
-    free: false,
-    pro: true,
-    team: true,
-    business: true,
-    enterprise: true
-  },
-  {
-    name: "AI Agents",
-    description: "Claude AI-powered nodes that can reason, analyze, and make decisions",
-    free: false,
+    name: "Conditional Logic",
+    description: "Add if/else branching to route data through different paths based on conditions.",
+    free: true,
     pro: true,
     team: true,
     business: true,
@@ -434,8 +416,8 @@ const FEATURE_ROWS: FeatureRow[] = [
   },
   {
     name: "Webhooks",
-    description: "Receive real-time triggers from external services instantly",
-    free: false,
+    description: "Trigger workflows instantly when events happen in external services (form submissions, payments, etc.)",
+    free: true,
     pro: true,
     team: true,
     business: true,
@@ -443,17 +425,8 @@ const FEATURE_ROWS: FeatureRow[] = [
   },
   {
     name: "Scheduling",
-    description: "Run workflows on schedules (hourly, daily, weekly, custom cron)",
-    free: false,
-    pro: true,
-    team: true,
-    business: true,
-    enterprise: true
-  },
-  {
-    name: "Premium Integrations",
-    description: "Access all 20+ app connections including CRM, payments, and enterprise tools",
-    free: false,
+    description: "Run workflows automatically on schedules - hourly, daily, weekly, or custom cron expressions.",
+    free: true,
     pro: true,
     team: true,
     business: true,
@@ -461,17 +434,36 @@ const FEATURE_ROWS: FeatureRow[] = [
   },
   {
     name: "Error Notifications",
-    description: "Get alerted via email, Slack, or webhook when workflows fail",
+    description: "Get alerted when workflows fail so you can fix issues quickly.",
+    free: true,
+    pro: true,
+    team: true,
+    business: true,
+    enterprise: true
+  },
+  // Premium Features - Upgrade drivers
+  {
+    name: "AI Agents (Claude)",
+    description: "AI-powered nodes that can reason, analyze data, generate content, and make intelligent decisions. The key Pro feature.",
     free: false,
     pro: true,
     team: true,
     business: true,
     enterprise: true
   },
-  // Collaboration
+  {
+    name: "Detailed Logs",
+    description: "Full step-by-step execution logs with timestamps, input/output data, and API responses for debugging.",
+    free: false,
+    pro: true,
+    team: true,
+    business: true,
+    enterprise: true
+  },
+  // Team Features
   {
     name: "Team Members",
-    description: "Number of users who can access and collaborate on workflows",
+    description: "Number of users who can access and collaborate on workflows.",
     free: "1",
     pro: "1",
     team: "5",
@@ -480,7 +472,7 @@ const FEATURE_ROWS: FeatureRow[] = [
   },
   {
     name: "Team Sharing",
-    description: "Share workflows and integrations across your team",
+    description: "Share workflows and integrations with your team members.",
     free: false,
     pro: false,
     team: true,
@@ -489,17 +481,26 @@ const FEATURE_ROWS: FeatureRow[] = [
   },
   {
     name: "Shared Workspaces",
-    description: "Collaborative workspaces where teams can build and manage workflows together",
+    description: "Collaborative workspaces where teams can build and manage workflows together.",
     free: false,
     pro: false,
     team: true,
     business: true,
     enterprise: true
   },
-  // Analytics & Logs
+  {
+    name: "Advanced Analytics",
+    description: "Performance dashboards, usage trends, and exportable reports for your team.",
+    free: false,
+    pro: false,
+    team: true,
+    business: true,
+    enterprise: true
+  },
+  // History & Support
   {
     name: "History Retention",
-    description: "How long execution logs are stored for debugging and auditing",
+    description: "How long execution logs are stored for debugging and auditing.",
     free: "7 days",
     pro: "30 days",
     team: "90 days",
@@ -507,46 +508,18 @@ const FEATURE_ROWS: FeatureRow[] = [
     enterprise: "Unlimited"
   },
   {
-    name: "Detailed Logs",
-    description: "Step-by-step execution logs with timestamps, I/O data, and API responses",
-    free: false,
-    pro: true,
-    team: true,
-    business: true,
-    enterprise: true
-  },
-  {
-    name: "Advanced Analytics",
-    description: "Performance dashboards, usage trends, and exportable reports",
-    free: false,
-    pro: false,
-    team: true,
-    business: true,
-    enterprise: true
-  },
-  // Support
-  {
-    name: "Support Level",
-    description: "Response times and support channels available",
+    name: "Support",
+    description: "Response times and support channels available to you.",
     free: "Community",
     pro: "Email",
-    team: "Priority (<24h)",
-    business: "Priority (<4h)",
+    team: "Priority",
+    business: "Dedicated",
     enterprise: "Dedicated"
   },
-  {
-    name: "Dedicated Success Manager",
-    description: "Personal account manager to help optimize your automation strategy",
-    free: false,
-    pro: false,
-    team: false,
-    business: true,
-    enterprise: true
-  },
-  // Enterprise
+  // Enterprise Features
   {
     name: "SSO / SAML",
-    description: "Single sign-on with Okta, Azure AD, OneLogin, and other identity providers",
+    description: "Single sign-on with identity providers like Okta, Azure AD, and OneLogin.",
     free: false,
     pro: false,
     team: false,
@@ -555,7 +528,7 @@ const FEATURE_ROWS: FeatureRow[] = [
   },
   {
     name: "SLA Guarantee",
-    description: "Guaranteed uptime with service credits if targets are missed",
+    description: "Guaranteed uptime with service credits if targets are missed.",
     free: false,
     pro: false,
     team: false,
@@ -564,21 +537,12 @@ const FEATURE_ROWS: FeatureRow[] = [
   },
   {
     name: "Custom Contracts",
-    description: "Flexible billing, custom terms, and negotiated pricing",
+    description: "Flexible billing, custom terms, and negotiated pricing for your organization.",
     free: false,
     pro: false,
     team: false,
     business: false,
     enterprise: true
-  },
-  {
-    name: "Overage Rate",
-    description: "Cost per additional task if you exceed your monthly allocation",
-    free: "N/A",
-    pro: "$0.025",
-    team: "$0.020",
-    business: "$0.015",
-    enterprise: "Custom"
   },
 ]
 

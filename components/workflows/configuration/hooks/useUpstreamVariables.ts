@@ -158,6 +158,7 @@ export interface UpstreamNode {
   providerId?: string
   outputs: any[]
   position: { x: number; y: number }
+  isTrigger?: boolean
 }
 
 interface UseUpstreamVariablesOptions {
@@ -216,6 +217,7 @@ export function useUpstreamVariables({
         const flattenedOutputs = flattenOutputFields(outputs)
 
         const title = node.data?.title || node.data?.label || nodeComponent?.title || 'Unnamed'
+        const isTrigger = node.data?.isTrigger || nodeComponent?.isTrigger || false
 
         return {
           id: node.id,
@@ -224,7 +226,8 @@ export function useUpstreamVariables({
           type: node.data?.type,
           providerId: node.data?.providerId || nodeComponent?.providerId,
           outputs: flattenedOutputs,
-          position: node.position || { x: 0, y: 0 }
+          position: node.position || { x: 0, y: 0 },
+          isTrigger
         }
       })
 
@@ -233,23 +236,27 @@ export function useUpstreamVariables({
   }, [workflowData, currentNodeId])
 
   // Flatten all variables for easy iteration
+  // Use 'trigger' as the reference prefix for trigger nodes since there's only one per workflow
   const variables = useMemo<UpstreamVariable[]>(() => {
-    return upstreamNodes.flatMap(node =>
-      node.outputs.map(output => ({
+    return upstreamNodes.flatMap(node => {
+      // Use 'trigger' as the reference for trigger nodes for cleaner variable syntax
+      const referencePrefix = node.isTrigger ? 'trigger' : node.id
+
+      return node.outputs.map(output => ({
         nodeId: node.id,
         nodeTitle: node.title,
-        nodeAlias: node.alias,
+        nodeAlias: node.isTrigger ? 'trigger' : node.alias,
         providerId: node.providerId,
         fieldName: output.name,
         fieldLabel: output.label || output.name,
         fieldType: output.type,
-        fullReference: `{{${node.id}.${output.name}}}`,
+        fullReference: `{{${referencePrefix}.${output.name}}}`,
         isArrayProperty: output._isArrayProperty,
         parentArray: output._parentArray,
         parentArrayLabel: output._parentArrayLabel,
         arrayAccessor: output._arrayAccessor
       }))
-    )
+    })
   }, [upstreamNodes])
 
   const hasUpstreamNodes = upstreamNodes.length > 0

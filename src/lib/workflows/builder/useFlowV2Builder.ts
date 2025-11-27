@@ -466,8 +466,38 @@ function applyPlannerEdits(base: Flow, edits: PlannerEdit[]): Flow {
 const NODE_COMPONENT_MAP = new Map(ALL_NODE_COMPONENTS.map((node) => [node.type, node]))
 
 function flowToReactFlowNodes(flow: Flow, onDelete?: (nodeId: string) => void): ReactFlowNode[] {
-  return flow.nodes.map((node, index) => {
+  // First, determine which nodes are triggers
+  const nodeWithTriggerInfo = flow.nodes.map((node) => {
     const metadata = (node.metadata ?? {}) as any
+    const catalogNode = NODE_COMPONENT_MAP.get(node.type)
+    const isTrigger = metadata.isTrigger ?? catalogNode?.isTrigger ?? false
+    return { node, isTrigger, metadata, catalogNode }
+  })
+
+  // Sort nodes: triggers first, then actions
+  // This ensures correct fallback positioning when metadata.position is missing
+  const sortedNodes = [...nodeWithTriggerInfo].sort((a, b) => {
+    // If both have positions, sort by Y position
+    const aHasPosition = a.metadata.position?.y !== undefined
+    const bHasPosition = b.metadata.position?.y !== undefined
+
+    if (aHasPosition && bHasPosition) {
+      return (a.metadata.position.y as number) - (b.metadata.position.y as number)
+    }
+
+    // If only one has position, prioritize the one with position
+    if (aHasPosition && !bHasPosition) return -1
+    if (!aHasPosition && bHasPosition) return 1
+
+    // If neither has position, sort triggers first
+    if (a.isTrigger && !b.isTrigger) return -1
+    if (!a.isTrigger && b.isTrigger) return 1
+
+    // Keep original order for same type
+    return 0
+  })
+
+  return sortedNodes.map(({ node, isTrigger, metadata, catalogNode }, index) => {
     const defaultY = 120 + index * 180
     const rawPosition = metadata.position ?? { x: LINEAR_STACK_X, y: defaultY }
     // Use saved X position if available, otherwise default to LINEAR_STACK_X
@@ -478,7 +508,6 @@ function flowToReactFlowNodes(flow: Flow, onDelete?: (nodeId: string) => void): 
       y: positionY,
     }
 
-    const catalogNode = NODE_COMPONENT_MAP.get(node.type)
     const providerId = metadata.providerId ?? catalogNode?.providerId
     const icon = catalogNode?.icon
     const description = node.description ?? catalogNode?.description
@@ -496,7 +525,7 @@ function flowToReactFlowNodes(flow: Flow, onDelete?: (nodeId: string) => void): 
         description,
         providerId,
         icon,
-        isTrigger: metadata.isTrigger ?? false,
+        isTrigger,
         agentHighlights: metadata.agentHighlights ?? [],
         costHint: node.costHint ?? 0,
         onDelete,
@@ -521,6 +550,62 @@ function flowToReactFlowEdges(flow: Flow): ReactFlowEdge[] {
       mappings: edge.mappings ?? [],
     },
   }))
+}
+
+/**
+ * Detects missing edges in a linear workflow and returns PlannerEdit operations to create them.
+ * This repairs workflows that have nodes but missing connections between them.
+ */
+function detectMissingEdges(flow: Flow): Array<{ op: "connect"; edge: FlowEdge }> {
+  if (!flow.nodes || flow.nodes.length < 2) {
+    return []
+  }
+
+  // Sort nodes: triggers first, then by position
+  const nodesWithInfo = flow.nodes.map((node) => {
+    const metadata = (node.metadata ?? {}) as any
+    const catalogNode = NODE_COMPONENT_MAP.get(node.type)
+    const isTrigger = metadata.isTrigger ?? catalogNode?.isTrigger ?? false
+    const posY = metadata.position?.y ?? 0
+    return { node, isTrigger, posY }
+  })
+
+  const sortedNodes = [...nodesWithInfo].sort((a, b) => {
+    // Triggers first
+    if (a.isTrigger && !b.isTrigger) return -1
+    if (!a.isTrigger && b.isTrigger) return 1
+    // Then by Y position
+    return a.posY - b.posY
+  })
+
+  // Build set of existing edges
+  const existingEdges = new Set(
+    (flow.edges ?? []).map((e) => `${e.from.nodeId}->${e.to.nodeId}`)
+  )
+
+  // Find missing edges between consecutive nodes
+  const missingEdges: Array<{ op: "connect"; edge: FlowEdge }> = []
+
+  for (let i = 0; i < sortedNodes.length - 1; i++) {
+    const current = sortedNodes[i].node
+    const next = sortedNodes[i + 1].node
+    const key = `${current.id}->${next.id}`
+
+    if (!existingEdges.has(key)) {
+      console.log(`[detectMissingEdges] Found missing edge: ${current.id} -> ${next.id}`)
+      missingEdges.push({
+        op: "connect",
+        edge: {
+          id: `${current.id}-${next.id}-repaired`,
+          from: { nodeId: current.id, portId: "source" },
+          to: { nodeId: next.id, portId: "target" },
+          mappings: [],
+        },
+      })
+    }
+  }
+
+  return missingEdges
 }
 
 const ALIGNMENT_LOG_PREFIX = "[WorkflowAlign]"
@@ -934,7 +1019,19 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
 
       const sortedLinearNodes = [...graphNodes]
         .filter((node) => node.type !== 'action_placeholder' && node.type !== 'trigger_placeholder')
-        .sort((a, b) => a.position.y - b.position.y)
+        .sort((a, b) => {
+          // Primary sort: by Y position
+          const yDiff = a.position.y - b.position.y
+          if (Math.abs(yDiff) > 10) return yDiff // Use 10px tolerance for "same row"
+
+          // Secondary sort: triggers before actions (for nodes at same Y)
+          const aIsTrigger = a.data?.isTrigger ?? false
+          const bIsTrigger = b.data?.isTrigger ?? false
+          if (aIsTrigger && !bIsTrigger) return -1
+          if (!aIsTrigger && bIsTrigger) return 1
+
+          return 0
+        })
 
       if (sortedLinearNodes.length >= 2) {
         const edgeKey = (edge: ReactFlowEdge) => `${edge.source}->${edge.target}`
@@ -991,12 +1088,62 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
   const load = useCallback(async () => {
     if (!flowId) return
 
+    // Helper to repair missing edges in a flow
+    const repairFlowEdges = (flow: Flow): { repairedFlow: Flow; hadRepairs: boolean } => {
+      const missingEdgeEdits = detectMissingEdges(flow)
+      if (missingEdgeEdits.length === 0) {
+        return { repairedFlow: flow, hadRepairs: false }
+      }
+
+      console.log(`[useFlowV2Builder] Repairing ${missingEdgeEdits.length} missing edges`)
+      const repairedFlow = {
+        ...flow,
+        edges: [
+          ...flow.edges,
+          ...missingEdgeEdits.map((edit) => edit.edge),
+        ],
+        version: (flow.version ?? 0) + 1,
+      }
+      return { repairedFlow, hadRepairs: true }
+    }
+
+    // Helper to persist repaired flow to database
+    const persistRepairedFlow = async (repairedFlow: Flow) => {
+      try {
+        const payload = await fetchJson<{ flow: Flow; revisionId?: string; version?: number }>(
+          `${flowApiUrl(flowId, '/apply-edits')}`,
+          {
+            method: "POST",
+            headers: JSON_HEADERS,
+            body: JSON.stringify({
+              flow: repairedFlow,
+              version: repairedFlow.version,
+            }),
+          }
+        )
+        console.log('[useFlowV2Builder] Successfully persisted repaired flow with edges')
+        return payload
+      } catch (error) {
+        console.error('[useFlowV2Builder] Failed to persist repaired flow:', error)
+        return null
+      }
+    }
+
     // If we have initialRevision and haven't used it yet, use it instead of fetching
     if (options?.initialRevision && !initialRevisionUsedRef.current) {
       initialRevisionUsedRef.current = true
       setLoading(true)
       try {
-        const flow = FlowSchema.parse(options.initialRevision.graph)
+        let flow = FlowSchema.parse(options.initialRevision.graph)
+
+        // Detect and repair missing edges
+        const { repairedFlow, hadRepairs } = repairFlowEdges(flow)
+        if (hadRepairs) {
+          flow = repairedFlow
+          // Persist the repairs in the background (don't block the UI)
+          void persistRepairedFlow(flow)
+        }
+
         flowRef.current = flow
         revisionIdRef.current = options.initialRevision.id
         updateReactFlowGraph(flow)
@@ -1039,7 +1186,16 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
         `${flowApiUrl(flowId, `/revisions/${revisionId}`)}`
       )
 
-      const flow = FlowSchema.parse(revisionPayload.revision.graph)
+      let flow = FlowSchema.parse(revisionPayload.revision.graph)
+
+      // Detect and repair missing edges
+      const { repairedFlow, hadRepairs } = repairFlowEdges(flow)
+      if (hadRepairs) {
+        flow = repairedFlow
+        // Persist the repairs in the background (don't block the UI)
+        void persistRepairedFlow(flow)
+      }
+
       flowRef.current = flow
       revisionIdRef.current = revisionPayload.revision.id
       updateReactFlowGraph(flow)

@@ -19,7 +19,6 @@ export interface PlanLimits {
 
   // Features
   multiStepWorkflows: boolean
-  premiumIntegrations: boolean
   aiAgents: boolean
   conditionalPaths: boolean
   webhooks: boolean
@@ -47,37 +46,38 @@ export interface PlanLimits {
 }
 
 export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
+  // FREE: Let users experience the product fully, but limit tasks and premium features
+  // Tasks are the natural limiter - no need to restrict workflow count
   free: {
     tasksPerMonth: 100,
-    maxActiveWorkflows: 3,
-    maxWorkflowsTotal: 5,
-    multiStepWorkflows: false,
-    premiumIntegrations: false,
-    aiAgents: false,
-    conditionalPaths: false,
-    webhooks: false,
-    scheduling: false,
-    errorNotifications: false,
-    teamSharing: false,
+    maxActiveWorkflows: -1, // unlimited - tasks are the real limiter
+    maxWorkflowsTotal: -1,  // unlimited - tasks are the real limiter
+    multiStepWorkflows: true,  // core feature - everyone needs this
+    aiAgents: false,           // KEY UPGRADE DRIVER - AI costs real money
+    conditionalPaths: true,    // core feature - everyone needs this
+    webhooks: true,            // core feature - needed for real automation
+    scheduling: true,          // core feature - needed for real automation
+    errorNotifications: true,  // basic version - users need to know when things break
+    teamSharing: false,        // upgrade driver - solo use only
     maxTeamMembers: 1,
-    sharedWorkspaces: false,
-    advancedAnalytics: false,
+    sharedWorkspaces: false,   // upgrade driver - solo use only
+    advancedAnalytics: false,  // upgrade driver - basic stats only
     prioritySupport: false,
     dedicatedSupport: false,
-    historyRetentionDays: 7,
-    detailedLogs: false,
+    historyRetentionDays: 7,   // upgrade driver - short retention
+    detailedLogs: false,       // upgrade driver - basic logs only
     sso: false,
     customContracts: false,
     slaGuarantee: null,
   },
 
+  // PRO: Main upgrade path - AI Agents + more tasks + better logs
   pro: {
     tasksPerMonth: 750,
-    maxActiveWorkflows: -1, // unlimited
+    maxActiveWorkflows: -1,
     maxWorkflowsTotal: -1,
     multiStepWorkflows: true,
-    premiumIntegrations: true,
-    aiAgents: true,
+    aiAgents: true,            // THE key Pro feature
     conditionalPaths: true,
     webhooks: true,
     scheduling: true,
@@ -95,12 +95,12 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     slaGuarantee: null,
   },
 
+  // TEAM: Collaboration features + more tasks + analytics
   team: {
     tasksPerMonth: 2000,
     maxActiveWorkflows: -1,
     maxWorkflowsTotal: -1,
     multiStepWorkflows: true,
-    premiumIntegrations: true,
     aiAgents: true,
     conditionalPaths: true,
     webhooks: true,
@@ -119,12 +119,12 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     slaGuarantee: null,
   },
 
+  // BUSINESS: More team members + dedicated support + SLA
   business: {
     tasksPerMonth: 5000,
     maxActiveWorkflows: -1,
     maxWorkflowsTotal: -1,
     multiStepWorkflows: true,
-    premiumIntegrations: true,
     aiAgents: true,
     conditionalPaths: true,
     webhooks: true,
@@ -143,12 +143,12 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     slaGuarantee: '99.9%',
   },
 
+  // ENTERPRISE: Everything + SSO + custom contracts + unlimited
   enterprise: {
-    tasksPerMonth: -1, // unlimited
+    tasksPerMonth: -1,
     maxActiveWorkflows: -1,
     maxWorkflowsTotal: -1,
     multiStepWorkflows: true,
-    premiumIntegrations: true,
     aiAgents: true,
     conditionalPaths: true,
     webhooks: true,
@@ -160,7 +160,7 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     advancedAnalytics: true,
     prioritySupport: true,
     dedicatedSupport: true,
-    historyRetentionDays: -1, // unlimited
+    historyRetentionDays: -1,
     detailedLogs: true,
     sso: true,
     customContracts: true,
@@ -226,18 +226,17 @@ export const PLAN_INFO: Record<PlanTier, PlanInfo> = {
 export const PLAN_FEATURES: Record<PlanTier, string[]> = {
   free: [
     '100 tasks/month',
-    '3 active workflows',
-    '5 total workflows',
-    'Basic integrations',
+    'Unlimited workflows',
+    'Multi-step workflows',
+    'Webhooks & scheduling',
+    'All integrations',
     '7-day history',
     'Community support',
   ],
   pro: [
     '750 tasks/month',
-    'Unlimited workflows',
-    'All integrations',
-    'AI Agents',
-    'Webhooks & scheduling',
+    'Everything in Free',
+    'AI Agents (Claude)',
     '30-day history',
     'Detailed logs',
     'Email support',
@@ -258,7 +257,6 @@ export const PLAN_FEATURES: Record<PlanTier, string[]> = {
     '1-year history',
     'Dedicated support',
     '99.9% SLA guarantee',
-    'Custom onboarding',
   ],
   enterprise: [
     'Unlimited tasks',
@@ -268,7 +266,6 @@ export const PLAN_FEATURES: Record<PlanTier, string[]> = {
     'Custom contracts',
     '99.99% SLA guarantee',
     'Dedicated success manager',
-    'Custom integrations',
   ],
 }
 

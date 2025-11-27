@@ -239,7 +239,10 @@ export function AIAgentConfigContent({
     const nodeById = new Map(nodes.map(n => [n.id, n]))
     const sourceIds = getAllPreviousNodeIds(currentNodeId, edges)
 
-    return sourceIds
+    // Deduplicate source IDs to prevent duplicate nodes
+    const uniqueSourceIds = [...new Set(sourceIds)]
+
+    return uniqueSourceIds
       .map(id => nodeById.get(id))
       .filter(Boolean)
       .map(node => {
@@ -247,12 +250,14 @@ export function AIAgentConfigContent({
         const baseOutputs = extractNodeOutputs(node as any)
         const outputs = (baseOutputs && baseOutputs.length > 0) ? baseOutputs : (nodeComponent?.outputSchema || [])
         const title = node.data?.title || node.data?.label || nodeComponent?.title || 'Unnamed'
+        const isTrigger = node.data?.isTrigger || nodeComponent?.isTrigger || false
         return {
           id: node.id,
           title,
           type: node.data?.type,
           outputs,
           providerId: node.data?.providerId || nodeComponent?.providerId,
+          isTrigger,
         }
       })
   }, [nodes, edges, currentNodeId])
@@ -292,15 +297,17 @@ export function AIAgentConfigContent({
     setIsImproving(true)
     try {
       // Build list of available variables from upstream nodes
-      const availableVariables = upstreamNodes.flatMap(node =>
-        node.outputs.map((output: any) => ({
-          reference: `{{${node.id}.${output.name}}}`,
+      // Use 'trigger' as the reference for trigger nodes since there's only one per workflow
+      const availableVariables = upstreamNodes.flatMap(node => {
+        const referencePrefix = node.isTrigger ? 'trigger' : node.id
+        return node.outputs.map((output: any) => ({
+          reference: `{{${referencePrefix}.${output.name}}}`,
           nodeTitle: node.title,
           fieldName: output.label || output.name,
           fieldType: output.type || 'string',
           description: output.description
         }))
-      )
+      })
 
       const response = await fetch('/api/workflows/ai/improve-prompt', {
         method: 'POST',
@@ -395,7 +402,7 @@ export function AIAgentConfigContent({
 
         <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
           {/* SETUP TAB - Prompt, Model, Templates */}
-          <TabsContent value="setup" className="mt-0 p-4 pb-4 space-y-4">
+          <TabsContent value="setup" className="mt-0 p-4 pb-24 space-y-4">
             {/* Quick Templates */}
             <div className="space-y-2">
               <Label className="text-xs font-medium">Quick Templates</Label>
@@ -468,43 +475,47 @@ export function AIAgentConfigContent({
                                     </div>
                                   }
                                 >
-                                  {node.outputs.map((output: any) => (
-                                    <CommandItem
-                                      key={`${node.id}-${output.name}`}
-                                      value={`${node.title} ${output.label || output.name}`}
-                                      onSelect={() => {
-                                        const variableRef = `{{${node.id}.${output.name}}}`
-                                        const textarea = promptRef.current
-                                        if (textarea) {
-                                          const start = textarea.selectionStart
-                                          const end = textarea.selectionEnd
-                                          const text = config.prompt
-                                          const newText = text.substring(0, start) + variableRef + text.substring(end)
-                                          handleFieldChange('prompt', newText)
-                                          setTimeout(() => {
-                                            textarea.focus()
-                                            textarea.setSelectionRange(start + variableRef.length, start + variableRef.length)
-                                          }, 0)
-                                        } else {
-                                          handleFieldChange('prompt', config.prompt + variableRef)
-                                        }
-                                        setVariablesOpen(false)
-                                      }}
-                                      className="flex flex-col items-start px-3 py-1.5"
-                                    >
-                                      <div className="flex items-center gap-2 w-full">
-                                        <span className="text-xs font-medium">{output.label || output.name}</span>
-                                        {output.type && (
-                                          <Badge variant="outline" className="text-[9px] font-mono px-1 py-0">
-                                            {output.type}
-                                          </Badge>
-                                        )}
-                                      </div>
-                                      <code className="text-[10px] text-muted-foreground font-mono">
-                                        {`{{${node.id}.${output.name}}}`}
-                                      </code>
-                                    </CommandItem>
-                                  ))}
+                                  {node.outputs.map((output: any, outputIndex: number) => {
+                                    // Use 'trigger' as the reference for trigger nodes
+                                    const referencePrefix = node.isTrigger ? 'trigger' : node.id
+                                    const variableRef = `{{${referencePrefix}.${output.name}}}`
+                                    return (
+                                      <CommandItem
+                                        key={`${node.id}-${output.name}-${outputIndex}`}
+                                        value={`${node.title} ${output.label || output.name}`}
+                                        onSelect={() => {
+                                          const textarea = promptRef.current
+                                          if (textarea) {
+                                            const start = textarea.selectionStart
+                                            const end = textarea.selectionEnd
+                                            const text = config.prompt
+                                            const newText = text.substring(0, start) + variableRef + text.substring(end)
+                                            handleFieldChange('prompt', newText)
+                                            setTimeout(() => {
+                                              textarea.focus()
+                                              textarea.setSelectionRange(start + variableRef.length, start + variableRef.length)
+                                            }, 0)
+                                          } else {
+                                            handleFieldChange('prompt', config.prompt + variableRef)
+                                          }
+                                          setVariablesOpen(false)
+                                        }}
+                                        className="flex flex-col items-start px-3 py-1.5"
+                                      >
+                                        <div className="flex items-center gap-2 w-full">
+                                          <span className="text-xs font-medium">{output.label || output.name}</span>
+                                          {output.type && (
+                                            <Badge variant="outline" className="text-[9px] font-mono px-1 py-0">
+                                              {output.type}
+                                            </Badge>
+                                          )}
+                                        </div>
+                                        <code className="text-[10px] text-muted-foreground font-mono">
+                                          {variableRef}
+                                        </code>
+                                      </CommandItem>
+                                    )
+                                  })}
                                 </CommandGroup>
                               ))
                             )}
@@ -769,15 +780,14 @@ Example:
         </div>
       </Tabs>
 
-      {/* Footer */}
-      <div className="p-4 border-t flex justify-between items-center bg-white dark:bg-slate-950">
-        <div className="flex items-center gap-2">
-          {config.apiSource === 'chainreact' && <Badge variant="outline" className="text-[9px]"><Gauge className="w-2.5 h-2.5 mr-1" />Plan limits</Badge>}
-          {config.apiSource === 'custom' && config.customApiKey && <Badge variant="outline" className="text-[9px] text-green-600"><Key className="w-2.5 h-2.5 mr-1" />Custom</Badge>}
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={onCancel}>Cancel</Button>
-          <Button size="sm" onClick={handleSave}>Save</Button>
+      {/* Footer - Matching standard ConfigurationContainer style */}
+      <div className="border-t border-border px-6 py-4 flex-shrink-0 bg-white dark:bg-slate-950">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            {config.apiSource === 'chainreact' && <Badge variant="outline" className="text-[9px]"><Gauge className="w-2.5 h-2.5 mr-1" />Plan limits</Badge>}
+            {config.apiSource === 'custom' && config.customApiKey && <Badge variant="outline" className="text-[9px] text-green-600"><Key className="w-2.5 h-2.5 mr-1" />Custom</Badge>}
+          </div>
+          <Button onClick={handleSave}>Save Configuration</Button>
         </div>
       </div>
     </div>

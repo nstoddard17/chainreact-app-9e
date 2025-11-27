@@ -3,7 +3,7 @@
 import React, { memo, useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { Handle, Position, type NodeProps, useUpdateNodeInternals, useReactFlow } from "@xyflow/react"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
-import { Trash2, TestTube, Plus, Edit2, Layers, Unplug, Sparkles, ChevronDown, ChevronUp, Loader2, CheckCircle2, AlertTriangle, Info, GitFork, ArrowRight, PlusCircle, AlertCircle, MoreVertical, Play, Snowflake, GripVertical, Database } from "lucide-react"
+import { Trash2, TestTube, Plus, Edit2, Layers, Unplug, ChevronDown, ChevronUp, Loader2, CheckCircle2, AlertTriangle, Info, GitFork, ArrowRight, PlusCircle, AlertCircle, MoreVertical, Play, Snowflake, GripVertical, Database } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -2339,54 +2339,6 @@ function CustomNode({ id, data, selected }: NodeProps) {
           }
         }
       `}</style>
-
-      {/* AI Agent instruction input field */}
-      {type === 'ai_agent' && (
-        <div className="border-t border-border px-3 py-2 bg-muted/30 hover:bg-muted/50 transition-colors">
-          <div className="flex items-start gap-2">
-            <div className="flex-shrink-0 mt-1">
-              <Sparkles className="w-4 h-4 text-primary" />
-            </div>
-            <input
-              type="text"
-              placeholder="Tell AI what to change on this node..."
-              className="flex-1 text-sm bg-transparent border-none outline-none text-muted-foreground placeholder:text-muted-foreground/60 focus:text-foreground transition-colors noDrag noPan"
-              onClick={(e) => e.stopPropagation()}
-              onMouseDown={(e) => e.stopPropagation()}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  // TODO: Handle AI instruction submission
-                  const input = e.currentTarget
-                  console.log('AI instruction:', input.value)
-                  // Clear input after submission
-                  input.value = ''
-                }
-              }}
-            />
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex-shrink-0 mt-1 cursor-help">
-                    <svg className="w-4 h-4 text-muted-foreground hover:text-foreground transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-xs">
-                  <p className="font-semibold mb-1">AI-Powered Configuration</p>
-                  <p className="text-xs">Type instructions in plain English to configure this AI Agent. Examples:</p>
-                  <ul className="text-xs mt-1 space-y-0.5 list-disc list-inside">
-                    <li>"Summarize customer feedback in 2 sentences"</li>
-                    <li>"Extract email addresses from this text"</li>
-                    <li>"Translate to Spanish"</li>
-                  </ul>
-                  <p className="text-xs mt-1 italic">Press Enter to apply changes</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-        </div>
-      )}
 
       {/* Centered Add Action button for chain placeholders - matching AI Agent builder design */}
       {type === 'chain_placeholder' && (hasAddButton || isPlaceholder) && onAddAction && (
