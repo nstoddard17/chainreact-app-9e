@@ -5,7 +5,7 @@ import type { Edge as ReactFlowEdge, Node as ReactFlowNode, XYPosition } from "@
 
 import { useWorkflowBuilder } from "@/hooks/workflows/useWorkflowBuilder"
 import { FlowSchema, type Flow, type FlowInterface, type Node as FlowNode, type Edge as FlowEdge } from "./schema"
-import { addNodeEdit, oldConnectToEdge, moveNodeEdit, generateId } from "../compat/v2Adapter"
+import { addNodeEdit, oldConnectToEdge, generateId } from "../compat/v2Adapter"
 import { ALL_NODE_COMPONENTS } from "../../../../lib/workflows/nodes"
 import { flowApiUrl } from "./api/paths"
 
