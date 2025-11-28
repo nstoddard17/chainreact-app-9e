@@ -16,6 +16,30 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 const supabase = createClient(supabaseUrl, supabaseKey)
 
 /**
+ * Request deduplication cache
+ * Prevents duplicate API calls within a short time window
+ */
+interface CachedRequest {
+  promise: Promise<any>
+  timestamp: number
+  result?: any
+}
+
+const requestCache = new Map<string, CachedRequest>()
+const DEDUP_WINDOW_MS = 2000 // Deduplicate requests within 2 seconds
+const CACHE_RESULT_TTL_MS = 5000 // Cache successful results for 5 seconds
+
+// Cleanup old cache entries periodically
+setInterval(() => {
+  const now = Date.now()
+  for (const [key, cached] of requestCache.entries()) {
+    if (now - cached.timestamp > CACHE_RESULT_TTL_MS) {
+      requestCache.delete(key)
+    }
+  }
+}, 10000) // Cleanup every 10 seconds
+
+/**
  * Handle Gmail data requests
  */
 export async function POST(req: NextRequest) {
@@ -37,6 +61,49 @@ export async function POST(req: NextRequest) {
       return jsonResponse({
         error: `Data type '${dataType}' not supported. Available types: ${getAvailableGmailDataTypes().join(', ')}`
       }, { status: 400 })
+    }
+
+    // Request deduplication: Check if we have a recent identical request
+    const cacheKey = `${integrationId}:${dataType}:${JSON.stringify(options)}`
+    const now = Date.now()
+    const cached = requestCache.get(cacheKey)
+
+    if (cached) {
+      // If we have a cached result and it's still fresh, return it
+      if (cached.result && (now - cached.timestamp) < CACHE_RESULT_TTL_MS) {
+        logger.debug(`⚡ [Gmail Data API] Returning cached result for: ${dataType}`)
+        return jsonResponse({
+          data: cached.result,
+          meta: {
+            dataType,
+            integrationId,
+            count: Array.isArray(cached.result) ? cached.result.length : 1,
+            cached: true,
+            timestamp: new Date().toISOString()
+          }
+        })
+      }
+
+      // If there's a request in flight within the dedup window, wait for it
+      if ((now - cached.timestamp) < DEDUP_WINDOW_MS) {
+        logger.debug(`⏳ [Gmail Data API] Waiting for in-flight request: ${dataType}`)
+        try {
+          const result = await cached.promise
+          return jsonResponse({
+            data: result,
+            meta: {
+              dataType,
+              integrationId,
+              count: Array.isArray(result) ? result.length : 1,
+              deduplicated: true,
+              timestamp: new Date().toISOString()
+            }
+          })
+        } catch (error) {
+          // If the previous request failed, continue with a new request
+          logger.debug(`⚠️ [Gmail Data API] Previous request failed, making new request: ${dataType}`)
+        }
+      }
     }
 
     // Try to get Gmail integration by the provided ID first
@@ -111,12 +178,27 @@ export async function POST(req: NextRequest) {
       return jsonResponse({ error: `Handler not implemented for data type: ${dataType}` }, { status: 500 })
     }
 
-    // Execute the handler
+    // Execute the handler with caching
     logger.debug(`🚀 [Gmail Data API] Executing handler for: ${dataType}`)
     const startTime = Date.now()
-    
-    const result = await handler(integration as GmailIntegration, options)
-    
+
+    // Create a promise for the handler execution
+    const handlerPromise = handler(integration as GmailIntegration, options)
+
+    // Store the promise in the cache immediately (before awaiting)
+    requestCache.set(cacheKey, {
+      promise: handlerPromise,
+      timestamp: Date.now()
+    })
+
+    const result = await handlerPromise
+
+    // Update cache with the result
+    const cachedEntry = requestCache.get(cacheKey)
+    if (cachedEntry) {
+      cachedEntry.result = result
+    }
+
     const duration = Date.now() - startTime
     logger.debug(`✅ [Gmail Data API] Handler completed in ${duration}ms, returned ${Array.isArray(result) ? result.length : 'non-array'} items`)
 

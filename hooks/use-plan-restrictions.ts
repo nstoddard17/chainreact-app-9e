@@ -58,14 +58,14 @@ export function usePlanRestrictions() {
    * Get the limits for the current plan
    */
   const getCurrentLimits = (): PlanLimits => {
-    return PLAN_LIMITS[currentPlan]
+    return PLAN_LIMITS[currentPlan] || PLAN_LIMITS.free
   }
 
   /**
    * Check if user is on a specific plan or higher
    */
   const isPlanOrHigher = (requiredPlan: PlanTier): boolean => {
-    const planHierarchy: PlanTier[] = ['free', 'starter', 'professional', 'team', 'enterprise']
+    const planHierarchy: PlanTier[] = ['free', 'pro', 'team', 'business', 'enterprise']
     const currentIndex = planHierarchy.indexOf(currentPlan)
     const requiredIndex = planHierarchy.indexOf(requiredPlan)
     return currentIndex >= requiredIndex

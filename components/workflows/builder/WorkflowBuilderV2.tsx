@@ -507,8 +507,15 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     })
 
     // Set the integration store's workspace context to match the current workflow's workspace
+    // NOTE: setWorkspaceContext clears the integrations array, so we MUST fetch after setting
     setIntegrationWorkspaceContext(workspaceContext.type, workspaceContext.id)
-  }, [workspaceContext, setIntegrationWorkspaceContext])
+
+    // Fetch integrations for this workspace context
+    // This is critical - setWorkspaceContext clears integrations but doesn't auto-fetch
+    fetchIntegrations(false, workspaceContext.type, workspaceContext.id || undefined).catch(error => {
+      logger.error('[WorkflowBuilder] Failed to fetch integrations after workspace sync:', error)
+    })
+  }, [workspaceContext, setIntegrationWorkspaceContext, fetchIntegrations])
 
   // Cleanup: Clear pending messages on unmount if workflow was never saved
   useEffect(() => {
@@ -1365,25 +1372,21 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     }
 
     try {
-      // Add the new node
-      await actions.addNode(nodeType, position)
+      // Add the new node - addNode returns the node ID
+      const newNodeId = await actions.addNode(nodeType, position)
 
-      // Get the newly added node ID (it will be the last node added)
-      const newNodes = builder.nodes
-      const newNode = newNodes[newNodes.length - 1]
-
-      if (newNode) {
+      if (newNodeId) {
         // Connect the previous node to the new node
         await actions.connectEdge({
           sourceId: afterNodeId,
-          targetId: newNode.id,
+          targetId: newNodeId,
           sourceHandle: sourceHandle || 'source'
         })
 
         // Auto-open configuration for Path Condition nodes
-        if (nodeType === 'path_condition' && newNode.id) {
+        if (nodeType === 'path_condition') {
           setTimeout(() => {
-            handleConfigureNode(newNode.id)
+            handleConfigureNode(newNodeId)
           }, 100)
         }
       }

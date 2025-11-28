@@ -410,12 +410,7 @@ export function DiscordRichTextEditor({
         }
       }, 10)
     }
-    
-    toast({
-      title: "Mention added",
-      description: `Added ${displayFormat}`,
-    })
-  }, [displayValue, convertToDiscordFormat, onChange, toast])
+  }, [displayValue, convertToDiscordFormat, onChange])
 
   const insertVariable = (variable: string) => {
     if (textareaRef.current) {
@@ -532,23 +527,26 @@ export function DiscordRichTextEditor({
 
   const getVariablesFromWorkflow = () => {
     if (!workflowData || !currentNodeId) return []
-    
+
     const variables: Array<{name: string, label: string, node: string}> = []
-    
+
     workflowData.nodes
       .filter(node => node.id !== currentNodeId)
       .forEach(node => {
         if (node.data?.outputSchema) {
+          // Use 'trigger' as the reference prefix for trigger nodes
+          const isTrigger = node.data?.isTrigger || false
+          const referencePrefix = isTrigger ? 'trigger' : node.id
           node.data.outputSchema.forEach((output: any) => {
             variables.push({
-              name: `{{${node.id}.${output.name}}}`,
+              name: `{{${referencePrefix}.${output.name}}}`,
               label: output.label || output.name,
               node: node.data?.title || node.data?.type || 'Unknown'
             })
           })
         }
       })
-    
+
     return variables
   }
 
@@ -623,11 +621,12 @@ export function DiscordRichTextEditor({
             <>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     className="h-8 gap-1 hover:bg-slate-700 text-slate-300 hover:text-white"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation()
                       // Load Discord data on demand when user clicks mentions
                       if (!availableMembers.length && !isLoadingDiscordData) {
                         loadDiscordGuildData()
@@ -639,7 +638,7 @@ export function DiscordRichTextEditor({
                     <ChevronDown className="h-3 w-3" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-80 p-0 bg-slate-800 border-slate-700">
+                <PopoverContent className="w-80 p-0 bg-slate-800 border-slate-700" onClick={(e) => e.stopPropagation()}>
                   <div className="p-3 border-b border-slate-700">
                     <h4 className="text-sm font-medium text-slate-200">Mention Users</h4>
                     <p className="text-xs text-slate-400 mt-1">Add user mentions to your message</p>
@@ -655,7 +654,11 @@ export function DiscordRichTextEditor({
                           <div
                             key={member.id}
                             className="flex items-center gap-2 p-2 rounded-md hover:bg-slate-700 cursor-pointer"
-                            onClick={() => insertMention('user', member.id, member.name)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              e.preventDefault()
+                              insertMention('user', member.id, member.name)
+                            }}
                           >
                             <User className="h-4 w-4 text-slate-400" />
                             <span className="text-sm text-slate-200">{member.name}</span>
@@ -669,11 +672,12 @@ export function DiscordRichTextEditor({
               
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     className="h-8 gap-1 hover:bg-slate-700 text-slate-300 hover:text-white"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation()
                       // Load Discord data on demand when user clicks roles
                       if (!availableRoles.length && !isLoadingDiscordData) {
                         loadDiscordGuildData()
@@ -685,7 +689,7 @@ export function DiscordRichTextEditor({
                     <ChevronDown className="h-3 w-3" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-80 p-0 bg-slate-800 border-slate-700">
+                <PopoverContent className="w-80 p-0 bg-slate-800 border-slate-700" onClick={(e) => e.stopPropagation()}>
                   <div className="p-3 border-b border-slate-700">
                     <h4 className="text-sm font-medium text-slate-200">Mention Roles</h4>
                     <p className="text-xs text-slate-400 mt-1">Add role mentions to your message</p>
@@ -701,7 +705,11 @@ export function DiscordRichTextEditor({
                           <div
                             key={role.id}
                             className="flex items-center gap-2 p-2 rounded-md hover:bg-slate-700 cursor-pointer"
-                            onClick={() => insertMention('role', role.id, role.name)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              e.preventDefault()
+                              insertMention('role', role.id, role.name)
+                            }}
                           >
                             <div 
                               className="w-3 h-3 rounded-full" 
@@ -718,11 +726,12 @@ export function DiscordRichTextEditor({
               
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     className="h-8 gap-1 hover:bg-slate-700 text-slate-300 hover:text-white"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation()
                       // Load Discord data on demand when user clicks channels
                       if (!availableChannels.length && !isLoadingDiscordData) {
                         loadDiscordGuildData()
@@ -734,7 +743,7 @@ export function DiscordRichTextEditor({
                     <ChevronDown className="h-3 w-3" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-80 p-0 bg-slate-800 border-slate-700">
+                <PopoverContent className="w-80 p-0 bg-slate-800 border-slate-700" onClick={(e) => e.stopPropagation()}>
                   <div className="p-3 border-b border-slate-700">
                     <h4 className="text-sm font-medium text-slate-200">Mention Channels</h4>
                     <p className="text-xs text-slate-400 mt-1">Add channel mentions to your message</p>
@@ -757,7 +766,11 @@ export function DiscordRichTextEditor({
                             <div
                               key={channel.id}
                               className="flex items-center gap-2 p-2 rounded-md hover:bg-slate-700 cursor-pointer"
-                              onClick={() => insertMention('channel', channel.id, channel.name)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                e.preventDefault()
+                                insertMention('channel', channel.id, channel.name)
+                              }}
                             >
                               <Hash className="h-4 w-4 text-slate-400" />
                               <span className="text-sm text-slate-200">{channel.name}</span>
@@ -798,13 +811,14 @@ export function DiscordRichTextEditor({
                     variant="ghost"
                     size="sm"
                     className="h-8 gap-1 hover:bg-slate-700 text-slate-300 hover:text-white"
+                    onClick={(e) => e.stopPropagation()}
                   >
                     <Variable className="h-4 w-4" />
                     Variables
                     <ChevronDown className="h-3 w-3" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-80 p-0 bg-slate-800 border-slate-700">
+                <PopoverContent className="w-80 p-0 bg-slate-800 border-slate-700" onClick={(e) => e.stopPropagation()}>
                   <div className="p-3 border-b border-slate-700">
                     <h4 className="text-sm font-medium text-slate-200">Insert Variable</h4>
                     <p className="text-xs text-slate-400 mt-1">Add dynamic data from previous workflow steps</p>
@@ -824,7 +838,11 @@ export function DiscordRichTextEditor({
                           <div
                             key={index}
                             className="flex flex-col gap-1 p-2 rounded-md hover:bg-slate-700 cursor-pointer"
-                            onClick={() => insertVariable(variable.name)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              e.preventDefault()
+                              insertVariable(variable.name)
+                            }}
                           >
                             <div className="flex items-center justify-between">
                               <span className="text-sm text-slate-200 font-medium">{variable.label}</span>

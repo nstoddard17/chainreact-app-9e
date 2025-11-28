@@ -32,6 +32,7 @@ interface GenericSelectFieldProps {
   workflowData?: { nodes: any[], edges: any[] }; // Full workflow data for variable picker
   currentNodeId?: string; // Current node ID for variable picker context
   aiToggleButton?: React.ReactNode; // AI toggle button to render alongside label
+  onLabelStore?: (fieldName: string, value: string, label: string) => void; // Store label alongside value for instant display on reopen
 }
 
 /**
@@ -91,6 +92,7 @@ export function GenericSelectField({
   workflowData,
   currentNodeId,
   aiToggleButton,
+  onLabelStore,
 }: GenericSelectFieldProps) {
   // Cache store - must be at top level
   const { get: getCache, set: setCache, invalidate: invalidateCache } = useConfigCacheStore()
@@ -106,7 +108,17 @@ export function GenericSelectField({
   // Store the display label for the selected value
   // Initialize with cached label for instant display of saved values (Zapier-like UX)
   const [displayLabel, setDisplayLabel] = React.useState<string | null>(() => {
-    // PRIORITY 1: Check for saved labels in parentValues (for Airtable linked record fields)
+    // PRIORITY 1: Check for stored label in form values (_label_fieldName convention)
+    // This is the primary source for instant label display on modal reopen
+    if (value) {
+      const storedLabelKey = `_label_${field.name}`;
+      const storedLabel = parentValues?.[storedLabelKey];
+      if (storedLabel && typeof storedLabel === 'string') {
+        return storedLabel;
+      }
+    }
+
+    // PRIORITY 2: Check for saved labels in parentValues (for Airtable linked record fields)
     // This ensures linked record fields NEVER show IDs, always labels
     if (value && field.name?.startsWith('airtable_field_')) {
       const labelMetadataKey = `${field.name}_labels`;
@@ -116,7 +128,7 @@ export function GenericSelectField({
       }
     }
 
-    // PRIORITY 2: Try to load cached label from localStorage
+    // PRIORITY 3: Try to load cached label from localStorage
     if (typeof window !== 'undefined' && value) {
       try {
         const raw = window.localStorage.getItem(labelCacheKeyForInit);
@@ -159,6 +171,9 @@ export function GenericSelectField({
     (nodeInfo?.type === 'airtable_action_create_record' ||
      nodeInfo?.type === 'airtable_action_update_record') &&
     field.name?.startsWith('airtable_field_');
+
+  // Check if this is a Discord guild/server field - needs special handling to avoid infinite loops
+  const isDiscordGuildField = nodeInfo?.providerId === 'discord' && field.name === 'guildId';
 
   // Cached dynamic load wrapper - checks cache before calling onDynamicLoad
   const cachedDynamicLoad = React.useCallback(async (
@@ -240,14 +255,38 @@ export function GenericSelectField({
   }, [field.dynamic, field.name, field.dependsOn, parentValues, cachedDynamicLoad, onDynamicLoad, isRefreshing]);
 
   // Handle search query changes (debounced search for fields like gmail-recent-emails)
+  // Note: Combobox already debounces by 300ms before calling this
   const handleSearchChange = React.useCallback(async (query: string) => {
+    console.log('🔍 [GenericSelectField] handleSearchChange called:', {
+      fieldName: field.name,
+      query,
+      fieldDynamic: field.dynamic,
+      hasOnDynamicLoad: !!onDynamicLoad,
+      isSearchable: (field as any).searchable
+    });
+
     // Only enable search for specific dynamic fields that support it
-    if (!field.dynamic || !onDynamicLoad) return;
+    if (!field.dynamic || !onDynamicLoad) {
+      console.log('❌ [GenericSelectField] Search skipped - no dynamic or onDynamicLoad');
+      return;
+    }
 
-    // Only enable for searchable fields (like gmail-recent-emails)
-    const searchableFields = ['gmail-recent-emails'];
-    if (!searchableFields.includes(field.dynamic)) return;
+    // Only enable for searchable fields or fields with searchable: true
+    const searchableFields = ['gmail-recent-emails', 'gmail_from_addresses', 'gmail-enhanced-recipients', 'gmail_recent_senders', 'gmail-recent-senders'];
+    if (!searchableFields.includes(field.dynamic) && !(field as any).searchable) {
+      console.log('❌ [GenericSelectField] Search skipped - field not in searchableFields:', field.dynamic);
+      return;
+    }
 
+    // Require minimum characters to search (Gmail senders can search after 1 char for quicker suggestions)
+    const minSearchLength = field.dynamic === 'gmail_recent_senders' ? 1 : 2;
+    if (query.length < minSearchLength) {
+      console.log('❌ [GenericSelectField] Search skipped - query too short:', query.length);
+      setSearchQuery('');
+      return;
+    }
+
+    console.log('✅ [GenericSelectField] Proceeding with search for:', query);
     setSearchQuery(query);
     setIsSearching(true);
 
@@ -258,7 +297,9 @@ export function GenericSelectField({
       // The API handler will receive this as part of options
       // Search is always silent since we're filtering existing data
       await onDynamicLoad(field.name, 'searchQuery', query, true, true);
+      console.log('✅ [GenericSelectField] Search completed for:', query);
     } catch (error) {
+      console.error('❌ [GenericSelectField] Search error:', error);
       logger.error('[GenericSelectField] Search error:', error);
     } finally {
       setIsSearching(false);
@@ -538,7 +579,14 @@ export function GenericSelectField({
       : basePlaceholder;
 
   // When value changes, update the display label if we find the option or it's a variable
+  // SKIP for Discord guildId - it uses the native option label and doesn't need displayLabel state
   React.useEffect(() => {
+    // Skip displayLabel updates for Discord guildId to prevent infinite loops
+    // Discord guildId uses disableSearch and passes displayLabel={null} to Combobox
+    if (isDiscordGuildField) {
+      return;
+    }
+
     // If value is empty, clear the display label
     if (!value || value === '') {
       setDisplayLabel(null);
@@ -548,7 +596,8 @@ export function GenericSelectField({
     // Check if value is a variable
     if (typeof value === 'string' && value.startsWith('{{') && value.endsWith('}}')) {
       const friendlyLabel = getFriendlyVariableLabel(value, workflowNodes)
-      setDisplayLabel(friendlyLabel)
+      // Only update displayLabel if it's actually different to prevent infinite loops
+      setDisplayLabel(prev => prev === friendlyLabel ? prev : friendlyLabel)
       if (friendlyLabel) {
         saveLabelToCache(String(value), friendlyLabel);
       }
@@ -559,7 +608,8 @@ export function GenericSelectField({
       });
       if (option) {
         const label = option.label || option.name || option.value || option.id;
-        setDisplayLabel(label);
+        // Only update displayLabel if it's actually different to prevent infinite loops
+        setDisplayLabel(prev => prev === label ? prev : label);
         saveLabelToCache(String(value), label);
       }
       // IMPORTANT: If options loaded but our value isn't in them, keep the existing displayLabel
@@ -575,16 +625,19 @@ export function GenericSelectField({
     // If we have a displayLabel and options are empty/loading, KEEP the existing displayLabel
     // Note: displayLabel is intentionally NOT in dependencies to avoid infinite loops
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, options, getFriendlyVariableLabel, workflowNodes, loadCachedLabel, saveLabelToCache]);
+  }, [value, options, getFriendlyVariableLabel, workflowNodes, loadCachedLabel, saveLabelToCache, isDiscordGuildField]);
 
   // Load cached label immediately on mount for instant display
+  // Skip for Discord guildId to prevent infinite loops
   React.useEffect(() => {
+    if (isDiscordGuildField) return;
     if (value && !displayLabel && (typeof value === 'string' || typeof value === 'number')) {
       const cached = loadCachedLabel(String(value));
       if (cached) {
         setDisplayLabel(cached);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run only once on mount
 
   // Auto-select single option for disabled fields (e.g., monetization eligibility status)
@@ -609,14 +662,16 @@ export function GenericSelectField({
   }, [field.disabled, field.name, options, value, isLoading, onChange]);
 
   // If we still don't have a display label yet but a value exists, attempt to load cached label once
+  // Skip for Discord guildId to prevent infinite loops
   React.useEffect(() => {
+    if (isDiscordGuildField) return;
     if (!displayLabel && value) {
       const cached = loadCachedLabel(String(value));
       if (cached) {
         setDisplayLabel(cached);
       }
     }
-  }, [displayLabel, value, loadCachedLabel]);
+  }, [displayLabel, value, loadCachedLabel, isDiscordGuildField]);
   
   // Check if dependency value has changed and reset load tracking if needed
   // This runs on every render but only updates state when the value actually changes
@@ -874,7 +929,18 @@ export function GenericSelectField({
     return opts.filter(opt => opt && (opt.value || opt.id));
   }, []);
 
+  // Extract the specific label metadata from parentValues for Airtable fields only
+  // This prevents the entire parentValues object from triggering memo recalculation
+  const airtableLabelMetadataKey = field.name?.startsWith('airtable_field_') ? `${field.name}_labels` : null;
+  const airtableSavedLabels = airtableLabelMetadataKey ? parentValues?.[airtableLabelMetadataKey] as Record<string, string> | undefined : undefined;
+
   const processedOptions = React.useMemo(() => {
+    // For Discord guildId, return options directly without processing to maintain stable reference
+    // This prevents infinite re-render loops caused by creating new arrays
+    if (isDiscordGuildField) {
+      return options;
+    }
+
     const startTime = performance.now();
     const processed = processOptions(options);
     const duration = performance.now() - startTime;
@@ -882,12 +948,9 @@ export function GenericSelectField({
     // For multi-select fields with arrays, add temporary options for ALL selected values
     // This ensures multi-select linked record fields ALWAYS show labels, never IDs
     if (Array.isArray(value) && value.length > 0 && field.name?.startsWith('airtable_field_')) {
-      const labelMetadataKey = `${field.name}_labels`;
-      const savedLabels = parentValues?.[labelMetadataKey] as Record<string, string> | undefined;
-
       value.forEach((val: any) => {
         if (val && !processed.some(opt => opt.value === val)) {
-          const tempLabel = savedLabels?.[String(val)] || loadCachedLabel(String(val)) || String(val);
+          const tempLabel = airtableSavedLabels?.[String(val)] || loadCachedLabel(String(val)) || String(val);
           processed.push({
             value: val,
             label: tempLabel,
@@ -925,7 +988,7 @@ export function GenericSelectField({
     }
 
     return processed;
-  }, [options, processOptions, field.name, nodeInfo?.providerId, value, displayLabel, loadCachedLabel, parentValues]);
+  }, [options, processOptions, field.name, nodeInfo?.providerId, value, displayLabel, loadCachedLabel, airtableSavedLabels, isDiscordGuildField]);
 
   // Track when options change for performance monitoring
   React.useEffect(() => {
@@ -1045,6 +1108,11 @@ export function GenericSelectField({
 
   // Wrapped onChange with logging to track infinite loops
   const handleChangeWithLogging = React.useCallback((newValue: any) => {
+    // Avoid redundant updates that can trigger render loops
+    const stringify = (v: any) => (Array.isArray(v) ? JSON.stringify(v) : v === undefined || v === null ? '' : String(v));
+    const sameValue = stringify(value) === stringify(newValue);
+    if (sameValue) return;
+
     // COMPREHENSIVE LOGGING for selectedProperties
     if (field.name === 'selectedProperties') {
       console.log('📝📝📝 [GenericSelectField] selectedProperties onChange called:', {
@@ -1192,6 +1260,47 @@ export function GenericSelectField({
   // Use Combobox for all select fields to support variables
   // Variables can be entered using {{variable_name}} syntax
   if (field.type === 'select' && !field.multiple) {
+    // isDiscordGuildField is already defined at the top of the component
+
+    const handleSingleSelectChange = (newValue: string) => {
+      // Special-case Discord guild select to avoid extra label/state churn
+      if (isDiscordGuildField) {
+        if (String(value ?? '') === String(newValue ?? '')) return;
+        onChange(newValue);
+        return;
+      }
+
+      onChange(newValue);
+      // Clear display label when value is cleared
+      if (!newValue) {
+        setDisplayLabel(null);
+        // Also clear stored label
+        onLabelStore?.(field.name, '', '');
+      } else if (newValue.startsWith('{{') && newValue.endsWith('}}')) {
+        // Set friendly label for variables
+        const friendlyLabel = getFriendlyVariableLabel(newValue, workflowNodes);
+        setDisplayLabel(friendlyLabel);
+        if (friendlyLabel) {
+          saveLabelToCache(newValue, friendlyLabel);
+          // Store label in form values for instant display on reopen
+          onLabelStore?.(field.name, newValue, friendlyLabel);
+        }
+      } else {
+        // For regular options, find the label and cache it immediately
+        const option = processedOptions.find((opt: any) => {
+          const optValue = opt.value || opt.id;
+          return String(optValue) === String(newValue);
+        });
+        if (option) {
+          const label = typeof option.label === 'string' ? option.label : (option.name || option.value || option.id);
+          setDisplayLabel(label);
+          saveLabelToCache(String(newValue), label);
+          // Store label in form values for instant display on reopen
+          onLabelStore?.(field.name, String(newValue), label);
+        }
+      }
+    };
+
     return (
       <div className="flex items-center gap-2">
         {isFromCache && (
@@ -1209,31 +1318,7 @@ export function GenericSelectField({
         <div className="flex-1 min-w-0">
           <Combobox
             value={value ?? ""}
-            onChange={(newValue) => {
-              onChange(newValue);
-              // Clear display label when value is cleared
-              if (!newValue) {
-                setDisplayLabel(null);
-              } else if (newValue.startsWith('{{') && newValue.endsWith('}}')) {
-                // Set friendly label for variables
-                const friendlyLabel = getFriendlyVariableLabel(newValue, workflowNodes);
-                setDisplayLabel(friendlyLabel);
-                if (friendlyLabel) {
-                  saveLabelToCache(newValue, friendlyLabel);
-                }
-              } else {
-                // For regular options, find the label and cache it immediately
-                const option = processedOptions.find((opt: any) => {
-                  const optValue = opt.value || opt.id;
-                  return String(optValue) === String(newValue);
-                });
-                if (option) {
-                  const label = option.label || option.name || option.value || option.id;
-                  setDisplayLabel(label);
-                  saveLabelToCache(String(newValue), label);
-                }
-              }
-            }}
+            onChange={handleSingleSelectChange}
             options={processedOptions}
             placeholder={placeholderText}
             searchPlaceholder="Search options..."
@@ -1244,8 +1329,8 @@ export function GenericSelectField({
             onOpenChange={handleFieldOpen} // Add missing onOpenChange handler
             onSearchChange={handleSearchChange} // Handle debounced search
             selectedValues={effectiveSelectedValues} // Pass selected values for checkmarks
-            displayLabel={displayLabel} // Pass the saved display label
-            disableSearch={(field as any).disableSearch} // Support disabling search for simple dropdowns
+            displayLabel={isDiscordGuildField ? null : displayLabel} // For guilds, let the value render directly
+            disableSearch={isDiscordGuildField || (field as any).disableSearch} // Simplify guild select to avoid loops
             hideClearButton={(field as any).hideClearButton} // Support hiding clear button
             showColorPreview={(field as any).showColorPreview} // Show color preview balls if enabled
             onDrop={handleDrop}
@@ -1310,12 +1395,16 @@ export function GenericSelectField({
             // Clear display label when value is cleared
             if (!newValue) {
               setDisplayLabel(null);
+              // Also clear stored label
+              onLabelStore?.(field.name, '', '');
             } else if (typeof newValue === 'string' && newValue.startsWith('{{') && newValue.endsWith('}}')) {
               // Set friendly label for variables
               const friendlyLabel = getFriendlyVariableLabel(newValue, workflowNodes);
               setDisplayLabel(friendlyLabel);
               if (friendlyLabel) {
                 saveLabelToCache(newValue, friendlyLabel);
+                // Store label in form values for instant display on reopen
+                onLabelStore?.(field.name, newValue, friendlyLabel);
               }
             } else {
               // For regular options, find the label and cache it immediately
@@ -1324,9 +1413,11 @@ export function GenericSelectField({
                 return String(optValue) === String(newValue);
               });
               if (option) {
-                const label = option.label || option.name || option.value || option.id;
+                const label = typeof option.label === 'string' ? option.label : (option.name || option.value || option.id);
                 setDisplayLabel(label);
                 saveLabelToCache(String(newValue), label);
+                // Store label in form values for instant display on reopen
+                onLabelStore?.(field.name, String(newValue), label);
               }
             }
           }}
