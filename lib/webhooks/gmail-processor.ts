@@ -179,6 +179,7 @@ export async function processGmailEvent(event: GmailWebhookEvent): Promise<any> 
       .insert({
         provider: 'gmail',
         service: 'gmail',
+        event_type: event.eventData.type || 'gmail_new_email',
         event_data: event.eventData,
         request_id: event.requestId,
         status: 'received',
@@ -930,20 +931,54 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
     const supabase = await createSupabaseServiceClient()
 
     // FIRST: Check for active test sessions waiting for Gmail triggers
+    // Query without join - use test_mode_config for workflow data (avoids schema cache issues)
+    logger.debug('[Gmail] Querying for test sessions with trigger_type=gmail_trigger_new_email, status=listening')
     const { data: testSessions, error: sessionError } = await supabase
       .from('workflow_test_sessions')
-      .select('*, workflows!inner(id, user_id, nodes, connections, name)')
+      .select('*')
       .eq('trigger_type', 'gmail_trigger_new_email')
       .in('status', ['listening'])
+
+    if (sessionError) {
+      logger.error('[Gmail] Error querying test sessions:', sessionError)
+    }
+
+    logger.debug(`[Gmail] Test session query result: ${testSessions?.length || 0} sessions found`, {
+      error: sessionError?.message,
+      sessionCount: testSessions?.length || 0
+    })
 
     if (!sessionError && testSessions && testSessions.length > 0) {
       logger.debug(`[Gmail] Found ${testSessions.length} active test session(s) waiting for Gmail trigger`)
 
       for (const session of testSessions) {
         try {
-          const workflow = session.workflows
+          // Get workflow data from test_mode_config (stored when test session was created)
+          const testConfig = session.test_mode_config as any
+          let workflow: any = null
+
+          if (testConfig?.nodes) {
+            logger.debug('[Gmail] Using test_mode_config for workflow data', { sessionId: session.id })
+            workflow = {
+              id: session.workflow_id,
+              user_id: session.user_id,
+              nodes: testConfig.nodes,
+              connections: testConfig.connections || [],
+              name: testConfig.workflowName || 'Unsaved Workflow'
+            }
+          } else {
+            // Fallback: try to fetch workflow from DB
+            logger.debug('[Gmail] No test_mode_config, fetching workflow from DB', { workflowId: session.workflow_id })
+            const { data: dbWorkflow } = await supabase
+              .from('workflows')
+              .select('id, user_id, nodes, connections, name')
+              .eq('id', session.workflow_id)
+              .single()
+            workflow = dbWorkflow
+          }
+
           if (!workflow) {
-            logger.error('[Gmail] No workflow found in test session', { sessionId: session.id })
+            logger.error('[Gmail] No workflow found in test_mode_config or database', { sessionId: session.id })
             continue
           }
 
@@ -952,7 +987,8 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
             workflowId: workflow.id,
             workflowName: workflow.name,
             userId: workflow.user_id,
-            sessionUserId: session.user_id
+            sessionUserId: session.user_id,
+            fromTestConfig: !!testConfig?.nodes
           })
 
           // Use the user_id from the session (which is guaranteed to exist)
@@ -995,13 +1031,20 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
           })
 
           // Update test session to executing
-          await supabase
+          // Note: execution_id references executions table, not workflow_execution_sessions
+          // Just update status for now to mark the test session as active
+          const { error: updateError } = await supabase
             .from('workflow_test_sessions')
             .update({
-              status: 'executing',
-              execution_id: executionSession.id
+              status: 'executing'
             })
             .eq('id', session.id)
+
+          if (updateError) {
+            logger.error('[Gmail] Failed to update test session status:', updateError)
+          } else {
+            logger.debug('[Gmail] Updated test session status to executing', { sessionId: session.id })
+          }
 
           // Get email details first for proper context
           let emailDetails = null
@@ -1049,21 +1092,35 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
           }
 
           // Start workflow execution with full context
+          // Pass the workflow object directly to avoid fetching from DB (which has 0 nodes for unsaved workflows)
+          // IMPORTANT: Flatten trigger structure so {{trigger.from}}, {{trigger.subject}}, {{trigger.body}} work directly
+          const flattenedEmailData = emailDetails || {
+            from: event.eventData.emailAddress,
+            subject: 'New Email',
+            body: '',
+            content: ''
+          }
           await executionEngine.executeWorkflowAdvanced(executionSession.id, {
             provider: 'gmail',
             emailAddress: event.eventData.emailAddress,
             historyId: event.eventData.historyId,
             timestamp: new Date().toISOString(),
-            // Include email details for AI field resolution
+            // Flatten trigger data for easy variable resolution: {{trigger.from}}, {{trigger.subject}}, {{trigger.body}}
             trigger: {
               type: 'gmail_trigger_new_email',
-              data: emailDetails || {
-                from: event.eventData.emailAddress,
-                subject: 'New Email',
-                content: ''
-              }
+              // Spread email fields directly on trigger for {{trigger.from}}, {{trigger.subject}}, {{trigger.body}}
+              from: flattenedEmailData.from,
+              subject: flattenedEmailData.subject,
+              body: flattenedEmailData.body || flattenedEmailData.content || '',
+              to: flattenedEmailData.to,
+              date: flattenedEmailData.date,
+              hasAttachments: flattenedEmailData.hasAttachments,
+              // Keep data for backward compatibility
+              data: flattenedEmailData
             },
             emailDetails: emailDetails
+          }, {
+            workflow: workflow // Pass workflow from test_mode_config to avoid DB fetch
           })
 
           logger.debug('[Gmail] Workflow execution started for test session', {
@@ -1083,6 +1140,7 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
     }
 
     // SECOND: Find all active workflows with Gmail webhook triggers (only if no test sessions)
+    // Allow testing workflows that haven't been published yet by including drafts
     const { data: workflows, error } = await supabase
       .from('workflows')
       .select(`
@@ -1091,7 +1149,7 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
         nodes,
         name
       `)
-      .eq('status', 'active')
+      .in('status', ['active', 'draft'])
       .not('nodes', 'is', null)
 
     if (error) {
@@ -1134,14 +1192,37 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
         continue
       }
 
-      const webhookConfig = configRows?.[0]
+      let webhookConfig = configRows?.[0]
+      let watchConfig: any = {}
 
       if (!webhookConfig) {
-        logger.debug('⚠️ No Gmail webhook configuration found for workflow, skipping')
-        continue
-      }
+        // Fallback: Check trigger_resources table (newer implementation)
+        logger.debug('⚠️ No webhook_configs found, checking trigger_resources as fallback...')
+        const { data: triggerResource } = await supabase
+          .from('trigger_resources')
+          .select('id, config')
+          .eq('workflow_id', workflow.id)
+          .eq('trigger_type', 'gmail_trigger_new_email')
+          .eq('status', 'active')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
 
-      const watchConfig = webhookConfig.config?.watch || {}
+        if (!triggerResource) {
+          logger.debug('⚠️ No Gmail trigger configuration found in webhook_configs or trigger_resources, skipping')
+          continue
+        }
+
+        // Use trigger_resources config
+        webhookConfig = {
+          id: triggerResource.id,
+          config: triggerResource.config
+        }
+        watchConfig = triggerResource.config || {}
+        logger.debug('✅ Found Gmail trigger in trigger_resources table')
+      } else {
+        watchConfig = webhookConfig.config?.watch || {}
+      }
 
       if (watchConfig.emailAddress && watchConfig.emailAddress !== event.eventData.emailAddress) {
         logger.debug('⚠️ Gmail notification email does not match workflow configuration, skipping')
@@ -1198,6 +1279,15 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
         }
 
         const executionEngine = new AdvancedExecutionEngine()
+
+        // Build flattened trigger data for variable resolution
+        const flattenedEmailData = emailDetails || {
+          from: event.eventData.emailAddress,
+          subject: 'New Email',
+          body: '',
+          content: ''
+        }
+
         const executionSession = await executionEngine.createExecutionSession(
           workflow.id,
           workflow.user_id,
@@ -1205,16 +1295,37 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
           {
             inputData: {
               ...event.eventData,
-              emailDetails: emailDetails
+              emailDetails: emailDetails,
+              trigger: {
+                type: 'gmail_trigger_new_email',
+                from: flattenedEmailData.from,
+                subject: flattenedEmailData.subject,
+                body: flattenedEmailData.body || flattenedEmailData.content || '',
+                to: flattenedEmailData.to,
+                date: flattenedEmailData.date,
+                hasAttachments: flattenedEmailData.hasAttachments,
+                data: flattenedEmailData
+              }
             },
             webhookEvent: event
           }
         )
 
         // Execute the workflow asynchronously (don't wait for completion)
+        // IMPORTANT: Include flattened trigger structure for {{trigger.from}}, {{trigger.subject}}, {{trigger.body}}
         executionEngine.executeWorkflowAdvanced(executionSession.id, {
           ...event.eventData,
-          emailDetails: emailDetails
+          emailDetails: emailDetails,
+          trigger: {
+            type: 'gmail_trigger_new_email',
+            from: flattenedEmailData.from,
+            subject: flattenedEmailData.subject,
+            body: flattenedEmailData.body || flattenedEmailData.content || '',
+            to: flattenedEmailData.to,
+            date: flattenedEmailData.date,
+            hasAttachments: flattenedEmailData.hasAttachments,
+            data: flattenedEmailData
+          }
         })
 
         logger.debug(`✅ Successfully triggered workflow ${workflow.name} (${workflow.id}) with session ${executionSession.id}`)

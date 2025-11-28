@@ -98,13 +98,15 @@ export class ShopifyTriggerLifecycle implements TriggerLifecycle {
     const webhook = data.webhook
 
     // Store in trigger_resources table
-    await supabase.from('trigger_resources').insert({
+    const { error: insertError } = await supabase.from('trigger_resources').insert({
       workflow_id: workflowId,
       user_id: userId,
+      provider: 'shopify',
       provider_id: 'shopify',
       trigger_type: triggerType,
       node_id: nodeId,
       resource_type: 'webhook',
+      resource_id: webhook.id.toString(),
       external_id: webhook.id.toString(),
       config: {
         ...config,
@@ -114,6 +116,18 @@ export class ShopifyTriggerLifecycle implements TriggerLifecycle {
       },
       status: 'active'
     })
+
+    if (insertError) {
+      // Check if this is a FK constraint violation (code 23503) - happens for unsaved workflows in test mode
+      // The webhook was already created successfully with Shopify, so we can continue
+      if (insertError.code === '23503') {
+        logger.warn(`⚠️ Could not store trigger resource (workflow may be unsaved): ${insertError.message}`)
+        logger.debug(`✅ Shopify webhook created (without local record): ${webhook.id}`)
+        return
+      }
+      logger.error(`❌ Failed to store trigger resource:`, insertError)
+      throw new Error(`Failed to store trigger resource: ${insertError.message}`)
+    }
 
     logger.debug(`✅ Shopify webhook created: ${webhook.id}`)
   }

@@ -40,12 +40,13 @@ export async function GET(_: Request, context: { params: Promise<{ flowId: strin
       return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 })
     }
 
-    // Query latest execution
+    // Query latest execution - use id for ordering (UUIDs are time-sortable in Supabase)
+    // Note: started_at may not exist in all deployments, so we query available columns
     const { data: run, error: runError } = await supabase
       .from("workflow_executions")
-      .select("id, status, started_at, completed_at, execution_time_ms")
+      .select("id, status, completed_at, execution_time_ms")
       .eq("workflow_id", flowId)
-      .order("started_at", { ascending: false })
+      .order("id", { ascending: false })
       .limit(1)
       .maybeSingle()
 
@@ -60,7 +61,7 @@ export async function GET(_: Request, context: { params: Promise<{ flowId: strin
         ? {
             id: run.id,
             status: run.status,
-            startedAt: run.started_at,
+            startedAt: null, // Column may not exist in all deployments
             finishedAt: run.completed_at,
             executionTimeMs: run.execution_time_ms,
           }

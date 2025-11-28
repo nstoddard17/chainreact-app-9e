@@ -30,7 +30,7 @@ async function requireUser() {
 
 async function fetchFlowWorkspaceId(client: Awaited<ReturnType<typeof getRouteClient>>, flowId: string) {
   const { data, error } = await client
-    .from("flow_v2_definitions")
+    .from("workflows")
     .select("workspace_id")
     .eq("id", flowId)
     .maybeSingle()

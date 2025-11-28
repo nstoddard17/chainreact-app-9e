@@ -455,12 +455,13 @@ function SimpleVariablePickerComponent({
                     {isExpanded && hasOutputs && (
                       <div className="bg-gray-50 border-t border-gray-100">
                         {node.outputs.map((output: any) => {
-                          // Use 'trigger' as the reference prefix for trigger nodes
-                          const referencePrefix = node.isTrigger ? 'trigger' : node.id
+                          // Use friendly node type for variable reference (engine resolves by type)
+                          const referencePrefix = node.isTrigger ? 'trigger' : (node.type || node.id)
                           const variableRef = `{{${referencePrefix}.${output.name}}}`
+                          const displayRef = `${referencePrefix}.${output.name}`
                           const variableValue = getVariableValue(node.id, output.name)
                           const hasValue = variableValue !== null
-                          
+
                           return (
                             <div
                               key={`${node.id}-${output.name}`}
@@ -471,7 +472,10 @@ function SimpleVariablePickerComponent({
                                 <Badge variant="outline" className={`text-xs bg-white ${hasValue ? 'border-green-300' : ''}`}>
                                   {output.type}
                                 </Badge>
-                                <span className="text-sm text-gray-700">{output.label || output.name}</span>
+                                <code className="text-sm text-gray-700 font-mono">{displayRef}</code>
+                                {output.label && output.label !== output.name && (
+                                  <span className="text-xs text-gray-500">({output.label})</span>
+                                )}
                               </div>
                               
                               <div className="flex items-center">

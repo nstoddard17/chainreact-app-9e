@@ -1,0 +1,252 @@
+=== Log Session Started: 2025-11-28T18:01:48.888Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-11-28T18:01:48.889Z] [INFO   ] File logging initialized
+[2025-11-28T18:01:48.889Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-28_12-01-48.log
+[2025-11-28T18:01:48.891Z] [INFO   ] 📁 File logging enabled
+[2025-11-28T18:01:48.892Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-28_12-01-48.log
+[2025-11-28T18:01:48.892Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-28_12-01-48.log
+[2025-11-28T18:01:48.892Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-28_12-01-48.log
+[2025-11-28T18:01:48.892Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-28_12-01-48.log
+[2025-11-28T18:01:48.892Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-11-28T18:01:48.892Z] [DEBUG  ] 📁 File logging system initialized
+[2025-11-28T18:01:48.914Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 3.2s
+[2025-11-28T18:01:49.931Z] [INFO   ] 2025-11-28T18:01:49.931Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-11-28T18:01:51.989Z] [INFO   ] 2025-11-28T18:01:51.989Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-11-28T18:01:51.989Z] [INFO   ] 2025-11-28T18:01:51.989Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-28T18:01:52.561Z] [INFO   ] 2025-11-28T18:01:52.561Z [DEBUG] Discord Gateway initialization complete
+[2025-11-28T18:01:52.565Z] [INFO   ] 2025-11-28T18:01:52.564Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-11-28T18:01:52.886Z] [INFO   ] 2025-11-28T18:01:52.886Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-28T18:01:52.889Z] [INFO   ] 2025-11-28T18:01:52.889Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-28T18:02:11.438Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/collaborators ...
+[2025-11-28T18:02:11.885Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 947ms (3319 modules)
+[2025-11-28T18:02:15.005Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 459ms (3125 modules)
+[2025-11-28T18:03:11.615Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at rN.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:1:86499)
+    at rN.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:1:91862)
+    at async D (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/api/collaboration/collaborators/route.js:1:3808)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1474:24)
+    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-11-28T18:03:12.118Z] [INFO   ]  [37m[1m○[22m[39m Compiling /_error ...
+[2025-11-28T18:03:12.497Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_error in 879ms (3660 modules)
+[2025-11-28T18:03:12.516Z] [ERROR  ]  [31m[1m⨯[22m[39m Cannot find module './chunks/vendor-chunks/next.js'
+Require stack:
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/pages/_document.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/utils.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/swc/options.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/swc/index.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/analysis/parse-module.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/analysis/get-page-static-info.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js
+Error: Cannot find module './chunks/vendor-chunks/next.js'
+Require stack:
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/pages/_document.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/utils.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/swc/options.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/swc/index.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/analysis/parse-module.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/analysis/get-page-static-info.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js
+    at Function.<anonymous> (node:internal/modules/cjs/loader:1394:15)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:57:36
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1050:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1055:22)
+    at Function._load (node:internal/modules/cjs/loader:1204:37)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:234:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1480:12)
+    at mod.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:68:28)
+    at require (node:internal/modules/helpers:135:16)
+    at c.f.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:1:2665)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:1:1841
+    at Array.reduce (<anonymous>)
+    at c.e (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:1:1820)
+    at Array.map (<anonymous>)
+    at c.X (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:1:2422)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/pages/_document.js:73:47
+    at Object.<anonymous> (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/pages/_document.js:76:3)
+    at Module._compile (node:internal/modules/cjs/loader:1723:14)
+    at Object..js (node:internal/modules/cjs/loader:1888:10)
+    at Module.load (node:internal/modules/cjs/loader:1458:32)
+    at Function._load (node:internal/modules/cjs/loader:1275:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:234:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1480:12)
+    at mod.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:68:28)
+    at require (node:internal/modules/helpers:135:16)
+    at requirePage (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js:99:80)
+    at loadComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js:86:38)
+    at DevServer.findPageComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:899:77)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:877:21
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/trace/tracer.js:170:36
+    at NoopContextManager.with (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/context/NoopContextManager.js:25:19)
+    at ContextAPI.with (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/api/context.js:60:46)
+    at NoopTracer.startActiveSpan (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/trace/NoopTracer.js:65:31)
+    at ProxyTracer.startActiveSpan (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/trace/ProxyTracer.js:36:24)
+    at tracer.startActiveSpan (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-utils/instrumentation-node-extensions.js:65:48)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/trace/tracer.js:152:103
+    at NoopContextManager.with (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/context/NoopContextManager.js:25:19)
+    at ContextAPI.with (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/api/context.js:60:46)
+    at NextTracerImpl.trace (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/trace/tracer.js:152:28)
+    at DevServer.findPageComponents (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:872:41)
+    at DevServer.findPageComponents (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:705:28)
+    at async DevServer.renderErrorToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1687:26)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:408:21)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-11-28T18:03:14.197Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at rN.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:1:86499)
+    at rN.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:1:91862)
+    at async D (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/api/collaboration/collaborators/route.js:1:3808)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1474:24)
+    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-11-28T18:03:14.200Z] [ERROR  ]  [31m[1m⨯[22m[39m Cannot find module './chunks/vendor-chunks/next.js'
+Require stack:
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/pages/_document.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/utils.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/swc/options.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/swc/index.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/analysis/parse-module.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/analysis/get-page-static-info.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js
+Error: Cannot find module './chunks/vendor-chunks/next.js'
+Require stack:
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/pages/_document.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/utils.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/swc/options.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/swc/index.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/analysis/parse-module.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/analysis/get-page-static-info.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js
+    at Function.<anonymous> (node:internal/modules/cjs/loader:1394:15)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:57:36
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1050:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1055:22)
+    at Function._load (node:internal/modules/cjs/loader:1204:37)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:234:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1480:12)
+    at mod.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:68:28)
+    at require (node:internal/modules/helpers:135:16)
+    at c.f.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:1:2665)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:1:1841
+    at Array.reduce (<anonymous>)
+    at c.e (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:1:1820)
+    at Array.map (<anonymous>)
+    at c.X (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:1:2422)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/pages/_document.js:73:47
+    at Object.<anonymous> (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/pages/_document.js:76:3)
+    at Module._compile (node:internal/modules/cjs/loader:1723:14)
+    at Object..js (node:internal/modules/cjs/loader:1888:10)
+    at Module.load (node:internal/modules/cjs/loader:1458:32)
+    at Function._load (node:internal/modules/cjs/loader:1275:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:234:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1480:12)
+    at mod.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:68:28)
+    at require (node:internal/modules/helpers:135:16)
+    at requirePage (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js:99:80)
+    at loadComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js:86:38)
+    at DevServer.findPageComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:899:77)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:877:21
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/trace/tracer.js:170:36
+    at NoopContextManager.with (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/context/NoopContextManager.js:25:19)
+    at ContextAPI.with (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/api/context.js:60:46)
+    at NoopTracer.startActiveSpan (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/trace/NoopTracer.js:65:31)
+    at ProxyTracer.startActiveSpan (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/trace/ProxyTracer.js:36:24)
+    at tracer.startActiveSpan (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-utils/instrumentation-node-extensions.js:65:48)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/trace/tracer.js:152:103
+    at NoopContextManager.with (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/context/NoopContextManager.js:25:19)
+    at ContextAPI.with (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/api/context.js:60:46)
+    at NextTracerImpl.trace (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/trace/tracer.js:152:28)
+    at DevServer.findPageComponents (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:872:41)
+    at DevServer.findPageComponents (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:705:28)
+    at async DevServer.renderErrorToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1687:26)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:497:24)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-11-28T18:03:14.228Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/route-module.js:115:17)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/route-module.js:285:38)
+    at async handler (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/pages/pages-handler.js:52:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:497:24)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+
+=== Log Session Ended: 2025-11-28T18:03:21.467Z ===

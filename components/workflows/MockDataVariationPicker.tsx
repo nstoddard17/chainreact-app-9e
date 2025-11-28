@@ -26,13 +26,16 @@ interface MockDataVariationPickerProps {
   selectedVariation?: string
   onVariationChange: (variation: string | undefined) => void
   className?: string
+  /** Compact mode - just shows the select dropdown without the card wrapper */
+  compact?: boolean
 }
 
 export function MockDataVariationPicker({
   triggerType,
   selectedVariation,
   onVariationChange,
-  className
+  className,
+  compact = false
 }: MockDataVariationPickerProps) {
   const [variations, setVariations] = useState<string[]>([])
   const [showPreview, setShowPreview] = useState(false)
@@ -63,6 +66,36 @@ export function MockDataVariationPicker({
     return null
   }
 
+  // Compact mode - just the select dropdown
+  if (compact) {
+    return (
+      <div className={cn("space-y-2", className)}>
+        <Select
+          value={selectedVariation || 'default'}
+          onValueChange={handleVariationChange}
+        >
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue placeholder="Select mock data scenario" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="default">
+              Default (Standard scenario)
+            </SelectItem>
+            {variations.map((variation) => (
+              <SelectItem key={variation} value={variation}>
+                {variation}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {description && (
+          <p className="text-xs text-muted-foreground">{description}</p>
+        )}
+      </div>
+    )
+  }
+
+  // Full card mode
   return (
     <Card className={cn("border-purple-200 dark:border-purple-900", className)}>
       <CardHeader>

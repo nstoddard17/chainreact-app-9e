@@ -26,7 +26,7 @@ import { InlineNodePicker } from './InlineNodePicker'
 import type { NodeComponent } from '@/lib/workflows/nodes/types'
 import { FieldVisibilityEngine } from '@/lib/workflows/fields/visibility'
 
-export type NodeState = 'skeleton' | 'ready' | 'running' | 'passed' | 'failed' | 'paused'
+export type NodeState = 'skeleton' | 'ready' | 'running' | 'passed' | 'failed' | 'paused' | 'listening'
 
 const AI_STATUS_HIDE_BADGE_STATES = new Set([
   'preparing',
@@ -208,16 +208,30 @@ function CustomNode({ id, data, selected }: NodeProps) {
   // Phase 1: Node state helpers
   const nodeState = nodeData.state || 'ready'
   const isSkeletonState = nodeState === 'skeleton'
+  // Access test flow state (need to get these before useMemo that uses them)
+  const testStore = useWorkflowTestStore.getState()
+  const isTestListeningForNode = testStore.testFlowStatus === 'listening' && nodeData.isTrigger
+  const isTestRunningForNode = testStore.currentExecutingNodeId === id
+  const isTestCompletedForNode = testStore.completedNodeIds.includes(id)
+  const isTestFailedForNode = testStore.failedNodeIds.includes(id)
+
   const visualNodeState = useMemo<NodeState>(() => {
-    if (nodeState === 'running' || nodeState === 'passed' || nodeState === 'failed' || nodeState === 'paused') {
+    if (nodeState === 'running' || nodeState === 'passed' || nodeState === 'failed' || nodeState === 'paused' || nodeState === 'listening') {
       return nodeState
     }
+    // Check for test flow states first (from workflowTestStore)
+    if (isTestListeningForNode) return 'listening'
+    if (isTestRunningForNode) return 'running'
+    if (isTestCompletedForNode) return 'passed'
+    if (isTestFailedForNode) return 'failed'
+    // Check for listening state (trigger waiting for event)
+    if (nodeData.isListening) return 'listening'
     if (nodeData.executionStatus === 'running' || nodeData.isActiveExecution) return 'running'
     if (nodeData.executionStatus === 'completed' || nodeData.executionStatus === 'success') return 'passed'
     if (nodeData.executionStatus === 'error') return 'failed'
     if (nodeData.executionStatus === 'paused') return 'paused'
     return nodeState
-  }, [nodeData.executionStatus, nodeData.isActiveExecution, nodeState])
+  }, [nodeData.executionStatus, nodeData.isActiveExecution, nodeData.isListening, nodeState, isTestListeningForNode, isTestRunningForNode, isTestCompletedForNode, isTestFailedForNode])
 
 
   // Helper function to get handle styling based on node state
@@ -246,6 +260,12 @@ function CustomNode({ id, data, selected }: NodeProps) {
           background: 'linear-gradient(180deg, rgba(254, 243, 199, 0.95), rgba(253, 230, 138, 0.95))',
           borderColor: 'rgba(245, 158, 11, 0.4)',
           boxShadow: '0 4px 12px rgba(245, 158, 11, 0.16)',
+        }
+      case 'listening':
+        return {
+          background: 'linear-gradient(180deg, rgba(254, 243, 199, 0.95), rgba(253, 230, 138, 0.95))',
+          borderColor: 'rgba(245, 158, 11, 0.5)',
+          boxShadow: '0 4px 12px rgba(245, 158, 11, 0.2)',
         }
       default:
         return baseStyle
@@ -475,9 +495,22 @@ function CustomNode({ id, data, selected }: NodeProps) {
   const hasMultipleOutputs = ["if_condition", "switch_case", "try_catch"].includes(type)
 
   // Check if this node has test data available
-  const { isNodeInExecutionPath, getNodeTestResult } = useWorkflowTestStore()
+  const {
+    isNodeInExecutionPath,
+    getNodeTestResult,
+    testFlowStatus,
+    currentExecutingNodeId,
+    completedNodeIds,
+    failedNodeIds
+  } = useWorkflowTestStore()
   const hasTestData = isNodeInExecutionPath(id)
   const testResult = getNodeTestResult(id)
+
+  // Determine test flow execution state for this node
+  const isTestListening = testFlowStatus === 'listening' && isTrigger
+  const isTestRunning = currentExecutingNodeId === id
+  const isTestCompleted = completedNodeIds.includes(id)
+  const isTestFailed = failedNodeIds.includes(id)
 
   // Check if integration is disconnected
   const { integrations } = useIntegrationStore()
@@ -1676,6 +1709,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
           className={`workflow-node-card relative w-[360px] ${finalBackgroundClass} rounded-lg shadow-sm border-2 group ${finalBorderClass} ${shadowClass} ${ringClass} ${
             nodeHasConfiguration() ? "cursor-pointer" : ""
           } ${getExecutionStatusStyle()} ${
+            visualNodeState === 'listening' ? 'node-listening' :
             visualNodeState === 'running' ? 'node-running' :
             visualNodeState === 'passed' ? 'node-passed' :
             visualNodeState === 'failed' ? 'node-failed' :

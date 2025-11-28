@@ -53,19 +53,32 @@ export class SlackTriggerLifecycle implements TriggerLifecycle {
 
     // Store trigger metadata for event routing
     // Slack events are configured at app level, we just need to route them to the right workflow
-    await supabase.from('trigger_resources').insert({
+    const { error: insertError } = await supabase.from('trigger_resources').insert({
       workflow_id: workflowId,
       user_id: userId,
+      provider: 'slack',
       provider_id: 'slack',
       trigger_type: triggerType,
       node_id: nodeId,
       resource_type: 'other', // Not a webhook or subscription, just routing metadata
+      resource_id: `${workflowId}-${nodeId}`, // Generated ID for routing
       config: {
         ...config,
         eventType: this.getEventTypeForTrigger(triggerType)
       },
       status: 'active'
     })
+
+    if (insertError) {
+      // Check if this is a FK constraint violation (code 23503) - happens for unsaved workflows in test mode
+      if (insertError.code === '23503') {
+        logger.warn(`⚠️ Could not store trigger resource (workflow may be unsaved): ${insertError.message}`)
+        logger.debug(`✅ Slack trigger activated (without local record): ${triggerType}`)
+        return
+      }
+      logger.error(`❌ Failed to store trigger resource:`, insertError)
+      throw new Error(`Failed to store trigger resource: ${insertError.message}`)
+    }
 
     logger.debug(`✅ Slack trigger activated: ${triggerType}`)
   }

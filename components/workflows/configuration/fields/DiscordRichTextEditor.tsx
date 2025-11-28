@@ -38,6 +38,8 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { useVariableDropTarget } from '../hooks/useVariableDropTarget'
 import { insertVariableIntoTextInput, normalizeDraggedVariable } from '@/lib/workflows/variableInsertion'
+import { useUpstreamVariables } from '../hooks/useUpstreamVariables'
+import { StaticIntegrationLogo } from '@/components/ui/static-integration-logo'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -129,6 +131,12 @@ export function DiscordRichTextEditor({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { toast } = useToast()
   const mentionMapRef = useRef<Map<string, string>>(new Map()) // Maps display format to Discord format
+
+  // Use the shared hook to get upstream variables (same as VariableSelectionDropdown)
+  const { upstreamNodes, hasVariables } = useUpstreamVariables({
+    workflowData,
+    currentNodeId
+  })
 
   // Debug logging to identify freeze cause
   logger.debug('[DiscordRichTextEditor] Rendering with:', { guildId, channelId, userId, value })
@@ -525,30 +533,8 @@ export function DiscordRichTextEditor({
     ))
   }
 
-  const getVariablesFromWorkflow = () => {
-    if (!workflowData || !currentNodeId) return []
-
-    const variables: Array<{name: string, label: string, node: string}> = []
-
-    workflowData.nodes
-      .filter(node => node.id !== currentNodeId)
-      .forEach(node => {
-        if (node.data?.outputSchema) {
-          // Use 'trigger' as the reference prefix for trigger nodes
-          const isTrigger = node.data?.isTrigger || false
-          const referencePrefix = isTrigger ? 'trigger' : node.id
-          node.data.outputSchema.forEach((output: any) => {
-            variables.push({
-              name: `{{${referencePrefix}.${output.name}}}`,
-              label: output.label || output.name,
-              node: node.data?.title || node.data?.type || 'Unknown'
-            })
-          })
-        }
-      })
-
-    return variables
-  }
+  // Get nodes that have variables (computed from the hook)
+  const nodesWithVariables = upstreamNodes.filter(node => node.outputs.length > 0)
 
   // Prepare the complete Discord message object for backend
   const buildDiscordMessage = () => {
@@ -818,14 +804,14 @@ export function DiscordRichTextEditor({
                     <ChevronDown className="h-3 w-3" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-80 p-0 bg-slate-800 border-slate-700" onClick={(e) => e.stopPropagation()}>
+                <PopoverContent className="w-[400px] p-0 bg-slate-800 border-slate-700" onClick={(e) => e.stopPropagation()}>
                   <div className="p-3 border-b border-slate-700">
                     <h4 className="text-sm font-medium text-slate-200">Insert Variable</h4>
                     <p className="text-xs text-slate-400 mt-1">Add dynamic data from previous workflow steps</p>
                   </div>
-                  <ScrollArea className="h-64">
+                  <ScrollArea className="h-[300px]">
                     <div className="p-2">
-                      {getVariablesFromWorkflow().length === 0 ? (
+                      {!hasVariables || nodesWithVariables.length === 0 ? (
                         <div className="text-center py-8 px-4">
                           <Variable className="h-8 w-8 mx-auto mb-2 text-slate-600" />
                           <p className="text-sm text-slate-400">No variables available</p>
@@ -834,23 +820,60 @@ export function DiscordRichTextEditor({
                           </p>
                         </div>
                       ) : (
-                        getVariablesFromWorkflow().map((variable, index) => (
-                          <div
-                            key={index}
-                            className="flex flex-col gap-1 p-2 rounded-md hover:bg-slate-700 cursor-pointer"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              e.preventDefault()
-                              insertVariable(variable.name)
-                            }}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm text-slate-200 font-medium">{variable.label}</span>
-                              <Badge variant="secondary" className="text-xs">
-                                {variable.node}
+                        nodesWithVariables.map((node) => (
+                          <div key={node.id} className="mb-3">
+                            {/* Node Header */}
+                            <div className="flex items-center gap-2 px-2 py-1.5 bg-slate-700/50 rounded-t-md">
+                              {node.providerId ? (
+                                <StaticIntegrationLogo
+                                  providerId={node.providerId}
+                                  providerName={node.title}
+                                />
+                              ) : (
+                                <div className="w-5 h-5 rounded bg-slate-600 flex items-center justify-center">
+                                  <Variable className="h-3 w-3 text-slate-400" />
+                                </div>
+                              )}
+                              <span className="font-medium text-sm text-slate-200">{node.title}</span>
+                              <Badge variant="secondary" className="ml-auto text-[10px]">
+                                {node.outputs.length} field{node.outputs.length === 1 ? '' : 's'}
                               </Badge>
                             </div>
-                            <span className="text-xs text-slate-400 font-mono">{variable.name}</span>
+                            {/* Node Outputs */}
+                            <div className="border border-slate-700 border-t-0 rounded-b-md divide-y divide-slate-700/50">
+                              {node.outputs.map((output: any) => {
+                                // Use friendly node type for variable reference (engine resolves by type)
+                                const referencePrefix = node.isTrigger ? 'trigger' : (node.type || node.id)
+                                const variableRef = `{{${referencePrefix}.${output.name}}}`
+                                const displayRef = `${referencePrefix}.${output.name}`
+                                return (
+                                  <div
+                                    key={`${node.id}-${output.name}`}
+                                    className="flex flex-col gap-0.5 px-3 py-2 hover:bg-slate-700/50 cursor-pointer"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      e.preventDefault()
+                                      insertVariable(variableRef)
+                                    }}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <code className="text-sm text-slate-200 font-medium font-mono">
+                                        {displayRef}
+                                      </code>
+                                      {output.type && (
+                                        <Badge variant="outline" className="text-[10px] font-mono border-slate-600 text-slate-400">
+                                          {output.type}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    <p className="text-xs text-slate-400">
+                                      {output.label || output.name}
+                                      {output.description && ` — ${output.description}`}
+                                    </p>
+                                  </div>
+                                )
+                              })}
+                            </div>
                           </div>
                         ))
                       )}

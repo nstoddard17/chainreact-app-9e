@@ -109,9 +109,11 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
         workflow_id: workflowId,
         user_id: userId,
         node_id: nodeId,
+        provider: 'notion',
         provider_id: 'notion',
         trigger_type: triggerType,
         resource_type: 'webhook',
+        resource_id: triggerId,
         external_id: triggerId, // Use internal ID since we can't get Notion's webhook ID
         status: 'active', // Active - webhook will work once manually set up in Notion
         config: {
@@ -142,6 +144,12 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
       .single()
 
     if (error) {
+      // Check if this is a FK constraint violation (code 23503) - happens for unsaved workflows in test mode
+      if (error.code === '23503') {
+        logger.warn(`[Notion Trigger] Could not store trigger resource (workflow may be unsaved): ${error.message}`)
+        logger.info('[Notion Trigger] Trigger configured (without local record) - manual webhook setup required')
+        return
+      }
       logger.error('[Notion Trigger] Failed to store trigger resource')
       throw new Error(`Failed to activate Notion trigger: ${error.message}`)
     }

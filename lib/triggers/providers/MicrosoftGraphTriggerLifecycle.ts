@@ -110,13 +110,15 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
     })
 
     // Store in trigger_resources table
-    await supabase.from('trigger_resources').insert({
+    const { error: insertError } = await supabase.from('trigger_resources').insert({
       workflow_id: workflowId,
       user_id: userId,
+      provider: 'microsoft',
       provider_id: 'microsoft',
       trigger_type: triggerType,
       node_id: nodeId,
       resource_type: 'subscription',
+      resource_id: subscription.id,
       external_id: subscription.id,
       config: {
         resource,
@@ -128,6 +130,18 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       status: 'active',
       expires_at: subscription.expirationDateTime
     })
+
+    if (insertError) {
+      // Check if this is a FK constraint violation (code 23503) - happens for unsaved workflows in test mode
+      // The subscription was already created successfully with Microsoft Graph, so we can continue
+      if (insertError.code === '23503') {
+        logger.warn(`⚠️ Could not store trigger resource (workflow may be unsaved): ${insertError.message}`)
+        logger.debug(`✅ Microsoft Graph subscription created (without local record): ${subscription.id}`)
+        return
+      }
+      logger.error(`❌ Failed to store trigger resource:`, insertError)
+      throw new Error(`Failed to store trigger resource: ${insertError.message}`)
+    }
 
     logger.debug(`✅ Microsoft Graph subscription created and saved to trigger_resources: ${subscription.id}`)
   }

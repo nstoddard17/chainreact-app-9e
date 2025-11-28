@@ -22,6 +22,7 @@ interface WorkflowStatusBarProps {
   isExecuting: boolean
   isPaused: boolean
   isListeningForWebhook: boolean
+  listeningTimeRemaining?: number | null
   activeExecutionNodeName?: string | null
   onStopExecution?: (() => void) | undefined
   // Single node testing
@@ -41,6 +42,7 @@ export function WorkflowStatusBar({
   isExecuting,
   isPaused,
   isListeningForWebhook,
+  listeningTimeRemaining,
   activeExecutionNodeName,
   onStopExecution,
   isNodeTesting,
@@ -189,9 +191,11 @@ export function WorkflowStatusBar({
   } else if (showLiveExecution) {
     const isListening = isListeningForWebhook && !isExecuting
     if (isListening) {
-      icon = <SatelliteDish className="w-5 h-5 text-blue-500" />
-      title = "Listening for webhook"
-      description = "Waiting for trigger event..."
+      icon = <SatelliteDish className="w-5 h-5 text-amber-500 animate-pulse" />
+      title = "Listening for trigger"
+      description = listeningTimeRemaining != null
+        ? `Waiting for event... ${listeningTimeRemaining}s remaining`
+        : "Waiting for trigger event..."
     } else if (isPaused) {
       icon = <Pause className="w-5 h-5 text-amber-500" />
       title = "Execution paused"
