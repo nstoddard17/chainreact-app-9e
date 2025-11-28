@@ -398,15 +398,6 @@ export function MicrosoftExcelConfiguration({
 
   const visibleFields = getVisibleFields();
 
-  console.log('[MicrosoftExcelConfiguration] Visible fields:', {
-    visibleFieldNames: visibleFields.map((f: any) => f.name),
-    totalFields: visibleFields.length,
-    hasUpdateMapping: visibleFields.some((f: any) => f.name === 'updateMapping'),
-    allFieldNames: nodeInfo?.configSchema?.map((f: any) => f.name),
-    values,
-    nodeType: nodeInfo?.type
-  });
-
   return (
     <ConfigurationContainer
       onSubmit={handleSubmit}

@@ -216,21 +216,6 @@ export function ConfigurationModal({
   templateDefaults,
   focusField,
 }: ConfigurationModalProps) {
-  // Debug: Log initialData when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      logger.debug('🎯 [ConfigModal] Modal opened with initialData:', {
-        currentNodeId,
-        nodeType: nodeInfo?.type,
-        initialData,
-        hasGuildId: !!initialData?.guildId,
-        hasChannelId: !!initialData?.channelId,
-        hasMessage: !!initialData?.message,
-        allKeys: Object.keys(initialData || {})
-      });
-    }
-  }, [isOpen, initialData, currentNodeId, nodeInfo?.type]);
-
   // Track node type to prevent unnecessary re-renders
   const prevNodeTypeRef = React.useRef(nodeInfo?.type);
 
@@ -256,7 +241,6 @@ export function ConfigurationModal({
     // Also check if this node has parentAIAgentId in its data (for AI-generated workflows)
     const currentNode = workflowData.nodes.find((node: any) => node.id === currentNodeId);
     if (currentNode?.data?.parentAIAgentId) {
-      logger.debug('🤖 [ConfigModal] Node has parentAIAgentId:', currentNode.data.parentAIAgentId);
       return true;
     }
     
@@ -366,12 +350,6 @@ export function ConfigurationModal({
     );
 
     const isReopenValue = configKeys.length > 0;
-    console.log('🔍 [ConfigModal] isReopen check:', {
-      isReopenValue,
-      configKeys,
-      allKeys: Object.keys(effectiveInitialData || {})
-    });
-
     return isReopenValue;
   }, [effectiveInitialData])
 
@@ -456,20 +434,6 @@ export function ConfigurationModal({
         return acc
       }, {} as Record<string, any>)
 
-      logger.debug('[ConfigModal] Testing node:', {
-        nodeType: nodeInfo.type,
-        config: cleanConfig,
-        strippedKeys: Object.keys(effectiveInitialData).filter(k => k.startsWith('__test'))
-      })
-
-      // CRITICAL DEBUG: Log what we're sending
-      console.log('🔍 [TEST-NODE] Sending request:', {
-        nodeType: nodeInfo.type,
-        config: cleanConfig,
-        workflowId: workflowData?.id,
-        nodeId: currentNodeId
-      })
-
       const response = await fetch('/api/workflows/test-node', {
         method: 'POST',
         headers: {
@@ -486,12 +450,7 @@ export function ConfigurationModal({
         })
       })
 
-      // CRITICAL DEBUG: Log response status
-      console.log('🔍 [TEST-NODE] Response status:', response.status, response.statusText)
-      console.log('🔍 [TEST-NODE] Response ok:', response.ok)
-
       const result = await response.json()
-      console.log('🔍 [TEST-NODE] Parsed JSON result:', result)
 
       if (!response.ok) {
         console.error('🔴 [TEST-NODE] Response not OK:', { status: response.status, result })
@@ -510,23 +469,6 @@ export function ConfigurationModal({
         throw new Error(errorMessage)
       }
 
-      // CRITICAL DEBUG: Log to browser console for visibility
-      console.log('🔍 [TEST-NODE] Raw API response:', result)
-      console.log('🔍 [TEST-NODE] testResult:', result.testResult)
-      console.log('🔍 [TEST-NODE] testResult.output:', result.testResult?.output)
-      console.log('🔍 [TEST-NODE] testResult.output keys:', result.testResult?.output ? Object.keys(result.testResult.output) : 'NO OUTPUT')
-
-      logger.debug('[ConfigModal] Test completed:', result)
-      logger.debug('[ConfigModal] Test result structure:', {
-        success: result.success,
-        testResultSuccess: result.testResult?.success,
-        testResultOutput: result.testResult?.output,
-        testResultOutputKeys: result.testResult?.output ? Object.keys(result.testResult.output) : [],
-        testResultOutputSample: result.testResult?.output ? JSON.stringify(result.testResult.output).slice(0, 300) : null,
-        nodeInfo: result.nodeInfo,
-        outputSchemaLength: result.nodeInfo?.outputSchema?.length
-      })
-
       // Update the config with test results
       const updatedConfig = {
         ...effectiveInitialData,
@@ -542,16 +484,6 @@ export function ConfigurationModal({
           outputCached: result.outputCached
         }
       }
-
-      // CRITICAL DEBUG: Log what we're setting
-      console.log('🔍 [TEST-NODE] Setting __testData:', updatedConfig.__testData)
-      console.log('🔍 [TEST-NODE] __testData keys:', Object.keys(updatedConfig.__testData))
-      console.log('🔍 [TEST-NODE] __testResult:', updatedConfig.__testResult)
-
-      logger.debug('[ConfigModal] Updated config __testData:', {
-        testDataKeys: Object.keys(updatedConfig.__testData),
-        testDataSample: JSON.stringify(updatedConfig.__testData).slice(0, 300)
-      })
 
       setInitialOverride(updatedConfig)
       setFormSeedVersion((prev) => prev + 1)
@@ -631,16 +563,6 @@ export function ConfigurationModal({
 
     return chains;
   }, [workflowData, currentNodeId]);
-  
-  // For Trello-specific debugging (can be removed when Trello integration is stable)
-  if (nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") {
-    logger.debug("🔍 TRELLO CONFIG MODAL DEBUG:", {
-      nodeType: nodeInfo.type,
-      providerId: nodeInfo.providerId,
-      configSchemaLength: nodeInfo.configSchema?.length || 0,
-      isModalOpen: isOpen
-    });
-  }
 
   // Handle form submission
   const handleSubmit = async (configData: Record<string, any>) => {
@@ -650,19 +572,7 @@ export function ConfigurationModal({
         __validationState,
         ...config
       } = configData.config || configData;
-      
-      // Log attachment fields for Gmail send email
-      if (nodeInfo?.type === 'gmail_action_send_email') {
-        logger.debug('📎 [ConfigurationModal] Gmail send email config being saved:', {
-          sourceType: config.sourceType,
-          hasUploadedFiles: !!config.uploadedFiles,
-          hasFileUrl: !!config.fileUrl,
-          hasFileFromNode: !!config.fileFromNode,
-          hasAttachments: !!config.attachments,
-          configKeys: Object.keys(config || {})
-        });
-      }
-      
+
       await onSave({
         ...config,
         __dynamicOptions,
@@ -786,7 +696,6 @@ export function ConfigurationModal({
         }}
         onDragOver={(e) => {
           e.preventDefault();
-          logger.debug('🔵 [ConfigPanel] Allowing drag over in panel');
         }}>
         {/* Modal Container - Split Layout */}
         <div

@@ -551,17 +551,6 @@ export function FieldRenderer({
     }
   }
 
-  // Debug logging for HubSpot listId field
-  if (nodeInfo?.providerId === 'hubspot' && field.name === 'listId') {
-    console.log('🔵 [FieldRenderer] listId field options:', {
-      fieldName: field.name,
-      fieldDynamic: field.dynamic,
-      dynamicOptions: dynamicOptions,
-      dynamicOptionsForField: dynamicOptions?.[field.name],
-      fieldOptions: fieldOptions,
-      fieldOptionsLength: fieldOptions?.length
-    });
-  }
 
   // Auto-load options for combobox/select fields with dynamic data
   useEffect(() => {
@@ -1715,17 +1704,8 @@ export function FieldRenderer({
           ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
           : fieldOptions;
 
-        console.log('🔍 [FieldRenderer] Select field rendering:', {
-          fieldName: field.name,
-          isConnectedMode,
-          hasWorkflowData: !!workflowData,
-          currentNodeId,
-          willShowVariableDropdown: isConnectedMode && workflowData && currentNodeId
-        });
-
         // If Connect mode is active, show GenericSelectField with upstream variables as options
         if (isConnectedMode && workflowData && currentNodeId) {
-          console.log('🔌 [FieldRenderer] Connect mode ACTIVE - showing variable dropdown');
 
           // Get ALL upstream nodes (all previous nodes in the workflow, not just immediate parents)
           const nodeById = new Map(workflowData.nodes.map((n: any) => [n.id, n]))
@@ -1809,12 +1789,6 @@ export function FieldRenderer({
                 groupIcon: node.providerId ? `/integrations/${node.providerId}.svg` : undefined
               }))
           })
-
-          console.log('📊 [FieldRenderer] Generated variable options:', {
-            upstreamNodesCount: upstreamNodes.length,
-            variableOptionsCount: variableOptions.length,
-            sampleOptions: variableOptions.slice(0, 3)
-          });
 
           // In Connect mode, use VariableSelectionDropdown for proper styling
           return (
@@ -2048,22 +2022,6 @@ export function FieldRenderer({
         );
 
       case "multi_select":
-        console.log('🔍 [FieldRenderer] Multi-select field rendering:', {
-          fieldName: field.name,
-          isConnectedMode,
-          hasWorkflowData: !!workflowData,
-          workflowDataType: typeof workflowData,
-          workflowDataKeys: workflowData ? Object.keys(workflowData) : null,
-          currentNodeId,
-          currentNodeIdType: typeof currentNodeId,
-          willShowVariableDropdown: isConnectedMode && workflowData && currentNodeId,
-          checkResults: {
-            isConnectedMode: !!isConnectedMode,
-            hasWorkflowData: !!workflowData,
-            hasCurrentNodeId: !!currentNodeId
-          }
-        });
-
         // Multi-select fields (especially for Airtable)
         const multiSelectOptions = Array.isArray(field.options)
           ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
@@ -2071,7 +2029,6 @@ export function FieldRenderer({
 
         // If Connect mode is active, show GenericSelectField with upstream variables as options
         if (isConnectedMode && workflowData && currentNodeId) {
-          console.log('🔌 [FieldRenderer] Connect mode ACTIVE for multi-select - showing variable dropdown');
           // Get ALL upstream nodes (all previous nodes in the workflow, not just immediate parents)
           const nodeById = new Map(workflowData.nodes.map((n: any) => [n.id, n]))
           const edges = workflowData.edges || []
@@ -2899,7 +2856,6 @@ export function FieldRenderer({
             onConnectProvider={async (providerId) => {
               // Handle in-modal connection
               // This could open a connection modal or redirect to integration page
-              console.log('Connect provider:', providerId)
             }}
           />
         );

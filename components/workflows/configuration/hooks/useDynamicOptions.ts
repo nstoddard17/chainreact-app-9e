@@ -477,28 +477,10 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
     // Debug logging for searchField specifically
     if (fieldName === 'searchField') {
-      console.log(`🔍🔍🔍 [useDynamicOptions] LOADING SEARCHFIELD:`, {
-        fieldName,
-        resourceType,
-        nodeType,
-        dependsOn,
-        dependsOnValue,
-        extraOptions,
-        hasExtraOptionsBaseId: !!extraOptions?.baseId,
-        hasExtraOptionsTableName: !!extraOptions?.tableName,
-      });
     }
 
     // Debug logging for watchedTables / airtable_tables
     if (fieldName === 'watchedTables' || resourceType === 'airtable_tables') {
-      console.log(`🎯 [useDynamicOptions] PROCEEDING TO LOAD: ${fieldName}`, {
-        fieldName,
-        resourceType,
-        requestKey,
-        forceRefresh,
-        silent,
-        baseId: extraOptions?.baseId
-      });
     }
 
     // Debug logging for Gmail fields
@@ -1313,19 +1295,15 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
 
       // Check for provider-specific loader first (for all providers that have custom loaders)
-      console.log('🟢 [useDynamicOptions] Reached provider loader section for:', { providerId, fieldName });
 
       try {
         // Import provider registry
         const { providerRegistry } = await import('../providers/registry');
         const loader = providerRegistry.getLoader(providerId, fieldName);
 
-        console.log('🟢 [useDynamicOptions] Loader result:', { hasLoader: !!loader, providerId, fieldName });
 
         if (loader) {
-          console.log('🟢 [useDynamicOptions] About to call loader.loadOptions for:', fieldName);
           // NOTE: Removed early return caching check - always fetch fresh data from provider loaders
-          console.log('✅ [useDynamicOptions] Proceeding to call loader for:', fieldName);
 
           logger.debug(`🔧 [useDynamicOptions] Using custom loader for ${providerId}/${fieldName}`);
 
@@ -1369,17 +1347,6 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
             ? dependsOnValue
             : integration.id;
 
-          console.log('🚀 [useDynamicOptions] CALLING loader.loadOptions with params:', {
-            fieldName,
-            nodeType,
-            providerId,
-            integrationId: actualIntegrationId,
-            dependsOn,
-            dependsOnValue,
-            forceRefresh,
-            loaderType: typeof loader,
-            hasLoadOptionsMethod: typeof loader.loadOptions === 'function'
-          });
 
           let formattedOptions;
 
@@ -1399,10 +1366,6 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
               }
             });
 
-            console.log('✨ [useDynamicOptions] loader.loadOptions COMPLETED successfully for:', fieldName, {
-              resultLength: formattedOptions?.length,
-              firstResult: formattedOptions?.[0]
-            });
           } catch (loaderError) {
             logger.error('❌ [useDynamicOptions] ERROR calling loader.loadOptions:', {
               error: loaderError,
@@ -1490,12 +1453,10 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
           // Log how long setState took for searchField
           if (fieldName === 'searchField') {
             const setOptionsDuration = performance.now() - setOptionsStartTime;
-            console.log(`⏱️ [useDynamicOptions] searchField setState took ${setOptionsDuration.toFixed(2)}ms`);
 
             // Use requestAnimationFrame to check when React has painted
             requestAnimationFrame(() => {
               const totalDuration = performance.now() - setOptionsStartTime;
-              console.log(`🎨 [useDynamicOptions] searchField RAF after setState: ${totalDuration.toFixed(2)}ms total`);
             });
           }
 
@@ -2119,13 +2080,6 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
           // Log for watchedTables / airtable_tables
           if (fieldName === 'watchedTables' || resourceType === 'airtable_tables') {
-            console.log(`📦 [useDynamicOptions] Formatted options for ${fieldName}:`, {
-              fieldName,
-              resourceType,
-              rawDataCount: dataArray.length,
-              formattedCount: formattedOptions.length,
-              sampleFormatted: formattedOptions.slice(0, 3)
-            });
           }
         } catch (apiError: any) {
           logger.error(`❌ [useDynamicOptions] Failed to load ${resourceType}:`, apiError);
@@ -2186,14 +2140,6 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
         // Log state update for ALL fields including watchedTables
         if (fieldName === 'watchedTables' || fieldName === 'channel' || resourceType === 'slack_channels' || resourceType === 'airtable_tables') {
-          console.log(`✅ [useDynamicOptions] Updated state for ${fieldName}:`, {
-            fieldName,
-            resourceType,
-            hadPrevious: !!prev[fieldName],
-            previousCount: prev[fieldName]?.length || 0,
-            newCount: formattedOptions.length,
-            sampleOptions: formattedOptions.slice(0, 3)
-          });
         }
 
         return syncLinkedOptions(updated);
@@ -2247,7 +2193,6 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       if (error.name === 'AbortError') {
         // Don't update state or clear loading for aborted requests
         // The loading state should persist until the new request completes
-        console.log(`⚠️ [useDynamicOptions] Request aborted for ${fieldName}`);
         return;
       }
 
