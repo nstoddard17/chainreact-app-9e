@@ -761,7 +761,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
         type: "select",
         dynamic: "microsoft-excel_columns",
         required: true,
-        dependsOn: "deleteBy",
+        dependsOn: "worksheetName",
         hidden: true,
         showIf: (values: any) => values.deleteBy === "column_value",
         placeholder: "Select column to search",
@@ -780,7 +780,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
         hasVariablePicker: true
       },
       {
-        name: "deleteAll",
+        name: "deleteMultiple",
         label: "Delete All Matches",
         type: "boolean",
         required: false,
@@ -864,6 +864,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
         label: "Keyword Search",
         type: "text",
         required: false,
+        dependsOn: "worksheetName",
         placeholder: "Search across all columns...",
         description: "Search for keywords across all text columns in the worksheet"
       },
@@ -904,12 +905,12 @@ export const microsoftExcelNodes: NodeComponent[] = [
       {
         name: "filterValue",
         label: "Filter Value",
-        type: "select",
-        dynamic: "microsoft-excel_column_values",
+        type: "text",
         required: false,
-        placeholder: "Select or enter value...",
-        description: "Choose the value to filter by",
+        placeholder: "Enter value to filter by...",
+        description: "The value to filter by",
         dependsOn: "filterColumn",
+        hasVariablePicker: true,
         visibilityCondition: {
           and: [
             { field: "filterColumn", operator: "isNotEmpty" },
@@ -946,6 +947,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
         label: "Row Limit",
         type: "select",
         required: false,
+        dependsOn: "worksheetName",
         options: [
           { value: "", label: "No limit" },
           { value: "10", label: "First 10 Rows" },
@@ -977,6 +979,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
         label: "Include Headers",
         type: "boolean",
         required: false,
+        dependsOn: "worksheetName",
         defaultValue: true,
         description: "Include column headers in the result"
       },
@@ -985,6 +988,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
         label: "Output Format",
         type: "select",
         required: false,
+        dependsOn: "worksheetName",
         options: [
           { value: "objects", label: "Objects (Key-Value pairs)" },
           { value: "arrays", label: "Arrays (Raw values)" },
@@ -1233,9 +1237,11 @@ export const microsoftExcelNodes: NodeComponent[] = [
         label: "New Name",
         type: "text",
         required: true,
+        dependsOn: "worksheetName",
         placeholder: "e.g., Q2 Sales Data",
         description: "The new name for the worksheet",
-        helpText: "Choose a unique name that doesn't already exist in the workbook"
+        helpText: "Choose a unique name that doesn't already exist in the workbook",
+        hasVariablePicker: true
       }
     ],
     outputSchema: [
@@ -1383,9 +1389,11 @@ export const microsoftExcelNodes: NodeComponent[] = [
         label: "Rows Data",
         type: "array",
         required: true,
+        dependsOn: "worksheetName",
         placeholder: "Array of row objects",
         description: "Array of objects, where each object represents a row to add",
-        helpText: "Use output from a previous step that returns an array of data objects. Each object should have keys matching the worksheet column headers."
+        helpText: "Use output from a previous step that returns an array of data objects. Each object should have keys matching the worksheet column headers.",
+        hasVariablePicker: true
       },
       {
         name: "columnMapping",

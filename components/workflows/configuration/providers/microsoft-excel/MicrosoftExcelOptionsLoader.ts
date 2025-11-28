@@ -165,14 +165,6 @@ export class MicrosoftExcelOptionsLoader implements ProviderOptionsLoader {
         options: {}
       };
 
-      console.log(`🔵 [ExcelOptionsLoader] executeRequest:`, {
-        dataType,
-        dependsOnValue,
-        allValues,
-        integrationId,
-        hasWorkbookId: !!allValues?.workbookId,
-        hasWorksheetName: !!allValues?.worksheetName
-      });
       logger.debug(`[ExcelOptionsLoader] executeRequest:`, {
         dataType,
         dependsOnValue,
@@ -217,11 +209,6 @@ export class MicrosoftExcelOptionsLoader implements ProviderOptionsLoader {
         requestBody.options.workbookId = allValues.workbookId;
       }
 
-      console.log(`🔵 [ExcelOptionsLoader] Final request body:`, {
-        dataType,
-        requestBody,
-        allValuesProvided: allValues
-      });
       logger.debug(`[ExcelOptionsLoader] Final request body:`, {
         dataType,
         requestBody,
@@ -248,12 +235,6 @@ export class MicrosoftExcelOptionsLoader implements ProviderOptionsLoader {
       }
 
       const data = await response.json();
-      console.log(`🔵 [ExcelOptionsLoader] API response for ${dataType}:`, {
-        success: data.success,
-        dataLength: data.data?.length,
-        hasDataArray: Array.isArray(data.data),
-        firstItem: data.data?.[0]
-      });
 
       // Handle different response formats
       let result: FormattedOption[] = [];
@@ -274,10 +255,6 @@ export class MicrosoftExcelOptionsLoader implements ProviderOptionsLoader {
         result = data.options;
       }
 
-      console.log(`🔵 [ExcelOptionsLoader] Parsed result for ${dataType}:`, {
-        resultLength: result.length,
-        firstResult: result[0]
-      });
 
       // Cache successful results
       if (cacheKey && result.length > 0) {

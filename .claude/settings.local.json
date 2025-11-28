@@ -96,7 +96,11 @@
       "Bash(timeout 30 npx next build:*)",
       "Bash(timeout 120 npx next build:*)",
       "Bash(components/workflows/configuration/hooks/useUpstreamVariables.ts)",
-      "Bash(timeout 180 npx next build:*)"
+      "Bash(timeout 180 npx next build:*)",
+      "Bash(timeout 30 npm run build:*)",
+      "Bash(python remove_console_logs.py:*)",
+      "Bash(move:*)",
+      "Bash(del cleanup_logs.py remove-logs.js remove_logs.py remove_console_logs.py 2)"
     ],
     "edit": [
       "*"

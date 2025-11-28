@@ -4,6 +4,7 @@
  */
 
 import { decrypt } from '@/lib/security/encryption'
+import { logger } from '@/lib/utils/logger'
 import {
   ExcelDataHandler,
   ExcelHandlers,
@@ -215,10 +216,9 @@ const fetchWorksheets: ExcelDataHandler = async (integration: MicrosoftExcelInte
     }))
 
   } catch (error: any) {
-    console.error('[Microsoft Excel] Error fetching worksheets:', {
-      message: error.message,
-      stack: error.stack,
-      options
+    logger.error('[Microsoft Excel] Error fetching worksheets', {
+      error: error.message,
+      workbookId: options.workbookId
     });
     throw error
   }
@@ -231,21 +231,10 @@ const fetchWorksheets: ExcelDataHandler = async (integration: MicrosoftExcelInte
 const fetchColumns: ExcelDataHandler = async (integration: MicrosoftExcelIntegration, options: ExcelHandlerOptions) => {
   const { workbookId, worksheetName } = options
 
-  console.log('[fetchColumns] Called with options:', {
-    workbookId,
-    worksheetName,
-    worksheetNameType: typeof worksheetName,
-    workbookIdType: typeof workbookId,
-    allOptions: options,
-    optionsKeys: Object.keys(options)
-  });
-
   if (!workbookId || !worksheetName) {
-    console.error('[fetchColumns] Missing required parameters:', {
+    logger.error('[fetchColumns] Missing required parameters', {
       hasWorkbookId: !!workbookId,
-      hasWorksheetName: !!worksheetName,
-      workbookId,
-      worksheetName
+      hasWorksheetName: !!worksheetName
     });
     throw new Error('Workbook ID and worksheet name are required to fetch columns')
   }
@@ -257,9 +246,6 @@ const fetchColumns: ExcelDataHandler = async (integration: MicrosoftExcelIntegra
     // This is the approach used in updateRow.ts and other working actions
     const usedRangeUrl = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets('${worksheetName}')/usedRange`
 
-    console.log('[fetchColumns] Graph API URL:', usedRangeUrl);
-    console.log('[fetchColumns] Access token length:', accessToken?.length);
-
     const usedRangeResponse = await fetchWithTimeout(usedRangeUrl, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -269,39 +255,24 @@ const fetchColumns: ExcelDataHandler = async (integration: MicrosoftExcelIntegra
 
     if (!usedRangeResponse.ok) {
       const error = await usedRangeResponse.text()
-      console.error('[fetchColumns] Graph API error response:', error);
+      logger.error('[fetchColumns] Graph API error', { error });
       throw new Error(`Failed to fetch used range: ${error}`)
     }
 
     const usedRangeData = await usedRangeResponse.json()
-    console.log('[fetchColumns] Graph API success response:', {
-      hasValues: !!usedRangeData.values,
-      valuesLength: usedRangeData.values?.length,
-      valuesIsArray: Array.isArray(usedRangeData.values),
-      firstRow: usedRangeData.values?.[0],
-      firstRowLength: usedRangeData.values?.[0]?.length
-    });
 
     // Get the first row as headers
     const allRows = usedRangeData.values || []
     if (allRows.length === 0) {
-      console.log('[fetchColumns] No data in worksheet');
       return []
     }
 
     const headers = allRows[0] || []
-    console.log('[fetchColumns] Extracted headers array:', {
-      headers,
-      headersLength: headers.length,
-      headersType: typeof headers,
-      isArray: Array.isArray(headers)
-    });
 
     // Format for dropdown - filter out empty cells
     const result = headers
       .map((header: any, index: number) => {
         const headerStr = header ? header.toString().trim() : ''
-        console.log(`[fetchColumns] Processing header ${index}:`, { header, headerStr, isEmpty: !headerStr });
         if (!headerStr) return null
         return {
           value: headerStr,
@@ -311,17 +282,11 @@ const fetchColumns: ExcelDataHandler = async (integration: MicrosoftExcelIntegra
       })
       .filter((item: any) => item !== null)
 
-    console.log('[fetchColumns] Final result:', {
-      resultLength: result.length,
-      result
-    });
-
     return result
 
   } catch (error: any) {
-    console.error('[Microsoft Excel] Error fetching columns:', {
-      message: error.message,
-      stack: error.stack,
+    logger.error('[Microsoft Excel] Error fetching columns', {
+      error: error.message,
       workbookId,
       worksheetName
     });
@@ -551,12 +516,43 @@ const fetchTables: ExcelDataHandler = async (integration: MicrosoftExcelIntegrat
     const data = await response.json()
     const tables = data.value || []
 
-    // Format for dropdown
-    return tables.map((table: any) => ({
-      value: table.name || table.id,
-      label: table.name || `Table ${table.id}`,
-      description: `${table.rowCount || 0} rows`
-    }))
+    // Fetch row count for each table in parallel
+    const tablesWithRowCount = await Promise.all(
+      tables.map(async (table: any) => {
+        try {
+          // Get actual row count by fetching the table rows (excluding header row)
+          const rowsUrl = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/tables/${encodeURIComponent(table.name || table.id)}/rows/$count`
+
+          const rowsResponse = await fetchWithTimeout(rowsUrl, {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            }
+          }, 5000) // Shorter timeout for count queries
+
+          let rowCount = 0
+          if (rowsResponse.ok) {
+            const countText = await rowsResponse.text()
+            rowCount = parseInt(countText, 10) || 0
+          }
+
+          return {
+            value: table.name || table.id,
+            label: table.name || `Table ${table.id}`,
+            description: `${rowCount} row${rowCount !== 1 ? 's' : ''}`
+          }
+        } catch (error) {
+          // If fetching row count fails, fall back to the table's rowCount property
+          return {
+            value: table.name || table.id,
+            label: table.name || `Table ${table.id}`,
+            description: `${table.rowCount || 0} row${table.rowCount !== 1 ? 's' : ''}`
+          }
+        }
+      })
+    )
+
+    return tablesWithRowCount
 
   } catch (error) {
     throw error
