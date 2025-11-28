@@ -16,12 +16,11 @@ export async function GET(_: Request, context: { params: Promise<{ flowId: strin
   }
 
   // Use service client to bypass RLS on workflows_revisions table
-  // which doesn't allow access for flow_v2_definitions workflows
   const serviceClient = await getServiceClient()
   const repository = await getFlowRepository(serviceClient)
 
   const definition = await supabase
-    .from("flow_v2_definitions")
+    .from("workflows")
     .select("id")
     .eq("id", flowId)
     .maybeSingle()

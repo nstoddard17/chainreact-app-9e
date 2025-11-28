@@ -142,6 +142,71 @@
   border-color: hsl(var(--destructive) / 0.2) !important;
 }
 
+/* ===== Listening State (Trigger waiting for event) ===== */
+
+/* Listening animation - radar-like pulse */
+@keyframes listening-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.02);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+}
+
+@keyframes listening-ring {
+  0% {
+    box-shadow: 0 0 0 0 hsl(38 92% 50% / 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 8px hsl(38 92% 50% / 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 hsl(38 92% 50% / 0);
+  }
+}
+
+/* Listening state - amber for waiting with pulsing ring */
+.workflow-node-card.node-listening {
+  position: relative;
+  overflow: visible;
+  isolation: isolate;
+  border-color: hsl(38 92% 50% / 0.5) !important;
+  animation: listening-ring 1.5s ease-out infinite;
+}
+
+.workflow-node-card.node-listening::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(120deg, hsl(38 92% 50% / 0.12), hsl(38 92% 50% / 0.04));
+  animation: listening-pulse 1.5s ease-in-out infinite;
+}
+
+/* Listening state badge */
+.badge-listening {
+  background: hsl(38 92% 50% / 0.15);
+  color: hsl(38 92% 50%);
+  border: 1px solid hsl(38 92% 50% / 0.4);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  animation: listening-pulse 1.5s ease-in-out infinite;
+}
+
+.badge-listening:hover {
+  background: hsl(38 92% 50% / 0.25);
+  border-color: hsl(38 92% 50% / 0.6);
+}
+
 /* ===== Paused State (HITL) ===== */
 
 /* Paused animation - gentle pulse */
@@ -195,6 +260,15 @@
     background-position: 0 0, 0 0;
   }
 
+  .workflow-node-card.node-listening {
+    animation: none;
+  }
+
+  .workflow-node-card.node-listening::before {
+    animation: none;
+    opacity: 0.8;
+  }
+
   .workflow-node-card.node-paused::before {
     animation: none;
     opacity: 0.8;
@@ -204,7 +278,12 @@
   .badge-running:hover,
   .badge-passed:hover,
   .badge-failed:hover,
-  .badge-paused:hover {
+  .badge-paused:hover,
+  .badge-listening:hover {
     transform: none;
+  }
+
+  .badge-listening {
+    animation: none;
   }
 }

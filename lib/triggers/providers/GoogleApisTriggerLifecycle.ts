@@ -110,26 +110,47 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
     }
 
     // Store in trigger_resources table
-    await supabase.from('trigger_resources').insert({
+    const resourceData = {
       workflow_id: workflowId,
       user_id: userId,
+      provider: providerId, // Required NOT NULL column
       provider_id: providerId,
       trigger_type: triggerType,
       node_id: nodeId,
       resource_type: 'subscription',
+      resource_id: channelData.resourceId || channelData.id, // Required NOT NULL column
       external_id: channelData.id,
       config: {
         ...config,
         channelId: channelData.id,
         resourceId: channelData.resourceId,
         api,
-        events
+        events,
+        webhookUrl // Store webhook URL for debugging
       },
       status: 'active',
       expires_at: channelData.expiration ? new Date(parseInt(channelData.expiration)).toISOString() : null
-    })
+    }
+
+    logger.debug(`📝 Storing trigger resource:`, resourceData)
+
+    const { error: insertError } = await supabase.from('trigger_resources').insert(resourceData)
+
+    if (insertError) {
+      // Check if this is a FK constraint violation (code 23503) - happens for unsaved workflows in test mode
+      // The watch was already created successfully with Google, so we can continue
+      if (insertError.code === '23503') {
+        logger.warn(`⚠️ Could not store trigger resource (workflow may be unsaved): ${insertError.message}`)
+        logger.debug(`✅ Google ${api} push notification created (without local record): ${channelData.id}`)
+        return // Don't throw - the watch is active, just not tracked locally
+      }
+      logger.error(`❌ Failed to store trigger resource:`, insertError)
+      throw new Error(`Failed to store trigger resource: ${insertError.message}`)
+    }
 
     logger.debug(`✅ Google ${api} push notification created: ${channelData.id}`)
+    // Note: trigger_resources is the source of truth for Gmail triggers
+    // Gmail processor has been updated to fall back to trigger_resources if no webhook_configs found
   }
 
   /**
@@ -326,6 +347,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
           .eq('id', resource.id)
       }
     }
+    // Note: No need to clean up webhook_configs - we use trigger_resources as source of truth
   }
 
   /**
@@ -456,15 +478,17 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
     }
 
     // Map provider to webhook endpoint
+    // All Google services share the same webhook handler at /api/webhooks/google
+    // The handler determines the service from the event data
     const endpointMap: Record<string, string> = {
-      'gmail': '/api/webhooks/google/gmail',
-      'google-calendar': '/api/webhooks/google/calendar',
-      'google-drive': '/api/webhooks/google/drive',
-      'google-sheets': '/api/webhooks/google/sheets',
-      'google-docs': '/api/webhooks/google/docs'
+      'gmail': '/api/webhooks/google',
+      'google-calendar': '/api/webhooks/google',
+      'google-drive': '/api/webhooks/google',
+      'google-sheets': '/api/webhooks/google',
+      'google-docs': '/api/webhooks/google'
     }
 
-    const endpoint = endpointMap[providerId] || `/api/webhooks/google/${providerId}`
+    const endpoint = endpointMap[providerId] || '/api/webhooks/google'
     return `${baseUrl.replace(/\/$/, '')}${endpoint}`
   }
 }

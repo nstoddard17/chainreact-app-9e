@@ -122,7 +122,8 @@ async function findMatchingWorkflows(event: WebhookEvent): Promise<any[]> {
       connections,
       status
     `)
-    .eq('status', 'active')
+    // Include drafts so users can test workflows before publishing
+    .in('status', ['active', 'draft'])
   
   if (error) {
     logger.error('Error finding matching workflows:', error)

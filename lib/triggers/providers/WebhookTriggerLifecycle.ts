@@ -54,13 +54,15 @@ export class WebhookTriggerLifecycle implements TriggerLifecycle {
     const webhookUrl = `${baseUrl}/api/workflow-webhooks/${workflowId}`
 
     // Store webhook configuration in trigger_resources
-    await supabase.from('trigger_resources').insert({
+    const { error: insertError } = await supabase.from('trigger_resources').insert({
       workflow_id: workflowId,
       user_id: userId,
+      provider: 'webhook',
       provider_id: 'webhook',
       trigger_type: triggerType,
       node_id: nodeId,
       resource_type: 'webhook',
+      resource_id: webhookId,
       external_id: webhookId, // Store webhook ID for reference
       config: {
         ...config,
@@ -73,6 +75,17 @@ export class WebhookTriggerLifecycle implements TriggerLifecycle {
       },
       status: 'active'
     })
+
+    if (insertError) {
+      // Check if this is a FK constraint violation (code 23503) - happens for unsaved workflows in test mode
+      if (insertError.code === '23503') {
+        logger.warn(`⚠️ Could not store trigger resource (workflow may be unsaved): ${insertError.message}`)
+        logger.debug(`✅ Webhook trigger activated (without local record)`, { webhookUrl, webhookId })
+        return
+      }
+      logger.error(`❌ Failed to store trigger resource:`, insertError)
+      throw new Error(`Failed to store trigger resource: ${insertError.message}`)
+    }
 
     // Also create entry in webhook_configs for tracking and management
     await supabase.from('webhook_configs').insert({

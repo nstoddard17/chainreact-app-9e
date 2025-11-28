@@ -188,7 +188,8 @@ export function useUpstreamVariables({
     const edges = workflowData.edges || []
 
     // Find ALL previous nodes (all ancestors, not just immediate parents)
-    const sourceIds = getAllPreviousNodeIds(currentNodeId, edges)
+    // Use Set to deduplicate in case the same node is reachable via multiple paths
+    const sourceIds = [...new Set(getAllPreviousNodeIds(currentNodeId, edges))]
 
     const nodes = sourceIds
       .map(id => nodeById.get(id))
@@ -236,16 +237,16 @@ export function useUpstreamVariables({
   }, [workflowData, currentNodeId])
 
   // Flatten all variables for easy iteration
-  // Use 'trigger' as the reference prefix for trigger nodes since there's only one per workflow
+  // Use friendly node type for variable references (engine resolves by type)
   const variables = useMemo<UpstreamVariable[]>(() => {
     return upstreamNodes.flatMap(node => {
-      // Use 'trigger' as the reference for trigger nodes for cleaner variable syntax
-      const referencePrefix = node.isTrigger ? 'trigger' : node.id
+      // Use node type for friendly variable syntax (e.g., ai_agent.output)
+      const referencePrefix = node.isTrigger ? 'trigger' : (node.type || node.id)
 
       return node.outputs.map(output => ({
         nodeId: node.id,
         nodeTitle: node.title,
-        nodeAlias: node.isTrigger ? 'trigger' : node.alias,
+        nodeAlias: node.isTrigger ? 'trigger' : (node.type || node.alias),
         providerId: node.providerId,
         fieldName: output.name,
         fieldLabel: output.label || output.name,

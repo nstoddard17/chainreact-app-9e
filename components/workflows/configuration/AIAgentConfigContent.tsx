@@ -297,9 +297,9 @@ export function AIAgentConfigContent({
     setIsImproving(true)
     try {
       // Build list of available variables from upstream nodes
-      // Use 'trigger' as the reference for trigger nodes since there's only one per workflow
+      // Use friendly node type for variable references (engine resolves by type)
       const availableVariables = upstreamNodes.flatMap(node => {
-        const referencePrefix = node.isTrigger ? 'trigger' : node.id
+        const referencePrefix = node.isTrigger ? 'trigger' : (node.type || node.id)
         return node.outputs.map((output: any) => ({
           reference: `{{${referencePrefix}.${output.name}}}`,
           nodeTitle: node.title,
@@ -476,8 +476,8 @@ export function AIAgentConfigContent({
                                   }
                                 >
                                   {node.outputs.map((output: any, outputIndex: number) => {
-                                    // Use 'trigger' as the reference for trigger nodes
-                                    const referencePrefix = node.isTrigger ? 'trigger' : node.id
+                                    // Use friendly node type for variable references
+                                    const referencePrefix = node.isTrigger ? 'trigger' : (node.type || node.id)
                                     const variableRef = `{{${referencePrefix}.${output.name}}}`
                                     return (
                                       <CommandItem

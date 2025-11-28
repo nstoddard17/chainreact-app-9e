@@ -16,7 +16,7 @@ export async function GET() {
   }
 
   const pending = await supabase
-    .from("flow_v2_runs")
+    .from("workflow_executions")
     .select("id", { count: "exact", head: true })
     .in("status", RUN_STATUSES_IN_PROGRESS)
 
@@ -27,10 +27,10 @@ export async function GET() {
   const pendingRuns = pending.count ?? 0
 
   const { data: lastRun } = await supabase
-    .from("flow_v2_runs")
-    .select("id, status, finished_at, started_at")
-    .order("finished_at", { ascending: false })
-    .order("started_at", { ascending: false })
+    .from("workflow_executions")
+    .select("id, status, completed_at")
+    .order("completed_at", { ascending: false })
+    .order("id", { ascending: false })
     .limit(1)
     .maybeSingle()
 
@@ -42,7 +42,7 @@ export async function GET() {
       ? {
           id: lastRun.id,
           status: lastRun.status,
-          finishedAt: lastRun.finished_at,
+          finishedAt: lastRun.completed_at,
         }
       : null,
   })

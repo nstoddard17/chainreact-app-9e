@@ -78,12 +78,6 @@ export const newEmailTriggerSchema: NodeComponent = {
       rows: 3
     },
     {
-      name: "aiAdvancedHelp",
-      label: "Advanced AI Filter",
-      type: "info",
-      description: "Use the toggles below to control how AI filtering behaves. Fail if AI errors will skip the trigger when the model call fails. Embedding prefilter uses a fast cosine check (needs OpenAI key) before calling the LLM to save cost/latency."
-    },
-    {
       name: "aiFilterConfidence",
       label: "AI Filter Strictness",
       type: "select",
@@ -103,19 +97,29 @@ export const newEmailTriggerSchema: NodeComponent = {
     },
     {
       name: "aiFailClosed",
-      label: "Advanced: Fail if AI check errors",
+      label: "Fail if AI check errors",
       type: "boolean",
       required: false,
       defaultValue: false,
-      description: "If enabled, the trigger will be skipped when the AI filter fails (network/model errors)."
+      description: "If enabled, the trigger will be skipped when the AI filter fails (network/model errors).",
+      dependsOn: "aiContentFilter",
+      hidden: {
+        $deps: ["aiContentFilter"],
+        $condition: { aiContentFilter: { $exists: false } }
+      }
     },
     {
       name: "aiUseEmbeddingPrefilter",
-      label: "Advanced: Use embedding prefilter",
+      label: "Use embedding prefilter",
       type: "boolean",
       required: false,
       defaultValue: false,
-      description: "Fast cosine check (requires OpenAI key) before calling the AI model; may reduce cost/latency."
+      description: "Fast cosine check (requires OpenAI key) before calling the AI model; may reduce cost/latency.",
+      dependsOn: "aiContentFilter",
+      hidden: {
+        $deps: ["aiContentFilter"],
+        $condition: { aiContentFilter: { $exists: false } }
+      }
     }
   ],
   outputSchema: [

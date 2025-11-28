@@ -338,21 +338,25 @@ export const useCollaborationStore = create<CollaborationState & CollaborationAc
   },
 
   setupRealtimeSubscriptions: (workflowId) => {
-    // Clean up any existing polling
+    // Clean up any existing polling BEFORE creating new one
     const { pollingInterval } = get()
     if (pollingInterval) {
       logger.debug('🧹 Cleaning up existing polling interval')
       clearInterval(pollingInterval)
+      set({ pollingInterval: null })
     }
 
     // Placeholder for real-time logic
     // e.g., using Supabase real-time
     logger.debug(`Setting up real-time subscriptions for workflow ${workflowId}`)
 
+    // Do an immediate poll, then set up interval for subsequent polls
+    get().pollCollaboratorUpdates(workflowId)
+
     // Start polling for collaborator updates with reduced frequency
     const intervalId = setInterval(() => {
-        get().pollCollaboratorUpdates(workflowId);
-    }, 30000); // Poll every 30 seconds to reduce load
+      get().pollCollaboratorUpdates(workflowId)
+    }, 30000) // Poll every 30 seconds to reduce load
 
     set({ pollingInterval: intervalId })
   },

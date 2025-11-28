@@ -22,7 +22,7 @@ export async function GET(_: Request, context: { params: Promise<{ flowId: strin
   const repository = await getFlowRepository(serviceClient)
 
   const definition = await supabase
-    .from("flow_v2_definitions")
+    .from("workflows")
     .select("id")
     .eq("id", flowId)
     .maybeSingle()

@@ -20,7 +20,10 @@ export enum ActionTestMode {
   INTERCEPT_WRITES = 'intercept_writes',
 
   /** Skip all external actions entirely, use mock responses */
-  SKIP_ALL = 'skip_all'
+  SKIP_ALL = 'skip_all',
+
+  /** Execute all actions for real (Live mode) */
+  EXECUTE_ALL = 'execute_all'
 }
 
 export interface TestModeConfig {

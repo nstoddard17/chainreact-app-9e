@@ -107,13 +107,15 @@ export class AirtableTriggerLifecycle implements TriggerLifecycle {
     const webhook = await response.json()
 
     // Store in trigger_resources table
-    await supabase.from('trigger_resources').insert({
+    const { error: insertError } = await supabase.from('trigger_resources').insert({
       workflow_id: workflowId,
       user_id: userId,
+      provider: 'airtable',
       provider_id: 'airtable',
       trigger_type: triggerType,
       node_id: nodeId,
       resource_type: 'webhook',
+      resource_id: webhook.id,
       external_id: webhook.id,
       config: {
         baseId,
@@ -124,6 +126,18 @@ export class AirtableTriggerLifecycle implements TriggerLifecycle {
       status: 'active',
       expires_at: webhook.expirationTime ? new Date(webhook.expirationTime).toISOString() : null
     })
+
+    if (insertError) {
+      // Check if this is a FK constraint violation (code 23503) - happens for unsaved workflows in test mode
+      // The webhook was already created successfully with Airtable, so we can continue
+      if (insertError.code === '23503') {
+        logger.warn(`⚠️ Could not store trigger resource (workflow may be unsaved): ${insertError.message}`)
+        logger.debug(`✅ Airtable webhook created (without local record): ${webhook.id}`)
+        return
+      }
+      logger.error(`❌ Failed to store trigger resource:`, insertError)
+      throw new Error(`Failed to store trigger resource: ${insertError.message}`)
+    }
 
     logger.debug(`✅ Airtable webhook created: ${webhook.id}`)
   }

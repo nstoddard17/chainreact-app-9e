@@ -10,7 +10,13 @@ async function main() {
   const flowId = randomUUID()
   const name = "Sample Flow v2"
 
-  await client.from("flow_v2_definitions").insert({ id: flowId, name })
+  await client.from("workflows").insert({
+    id: flowId,
+    name,
+    status: 'draft',
+    nodes: [],
+    connections: [],
+  })
 
   const flow = FlowSchema.parse({
     id: flowId,
