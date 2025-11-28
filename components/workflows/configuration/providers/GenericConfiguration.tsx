@@ -212,6 +212,16 @@ export function GenericConfiguration({
 
   // Automatically load dynamic fields (without dependencies) when the modal opens
   useEffect(() => {
+    // Debug logging for Gmail
+    if (nodeInfo?.providerId === 'gmail') {
+      console.log('🔵 [GenericConfig] Gmail useEffect for auto-load:', {
+        hasConfigSchema: !!nodeInfo?.configSchema,
+        needsConnection,
+        nodeType: nodeInfo?.type,
+        willReturn: !nodeInfo?.configSchema || needsConnection
+      });
+    }
+
     if (!nodeInfo?.configSchema || needsConnection) return;
 
     const fieldsNeedingLoad = nodeInfo.configSchema.filter((field: any) => {

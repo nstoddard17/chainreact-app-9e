@@ -266,14 +266,33 @@ export function resolveValue(
     }
     
     // Handle trigger output references: {{trigger.field}}
-    if (parts[0] === "trigger" && mockTriggerOutputs) {
-      const triggerKey = parts[1]
-      if (
-        mockTriggerOutputs[triggerKey] &&
-        (mockTriggerOutputs[triggerKey].example !== undefined || mockTriggerOutputs[triggerKey].value !== undefined)
-      ) {
-        // Prefer .value if present, else .example
-        return mockTriggerOutputs[triggerKey].value ?? mockTriggerOutputs[triggerKey].example
+    if (parts[0] === "trigger") {
+      const triggerPath = parts.slice(1)
+
+      // First, check if trigger data exists in input.trigger (from actual workflow execution)
+      if (input && input.trigger) {
+        const triggerValue = triggerPath.reduce((acc: any, part: any) => acc && acc[part], input.trigger)
+        if (triggerValue !== undefined) {
+          logger.debug(`✅ [RESOLVE_VALUE] Found trigger.${triggerPath.join('.')} from input.trigger:`, triggerValue)
+          return triggerValue
+        }
+      }
+
+      // Fallback to mockTriggerOutputs for testing
+      if (mockTriggerOutputs && triggerPath.length > 0) {
+        const triggerKey = triggerPath[0]
+        if (
+          mockTriggerOutputs[triggerKey] &&
+          (mockTriggerOutputs[triggerKey].example !== undefined || mockTriggerOutputs[triggerKey].value !== undefined)
+        ) {
+          // Prefer .value if present, else .example
+          return mockTriggerOutputs[triggerKey].value ?? mockTriggerOutputs[triggerKey].example
+        }
+        // Also support direct values in mockTriggerOutputs
+        if (mockTriggerOutputs[triggerKey] !== undefined &&
+            typeof mockTriggerOutputs[triggerKey] !== 'object') {
+          return mockTriggerOutputs[triggerKey]
+        }
       }
     }
     
@@ -379,10 +398,23 @@ export function resolveValue(
         }
       }
 
-      if (parts[0] === "trigger" && mockTriggerOutputs) {
-        const triggerKey = parts[1]
-        if (mockTriggerOutputs[triggerKey]) {
-          return mockTriggerOutputs[triggerKey].value ?? mockTriggerOutputs[triggerKey].example ?? mockTriggerOutputs[triggerKey]
+      if (parts[0] === "trigger") {
+        const triggerPath = parts.slice(1)
+
+        // First, check if trigger data exists in input.trigger (from actual workflow execution)
+        if (input && input.trigger) {
+          const triggerValue = triggerPath.reduce((acc: any, part: any) => acc && acc[part], input.trigger)
+          if (triggerValue !== undefined) {
+            return triggerValue
+          }
+        }
+
+        // Fallback to mockTriggerOutputs for testing
+        if (mockTriggerOutputs && triggerPath.length > 0) {
+          const triggerKey = triggerPath[0]
+          if (mockTriggerOutputs[triggerKey]) {
+            return mockTriggerOutputs[triggerKey].value ?? mockTriggerOutputs[triggerKey].example ?? mockTriggerOutputs[triggerKey]
+          }
         }
       }
 

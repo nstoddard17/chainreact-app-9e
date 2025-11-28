@@ -44,7 +44,8 @@ import {
   Unplug,
   Plus,
   CheckCircle2,
-  ExternalLink
+  ExternalLink,
+  Shield
 } from "lucide-react"
 import { toast } from "sonner"
 import { TeamContent } from "./TeamContent"
@@ -68,6 +69,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { IntegrationService } from "@/services/integration-service"
+import { SSOConfiguration } from "@/components/organizations/SSOConfiguration"
 
 interface Organization {
   id: string
@@ -89,7 +91,7 @@ interface Organization {
   }
 }
 
-type SettingsSection = 'general' | 'integrations' | 'teams' | 'members' | 'billing'
+type SettingsSection = 'general' | 'integrations' | 'teams' | 'members' | 'billing' | 'sso'
 
 export function OrganizationSettingsContent() {
   const router = useRouter()
@@ -131,7 +133,7 @@ export function OrganizationSettingsContent() {
 
   // Update active section when URL parameter changes
   useEffect(() => {
-    if (sectionParam && ['general', 'integrations', 'teams', 'members', 'billing'].includes(sectionParam)) {
+    if (sectionParam && ['general', 'integrations', 'teams', 'members', 'billing', 'sso'].includes(sectionParam)) {
       setActiveSection(sectionParam)
     }
   }, [sectionParam])
@@ -329,6 +331,7 @@ export function OrganizationSettingsContent() {
     { id: 'teams' as const, label: 'Teams', icon: Users, description: 'Manage organization teams' },
     { id: 'members' as const, label: 'Members', icon: Crown, description: 'Manage team members' },
     { id: 'billing' as const, label: 'Billing', icon: CreditCard, description: 'Manage subscription' },
+    { id: 'sso' as const, label: 'SSO', icon: Shield, description: 'Single Sign-On settings' },
   ]
 
   // Filter integrations for this organization
@@ -980,6 +983,21 @@ export function OrganizationSettingsContent() {
                 )}
               </CardContent>
             </Card>
+          </div>
+        )}
+
+        {/* SSO Section */}
+        {activeSection === 'sso' && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-3xl font-bold tracking-tight">Single Sign-On</h2>
+              <p className="text-muted-foreground mt-2">Configure SAML or OIDC authentication for your organization</p>
+            </div>
+
+            <SSOConfiguration
+              organizationId={organization.id}
+              isOwner={isOwner}
+            />
           </div>
         )}
       </main>

@@ -70,6 +70,7 @@ interface MultiComboboxProps {
   selectedValues?: string[]; // Values that already have bubbles/are selected
   hideSelectedBadges?: boolean; // Hide badges in the dropdown trigger (for Airtable fields with bubbles)
   showFullEmails?: boolean; // Show full email addresses without truncation
+  showPlaceholderWhenSelected?: boolean; // Force placeholder text even when a value is selected
   onDrop?: (e: React.DragEvent) => void; // Handler for drop events
   onDragOver?: (e: React.DragEvent) => void; // Handler for drag over events
   onDragLeave?: (e: React.DragEvent) => void; // Handler for drag leave events
@@ -124,6 +125,18 @@ export function Combobox({
   const [open, setOpen] = React.useState(false)
   const uniqueId = React.useId()
 
+  // Debug log for creatable and onSearchChange props
+  React.useEffect(() => {
+    if (placeholder?.toLowerCase().includes('sender') || placeholder?.toLowerCase().includes('from')) {
+      console.log('🔧 [Combobox] From field props:', {
+        creatable,
+        hasOnSearchChange: !!onSearchChange,
+        optionsCount: options.length,
+        placeholder
+      });
+    }
+  }, [creatable, onSearchChange, options.length, placeholder]);
+
   const handleOpenChange = (newOpen: boolean) => {
     setOpen(newOpen);
     onOpenChange?.(newOpen);
@@ -138,8 +151,18 @@ export function Combobox({
   // Ref for the search input to enable auto-select on open
   const inputRef = React.useRef<HTMLInputElement>(null)
 
+  // Update localOptions only when content actually changes, not just reference
+  // This prevents infinite re-render loops when parent recreates options array
   React.useEffect(() => {
-    setLocalOptions(options)
+    setLocalOptions(prev => {
+      // Quick reference check first
+      if (prev === options) return prev;
+      // Compare lengths
+      if (prev.length !== options.length) return options;
+      // Shallow compare values (sufficient for most cases)
+      const changed = options.some((opt, i) => opt.value !== prev[i]?.value);
+      return changed ? options : prev;
+    });
   }, [options])
 
   // Filter options based on search input
@@ -174,50 +197,93 @@ export function Combobox({
 
   // Fix selectedOption logic - check if value exists in options or is a custom value
   // MUST be defined before the useEffect that references it
-  const selectedOption = localOptions.find((option) => option.value === value) ||
-    (value && displayLabel ? { value, label: displayLabel } : null) ||
-    (value && creatable ? { value, label: value } : null);
+  // Memoized to prevent creating new object references on each render
+  const selectedOption = React.useMemo(() => {
+    const found = localOptions.find((option) => option.value === value);
+    if (found) return found;
+    if (value && displayLabel) return { value, label: displayLabel };
+    if (value && creatable) return { value, label: value };
+    return null;
+  }, [localOptions, value, displayLabel, creatable]);
+
+  // Track if we're in the middle of a selection to prevent cascading updates
+  const isSelectingRef = React.useRef(false);
 
   React.useEffect(() => {
-    // Smart input mode: Only pre-fill for creatable fields (fields that allow custom input)
-    // For searchable fields, keep the input empty to allow searching through options
-    // This allows users to easily edit (type to replace) or search (clear and type)
-    if (open && selectedOption && creatable) {
-      const currentValue = String(selectedOption.label)
-      setInputValue(currentValue)
+    // Skip if we're in the middle of selecting (prevents cascading state updates)
+    if (isSelectingRef.current) {
+      return;
+    }
 
-      // Auto-select the text so user can type to replace or click to edit
-      setTimeout(() => {
-        inputRef.current?.select()
-      }, 0)
+    // For simple dropdowns (disableSearch), skip input value management entirely
+    // This prevents cascading state updates that cause infinite re-render loops
+    if (disableSearch) {
+      return;
+    }
+
+    // Smart input mode: Only pre-fill for custom values (not existing options).
+    // For existing options, keep the search blank so the create button doesn't appear.
+    if (open && selectedOption && creatable) {
+      const optionFromList = localOptions.find(opt => opt.value === selectedOption.value);
+      const optionFlag = (optionFromList as any)?.isExisting;
+      const isExisting = optionFromList ? optionFlag !== false : (selectedOption as any)?.isExisting === true;
+
+      if (!isExisting) {
+        const currentValue = String(selectedOption.label);
+        setInputValue(currentValue);
+
+        // Auto-select the text so user can type to replace or click to edit
+        setTimeout(() => {
+          inputRef.current?.select();
+        }, 0);
+      } else {
+        setInputValue("");
+      }
     } else if (!open) {
       // Clear when dropdown closes
-      setInputValue("")
+      setInputValue("");
     }
-  }, [open, selectedOption, creatable])
+  }, [open, selectedOption, creatable, localOptions, disableSearch])
 
   const handleSelect = (currentValue: string) => {
+    // Set selecting flag to prevent cascading state updates in useEffect
+    isSelectingRef.current = true;
+
     // Allow clearing when empty string is passed
-    if (currentValue === "") {
-      onChange("")
-    } else {
+    const currentString = currentValue === undefined || currentValue === null ? '' : String(currentValue);
+    const valueString = value === undefined || value === null ? '' : String(value);
+
+    if (currentString === "") {
+      if (currentString !== valueString) onChange("");
+    } else if (currentString !== valueString) {
       // Don't toggle - just select the value (prevents deselection when clicking same value)
-      onChange(currentValue)
+      onChange(currentString);
     }
     setInputValue("")
     setOpen(false)
+
+    // Clear the selecting flag after the current event loop completes
+    // This allows state updates to settle before re-enabling the useEffect
+    setTimeout(() => {
+      isSelectingRef.current = false;
+    }, 0)
   }
 
   const handleClear = (e: React.MouseEvent) => {
     e.stopPropagation()
+    // Set selecting flag to prevent cascading state updates
+    isSelectingRef.current = true;
     onChange("")
     setInputValue("")
+    // Clear the selecting flag after the current event loop completes
+    setTimeout(() => {
+      isSelectingRef.current = false;
+    }, 0)
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     setInputValue(newValue);
-    onChange(newValue);
   };
   
   // We need to handle the input within the Command component separately
@@ -228,15 +294,18 @@ export function Combobox({
 
     // If onSearchChange callback is provided, debounce the search
     if (onSearchChange) {
+      console.log('🔍 [Combobox] Input changed, scheduling search:', { search, hasCallback: !!onSearchChange });
       // Clear previous timer
       if (searchTimerRef.current) {
         clearTimeout(searchTimerRef.current);
       }
 
-      // Set new timer for debounced search (1.5 seconds after last keystroke)
+      // Set new timer for debounced search (300ms after last keystroke)
+      // Note: Parent component may add additional debouncing
       searchTimerRef.current = setTimeout(() => {
+        console.log('🔍 [Combobox] Calling onSearchChange with:', search);
         onSearchChange(search);
-      }, 1500);
+      }, 300);
     }
   }
 
@@ -635,6 +704,7 @@ export function MultiCombobox({
   selectedValues = [],
   hideSelectedBadges = false,
   showFullEmails = false,
+  showPlaceholderWhenSelected = false,
   onDrop,
   onDragOver,
   onDragLeave,
@@ -662,8 +732,18 @@ export function MultiCombobox({
     return value
   }, [value, selectedValues])
 
+  // Update options only when content actually changes, not just reference
+  // This prevents infinite re-render loops when parent recreates options array
   React.useEffect(() => {
-    setOptions(initialOptions)
+    setOptions(prev => {
+      // Quick reference check first
+      if (prev === initialOptions) return prev;
+      // Compare lengths
+      if (prev.length !== initialOptions.length) return initialOptions;
+      // Shallow compare values (sufficient for most cases)
+      const changed = initialOptions.some((opt, i) => opt.value !== prev[i]?.value);
+      return changed ? initialOptions : prev;
+    });
   }, [initialOptions])
 
   const buildSearchValue = React.useCallback((option: ComboboxOption) => {
@@ -838,7 +918,11 @@ export function MultiCombobox({
             disabled={disabled}
           >
           <div className="flex gap-1 flex-1 overflow-hidden">
-            {hideSelectedBadges || selectedOptions.length === 1 ? (
+            {showPlaceholderWhenSelected && selectedOptions.length > 0 ? (
+              <span className="text-gray-900 dark:text-white">
+                {placeholder || "Select option(s)..."}
+              </span>
+            ) : hideSelectedBadges || selectedOptions.length === 1 ? (
               // When badges are hidden OR only one item is selected, show value directly
               selectedOptions.length > 0 ? (
                 <span className="text-gray-900 dark:text-white">
@@ -1025,7 +1109,7 @@ export function MultiCombobox({
           <div
             className="border-t border-gray-200 dark:border-gray-700 p-2 bg-blue-50 dark:bg-blue-950/20 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
             onClick={() => {
-              const newOption = { value: inputValue.trim(), label: inputValue.trim() }
+              const newOption = { value: inputValue.trim(), label: inputValue.trim(), isExisting: false }
               setOptions((prev) => [...prev, newOption])
               onChange([...value, inputValue.trim()])
               setInputValue("")

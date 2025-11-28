@@ -5,8 +5,9 @@ import type { Edge as ReactFlowEdge, Node as ReactFlowNode, XYPosition } from "@
 
 import { useWorkflowBuilder } from "@/hooks/workflows/useWorkflowBuilder"
 import { FlowSchema, type Flow, type FlowInterface, type Node as FlowNode, type Edge as FlowEdge } from "./schema"
-import { addNodeEdit, oldConnectToEdge } from "../compat/v2Adapter"
+import { addNodeEdit, oldConnectToEdge, moveNodeEdit, generateId } from "../compat/v2Adapter"
 import { ALL_NODE_COMPONENTS } from "../../../../lib/workflows/nodes"
+import { flowApiUrl } from "./api/paths"
 
 const LINEAR_STACK_X = 400
 const DEFAULT_VERTICAL_SPACING = 180
@@ -24,6 +25,8 @@ type PlannerEdit =
   | { op: "setInterface"; inputs: FlowInterface["inputs"]; outputs: FlowInterface["outputs"] }
   | { op: "deleteNode"; nodeId: string }
   | { op: "reorderNodes"; nodeIds: string[] }
+  | { op: "moveNode"; nodeId: string; position: { x: number; y: number } }
+  | { op: "updateNode"; nodeId: string; updates: { title?: string; description?: string } }
 
 interface AgentResult {
   edits: PlannerEdit[]
@@ -79,6 +82,15 @@ interface NodeSnapshotResult {
   lineage: any[]
 }
 
+interface CachedNodeOutput {
+  nodeId: string
+  nodeType: string
+  output: any
+  input?: any
+  executedAt: string
+  executionId?: string
+}
+
 interface FlowV2BuilderState {
   flowId: string
   flow: Flow | null
@@ -96,16 +108,26 @@ interface FlowV2BuilderState {
   runs: Record<string, RunDetails>
   nodeSnapshots: Record<string, NodeSnapshotResult>
   secrets: Array<{ id: string; name: string }>
+  // Cached outputs from previous node test runs
+  cachedOutputs: Record<string, CachedNodeOutput>
+  cachedOutputsLoaded: boolean
+}
+
+export interface ApplyEditsOptions {
+  /** Skip updating React Flow graph after API response (for optimistic updates) */
+  skipGraphUpdate?: boolean
 }
 
 export interface FlowV2BuilderActions {
   load: () => Promise<void>
-  applyEdits: (edits: PlannerEdit[]) => Promise<Flow>
+  loadRevision: (revisionId: string) => Promise<Flow>
+  applyEdits: (edits: PlannerEdit[], options?: ApplyEditsOptions) => Promise<Flow>
   askAgent: (prompt: string) => Promise<AgentResult>
   updateConfig: (nodeId: string, patch: Record<string, any>) => void
   updateFlowName: (name: string) => Promise<void>
-  addNode: (type: string, position?: XYPosition) => Promise<void>
+  addNode: (type: string, position?: XYPosition, nodeId?: string) => Promise<string>
   deleteNode: (nodeId: string) => Promise<void>
+  moveNodes: (moves: Array<{ nodeId: string; position: { x: number; y: number } }>) => Promise<void>
   connectEdge: (params: { sourceId: string; targetId: string; sourceHandle?: string; targetHandle?: string }) => Promise<void>
   run: (inputs: any) => Promise<{ runId: string }>
   runFromHere: (nodeId: string, runId?: string) => Promise<{ runId: string }>
@@ -124,21 +146,37 @@ interface UseFlowV2BuilderResult extends ReturnType<typeof useWorkflowBuilder> {
 
 const JSON_HEADERS = { "Content-Type": "application/json" }
 
-async function fetchJson<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
-  const response = await fetch(input, {
-    credentials: "include",
-    ...init,
-    headers: {
-      ...(init?.headers ?? {}),
-    },
-  })
+// Default timeout for API calls - 15 seconds for most operations
+const DEFAULT_TIMEOUT_MS = 15000
 
-  if (!response.ok) {
-    const text = await response.text().catch(() => response.statusText)
-    throw new Error(text || `Request failed (${response.status})`)
+async function fetchJson<T>(input: RequestInfo, init?: RequestInit, timeoutMs: number = DEFAULT_TIMEOUT_MS): Promise<T> {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const response = await fetch(input, {
+      credentials: "include",
+      ...init,
+      headers: {
+        ...(init?.headers ?? {}),
+      },
+      signal: controller.signal,
+    })
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => response.statusText)
+      throw new Error(text || `Request failed (${response.status})`)
+    }
+
+    return (await response.json()) as T
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      throw new Error(`Request timed out after ${timeoutMs}ms`)
+    }
+    throw error
+  } finally {
+    clearTimeout(timeoutId)
   }
-
-  return (await response.json()) as T
 }
 
 function cloneFlow(flow: Flow): Flow {
@@ -266,6 +304,10 @@ function reorderLinearChain(flow: Flow, orderedNodeIds: string[]) {
   const currentPositions = deduped.map((nodeId) => getNodePosition(nodeId))
   const baseY = currentPositions.length > 0 ? Math.min(...currentPositions) : 0
 
+  // Get the X position from the first node to preserve horizontal alignment
+  const firstNode = flow.nodes.find((n) => n.id === deduped[0])
+  const baseX = (firstNode?.metadata as any)?.position?.x ?? LINEAR_STACK_X
+
   deduped.forEach((nodeId, index) => {
     const node = flow.nodes.find((n) => n.id === nodeId)
     if (!node) {
@@ -274,7 +316,7 @@ function reorderLinearChain(flow: Flow, orderedNodeIds: string[]) {
     const metadata = { ...(node.metadata ?? {}) }
     const position = {
       ...(metadata.position ?? {}),
-      x: LINEAR_STACK_X,
+      x: baseX,
       y: baseY + index * DEFAULT_VERTICAL_SPACING,
     }
     metadata.position = position
@@ -334,6 +376,9 @@ function applyPlannerEdits(base: Flow, edits: PlannerEdit[]): Flow {
         const incomingEdge = working.edges.find((edge) => edge.to.nodeId === edit.nodeId)
         const outgoingEdge = working.edges.find((edge) => edge.from.nodeId === edit.nodeId)
 
+        // Check if we're deleting a placeholder node (don't recompact positions for placeholders)
+        const isPlaceholderDelete = edit.nodeId.includes('placeholder')
+
         // Remove the node
         working.nodes = working.nodes.filter((node) => node.id !== edit.nodeId)
 
@@ -352,30 +397,59 @@ function applyPlannerEdits(base: Flow, edits: PlannerEdit[]): Flow {
           })
         }
 
-        // Recompact node positions to fill gaps
-        // Sort nodes by their current Y position to maintain order
-        const nodesWithPositions = working.nodes.map((node) => {
-          const metadata = (node.metadata ?? {}) as any
-          const currentY = metadata.position?.y ?? 0
-          return { node, currentY }
-        })
-        nodesWithPositions.sort((a, b) => a.currentY - b.currentY)
+        // Only recompact positions when deleting real nodes, not placeholders
+        // Placeholders are removed during paste operations where new nodes already have correct positions
+        if (!isPlaceholderDelete) {
+          // Recompact node positions to fill gaps
+          // Sort nodes by their current Y position to maintain order
+          const nodesWithPositions = working.nodes.map((node) => {
+            const metadata = (node.metadata ?? {}) as any
+            const currentX = metadata.position?.x ?? LINEAR_STACK_X
+            const currentY = metadata.position?.y ?? 0
+            return { node, currentX, currentY }
+          })
+          nodesWithPositions.sort((a, b) => a.currentY - b.currentY)
 
-        // Reassign Y positions with proper spacing
-        const baseY = 120
-        nodesWithPositions.forEach(({ node }, index) => {
-          const metadata = { ...(node.metadata ?? {}) } as any
-          metadata.position = {
-            x: LINEAR_STACK_X,
-            y: baseY + index * DEFAULT_VERTICAL_SPACING,
-          }
-          node.metadata = metadata
-        })
+          // Get the X position from the first node (all nodes should share the same X in a vertical stack)
+          const baseX = nodesWithPositions[0]?.currentX ?? LINEAR_STACK_X
+          const baseY = 120
+          nodesWithPositions.forEach(({ node }, index) => {
+            const metadata = { ...(node.metadata ?? {}) } as any
+            metadata.position = {
+              x: baseX,
+              y: baseY + index * DEFAULT_VERTICAL_SPACING,
+            }
+            node.metadata = metadata
+          })
+        }
 
         break
       }
       case "reorderNodes": {
         reorderLinearChain(working, edit.nodeIds)
+        break
+      }
+      case "moveNode": {
+        const target = working.nodes.find((node) => node.id === edit.nodeId)
+        if (target) {
+          const metadata = { ...(target.metadata ?? {}) } as any
+          metadata.position = edit.position
+          target.metadata = metadata
+        }
+        break
+      }
+      case "updateNode": {
+        const target = working.nodes.find((node) => node.id === edit.nodeId)
+        if (target) {
+          // Update label (title) - this is what flowToReactFlowNodes uses for the title
+          if (edit.updates.title !== undefined) {
+            target.label = edit.updates.title
+          }
+          // Update description if provided
+          if (edit.updates.description !== undefined) {
+            target.description = edit.updates.description
+          }
+        }
         break
       }
       default: {
@@ -392,24 +466,48 @@ function applyPlannerEdits(base: Flow, edits: PlannerEdit[]): Flow {
 const NODE_COMPONENT_MAP = new Map(ALL_NODE_COMPONENTS.map((node) => [node.type, node]))
 
 function flowToReactFlowNodes(flow: Flow, onDelete?: (nodeId: string) => void): ReactFlowNode[] {
-  return flow.nodes.map((node, index) => {
+  // First, determine which nodes are triggers
+  const nodeWithTriggerInfo = flow.nodes.map((node) => {
     const metadata = (node.metadata ?? {}) as any
+    const catalogNode = NODE_COMPONENT_MAP.get(node.type)
+    const isTrigger = metadata.isTrigger ?? catalogNode?.isTrigger ?? false
+    return { node, isTrigger, metadata, catalogNode }
+  })
+
+  // Sort nodes: triggers first, then actions
+  // This ensures correct fallback positioning when metadata.position is missing
+  const sortedNodes = [...nodeWithTriggerInfo].sort((a, b) => {
+    // If both have positions, sort by Y position
+    const aHasPosition = a.metadata.position?.y !== undefined
+    const bHasPosition = b.metadata.position?.y !== undefined
+
+    if (aHasPosition && bHasPosition) {
+      return (a.metadata.position.y as number) - (b.metadata.position.y as number)
+    }
+
+    // If only one has position, prioritize the one with position
+    if (aHasPosition && !bHasPosition) return -1
+    if (!aHasPosition && bHasPosition) return 1
+
+    // If neither has position, sort triggers first
+    if (a.isTrigger && !b.isTrigger) return -1
+    if (!a.isTrigger && b.isTrigger) return 1
+
+    // Keep original order for same type
+    return 0
+  })
+
+  return sortedNodes.map(({ node, isTrigger, metadata, catalogNode }, index) => {
     const defaultY = 120 + index * 180
     const rawPosition = metadata.position ?? { x: LINEAR_STACK_X, y: defaultY }
+    // Use saved X position if available, otherwise default to LINEAR_STACK_X
+    const positionX = rawPosition.x ?? LINEAR_STACK_X
     const positionY = rawPosition.y ?? defaultY
     const position = {
-      x: LINEAR_STACK_X,
+      x: positionX,
       y: positionY,
     }
 
-    console.log(`📍 [flowToReactFlowNodes] Node ${node.id}:`, {
-      index,
-      savedPosition: metadata.position,
-      defaultY,
-      finalY: positionY
-    })
-
-    const catalogNode = NODE_COMPONENT_MAP.get(node.type)
     const providerId = metadata.providerId ?? catalogNode?.providerId
     const icon = catalogNode?.icon
     const description = node.description ?? catalogNode?.description
@@ -427,7 +525,7 @@ function flowToReactFlowNodes(flow: Flow, onDelete?: (nodeId: string) => void): 
         description,
         providerId,
         icon,
-        isTrigger: metadata.isTrigger ?? false,
+        isTrigger,
         agentHighlights: metadata.agentHighlights ?? [],
         costHint: node.costHint ?? 0,
         onDelete,
@@ -443,10 +541,71 @@ function flowToReactFlowEdges(flow: Flow): ReactFlowEdge[] {
     target: edge.to.nodeId,
     sourceHandle: edge.from.portId,
     targetHandle: edge.to.portId,
+    type: "custom",
+    style: {
+      stroke: "#d0d6e0",
+      strokeWidth: 1.5,
+    },
     data: {
       mappings: edge.mappings ?? [],
     },
   }))
+}
+
+/**
+ * Detects missing edges in a linear workflow and returns PlannerEdit operations to create them.
+ * This repairs workflows that have nodes but missing connections between them.
+ */
+function detectMissingEdges(flow: Flow): Array<{ op: "connect"; edge: FlowEdge }> {
+  if (!flow.nodes || flow.nodes.length < 2) {
+    return []
+  }
+
+  // Sort nodes: triggers first, then by position
+  const nodesWithInfo = flow.nodes.map((node) => {
+    const metadata = (node.metadata ?? {}) as any
+    const catalogNode = NODE_COMPONENT_MAP.get(node.type)
+    const isTrigger = metadata.isTrigger ?? catalogNode?.isTrigger ?? false
+    const posY = metadata.position?.y ?? 0
+    return { node, isTrigger, posY }
+  })
+
+  const sortedNodes = [...nodesWithInfo].sort((a, b) => {
+    // Triggers first
+    if (a.isTrigger && !b.isTrigger) return -1
+    if (!a.isTrigger && b.isTrigger) return 1
+    // Then by Y position
+    return a.posY - b.posY
+  })
+
+  // Build set of existing edges
+  const existingEdges = new Set(
+    (flow.edges ?? []).map((e) => `${e.from.nodeId}->${e.to.nodeId}`)
+  )
+
+  // Find missing edges between consecutive nodes
+  const missingEdges: Array<{ op: "connect"; edge: FlowEdge }> = []
+
+  for (let i = 0; i < sortedNodes.length - 1; i++) {
+    const current = sortedNodes[i].node
+    const next = sortedNodes[i + 1].node
+    const key = `${current.id}->${next.id}`
+
+    if (!existingEdges.has(key)) {
+      console.log(`[detectMissingEdges] Found missing edge: ${current.id} -> ${next.id}`)
+      missingEdges.push({
+        op: "connect",
+        edge: {
+          id: `${current.id}-${next.id}-repaired`,
+          from: { nodeId: current.id, portId: "source" },
+          to: { nodeId: next.id, portId: "target" },
+          mappings: [],
+        },
+      })
+    }
+  }
+
+  return missingEdges
 }
 
 const ALIGNMENT_LOG_PREFIX = "[WorkflowAlign]"
@@ -505,6 +664,8 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
     runs: {},
     nodeSnapshots: {},
     secrets: [],
+    cachedOutputs: {},
+    cachedOutputsLoaded: false,
   }))
 
   const flowRef = useRef<Flow | null>(null)
@@ -514,12 +675,24 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
   const isMountedRef = useRef<boolean>(false)
   const deleteNodeRef = useRef<((nodeId: string) => Promise<void>) | null>(null)
 
+  // Track if the workflow has ever had a non-placeholder action node IN THIS SESSION
+  // Once true, the action placeholder should never reappear for this session
+  // But if they leave and come back, the placeholder will show again if only trigger exists
+  const hasHadActionNodeRef = useRef<boolean>(false)
+
+  // Helper to mark that the workflow has had an action node this session
+  const markHasHadActionNode = useCallback(() => {
+    if (!hasHadActionNodeRef.current) {
+      hasHadActionNodeRef.current = true
+    }
+  }, [])
+
   const syncLatestRunId = useCallback(async () => {
     if (!flowId) return
 
     try {
       const payload = await fetchJson<{ run: { id: string } | null }>(
-        `/workflows/v2/api/flows/${flowId}/runs/latest`
+        `${flowApiUrl(flowId, '/runs/latest')}`
       )
 
       if (payload?.run?.id) {
@@ -532,6 +705,60 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       console.debug("[useFlowV2Builder] Unable to fetch latest run", error)
     }
   }, [flowId])
+
+  // Load cached outputs for the workflow (from previous test runs)
+  const loadCachedOutputs = useCallback(async () => {
+    if (!flowId) return
+
+    try {
+      // Use fetchJson with timeout instead of plain fetch
+      const data = await fetchJson<{ success: boolean; cachedOutputs?: Record<string, CachedNodeOutput>; nodeCount?: number }>(
+        `/api/workflows/cached-outputs?workflowId=${flowId}`,
+        { method: 'GET' },
+        10000 // 10 second timeout for non-critical cached outputs
+      ).catch(() => null) // Silently fail - cached outputs are optional
+
+      if (!data) {
+        console.debug("[useFlowV2Builder] Unable to fetch cached outputs")
+        return
+      }
+
+      if (data.success && data.cachedOutputs) {
+        const cachedOutputs = data.cachedOutputs
+
+        setFlowState((prev) => ({
+          ...prev,
+          cachedOutputs,
+          cachedOutputsLoaded: true,
+        }))
+
+        // Update node data to include hasCachedOutput flag for visual indicator
+        if (setNodes && Object.keys(cachedOutputs).length > 0) {
+          setNodes((nodes: ReactFlowNode[]) =>
+            nodes.map(node => {
+              const hasCached = !!cachedOutputs[node.id]
+              if (hasCached && !(node.data as any)?.hasCachedOutput) {
+                return {
+                  ...node,
+                  data: {
+                    ...node.data,
+                    hasCachedOutput: true,
+                    cachedOutputTimestamp: cachedOutputs[node.id]?.executedAt,
+                  }
+                }
+              }
+              return node
+            })
+          )
+        }
+
+        console.debug(`[useFlowV2Builder] Loaded ${data.nodeCount ?? 0} cached outputs for workflow`)
+      }
+    } catch (error) {
+      // Non-critical error - cached outputs are optional
+      console.debug("[useFlowV2Builder] Unable to fetch cached outputs", error)
+    }
+  }, [flowId, setNodes])
 
   const updateReactFlowGraph = useCallback(
     (flow: Flow) => {
@@ -553,8 +780,9 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       let graphNodes = flowToReactFlowNodes(flow, deleteNodeRef.current ?? undefined).map(node => {
         const existing = existingNodeMap.get(node.id)
         if (existing) {
+          // Preserve the existing position (which may be from placeholder or saved)
           const alignedPosition = {
-            x: LINEAR_STACK_X,
+            x: existing.position?.x ?? node.position.x,
             y: existing.position?.y ?? node.position.y,
           }
           return {
@@ -594,11 +822,11 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
           return {
             ...node,
             position: {
-              x: LINEAR_STACK_X,
+              x: placeholder.position?.x ?? node.position.x,
               y: placeholder.position?.y ?? node.position.y,
             },
             positionAbsolute: {
-              x: LINEAR_STACK_X,
+              x: placeholder.position?.x ?? node.position.x,
               y: placeholder.position?.y ?? node.position.y,
             },
           }
@@ -607,29 +835,16 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
         return node
       })
 
-      if (typeof window !== "undefined") {
-        console.clear()
-      }
+      // NOTE: Removed console.clear() to preserve paste handler debug logs
       debugLog("updateReactFlowGraph", {
         nodesReceived: flow.nodes.length,
         placeholdersReused: placeholderQueue.filter(entry => entry.consumed).length,
       })
       debugLogNodes("Before alignment", graphNodes)
 
-      // Normalize horizontal alignment so nodes stay in a single vertical stack.
-      graphNodes = graphNodes.map(node => {
-        if (!shouldAlignToLinearColumn(node)) {
-          return node
-        }
-
-        return {
-          ...node,
-          position: {
-            ...node.position,
-            x: LINEAR_STACK_X,
-          },
-        }
-      })
+      // Note: We no longer force X alignment to LINEAR_STACK_X here
+      // Nodes now preserve their saved X position (which comes from placeholder positions)
+      // This allows the dynamic centering based on viewport to work correctly
       debugLogNodes("After alignment", graphNodes)
       debugLog("Alignment snapshot", {
         linearX: LINEAR_STACK_X,
@@ -657,14 +872,11 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       // Zapier-style placeholder nodes: If workflow is empty, add trigger + action placeholders
       // If workflow has only a trigger, add just the action placeholder
       // Note: onConfigure handler will be added by WorkflowBuilderV2 when it enriches nodes
-      console.log('🔍 [updateReactFlowGraph] flow.nodes.length:', flow.nodes.length)
-      if (flow.nodes.length > 0) {
-        console.log('🔍 [updateReactFlowGraph] First node:', {
-          id: flow.nodes[0].id,
-          type: flow.nodes[0].type,
-          metadata: flow.nodes[0].metadata,
-          isTrigger: flow.nodes[0].metadata?.isTrigger
-        })
+
+      // If workflow has 2+ nodes (trigger + at least one action), mark that it has had action nodes
+      // This prevents the action placeholder from reappearing if all action nodes are deleted
+      if (flow.nodes.length >= 2) {
+        markHasHadActionNode()
       }
 
       if (flow.nodes.length === 0) {
@@ -717,10 +929,17 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
             },
           },
         ] as ReactFlowEdge[]
-      } else if (flow.nodes.length === 1 && flow.nodes[0].metadata?.isTrigger) {
-        // If we have only a trigger node, add an action placeholder after it
+      } else if (flow.nodes.length === 1 && !hasHadActionNodeRef.current) {
+        // Check if the single node is a trigger - check both metadata and node definition
+        const singleNode = flow.nodes[0]
+        const nodeDefinition = ALL_NODE_COMPONENTS.find(c => c.type === singleNode.type)
+        const isTriggerNode = singleNode.metadata?.isTrigger || nodeDefinition?.isTrigger || false
+
+        // If we have only a trigger node AND the workflow has never had an action node,
+        // add an action placeholder after it. Once a real action node has been added
+        // and then deleted, we don't show the placeholder again.
         const triggerNode = graphNodes[0]
-        if (triggerNode) {
+        if (isTriggerNode && triggerNode) {
           const actionPlaceholder: ReactFlowNode = {
             id: 'action-placeholder',
             type: 'action_placeholder',
@@ -751,16 +970,80 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
             },
       } as ReactFlowEdge)
         }
+      } else if (flow.nodes.length > 0) {
+        // Check if there are action nodes but no trigger node
+        // This happens when a trigger is deleted but actions remain
+        const hasTrigger = flow.nodes.some((node) => {
+          const nodeDef = ALL_NODE_COMPONENTS.find(c => c.type === node.type)
+          return node.metadata?.isTrigger || nodeDef?.isTrigger || false
+        })
+
+        if (!hasTrigger) {
+          // Find the topmost node (smallest Y position) to place trigger placeholder above it
+          const sortedNodes = [...graphNodes].sort((a, b) => a.position.y - b.position.y)
+          const topNode = sortedNodes[0]
+
+          if (topNode) {
+            const triggerPlaceholder: ReactFlowNode = {
+              id: 'trigger-placeholder',
+              type: 'trigger_placeholder',
+              position: {
+                x: topNode.position.x,
+                y: topNode.position.y - 180 // Place 180px above the first node
+              },
+              data: {
+                type: 'trigger_placeholder',
+                isPlaceholder: true,
+                title: 'Trigger',
+              },
+            }
+
+            // Add trigger placeholder at the beginning
+            graphNodes = [triggerPlaceholder, ...graphNodes]
+
+            // Add edge from trigger placeholder to the first action node
+            edges.push({
+              id: `trigger-placeholder-${topNode.id}`,
+              source: 'trigger-placeholder',
+              target: topNode.id,
+              sourceHandle: 'source',
+              targetHandle: 'target',
+              type: 'custom',
+              style: {
+                stroke: '#d0d6e0',
+              },
+            } as ReactFlowEdge)
+          }
+        }
       }
 
-      if (edges.length === 0 && graphNodes.length >= 2) {
-        const sortedLinearNodes = [...graphNodes]
-          .filter((node) => node.type !== 'action_placeholder' && node.type !== 'trigger_placeholder')
-          .sort((a, b) => a.position.y - b.position.y)
+      const sortedLinearNodes = [...graphNodes]
+        .filter((node) => node.type !== 'action_placeholder' && node.type !== 'trigger_placeholder')
+        .sort((a, b) => {
+          // Primary sort: by Y position
+          const yDiff = a.position.y - b.position.y
+          if (Math.abs(yDiff) > 10) return yDiff // Use 10px tolerance for "same row"
+
+          // Secondary sort: triggers before actions (for nodes at same Y)
+          const aIsTrigger = a.data?.isTrigger ?? false
+          const bIsTrigger = b.data?.isTrigger ?? false
+          if (aIsTrigger && !bIsTrigger) return -1
+          if (!aIsTrigger && bIsTrigger) return 1
+
+          return 0
+        })
+
+      if (sortedLinearNodes.length >= 2) {
+        const edgeKey = (edge: ReactFlowEdge) => `${edge.source}->${edge.target}`
+        const existingEdges = new Set(edges.map(edgeKey))
 
         for (let i = 0; i < sortedLinearNodes.length - 1; i++) {
           const current = sortedLinearNodes[i]
           const next = sortedLinearNodes[i + 1]
+          const key = `${current.id}->${next.id}`
+          if (existingEdges.has(key)) {
+            continue
+          }
 
           edges.push({
             id: `${current.id}-${next.id}-synthetic`,
@@ -776,6 +1059,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
               synthetic: true,
             },
           } as ReactFlowEdge)
+          existingEdges.add(key)
         }
       }
 
@@ -784,7 +1068,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       setWorkflowName(flow.name ?? "Untitled Flow")
       setHasUnsavedChanges(false)
     },
-    [getNodes, setEdges, setNodes, setWorkflowName, setHasUnsavedChanges]
+    [getNodes, setEdges, setNodes, setWorkflowName, setHasUnsavedChanges, markHasHadActionNode]
   )
 
   const setLoading = useCallback((isLoading: boolean) => {
@@ -804,12 +1088,62 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
   const load = useCallback(async () => {
     if (!flowId) return
 
+    // Helper to repair missing edges in a flow
+    const repairFlowEdges = (flow: Flow): { repairedFlow: Flow; hadRepairs: boolean } => {
+      const missingEdgeEdits = detectMissingEdges(flow)
+      if (missingEdgeEdits.length === 0) {
+        return { repairedFlow: flow, hadRepairs: false }
+      }
+
+      console.log(`[useFlowV2Builder] Repairing ${missingEdgeEdits.length} missing edges`)
+      const repairedFlow = {
+        ...flow,
+        edges: [
+          ...flow.edges,
+          ...missingEdgeEdits.map((edit) => edit.edge),
+        ],
+        version: (flow.version ?? 0) + 1,
+      }
+      return { repairedFlow, hadRepairs: true }
+    }
+
+    // Helper to persist repaired flow to database
+    const persistRepairedFlow = async (repairedFlow: Flow) => {
+      try {
+        const payload = await fetchJson<{ flow: Flow; revisionId?: string; version?: number }>(
+          `${flowApiUrl(flowId, '/apply-edits')}`,
+          {
+            method: "POST",
+            headers: JSON_HEADERS,
+            body: JSON.stringify({
+              flow: repairedFlow,
+              version: repairedFlow.version,
+            }),
+          }
+        )
+        console.log('[useFlowV2Builder] Successfully persisted repaired flow with edges')
+        return payload
+      } catch (error) {
+        console.error('[useFlowV2Builder] Failed to persist repaired flow:', error)
+        return null
+      }
+    }
+
     // If we have initialRevision and haven't used it yet, use it instead of fetching
     if (options?.initialRevision && !initialRevisionUsedRef.current) {
       initialRevisionUsedRef.current = true
       setLoading(true)
       try {
-        const flow = FlowSchema.parse(options.initialRevision.graph)
+        let flow = FlowSchema.parse(options.initialRevision.graph)
+
+        // Detect and repair missing edges
+        const { repairedFlow, hadRepairs } = repairFlowEdges(flow)
+        if (hadRepairs) {
+          flow = repairedFlow
+          // Persist the repairs in the background (don't block the UI)
+          void persistRepairedFlow(flow)
+        }
+
         flowRef.current = flow
         revisionIdRef.current = options.initialRevision.id
         updateReactFlowGraph(flow)
@@ -823,6 +1157,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
           error: undefined,
         }))
         void syncLatestRunId()
+        void loadCachedOutputs() // Load cached outputs from previous test runs
       } catch (error: any) {
         setFlowState((prev) => ({
           ...prev,
@@ -838,7 +1173,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
     setLoading(true)
     try {
       const revisionsPayload = await fetchJson<{ revisions?: Array<{ id: string; version: number }> }>(
-        `/workflows/v2/api/flows/${flowId}/revisions`
+        `${flowApiUrl(flowId, '/revisions')}`
       )
       const revisions = (revisionsPayload.revisions ?? []).slice().sort((a, b) => b.version - a.version)
       if (revisions.length === 0) {
@@ -848,10 +1183,19 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       const revisionId = revisions[0].id
 
       const revisionPayload = await fetchJson<{ revision: { id: string; flowId: string; graph: Flow } }>(
-        `/workflows/v2/api/flows/${flowId}/revisions/${revisionId}`
+        `${flowApiUrl(flowId, `/revisions/${revisionId}`)}`
       )
 
-      const flow = FlowSchema.parse(revisionPayload.revision.graph)
+      let flow = FlowSchema.parse(revisionPayload.revision.graph)
+
+      // Detect and repair missing edges
+      const { repairedFlow, hadRepairs } = repairFlowEdges(flow)
+      if (hadRepairs) {
+        flow = repairedFlow
+        // Persist the repairs in the background (don't block the UI)
+        void persistRepairedFlow(flow)
+      }
+
       flowRef.current = flow
       revisionIdRef.current = revisionPayload.revision.id
       updateReactFlowGraph(flow)
@@ -865,6 +1209,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
         error: undefined,
       }))
       void syncLatestRunId()
+      void loadCachedOutputs() // Load cached outputs from previous test runs
     } catch (error: any) {
       const message = error?.message ?? "Failed to load flow"
       console.error("[useFlowV2Builder] load failed", message)
@@ -875,7 +1220,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
     } finally {
       setLoading(false)
     }
-  }, [flowId, setLoading, syncLatestRunId, updateReactFlowGraph])
+  }, [flowId, setLoading, syncLatestRunId, loadCachedOutputs, updateReactFlowGraph])
 
   const ensureFlow = useCallback(async () => {
     if (flowRef.current) {
@@ -891,8 +1236,33 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
   // Queue to ensure only one applyEdits runs at a time (prevents race conditions)
   const applyEditsQueue = useRef<Promise<Flow | undefined>>(Promise.resolve(undefined))
 
+  const setFlowFromRevision = useCallback(
+    (flow: Flow, revisionId?: string, version?: number, options?: { skipGraphUpdate?: boolean }) => {
+      flowRef.current = flow
+      if (revisionId) {
+        revisionIdRef.current = revisionId
+      }
+
+      if (!options?.skipGraphUpdate) {
+        updateReactFlowGraph(flow)
+      }
+
+      setWorkflowName(flow.name ?? "Untitled Flow")
+      setHasUnsavedChanges(false)
+
+      setFlowState((prev) => ({
+        ...prev,
+        flow,
+        revisionId: revisionId ?? prev.revisionId,
+        version: flow.version ?? version ?? prev.version,
+        error: undefined,
+      }))
+    },
+    [setHasUnsavedChanges, setWorkflowName, updateReactFlowGraph]
+  )
+
   const applyEdits = useCallback(
-    async (edits: PlannerEdit[]) => {
+    async (edits: PlannerEdit[], options?: ApplyEditsOptions) => {
       // Queue this request to run after the previous one completes
       const previousRequest = applyEditsQueue.current
 
@@ -908,7 +1278,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
         setSaving(true)
         try {
           const payload = await fetchJson<{ flow: Flow; revisionId?: string; version?: number }>(
-            `/workflows/v2/api/flows/${flowId}/apply-edits`,
+            `${flowApiUrl(flowId, '/apply-edits')}`,
             {
               method: "POST",
               headers: JSON_HEADERS,
@@ -920,15 +1290,13 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
           )
 
           const updatedFlow = FlowSchema.parse(payload.flow)
-          flowRef.current = updatedFlow
-          revisionIdRef.current = payload.revisionId ?? revisionIdRef.current
-          updateReactFlowGraph(updatedFlow)
-
+          // Skip graph update for optimistic updates (e.g., node deletion)
+          // The UI was already updated optimistically, so we don't want to overwrite it
+          setFlowFromRevision(updatedFlow, payload.revisionId ?? revisionIdRef.current, payload.version, {
+            skipGraphUpdate: options?.skipGraphUpdate,
+          })
           setFlowState((prev) => ({
             ...prev,
-            flow: updatedFlow,
-            revisionId: payload.revisionId ?? prev.revisionId,
-            version: updatedFlow.version ?? payload.version ?? prev.version,
             revisionCount: (prev.revisionCount ?? 0) + 1,
             pendingAgentEdits: [],
           }))
@@ -945,7 +1313,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       // Return this specific request (not the queue)
       return thisRequest
     },
-    [ensureFlow, flowId, setSaving, updateReactFlowGraph]
+    [ensureFlow, flowId, setFlowFromRevision, setSaving]
   )
 
   const askAgent = useCallback(
@@ -956,7 +1324,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
         prerequisites?: string[]
         rationale?: string
         workflowName?: string
-      }>(`/workflows/v2/api/flows/${flowId}/edits`, {
+      }>(flowApiUrl(flowId, '/edits'), {
         method: "POST",
         headers: JSON_HEADERS,
         body: JSON.stringify({
@@ -1050,7 +1418,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       try {
         console.log('[useFlowV2Builder] Calling /apply-edits API...')
         const payload = await fetchJson<{ flow: Flow; revisionId?: string; version?: number }>(
-          `/workflows/v2/api/flows/${flowId}/apply-edits`,
+          `${flowApiUrl(flowId, '/apply-edits')}`,
           {
             method: "POST",
             headers: JSON_HEADERS,
@@ -1084,9 +1452,12 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
   )
 
   const addNode = useCallback(
-    async (type: string, position?: XYPosition) => {
-      const edit = addNodeEdit(type, position)
+    async (type: string, position?: XYPosition, nodeId?: string) => {
+      // Generate ID if not provided, so caller can know the ID before it's created
+      const id = nodeId ?? generateId(type.replace(/\W+/g, "-") || "node")
+      const edit = addNodeEdit(type, position, id)
       await applyEdits([edit as PlannerEdit])
+      return id
     },
     [applyEdits]
   )
@@ -1095,6 +1466,19 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
     async (nodeId: string) => {
       const edit: PlannerEdit = { op: "deleteNode", nodeId }
       await applyEdits([edit])
+    },
+    [applyEdits]
+  )
+
+  const moveNodes = useCallback(
+    async (moves: Array<{ nodeId: string; position: { x: number; y: number } }>) => {
+      if (moves.length === 0) return
+      const edits: PlannerEdit[] = moves.map((move) => ({
+        op: "moveNode" as const,
+        nodeId: move.nodeId,
+        position: move.position,
+      }))
+      await applyEdits(edits)
     },
     [applyEdits]
   )
@@ -1114,7 +1498,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
 
   const run = useCallback(
     async (inputs: any) => {
-      const payload = await fetchJson<{ runId: string }>(`/workflows/v2/api/flows/${flowId}/runs`, {
+      const payload = await fetchJson<{ runId: string }>(flowApiUrl(flowId, '/runs'), {
         method: "POST",
         headers: JSON_HEADERS,
         body: JSON.stringify({ inputs }),
@@ -1138,7 +1522,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       }
 
       const payload = await fetchJson<{ runId: string }>(
-        `/workflows/v2/api/runs/${targetRun}/nodes/${nodeId}/run-from-here`,
+        `/workflows/api/runs/${targetRun}/nodes/${nodeId}/run-from-here`,
         {
           method: "POST",
           headers: JSON_HEADERS,
@@ -1163,7 +1547,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
         return null
       }
 
-      const payload = await fetchJson<{ run: RunDetails }>(`/workflows/v2/api/runs/${targetRun}`)
+      const payload = await fetchJson<{ run: RunDetails }>(`/workflows/api/runs/${targetRun}`)
       const runDetails = payload.run
 
       setFlowState((prev) => ({
@@ -1188,7 +1572,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       }
 
       const payload = await fetchJson<{ snapshot?: any; lineage?: any[] }>(
-        `/workflows/v2/api/runs/${targetRun}/nodes/${nodeId}`
+        `/workflows/api/runs/${targetRun}/nodes/${nodeId}`
       )
 
       const result: NodeSnapshotResult = {
@@ -1211,7 +1595,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
 
   const listSecrets = useCallback(async () => {
     const payload = await fetchJson<{ ok: boolean; secrets?: Array<{ id: string; name: string }> }>(
-      `/workflows/v2/api/secrets`
+      `/workflows/api/secrets`
     )
     if (!payload.ok) {
       throw new Error("Failed to list secrets")
@@ -1228,7 +1612,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
 
   const createSecret = useCallback(
     async (name: string, value: string, workspaceId?: string) => {
-      const payload = await fetchJson<{ ok: boolean; secret: { id: string; name: string } }>(`/workflows/v2/api/secrets`, {
+      const payload = await fetchJson<{ ok: boolean; secret: { id: string; name: string } }>(`/workflows/api/secrets`, {
         method: "POST",
         headers: JSON_HEADERS,
         body: JSON.stringify({ name, value, workspaceId }),
@@ -1247,7 +1631,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
 
   const estimate = useCallback(async () => {
     try {
-      const payload = await fetchJson<any>(`/workflows/v2/api/flows/${flowId}/estimate`)
+      const payload = await fetchJson<any>(flowApiUrl(flowId, '/estimate'))
       return payload
     } catch (error) {
       console.warn("[useFlowV2Builder] estimate unavailable", error)
@@ -1256,7 +1640,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
   }, [flowId])
 
   const publish = useCallback(async () => {
-    const payload = await fetchJson<{ revisionId: string }>(`/workflows/v2/api/flows/${flowId}/publish`, {
+    const payload = await fetchJson<{ revisionId: string }>(flowApiUrl(flowId, '/publish'), {
       method: "POST",
       headers: JSON_HEADERS,
       body: JSON.stringify({}),
@@ -1270,15 +1654,42 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
     return payload
   }, [flowId])
 
+  const loadRevision = useCallback(
+    async (revisionId: string) => {
+      setLoading(true)
+      try {
+        const payload = await fetchJson<{ revision: { id: string; flowId: string; graph: Flow; version?: number } }>(
+          `${flowApiUrl(flowId, `/revisions/${revisionId}`)}`
+        )
+        const flow = FlowSchema.parse(payload.revision.graph)
+        setFlowFromRevision(flow, payload.revision.id, payload.revision.version)
+        void syncLatestRunId()
+        return flow
+      } catch (error: any) {
+        const message = error?.message ?? "Failed to load revision"
+        setFlowState((prev) => ({
+          ...prev,
+          error: message,
+        }))
+        throw error
+      } finally {
+        setLoading(false)
+      }
+    },
+    [flowId, setFlowFromRevision, setLoading, syncLatestRunId]
+  )
+
   const actions = useMemo<FlowV2BuilderActions>(
     () => ({
       load,
+      loadRevision,
       applyEdits,
       askAgent,
       updateConfig,
       updateFlowName,
       addNode,
       deleteNode,
+      moveNodes,
       connectEdge,
       run,
       runFromHere,
@@ -1296,6 +1707,8 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       connectEdge,
       createSecret,
       deleteNode,
+      loadRevision,
+      moveNodes,
       estimate,
       getNodeSnapshot,
       updateFlowName,

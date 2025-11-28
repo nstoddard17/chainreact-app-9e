@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, AlertCircle, ExternalLink, CheckCircle, Check } from "lucide-react";
 import { ConfigurationContainer } from '../components/ConfigurationContainer';
@@ -66,14 +66,25 @@ export function DiscordConfiguration({
   aiFields,
   setAiFields,
   isConnectedToAIAgent,
-  loadingFields = new Set(),
+  loadingFields = new Set<string>(),
 }: DiscordConfigurationProps) {
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [localLoadingFields, setLocalLoadingFields] = useState<Set<string>>(new Set());
   const isLoadingChannels = useRef(false);
   const hasInitializedServers = useRef(false);
+  const hasLoadedGuilds = useRef(false);
+  const isLoadingGuilds = useRef(false);
   const channelLoadAbortController = useRef<AbortController | null>(null);
   const currentGuildIdRef = useRef<string | null>(null);
+  const lastGuildLoadNodeIdRef = useRef<string | null>(null);
+
+  // Merge global loading fields from the parent with Discord-specific loading flags
+  const mergedLoadingFields = useMemo(() => {
+    const merged = new Set<string>();
+    loadingFields?.forEach(field => merged.add(field));
+    localLoadingFields.forEach(field => merged.add(field));
+    return merged;
+  }, [loadingFields, localLoadingFields]);
 
   // Log initial values when component mounts
   useEffect(() => {
@@ -120,6 +131,44 @@ export function DiscordConfiguration({
     checkBotStatus,
     isLoadingChannelsAfterBotAdd
   } = discordState;
+
+  // Ensure Discord servers load as soon as the modal opens (aligned with other dropdowns like Google Calendar)
+  useEffect(() => {
+    const isDiscordNode = nodeInfo?.type?.startsWith('discord_action_') || nodeInfo?.type?.startsWith('discord_trigger_');
+    const hasGuildOptions = Array.isArray(dynamicOptions.guildId) && dynamicOptions.guildId.length > 0;
+
+    if (!isDiscordNode || needsConnection) return;
+    const nodeKey = `${nodeInfo?.id || 'unknown'}-${nodeInfo?.type || 'unknown'}`;
+    const isSameNode = lastGuildLoadNodeIdRef.current === nodeKey;
+
+    // Prevent spamming: only load once per node instance unless options are missing
+    if (hasGuildOptions || (hasLoadedGuilds.current && isSameNode) || isLoadingGuilds.current) return;
+
+    lastGuildLoadNodeIdRef.current = nodeKey;
+
+    isLoadingGuilds.current = true;
+    hasLoadedGuilds.current = true;
+    setLocalLoadingFields(prev => {
+      const next = new Set(prev);
+      next.add('guildId');
+      return next;
+    });
+
+    loadOptions('guildId', undefined, undefined, true)
+      .catch((err) => {
+        logger.error('❌ [Discord] Failed to load servers on modal open:', err);
+        // Allow retry if first attempt fails
+        hasLoadedGuilds.current = false;
+      })
+      .finally(() => {
+        isLoadingGuilds.current = false;
+        setLocalLoadingFields(prev => {
+          const next = new Set(prev);
+          next.delete('guildId');
+          return next;
+        });
+      });
+  }, [nodeInfo?.id, nodeInfo?.type, needsConnection, dynamicOptions.guildId, loadOptions]);
   
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -151,21 +200,50 @@ export function DiscordConfiguration({
     await onSubmit(values);
   };
 
+  // Track if we're currently processing a field change to prevent re-entrant calls
+  const isProcessingFieldChangeRef = useRef(false);
+  const pendingFieldChangesRef = useRef<Map<string, any>>(new Map());
+
   // Ultra-simple field change handler with debouncing and loading state management
   const handleFieldChange = (fieldName: string, value: any) => {
     logger.debug(`🔄 [Discord] Field change: ${fieldName} = ${value}`);
-    
+
     // Store the previous value for comparison
     const previousValue = values[fieldName];
-    
+
     // Check if value actually changed
     if (value === previousValue) {
       logger.debug(`✅ [Discord] ${fieldName} value unchanged, skipping processing`);
       return;
     }
-    
+
+    // If we're already processing a field change, queue this one and return
+    if (isProcessingFieldChangeRef.current) {
+      logger.debug(`⏳ [Discord] Already processing field change, queueing: ${fieldName}`);
+      pendingFieldChangesRef.current.set(fieldName, value);
+      return;
+    }
+
+    // Mark that we're processing
+    isProcessingFieldChangeRef.current = true;
+
     // Update the value immediately
     setValue(fieldName, value);
+
+    // Process any pending changes after a microtask to allow React to batch updates
+    queueMicrotask(() => {
+      isProcessingFieldChangeRef.current = false;
+      // Process any pending field changes
+      if (pendingFieldChangesRef.current.size > 0) {
+        const pending = new Map(pendingFieldChangesRef.current);
+        pendingFieldChangesRef.current.clear();
+        pending.forEach((pendingValue, pendingField) => {
+          if (values[pendingField] !== pendingValue) {
+            setValue(pendingField, pendingValue);
+          }
+        });
+      }
+    });
     
     // Handle server selection
     if (fieldName === 'guildId') {
@@ -676,9 +754,12 @@ export function DiscordConfiguration({
 
   // Check if we're loading a specific field
   const isFieldLoading = (fieldName: string) => {
-    // For guildId, only check specific loading states, not global loadingDynamic
+    // For guildId, check specific loading states AND loadingDynamic (for initial loadOnMount loading)
     if (fieldName === 'guildId') {
-      return localLoadingFields.has(fieldName) || loadingFields?.has(fieldName);
+      // Only show loading if we don't have any guild options yet (initial load)
+      const hasGuildOptions = dynamicOptions.guildId && dynamicOptions.guildId.length > 0;
+      const isInitialLoading = loadingDynamic && !hasGuildOptions;
+      return localLoadingFields.has(fieldName) || loadingFields?.has(fieldName) || isInitialLoading;
     }
     // For channelId, include the after bot add loading state
     if (fieldName === 'channelId') {
@@ -895,6 +976,7 @@ export function DiscordConfiguration({
                     currentNodeId={currentNodeId}
                     dynamicOptions={dynamicOptions}
                     loadingDynamic={isFieldLoading(field.name)}
+                    loadingFields={mergedLoadingFields}
                     onDynamicLoad={loadOptions}
                     nodeInfo={nodeInfo}
                     parentValues={values}

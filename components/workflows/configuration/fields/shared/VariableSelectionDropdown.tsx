@@ -198,7 +198,10 @@ export function VariableSelectionDropdown({
   const getDisplayValue = () => {
     if (!parsed) return ""
 
-    const node = upstreamNodes.find(n => n.id === parsed.nodeId)
+    // Handle 'trigger' references - find the trigger node
+    const node = parsed.nodeId === 'trigger'
+      ? upstreamNodes.find(n => n.isTrigger)
+      : upstreamNodes.find(n => n.id === parsed.nodeId)
     if (!node) return value
 
     const field = node.outputs.find((f: any) => f.name === parsed.fieldName)
@@ -293,7 +296,9 @@ export function VariableSelectionDropdown({
                 }
               >
                 {node.outputs.map((field: any) => {
-                  const variableRef = `{{${node.id}.${field.name}}}`
+                  // Use 'trigger' as the reference prefix for trigger nodes
+                  const referencePrefix = node.isTrigger ? 'trigger' : node.id
+                  const variableRef = `{{${referencePrefix}.${field.name}}}`
                   const isSelected = value === variableRef
 
                   return (

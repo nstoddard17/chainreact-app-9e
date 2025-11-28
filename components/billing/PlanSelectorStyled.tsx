@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Check, Loader2, AlertTriangle, Info, Lock } from "lucide-react"
+import { Check, Loader2, AlertTriangle, Lock, Sparkles, Users, Building2, Crown } from "lucide-react"
+import { PLAN_INFO, PLAN_FEATURES, PLAN_LIMITS, type PlanTier } from '@/lib/utils/plan-restrictions'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -17,6 +18,17 @@ interface PlanSelectorProps {
   isModal?: boolean
 }
 
+// Map database plan names to our tier system
+const mapPlanNameToTier = (name: string): PlanTier | null => {
+  const normalized = name?.toLowerCase()
+  if (normalized === 'free') return 'free'
+  if (normalized === 'pro' || normalized === 'professional') return 'pro'
+  if (normalized === 'team') return 'team'
+  if (normalized === 'business') return 'business'
+  if (normalized === 'enterprise') return 'enterprise'
+  return null
+}
+
 export default function PlanSelector({ plans = [], currentSubscription, targetPlanId, isModal = false }: PlanSelectorProps) {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">(
     currentSubscription?.billing_cycle === "yearly" ? "annual" : "monthly"
@@ -25,99 +37,70 @@ export default function PlanSelector({ plans = [], currentSubscription, targetPl
   const [error, setError] = useState<string | null>(null)
   const [expandedPlanId, setExpandedPlanId] = useState<string | null>(targetPlanId || null)
   const { createCheckoutSession, changePlan } = useBillingStore()
-  
-  // Remove duplicate plans by name (in case database has duplicates)
-  const uniquePlans = plans.reduce((acc: any[], plan: any) => {
-    if (!acc.find(p => p.name === plan.name)) {
-      acc.push(plan)
-    }
-    return acc
-  }, [])
-  
-  // Only use active plans (Free and Pro)
-  const activePlans = uniquePlans.filter(p => !p.coming_soon)
 
-  const handlePlanSelection = async (selectedPlanId: string) => {
-    logger.debug("handlePlanSelection called with planId:", selectedPlanId)
-    logger.debug("Available plans:", plans)
-    logger.debug("Current subscription:", currentSubscription)
-    
-    if (processingPlanId) {
-      logger.debug("Already processing a plan, returning")
+  const yearlyDiscount = 17
+
+  // Define our pricing tiers
+  const tiers: PlanTier[] = ['free', 'pro', 'team', 'business', 'enterprise']
+
+  // Map database plans to our tiers
+  const getPlanByTier = (tier: PlanTier) => {
+    return plans.find(p => mapPlanNameToTier(p.name) === tier)
+  }
+
+  const handlePlanSelection = async (tier: PlanTier, dbPlan: any) => {
+    if (processingPlanId) return
+    if (tier === 'enterprise') {
+      // For enterprise, redirect to contact
+      window.location.href = '/contact'
       return
     }
-    
-    // Don't process coming soon plans
-    const selectedPlan = plans?.find((p: any) => p.id === selectedPlanId)
-    if (!selectedPlan) {
-      logger.error("Plan not found:", selectedPlanId)
-      return
-    }
-    
-    if (selectedPlan.coming_soon) {
-      logger.debug("Plan is coming soon, returning")
+    if (!dbPlan) {
+      setError("This plan is not yet available. Please contact support.")
       return
     }
 
     try {
-      setProcessingPlanId(selectedPlanId)
+      setProcessingPlanId(dbPlan.id)
       setError(null)
-      
+
       const billingPeriod = billingCycle === "annual" ? "yearly" : "monthly"
-      logger.debug("Billing period:", billingPeriod)
-      
-      // If user has an active subscription, change the plan
+      logger.debug("Processing plan:", tier, "billing:", billingPeriod)
+
       if (currentSubscription && currentSubscription.status === "active") {
-        logger.debug("Changing existing plan")
-        
-        // Check if switching from monthly to annual
         const isUpgradeToAnnual = currentSubscription.billing_cycle === "monthly" && billingPeriod === "yearly"
-        
-        const result = await changePlan(selectedPlanId, billingPeriod)
-        
+        const result = await changePlan(dbPlan.id, billingPeriod)
+
         if (result.scheduledChange && isUpgradeToAnnual) {
-          setError(null)
-          // Show success message for scheduled annual upgrade
-          alert("Success! Your plan will change to annual billing at the end of your current billing period, adding 12 months to your subscription.")
+          alert("Success! Your plan will change to annual billing at the end of your current billing period.")
         } else {
-          // For immediate changes
           alert("Your plan has been updated successfully!")
         }
-        
-        // Refresh the page to show updated subscription
         window.location.reload()
       } else {
-        // No active subscription, create checkout session
-        logger.debug("Creating new checkout session")
-        
-        const checkoutUrl = await createCheckoutSession(selectedPlanId, billingPeriod)
-
-        if (!checkoutUrl) {
-          throw new Error("No checkout URL returned")
-        }
-
-        logger.debug("Redirecting to checkout URL:", checkoutUrl)
+        const checkoutUrl = await createCheckoutSession(dbPlan.id, billingPeriod)
+        if (!checkoutUrl) throw new Error("No checkout URL returned")
         window.location.href = checkoutUrl
       }
     } catch (error: any) {
       logger.error("Failed to process plan selection:", error)
-
       if (error.message?.includes("STRIPE_NOT_CONFIGURED")) {
-        setError("Billing is not yet configured for this application. Please contact support.")
+        setError("Billing is not yet configured. Please contact support.")
       } else {
-        setError(error.message || "There was an error processing your request. Please try again later.")
+        setError(error.message || "An error occurred. Please try again.")
       }
     } finally {
       setProcessingPlanId(null)
     }
   }
 
-  const togglePlanExpansion = (planId: string) => {
-    setExpandedPlanId(expandedPlanId === planId ? null : planId)
+  const togglePlanExpansion = (tier: PlanTier) => {
+    setExpandedPlanId(expandedPlanId === tier ? null : tier)
   }
 
-  const currentPlanId = currentSubscription?.plan_id
-  const yearlyDiscount = 20
+  const currentTier = currentSubscription?.plan?.name
+    ? mapPlanNameToTier(currentSubscription.plan.name)
+    : 'free'
 
   const hasStripeConfig = plans.some(
     (plan) =>
@@ -130,31 +113,31 @@ export default function PlanSelector({ plans = [], currentSubscription, targetPl
   return (
     <div className="space-y-8">
       {!hasStripeConfig && (
-        <Alert className="bg-amber-950/20 border-amber-900/50">
-          <AlertTriangle className="h-4 w-4 text-amber-500" />
-          <AlertDescription className="text-amber-200">
+        <Alert className="bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/50">
+          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+          <AlertDescription className="text-amber-800 dark:text-amber-200">
             Billing integration is currently being set up. Some features may not be available yet.
           </AlertDescription>
         </Alert>
       )}
 
       {error && (
-        <Alert variant="destructive" className="bg-red-950/20 border-red-900/50">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
+        <Alert variant="destructive" className="bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900/50">
+          <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
+          <AlertDescription className="text-red-700 dark:text-red-300">{error}</AlertDescription>
         </Alert>
       )}
 
       <div className="space-y-8">
-        {/* Billing Cycle Toggle - Integrated with pricing */}
+        {/* Billing Cycle Toggle */}
         <div className="text-center space-y-3">
-          <div className="inline-flex items-center gap-3 bg-slate-900/50 p-1 rounded-full border border-slate-800">
+          <div className="inline-flex items-center gap-3 bg-gray-100 dark:bg-slate-900/50 p-1 rounded-full border border-gray-200 dark:border-slate-800">
             <button
               onClick={() => setBillingCycle("monthly")}
               className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${
                 billingCycle === "monthly"
-                  ? "bg-slate-800 text-white shadow-sm"
-                  : "text-slate-400 hover:text-white"
+                  ? "bg-white dark:bg-slate-800 text-gray-900 dark:text-white shadow-sm"
+                  : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
               }`}
             >
               Monthly
@@ -163,8 +146,8 @@ export default function PlanSelector({ plans = [], currentSubscription, targetPl
               onClick={() => setBillingCycle("annual")}
               className={`px-6 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
                 billingCycle === "annual"
-                  ? "bg-slate-800 text-white shadow-sm"
-                  : "text-slate-400 hover:text-white"
+                  ? "bg-white dark:bg-slate-800 text-gray-900 dark:text-white shadow-sm"
+                  : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
               }`}
             >
               Annual
@@ -173,39 +156,40 @@ export default function PlanSelector({ plans = [], currentSubscription, targetPl
               </span>
             </button>
           </div>
-          <p className="text-slate-500 text-xs">
-            {billingCycle === "monthly" ? "Billed monthly" : "Billed annually"}. Cancel or change anytime.
+          <p className="text-gray-500 dark:text-slate-500 text-xs">
+            {billingCycle === "monthly" ? "Billed monthly" : "Billed annually (2 months free)"}. Cancel anytime.
           </p>
         </div>
 
-        {/* Main Plans Grid - Only Free vs Pro */}
-        <div className={`grid grid-cols-1 md:grid-cols-2 ${isModal ? 'gap-6' : 'gap-10'} max-w-4xl mx-auto`}>
-          {activePlans.map((plan) => (
-            <PlanCard
-              key={plan.id}
-              plan={plan}
-              price={billingCycle === "annual" ? plan.price_yearly : plan.price_monthly}
-              billingCycle={billingCycle}
-              isCurrentPlan={plan.id === currentPlanId}
-              isProcessing={processingPlanId === plan.id}
-              isExpanded={expandedPlanId === plan.id}
-              onToggleExpand={() => togglePlanExpansion(plan.id)}
-              isDisabled={!hasStripeConfig}
-              onSelect={() => handlePlanSelection(plan.id)}
-              isMainCard={true}
-              isModal={isModal}
-            />
-          ))}
+        {/* Plans Grid - All 5 tiers */}
+        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 ${isModal ? 'gap-4' : 'gap-4'}`}>
+          {tiers.map((tier) => {
+            const dbPlan = getPlanByTier(tier)
+            return (
+              <PlanCard
+                key={tier}
+                tier={tier}
+                dbPlan={dbPlan}
+                billingCycle={billingCycle}
+                isCurrentPlan={currentTier === tier}
+                isProcessing={dbPlan ? processingPlanId === dbPlan.id : false}
+                isExpanded={expandedPlanId === tier}
+                onToggleExpand={() => togglePlanExpansion(tier)}
+                isDisabled={!hasStripeConfig && tier !== 'free' && tier !== 'enterprise'}
+                onSelect={() => handlePlanSelection(tier, dbPlan)}
+                isModal={isModal}
+              />
+            )
+          })}
         </div>
-        
       </div>
     </div>
   )
 }
 
 interface PlanCardProps {
-  plan: any
-  price: number | null
+  tier: PlanTier
+  dbPlan: any
   billingCycle: "monthly" | "annual"
   isCurrentPlan: boolean
   isProcessing: boolean
@@ -213,13 +197,12 @@ interface PlanCardProps {
   onToggleExpand: () => void
   isDisabled: boolean
   onSelect: () => void
-  isMainCard?: boolean
   isModal?: boolean
 }
 
 function PlanCard({
-  plan,
-  price,
+  tier,
+  dbPlan,
   billingCycle,
   isCurrentPlan,
   isProcessing,
@@ -227,148 +210,165 @@ function PlanCard({
   onToggleExpand,
   isDisabled,
   onSelect,
-  isMainCard = false,
   isModal = false
 }: PlanCardProps) {
-  const isPro = plan.name === 'Pro'
-  const isFree = plan.name === 'Free'
-  const isBusiness = plan.name === 'Business'
-  const isEnterprise = plan.name === 'Enterprise'
-  const isComingSoon = plan.coming_soon || isBusiness || isEnterprise
-  
-  // Plan taglines
-  const tagline = isFree 
-    ? "Perfect for getting started"
-    : isPro 
-    ? "Best for growing teams"
-    : isBusiness
-    ? "Advanced features for scale"
-    : "Enterprise-grade solutions"
-  
+  const info = PLAN_INFO[tier] || PLAN_INFO.free
+  const features = PLAN_FEATURES[tier] || PLAN_FEATURES.free
+  const limits = PLAN_LIMITS[tier] || PLAN_LIMITS.free
+
+  const isPro = tier === 'pro'
+  const isFree = tier === 'free'
+  const isTeam = tier === 'team'
+  const isBusiness = tier === 'business'
+  const isEnterprise = tier === 'enterprise'
+  const isPopular = info.popular
+
+  const price = billingCycle === "annual" ? info.priceAnnual : info.price
+
+  // Get icon for each tier
+  const getTierIcon = () => {
+    if (isFree) return null
+    if (isPro) return <Sparkles className="w-4 h-4" />
+    if (isTeam) return <Users className="w-4 h-4" />
+    if (isBusiness) return <Building2 className="w-4 h-4" />
+    if (isEnterprise) return <Crown className="w-4 h-4" />
+    return null
+  }
+
   return (
     <div className="relative h-full">
-      {/* Floating badge for Pro plan */}
-      {isPro && !isComingSoon && isMainCard && (
+      {/* Popular badge */}
+      {isPopular && (
         <div className="absolute -top-2.5 left-1/2 transform -translate-x-1/2 z-10">
-          <div className="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-2.5 py-0.5 rounded-full text-[11px] font-bold shadow-md">
-            MOST POPULAR
+          <div className="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-2.5 py-0.5 rounded-full text-[11px] font-bold shadow-md flex items-center gap-1">
+            <Sparkles className="w-3 h-3" />
+            POPULAR
           </div>
         </div>
       )}
-      
+
       <Card
-        className={`relative rounded-2xl h-full transition-all duration-300 overflow-hidden ${isPro && !isComingSoon && isMainCard ? "bg-gradient-to-b from-slate-800/90 to-slate-850/90 border-2 border-blue-500/50 shadow-2xl shadow-blue-950/30 hover:shadow-blue-950/40 hover:border-blue-500/70 hover:scale-[1.01]" : isFree && !isComingSoon && isMainCard ? "bg-slate-900/50 border border-slate-700/30 shadow-xl hover:border-slate-600/50 hover:shadow-2xl" : isComingSoon ? "bg-slate-950/20 border border-slate-800/10 relative overflow-hidden" : "bg-slate-900/80 border border-slate-700 hover:border-slate-600"}`}
+        className={`relative rounded-2xl h-full transition-all duration-300 overflow-hidden ${
+          isPopular
+            ? "bg-gradient-to-b from-blue-50 to-white dark:from-slate-800/90 dark:to-slate-850/90 border-2 border-blue-400 dark:border-blue-500/50 shadow-xl dark:shadow-blue-950/30 hover:border-blue-500 dark:hover:border-blue-500/70"
+            : isFree
+            ? "bg-white dark:bg-slate-900/50 border border-gray-200 dark:border-slate-700/30 hover:border-gray-300 dark:hover:border-slate-600/50"
+            : "bg-white dark:bg-slate-900/70 border border-gray-200 dark:border-slate-700/50 hover:border-gray-300 dark:hover:border-slate-600/70"
+        }`}
       >
-        {/* Slim highlight bar for Pro plan */}
-        {isPro && !isComingSoon && (
+        {/* Top highlight for Pro */}
+        {isPopular && (
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-blue-400" />
         )}
-        
-        {/* Coming Soon overlay with lock */}
-        {isComingSoon && (
-          <>
-            <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-[1px] z-10" />
-            <div className="absolute top-4 right-4 z-20">
-              <Lock className="w-5 h-5 text-slate-600" />
+
+        <CardContent className={`${isModal ? 'p-4' : 'p-6'} flex flex-col h-full`}>
+          {/* Plan Header */}
+          <div className="text-center mb-4">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              {getTierIcon()}
+              <h3 className={`${isModal ? 'text-xl' : 'text-2xl'} font-bold text-gray-900 dark:text-white`}>
+                {info.name}
+              </h3>
             </div>
-          </>
-        )}
-        <CardContent className={`${isModal ? 'p-6' : isMainCard ? 'p-12' : 'p-10'} flex flex-col h-full ${isComingSoon ? 'relative z-0' : ''}`}>
-          {/* Plan Name - Responsive sizing */}
-          <h3 className={`${isModal ? 'text-2xl' : isMainCard ? 'text-4xl' : 'text-3xl'} font-black text-center ${isModal ? 'mb-2' : 'mb-3'} ${isComingSoon ? 'text-slate-600' : 'text-white'}`}>
-            {plan.name}
-          </h3>
+            <p className="text-xs text-gray-500 dark:text-slate-400">{info.description}</p>
+          </div>
 
-          {/* Tagline - Smaller and lighter */}
-          <p className={`text-xs font-light text-center ${isModal ? 'mb-4' : 'mb-10'} ${isComingSoon ? 'text-slate-700' : 'text-slate-400'}`}>
-            {tagline}
-          </p>
-
-          {/* Price Section with divider */}
-          <div className={`${isModal ? 'pb-4 mb-4' : 'pb-8 mb-8'} border-b border-slate-800/30`}>
-            <div className="text-center">
-              {isEnterprise ? (
-                <div className={`${isModal ? 'text-3xl' : 'text-4xl'} font-bold ${isComingSoon ? 'text-slate-600' : 'text-white'}`}>Custom</div>
-              ) : (
-                <div>
-                  {billingCycle === "annual" && isPro && !isModal && (
-                    <div className="text-center mb-2">
-                      <span className="text-slate-500 line-through text-lg">$19.99/mo</span>
-                      <span className="ml-2 text-green-500 text-sm font-semibold">Save $59.89/year</span>
-                    </div>
-                  )}
-                  <div className="flex items-baseline justify-center gap-1">
-                    <span className={`${isModal ? 'text-4xl' : isPro && isMainCard ? 'text-6xl' : 'text-5xl'} font-bold ${isComingSoon ? 'text-slate-600' : 'text-white'}`}>
-                      ${billingCycle === "annual" && !isFree && isPro ? "15" : isFree ? "0" : "19.99"}
-                    </span>
-                    <span className={`text-sm font-medium ${isComingSoon ? 'text-slate-700' : 'text-slate-500'}`}>
-                      /{billingCycle === "annual" && !isFree ? "month" : billingCycle === "monthly" ? "month" : "year"}
-                    </span>
-                  </div>
-                  {billingCycle === "annual" && !isFree && isPro && (
-                    <div className="text-center mt-1">
-                      <span className="text-xs text-slate-500">Billed $179.99 annually</span>
-                    </div>
-                  )}
+          {/* Price */}
+          <div className="text-center mb-4 pb-4 border-b border-gray-200 dark:border-slate-800/50">
+            {isEnterprise ? (
+              <div className={`${isModal ? 'text-2xl' : 'text-3xl'} font-bold text-gray-900 dark:text-white`}>Custom</div>
+            ) : (
+              <>
+                <div className="flex items-baseline justify-center gap-1">
+                  <span className={`${isModal ? 'text-3xl' : 'text-4xl'} font-bold text-gray-900 dark:text-white`}>
+                    ${price === 0 ? '0' : price.toFixed(price % 1 === 0 ? 0 : 2)}
+                  </span>
+                  <span className="text-sm text-gray-500 dark:text-slate-500">/mo</span>
                 </div>
-              )}
+                {billingCycle === "annual" && !isFree && (
+                  <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                    ${((info.price - info.priceAnnual) * 12).toFixed(0)} saved/year
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Key Limits */}
+          <div className="grid grid-cols-2 gap-2 mb-4 text-xs">
+            <div className="bg-gray-100 dark:bg-slate-800/50 rounded-lg p-2 text-center">
+              <div className="text-blue-600 dark:text-blue-300 font-semibold">
+                {limits.tasksPerMonth === -1 ? '∞' : limits.tasksPerMonth.toLocaleString()}
+              </div>
+              <div className="text-gray-500 dark:text-slate-500">tasks/mo</div>
+            </div>
+            <div className="bg-gray-100 dark:bg-slate-800/50 rounded-lg p-2 text-center">
+              <div className="text-blue-600 dark:text-blue-300 font-semibold">
+                {limits.maxTeamMembers === -1 ? '∞' : limits.maxTeamMembers}
+              </div>
+              <div className="text-gray-500 dark:text-slate-500">members</div>
             </div>
           </div>
-          
-          {/* Features - Better spacing */}
+
+          {/* Features */}
           <div className="flex-grow">
-            <div className={isModal ? 'space-y-3' : 'space-y-5'}>
-              {(plan.features || []).slice(0, isExpanded ? 8 : 4).map((feature: string, index: number) => (
-                <div key={index} className="flex items-start gap-3">
-                  <Check className={`w-4 h-4 mt-0.5 flex-shrink-0 ${isComingSoon ? 'text-slate-700' : 'text-green-500'}`} />
-                  <span className={`text-sm leading-relaxed ${isComingSoon ? 'text-slate-700' : 'text-slate-300'}`}>
-                    {feature}
-                  </span>
+            <div className="space-y-2">
+              {features.slice(0, isExpanded ? features.length : 4).map((feature, index) => (
+                <div key={index} className="flex items-start gap-2">
+                  <Check className="w-4 h-4 mt-0.5 flex-shrink-0 text-green-600 dark:text-green-500" />
+                  <span className="text-xs text-gray-700 dark:text-slate-300">{feature}</span>
                 </div>
               ))}
             </div>
 
-            {/* View all features link - moved under features */}
-            {plan.features && plan.features.length > 4 && !isComingSoon && (
+            {features.length > 4 && (
               <button
                 onClick={onToggleExpand}
-                className={`text-sm text-slate-500 hover:text-slate-400 transition-colors ${isModal ? 'mt-3' : 'mt-6'} text-left`}
+                className="text-xs text-gray-500 dark:text-slate-500 hover:text-gray-700 dark:hover:text-slate-400 mt-3"
               >
-                {isExpanded ? "← Show less" : "View all features →"}
+                {isExpanded ? "Show less ↑" : `+${features.length - 4} more →`}
               </button>
             )}
           </div>
 
-          {/* Buttons with better hierarchy */}
-          <div className={`mt-auto ${isModal ? 'space-y-2 pt-4' : 'space-y-3'}`}>
-            {isComingSoon ? (
-              <div className="w-full py-3 bg-slate-800/30 text-slate-600 rounded-lg text-center font-medium cursor-not-allowed">
-                Coming Soon
-              </div>
-            ) : (
-              <>
-                <Button
-                  className={`w-full ${isModal ? 'py-3 text-sm' : 'py-6 text-base'} font-semibold transition-all ${isPro && !isCurrentPlan && isMainCard ? "bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white shadow-lg hover:shadow-xl hover:scale-[1.02]" : isCurrentPlan ? "bg-slate-800/30 text-slate-500 cursor-default border border-slate-700/50" : isFree && !isCurrentPlan && isMainCard ? "bg-transparent border-2 border-slate-700 hover:bg-slate-800/50 text-slate-200" : "bg-slate-800 hover:bg-slate-700 text-white"}`}
-                  disabled={isProcessing || isCurrentPlan}
-                  onClick={onSelect}
-                >
-                  {isProcessing ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Processing...
-                    </>
-                  ) : isCurrentPlan ? (
-                    "Current Plan"
-                  ) : isFree && !isCurrentPlan ? (
-                    "Start Free"
-                  ) : isPro && !isCurrentPlan ? (
-                    "Upgrade to Pro →"
-                  ) : (
-                    `Select ${plan.name}`
-                  )}
-                </Button>
+          {/* CTA Button */}
+          <div className="mt-4 pt-4">
+            <Button
+              className={`w-full py-3 text-sm font-semibold transition-all ${
+                isPopular && !isCurrentPlan
+                  ? "bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white shadow-lg"
+                  : isCurrentPlan
+                  ? "bg-gray-200 dark:bg-slate-700 text-gray-500 dark:text-slate-400 cursor-default border border-gray-300 dark:border-slate-600"
+                  : isEnterprise
+                  ? "bg-purple-600 hover:bg-purple-700 text-white shadow-md"
+                  : isFree && !isCurrentPlan
+                  ? "bg-gray-600 hover:bg-gray-700 dark:bg-slate-600 dark:hover:bg-slate-500 text-white"
+                  : "bg-gray-900 hover:bg-gray-800 dark:bg-blue-600 dark:hover:bg-blue-500 text-white"
+              }`}
+              disabled={isProcessing || isCurrentPlan || (isDisabled && !isEnterprise)}
+              onClick={onSelect}
+            >
+              {isProcessing ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : isCurrentPlan ? (
+                "Current Plan"
+              ) : isEnterprise ? (
+                "Contact Sales"
+              ) : isFree ? (
+                "Downgrade"
+              ) : (
+                `Upgrade to ${info.name}`
+              )}
+            </Button>
 
-              </>
+            {/* Overage info */}
+            {info.overageRate && !isCurrentPlan && (
+              <p className="text-xs text-center text-gray-500 dark:text-slate-500 mt-2">
+                +${info.overageRate}/task overage
+              </p>
             )}
           </div>
         </CardContent>
@@ -376,4 +376,3 @@ function PlanCard({
     </div>
   )
 }
-

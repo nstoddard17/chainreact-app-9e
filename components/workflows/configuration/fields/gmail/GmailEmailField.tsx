@@ -3,7 +3,9 @@
 import React from "react";
 import { MultiCombobox } from "@/components/ui/combobox";
 import { cn } from "@/lib/utils";
-import { Loader2 } from "lucide-react";
+import { X, Mail, RefreshCw } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { LoadingFieldState } from "../shared/LoadingFieldState";
 
 import { logger } from '@/lib/utils/logger'
 
@@ -14,7 +16,7 @@ interface GmailEmailFieldProps {
   error?: string;
   suggestions: any[];
   isLoading?: boolean;
-  onDynamicLoad?: (fieldName: string) => void;
+  onDynamicLoad?: (fieldName: string, dependsOn?: string, dependsOnValue?: any, forceRefresh?: boolean, silent?: boolean) => void;
 }
 
 /**
@@ -32,6 +34,7 @@ export function GmailEmailField({
 }: GmailEmailFieldProps) {
   // Store variable aliases for display
   const [variableOptions, setVariableOptions] = React.useState<Array<{value: string, label: string}>>([]);
+  const loadOnMountRef = React.useRef(false);
 
   // Gmail-specific loading behavior
   const handleEmailFieldFocus = () => {
@@ -88,6 +91,27 @@ export function GmailEmailField({
   const handleChange = (newValue: string[]) => {
     onChange(newValue.join(', '));
   };
+  // Show pills above the field only when there are 2+ emails
+  // When there's just 1 email, show it in the field itself
+  const showTagPreview = field.name === 'from';
+  const hasMultipleEmails = valueArray.length > 1;
+  const handleRemoveTag = (emailToRemove: string) => {
+    const newValues = valueArray.filter((email) => email !== emailToRemove);
+    handleChange(newValues);
+  };
+  const handleRefresh = React.useCallback(() => {
+    if (onDynamicLoad) {
+      onDynamicLoad(field.name, undefined, undefined, true);
+    }
+  }, [field.name, onDynamicLoad]);
+
+  // Auto-load on mount if requested
+  React.useEffect(() => {
+    if (field.dynamic && field.loadOnMount && onDynamicLoad && !loadOnMountRef.current) {
+      loadOnMountRef.current = true;
+      onDynamicLoad(field.name);
+    }
+  }, [field.dynamic, field.loadOnMount, field.name, onDynamicLoad]);
 
   // Handle dropdown opening to load data
   const handleDropdownOpen = (isOpen: boolean) => {
@@ -160,35 +184,76 @@ export function GmailEmailField({
     }
   }, [field.name, value, onChange])
 
+  // Show loading placeholder when loading with no options and no value
+  // This matches the behavior of GenericSelectField for consistency
+  const shouldShowLoadingState = isLoading && processedOptions.length === 0 && valueArray.length === 0;
+
+  if (shouldShowLoadingState) {
+    return <LoadingFieldState message={field.loadingPlaceholder || `Loading ${field.label || 'contacts'}...`} />;
+  }
+
   return (
-    <div className="relative">
-      <MultiCombobox
-        value={valueArray}
-        onChange={handleChange}
-        options={processedOptions}
-        placeholder={
-          isLoading && processedOptions.length === 0
-            ? "Loading recent recipients..."
-            : isLoading
-              ? field.placeholder || `Select ${field.label || field.name}...`
-              : field.placeholder || `Select ${field.label || field.name}...`
-        }
-        searchPlaceholder={isLoading ? "Loading..." : "Search contacts..."}
-        emptyPlaceholder={isLoading ? "Loading contacts..." : "No contacts found"}
-        disabled={false}
-        creatable={true} // Always allow typing email addresses
-        onOpenChange={handleDropdownOpen}
-        onDrop={handleVariableDrop}
-        className={cn(
-          error && "border-red-500",
-          isLoading && "opacity-70"
+    <div className="flex items-start gap-2">
+      <div className="flex-1 relative">
+        {/* Show pills above the field only when there are 2+ emails */}
+        {showTagPreview && hasMultipleEmails && (
+          <div className="flex flex-wrap gap-1 mb-2">
+            {valueArray.map((email) => (
+              <Badge
+                key={email}
+                variant="secondary"
+                className="flex items-center gap-1 pr-1"
+              >
+                <Mail className="w-3 h-3" />
+                <span className="break-words">{email}</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRemoveTag(email);
+                  }}
+                  className="ml-1 hover:bg-muted rounded-full p-0.5"
+                  aria-label={`Remove ${email}`}
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </Badge>
+            ))}
+          </div>
         )}
-        showFullEmails={true} // Pass prop to show full emails
-      />
-      {isLoading && (
-        <div className="absolute right-10 top-1/2 -translate-y-1/2 pointer-events-none">
-          <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
-        </div>
+        <MultiCombobox
+          value={valueArray}
+          onChange={handleChange}
+          options={processedOptions}
+          placeholder={field.placeholder || `Select ${field.label || field.name}...`}
+          searchPlaceholder="Search contacts..."
+          emptyPlaceholder="No contacts found"
+          disabled={false}
+          creatable={true} // Always allow typing email addresses
+          onOpenChange={handleDropdownOpen}
+          onDrop={handleVariableDrop}
+          className={cn(
+            error && "border-red-500"
+          )}
+          showFullEmails={true} // Pass prop to show full emails
+          hideSelectedBadges={showTagPreview && hasMultipleEmails} // Only hide badges when showing pills above
+          showPlaceholderWhenSelected={showTagPreview && hasMultipleEmails} // Only show placeholder when pills are above
+          loading={false} // Don't show loading in combobox since we use LoadingFieldState
+        />
+      </div>
+      {showTagPreview && onDynamicLoad && (
+        <button
+          type="button"
+          onClick={handleRefresh}
+          className={cn(
+            "mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-md border border-input bg-background text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground",
+            isLoading && "opacity-50 cursor-not-allowed"
+          )}
+          aria-label="Refresh senders"
+          disabled={isLoading}
+        >
+          <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
+        </button>
       )}
     </div>
   );

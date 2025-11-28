@@ -3,7 +3,7 @@
 import React, { memo, useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { Handle, Position, type NodeProps, useUpdateNodeInternals, useReactFlow } from "@xyflow/react"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
-import { Trash2, TestTube, Plus, Edit2, Layers, Unplug, Sparkles, ChevronDown, ChevronUp, Loader2, CheckCircle2, AlertTriangle, Info, GitFork, ArrowRight, PlusCircle, AlertCircle, MoreVertical, Play, Snowflake, StopCircle, GripVertical } from "lucide-react"
+import { Trash2, TestTube, Plus, Edit2, Layers, Unplug, ChevronDown, ChevronUp, Loader2, CheckCircle2, AlertTriangle, Info, GitFork, ArrowRight, PlusCircle, AlertCircle, MoreVertical, Play, Snowflake, GripVertical, Database } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -26,7 +26,7 @@ import { InlineNodePicker } from './InlineNodePicker'
 import type { NodeComponent } from '@/lib/workflows/nodes/types'
 import { FieldVisibilityEngine } from '@/lib/workflows/fields/visibility'
 
-export type NodeState = 'skeleton' | 'ready' | 'running' | 'passed' | 'failed'
+export type NodeState = 'skeleton' | 'ready' | 'running' | 'passed' | 'failed' | 'paused'
 
 const AI_STATUS_HIDE_BADGE_STATES = new Set([
   'preparing',
@@ -70,7 +70,6 @@ export interface CustomNodeData {
   onTestNode?: (nodeId: string) => void
   onTestFlowFromHere?: (nodeId: string) => void
   onFreeze?: (nodeId: string) => void
-  onStop?: (nodeId: string) => void
   onStartReorder?: (nodeId: string, event: React.PointerEvent) => void
   isReorderable?: boolean
   isBeingReordered?: boolean
@@ -93,6 +92,8 @@ export interface CustomNodeData {
   aiTestSummary?: string | null
   autoExpand?: boolean
   aiFallbackFields?: string[]
+  hasCachedOutput?: boolean // Indicates this node has cached output from a previous test run
+  cachedOutputTimestamp?: string // When the cached output was created
   aiProgressConfig?: {
     key: string
     value: any
@@ -114,6 +115,7 @@ export interface CustomNodeData {
   reorderDragOffset?: number
   previewOffset?: number
   isBeingReordered?: boolean
+  isFlowTesting?: boolean // Disable interactions during flow testing
   shouldSuppressConfigureClick?: () => boolean
 }
 
@@ -140,7 +142,7 @@ const DEFAULT_SLACK_SECTION_STATE = SLACK_CONFIG_SECTIONS.reduce<Record<string, 
   return acc
 }, {})
 
-const INTERNAL_PROVIDER_IDS = new Set(['logic', 'core', 'manual', 'schedule', 'webhook', 'ai', 'utility'])
+const INTERNAL_PROVIDER_IDS = new Set(['logic', 'core', 'manual', 'schedule', 'ai', 'utility', 'openai', 'anthropic', 'google'])
 const DEFAULT_PATH_COLORS = ['#2563EB', '#EA580C', '#059669', '#9333EA', '#BE123C', '#14B8A6']
 const ELSE_HANDLE_COLOR = '#64748B'
 
@@ -207,12 +209,13 @@ function CustomNode({ id, data, selected }: NodeProps) {
   const nodeState = nodeData.state || 'ready'
   const isSkeletonState = nodeState === 'skeleton'
   const visualNodeState = useMemo<NodeState>(() => {
-    if (nodeState === 'running' || nodeState === 'passed' || nodeState === 'failed') {
+    if (nodeState === 'running' || nodeState === 'passed' || nodeState === 'failed' || nodeState === 'paused') {
       return nodeState
     }
     if (nodeData.executionStatus === 'running' || nodeData.isActiveExecution) return 'running'
     if (nodeData.executionStatus === 'completed' || nodeData.executionStatus === 'success') return 'passed'
     if (nodeData.executionStatus === 'error') return 'failed'
+    if (nodeData.executionStatus === 'paused') return 'paused'
     return nodeState
   }, [nodeData.executionStatus, nodeData.isActiveExecution, nodeState])
 
@@ -237,6 +240,12 @@ function CustomNode({ id, data, selected }: NodeProps) {
           background: 'linear-gradient(180deg, rgba(254, 242, 242, 0.95), rgba(254, 226, 226, 0.95))',
           borderColor: 'rgba(248, 113, 113, 0.4)',
           boxShadow: '0 4px 12px rgba(248, 113, 113, 0.16)',
+        }
+      case 'paused':
+        return {
+          background: 'linear-gradient(180deg, rgba(254, 243, 199, 0.95), rgba(253, 230, 138, 0.95))',
+          borderColor: 'rgba(245, 158, 11, 0.4)',
+          boxShadow: '0 4px 12px rgba(245, 158, 11, 0.16)',
         }
       default:
         return baseStyle
@@ -277,7 +286,6 @@ function CustomNode({ id, data, selected }: NodeProps) {
     onTestNode,
     onTestFlowFromHere,
     onFreeze,
-    onStop,
     hasAddButton,
     onStartReorder,
     isReorderable,
@@ -582,8 +590,8 @@ function CustomNode({ id, data, selected }: NodeProps) {
       return ""
     }
 
-    // If nodeState is handling the styling (running/passed/failed), don't add conflicting styles
-    if (visualNodeState === 'running' || visualNodeState === 'passed' || visualNodeState === 'failed') {
+    // If nodeState is handling the styling (running/passed/failed/paused), don't add conflicting styles
+    if (visualNodeState === 'running' || visualNodeState === 'passed' || visualNodeState === 'failed' || visualNodeState === 'paused') {
       return ""
     }
 
@@ -608,7 +616,22 @@ function CustomNode({ id, data, selected }: NodeProps) {
   }
   
   // Get execution status indicator for corner
-  const getExecutionStatusIndicator = () => null
+  const getExecutionStatusIndicator = () => {
+    if (visualNodeState !== 'running') {
+      return null
+    }
+
+    return (
+      <div className="absolute top-2 right-9 z-30 pointer-events-none noDrag noPan">
+        <div
+          className="flex h-7 w-7 items-center justify-center rounded-full border border-blue-200/70 bg-white/95 shadow-sm dark:border-blue-500/40 dark:bg-slate-900/90"
+          aria-hidden="true"
+        >
+          <Loader2 className="h-3.5 w-3.5 text-blue-600 animate-spin dark:text-blue-400" />
+        </div>
+      </div>
+    )
+  }
 
   // Get error label for top-left corner
   const getErrorLabel = () => {
@@ -663,8 +686,14 @@ function CustomNode({ id, data, selected }: NodeProps) {
       nodeId: id,
       type,
       hasOnConfigure: !!onConfigure,
-      nodeHasConfiguration: nodeHasConfiguration()
+      nodeHasConfiguration: nodeHasConfiguration(),
+      isFlowTesting: data.isFlowTesting
     })
+
+    // Disable click interactions during flow testing
+    if (data.isFlowTesting) {
+      return
+    }
 
     if (data.shouldSuppressConfigureClick?.()) {
       return
@@ -884,6 +913,128 @@ function CustomNode({ id, data, selected }: NodeProps) {
 
     return `Required fields: ${fieldsToShow.map(getFieldLabel).join(', ')}`
   }, [isIntegrationDisconnected, hasValidationIssues, validationState])
+
+  const nodeRanSuccessfully = executionStatus === 'completed' && !error
+
+  const showCompleteStatusBadge =
+    !nodeRanSuccessfully &&
+    !error &&
+    !isIntegrationDisconnected &&
+    !hasValidationIssues &&
+    !needsSetup
+
+  const showIncompleteStatusBadge =
+    !nodeRanSuccessfully &&
+    !error &&
+    !isIntegrationDisconnected &&
+    (hasValidationIssues || needsSetup)
+
+  const statusBadgeBase = "inline-flex items-center justify-center rounded-full border shadow-sm w-6 h-6"
+
+  const executionSuccessBadge = useMemo(() => {
+    if (!nodeRanSuccessfully) return null
+
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className={`${statusBadgeBase} border-emerald-300 bg-emerald-50 text-emerald-700`}>
+              <CheckCircle2 className="w-3.5 h-3.5" />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="top" align="end">
+            Last run completed successfully.
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    )
+  }, [nodeRanSuccessfully])
+
+  const completionStatusBadge = useMemo(() => {
+    if (!showCompleteStatusBadge) return null
+
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className={`${statusBadgeBase} border-foreground/20 bg-background text-foreground`}>
+              <CheckCircle2 className="w-3.5 h-3.5" />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="top" align="end">
+            This node is fully configured.
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    )
+  }, [showCompleteStatusBadge])
+
+  const incompleteStatusBadge = useMemo(() => {
+    if (!showIncompleteStatusBadge) return null
+
+    const reason =
+      validationMessage ||
+      (needsSetup ? 'Additional setup is required for this node.' : 'Missing required information.')
+
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className={`${statusBadgeBase} border-amber-200 bg-amber-50 text-amber-700`}>
+              <AlertCircle className="w-3.5 h-3.5" />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="top" align="end" className="max-w-[240px] whitespace-pre-wrap text-xs">
+            {reason}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    )
+  }, [showIncompleteStatusBadge, validationMessage, needsSetup])
+
+  // Cached output badge - shows when node has cached data from a previous test run
+  const cachedOutputBadge = useMemo(() => {
+    // Only show if we have cached output and no current execution status
+    if (!nodeData.hasCachedOutput || nodeRanSuccessfully || error) return null
+
+    const timestamp = nodeData.cachedOutputTimestamp
+    const timeAgo = timestamp ? (() => {
+      try {
+        const date = new Date(timestamp)
+        const now = new Date()
+        const diffMs = now.getTime() - date.getTime()
+        const diffMins = Math.floor(diffMs / 60000)
+        if (diffMins < 1) return 'just now'
+        if (diffMins < 60) return `${diffMins}m ago`
+        const diffHours = Math.floor(diffMins / 60)
+        if (diffHours < 24) return `${diffHours}h ago`
+        const diffDays = Math.floor(diffHours / 24)
+        return `${diffDays}d ago`
+      } catch {
+        return ''
+      }
+    })() : ''
+
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className={`${statusBadgeBase} border-blue-200 bg-blue-50 dark:bg-blue-950/50 dark:border-blue-800 text-blue-600 dark:text-blue-400`}>
+              <Database className="w-3.5 h-3.5" />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="top" align="end" className="max-w-[240px] text-xs">
+            <div className="space-y-1">
+              <p className="font-medium">Cached results available</p>
+              <p className="text-muted-foreground">
+                This node was tested {timeAgo}. Open the config to see results.
+              </p>
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    )
+  }, [nodeData.hasCachedOutput, nodeData.cachedOutputTimestamp, nodeRanSuccessfully, error])
 
   const badgeVariantStyles: Record<string, string> = {
     success: 'border-green-500 text-green-600 bg-green-50',
@@ -1159,63 +1310,56 @@ function CustomNode({ id, data, selected }: NodeProps) {
 
   const statusIndicator = React.useMemo(() => {
     if (!aiStatus) return null
+    if (executionStatus === 'completed') return null
 
-    if (executionStatus === 'completed') {
-      return null
-    }
+    const loadingStatuses = new Set(['preparing', 'creating', 'configuring', 'configured', 'testing', 'retesting', 'fixing', 'testing_successful'])
+    const baseClasses = "inline-flex items-center justify-center w-6 h-6 rounded-full border shadow-sm"
 
     if (aiStatus === 'error') {
       return (
-        <div className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 border border-red-200">
-          <AlertTriangle className="w-3 h-3" />
-          <span>Needs Attention</span>
-        </div>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className={`${baseClasses} border-amber-300 bg-amber-50 text-amber-700`}>
+                <AlertTriangle className="w-3.5 h-3.5" />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top" align="end">
+              Node encountered an error while running.
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       )
     }
 
-    const activeStatuses = new Set(['preparing', 'creating', 'configuring', 'configured', 'testing', 'retesting', 'fixing', 'testing_successful'])
-    if (!activeStatuses.has(aiStatus)) {
+    if (!loadingStatuses.has(aiStatus)) {
       return null
     }
 
-    let statusText = 'Configuring'
-    let badgeClass = 'bg-sky-100 text-sky-700 border border-sky-200'
-    let showSpinner = false
-
-    switch (aiStatus) {
-      case 'testing':
-      case 'retesting':
-        statusText = 'Testing'
-        badgeClass = 'bg-amber-100 text-amber-700 border border-amber-200'
-        showSpinner = true
-        break
-      case 'fixing':
-        statusText = 'Fixing'
-        badgeClass = 'bg-orange-100 text-orange-700 border border-orange-200'
-        showSpinner = true
-        break
-      case 'testing_successful':
-        statusText = 'Testing is Successful'
-        badgeClass = 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-        break
-      case 'preparing':
-      case 'creating':
-      case 'configuring':
-      case 'configured':
-      default:
-        statusText = 'Configuring'
-        badgeClass = 'bg-sky-100 text-sky-700 border border-sky-200'
-        showSpinner = true
-        break
-    }
+    const tooltipText =
+      aiStatus === 'testing' || aiStatus === 'retesting'
+        ? 'Node is currently testing.'
+        : aiStatus === 'fixing'
+        ? 'Node is auto-resolving issues.'
+        : 'Node is being configured.'
 
     return (
-      <div className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${badgeClass}`}>
-        {showSpinner && <Loader2 className="w-3 h-3 animate-spin" />}
-        <span>{statusText}</span>
-      </div>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className={`${baseClasses} border-sky-200 bg-sky-50 text-sky-700`}>
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="top" align="end">
+            {tooltipText}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     )
-  }, [aiStatus])
+  }, [aiStatus, executionStatus])
+
+  const activeStatusBadge = statusIndicator ?? executionSuccessBadge ?? cachedOutputBadge ?? completionStatusBadge ?? incompleteStatusBadge
 
   useEffect(() => {
     if (typeof updateNodeInternals === 'function') {
@@ -1403,11 +1547,12 @@ function CustomNode({ id, data, selected }: NodeProps) {
         selectedNodeIds={selectedNodeIds}
         onTestNode={onTestNode}
         onTestFlowFromHere={onTestFlowFromHere}
+        onRename={() => handleStartEditTitle()}
         onFreeze={onFreeze}
-        onStop={onStop}
         onDelete={onDelete}
         onDeleteSelected={onDeleteSelected}
         hasRequiredFieldsMissing={hasRequiredFieldsMissing}
+        disabled={data.isFlowTesting}
       >
         <div
           className="relative w-[360px] bg-slate-50/80 rounded-lg shadow-sm border-2 border-slate-200 group transition-all duration-200 overflow-hidden"
@@ -1518,11 +1663,12 @@ function CustomNode({ id, data, selected }: NodeProps) {
       selectedNodeIds={selectedNodeIds}
       onTestNode={onTestNode}
       onTestFlowFromHere={onTestFlowFromHere}
+      onRename={() => handleStartEditTitle()}
       onFreeze={onFreeze}
-      onStop={onStop}
       onDelete={onDelete}
       onDeleteSelected={onDeleteSelected}
       hasRequiredFieldsMissing={hasRequiredFieldsMissing}
+      disabled={data.isFlowTesting}
     >
       {/* Wrapper div to contain both node and plus button */}
       <div className="relative" style={{ width: '360px' }}>
@@ -1532,7 +1678,8 @@ function CustomNode({ id, data, selected }: NodeProps) {
           } ${getExecutionStatusStyle()} ${
             visualNodeState === 'running' ? 'node-running' :
             visualNodeState === 'passed' ? 'node-passed' :
-            visualNodeState === 'failed' ? 'node-failed' : ''
+            visualNodeState === 'failed' ? 'node-failed' :
+            visualNodeState === 'paused' ? 'node-paused' : ''
           } ${isBeingReordered ? 'ring-2 ring-primary/50' : ''}`}
           data-testid={`node-${id}`}
           onClick={handleClick}
@@ -1577,18 +1724,20 @@ function CustomNode({ id, data, selected }: NodeProps) {
               <GripVertical className="w-3 h-3" />
             </button>
           )}
-      {/* Three-dots menu - Always visible in top-right corner */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            className="absolute top-2 right-2 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors noDrag noPan z-20"
-            onClick={(e) => e.stopPropagation()}
-            aria-label="Node menu"
-          >
-            <MoreVertical className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56" align="end">
+      {/* Three-dots menu with badge slot */}
+      <div className="absolute top-2 right-2 flex items-center gap-1 z-30">
+        {activeStatusBadge}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors noDrag noPan"
+              onClick={(e) => e.stopPropagation()}
+              aria-label="Node menu"
+            >
+              <MoreVertical className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-56" align="end">
           {selectedNodeIds && selectedNodeIds.length > 1 && selectedNodeIds.includes(id) ? (
             <DropdownMenuItem
               onClick={(e) => {
@@ -1630,6 +1779,16 @@ function CustomNode({ id, data, selected }: NodeProps) {
               <DropdownMenuItem
                 onClick={(e) => {
                   e.stopPropagation()
+                  handleStartEditTitle()
+                }}
+              >
+                <Edit2 className="w-4 h-4 mr-2" />
+                Rename
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation()
                   if (!hasRequiredFieldsMissing) {
                     onFreeze?.(id)
                   }
@@ -1638,18 +1797,6 @@ function CustomNode({ id, data, selected }: NodeProps) {
               >
                 <Snowflake className="w-4 h-4 mr-2" />
                 Freeze
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation()
-                  if (!hasRequiredFieldsMissing) {
-                    onStop?.(id)
-                  }
-                }}
-                disabled={hasRequiredFieldsMissing}
-              >
-                <StopCircle className="w-4 h-4 mr-2" />
-                Stop
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -1665,7 +1812,8 @@ function CustomNode({ id, data, selected }: NodeProps) {
             </>
           )}
         </DropdownMenuContent>
-      </DropdownMenu>
+        </DropdownMenu>
+      </div>
 
       {/* Execution status indicator */}
       {getExecutionStatusIndicator()}
@@ -1676,6 +1824,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
           <p className="text-sm text-destructive font-medium">{error}</p>
         </div>
       )}
+      {/* DISABLED: Incomplete banner - commented out per user request
       {!error && !isIntegrationDisconnected && hasValidationIssues && (
         <div className="bg-red-50 border-b border-red-100 px-4 py-3 rounded-t-lg">
           <div className="flex items-start gap-2">
@@ -1688,6 +1837,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
           </div>
         </div>
       )}
+      */}
 
       {/* Execution result message (success, warning, or info from action) */}
       {resultMessage && executionStatus === 'completed' && (
@@ -1816,12 +1966,17 @@ function CustomNode({ id, data, selected }: NodeProps) {
               ) : (
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-1.5">
-                    <h3 className="text-lg font-semibold text-foreground whitespace-nowrap overflow-hidden text-ellipsis flex-1">
+                    <h3
+                      className="text-lg font-semibold text-foreground whitespace-nowrap overflow-hidden text-ellipsis flex-1 cursor-text"
+                      onDoubleClick={(e) => {
+                        e.stopPropagation()
+                        handleStartEditTitle()
+                      }}
+                      title="Double-click to rename"
+                    >
                       {title || (component && component.title) || 'Unnamed Action'}
                     </h3>
-                    {/* Show either the status indicator OR the badge, not both */}
-                    {statusIndicator}
-                    {!statusIndicator && idleStatus && (
+                    {!activeStatusBadge && idleStatus && (
                       idleStatus.tone === 'success' ? (
                         <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600">
                           <CheckCircle2 className="w-3 h-3" />
@@ -1833,7 +1988,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
                         </span>
                       )
                     )}
-                    {!statusIndicator && !idleStatus && !isAIActive && badgeLabel && !error && !hasValidationIssues && (
+                    {!activeStatusBadge && !idleStatus && !isAIActive && badgeLabel && !error && !hasValidationIssues && (
                       <span className={`inline-flex items-center rounded-full text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 flex-shrink-0 ${badgeClasses}`}>
                         {badgeLabel}
                       </span>
@@ -2184,54 +2339,6 @@ function CustomNode({ id, data, selected }: NodeProps) {
           }
         }
       `}</style>
-
-      {/* AI Agent instruction input field */}
-      {type === 'ai_agent' && (
-        <div className="border-t border-border px-3 py-2 bg-muted/30 hover:bg-muted/50 transition-colors">
-          <div className="flex items-start gap-2">
-            <div className="flex-shrink-0 mt-1">
-              <Sparkles className="w-4 h-4 text-primary" />
-            </div>
-            <input
-              type="text"
-              placeholder="Tell AI what to change on this node..."
-              className="flex-1 text-sm bg-transparent border-none outline-none text-muted-foreground placeholder:text-muted-foreground/60 focus:text-foreground transition-colors noDrag noPan"
-              onClick={(e) => e.stopPropagation()}
-              onMouseDown={(e) => e.stopPropagation()}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  // TODO: Handle AI instruction submission
-                  const input = e.currentTarget
-                  console.log('AI instruction:', input.value)
-                  // Clear input after submission
-                  input.value = ''
-                }
-              }}
-            />
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex-shrink-0 mt-1 cursor-help">
-                    <svg className="w-4 h-4 text-muted-foreground hover:text-foreground transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-xs">
-                  <p className="font-semibold mb-1">AI-Powered Configuration</p>
-                  <p className="text-xs">Type instructions in plain English to configure this AI Agent. Examples:</p>
-                  <ul className="text-xs mt-1 space-y-0.5 list-disc list-inside">
-                    <li>"Summarize customer feedback in 2 sentences"</li>
-                    <li>"Extract email addresses from this text"</li>
-                    <li>"Translate to Spanish"</li>
-                  </ul>
-                  <p className="text-xs mt-1 italic">Press Enter to apply changes</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-        </div>
-      )}
 
       {/* Centered Add Action button for chain placeholders - matching AI Agent builder design */}
       {type === 'chain_placeholder' && (hasAddButton || isPlaceholder) && onAddAction && (

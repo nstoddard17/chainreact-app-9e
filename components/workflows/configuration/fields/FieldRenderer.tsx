@@ -3,7 +3,6 @@
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ConfigField, NodeField, ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes";
 import { Label } from "@/components/ui/label";
@@ -76,7 +75,6 @@ import { ContactPicker } from './ContactPicker';
 import { GmailEmailField } from "./gmail/GmailEmailField";
 import { GmailAttachmentField } from "./gmail/GmailAttachmentField";
 import { OutlookEmailField } from "./outlook/OutlookEmailField";
-import { DiscordServerField } from "./discord/DiscordServerField";
 import { DiscordChannelField } from "./discord/DiscordChannelField";
 import { DiscordGenericField } from "./discord/DiscordGenericField";
 import { AirtableImageField } from "./airtable/AirtableImageField";
@@ -84,7 +82,7 @@ import { MultipleRecordsField } from "./airtable/MultipleRecordsField";
 import { FieldMapperField } from "./airtable/FieldMapperField";
 import { GoogleDriveFileField } from "./googledrive/GoogleDriveFileField";
 import { GoogleSheetsFindRowPreview } from "../components/google-sheets/GoogleSheetsFindRowPreview";
-import { MicrosoftExcelColumnMapper } from "./microsoft-excel/MicrosoftExcelColumnMapper";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // Shared field components
 import { GenericSelectField } from "./shared/GenericSelectField";
@@ -215,7 +213,7 @@ interface FieldProps {
   dynamicOptions?: Record<string, { value: string; label: string; fields?: any[] }[]>;
   loadingDynamic?: boolean;
   loadingFields?: Set<string>; // Loading states for individual fields
-  onDynamicLoad?: (fieldName: string, dependsOn?: string, dependsOnValue?: any, forceRefresh?: boolean) => Promise<void>;
+  onDynamicLoad?: (fieldName: string, dependsOn?: string, dependsOnValue?: any, forceRefresh?: boolean, silent?: boolean) => Promise<void>;
   nodeInfo?: any; // Node information for context-aware field behavior
   bubbleValues?: string[]; // Values that have bubbles created
   selectedValues?: string[]; // Selected values from bubbles for multi-select fields
@@ -228,6 +226,7 @@ interface FieldProps {
   airtableTableSchema?: any; // Airtable table schema for dynamic field rendering
   airtableBubbleSuggestions?: any[]; // Bubble metadata for Airtable fields
   onAirtableBubbleRemove?: (index: number, suggestion?: any) => void; // Remove persisted Airtable attachment bubble
+  onLabelStore?: (fieldName: string, value: string, label: string) => void; // Store label alongside value for instant display on reopen
 }
 
 /**
@@ -369,6 +368,7 @@ export function FieldRenderer({
   airtableTableSchema,
   airtableBubbleSuggestions = [],
   onAirtableBubbleRemove,
+  onLabelStore,
 }: FieldProps) {
   // State for file-with-toggle mode - moved outside of render function to prevent infinite loop
   const [inputMode, setInputMode] = useState(() => {
@@ -747,10 +747,19 @@ export function FieldRenderer({
     onChange(checked);
   };
 
+  // Helper to format date as YYYY-MM-DD in LOCAL timezone (not UTC)
+  // Using toISOString() causes date to shift when in timezones behind UTC
+  const formatLocalDate = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // Handles date field changes
   const handleDateChange = (date: Date | undefined) => {
-    // Use YYYY-MM-DD format to match Airtable's date format
-    onChange(date ? date.toISOString().split('T')[0] : null);
+    // Use YYYY-MM-DD format in local timezone to match user's expected date
+    onChange(date ? formatLocalDate(date) : null);
   };
 
   // Get user session for email signature integration
@@ -758,7 +767,9 @@ export function FieldRenderer({
 
   // Render the appropriate field based on type
   const renderFieldByType = () => {
-    const fieldIsLoading = loadingFields?.has(field.name) || false;
+    // Consider both per-field loading set and loadingDynamic flag
+    const fieldIsLoading = (loadingFields?.has(field.name) || loadingDynamic) || false;
+
     // Special handling for Discord slash command trigger
     // Hide all fields except guildId until a server is selected
     if (nodeInfo?.type === 'discord_trigger_slash_command') {
@@ -817,6 +828,16 @@ export function FieldRenderer({
     }
 
     switch (field.type) {
+      case "info":
+        return (
+          <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+            {field.label && (
+              <div className="font-medium text-foreground mb-1">{field.label}</div>
+            )}
+            {field.description && <div>{field.description}</div>}
+          </div>
+        );
+
       case "file-with-toggle":
         // File field with integrated multi-option toggle
         const modes = field.toggleOptions?.modes || ['upload', 'url'];
@@ -1567,6 +1588,7 @@ export function FieldRenderer({
                 isConnectedToAIAgent={isConnectedToAIAgent}
                 workflowData={workflowData}
                 currentNodeId={currentNodeId}
+                onLabelStore={onLabelStore}
               />
             );
           }
@@ -1687,6 +1709,8 @@ export function FieldRenderer({
 
       case "select":
         // Route to integration-specific select field or generic one
+        // Note: Discord fields now use GenericSelectField like other providers.
+        // The infinite loop issue was fixed by stabilizing getFormValues in ConfigurationForm.tsx
         const selectOptions = Array.isArray(field.options)
           ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
           : fieldOptions;
@@ -1742,7 +1766,8 @@ export function FieldRenderer({
                 type: node.data?.type,
                 outputSchema: flattenedOutputs,
                 providerId: node.data?.providerId,
-                position: node.position || { x: 0, y: 0 }
+                position: node.position || { x: 0, y: 0 },
+                isTrigger: node.data?.isTrigger || nodeComponent?.isTrigger || false
               }
             })
             .sort((a: any, b: any) => a.position.y - b.position.y)
@@ -1767,8 +1792,10 @@ export function FieldRenderer({
           const compatibleTypes = getCompatibleTypes(field.type)
 
           // Convert upstream variables to options format for GenericSelectField
-          const variableOptions = upstreamNodes.flatMap((node: any) =>
-            node.outputSchema
+          // Use 'trigger' as the reference prefix for trigger nodes
+          const variableOptions = upstreamNodes.flatMap((node: any) => {
+            const referencePrefix = node.isTrigger ? 'trigger' : node.id
+            return node.outputSchema
               .filter((outputField: any) => {
                 // If no type filtering needed, show all
                 if (!compatibleTypes) return true
@@ -1776,12 +1803,12 @@ export function FieldRenderer({
                 return compatibleTypes.includes(outputField.type?.toLowerCase())
               })
               .map((outputField: any) => ({
-                value: `{{${node.id}.${outputField.name}}}`,
+                value: `{{${referencePrefix}.${outputField.name}}}`,
                 label: outputField.label || outputField.name,
                 group: node.title,
                 groupIcon: node.providerId ? `/integrations/${node.providerId}.svg` : undefined
               }))
-          )
+          })
 
           console.log('📊 [FieldRenderer] Generated variable options:', {
             upstreamNodesCount: upstreamNodes.length,
@@ -1840,6 +1867,7 @@ export function FieldRenderer({
                 isConnectedToAIAgent={isConnectedToAIAgent}
                 workflowData={workflowData}
                 currentNodeId={currentNodeId}
+                onLabelStore={onLabelStore}
               />
               {(field as any).showManageButton && (
                 <GmailLabelManager
@@ -1874,6 +1902,7 @@ export function FieldRenderer({
             isConnectedToAIAgent={isConnectedToAIAgent}
             workflowData={workflowData}
             currentNodeId={currentNodeId}
+            onLabelStore={onLabelStore}
           />
         );
 
@@ -1924,7 +1953,8 @@ export function FieldRenderer({
                 type: node.data?.type,
                 outputSchema: flattenedOutputs,
                 providerId: node.data?.providerId,
-                position: node.position || { x: 0, y: 0 }
+                position: node.position || { x: 0, y: 0 },
+                isTrigger: node.data?.isTrigger || nodeComponent?.isTrigger || false
               }
             })
             .sort((a: any, b: any) => a.position.y - b.position.y)
@@ -1949,8 +1979,10 @@ export function FieldRenderer({
           const compatibleTypes = getCompatibleTypes(field.type)
 
           // Convert upstream variables to options format for GenericSelectField
-          const variableOptions = upstreamNodes.flatMap((node: any) =>
-            node.outputSchema
+          // Use 'trigger' as the reference prefix for trigger nodes
+          const variableOptions = upstreamNodes.flatMap((node: any) => {
+            const referencePrefix = node.isTrigger ? 'trigger' : node.id
+            return node.outputSchema
               .filter((outputField: any) => {
                 // If no type filtering needed, show all
                 if (!compatibleTypes) return true
@@ -1958,12 +1990,12 @@ export function FieldRenderer({
                 return compatibleTypes.includes(outputField.type?.toLowerCase())
               })
               .map((outputField: any) => ({
-                value: `{{${node.id}.${outputField.name}}}`,
+                value: `{{${referencePrefix}.${outputField.name}}}`,
                 label: outputField.label || outputField.name,
                 group: node.title,
                 groupIcon: node.providerId ? `/integrations/${node.providerId}.svg` : undefined
               }))
-          )
+          })
 
           // In Connect mode, only show value if it's already a variable reference (starts with {{)
           // Otherwise, clear it so users only see upstream variables
@@ -1987,6 +2019,7 @@ export function FieldRenderer({
               isConnectedToAIAgent={isConnectedToAIAgent}
               workflowData={workflowData}
               currentNodeId={currentNodeId}
+              onLabelStore={onLabelStore}
             />
           );
         }
@@ -2010,6 +2043,7 @@ export function FieldRenderer({
             workflowData={workflowData}
             currentNodeId={currentNodeId}
             aiToggleButton={aiToggleButton}
+            onLabelStore={onLabelStore}
           />
         );
 
@@ -2077,7 +2111,8 @@ export function FieldRenderer({
                 type: node.data?.type,
                 outputSchema: flattenedOutputs,
                 providerId: node.data?.providerId,
-                position: node.position || { x: 0, y: 0 }
+                position: node.position || { x: 0, y: 0 },
+                isTrigger: node.data?.isTrigger || nodeComponent?.isTrigger || false
               }
             })
             .sort((a: any, b: any) => a.position.y - b.position.y)
@@ -2102,8 +2137,10 @@ export function FieldRenderer({
           const compatibleTypes = getCompatibleTypes(field.type)
 
           // Convert upstream variables to options format for GenericSelectField
-          const variableOptions = upstreamNodes.flatMap((node: any) =>
-            node.outputSchema
+          // Use 'trigger' as the reference prefix for trigger nodes
+          const variableOptions = upstreamNodes.flatMap((node: any) => {
+            const referencePrefix = node.isTrigger ? 'trigger' : node.id
+            return node.outputSchema
               .filter((outputField: any) => {
                 // If no type filtering needed, show all
                 if (!compatibleTypes) return true
@@ -2111,12 +2148,12 @@ export function FieldRenderer({
                 return compatibleTypes.includes(outputField.type?.toLowerCase())
               })
               .map((outputField: any) => ({
-                value: `{{${node.id}.${outputField.name}}}`,
+                value: `{{${referencePrefix}.${outputField.name}}}`,
                 label: outputField.label || outputField.name,
                 group: node.title,
                 groupIcon: node.providerId ? `/integrations/${node.providerId}.svg` : undefined
               }))
-          )
+          })
 
           // In Connect mode, use VariableSelectionDropdown for proper styling
           return (
@@ -2158,6 +2195,7 @@ export function FieldRenderer({
             enableConnectMode={shouldUseConnectMode(field)}
             isConnectedMode={isConnectedMode}
             onConnectToggle={handleConnectToggle}
+            onLabelStore={onLabelStore}
           />
         );
 
@@ -2271,15 +2309,20 @@ export function FieldRenderer({
           trimmedDateValue.endsWith('}}') &&
           !isRuntimeNowValue(trimmedDateValue);
 
-        // Format date value for input
+        // Format date value for input - use local timezone to avoid date shift
         let formattedDateValue = '';
         if (value && !isUsingNow && !isVariableValue) {
           if (value instanceof Date) {
-            formattedDateValue = value.toISOString().split('T')[0];
+            formattedDateValue = formatLocalDate(value);
           } else if (typeof value === 'string') {
-            const date = new Date(value);
-            if (!isNaN(date.getTime())) {
-              formattedDateValue = date.toISOString().split('T')[0];
+            // If already in YYYY-MM-DD format, use as-is
+            if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+              formattedDateValue = value;
+            } else {
+              const date = new Date(value);
+              if (!isNaN(date.getTime())) {
+                formattedDateValue = formatLocalDate(date);
+              }
             }
           }
         }
@@ -2377,18 +2420,26 @@ export function FieldRenderer({
 
         const startDateValue = (() => {
           if (!rawStartValue || startIsVariable) return '';
+          // If already in YYYY-MM-DD format, use as-is
+          if (/^\d{4}-\d{2}-\d{2}$/.test(rawStartValue)) {
+            return rawStartValue;
+          }
           const date = new Date(rawStartValue);
           if (!isNaN(date.getTime())) {
-            return date.toISOString().split('T')[0];
+            return formatLocalDate(date);
           }
           return '';
         })();
 
         const endDateValue = (() => {
           if (!rawEndValue || endIsVariable) return '';
+          // If already in YYYY-MM-DD format, use as-is
+          if (/^\d{4}-\d{2}-\d{2}$/.test(rawEndValue)) {
+            return rawEndValue;
+          }
           const date = new Date(rawEndValue);
           if (!isNaN(date.getTime())) {
-            return date.toISOString().split('T')[0];
+            return formatLocalDate(date);
           }
           return '';
         })();
@@ -2526,7 +2577,9 @@ export function FieldRenderer({
           normalizedDateTime.endsWith('}}') &&
           !isRuntimeNowValue(normalizedDateTime);
 
-        const datetimeValue = useMemo(() => {
+        // Format datetime value for input - using regular function instead of useMemo
+        // to avoid hooks inside switch case (violates Rules of Hooks)
+        const formatDatetimeValue = (): string => {
           if (!value || isVariableDateTime || isUsingNow) return '';
           if (value instanceof Date) {
             // Format as YYYY-MM-DDTHH:mm for datetime-local input
@@ -2549,7 +2602,8 @@ export function FieldRenderer({
             }
           }
           return '';
-        }, [value, isVariableDateTime, isUsingNow]);
+        };
+        const datetimeValue = formatDatetimeValue();
 
         // Check if this field should use connect mode
         const useConnectMode = shouldUseConnectMode(field);
@@ -2768,6 +2822,7 @@ export function FieldRenderer({
               isConnectedToAIAgent={isConnectedToAIAgent}
               workflowData={workflowData}
               currentNodeId={currentNodeId}
+              onLabelStore={onLabelStore}
             />
           );
         }
@@ -2830,23 +2885,6 @@ export function FieldRenderer({
             parentValues={parentValues}
             workflowData={workflowData}
             currentNodeId={currentNodeId}
-          />
-        );
-
-      case "microsoft_excel_column_mapper":
-        // Column Mapper for Microsoft Excel - maps values to worksheet columns
-        return (
-          <MicrosoftExcelColumnMapper
-            value={value}
-            onChange={onChange}
-            field={field}
-            nodeInfo={nodeInfo}
-            workflowData={workflowData}
-            currentNodeId={currentNodeId}
-            dynamicOptions={dynamicOptions}
-            loadingFields={loadingFields}
-            loadOptions={onDynamicLoad}
-            parentValues={parentValues}
           />
         );
 
