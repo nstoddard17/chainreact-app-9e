@@ -91,7 +91,12 @@
       "Bash(node:*)",
       "Bash(del \"c:\\Users\\marcu\\source\\repos\\nstoddard17\\chainreact-app-9e\\scripts\\update-shopify-cascading.js\")",
       "Bash(del \"c:\\Users\\marcu\\source\\repos\\nstoddard17\\chainreact-app-9e\\scripts\\add-shopify-connect-buttons.js\")",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(git rm:*)",
+      "Bash(timeout 30 npx next build:*)",
+      "Bash(timeout 120 npx next build:*)",
+      "Bash(components/workflows/configuration/hooks/useUpstreamVariables.ts)",
+      "Bash(timeout 180 npx next build:*)"
     ],
     "edit": [
       "*"

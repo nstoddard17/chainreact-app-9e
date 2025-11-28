@@ -1,12 +1,13 @@
 "use client"
 
+import { Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { AlertTriangle, ArrowLeft, Mail } from "lucide-react"
 import Link from "next/link"
 
-export default function SSOErrorPage() {
+function SSOErrorContent() {
   const searchParams = useSearchParams()
   const error = searchParams.get("error") || "An unknown error occurred"
 
@@ -50,5 +51,17 @@ export default function SSOErrorPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function SSOErrorPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+        <div className="text-gray-600 dark:text-gray-400">Loading...</div>
+      </div>
+    }>
+      <SSOErrorContent />
+    </Suspense>
   )
 }

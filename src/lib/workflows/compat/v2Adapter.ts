@@ -75,7 +75,7 @@ interface RunSummaryPayload {
 
 const JSON_HEADERS = { "Content-Type": "application/json" }
 
-function generateId(prefix: string): string {
+export function generateId(prefix: string): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return `${prefix}-${crypto.randomUUID()}`
   }
