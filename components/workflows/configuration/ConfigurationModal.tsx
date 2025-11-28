@@ -252,13 +252,6 @@ export function ConfigurationModal({
   const [formSeedVersion, setFormSeedVersion] = useState(0)
   const [activeTab, setActiveTab] = useState<'setup' | 'advanced' | 'results'>('setup')
 
-  // State for cached node outputs
-  const [cachedOutputsInfo, setCachedOutputsInfo] = useState<{
-    available: boolean;
-    nodeCount: number;
-    availableNodes: string[];
-  }>({ available: false, nodeCount: 0, availableNodes: [] })
-
   // Viewport dimensions for panel height calculation (to sit below header)
   const [viewportHeight, setViewportHeight] = useState(0)
   const [viewportWidth, setViewportWidth] = useState(0)
@@ -300,27 +293,6 @@ export function ConfigurationModal({
     prevIsOpenRef.current = isOpen
   }, [currentNodeId, isOpen])
 
-  // Fetch cached node outputs info when modal opens
-  useEffect(() => {
-    if (isOpen && workflowData?.id) {
-      fetch(`/api/workflows/cached-outputs?workflowId=${workflowData.id}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            setCachedOutputsInfo({
-              available: data.nodeCount > 0,
-              nodeCount: data.nodeCount,
-              availableNodes: Object.keys(data.cachedOutputs || {})
-            })
-          }
-        })
-        .catch(err => {
-          logger.warn('[ConfigModal] Failed to fetch cached outputs info:', err)
-        })
-    } else {
-      setCachedOutputsInfo({ available: false, nodeCount: 0, availableNodes: [] })
-    }
-  }, [isOpen, workflowData?.id])
 
   const effectiveInitialData = React.useMemo(
     () => initialOverride ?? initialData ?? {},
@@ -898,7 +870,6 @@ export function ConfigurationModal({
                     testResult={effectiveInitialData?.__testResult}
                     onRunTest={handleTestNode}
                     isTestingNode={isTestingNode}
-                    cachedOutputsInfo={cachedOutputsInfo}
                     workflowId={workflowData?.id}
                   />
                 </TabsContent>
