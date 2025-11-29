@@ -26,9 +26,14 @@ export const itemMovedTriggerSchema: NodeComponent = {
       type: "select",
       dynamic: "monday_groups",
       dynamicParent: "boardId",
+      dependsOn: "boardId",
       required: false,
       placeholder: "Any group...",
-      description: "Optionally filter to only trigger when items move to a specific group"
+      description: "Optionally filter to only trigger when items move to a specific group",
+      hidden: {
+        $deps: ["boardId"],
+        $condition: { boardId: { $exists: false } }
+      }
     }
   ],
   outputSchema: [

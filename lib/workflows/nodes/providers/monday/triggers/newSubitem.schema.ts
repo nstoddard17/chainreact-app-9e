@@ -26,9 +26,14 @@ export const newSubitemTriggerSchema: NodeComponent = {
       type: "select",
       dynamic: "monday_items",
       dynamicParent: "boardId",
+      dependsOn: "boardId",
       required: false,
       placeholder: "Any item...",
-      description: "Optionally filter to only trigger for subitems under a specific parent item"
+      description: "Optionally filter to only trigger for subitems under a specific parent item",
+      hidden: {
+        $deps: ["boardId"],
+        $condition: { boardId: { $exists: false } }
+      }
     }
   ],
   outputSchema: [

@@ -4,7 +4,6 @@ import { NodeComponent } from "../../types"
 // Import trigger schemas
 import { newItemTriggerSchema } from "./triggers/newItem.schema"
 import { columnChangedTriggerSchema } from "./triggers/columnChanged.schema"
-import { newBoardTriggerSchema } from "./triggers/newBoard.schema"
 import { itemMovedTriggerSchema } from "./triggers/itemMoved.schema"
 import { newSubitemTriggerSchema } from "./triggers/newSubitem.schema"
 import { newUpdateTriggerSchema } from "./triggers/newUpdate.schema"
@@ -44,11 +43,6 @@ const newItemTrigger: NodeComponent = {
 const columnChangedTrigger: NodeComponent = {
   ...columnChangedTriggerSchema,
   icon: Edit
-}
-
-const newBoardTrigger: NodeComponent = {
-  ...newBoardTriggerSchema,
-  icon: LayoutGrid
 }
 
 const itemMovedTrigger: NodeComponent = {
@@ -192,7 +186,6 @@ export const mondayNodes: NodeComponent[] = [
   // Triggers
   newItemTrigger,
   columnChangedTrigger,
-  newBoardTrigger,
   itemMovedTrigger,
   newSubitemTrigger,
   newUpdateTrigger,
@@ -231,7 +224,6 @@ export {
   // Triggers
   newItemTrigger,
   columnChangedTrigger,
-  newBoardTrigger,
   itemMovedTrigger,
   newSubitemTrigger,
   newUpdateTrigger,

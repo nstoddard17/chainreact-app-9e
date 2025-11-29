@@ -57,16 +57,6 @@ export const createBoardActionSchema: NodeComponent = {
       supportsAI: true
     },
     {
-      name: "workspaceId",
-      label: "Workspace",
-      type: "select",
-      dynamic: "monday_workspaces",
-      required: false,
-      loadOnMount: true,
-      placeholder: "Select a workspace (optional)...",
-      description: "The workspace where the board will be created (uses default if not specified)"
-    },
-    {
       name: "boardKind",
       label: "Board Type",
       type: "select",

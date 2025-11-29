@@ -49,6 +49,11 @@ export const listUpdatesActionSchema: NodeComponent = {
       type: "select",
       dynamic: "monday_items",
       dynamicParent: "boardId",
+      dependsOn: "boardId",
+      hidden: {
+        $deps: ["boardId"],
+        $condition: { boardId: { $exists: false } }
+      },
       required: false,
       placeholder: "All items...",
       description: "Optionally filter to updates on a specific item"
