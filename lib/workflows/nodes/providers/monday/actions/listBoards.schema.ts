@@ -27,16 +27,6 @@ export const listBoardsActionSchema: NodeComponent = {
   ],
   configSchema: [
     {
-      name: "workspaceId",
-      label: "Workspace (Optional)",
-      type: "select",
-      dynamic: "monday_workspaces",
-      required: false,
-      loadOnMount: true,
-      placeholder: "All workspaces...",
-      description: "Optionally filter to boards in a specific workspace"
-    },
-    {
       name: "state",
       label: "Board State",
       type: "select",

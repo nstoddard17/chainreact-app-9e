@@ -70,6 +70,11 @@ export const duplicateItemActionSchema: NodeComponent = {
       type: "select",
       dynamic: "monday_items",
       dynamicParent: "boardId",
+      dependsOn: "boardId",
+      hidden: {
+        $deps: ["boardId"],
+        $condition: { boardId: { $exists: false } }
+      },
       required: true,
       placeholder: "Select an item...",
       description: "The item to create a duplicate of",
@@ -91,6 +96,11 @@ export const duplicateItemActionSchema: NodeComponent = {
       type: "select",
       dynamic: "monday_groups",
       dynamicParent: "targetBoardId",
+      dependsOn: "targetBoardId",
+      hidden: {
+        $deps: ["targetBoardId"],
+        $condition: { targetBoardId: { $exists: false } }
+      },
       required: false,
       placeholder: "Same as source group...",
       description: "Optionally place duplicate in a different group"

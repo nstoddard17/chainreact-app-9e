@@ -56,6 +56,11 @@ export const archiveItemActionSchema: NodeComponent = {
       type: "select",
       dynamic: "monday_items",
       dynamicParent: "boardId",
+      dependsOn: "boardId",
+      hidden: {
+        $deps: ["boardId"],
+        $condition: { boardId: { $exists: false } }
+      },
       required: true,
       placeholder: "Select an item to archive...",
       description: "The item to archive (can be restored later)",

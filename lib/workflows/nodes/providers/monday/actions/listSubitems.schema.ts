@@ -56,6 +56,11 @@ export const listSubitemsActionSchema: NodeComponent = {
       type: "select",
       dynamic: "monday_items",
       dynamicParent: "boardId",
+      dependsOn: "boardId",
+      hidden: {
+        $deps: ["boardId"],
+        $condition: { boardId: { $exists: false } }
+      },
       required: true,
       placeholder: "Select a parent item...",
       description: "The item to list subitems from",

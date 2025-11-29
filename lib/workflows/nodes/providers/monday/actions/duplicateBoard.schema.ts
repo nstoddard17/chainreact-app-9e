@@ -74,16 +74,6 @@ export const duplicateBoardActionSchema: NodeComponent = {
       supportsAI: true
     },
     {
-      name: "workspaceId",
-      label: "Workspace (Optional)",
-      type: "select",
-      dynamic: "monday_workspaces",
-      required: false,
-      loadOnMount: true,
-      placeholder: "Same as source board...",
-      description: "Optionally duplicate to a different workspace"
-    },
-    {
       name: "duplicateType",
       label: "Duplication Options",
       type: "select",

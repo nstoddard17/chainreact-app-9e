@@ -77,6 +77,11 @@ export const moveItemActionSchema: NodeComponent = {
       type: "select",
       dynamic: "monday_items",
       dynamicParent: "sourceBoardId",
+      dependsOn: "sourceBoardId",
+      hidden: {
+        $deps: ["sourceBoardId"],
+        $condition: { sourceBoardId: { $exists: false } }
+      },
       required: true,
       placeholder: "Select an item...",
       description: "The item to move to a different group",
@@ -98,6 +103,11 @@ export const moveItemActionSchema: NodeComponent = {
       type: "select",
       dynamic: "monday_groups",
       dynamicParent: "targetBoardId",
+      dependsOn: "targetBoardId",
+      hidden: {
+        $deps: ["targetBoardId"],
+        $condition: { targetBoardId: { $exists: false } }
+      },
       required: true,
       placeholder: "Select target group...",
       description: "The group where the item will be moved"

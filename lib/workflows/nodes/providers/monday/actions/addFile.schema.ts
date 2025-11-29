@@ -70,6 +70,11 @@ export const addFileActionSchema: NodeComponent = {
       type: "select",
       dynamic: "monday_items",
       dynamicParent: "boardId",
+      dependsOn: "boardId",
+      hidden: {
+        $deps: ["boardId"],
+        $condition: { boardId: { $exists: false } }
+      },
       required: true,
       placeholder: "Select an item...",
       description: "The item to add the file to",
@@ -81,6 +86,11 @@ export const addFileActionSchema: NodeComponent = {
       type: "select",
       dynamic: "monday_file_columns",
       dynamicParent: "boardId",
+      dependsOn: "boardId",
+      hidden: {
+        $deps: ["boardId"],
+        $condition: { boardId: { $exists: false } }
+      },
       required: true,
       placeholder: "Select a file column...",
       description: "The file column to add the file to"

@@ -56,6 +56,11 @@ export const listItemsActionSchema: NodeComponent = {
       type: "select",
       dynamic: "monday_groups",
       dynamicParent: "boardId",
+      dependsOn: "boardId",
+      hidden: {
+        $deps: ["boardId"],
+        $condition: { boardId: { $exists: false } }
+      },
       required: false,
       placeholder: "All groups...",
       description: "Optionally filter to items in a specific group"

@@ -49,6 +49,11 @@ export const searchItemsActionSchema: NodeComponent = {
       type: "select",
       dynamic: "monday_columns",
       dynamicParent: "boardId",
+      dependsOn: "boardId",
+      hidden: {
+        $deps: ["boardId"],
+        $condition: { boardId: { $exists: false } }
+      },
       required: true,
       placeholder: "Select a column...",
       description: "The column to search by"
@@ -76,6 +81,11 @@ export const searchItemsActionSchema: NodeComponent = {
       type: "select",
       dynamic: "monday_groups",
       dynamicParent: "boardId",
+      dependsOn: "boardId",
+      hidden: {
+        $deps: ["boardId"],
+        $condition: { boardId: { $exists: false } }
+      },
       required: false,
       placeholder: "All groups...",
       description: "Optionally limit search to a specific group"
