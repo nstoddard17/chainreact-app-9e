@@ -75,7 +75,9 @@ export function MicrosoftExcelConfiguration({
   const [microsoftExcelSortField, setMicrosoftExcelSortField] = useState<string | null>(null);
   const [microsoftExcelSortDirection, setMicrosoftExcelSortDirection] = useState<'asc' | 'desc'>('asc');
   const [microsoftExcelSelectedRows, setMicrosoftExcelSelectedRows] = useState<Set<string>>(new Set());
-  const [microsoftExcelHasHeaders, setMicrosoftExcelHasHeaders] = useState(true);
+  const [microsoftExcelHasHeaders, setMicrosoftExcelHasHeaders] = useState(
+    values.hasHeaders !== undefined ? values.hasHeaders : true
+  );
 
   // Track column update values separately to ensure they're captured
   const [columnUpdateValues, setColumnUpdateValues] = useState<Record<string, any>>({});
@@ -432,7 +434,7 @@ export function MicrosoftExcelConfiguration({
         {/* Regular fields */}
         {visibleFields.map((field: any) => {
           // Skip special fields that we handle separately
-          if (['dataPreview', 'columnMapping'].includes(field.name)) {
+          if (['dataPreview', 'columnMapping', 'updateMapping', 'hasHeaders'].includes(field.name)) {
             return null;
           }
 
@@ -448,6 +450,7 @@ export function MicrosoftExcelConfiguration({
               workflowData={workflowData}
               currentNodeId={currentNodeId}
               values={values}
+              parentValues={values}
               loadOptions={(forceReload?: boolean) => {
                 const dependsOn = field.dependsOn;
                 const parentValue = dependsOn ? values[dependsOn] : undefined;
@@ -518,17 +521,125 @@ export function MicrosoftExcelConfiguration({
           loadingPreview={loadingPreview}
         />
 
-        {/* Update Row Fields - shown inline below preview */}
-        {values.action === 'update' && selectedRow && (
-          <MicrosoftExcelUpdateFields
-            values={values}
-            setValue={setValueWithColumnTracking}
-            previewData={previewData}
-            hasHeaders={microsoftExcelHasHeaders}
-            action={values.action}
-            selectedRow={selectedRow}
-          />
-        )}
+        {/* Update Row Fields - shown for update_row action when worksheet is selected */}
+        {nodeInfo?.type === 'microsoft_excel_action_update_row' && values.worksheetName && values.workbookId && (() => {
+          // Auto-load preview if not already shown
+          if (!showPreviewData && !loadingPreview && previewData.length === 0) {
+            loadPreviewData(values.workbookId, values.worksheetName, microsoftExcelHasHeaders);
+          }
+
+          // Determine if we have enough info to find the row
+          const canFindRow =
+            (values.findRowBy === 'row_number' && values.rowNumber) ||
+            (values.findRowBy === 'column_value' && values.matchColumn && values.matchValue);
+
+          // Find the actual row based on search criteria
+          let selectedRow = null;
+          if (canFindRow && previewData && previewData.length > 0) {
+            if (values.findRowBy === 'row_number') {
+              // Find by row number (previewData already has rowNumber property)
+              const targetRowNumber = parseInt(values.rowNumber);
+              selectedRow = previewData.find(row => row.rowNumber === targetRowNumber);
+            } else if (values.findRowBy === 'column_value') {
+              // Find by column value match
+              selectedRow = previewData.find(row =>
+                row.fields[values.matchColumn] === values.matchValue
+              );
+            }
+          }
+
+          return (
+            <>
+              {/* Has Headers Toggle */}
+              <div className="flex items-center gap-3 p-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={microsoftExcelHasHeaders}
+                    onChange={(e) => {
+                      const newValue = e.target.checked;
+                      setMicrosoftExcelHasHeaders(newValue);
+                      // Save to form values
+                      setValueWithColumnTracking('hasHeaders', newValue);
+                      // Reload preview data with new setting
+                      if (values.workbookId && values.worksheetName) {
+                        loadPreviewData(values.workbookId, values.worksheetName, newValue);
+                      }
+                    }}
+                    className="w-4 h-4 text-blue-600 bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600 rounded focus:ring-blue-500 focus:ring-2"
+                  />
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    First row contains headers
+                  </span>
+                </label>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  {microsoftExcelHasHeaders
+                    ? "Row 1 is treated as column headers (not data)"
+                    : "Row 1 is treated as data (can be updated)"}
+                </span>
+              </div>
+
+              {/* Only show update fields when we can find the row AND have found it */}
+              {canFindRow && selectedRow && selectedRow.fields && (
+                <div className="space-y-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-4">
+                  <div>
+                    <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      Fields to Update (Row {selectedRow.rowNumber})
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Enter new values for the columns you want to update. Leave empty to keep current values.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    {Object.keys(selectedRow.fields)
+                      .filter(key => !key.startsWith('_'))
+                      .map((columnName) => {
+                        const fieldKey = `column_${columnName}`;
+                        const currentValue = selectedRow.fields[columnName];
+
+                        return (
+                          <div key={columnName} className="space-y-1">
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                              {columnName}
+                            </label>
+                            <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">
+                              Current: {String(currentValue) || '(empty)'}
+                            </div>
+                            <input
+                              type="text"
+                              value={values[fieldKey] || ''}
+                              onChange={(e) => setValueWithColumnTracking(fieldKey, e.target.value)}
+                              placeholder="New value (leave empty to keep unchanged)"
+                              className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100"
+                            />
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+
+              {/* Show message when search criteria is filled but row not found */}
+              {canFindRow && previewData.length > 0 && !selectedRow && (
+                <div className="p-4 border border-dashed border-orange-300 dark:border-orange-700 rounded-md bg-orange-50 dark:bg-orange-950/20">
+                  <p className="text-sm text-orange-800 dark:text-orange-400">
+                    {values.findRowBy === 'row_number'
+                      ? `Row ${values.rowNumber} not found in the worksheet.`
+                      : `No row found with "${values.matchValue}" in column "${values.matchColumn}".`}
+                  </p>
+                </div>
+              )}
+
+              {/* Show loading state while fetching preview */}
+              {loadingPreview && (
+                <div className="p-4 border border-dashed rounded-md text-center">
+                  <p className="text-sm text-muted-foreground">Loading worksheet columns...</p>
+                </div>
+              )}
+            </>
+          );
+        })()}
 
         {/* Delete Configuration (Inline) */}
         <MicrosoftExcelDeleteConfirmation

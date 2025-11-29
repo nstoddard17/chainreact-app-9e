@@ -5,7 +5,6 @@ import { google } from 'googleapis'
 import { getDecryptedAccessToken } from '@/lib/workflows/actions/core/getDecryptedAccessToken'
 import { logInfo, logError, logSuccess, logWarning } from '@/lib/logging/backendLogger'
 import Anthropic from '@anthropic-ai/sdk'
-import OpenAI from 'openai'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -21,8 +20,6 @@ export interface GmailWebhookEvent {
 
 const processedGmailEvents = new Map<string, number>()
 const GMAIL_DEDUPE_WINDOW_MS = 5 * 60 * 1000
-const AI_FILTER_EMBEDDING_MODEL = 'text-embedding-3-small'
-const AI_FILTER_FALLBACK_MODEL = 'gpt-4o-mini'
 
 type GmailTriggerFilters = {
   from: string[]
@@ -32,8 +29,6 @@ type GmailTriggerFilters = {
   labelIds?: string[]
   aiContentFilter?: string
   aiFilterConfidence?: 'low' | 'medium' | 'high'
-  aiFailClosed?: boolean
-  aiUseEmbeddingPrefilter?: boolean
 }
 
 function buildGmailDedupeKey(workflowId: string, dedupeId: string) {
@@ -151,9 +146,7 @@ function resolveGmailTriggerFilters(triggerNode: any): GmailTriggerFilters {
     hasAttachment: normalizeAttachmentFilter(rawConfig),
     labelIds: labelIds.length > 0 ? labelIds : undefined, // Only include if specified
     aiContentFilter: rawConfig?.aiContentFilter?.trim() || undefined,
-    aiFilterConfidence: rawConfig?.aiFilterConfidence || 'medium',
-    aiFailClosed: rawConfig?.aiFailClosed || false,
-    aiUseEmbeddingPrefilter: rawConfig?.aiUseEmbeddingPrefilter || false
+    aiFilterConfidence: rawConfig?.aiFilterConfidence || 'medium'
   }
 }
 
@@ -639,37 +632,21 @@ async function fetchEmailDetails(
 async function classifyEmailWithAI(
   email: any,
   intent: string,
-  confidence: 'low' | 'medium' | 'high' = 'medium',
-  options?: {
-    failClosed?: boolean
-    useEmbeddingPrefilter?: boolean
-    embeddingModel?: string
-    fallbackModel?: string
-  }
+  confidence: 'low' | 'medium' | 'high' = 'medium'
 ): Promise<{ matches: boolean; confidence: number; reasoning: string }> {
   const thresholds = {
     low: 50,
     medium: 70,
     high: 90
   }
-  const embeddingThresholds = {
-    low: 0.55,
-    medium: 0.65,
-    high: 0.75
-  }
   const requiredConfidence = thresholds[confidence]
-  const requiredEmbeddingScore = embeddingThresholds[confidence]
 
-  const failClosed = options?.failClosed ?? false
-  const useEmbeddingPrefilter = options?.useEmbeddingPrefilter ?? false
-  const embeddingModel = options?.embeddingModel ?? AI_FILTER_EMBEDDING_MODEL
-  const fallbackModel = options?.fallbackModel ?? AI_FILTER_FALLBACK_MODEL
+  try {
+    const anthropic = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY
+    })
 
-  const anthropicKey = process.env.ANTHROPIC_API_KEY
-  const openaiKey = process.env.OPENAI_API_KEY
-  const openai = openaiKey ? new OpenAI({ apiKey: openaiKey }) : null
-
-  const systemPrompt = `You are an email classification assistant. Analyze email content and determine if it matches the user's intent.
+    const systemPrompt = `You are an email classification assistant. Analyze email content and determine if it matches the user's intent.
 
 Respond with JSON:
 {
@@ -680,7 +657,7 @@ Respond with JSON:
 
 Understand context, tone, and implied meaning - not just keywords.`
 
-  const userPrompt = `**User Intent:** ${intent}
+    const userPrompt = `**User Intent:** ${intent}
 
 **Email Subject:** ${email.subject || '(No subject)'}
 
@@ -691,60 +668,6 @@ ${email.body || '(Empty email)'}
 
 Does this email match the user's intent? Respond with JSON only.`
 
-  const parseJsonResponse = (text: string) => {
-    let jsonText = text.trim()
-    if (jsonText.startsWith('```json')) {
-      jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '')
-    } else if (jsonText.startsWith('```')) {
-      jsonText = jsonText.replace(/```\n?/g, '')
-    }
-    return JSON.parse(jsonText)
-  }
-
-  const maybeEmbeddingGate = async () => {
-    if (!useEmbeddingPrefilter || !openai) return null
-    try {
-      const [intentEmbedding, emailEmbedding] = await Promise.all([
-        openai.embeddings.create({
-          model: embeddingModel,
-          input: intent
-        }),
-        openai.embeddings.create({
-          model: embeddingModel,
-          input: `${email.subject || ''}\n\n${email.body || ''}`
-        })
-      ])
-      const a = intentEmbedding.data?.[0]?.embedding
-      const b = emailEmbedding.data?.[0]?.embedding
-      if (!a || !b) return null
-
-      const dot = a.reduce((sum, val, idx) => sum + val * b[idx], 0)
-      const normA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0))
-      const normB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0))
-      const score = dot / (normA * normB)
-
-      logger.debug('🤖 [AI Filter] Embedding similarity', { score, threshold: requiredEmbeddingScore })
-
-      if (score < requiredEmbeddingScore) {
-        return {
-          matches: false,
-          confidence: Math.round(score * 100),
-          reasoning: `Embedding similarity ${score.toFixed(2)} below ${requiredEmbeddingScore}`
-        }
-      }
-      return null
-    } catch (err: any) {
-      logger.warn('Embedding prefilter failed, continuing to LLM:', err?.message || err)
-      return null
-    }
-  }
-
-  const embeddingResult = await maybeEmbeddingGate()
-  if (embeddingResult) return embeddingResult
-
-  const tryAnthropic = async () => {
-    if (!anthropicKey) throw new Error('Missing ANTHROPIC_API_KEY')
-    const anthropic = new Anthropic({ apiKey: anthropicKey })
     const response = await anthropic.messages.create({
       model: 'claude-3-5-sonnet-20241022',
       max_tokens: 512,
@@ -752,30 +675,23 @@ Does this email match the user's intent? Respond with JSON only.`
       system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }]
     })
+
     const content = response.content[0]
     if (content.type !== 'text') {
       throw new Error('Unexpected response type from Claude')
     }
-    return parseJsonResponse(content.text)
-  }
 
-  const tryOpenAI = async () => {
-    if (!openai) throw new Error('Missing OPENAI_API_KEY')
-    const completion = await openai.chat.completions.create({
-      model: fallbackModel,
-      temperature: 0.2,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      max_tokens: 256
-    })
-    const text = completion.choices[0]?.message?.content || ''
-    if (!text) throw new Error('Empty response from OpenAI')
-    return parseJsonResponse(text)
-  }
+    // Parse JSON response
+    let jsonText = content.text.trim()
+    if (jsonText.startsWith('```json')) {
+      jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '')
+    } else if (jsonText.startsWith('```')) {
+      jsonText = jsonText.replace(/```\n?/g, '')
+    }
 
-  const applyThreshold = (result: any) => {
+    const result = JSON.parse(jsonText)
+
+    // Apply threshold
     if (result.confidence < requiredConfidence) {
       return {
         matches: false,
@@ -783,45 +699,23 @@ Does this email match the user's intent? Respond with JSON only.`
         reasoning: `${result.reasoning} (Below ${requiredConfidence}% threshold)`
       }
     }
-    return result
-  }
 
-  try {
-    const primary = await tryAnthropic()
-    const evaluated = applyThreshold(primary)
-    logger.debug('🤖 AI Email Classification (Anthropic):', {
-      matches: evaluated.matches,
-      confidence: evaluated.confidence,
+    // SECURITY: Log classification result without email content
+    logger.debug('🤖 AI Email Classification:', {
+      matches: result.matches,
+      confidence: result.confidence,
       threshold: requiredConfidence
     })
-    return evaluated
-  } catch (primaryError: any) {
-    logger.error('AI email classification (Anthropic) failed, attempting fallback:', primaryError?.message || primaryError)
 
-    try {
-      const fallback = await tryOpenAI()
-      const evaluated = applyThreshold(fallback)
-      logger.debug('🤖 AI Email Classification (OpenAI fallback):', {
-        matches: evaluated.matches,
-        confidence: evaluated.confidence,
-        threshold: requiredConfidence
-      })
-      return evaluated
-    } catch (fallbackError: any) {
-      logger.error('AI email classification fallback failed:', fallbackError?.message || fallbackError)
-      // Fail open or closed based on config
-      if (failClosed) {
-        return {
-          matches: false,
-          confidence: 0,
-          reasoning: 'AI classification failed and fail-closed is enabled'
-        }
-      }
-      return {
-        matches: true,
-        confidence: 0,
-        reasoning: `AI classification error (fail-open): ${primaryError?.message || fallbackError?.message || 'unknown'}`
-      }
+    return result
+
+  } catch (error: any) {
+    logger.error('AI email classification failed:', error)
+    // Fail open - don't block emails if AI fails
+    return {
+      matches: true,
+      confidence: 0,
+      reasoning: `AI classification error: ${error.message}`
     }
   }
 }
@@ -904,13 +798,7 @@ async function checkEmailMatchesFilters(email: any, filters: GmailTriggerFilters
     const aiResult = await classifyEmailWithAI(
       email,
       filters.aiContentFilter,
-      filters.aiFilterConfidence || 'medium',
-      {
-        failClosed: filters.aiFailClosed,
-        useEmbeddingPrefilter: filters.aiUseEmbeddingPrefilter,
-        embeddingModel: AI_FILTER_EMBEDDING_MODEL,
-        fallbackModel: AI_FILTER_FALLBACK_MODEL
-      }
+      filters.aiFilterConfidence || 'medium'
     )
 
     if (!aiResult.matches) {

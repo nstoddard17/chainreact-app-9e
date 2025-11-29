@@ -23,7 +23,6 @@ import { useWorkflowStore } from "@/stores/workflowStore"
 import { useToast } from "@/hooks/use-toast"
 import { logger } from "@/lib/utils/logger"
 import { AIAgentPreferenceModal } from "../AIAgentPreferenceModal"
-import { flowApiRoot } from "@/src/lib/workflows/builder/api/paths"
 
 // Typing animation phrases
 const TYPING_PHRASES = [
@@ -415,7 +414,7 @@ export function AIAgentBuilderContent({ variant = "legacy" }: AIAgentBuilderCont
   const createFlow = useCallback(
     async (name: string, description: string, options?: { prompt?: string }) => {
       if (variant === "v2") {
-        const response = await fetch(flowApiRoot(), {
+        const response = await fetch("/workflows/v2/api/flows", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name, description }),

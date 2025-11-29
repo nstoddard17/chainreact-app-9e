@@ -11,7 +11,6 @@ export interface ConfigurationModalProps {
   nodeInfo: NodeComponent | null;
   integrationName: string;
   initialData?: Record<string, any>;
-  initialDynamicOptions?: Record<string, any[]>;
   workflowData?: { 
     nodes: any[]; 
     edges: any[];
@@ -31,7 +30,6 @@ export interface ConfigurationModalProps {
 export interface ConfigFormProps {
   nodeInfo: NodeComponent | null;
   initialData: Record<string, any>;
-  initialDynamicOptions?: Record<string, any[]>;
   onSubmit: (config: Record<string, any>) => void;
   onCancel: () => void;
   onBack?: () => void;

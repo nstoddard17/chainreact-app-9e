@@ -25,7 +25,7 @@ export async function deleteMicrosoftExcelRow(
       endRow,
       matchColumn,
       matchValue,
-      deleteAll = false,
+      deleteMultiple = false,
       confirmDelete = false
     } = resolvedConfig
 
@@ -36,7 +36,7 @@ export async function deleteMicrosoftExcelRow(
       endRow,
       matchColumn,
       matchValue,
-      deleteAll,
+      deleteMultiple,
       confirmDelete
     })
 
@@ -109,8 +109,8 @@ export async function deleteMicrosoftExcelRow(
         const row = values[i]
         if (row[columnIndex] === matchValue) {
           rowsToDelete.push(i + 1) // Excel rows are 1-indexed
-          if (!deleteAll) {
-            break // Only delete first match if not deleting all
+          if (!deleteMultiple) {
+            break // Only delete first match if not deleting multiple
           }
         }
       }

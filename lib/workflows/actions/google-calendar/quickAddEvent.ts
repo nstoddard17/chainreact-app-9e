@@ -15,37 +15,13 @@ export async function quickAddGoogleCalendarEvent(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    // DEBUG: Log incoming data to trace variable resolution
-    logger.debug('🔍 [Quick Add Event] INCOMING CONFIG:', {
-      config: JSON.stringify(config, null, 2),
-      configText: config?.text,
-      configHasVariables: config?.text?.includes('{{')
-    })
-    logger.debug('🔍 [Quick Add Event] INCOMING INPUT:', {
-      inputKeys: Object.keys(input || {}),
-      inputKeysDetailed: Object.keys(input || {}).map(k => ({
-        key: k,
-        type: typeof input[k],
-        isObject: typeof input[k] === 'object',
-        hasEvents: input[k]?.events !== undefined
-      }))
-    })
-
     // Resolve config values if they contain template variables
     const needsResolution = typeof config === 'object' &&
       Object.values(config).some(v =>
         typeof v === 'string' && v.includes('{{') && v.includes('}}')
       )
 
-    logger.debug('🔍 [Quick Add Event] NEEDS RESOLUTION:', needsResolution)
-
     const resolvedConfig = needsResolution ? resolveValue(config, input) : config
-
-    logger.debug('🔍 [Quick Add Event] RESOLVED CONFIG:', {
-      resolvedText: resolvedConfig?.text,
-      originalText: config?.text,
-      didResolve: resolvedConfig?.text !== config?.text
-    })
 
     const {
       calendarId = 'primary',

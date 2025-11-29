@@ -15,7 +15,7 @@ export async function updateMicrosoftExcelRow(
 
     // Resolve configuration with workflow variables
     const resolvedConfig = resolveValue(config, input)
-    const {
+    let {
       workbookId,
       worksheetName,
       rowNumber,
@@ -24,6 +24,20 @@ export async function updateMicrosoftExcelRow(
       updateMapping,
       updateMultiple = false
     } = resolvedConfig
+
+    // Transform updateMapping from array format to object format if needed
+    // The UI component (MicrosoftExcelColumnMapper) outputs: [{ column: "Name", value: "John" }]
+    // But we need: { "Name": "John" }
+    if (Array.isArray(updateMapping)) {
+      logger.debug('📊 [Excel Update Row] Converting array format to object format');
+      const mappingObject: Record<string, any> = {};
+      for (const item of updateMapping) {
+        if (item && item.column && item.value !== undefined) {
+          mappingObject[item.column] = item.value;
+        }
+      }
+      updateMapping = mappingObject;
+    }
 
     logger.debug('📊 [Excel Update Row] Resolved config:', {
       workbookId,

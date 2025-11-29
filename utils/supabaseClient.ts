@@ -8,11 +8,7 @@ export function createClient() {
   if (!supabaseClient) {
     supabaseClient = createBrowserClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        // Align cookie encoding with server-side clients so auth cookies work across tabs/routes
-        cookieEncoding: 'raw'
-      }
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )
   }
   return supabaseClient

@@ -9,7 +9,7 @@ describe("Flow v2 builder", () => {
     let runCalled = false
     let applyEditsCount = 0
 
-    await page.route("**/workflows/api/flows/**/apply-edits", async (route) => {
+    await page.route("**/workflows/v2/api/flows/**/apply-edits", async (route) => {
       applyEditsCount += 1
       const request = route.request()
       const payload = request.postDataJSON() as any
@@ -24,7 +24,7 @@ describe("Flow v2 builder", () => {
       })
     })
 
-    await page.route("**/workflows/api/flows/*/runs", async (route) => {
+    await page.route("**/workflows/v2/api/flows/*/runs", async (route) => {
       runCalled = true
       await route.fulfill({
         status: 200,
@@ -33,7 +33,7 @@ describe("Flow v2 builder", () => {
       })
     })
 
-    await page.route("**/workflows/api/runs/run-test", async (route) => {
+    await page.route("**/workflows/v2/api/runs/run-test", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",

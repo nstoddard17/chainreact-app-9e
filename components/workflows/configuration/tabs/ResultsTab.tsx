@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useMemo, useState, useEffect } from 'react'
-import { CheckCircle2, XCircle, Clock, Info, TestTube, AlertCircle, RefreshCw, ChevronDown, ChevronRight, Code2, Database, History } from 'lucide-react'
+import { CheckCircle2, XCircle, Clock, Info, TestTube, AlertCircle, RefreshCw, ChevronDown, ChevronRight, Code2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -9,52 +9,6 @@ import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { ConfigurationSectionHeader } from '../components/ConfigurationSectionHeader'
 import { useFlowV2Builder } from '@/src/lib/workflows/builder/useFlowV2Builder'
 import { logger } from '@/lib/utils/logger'
-import { flattenOutputFields } from '@/components/workflows/configuration/hooks/useUpstreamVariables'
-import { navigateArrayPath } from '@/lib/workflows/actions/core/resolveValue'
-
-const MAX_OBJECT_PREVIEW_FIELDS = 4
-
-function isValueEmpty(value: any): boolean {
-  if (value === undefined || value === null) return true
-  if (typeof value === 'string') return value.trim() === ''
-  if (Array.isArray(value)) return value.length === 0
-  if (typeof value === 'object') return Object.keys(value).length === 0
-  return false
-}
-
-function formatPreviewValue(value: any): string {
-  if (value === null || value === undefined) return '—'
-  if (typeof value === 'string') return value
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
-  if (value instanceof Date) return value.toISOString()
-  return JSON.stringify(value)
-}
-
-function renderObjectPreview(obj: Record<string, any> | null | undefined) {
-  if (!obj || typeof obj !== 'object') return null
-
-  const entries = Object.entries(obj)
-  if (entries.length === 0) return null
-
-  const previewEntries = entries.slice(0, MAX_OBJECT_PREVIEW_FIELDS)
-  const remainingCount = entries.length - previewEntries.length
-
-  return (
-    <div className="rounded bg-muted/30 p-3 border border-border text-xs">
-      <dl className="space-y-1">
-        {previewEntries.map(([key, val]) => (
-          <div key={key} className="flex items-start gap-2">
-            <dt className="text-muted-foreground min-w-[90px] font-medium">{key}</dt>
-            <dd className="text-foreground break-words flex-1">{formatPreviewValue(val)}</dd>
-          </div>
-        ))}
-      </dl>
-      {remainingCount > 0 && (
-        <p className="text-[11px] text-muted-foreground mt-2">+{remainingCount} more field{remainingCount === 1 ? '' : 's'}</p>
-      )}
-    </div>
-  )
-}
 
 interface ResultsTabProps {
   nodeInfo: any
@@ -66,17 +20,9 @@ interface ResultsTabProps {
     timestamp?: string
     error?: string
     rawResponse?: any
-    cachedDataUsed?: number
-    outputCached?: boolean
   }
   onRunTest?: () => void
   isTestingNode?: boolean
-  cachedOutputsInfo?: {
-    available: boolean
-    nodeCount: number
-    availableNodes: string[]
-  }
-  workflowId?: string
 }
 
 /**
@@ -96,8 +42,6 @@ export function ResultsTab({
   testResult,
   onRunTest,
   isTestingNode = false,
-  cachedOutputsInfo,
-  workflowId,
 }: ResultsTabProps) {
   const [showRawResponse, setShowRawResponse] = useState(false)
   const [expandedFields, setExpandedFields] = useState<Record<string, boolean>>({})
@@ -105,8 +49,6 @@ export function ResultsTab({
   const [latestExecutionData, setLatestExecutionData] = useState<Record<string, any> | null>(null)
   const [latestExecutionResult, setLatestExecutionResult] = useState<any>(null)
   const [isLoadingLatest, setIsLoadingLatest] = useState(false)
-  const [cachedOutput, setCachedOutput] = useState<any>(null)
-  const [isLoadingCached, setIsLoadingCached] = useState(false)
 
   // Get builder instance to access actions
   const builder = useFlowV2Builder()
@@ -117,120 +59,13 @@ export function ResultsTab({
   }, [nodeInfo?.type])
 
   const outputSchema = nodeComponent?.outputSchema || []
-  const flattenedOutputSchema = useMemo(() => flattenOutputFields(outputSchema), [outputSchema])
 
-  // Fetch cached output directly from API when component mounts
-  useEffect(() => {
-    const fetchCachedOutput = async () => {
-      if (!workflowId || !currentNodeId || testData) return // Don't fetch if we already have test data
-
-      try {
-        setIsLoadingCached(true)
-        const response = await fetch(`/api/workflows/cached-outputs?workflowId=${workflowId}&nodeId=${currentNodeId}`, {
-          credentials: 'include'
-        })
-
-        if (response.ok) {
-          const data = await response.json()
-          if (data.success && data.cachedOutputs?.[currentNodeId]) {
-            setCachedOutput(data.cachedOutputs[currentNodeId])
-            logger.debug('[ResultsTab] Loaded cached output for node:', currentNodeId)
-          }
-        }
-      } catch (error) {
-        logger.debug('[ResultsTab] Failed to fetch cached output:', error)
-      } finally {
-        setIsLoadingCached(false)
-      }
-    }
-
-    fetchCachedOutput()
-  }, [workflowId, currentNodeId, testData])
-
-  // Extract output data from cached output structure
-  // The cached output has structure: { nodeId, nodeType, output: { success, output: {...}, message }, executedAt }
-  const cachedOutputData = useMemo(() => {
-    if (!cachedOutput?.output) return null
-    // The output field contains the ActionResult with nested output
-    const actionResult = cachedOutput.output
-    if (actionResult?.output && typeof actionResult.output === 'object') {
-      return actionResult.output
-    }
-    // Fallback to direct output if not nested
-    return actionResult
-  }, [cachedOutput])
-
-  const cachedOutputResult = useMemo(() => {
-    if (!cachedOutput?.output) return null
-    const actionResult = cachedOutput.output
-    return {
-      success: actionResult?.success !== false,
-      executionTime: actionResult?.executionTime,
-      timestamp: cachedOutput.executedAt,
-      error: actionResult?.error,
-      message: actionResult?.message,
-      rawResponse: actionResult,
-      fromCache: true
-    }
-  }, [cachedOutput])
-
-  // Use latest execution data if available, then test data, then cached data
-  const displayData = latestExecutionData || testData || cachedOutputData
-  const displayResult = latestExecutionResult || testResult || cachedOutputResult
+  // Use latest execution data if available, otherwise fall back to test data
+  const displayData = latestExecutionData || testData
+  const displayResult = latestExecutionResult || testResult
 
   const hasTestData = displayData && Object.keys(displayData).length > 0
-  const resultHasRawResponse = useMemo(() => {
-    if (!displayResult?.rawResponse) return false
-    if (typeof displayResult.rawResponse === 'object') {
-      try {
-        return Object.keys(displayResult.rawResponse).length > 0
-      } catch {
-        return true
-      }
-    }
-    return true
-  }, [displayResult])
-
-  const hasMeaningfulResult = Boolean(
-    displayResult &&
-      (displayResult.timestamp ||
-        displayResult.executionTime !== undefined ||
-        displayResult.error ||
-        (typeof displayResult.message === 'string' && displayResult.message.trim().length > 0) ||
-        resultHasRawResponse)
-  )
-  const hasTestResult = hasMeaningfulResult
-  const activeResult = hasTestResult ? displayResult : null
-  const isFromCache = !latestExecutionData && !testData && cachedOutputData !== null
-
-  // Debug logging to trace data flow issues
-  useEffect(() => {
-    // CRITICAL DEBUG: Log to browser console for visibility
-    console.log('🔍 [ResultsTab] Props received:', {
-      hasTestData,
-      hasTestResult,
-      testData,
-      testDataKeys: testData ? Object.keys(testData) : 'NULL',
-      testResult: activeResult,
-      displayData,
-      displayDataKeys: displayData ? Object.keys(displayData) : 'NULL',
-      outputSchemaLength: flattenedOutputSchema?.length || 0
-    })
-
-    logger.debug('[ResultsTab] Data state:', {
-      hasTestData,
-      hasTestResult,
-      isFromCache,
-      testDataKeys: testData ? Object.keys(testData) : [],
-      testDataSample: testData ? JSON.stringify(testData).slice(0, 200) : null,
-      displayDataKeys: displayData ? Object.keys(displayData) : [],
-      displayDataSample: displayData ? JSON.stringify(displayData).slice(0, 200) : null,
-      outputSchemaLength: flattenedOutputSchema?.length || 0,
-      outputSchemaFields: flattenedOutputSchema?.map((f: any) => f.name) || [],
-      testResult: activeResult ? { success: activeResult.success, hasError: !!activeResult.error } : null,
-      nodeType: nodeInfo?.type
-    })
-  }, [testData, displayData, testResult, activeResult, flattenedOutputSchema, nodeInfo?.type, hasTestData, hasTestResult, isFromCache])
+  const hasTestResult = displayResult !== undefined
 
   useEffect(() => {
     setLatestExecutionData(null)
@@ -700,7 +535,7 @@ export function ResultsTab({
   }
 
   // Show output schema even without test data
-  const showOutputSchema = flattenedOutputSchema.length > 0
+  const showOutputSchema = outputSchema.length > 0
 
   // Empty state - show schema but no values
   if (!hasTestData && !hasTestResult && showOutputSchema) {
@@ -723,40 +558,32 @@ export function ResultsTab({
                   These variables will be available after this node executes
                 </p>
               </div>
-              <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                {onRunTest && (
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={onRunTest}
-                    disabled={isTestingNode}
-                    className="flex items-center gap-2"
-                  >
-                    {isTestingNode ? (
-                      <>
-                        <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white" />
-                        Testing...
-                      </>
-                    ) : (
-                      <>
-                        <TestTube className="h-3.5 w-3.5" />
-                        Test Node
-                      </>
-                    )}
-                  </Button>
-                )}
-                {cachedOutputsInfo?.available && (
-                  <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
-                    <CheckCircle2 className="h-3 w-3" />
-                    <span>{cachedOutputsInfo.nodeCount} cached output{cachedOutputsInfo.nodeCount !== 1 ? 's' : ''} available</span>
-                  </div>
-                )}
-              </div>
+              {onRunTest && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={onRunTest}
+                  disabled={isTestingNode}
+                  className="flex items-center gap-2 flex-shrink-0"
+                >
+                  {isTestingNode ? (
+                    <>
+                      <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white" />
+                      Testing...
+                    </>
+                  ) : (
+                    <>
+                      <TestTube className="h-3.5 w-3.5" />
+                      Test Node
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
 
             {/* Output Schema - No values yet */}
             <div className="space-y-2">
-              {flattenedOutputSchema.map((field) => (
+              {outputSchema.map((field) => (
                 <div
                   key={field.name}
                   className="rounded-lg border border-border bg-card p-4 hover:border-border transition-colors"
@@ -805,9 +632,9 @@ export function ResultsTab({
     )
   }
 
-  const isSuccess = activeResult?.success ?? true
-  const executionTime = activeResult?.executionTime
-  const timestamp = activeResult?.timestamp
+  const isSuccess = testResult?.success ?? true
+  const executionTime = testResult?.executionTime
+  const timestamp = testResult?.timestamp
 
   return (
     <div className="flex flex-col h-full">
@@ -823,53 +650,32 @@ export function ResultsTab({
           {/* Header */}
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-semibold text-foreground">
-                  {isFromCache ? 'Cached Results' : 'Test Execution Results'}
-                </h2>
-                {isFromCache && (
-                  <Badge variant="outline" className="text-[10px] h-5 px-2 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800">
-                    <History className="h-3 w-3 mr-1" />
-                    From previous run
-                  </Badge>
-                )}
-              </div>
+              <h2 className="text-lg font-semibold text-foreground">Test Execution Results</h2>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                {isFromCache
-                  ? 'Output data from a previous test run. Re-test to get fresh results.'
-                  : 'Output data and execution details from the most recent test run'
-                }
+                Output data and execution details from the most recent test run
               </p>
             </div>
-            <div className="flex flex-col items-end gap-2 flex-shrink-0">
-              {onRunTest && (
-                <Button
-                  variant={isFromCache ? "default" : "outline"}
-                  size="sm"
-                  onClick={onRunTest}
-                  disabled={isTestingNode}
-                  className="flex items-center gap-2"
-                >
-                  {isTestingNode ? (
-                    <>
-                      <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-current" />
-                      Testing...
-                    </>
-                  ) : (
-                    <>
-                      {isFromCache ? <TestTube className="h-3.5 w-3.5" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                      {isFromCache ? 'Test Node' : 'Re-test'}
-                    </>
-                  )}
-                </Button>
-              )}
-              {cachedOutputsInfo?.available && (
-                <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
-                  <CheckCircle2 className="h-3 w-3" />
-                  <span>{cachedOutputsInfo.nodeCount} cached output{cachedOutputsInfo.nodeCount !== 1 ? 's' : ''} available</span>
-                </div>
-              )}
-            </div>
+            {onRunTest && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onRunTest}
+                disabled={isTestingNode}
+                className="flex items-center gap-2 flex-shrink-0"
+              >
+                {isTestingNode ? (
+                  <>
+                    <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-current" />
+                    Testing...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    Re-test
+                  </>
+                )}
+              </Button>
+            )}
           </div>
 
           {/* Test Status Summary */}
@@ -920,16 +726,6 @@ export function ResultsTab({
                 </div>
               </div>
 
-              {/* Cached data info */}
-              {activeResult?.cachedDataUsed && activeResult.cachedDataUsed > 0 && (
-                <div className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 rounded-md px-3 py-2 border border-blue-200 dark:border-blue-800">
-                  <Database className="h-3.5 w-3.5 flex-shrink-0" />
-                  <span>
-                    Used {activeResult.cachedDataUsed} cached node output{activeResult.cachedDataUsed !== 1 ? 's' : ''} from previous run
-                  </span>
-                </div>
-              )}
-
               {!isSuccess && displayResult.error && (
                 <Alert variant="destructive" className="mt-3">
                   <AlertCircle className="h-4 w-4" />
@@ -941,37 +737,6 @@ export function ResultsTab({
             </div>
           )}
 
-          {/* Debug: Show when test passed but no output data */}
-          {hasTestResult && !hasTestData && isSuccess && (
-            <Alert className="border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/30">
-              <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-              <AlertDescription className="text-xs text-amber-900 dark:text-amber-200">
-                <p className="font-medium mb-1">Test passed but no output data was returned.</p>
-                <p className="text-[10px] opacity-70">
-                  testData keys: {testData ? Object.keys(testData).join(', ') || '(empty)' : '(null)'}<br/>
-                  displayData keys: {displayData ? Object.keys(displayData).join(', ') || '(empty)' : '(null)'}<br/>
-                  outputSchema fields: {flattenedOutputSchema?.length || 0}<br/>
-                  rawResponse fields: {activeResult?.rawResponse ? Object.keys(activeResult.rawResponse).join(', ') : '(none)'}
-                </p>
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {/* Fallback: If test passed and we have rawResponse but no testData, show rawResponse */}
-          {hasTestResult && !hasTestData && isSuccess && activeResult?.rawResponse && Object.keys(activeResult.rawResponse).length > 0 && (
-            <div className="space-y-4">
-              <ConfigurationSectionHeader
-                label="Output Data (from rawResponse)"
-                prefix={<Code2 className="h-4 w-4 text-muted-foreground" />}
-              />
-                <div className="rounded-lg border border-border bg-card p-4">
-                  <pre className="text-xs font-mono text-foreground whitespace-pre-wrap break-all">
-                  {JSON.stringify(activeResult.rawResponse, null, 2)}
-                  </pre>
-                </div>
-              </div>
-          )}
-
           {/* Output Data */}
           {hasTestData && (
             <div className="space-y-4">
@@ -981,11 +746,11 @@ export function ResultsTab({
               />
 
               <div className="space-y-2">
-                {flattenedOutputSchema.map((field) => {
-                  const value = displayData ? navigateArrayPath(displayData, field.name) : undefined
-                  const hasValue = !isValueEmpty(value)
+                {outputSchema.map((field) => {
+                  const value = displayData[field.name]
+                  const hasValue = value !== undefined && value !== null
                   const isArray = Array.isArray(value)
-                  const isObject = !isArray && typeof value === 'object' && value !== null
+                  const isObject = typeof value === 'object' && value !== null && !isArray
                   const isExpanded = expandedFields[field.name] || false
 
                   return (
@@ -1016,7 +781,7 @@ export function ResultsTab({
                       {hasValue ? (
                         <div className="space-y-2">
                           {/* Table view for arrays */}
-                          {isArray && value.length > 0 && typeof value[0] === 'object' ? (
+                          {isArray && field.type === 'array' && value.length > 0 && typeof value[0] === 'object' ? (
                             <>
                               {/* Special handling for Airtable records with nested 'fields' property */}
                               {value[0].fields && typeof value[0].fields === 'object' ? (
@@ -1044,7 +809,6 @@ export function ResultsTab({
                             </div>
                           ) : isObject ? (
                             <>
-                              {renderObjectPreview(value)}
                               <button
                                 onClick={() => setExpandedFields(prev => ({ ...prev, [field.name]: !prev[field.name] }))}
                                 className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
@@ -1100,7 +864,7 @@ export function ResultsTab({
           )}
 
           {/* Raw Response Viewer */}
-          {activeResult?.rawResponse && (
+          {testResult?.rawResponse && (
             <div className="space-y-3">
               <button
                 onClick={() => setShowRawResponse(!showRawResponse)}
@@ -1117,7 +881,7 @@ export function ResultsTab({
               {showRawResponse && (
                 <div className="rounded-lg border border-border bg-muted/30 p-4 overflow-x-auto">
                   <pre className="text-xs font-mono text-foreground whitespace-pre-wrap break-all">
-                    {highlightVariables(JSON.stringify(activeResult.rawResponse, null, 2))}
+                    {highlightVariables(JSON.stringify(displayResult.rawResponse, null, 2))}
                   </pre>
                 </div>
               )}

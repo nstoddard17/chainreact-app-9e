@@ -12,7 +12,6 @@ import { isNodeTypeConnectionExempt, isProviderConnectionExempt } from '../utils
 interface SetupTabProps {
   nodeInfo: any
   initialData?: Record<string, any>
-  initialDynamicOptions?: Record<string, any[]>
   onSave: (data: Record<string, any>) => void
   onCancel: () => void
   onBack?: () => void
@@ -42,7 +41,6 @@ export function SetupTab(props: SetupTabProps) {
   React.useEffect(() => {
     const handleReconnectionEvent = async (event: CustomEvent) => {
       if (event.detail?.provider === nodeInfo?.providerId) {
-        console.log('[SetupTab] Reconnection event received, refreshing integrations')
         // Refresh integrations from the store
         await fetchIntegrations(true)
         // Clear connecting state
@@ -58,7 +56,6 @@ export function SetupTab(props: SetupTabProps) {
   React.useEffect(() => {
     const handleFocus = async () => {
       if (isConnecting) {
-        console.log('[SetupTab] Window focused after OAuth, refreshing integrations')
         await fetchIntegrations(true)
         setIsConnecting(false)
       }
@@ -87,17 +84,6 @@ export function SetupTab(props: SetupTabProps) {
       int => int.provider === nodeInfo.providerId
     )
 
-    // DEBUG: Log what we got from the store
-    if (providerIntegrations.length > 0 && providerIntegrations[0].email) {
-      console.log('[SetupTab] Provider integrations from store:', providerIntegrations.map(int => ({
-        id: int.id,
-        provider: int.provider,
-        email: int.email,
-        avatar_url: int.avatar_url,
-        has_avatar: !!int.avatar_url
-      })))
-    }
-
     // Map to Connection format
     return providerIntegrations.map(integration => {
       // Determine UI status based on integration status
@@ -125,17 +111,6 @@ export function SetupTab(props: SetupTabProps) {
         workspace_id: integration.workspace_id,
         created_at: integration.created_at,
       }
-    }).map((conn, index) => {
-      // DEBUG: Log mapped connection data
-      if (index === 0 && conn.email) {
-        console.log('[SetupTab] Mapped connection data:', {
-          id: conn.id,
-          email: conn.email,
-          avatar_url: conn.avatar_url,
-          has_avatar: !!conn.avatar_url
-        })
-      }
-      return conn
     })
   }, [requiresConnection, nodeInfo?.providerId, integrations])
 
@@ -258,9 +233,7 @@ export function SetupTab(props: SetupTabProps) {
             }
             cleanup()
             if (shouldRefresh) {
-              fetchIntegrations(true).catch((error) => {
-                console.error('[SetupTab] Failed to refresh integrations after OAuth popup closed', error)
-              })
+              fetchIntegrations(true)
             }
           }
         }, 500)
@@ -284,7 +257,6 @@ export function SetupTab(props: SetupTabProps) {
   const handleChangeAccount = (connectionId: string) => {
     // Update the selected connection
     // This will be handled by ServiceConnectionSelector
-    console.log('Selected connection:', connectionId)
   }
 
   const handleDeleteConnection = async (connectionId: string) => {

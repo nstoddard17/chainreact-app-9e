@@ -11,11 +11,7 @@ interface SupabaseProviderProps {
 const SupabaseProvider = ({ children }: SupabaseProviderProps) => {
   const [supabaseClient] = useState(() => createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      // Keep encoding consistent with middleware/server helpers for cross-tab auth
-      cookieEncoding: 'raw'
-    }
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   ))
 
   return (

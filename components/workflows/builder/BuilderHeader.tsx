@@ -89,10 +89,6 @@ interface BuilderHeaderProps {
   setShowExecutionHistory?: (show: boolean) => void
   onSelectHistoryRun?: (runId: string) => Promise<void> | void
   activeRunId?: string | null
-  activeRevisionId?: string | null
-  onRestoreVersion?: (revisionId: string) => Promise<void>
-  onGenerateApiKey?: () => Promise<string>
-  canGenerateApiKey?: boolean
 }
 
 const BuilderHeaderComponent = ({
@@ -125,10 +121,6 @@ const BuilderHeaderComponent = ({
   setShowExecutionHistory,
   onSelectHistoryRun,
   activeRunId,
-  activeRevisionId,
-  onRestoreVersion,
-  onGenerateApiKey,
-  canGenerateApiKey = false,
 }: BuilderHeaderProps) => {
   const router = useRouter()
   const { toast } = useToast()
@@ -142,8 +134,6 @@ const BuilderHeaderComponent = ({
   const [showShareDialog, setShowShareDialog] = useState(false)
   const [showImportDialog, setShowImportDialog] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [showSettingsDialog, setShowSettingsDialog] = useState(false)
-  const [showApiDialog, setShowApiDialog] = useState(false)
   const [shareEmail, setShareEmail] = useState("")
   const [shareMode, setShareMode] = useState<"view" | "edit" | "duplicate">("view")
   const [shareUrl, setShareUrl] = useState("")
@@ -151,37 +141,14 @@ const BuilderHeaderComponent = ({
   const [importJson, setImportJson] = useState("")
   const [isImporting, setIsImporting] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState(false)
-  const [siteOrigin, setSiteOrigin] = useState("")
-  const [generatedApiKey, setGeneratedApiKey] = useState<string | null>(null)
-  const [isGeneratingKey, setIsGeneratingKey] = useState(false)
 
   const isSavingRef = useRef(false)
-
-  // Set origin on client side only (SSR safe)
-  useEffect(() => {
-    setSiteOrigin(window.location.origin)
-  }, [])
   const isNavigatingRef = useRef(false)
 
   // Prefetch workflows page for instant back navigation
   useEffect(() => {
     router.prefetch('/workflows')
   }, [router])
-
-  const apiEndpoint = useMemo(() => {
-    const resolvedId = workflowId || "{workflowId}"
-    const origin = siteOrigin || ""
-    return `${origin}/api/workflows/${resolvedId}/execute`
-  }, [siteOrigin, workflowId])
-
-  const curlCommand = useMemo(
-    () =>
-      `curl -X POST ${apiEndpoint} \\
-  -H "Authorization: Bearer YOUR_API_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{"inputs": {}}'`,
-    [apiEndpoint]
-  )
 
   const isLiveTestingDisabled = isExecuting || isSaving
 
@@ -254,27 +221,6 @@ const BuilderHeaderComponent = ({
   }, [canDeleteWorkflow, deleteWorkflow, workflowId])
 
   const isActive = currentWorkflow?.status === "active"
-
-  const handleGenerateApiKey = useCallback(async () => {
-    if (!onGenerateApiKey) return
-    try {
-      setIsGeneratingKey(true)
-      const key = await onGenerateApiKey()
-      setGeneratedApiKey(key)
-      if (key) {
-        await navigator.clipboard.writeText(key)
-        toast({ title: "API key created", description: "Key copied to clipboard." })
-      }
-    } catch (error: any) {
-      toast({
-        title: "Failed to create API key",
-        description: error?.message || "Unable to generate API key right now.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsGeneratingKey(false)
-    }
-  }, [onGenerateApiKey, toast])
 
   const handleGenerateShareLink = async () => {
     if (!workflowId) return
@@ -392,25 +338,7 @@ const BuilderHeaderComponent = ({
         throw new Error("Invalid workflow format")
       }
 
-      // Create a new workflow with the imported data
-      const response = await fetch('/api/workflows', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: data.name || 'Imported Workflow',
-          description: data.description || '',
-          nodes: data.nodes,
-          connections: data.connections,
-        }),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to import workflow')
-      }
-
-      const result = await response.json()
-
+      // TODO: Implement backend API to import workflow
       toast({
         title: "Workflow imported",
         description: "Workflow has been imported successfully.",
@@ -418,18 +346,11 @@ const BuilderHeaderComponent = ({
 
       setImportJson("")
       setShowImportDialog(false)
-
-      // Navigate to the new workflow
-      const workflowIdResult = result.workflow?.id || result.id
-      if (workflowIdResult) {
-        router.push(`/workflows/builder/${workflowIdResult}`)
-      } else {
-        window.location.reload()
-      }
-    } catch (error: any) {
+      window.location.reload()
+    } catch (_error) {
       toast({
         title: "Error",
-        description: error.message || "Invalid workflow JSON format.",
+        description: "Invalid workflow JSON format.",
         variant: "destructive",
       })
     } finally {
@@ -590,7 +511,10 @@ const BuilderHeaderComponent = ({
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => setShowApiDialog(true)}
+                    onClick={() => {
+                      // TODO: Implement Run via API functionality
+                      toast({ title: "Run via API", description: "Coming soon!" })
+                    }}
                   >
                     <CloudCog className="w-4 h-4" />
                   </Button>
@@ -711,7 +635,21 @@ const BuilderHeaderComponent = ({
                 Versions
               </DropdownMenuItem>
 
-              <DropdownMenuItem onClick={() => setShowSettingsDialog(true)}>
+              <DropdownMenuItem onClick={() => {
+                setShowHistoryDialog(true)
+                setShowExecutionHistory?.(true)
+              }}>
+                <History className="w-4 h-4 mr-2" />
+                Workflow History
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={() => {
+                // TODO: Open workflow settings dialog
+                toast({
+                  title: "Workflow Settings",
+                  description: "Settings will be available when publishing the workflow.",
+                })
+              }}>
                 <Settings className="w-4 h-4 mr-2" />
                 Workflow Settings
               </DropdownMenuItem>
@@ -893,241 +831,10 @@ const BuilderHeaderComponent = ({
         </DialogContent>
       </Dialog>
 
-      {/* Workflow Settings Dialog */}
-      <Dialog open={showSettingsDialog} onOpenChange={setShowSettingsDialog}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Settings className="w-5 h-5" />
-              Workflow Settings
-            </DialogTitle>
-            <DialogDescription>
-              Configure settings for this workflow.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="workflow-name-settings">Workflow Name</Label>
-              <Input
-                id="workflow-name-settings"
-                value={workflowName}
-                onChange={(e) => setWorkflowName(e.target.value)}
-                placeholder="Enter workflow name"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="workflow-description">Description</Label>
-              <Textarea
-                id="workflow-description"
-                placeholder="Add a description for this workflow..."
-                defaultValue={currentWorkflow?.description || ""}
-                rows={3}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <div className="flex items-center gap-2">
-                <span
-                  className={cn(
-                    "text-xs px-2 py-1 rounded-full font-medium",
-                    currentWorkflow?.is_active
-                      ? "bg-green-100 text-green-700"
-                      : "bg-gray-100 text-gray-600"
-                  )}
-                >
-                  {currentWorkflow?.is_active ? "Published" : "Draft"}
-                </span>
-                {currentWorkflow?.status && (
-                  <span className="text-xs text-muted-foreground">
-                    ({currentWorkflow.status})
-                  </span>
-                )}
-              </div>
-            </div>
-            {workflowId && (
-              <div className="space-y-2">
-                <Label>Workflow ID</Label>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 px-3 py-2 bg-muted rounded-md text-xs font-mono truncate">
-                    {workflowId}
-                  </code>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      navigator.clipboard.writeText(workflowId)
-                      toast({ title: "Copied", description: "Workflow ID copied to clipboard" })
-                    }}
-                  >
-                    <Copy className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowSettingsDialog(false)}>
-              Close
-            </Button>
-            <Button onClick={() => {
-              if (handleSave) {
-                handleSave()
-              }
-              setShowSettingsDialog(false)
-            }}>
-              Save Changes
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Run via API Dialog */}
-      <Dialog open={showApiDialog} onOpenChange={setShowApiDialog}>
-        <DialogContent className="w-[95vw] sm:max-w-[820px] lg:max-w-[940px] max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CloudCog className="w-5 h-5" />
-              Run via API
-            </DialogTitle>
-            <DialogDescription>
-              Trigger this workflow programmatically using the API.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-6 py-2 w-full">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>API Endpoint</Label>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <code className="flex-1 w-full px-3 py-2 bg-muted rounded-md text-xs font-mono break-all overflow-x-auto">
-                    POST {apiEndpoint}
-                  </code>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full sm:w-auto"
-                    onClick={() => {
-                      navigator.clipboard.writeText(apiEndpoint)
-                      toast({ title: "Copied", description: "API endpoint copied to clipboard" })
-                    }}
-                  >
-                    <Copy className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Example Request</Label>
-                <div className="rounded-lg border bg-muted/40">
-                  <pre className="px-3 py-3 text-xs font-mono overflow-x-auto whitespace-pre">{curlCommand}</pre>
-                  <div className="border-t px-3 py-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => {
-                        navigator.clipboard.writeText(curlCommand)
-                        toast({ title: "Copied", description: "cURL command copied to clipboard" })
-                      }}
-                    >
-                      <Copy className="w-4 h-4 mr-2" />
-                      Copy cURL Command
-                    </Button>
-                  </div>
-                </div>
-              </div>
-              </div>
-
-            <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700 p-4 text-sm">
-              <div className="flex items-center gap-2 font-medium text-amber-900 dark:text-amber-50">
-                <CloudCog className="w-4 h-4" />
-                API access reminders
-              </div>
-              <p className="text-amber-800 dark:text-amber-100">
-                Save your latest changes, publish the workflow, and use a generated API key before calling this endpoint. API runs always use the latest published revision.
-              </p>
-              <ul className="space-y-2 text-xs text-amber-800 dark:text-amber-200">
-                <li className="flex gap-2">
-                  <span className="mt-1 block h-1.5 w-1.5 rounded-full bg-amber-500" />
-                  <span>Send your inputs inside the <code className="px-1 py-0.5 bg-amber-100 dark:bg-amber-800/60 rounded">inputs</code> object in the JSON body.</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="mt-1 block h-1.5 w-1.5 rounded-full bg-amber-500" />
-                  <span>Include the bearer token header exactly as shown in the example request.</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="mt-1 block h-1.5 w-1.5 rounded-full bg-amber-500" />
-                  <span>Only published flows run via API; draft edits need a publish before they’re used.</span>
-                </li>
-              </ul>
-            </div>
-
-            {onGenerateApiKey && (
-              <div className="space-y-3 rounded-lg border bg-muted/40 p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium">API key</span>
-                    <span className="text-xs text-muted-foreground">
-                      Keys are shown once. Store them securely.
-                    </span>
-                  </div>
-                  <Button
-                    size="sm"
-                    onClick={handleGenerateApiKey}
-                    disabled={!canGenerateApiKey || isGeneratingKey}
-                  >
-                    {isGeneratingKey ? "Creating…" : "Generate key"}
-                  </Button>
-                </div>
-                {!canGenerateApiKey && (
-                  <p className="text-xs text-muted-foreground">
-                    Publish the workflow to enable API key creation.
-                  </p>
-                )}
-                {generatedApiKey && (
-                  <div className="space-y-2">
-                    <Label>New key</Label>
-                    <div className="flex flex-col gap-2">
-                      <code className="w-full px-3 py-2 bg-background rounded-md text-xs font-mono break-all border">
-                        {generatedApiKey}
-                      </code>
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => navigator.clipboard.writeText(generatedApiKey)}
-                        >
-                          Copy key
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => setGeneratedApiKey(null)}
-                        >
-                          Hide key
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowApiDialog(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       <WorkflowVersionsDialog
         open={showVersionsDialog}
         onOpenChange={setShowVersionsDialog}
         workflowId={workflowId || ""}
-        activeRevisionId={activeRevisionId || undefined}
-        onRestoreVersion={onRestoreVersion}
       />
 
       <WorkflowHistoryDialog
@@ -1159,7 +866,5 @@ export const BuilderHeader = React.memo(
     prevProps.canUndo === nextProps.canUndo &&
     prevProps.canRedo === nextProps.canRedo &&
     prevProps.currentWorkflow?.status === nextProps.currentWorkflow?.status &&
-    prevProps.currentWorkflow?.source_template_id === nextProps.currentWorkflow?.source_template_id &&
-    prevProps.canGenerateApiKey === nextProps.canGenerateApiKey &&
-    prevProps.onGenerateApiKey === nextProps.onGenerateApiKey
+    prevProps.currentWorkflow?.source_template_id === nextProps.currentWorkflow?.source_template_id
 )

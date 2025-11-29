@@ -8,7 +8,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { TestTube, Play, Snowflake, Trash2, Edit2 } from "lucide-react"
+import { TestTube, Play, Snowflake, StopCircle, Trash2 } from "lucide-react"
 
 interface NodeContextMenuProps {
   children: React.ReactNode
@@ -16,12 +16,11 @@ interface NodeContextMenuProps {
   selectedNodeIds?: string[]
   onTestNode?: (nodeId: string) => void
   onTestFlowFromHere?: (nodeId: string) => void
-  onRename?: (nodeId: string) => void
   onFreeze?: (nodeId: string) => void
+  onStop?: (nodeId: string) => void
   onDelete?: (nodeId: string) => void
   onDeleteSelected?: (nodeIds: string[]) => void
   hasRequiredFieldsMissing?: boolean
-  disabled?: boolean // Disable context menu during flow testing
 }
 
 export function NodeContextMenu({
@@ -30,20 +29,14 @@ export function NodeContextMenu({
   selectedNodeIds = [],
   onTestNode,
   onTestFlowFromHere,
-  onRename,
   onFreeze,
+  onStop,
   onDelete,
   onDeleteSelected,
   hasRequiredFieldsMissing = false,
-  disabled = false,
 }: NodeContextMenuProps) {
   // Check if multiple nodes are selected and this node is one of them
   const isMultiSelect = selectedNodeIds.length > 1 && selectedNodeIds.includes(nodeId)
-
-  // When disabled, just render children without context menu
-  if (disabled) {
-    return <>{children}</>
-  }
 
   return (
     <ContextMenu>
@@ -53,8 +46,7 @@ export function NodeContextMenu({
       <ContextMenuContent className="w-56">
         {isMultiSelect ? (
           <ContextMenuItem
-            onClick={(e) => {
-              e.stopPropagation()
+            onClick={() => {
               void onDeleteSelected?.(selectedNodeIds)
             }}
             className="text-destructive focus:text-destructive"
@@ -65,8 +57,7 @@ export function NodeContextMenu({
         ) : (
           <>
             <ContextMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
+              onClick={() => {
                 console.log('[NodeContextMenu] Test Node clicked:', nodeId, 'Handler exists:', !!onTestNode)
                 if (!hasRequiredFieldsMissing) {
                   onTestNode?.(nodeId)
@@ -78,8 +69,7 @@ export function NodeContextMenu({
               Test Node
             </ContextMenuItem>
             <ContextMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
+              onClick={() => {
                 console.log('[NodeContextMenu] Test Flow from here clicked:', nodeId, 'Handler exists:', !!onTestFlowFromHere, 'Disabled:', hasRequiredFieldsMissing)
                 if (!hasRequiredFieldsMissing) {
                   onTestFlowFromHere?.(nodeId)
@@ -92,18 +82,7 @@ export function NodeContextMenu({
             </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                onRename?.(nodeId)
-              }}
-            >
-              <Edit2 className="w-4 h-4 mr-2" />
-              Rename
-            </ContextMenuItem>
-            <ContextMenuSeparator />
-            <ContextMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
+              onClick={() => {
                 if (!hasRequiredFieldsMissing) {
                   onFreeze?.(nodeId)
                 }
@@ -114,8 +93,19 @@ export function NodeContextMenu({
               Freeze
             </ContextMenuItem>
             <ContextMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
+              onClick={() => {
+                if (!hasRequiredFieldsMissing) {
+                  onStop?.(nodeId)
+                }
+              }}
+              disabled={hasRequiredFieldsMissing}
+            >
+              <StopCircle className="w-4 h-4 mr-2" />
+              Stop
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+            <ContextMenuItem
+              onClick={() => {
                 void onDelete?.(nodeId)
               }}
               className="text-destructive focus:text-destructive"

@@ -1,74 +1,66 @@
 import { NextResponse } from "next/server"
 
 import { getRouteClient } from "@/src/lib/workflows/builder/api/helpers"
-import { logger } from "@/lib/utils/logger"
+import { ensureWorkspaceRole } from "@/src/lib/workflows/builder/workspace"
 
 export async function GET(_: Request, context: { params: Promise<{ flowId: string }> }) {
-  try {
-    const { flowId } = await context.params
+  const { flowId } = await context.params
 
-    const supabase = await getRouteClient()
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser()
+  const supabase = await getRouteClient()
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
 
-    if (userError || !user) {
-      logger.debug("[runs/latest] Unauthorized", { flowId, userError: userError?.message })
-      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })
-    }
-
-    // Get workflow definition
-    const { data: workflow, error: workflowError } = await supabase
-      .from("workflows")
-      .select("id, user_id")
-      .eq("id", flowId)
-      .maybeSingle()
-
-    if (workflowError) {
-      logger.error("[runs/latest] Definition query error", { flowId, error: workflowError.message })
-      return NextResponse.json({ ok: false, error: workflowError.message }, { status: 500 })
-    }
-
-    if (!workflow) {
-      logger.debug("[runs/latest] Flow not found", { flowId })
-      return NextResponse.json({ ok: false, error: "Flow not found" }, { status: 404 })
-    }
-
-    // Check if user owns the workflow
-    if (workflow.user_id !== user.id) {
-      return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 })
-    }
-
-    // Query latest execution - use id for ordering (UUIDs are time-sortable in Supabase)
-    // Note: started_at may not exist in all deployments, so we query available columns
-    const { data: run, error: runError } = await supabase
-      .from("workflow_executions")
-      .select("id, status, completed_at, execution_time_ms")
-      .eq("workflow_id", flowId)
-      .order("id", { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    if (runError) {
-      logger.error("[runs/latest] Run query error", { flowId, error: runError.message })
-      return NextResponse.json({ ok: false, error: runError.message }, { status: 500 })
-    }
-
-    return NextResponse.json({
-      ok: true,
-      run: run
-        ? {
-            id: run.id,
-            status: run.status,
-            startedAt: null, // Column may not exist in all deployments
-            finishedAt: run.completed_at,
-            executionTimeMs: run.execution_time_ms,
-          }
-        : null,
-    })
-  } catch (error: any) {
-    logger.error("[runs/latest] Unexpected error", { error: error?.message })
-    return NextResponse.json({ ok: false, error: error?.message ?? "Internal server error" }, { status: 500 })
+  if (userError || !user) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })
   }
+
+  const definition = await supabase
+    .from("flow_v2_definitions")
+    .select("workspace_id")
+    .eq("id", flowId)
+    .maybeSingle()
+
+  if (definition.error) {
+    return NextResponse.json({ ok: false, error: definition.error.message }, { status: 500 })
+  }
+
+  if (!definition.data) {
+    return NextResponse.json({ ok: false, error: "Flow not found" }, { status: 404 })
+  }
+
+  try {
+    await ensureWorkspaceRole(supabase, definition.data.workspace_id, user.id, "viewer")
+  } catch (error: any) {
+    const status = error?.status === 403 ? 403 : 500
+    const message = status === 403 ? "Forbidden" : error?.message ?? "Unable to fetch run"
+    return NextResponse.json({ ok: false, error: message }, { status })
+  }
+
+  const { data: run, error: runError } = await supabase
+    .from("flow_v2_runs")
+    .select("id, status, started_at, finished_at, revision_id")
+    .eq("flow_id", flowId)
+    .order("finished_at", { ascending: false })
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (runError) {
+    return NextResponse.json({ ok: false, error: runError.message }, { status: 500 })
+  }
+
+  return NextResponse.json({
+    ok: true,
+    run: run
+      ? {
+          id: run.id,
+          status: run.status,
+          startedAt: run.started_at,
+          finishedAt: run.finished_at,
+          revisionId: run.revision_id,
+        }
+      : null,
+  })
 }

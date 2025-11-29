@@ -83,30 +83,11 @@ export async function createGoogleCalendarEvent(
     // Create calendar API client
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client })
 
-    // Helper to format date as YYYY-MM-DD in LOCAL timezone (not UTC)
-    const formatLocalDateHelper = (d: Date): string => {
-      const year = d.getFullYear()
-      const month = String(d.getMonth() + 1).padStart(2, '0')
-      const day = String(d.getDate()).padStart(2, '0')
-      return `${year}-${month}-${day}`
-    }
-
     // Parse dates and times with proper validation
     const parseDateTime = (date: string, time: string) => {
       // Handle special date values or use defaults
       if (!date || date === 'today') {
-        // Use local date, not UTC
-        date = formatLocalDateHelper(new Date())
-      }
-
-      // Handle full ISO timestamps (e.g., from {{NOW}}) - extract just the date part
-      if (date.includes('T')) {
-        // If it's a UTC ISO string, convert to local date
-        if (date.includes('Z')) {
-          date = formatLocalDateHelper(new Date(date))
-        } else {
-          date = date.split('T')[0]
-        }
+        date = new Date().toISOString().split('T')[0]
       }
 
       // Handle special time values or use defaults
@@ -159,26 +140,11 @@ export async function createGoogleCalendarEvent(
     // Handle all-day events
     if (allDay) {
       // For all-day events, only use date (no timeZone field)
-      const startDateStr = parseDate(startDate)
-      const endDateStr = parseDate(endDate || startDate)
-
-      // For all-day events, Google requires end date to be the day AFTER the last day of the event
-      // If start and end are the same, add one day to end
-      let adjustedEndDate = endDateStr
-      if (startDateStr === endDateStr) {
-        const endDateObj = new Date(endDateStr)
-        endDateObj.setDate(endDateObj.getDate() + 1)
-        const year = endDateObj.getFullYear()
-        const month = String(endDateObj.getMonth() + 1).padStart(2, '0')
-        const day = String(endDateObj.getDate()).padStart(2, '0')
-        adjustedEndDate = `${year}-${month}-${day}`
-      }
-
       eventData.start = {
-        date: startDateStr
+        date: parseDate(startDate)
       }
       eventData.end = {
-        date: adjustedEndDate
+        date: parseDate(endDate || startDate)
       }
     } else {
       // Regular timed event

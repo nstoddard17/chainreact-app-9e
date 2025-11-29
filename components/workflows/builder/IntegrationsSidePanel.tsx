@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect, useCallback } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useTheme } from "next-themes"
 import { ProfessionalSearch } from "@/components/ui/professional-search"
 import { Button } from "@/components/ui/button"
@@ -27,7 +27,6 @@ interface IntegrationsSidePanelProps {
   onClose: () => void
   onNodeSelect: (node: NodeComponent) => void
   mode?: 'trigger' | 'action' // Determines if we show only triggers or only actions
-  addingAfterNodeName?: string | null // Name of the node we're adding after (for context display)
 }
 
 type Category = 'all' | 'apps' | 'logic' | 'ai' | 'data'
@@ -39,15 +38,11 @@ interface Integration {
   logo: string | null
 }
 
-export function IntegrationsSidePanel({ isOpen, onClose, onNodeSelect, mode = 'action', addingAfterNodeName }: IntegrationsSidePanelProps) {
+export function IntegrationsSidePanel({ isOpen, onClose, onNodeSelect, mode = 'action' }: IntegrationsSidePanelProps) {
   const { theme } = useTheme()
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<Category>('all')
   const [selectedIntegration, setSelectedIntegration] = useState<string | null>(null)
-
-  const matchesMode = useCallback((node: NodeComponent) => {
-    return mode === 'trigger' ? Boolean(node.isTrigger) : !node.isTrigger
-  }, [mode])
 
   // Reset to main view (all integrations) when panel is opened
   useEffect(() => {
@@ -90,26 +85,27 @@ export function IntegrationsSidePanel({ isOpen, onClose, onNodeSelect, mode = 'a
   // Get logic nodes
   const logicNodes = useMemo(() =>
     ALL_NODE_COMPONENTS.filter(node =>
-      (node.providerId === 'logic' || node.providerId === 'automation') && matchesMode(node)
+      node.providerId === 'logic' ||
+      node.providerId === 'automation'
     ),
-    [matchesMode]
+    []
   )
 
   // Get AI nodes
   const aiNodes = useMemo(() =>
-    ALL_NODE_COMPONENTS.filter(node => node.providerId === 'ai' && matchesMode(node)),
-    [matchesMode]
+    ALL_NODE_COMPONENTS.filter(node => node.providerId === 'ai'),
+    []
   )
 
   // Get data/utility nodes
   const dataNodes = useMemo(() =>
     ALL_NODE_COMPONENTS.filter(node =>
-      (node.providerId === 'misc' ||
-        node.providerId === 'utility' ||
-        node.type === 'http_request' ||
-        node.type === 'webhook') && matchesMode(node)
+      node.providerId === 'misc' ||
+      node.providerId === 'utility' ||
+      node.type === 'http_request' ||
+      node.type === 'webhook'
     ),
-    [matchesMode]
+    []
   )
 
   // Get nodes for selected integration
@@ -272,17 +268,6 @@ export function IntegrationsSidePanel({ isOpen, onClose, onNodeSelect, mode = 'a
           />
         </div>
       </div>
-
-      {/* Context indicator - Show which node we're adding after */}
-      {addingAfterNodeName && mode === 'action' && (
-        <div className="px-4 py-2 bg-blue-50 dark:bg-blue-950/30 border-b border-blue-100 dark:border-blue-900/50">
-          <p className="text-xs text-blue-700 dark:text-blue-300 flex items-center gap-1.5">
-            <span className="text-blue-500 dark:text-blue-400">↳</span>
-            <span>Adding after</span>
-            <span className="font-medium truncate max-w-[200px]">"{addingAfterNodeName}"</span>
-          </p>
-        </div>
-      )}
 
       {/* Categories - Only show when not viewing integration details */}
       {!selectedIntegration && (

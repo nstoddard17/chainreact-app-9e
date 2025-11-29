@@ -22,7 +22,7 @@ export async function executeMicrosoftExcelUnifiedAction(
         deleteColumn: config.deleteColumn,
         deleteValue: config.deleteValue,
         deleteRowNumber: config.deleteRowNumber,
-        deleteAll: config.deleteAll,
+        deleteMultiple: config.deleteMultiple,
         confirmDelete: config.confirmDelete
       }
     })
@@ -96,7 +96,7 @@ export async function executeMicrosoftExcelUnifiedAction(
           // Support both deleteSearchColumn and deleteColumn for backwards compatibility
           matchColumn: config.matchColumn || config.deleteSearchColumn || config.deleteColumn,
           matchValue: config.matchValue || config.deleteSearchValue || config.deleteValue,
-          deleteAll: config.deleteAll,
+          deleteMultiple: config.deleteMultiple,
           confirmDelete: config.confirmDelete
         }
 

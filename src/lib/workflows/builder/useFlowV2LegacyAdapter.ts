@@ -1,6 +1,6 @@
 import { useMemo } from "react"
 
-import { useFlowV2Builder, type ApplyEditsOptions } from "./useFlowV2Builder"
+import { useFlowV2Builder } from "./useFlowV2Builder"
 
 interface LegacyNodeData {
   id: string
@@ -36,11 +36,9 @@ interface LegacyAdapterState {
 
 interface LegacyAdapterActions {
   askAgent: (prompt: string) => Promise<any>
-  applyEdits: (edits: any[], options?: ApplyEditsOptions) => Promise<void>
-  loadRevision: (revisionId: string) => Promise<void>
+  applyEdits: (edits: any[]) => Promise<void>
   updateConfig: (nodeId: string, patch: Record<string, any>) => void
   addNode: (type: string, position?: { x: number; y: number }) => Promise<void>
-  moveNodes: (moves: Array<{ nodeId: string; position: { x: number; y: number } }>) => Promise<void>
   deleteNode: (nodeId: string) => Promise<void>
   connectEdge: (link: {
     sourceId: string
@@ -116,15 +114,11 @@ export function useFlowV2LegacyAdapter(flowId: string, options?: { initialRevisi
   const actions: LegacyAdapterActions | null = builder
     ? {
         askAgent: builder.actions.askAgent,
-        applyEdits: async (edits, options) => {
-          await builder.actions.applyEdits(edits, options)
-        },
-        loadRevision: async (revisionId: string) => {
-          await builder.actions.loadRevision(revisionId)
+        applyEdits: async (edits) => {
+          await builder.actions.applyEdits(edits)
         },
         updateConfig: builder.actions.updateConfig,
         addNode: builder.actions.addNode,
-        moveNodes: builder.actions.moveNodes,
         deleteNode: builder.actions.deleteNode,
         connectEdge: builder.actions.connectEdge,
         run: builder.actions.run,

@@ -1,6 +1,6 @@
 "use client"
 // FORCE REBUILD NOW
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Settings } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { useDynamicOptions } from './hooks/useDynamicOptions';
@@ -68,7 +68,6 @@ import { ServiceConnectionSelector } from './ServiceConnectionSelector'
 interface ConfigurationFormProps {
   nodeInfo: any;
   initialData?: Record<string, any>;
-  initialDynamicOptions?: Record<string, any[]>;
   onSave: (data: Record<string, any>) => void;
   onCancel: () => void;
   onBack?: () => void;
@@ -87,7 +86,6 @@ interface ConfigurationFormProps {
 function ConfigurationForm({
   nodeInfo,
   initialData = {},
-  initialDynamicOptions,
   onSave,
   onCancel,
   onBack,
@@ -161,19 +159,7 @@ function ConfigurationForm({
     }
     return fields;
   });
-  // Initialize loadingFields with loadOnMount fields to show loading state immediately on first render
-  // This prevents a brief flash of empty dropdowns before the useEffect triggers loading
-  const [loadingFields, setLoadingFields] = useState<Set<string>>(() => {
-    const initialLoadingFields = new Set<string>();
-    if (nodeInfo?.configSchema) {
-      nodeInfo.configSchema.forEach((field: any) => {
-        if (field.loadOnMount === true && field.dynamic) {
-          initialLoadingFields.add(field.name);
-        }
-      });
-    }
-    return initialLoadingFields;
-  });
+  const [loadingFields, setLoadingFields] = useState<Set<string>>(new Set());
   
   // Provider-specific state
   const [selectedRecord, setSelectedRecord] = useState<any>(null);
@@ -260,28 +246,11 @@ function ConfigurationForm({
       !isConnectedStatus(integration?.status)
     );
 
-  // Debug logging for Gmail integration status
-  if (provider === 'gmail') {
-    console.log('🔍 [ConfigForm] Gmail integration check:', {
-      provider,
-      skipConnectionCheck,
-      integration: integration ? { id: integration.id, status: integration.status, provider: integration.provider } : null,
-      needsConnection,
-      isConnectedStatus: integration ? isConnectedStatus(integration.status) : 'N/A'
-    });
-  }
 
   const integrationName = integrationNameProp || nodeInfo?.label?.split(' ')[0] || provider;
 
-  const savedDynamicOptions = useMemo(() => {
-    if (initialDynamicOptions && Object.keys(initialDynamicOptions).length > 0) {
-      return initialDynamicOptions
-    }
-    if (initialData?.__dynamicOptions && Object.keys(initialData.__dynamicOptions).length > 0) {
-      return initialData.__dynamicOptions as Record<string, any[]>
-    }
-    return undefined
-  }, [initialDynamicOptions, initialData])
+  // Don't use saved dynamic options - always fetch fresh from Airtable
+  const savedDynamicOptions = undefined;
 
   // Load saved labels from config into localStorage cache for instant display
   // This enables the "Zapier experience" where fields show saved values immediately
@@ -977,11 +946,6 @@ function ConfigurationForm({
       configSchemaLength: nodeInfo?.configSchema?.length
     };
 
-    // Debug logging for Gmail
-    if (nodeInfo?.providerId === 'gmail') {
-      console.log('🔵 [ConfigForm] Gmail loadOnMount useEffect fired', logData);
-    }
-
     // Also log to window for debugging
     if (nodeInfo?.providerId === 'hubspot') {
       window.__HUBSPOT_LOAD_DEBUG = logData;
@@ -989,31 +953,10 @@ function ConfigurationForm({
     }
 
     if (!nodeInfo?.configSchema || isInitialLoading) {
-      if (nodeInfo?.providerId === 'gmail') {
-        console.log('⏭️ [ConfigForm] Gmail - Skipping loadOnMount - missing configSchema or still loading', {
-          hasConfigSchema: !!nodeInfo?.configSchema,
-          isInitialLoading
-        });
-      }
       return;
     }
 
     if (needsConnection) {
-      if (nodeInfo?.providerId === 'gmail') {
-        console.log('⏭️ [ConfigForm] Gmail - Skipping loadOnMount - integration not connected yet', {
-          providerId: nodeInfo?.providerId,
-          nodeType: nodeInfo?.type,
-          needsConnection
-        });
-      }
-      if (nodeInfo?.providerId === 'microsoft-excel') {
-        console.log('⏭️ [ConfigForm] Microsoft Excel - Skipping loadOnMount - integration not connected yet', {
-          providerId: nodeInfo?.providerId,
-          nodeType: nodeInfo?.type,
-          needsConnection,
-          integrationStatus: integration?.status
-        });
-      }
       logger.debug('⏭️ [ConfigForm] Skipping loadOnMount - integration not connected yet', {
         providerId: nodeInfo?.providerId,
         nodeType: nodeInfo?.type
@@ -1025,21 +968,6 @@ function ConfigurationForm({
     // Use a combination of nodeId, nodeType, and currentNodeId to ensure uniqueness
     const nodeInstanceKey = `${nodeInfo?.id}-${nodeInfo?.type}-${currentNodeId}`;
 
-    if (nodeInfo?.providerId === 'gmail') {
-      console.log('🚀 [ConfigForm] Gmail - Checking for loadOnMount fields...', {
-        nodeInstanceKey,
-        hasLoadedOnMount: hasLoadedOnMount.current,
-        isInitialLoading,
-        nodeType: nodeInfo?.type,
-        allFields: nodeInfo.configSchema.map((f: any) => ({
-          name: f.name,
-          type: f.type,
-          dynamic: f.dynamic,
-          loadOnMount: f.loadOnMount
-        }))
-      });
-    }
-
     // Track node type changes to force reload even with same node ID
     const currentNodeTypeKey = `${nodeInfo?.id}-${nodeInfo?.type}`;
     const nodeTypeChanged = currentNodeTypeKey !== lastLoadedNodeTypeKeyRef.current;
@@ -1047,12 +975,6 @@ function ConfigurationForm({
     // If node type changed, reset the hasLoadedOnMount flag
     if (nodeTypeChanged) {
       hasLoadedOnMount.current = false;
-      if (nodeInfo?.providerId === 'microsoft-excel') {
-        console.log('🔄 [ConfigForm] Microsoft Excel - Node type changed, resetting hasLoadedOnMount', {
-          previous: lastLoadedNodeTypeKeyRef.current,
-          current: currentNodeTypeKey
-        });
-      }
     }
 
     // Find fields that should load on mount
@@ -1065,31 +987,12 @@ function ConfigurationForm({
         // Only load if we haven't loaded this node's fields yet
         // Use nodeTypeKey to ensure we reload when switching node types
         const shouldLoad = !hasLoadedOnMount.current;
-
-        if (nodeInfo?.providerId === 'gmail') {
-          console.log(`🔄 [ConfigForm] Gmail - Field ${field.name} has loadOnMount, shouldLoad: ${shouldLoad}`, {
-            fieldType: field.type,
-            dynamic: field.dynamic,
-            loadOnMount: field.loadOnMount,
-            hasLoadedOnMount: hasLoadedOnMount.current
-          });
-        }
         return shouldLoad;
       }
       return false;
     });
 
-    if (nodeInfo?.providerId === 'gmail') {
-      console.log(`📋 [ConfigForm] Gmail - Fields to load on mount:`, fieldsToLoad.map((f: any) => ({ name: f.name, type: f.type, dynamic: f.dynamic })));
-    }
-
     if (fieldsToLoad.length > 0) {
-      if (nodeInfo?.providerId === 'gmail') {
-        console.log('🚀 [ConfigForm] Gmail - Loading fields on mount IN PARALLEL:', fieldsToLoad.map((f: any) => f.name));
-      }
-      if (nodeInfo?.providerId === 'microsoft-excel') {
-        console.log('🚀 [ConfigForm] Microsoft Excel - Loading fields on mount IN PARALLEL:', fieldsToLoad.map((f: any) => f.name));
-      }
       logger.debug('🚀 [ConfigForm] Loading fields on mount IN PARALLEL:', fieldsToLoad.map((f: any) => f.name));
       hasLoadedOnMount.current = true; // Mark that we've loaded
       lastLoadedNodeTypeKeyRef.current = currentNodeTypeKey; // Track which node type we loaded for
@@ -1102,18 +1005,7 @@ function ConfigurationForm({
           dependsOnValue: field.dependsOn ? values[field.dependsOn] : undefined
         }))
       ).catch(err => {
-        console.error('❌ [ConfigForm] Gmail - Parallel load failed:', err);
         logger.error('❌ [ConfigForm] Parallel load failed:', err);
-      });
-    } else if (nodeInfo?.providerId === 'gmail') {
-      console.log('⏭️ [ConfigForm] Gmail - No fields to load on mount');
-    } else if (nodeInfo?.providerId === 'microsoft-excel') {
-      console.log('⏭️ [ConfigForm] Microsoft Excel - No fields to load on mount', {
-        hasLoadedOnMount: hasLoadedOnMount.current,
-        currentNodeTypeKey,
-        lastLoadedNodeTypeKey: lastLoadedNodeTypeKeyRef.current,
-        nodeTypeChanged,
-        configSchemaFields: nodeInfo.configSchema.map((f: any) => ({ name: f.name, loadOnMount: f.loadOnMount, dynamic: f.dynamic }))
       });
     }
   }, [nodeInfo?.id, nodeInfo?.type, currentNodeId, isInitialLoading, loadOptionsParallel, needsConnection, reloadCounter]); // Track node identity changes, connection state, and reload trigger
@@ -1146,6 +1038,15 @@ function ConfigurationForm({
       // This ensures dropdowns are populated when modal opens with a parent value
       if (field.dependsOn) {
         const parentValue = values[field.dependsOn];
+        // Check if options already exist to prevent repeated loads
+        const fieldOptions = dynamicOptions[field.name];
+        const hasExistingOptions = fieldOptions && Array.isArray(fieldOptions) && fieldOptions.length > 0;
+
+        // Skip if already has options (prevents repeated API calls)
+        if (hasExistingOptions) {
+          return false;
+        }
+
         if (parentValue && !loadedFieldsWithValues.current.has(field.name) && !loadingFields.has(field.name)) {
           logger.debug(`🔄 [ConfigForm] Field ${field.name} is dependent on ${field.dependsOn} which has value: ${parentValue}`);
           return true;
@@ -1301,6 +1202,11 @@ function ConfigurationForm({
         // Load if visible and not yet loaded
         // Special case: prevent repeated reloads for Google Sheets sheetName when options exist
         if (nodeInfo?.providerId === 'google-sheets' && field.name === 'sheetName' && hasOptions) {
+          return false;
+        }
+
+        // Special case: prevent repeated reloads for Microsoft Excel dependent fields when options exist
+        if (nodeInfo?.providerId === 'microsoft-excel' && hasOptions) {
           return false;
         }
 
@@ -1498,32 +1404,12 @@ function ConfigurationForm({
     }
   };
 
-  // Callback to store labels alongside values for instant display on modal reopen
-  // Labels are stored using _label_fieldName convention
-  // NOTE: This hook MUST be before any early returns to comply with Rules of Hooks
-  const handleLabelStore = useCallback((fieldName: string, value: string, label: string) => {
-    const labelKey = `_label_${fieldName}`;
-    if (label) {
-      setValues(prev => ({
-        ...prev,
-        [labelKey]: label
-      }));
-    } else {
-      // Clear the label if value is cleared
-      setValues(prev => {
-        const newValues = { ...prev };
-        delete newValues[labelKey];
-        return newValues;
-      });
-    }
-  }, []);
-
   // Show loading screen during initial load only when there are dynamic fields to fetch
   const hasDynamicFields = Array.isArray(nodeInfo?.configSchema) && nodeInfo.configSchema.some((field: any) => field?.dynamic);
 
   if ((isInitialLoading || isLoadingDynamicOptions) && hasDynamicFields) {
     return (
-      <ConfigurationLoadingScreen
+      <ConfigurationLoadingScreen 
         integrationName={integrationName}
       />
     );
@@ -1577,9 +1463,7 @@ function ConfigurationForm({
     airtableRecords,
     setAirtableRecords,
     airtableTableSchema,
-    setAirtableTableSchema,
-    // Label storage for instant display on reopen
-    onLabelStore: handleLabelStore
+    setAirtableTableSchema
   };
 
   // Handle AI Message nodes with custom prompt builder

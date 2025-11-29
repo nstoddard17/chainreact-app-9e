@@ -52,15 +52,12 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
     return NextResponse.json({ ok: false, error: "Flow not found" }, { status: 404 })
   }
 
-  // Only check workspace role if workspace_id exists (older flows may not have one)
-  if (definition.data.workspace_id) {
-    try {
-      await ensureWorkspaceRole(supabase, definition.data.workspace_id, user.id, "editor")
-    } catch (error: any) {
-      const status = error?.status === 403 ? 403 : 500
-      const message = status === 403 ? "Forbidden" : error?.message ?? "Unable to persist test result"
-      return NextResponse.json({ ok: false, error: message }, { status })
-    }
+  try {
+    await ensureWorkspaceRole(supabase, definition.data.workspace_id, user.id, "editor")
+  } catch (error: any) {
+    const status = error?.status === 403 ? 403 : 500
+    const message = status === 403 ? "Forbidden" : error?.message ?? "Unable to persist test result"
+    return NextResponse.json({ ok: false, error: message }, { status })
   }
 
   const revision = await supabase
@@ -76,12 +73,6 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
   }
 
   const revisionId = revision.data?.id ?? null
-
-  // If no revision exists, we can't create a run record (revision_id is required)
-  // Just return success - the main test caching is handled by nodeOutputCache in test-node API
-  if (!revisionId) {
-    return NextResponse.json({ ok: true, runId: null, skipped: true, reason: "No revision found for flow" })
-  }
 
   const runId = uuid()
   const now = new Date().toISOString()

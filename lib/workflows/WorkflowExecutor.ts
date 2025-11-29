@@ -253,17 +253,7 @@ export class WorkflowExecutor {
 
     const edges = workflow.edges || []
     let currentNodeId = edges.find((edge: any) => edge.source === triggerNode.id)?.target
-
-    // Track all node outputs by node ID for variable resolution
-    const nodeOutputs: Record<string, any> = {}
-
-    // Initialize with trigger data if available
-    let currentInput: Record<string, any> = context.input ? { ...context.input } : {}
-    if (triggerNode && context.input) {
-      nodeOutputs[triggerNode.id] = context.input
-      currentInput[triggerNode.id] = context.input
-    }
-
+    let currentInput = context.input || {}
     const outputs = []
 
     while (currentNodeId) {
@@ -271,10 +261,6 @@ export class WorkflowExecutor {
       if (!currentNode) {
         throw new Error(`Node with ID ${currentNodeId} not found.`)
       }
-
-      // Find the previous node to get its output
-      const previousEdge = edges.find((edge: any) => edge.target === currentNodeId)
-      const previousNodeId = previousEdge?.source
 
       try {
         const result = await executeAction({
@@ -288,16 +274,8 @@ export class WorkflowExecutor {
           throw new Error(result.message)
         }
 
-        // Store result keyed by node ID for variable resolution
-        nodeOutputs[currentNodeId] = result.output
+        currentInput = result.output
         outputs.push(result.output)
-
-        // Build input for next node: include all previous outputs keyed by node ID
-        // Plus merge current output flat for backward compatibility
-        currentInput = {
-          ...nodeOutputs,  // All outputs keyed by node ID
-          ...result.output // Current output merged flat for direct field access
-        }
 
         const nextEdge = edges.find((edge: any) => edge.source === currentNodeId)
         currentNodeId = nextEdge ? nextEdge.target : null

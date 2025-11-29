@@ -1047,41 +1047,26 @@ async function generateOneDriveAuthUrl(state: string): Promise<string> {
 }
 
 async function generateExcelAuthUrl(state: string): Promise<string> {
-  const { getOAuthConfig, getOAuthClientCredentials } = await import("@/lib/integrations/oauthConfig")
-  const config = getOAuthConfig("microsoft-excel")
-
-  const envClientId =
-    process.env.EXCEL_CLIENT_ID ||
-    process.env.MICROSOFT_EXCEL_CLIENT_ID ||
-    process.env.ONEDRIVE_CLIENT_ID ||
-    process.env.MICROSOFT_CLIENT_ID
-
-  const { clientId: configClientId } = config ? getOAuthClientCredentials(config) : { clientId: undefined }
-  const clientId = configClientId || envClientId
-  if (!clientId) {
-    throw new Error("Microsoft Excel client ID not configured")
-  }
+  // Excel uses its own OAuth credentials but same Microsoft Graph API
+  const clientId = process.env.EXCEL_CLIENT_ID || process.env.ONEDRIVE_CLIENT_ID || process.env.MICROSOFT_CLIENT_ID
+  if (!clientId) throw new Error("Excel client ID not configured")
 
   const baseUrl = getBaseUrl()
-  const redirectPath = config?.redirectUriPath ?? "/api/integrations/excel/callback"
-  const redirectUri = `${baseUrl}${redirectPath}`
+  const redirectUri = `${baseUrl}/api/integrations/excel/callback`
 
-  const defaultScope =
-    "openid profile email offline_access https://graph.microsoft.com/User.Read https://graph.microsoft.com/Files.Read https://graph.microsoft.com/Files.ReadWrite"
-  const scope = config?.scope || defaultScope
-
-  const authEndpoint = config?.authEndpoint ?? "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
+  // Excel needs Files.ReadWrite for spreadsheet operations
+  const scope = "openid profile email offline_access https://graph.microsoft.com/User.Read https://graph.microsoft.com/Files.Read https://graph.microsoft.com/Files.ReadWrite"
 
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
     response_type: "code",
-    scope,
+    scope: scope,
     prompt: "select_account", // Allow user to choose which account to use
     state,
   })
 
-  return `${authEndpoint}?${params.toString()}`
+  return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
 }
 
 function generateGitLabAuthUrl(state: string): string {

@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Copy, Check, ExternalLink, AlertCircle } from "lucide-react"
 import { ConfigurationContainer } from '../components/ConfigurationContainer'
 import { FieldRenderer } from '../fields/FieldRenderer'
+import { cn } from "@/lib/utils"
+import { useAuthStore } from "@/stores/authStore"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -50,6 +52,7 @@ export function WebhookConfiguration({
   const [copied, setCopied] = useState(false)
   const [webhookUrl, setWebhookUrl] = useState<string>('')
   const [loading, setLoading] = useState(false)
+  const user = useAuthStore(state => state.user)
 
   // Generate webhook URL
   useEffect(() => {
@@ -105,13 +108,8 @@ export function WebhookConfiguration({
   }
 
   return (
-    <ConfigurationContainer
-      onSubmit={handleSubmit}
-      isEditMode={isEditMode}
-      submitLabel={isEditMode ? 'Update Webhook' : 'Save Webhook'}
-      showFooter={true}
-    >
-      <div className="space-y-6">
+    <ConfigurationContainer>
+      <form onSubmit={handleSubmit} className="space-y-6">
         {/* Webhook URL Display */}
         <div className="space-y-3">
           <div className="flex items-center gap-2">
@@ -214,7 +212,21 @@ export function WebhookConfiguration({
           </div>
         </div>
 
-      </div>
+        {/* Action Buttons */}
+        <div className="flex gap-2 justify-end pt-4 border-t">
+          {onBack && (
+            <Button type="button" variant="outline" onClick={onBack}>
+              Back
+            </Button>
+          )}
+          <Button type="button" variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={loading}>
+            {isEditMode ? 'Update Webhook' : 'Save Webhook'}
+          </Button>
+        </div>
+      </form>
     </ConfigurationContainer>
   )
 }

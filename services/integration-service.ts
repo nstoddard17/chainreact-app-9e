@@ -550,6 +550,12 @@ export class IntegrationService {
       provider = 'teams'
     } else if (dataType.startsWith('microsoft-teams_') || dataType.startsWith('microsoft-teams-')) {
       provider = 'teams'
+    } else if (dataType.startsWith('microsoft-excel_') || dataType.startsWith('microsoft-excel-')) {
+      provider = 'microsoft-excel'
+    } else if (dataType.startsWith('microsoft-outlook_') || dataType.startsWith('microsoft-outlook-')) {
+      provider = 'microsoft-outlook'
+    } else if (dataType.startsWith('microsoft-onenote_') || dataType.startsWith('microsoft-onenote-')) {
+      provider = 'microsoft-onenote'
     } else {
       // Fallback: try to extract provider from dataType
       // Handle both underscore and dash separators

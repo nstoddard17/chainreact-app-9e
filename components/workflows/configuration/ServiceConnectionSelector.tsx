@@ -174,16 +174,6 @@ export function ServiceConnectionSelector({
   const connectedConnections = connections.filter(c => c.status === 'connected')
   const hasConnectedAccounts = connectedConnections.length > 0
 
-  // DEBUG: Log rendering conditions
-  console.log('[ServiceConnectionSelector] Render state:', {
-    providerId,
-    hasConnection: !!connection,
-    hasDeleteHandler: !!onDeleteConnection,
-    shouldShowDeleteButton: !!(onDeleteConnection && connection),
-    connectionId: connection?.id,
-    deleteDialogOpen
-  })
-
   const isConnected = connection?.status === 'connected'
   const hasError = connection?.status === 'error' || connection?.status === 'disconnected'
   const needsReconnection = connection && (connection.status === 'error' || connection.status === 'disconnected')
@@ -428,16 +418,6 @@ export function ServiceConnectionSelector({
 
   // Format options for Combobox (without delete button to avoid nested button issue)
   const comboboxOptions: ComboboxOption[] = connections.map((conn) => {
-    // DEBUG: Log avatar data
-    if (conn.email) {
-      console.log('[ServiceConnectionSelector] Connection data:', {
-        id: conn.id,
-        email: conn.email,
-        avatar_url: conn.avatar_url,
-        has_avatar: !!conn.avatar_url
-      })
-    }
-
     return {
     value: conn.id,
     label: (
@@ -519,10 +499,6 @@ export function ServiceConnectionSelector({
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()
-              console.log('[ServiceConnectionSelector] X button clicked in dropdown', {
-                connectionId: conn.id,
-                email: conn.email
-              })
               handleDeleteClick(conn, e)
             }}
             className="flex-shrink-0 w-4 h-4 flex items-center justify-center rounded hover:bg-destructive/10 hover:text-destructive transition-colors cursor-pointer"
@@ -686,10 +662,7 @@ export function ServiceConnectionSelector({
       )}
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => {
-        console.log('[ServiceConnectionSelector] Dialog open state changed:', open)
-        setDeleteDialogOpen(open)
-      }}>
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remove Account?</AlertDialogTitle>

@@ -1080,7 +1080,6 @@ export const googleCalendarNodes: NodeComponent[] = [
         name: "transparency",
         label: "Show as",
         type: "select",
-        defaultValue: "opaque",
         options: [
           { value: "transparent", label: "Free" },
           { value: "opaque", label: "Busy" }
@@ -1091,7 +1090,6 @@ export const googleCalendarNodes: NodeComponent[] = [
         name: "visibility",
         label: "Visibility",
         type: "select",
-        defaultValue: "default",
         options: [
           { value: "default", label: "Default visibility" },
           { value: "public", label: "Public" },
@@ -1745,9 +1743,9 @@ export const googleCalendarNodes: NodeComponent[] = [
         name: "text",
         label: "Natural Language Text",
         type: "textarea",
-        placeholder: "e.g., 'Lunch with {{trigger.name}} tomorrow at noon'",
+        placeholder: "e.g., 'Lunch with John tomorrow at noon' or 'Meeting next Monday 2pm-3pm'",
         required: true,
-        description: "Describe the event in natural language. Use variables like {{trigger.name}} to insert dynamic data. Google will parse dates, times, and details."
+        description: "Describe the event in natural language - Google will parse dates, times, and details"
       },
       {
         name: "sendNotifications",
@@ -2078,18 +2076,6 @@ export const googleCalendarNodes: NodeComponent[] = [
         description: "Calendar to move the event to"
       },
       {
-        name: "recurringEventHandling",
-        label: "If event is a recurring instance",
-        type: "select",
-        defaultValue: "move_series",
-        options: [
-          { value: "move_series", label: "Move entire recurring series" },
-          { value: "copy_instance", label: "Copy instance to new calendar (deletes original)" },
-          { value: "skip", label: "Skip and continue workflow" }
-        ],
-        description: "Google Calendar doesn't allow moving single instances of recurring events. Choose how to handle this."
-      },
-      {
         name: "sendNotifications",
         label: "Send notifications",
         type: "select",
@@ -2167,42 +2153,6 @@ export const googleCalendarNodes: NodeComponent[] = [
         label: "Status",
         type: "string",
         description: "Event status after move"
-      },
-      {
-        name: "action",
-        label: "Action Taken",
-        type: "string",
-        description: "What action was performed: 'moved', 'moved_series', 'copied_instance', or 'skipped'"
-      },
-      {
-        name: "skipped",
-        label: "Was Skipped",
-        type: "boolean",
-        description: "True if the event was skipped (recurring instance with skip mode)"
-      },
-      {
-        name: "skipReason",
-        label: "Skip Reason",
-        type: "string",
-        description: "Explanation of why the event was skipped (if applicable)"
-      },
-      {
-        name: "originalInstanceId",
-        label: "Original Instance ID",
-        type: "string",
-        description: "The original recurring instance ID (if series was moved or instance was copied)"
-      },
-      {
-        name: "movedSeriesId",
-        label: "Moved Series ID",
-        type: "string",
-        description: "The base recurring event ID that was moved (if move_series mode was used)"
-      },
-      {
-        name: "originalDeleted",
-        label: "Original Deleted",
-        type: "boolean",
-        description: "True if the original event was deleted (copy_instance mode)"
       }
     ],
   },
@@ -2218,7 +2168,7 @@ export const googleCalendarNodes: NodeComponent[] = [
     producesOutput: true,
     configSchema: [
       {
-        name: "calendarId",
+        name: "calendarIds",
         label: "Calendars",
         type: "multiselect",
         dynamic: "google-calendars",
@@ -2228,380 +2178,75 @@ export const googleCalendarNodes: NodeComponent[] = [
       },
       {
         name: "timeMin",
-        label: "Start Date/Time",
-        type: "datetime",
+        label: "Start Time",
+        type: "text",
+        placeholder: "today, tomorrow, or ISO date",
         required: true,
-        supportsRuntimeNow: true,
-        toggleLabel: "Use current date/time when action runs"
+        description: "Start of time range to query (use 'today', 'tomorrow', or ISO date)"
       },
       {
         name: "timeMax",
-        label: "End Date/Time",
-        type: "datetime",
+        label: "End Time",
+        type: "text",
+        placeholder: "next_week, or ISO date",
         required: true,
-        supportsRuntimeNow: true,
-        toggleLabel: "Use current date/time when action runs"
+        description: "End of time range to query (use 'next_week' or ISO date)"
       },
       {
         name: "timeZone",
         label: "Time Zone",
         type: "select",
-        defaultValue: getUserTimeZone(),
+        defaultValue: "UTC",
         options: [
+          { value: "UTC", label: "UTC" },
           { value: "America/New_York", label: "Eastern Time (ET)" },
           { value: "America/Chicago", label: "Central Time (CT)" },
           { value: "America/Denver", label: "Mountain Time (MT)" },
           { value: "America/Los_Angeles", label: "Pacific Time (PT)" },
-          { value: "America/Anchorage", label: "Alaska Time (AKT)" },
-          { value: "Pacific/Honolulu", label: "Hawaii Time (HST)" },
-          { value: "UTC", label: "UTC" },
           { value: "Europe/London", label: "London (GMT/BST)" },
           { value: "Europe/Paris", label: "Paris (CET/CEST)" },
-          { value: "Europe/Berlin", label: "Berlin (CET/CEST)" },
-          { value: "Europe/Moscow", label: "Moscow (MSK)" },
           { value: "Asia/Tokyo", label: "Tokyo (JST)" },
-          { value: "Asia/Shanghai", label: "Shanghai (CST)" },
-          { value: "Asia/Dubai", label: "Dubai (GST)" },
-          { value: "Asia/Kolkata", label: "India (IST)" },
-          { value: "Australia/Sydney", label: "Sydney (AEDT/AEST)" },
-          { value: "Pacific/Auckland", label: "Auckland (NZDT/NZST)" }
+          { value: "Australia/Sydney", label: "Sydney (AEDT/AEST)" }
         ],
-        description: "Time zone for the query (auto-detected from your browser)"
-      },
-      {
-        name: "workHoursStart",
-        label: "Work Hours Start",
-        type: "select",
-        defaultValue: "09:00",
-        options: [
-          { value: "00:00", label: "12:00 AM (Midnight)" },
-          { value: "06:00", label: "6:00 AM" },
-          { value: "07:00", label: "7:00 AM" },
-          { value: "08:00", label: "8:00 AM" },
-          { value: "09:00", label: "9:00 AM" },
-          { value: "10:00", label: "10:00 AM" },
-          { value: "11:00", label: "11:00 AM" },
-          { value: "12:00", label: "12:00 PM (Noon)" }
-        ],
-        description: "Start of work hours for calculating free slots"
-      },
-      {
-        name: "workHoursEnd",
-        label: "Work Hours End",
-        type: "select",
-        defaultValue: "17:00",
-        options: [
-          { value: "14:00", label: "2:00 PM" },
-          { value: "15:00", label: "3:00 PM" },
-          { value: "16:00", label: "4:00 PM" },
-          { value: "17:00", label: "5:00 PM" },
-          { value: "18:00", label: "6:00 PM" },
-          { value: "19:00", label: "7:00 PM" },
-          { value: "20:00", label: "8:00 PM" },
-          { value: "21:00", label: "9:00 PM" },
-          { value: "23:59", label: "11:59 PM (End of day)" }
-        ],
-        description: "End of work hours for calculating free slots"
-      },
-      {
-        name: "meetingDuration",
-        label: "Suggested Meeting Duration",
-        type: "select",
-        defaultValue: "30",
-        options: [
-          { value: "15", label: "15 minutes" },
-          { value: "30", label: "30 minutes" },
-          { value: "45", label: "45 minutes" },
-          { value: "60", label: "1 hour" },
-          { value: "90", label: "1.5 hours" },
-          { value: "120", label: "2 hours" }
-        ],
-        description: "Duration to use when suggesting available meeting slots"
-      },
-      {
-        name: "includeWeekends",
-        label: "Include Weekends",
-        type: "toggle",
-        defaultValue: false,
-        description: "Include Saturday and Sunday in daily summaries and suggestions"
-      },
-      {
-        name: "multiCalendarMode",
-        label: "Multi-Calendar Availability",
-        type: "select",
-        defaultValue: "any_free",
-        options: [
-          { value: "any_free", label: "At least one calendar free" },
-          { value: "all_free", label: "All calendars must be free" }
-        ],
-        description: "How to determine availability when checking multiple calendars"
+        description: "Time zone for the query"
       }
     ],
     outputSchema: [
       {
-        name: "summary",
-        label: "Overall Summary",
+        name: "calendars",
+        label: "Calendars",
+        type: "object",
+        description: "Object containing free/busy data for each calendar"
+      },
+      {
+        name: "timeMin",
+        label: "Query Start Time",
         type: "string",
-        description: "High-level explanation of availability across calendars"
+        description: "Start time used in the query"
       },
       {
-        name: "availabilitySummary",
-        label: "Availability Summary",
+        name: "timeMax",
+        label: "Query End Time",
         type: "string",
-        description: "Multi-line breakdown of free/busy hours"
-      },
-      {
-        name: "freeSlotSummaryText",
-        label: "Free Slot Summary (Text)",
-        type: "string",
-        description: "Ready-to-send text summarizing daily free windows"
-      },
-      {
-        name: "freeSlotSummaryLines",
-        label: "Free Slot Summary Lines",
-        type: "array",
-        description: "Array of human-readable lines describing availability"
-      },
-      {
-        name: "freeSlotSummary",
-        label: "Free Slot Summary",
-        type: "array",
-        description: "Structured day-by-day summary of free slots",
-        properties: [
-          { name: "date", label: "Date", type: "string" },
-          { name: "dateFormatted", label: "Date (Formatted)", type: "string" },
-          { name: "dayOfWeek", label: "Day of Week", type: "string" },
-          { name: "isFreeDay", label: "Is Free Day", type: "boolean" },
-          { name: "slotCount", label: "Free Slot Count", type: "number" },
-          { name: "summary", label: "Summary Line", type: "string" },
-          {
-            name: "slots",
-            label: "Slots",
-            type: "array",
-            properties: [
-              { name: "start", label: "Start (ISO)", type: "string" },
-              { name: "end", label: "End (ISO)", type: "string" },
-              { name: "startFormatted", label: "Start", type: "string" },
-              { name: "endFormatted", label: "End", type: "string" },
-              { name: "duration", label: "Duration", type: "string" },
-              { name: "durationMinutes", label: "Duration (Minutes)", type: "number" }
-            ]
-          }
-        ]
-      },
-      {
-        name: "queryStart",
-        label: "Query Start",
-        type: "string",
-        description: "Start of the free/busy query"
-      },
-      {
-        name: "queryEnd",
-        label: "Query End",
-        type: "string",
-        description: "End of the free/busy query"
+        description: "End time used in the query"
       },
       {
         name: "timeZone",
         label: "Time Zone",
         type: "string",
-        description: "Time zone used for formatting"
+        description: "Time zone used in the query"
       },
       {
-        name: "totalCalendars",
-        label: "Total Calendars",
+        name: "queriedCalendars",
+        label: "Queried Calendars",
+        type: "array",
+        description: "List of calendar IDs that were queried"
+      },
+      {
+        name: "calendarCount",
+        label: "Calendar Count",
         type: "number",
         description: "Number of calendars queried"
-      },
-      {
-        name: "freeCalendarCount",
-        label: "Free Calendar Count",
-        type: "number",
-        description: "Calendars with no busy slots"
-      },
-      {
-        name: "busyCalendarCount",
-        label: "Busy Calendar Count",
-        type: "number",
-        description: "Calendars containing busy slots"
-      },
-      {
-        name: "totalBusySlots",
-        label: "Total Busy Slots",
-        type: "number",
-        description: "Total number of busy time blocks"
-      },
-      {
-        name: "totalFreeHours",
-        label: "Total Free Hours",
-        type: "number",
-        description: "Total hours available during work hours"
-      },
-      {
-        name: "totalBusyHours",
-        label: "Total Busy Hours",
-        type: "number",
-        description: "Total hours booked during work hours"
-      },
-      {
-        name: "allFree",
-        label: "All Calendars Free",
-        type: "boolean",
-        description: "True if every calendar is free"
-      },
-      {
-        name: "allBusy",
-        label: "All Calendars Busy",
-        type: "boolean",
-        description: "True if every calendar is busy"
-      },
-      {
-        name: "freeCalendars",
-        label: "Free Calendars",
-        type: "array",
-        description: "Calendar IDs that are free during the window"
-      },
-      {
-        name: "busyCalendars",
-        label: "Busy Calendars",
-        type: "array",
-        description: "Calendar IDs that have conflicts"
-      },
-      {
-        name: "busyTimeSlots",
-        label: "Busy Time Slots",
-        type: "array",
-        description: "All busy slots with formatted timestamps",
-        properties: [
-          { name: "calendar", label: "Calendar ID", type: "string" },
-          { name: "start", label: "Start (ISO)", type: "string" },
-          { name: "end", label: "End (ISO)", type: "string" },
-          { name: "startFormatted", label: "Start", type: "string" },
-          { name: "endFormatted", label: "End", type: "string" },
-          { name: "duration", label: "Duration", type: "string" }
-        ]
-      },
-      {
-        name: "dailySummary",
-        label: "Daily Summary",
-        type: "array",
-        description: "Per-day availability breakdown",
-        properties: [
-          { name: "date", label: "Date", type: "string" },
-          { name: "dateFormatted", label: "Date (Formatted)", type: "string" },
-          { name: "dayOfWeek", label: "Day of Week", type: "string" },
-          { name: "isWeekend", label: "Is Weekend", type: "boolean" },
-          { name: "totalEvents", label: "Busy Events", type: "number" },
-          { name: "busyHours", label: "Busy Hours", type: "number" },
-          { name: "freeHours", label: "Free Hours", type: "number" },
-          { name: "availabilityPercent", label: "Availability %", type: "number" },
-          { name: "isFreeDay", label: "Is Free Day", type: "boolean" },
-          {
-            name: "freeSlots",
-            label: "Free Slots",
-            type: "array",
-            properties: [
-              { name: "start", label: "Start (ISO)", type: "string" },
-              { name: "end", label: "End (ISO)", type: "string" },
-              { name: "startFormatted", label: "Start", type: "string" },
-              { name: "endFormatted", label: "End", type: "string" },
-              { name: "duration", label: "Duration", type: "string" },
-              { name: "durationMinutes", label: "Duration (Minutes)", type: "number" }
-            ]
-          },
-          {
-            name: "busySlots",
-            label: "Busy Slots",
-            type: "array",
-            properties: [
-              { name: "start", label: "Start (ISO)", type: "string" },
-              { name: "end", label: "End (ISO)", type: "string" },
-              { name: "startFormatted", label: "Start", type: "string" },
-              { name: "endFormatted", label: "End", type: "string" },
-              { name: "duration", label: "Duration", type: "string" }
-            ]
-          }
-        ]
-      },
-      {
-        name: "freeDays",
-        label: "Free Days",
-        type: "array",
-        description: "Dates with no meetings during work hours"
-      },
-      {
-        name: "freeDayCount",
-        label: "Free Day Count",
-        type: "number",
-        description: "Number of completely free days"
-      },
-      {
-        name: "busyDays",
-        label: "Busy Days",
-        type: "array",
-        description: "Dates that include conflicts"
-      },
-      {
-        name: "busyDayCount",
-        label: "Busy Day Count",
-        type: "number",
-        description: "Number of days with events"
-      },
-      {
-        name: "bestDaysForMeetings",
-        label: "Best Days for Meetings",
-        type: "array",
-        description: "Days sorted by most available time",
-        properties: [
-          { name: "date", label: "Date", type: "string" },
-          { name: "dateFormatted", label: "Date (Formatted)", type: "string" },
-          { name: "dayOfWeek", label: "Day of Week", type: "string" },
-          { name: "freeHours", label: "Free Hours", type: "number" },
-          { name: "availabilityPercent", label: "Availability %", type: "number" },
-          { name: "freeSlotCount", label: "Free Slot Count", type: "number" }
-        ]
-      },
-      {
-        name: "suggestedSlots",
-        label: "Suggested Meeting Slots",
-        type: "array",
-        description: "Available time slots that match the configured duration",
-        properties: [
-          { name: "date", label: "Date", type: "string" },
-          { name: "dateFormatted", label: "Date (Formatted)", type: "string" },
-          { name: "dayOfWeek", label: "Day of Week", type: "string" },
-          { name: "start", label: "Start (ISO)", type: "string" },
-          { name: "end", label: "End (ISO)", type: "string" },
-          { name: "startFormatted", label: "Start", type: "string" },
-          { name: "endFormatted", label: "End", type: "string" },
-          { name: "duration", label: "Duration", type: "string" },
-          { name: "durationMinutes", label: "Duration (Minutes)", type: "number" }
-        ]
-      },
-      {
-        name: "suggestedSlotCount",
-        label: "Suggested Slot Count",
-        type: "number",
-        description: "Number of suggested meeting slots"
-      },
-      {
-        name: "workHoursConfig",
-        label: "Work Hours Config",
-        type: "object",
-        description: "The work hours settings used for calculations",
-        properties: [
-          { name: "start", label: "Start Time", type: "string" },
-          { name: "end", label: "End Time", type: "string" },
-          { name: "meetingDuration", label: "Meeting Duration (Minutes)", type: "number" },
-          { name: "includeWeekends", label: "Include Weekends", type: "boolean" },
-          { name: "multiCalendarMode", label: "Multi-calendar Mode", type: "string" }
-        ]
-      },
-      {
-        name: "rawData",
-        label: "Raw Data",
-        type: "object",
-        description: "Raw API response for advanced use"
       }
     ],
   },
