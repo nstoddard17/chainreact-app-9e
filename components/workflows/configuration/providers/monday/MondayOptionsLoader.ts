@@ -19,7 +19,13 @@ export class MondayOptionsLoader implements ProviderOptionsLoader {
     'groupId',
     'group',
     'columnId',
-    'column'
+    'column',
+    // Additional field names used in various actions/triggers
+    'targetGroupId',
+    'sourceBoardId',
+    'targetBoardId',
+    'itemId',
+    'parentItemId'
   ];
 
   // Map field names to Monday.com API data types
@@ -29,7 +35,12 @@ export class MondayOptionsLoader implements ProviderOptionsLoader {
     groupId: 'monday_groups',
     group: 'monday_groups',
     columnId: 'monday_columns',
-    column: 'monday_columns'
+    column: 'monday_columns',
+    targetGroupId: 'monday_groups',
+    sourceBoardId: 'monday_boards',
+    targetBoardId: 'monday_boards',
+    itemId: 'monday_items',
+    parentItemId: 'monday_items'
   };
 
   canHandle(fieldName: string, providerId: string): boolean {
@@ -41,7 +52,9 @@ export class MondayOptionsLoader implements ProviderOptionsLoader {
 
     // Build cache key
     const options = (fieldName === 'groupId' || fieldName === 'group' ||
-                     fieldName === 'columnId' || fieldName === 'column') && dependsOnValue
+                     fieldName === 'targetGroupId' ||
+                     fieldName === 'columnId' || fieldName === 'column' ||
+                     fieldName === 'itemId' || fieldName === 'parentItemId') && dependsOnValue
       ? { boardId: dependsOnValue }
       : undefined;
     const cacheKey = buildCacheKey('monday', integrationId, fieldName, options);
@@ -82,6 +95,12 @@ export class MondayOptionsLoader implements ProviderOptionsLoader {
       debounceTimers.delete(fieldName);
     }
 
+    const dataType = this.fieldToDataType[fieldName];
+    if (!dataType) {
+      logger.warn(`❌ [Monday] Unknown field: ${fieldName}`);
+      return [];
+    }
+
     // Create a new promise for this request
     const loadPromise = new Promise<FormattedOption[]>((resolve) => {
       // Add a small debounce delay to batch rapid consecutive calls
@@ -89,60 +108,40 @@ export class MondayOptionsLoader implements ProviderOptionsLoader {
         debounceTimers.delete(fieldName);
 
         try {
-          let result: FormattedOption[] = [];
-
-          // Get the data type for this field
-          const dataType = this.fieldToDataType[fieldName];
-
-          if (!dataType) {
-            logger.warn(`❌ [Monday] Unknown field: ${fieldName}`);
-            resolve([]);
-            return;
-          }
-
           // Build options object for API request
           const apiOptions: Record<string, any> = {};
 
-          // Add board parameter for dependent fields (groups, columns)
+          // Add board parameter for dependent fields (groups, columns, items)
           if ((fieldName === 'groupId' || fieldName === 'group' ||
-               fieldName === 'columnId' || fieldName === 'column') && dependsOnValue) {
+               fieldName === 'targetGroupId' ||
+               fieldName === 'columnId' || fieldName === 'column' ||
+               fieldName === 'itemId' || fieldName === 'parentItemId') && dependsOnValue) {
             apiOptions.boardId = dependsOnValue;
           }
 
           logger.debug(`📡 [Monday] Loading ${dataType}:`, { integrationId, options: apiOptions });
 
-          // Make API request
-          const response = await fetch('/api/integrations/monday/data', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              integrationId,
-              dataType,
-              options: apiOptions
-            }),
-            signal
+          const result = await fetchDataType({
+            integrationId,
+            dataType,
+            options: apiOptions,
+            signal,
+            fieldName,
+            cacheKey,
+            cacheStore,
+            dependsOnValue
           });
 
-          if (!response.ok) {
-            throw new Error(`Failed to load ${fieldName}: ${response.statusText}`);
-          }
-
-          const responseData = await response.json();
-          result = responseData.data || [];
-
-          logger.debug(`✅ [Monday] Loaded ${result.length} ${dataType}`);
-
-          // Store in cache with appropriate TTL
-          const ttl = getFieldTTL(fieldName);
-          cacheStore.set(cacheKey, result, ttl);
-          logger.debug(`💾 [Monday] Cached ${result.length} options for ${fieldName} (TTL: ${ttl / 1000}s)`);
-
-          // Clean up pending promise
           pendingPromises.delete(requestKey);
-
           resolve(result);
         } catch (error: any) {
-          logger.error(`❌ [Monday] Error loading ${fieldName}:`, error);
+          logger.error(`❌ [Monday] Error loading ${fieldName}:`, {
+            message: error.message,
+            fieldName,
+            dataType,
+            integrationId,
+            dependsOnValue
+          });
 
           // Clean up pending promise
           pendingPromises.delete(requestKey);
@@ -167,8 +166,11 @@ export class MondayOptionsLoader implements ProviderOptionsLoader {
     switch (fieldName) {
       case 'groupId':
       case 'group':
+      case 'targetGroupId':
       case 'columnId':
       case 'column':
+      case 'itemId':
+      case 'parentItemId':
         return ['boardId', 'board'];
       default:
         return [];
@@ -189,5 +191,60 @@ export class MondayOptionsLoader implements ProviderOptionsLoader {
     cacheStore.invalidateProvider('monday');
 
     logger.debug('🧹 [Monday] Cache cleared');
+  }
+}
+async function fetchDataType(params: {
+  integrationId?: string;
+  dataType: string;
+  options: Record<string, any>;
+  signal?: AbortSignal;
+  fieldName: string;
+  cacheKey: string;
+  cacheStore: ReturnType<typeof useConfigCacheStore.getState>;
+  dependsOnValue?: any;
+}): Promise<FormattedOption[]> {
+  const { integrationId, dataType, options, signal, fieldName, cacheKey, cacheStore, dependsOnValue } = params;
+
+  try {
+    const response = await fetch('/api/integrations/monday/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        integrationId,
+        dataType,
+        options
+      }),
+      signal
+    });
+
+    if (!response.ok) {
+      let errorMessage = response.statusText;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorData.message || errorMessage;
+      } catch {
+        // Ignore JSON parse errors
+      }
+
+      throw new Error(`Failed to load ${fieldName}: ${errorMessage}`);
+    }
+
+    const responseData = await response.json();
+    const result: FormattedOption[] = responseData.data || [];
+
+    const ttl = getFieldTTL(fieldName);
+    cacheStore.set(cacheKey, result, ttl);
+    logger.debug(`💾 [Monday] Cached ${result.length} options for ${fieldName} (TTL: ${ttl / 1000}s)`);
+
+    return result;
+  } catch (error) {
+    logger.error(`❌ [Monday] fetchDataType error for ${fieldName}:`, {
+      message: (error as Error).message,
+      dataType,
+      integrationId,
+      dependsOnValue
+    });
+
+    throw error;
   }
 }

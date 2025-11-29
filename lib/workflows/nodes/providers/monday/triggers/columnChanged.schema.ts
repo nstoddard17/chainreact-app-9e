@@ -26,9 +26,14 @@ export const columnChangedTriggerSchema: NodeComponent = {
       type: "select",
       dynamic: "monday_columns",
       dynamicParent: "boardId",
+      dependsOn: "boardId",
       required: true,
       placeholder: "Select a column...",
-      description: "The specific column to monitor for changes"
+      description: "The specific column to monitor for changes",
+      hidden: {
+        $deps: ["boardId"],
+        $condition: { boardId: { $exists: false } }
+      }
     },
   ],
   outputSchema: [

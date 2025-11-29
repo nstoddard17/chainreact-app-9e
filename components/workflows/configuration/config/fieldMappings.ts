@@ -896,6 +896,7 @@ const mailchimpMappings: Record<string, FieldMapping> = {
 
 // Monday.com field mappings
 const mondayMappings: Record<string, FieldMapping> = {
+  // Actions
   monday_action_create_item: {
     boardId: "monday_boards",
     groupId: "monday_groups",
@@ -907,13 +908,93 @@ const mondayMappings: Record<string, FieldMapping> = {
   monday_action_create_update: {
     itemId: "monday_items",
   },
+  monday_action_move_item: {
+    sourceBoardId: "monday_boards",
+    itemId: "monday_items",
+    targetBoardId: "monday_boards",
+    targetGroupId: "monday_groups",
+  },
+  monday_action_duplicate_item: {
+    boardId: "monday_boards",
+    itemId: "monday_items",
+    targetBoardId: "monday_boards",
+    targetGroupId: "monday_groups",
+  },
+  monday_action_archive_item: {
+    boardId: "monday_boards",
+    itemId: "monday_items",
+  },
+  monday_action_delete_item: {
+    itemId: "monday_items",
+  },
+  monday_action_create_subitem: {
+    boardId: "monday_boards",
+    itemId: "monday_items",
+  },
+  monday_action_list_items: {
+    boardId: "monday_boards",
+    groupId: "monday_groups",
+  },
+  monday_action_list_subitems: {
+    boardId: "monday_boards",
+    itemId: "monday_items",
+  },
+  monday_action_list_updates: {
+    boardId: "monday_boards",
+    itemId: "monday_items",
+  },
+  monday_action_get_item: {
+    boardId: "monday_boards",
+    itemId: "monday_items",
+  },
+  monday_action_get_board: {
+    boardId: "monday_boards",
+  },
+  monday_action_list_groups: {
+    boardId: "monday_boards",
+  },
+  monday_action_create_group: {
+    boardId: "monday_boards",
+  },
+  monday_action_duplicate_board: {
+    boardId: "monday_boards",
+  },
+  monday_action_add_column: {
+    boardId: "monday_boards",
+  },
+  monday_action_add_file: {
+    boardId: "monday_boards",
+    itemId: "monday_items",
+    columnId: "monday_file_columns",
+  },
+  monday_action_download_file: {
+    boardId: "monday_boards",
+    itemId: "monday_items",
+    columnId: "monday_file_columns",
+  },
+  monday_action_search_items: {
+    boardId: "monday_boards",
+    groupId: "monday_groups",
+  },
+  // Triggers
   monday_trigger_new_item: {
     boardId: "monday_boards",
   },
-  monday_trigger_new_board: {},
   monday_trigger_column_changed: {
     boardId: "monday_boards",
     columnId: "monday_columns",
+  },
+  monday_trigger_item_moved: {
+    boardId: "monday_boards",
+    targetGroupId: "monday_groups",
+  },
+  monday_trigger_new_update: {
+    boardId: "monday_boards",
+    itemId: "monday_items",
+  },
+  monday_trigger_new_subitem: {
+    boardId: "monday_boards",
+    parentItemId: "monday_items",
   },
 };
 

@@ -40,32 +40,55 @@ export function ManyChatGuide({ open, onOpenChange, onConnect }: ManyChatGuidePr
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Connect to ManyChat</DialogTitle>
           <DialogDescription>
-            Follow these steps to find your ManyChat API key.
+            Follow these steps to find your ManyChat API key and connect your account.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
-          <ol className="list-decimal list-inside space-y-2 text-sm">
-            <li>
-              Log in to your ManyChat account.
-            </li>
-            <li>
-              Navigate to{' '}
-              <Link href="https://manychat.com/settings" target="_blank" className="text-blue-500 hover:underline">
-                Settings
-              </Link>{' '}
-              and then to the "API" tab.
-            </li>
-            <li>
-              Click the "Generate Your API Key" button.
-            </li>
-            <li>
-              Copy the generated API key and paste it below.
-            </li>
-          </ol>
+          <div className="rounded-md bg-blue-50 dark:bg-blue-950 p-4 border border-blue-200 dark:border-blue-800">
+            <h4 className="font-medium text-sm mb-2">What you can do with ManyChat:</h4>
+            <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+              <li>Send messages and flows to subscribers</li>
+              <li>Manage tags and custom fields</li>
+              <li>Subscribe/unsubscribe users to sequences</li>
+              <li>Get subscriber information</li>
+              <li>Find users by ID</li>
+            </ul>
+          </div>
+
+          <div className="space-y-3">
+            <h4 className="font-medium text-sm">Setup Instructions:</h4>
+            <ol className="list-decimal list-inside space-y-2 text-sm">
+              <li>
+                Log in to your{' '}
+                <Link href="https://manychat.com" target="_blank" className="text-blue-500 hover:underline">
+                  ManyChat account
+                </Link>.
+              </li>
+              <li>
+                Navigate to{' '}
+                <Link href="https://manychat.com/settings" target="_blank" className="text-blue-500 hover:underline">
+                  Settings
+                </Link>{' '}
+                → API tab.
+              </li>
+              <li>
+                Click "Generate Your API Key" button.
+              </li>
+              <li>
+                Copy the generated API key and paste it below.
+              </li>
+            </ol>
+          </div>
+
+          <div className="rounded-md bg-amber-50 dark:bg-amber-950 p-3 border border-amber-200 dark:border-amber-800">
+            <p className="text-xs text-muted-foreground">
+              <strong>Note:</strong> API access requires a ManyChat Pro subscription. Rate limit: 10 requests per second.
+            </p>
+          </div>
           <Input
             type="password"
             placeholder="Enter your ManyChat API Key"

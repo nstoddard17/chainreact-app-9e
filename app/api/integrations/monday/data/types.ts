@@ -43,6 +43,24 @@ export interface MondayColumn {
   settings_str?: string
 }
 
+export interface MondayItem {
+  id: string
+  name: string
+  label: string
+  value: string
+  groupId?: string
+  groupTitle?: string
+}
+
+export interface MondayWorkspace {
+  id: string
+  name: string
+  label: string
+  value: string
+  kind?: string
+  description?: string
+}
+
 export type MondayDataHandler<T = any> = (
   integration: MondayIntegration,
   options?: Record<string, any>

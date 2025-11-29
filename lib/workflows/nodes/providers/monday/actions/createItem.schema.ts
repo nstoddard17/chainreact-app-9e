@@ -63,6 +63,11 @@ export const createItemActionSchema: NodeComponent = {
       type: "select",
       dynamic: "monday_groups",
       dynamicParent: "boardId",
+      dependsOn: "boardId",
+      hidden: {
+        $deps: ["boardId"],
+        $condition: { boardId: { $exists: false } }
+      },
       required: true,
       placeholder: "Select a group...",
       description: "The group within the board where the item will be created"

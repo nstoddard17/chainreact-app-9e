@@ -22,7 +22,7 @@ export const getMondayGroups: MondayDataHandler<MondayGroup> = async (
       throw new Error('boardId is required to fetch groups')
     }
 
-    const accessToken = getMondayAccessToken(integration)
+    const accessToken = await getMondayAccessToken(integration)
 
     const query = `
       query($boardId: [ID!]) {

@@ -100,7 +100,9 @@
       "Bash(timeout 30 npm run build:*)",
       "Bash(python remove_console_logs.py:*)",
       "Bash(move:*)",
-      "Bash(del cleanup_logs.py remove-logs.js remove_logs.py remove_console_logs.py 2)"
+      "Bash(del cleanup_logs.py remove-logs.js remove_logs.py remove_console_logs.py 2)",
+      "Bash(del \"c:\\Users\\marcu\\source\\repos\\nstoddard17\\chainreact-app-9e\\learning\\docs\\manychat-implementation.md\")",
+      "Bash(\"c:\\Users\\marcu\\source\\repos\\nstoddard17\\chainreact-app-9e\\.env.local\")"
     ],
     "edit": [
       "*"
