@@ -1,4 +1,4 @@
-const DEFAULT_BASE = '/workflows/api/flows'
+const DEFAULT_BASE = '/workflows/v2/api/flows'
 
 export const getFlowApiBase = () => DEFAULT_BASE
 

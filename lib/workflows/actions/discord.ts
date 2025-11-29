@@ -162,7 +162,7 @@ export async function sendDiscordMessage(
     const { createClient } = await import('@supabase/supabase-js')
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      process.env.SUPABASE_SECRET_KEY!
     )
 
     const { data: integration, error: integrationError } = await supabase
@@ -352,7 +352,7 @@ export async function createDiscordCategory(
     const { createClient } = await import('@supabase/supabase-js')
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      process.env.SUPABASE_SECRET_KEY!
     )
     
     const { data: integration } = await supabase
@@ -491,7 +491,7 @@ export async function deleteDiscordCategory(
     const { createClient } = await import('@supabase/supabase-js')
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      process.env.SUPABASE_SECRET_KEY!
     )
     
     const { data: integration } = await supabase
@@ -638,7 +638,7 @@ export async function createDiscordChannel(
     const { createClient } = await import('@supabase/supabase-js')
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      process.env.SUPABASE_SECRET_KEY!
     )
     
     const { data: integration } = await supabase
@@ -796,7 +796,7 @@ export async function addDiscordRole(
     const { createClient } = await import('@supabase/supabase-js')
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      process.env.SUPABASE_SECRET_KEY!
     )
     
     const { data: integration } = await supabase
@@ -901,7 +901,7 @@ export async function editDiscordMessage(config: any, userId: string, input: Rec
     const { createClient } = await import('@supabase/supabase-js')
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      process.env.SUPABASE_SECRET_KEY!
     )
     
     const { data: integration } = await supabase
@@ -1237,7 +1237,7 @@ export async function fetchDiscordMessages(config: any, userId: string, input: R
     const { createClient } = await import('@supabase/supabase-js')
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      process.env.SUPABASE_SECRET_KEY!
     )
     
     const { data: integration } = await supabase

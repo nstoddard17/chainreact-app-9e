@@ -18,7 +18,7 @@ import { logger } from '@/lib/utils/logger'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_SECRET_KEY!
 )
 
 // Map Gumroad event types to our trigger types

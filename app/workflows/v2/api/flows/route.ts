@@ -38,15 +38,22 @@ export async function POST(request: Request) {
   const flowId = uuid()
   const workspace = await ensureWorkspaceForUser(supabase, user.id)
 
+  // Insert into workflows table (unified table for all workflows)
   const { error: definitionError } = await serviceClient
-    .from("flow_v2_definitions")
+    .from("workflows")
     .insert({
       id: flowId,
       name,
       description,
       created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
       workspace_id: workspace.workspaceId,
-      owner_id: user.id,
+      user_id: user.id,
+      created_by: user.id,
+      last_modified_by: user.id,
+      status: 'draft',
+      nodes: [],
+      connections: [],
     })
 
   if (definitionError) {

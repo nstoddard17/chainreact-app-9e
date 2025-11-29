@@ -127,18 +127,18 @@ export function VariablePickerDropdown({
                 }
               >
                 {node.outputs.map((field: any) => {
-                  // Use 'trigger' as the reference prefix for trigger nodes
-                  const referencePrefix = node.isTrigger ? 'trigger' : node.id
+                  // Use friendly node type for variable reference (engine resolves by type)
+                  const referencePrefix = node.isTrigger ? 'trigger' : (node.type || node.id)
                   const variableRef = `{{${referencePrefix}.${field.name}}}`
-                  const secondaryLabel = field.label && field.label !== field.name ? field.label : null
-                  const descriptionText = secondaryLabel
-                    ? `${secondaryLabel}${field.description ? ` • ${field.description}` : ''}`
-                    : (field.description ? field.description : `From ${node.title}`)
+                  const displayRef = `${referencePrefix}.${field.name}`
+                  const descriptionText = field.label && field.label !== field.name
+                    ? `${field.label}${field.description ? ` — ${field.description}` : ''}`
+                    : (field.description || `From ${node.title}`)
 
                   return (
                     <CommandItem
                       key={`${node.id}.${field.name}`}
-                      value={`${node.title} ${field.name} ${secondaryLabel || ''} ${field.type || ''}`}
+                      value={`${node.title} ${field.name} ${displayRef} ${field.label || ''} ${field.type || ''}`}
                       onSelect={() => {
                         onSelect(variableRef)
                         setIsOpen(false)
@@ -147,9 +147,9 @@ export function VariablePickerDropdown({
                       >
                         <div className="flex w-full items-center gap-3">
                           <div className="flex-1">
-                            <p className="text-sm font-medium leading-tight">
-                              {field.name}
-                            </p>
+                            <code className="text-sm font-medium font-mono leading-tight">
+                              {displayRef}
+                            </code>
                             <p className="text-xs text-muted-foreground">
                               {descriptionText}
                             </p>

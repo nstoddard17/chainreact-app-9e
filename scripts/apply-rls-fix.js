@@ -2,8 +2,23 @@ const { createClient } = require('@supabase/supabase-js')
 const fs = require('fs')
 const path = require('path')
 
-const supabaseUrl = 'https://xzwsdwllmrnrgbltibxt.supabase.co'
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6d3Nkd2xsbXJucmdibHRpYnh0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0ODU1NjI2NSwiZXhwIjoyMDY0MTMyMjY1fQ.DqarWXtuBjFjmElINOF8U6bQ8VZv9S4IsYKv4VnBTLs'
+// Load environment variables from .env.local if available
+try {
+  require('dotenv').config({ path: path.join(__dirname, '../.env.local') })
+} catch (e) {
+  // dotenv not available, rely on environment variables
+}
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseServiceKey = process.env.SUPABASE_SECRET_KEY
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.error('❌ Missing required environment variables:')
+  if (!supabaseUrl) console.error('   - NEXT_PUBLIC_SUPABASE_URL')
+  if (!supabaseServiceKey) console.error('   - SUPABASE_SECRET_KEY')
+  console.error('\nPlease set these in your .env.local file or environment.')
+  process.exit(1)
+}
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey, {
   auth: {
@@ -23,7 +38,6 @@ async function executeSql() {
     const { data, error } = await supabase.rpc('exec_sql', { sql_query: sql }).catch(async (err) => {
       // If the RPC doesn't exist, try direct query
       console.log('Trying direct query execution...')
-      const { PostgrestClient } = require('@supabase/postgrest-js')
       const response = await fetch(`${supabaseUrl}/rest/v1/rpc/query`, {
         method: 'POST',
         headers: {

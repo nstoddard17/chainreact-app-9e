@@ -26,8 +26,9 @@ export default async function WorkflowBuilderIndexPage() {
 
   // Get the user's most recent flow, or create a new one
   const { data: existingFlows } = await supabase
-    .from("flow_v2_definitions")
+    .from("workflows")
     .select("id")
+    .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(1)
 
@@ -44,12 +45,17 @@ export default async function WorkflowBuilderIndexPage() {
   const name = "Untitled Flow"
 
   await serviceClient
-    .from("flow_v2_definitions")
+    .from("workflows")
     .insert({
       id: definitionId,
       name,
       workspace_id: membership.workspaceId,
-      owner_id: user.id,
+      user_id: user.id,
+      created_by: user.id,
+      last_modified_by: user.id,
+      status: 'draft',
+      nodes: [],
+      connections: [],
     })
 
   const flow = FlowSchema.parse({

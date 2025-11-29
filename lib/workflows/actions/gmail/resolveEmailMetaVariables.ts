@@ -91,7 +91,7 @@ function extractFirstName(fullName: string): string {
 async function fetchSenderProfile(userId: string): Promise<{ name: string; email: string; company: string; role: string }> {
   try {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    const supabaseServiceKey = process.env.SUPABASE_SECRET_KEY
 
     if (!supabaseUrl || !supabaseServiceKey) {
       logger.warn('Supabase credentials not available for sender profile fetch')

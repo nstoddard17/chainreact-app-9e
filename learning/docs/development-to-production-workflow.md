@@ -70,8 +70,8 @@ Preview Deployments: development (and all other branches)
 **Development Environment:**
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://[dev-project].supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=[dev-anon-key]
-SUPABASE_SERVICE_ROLE_KEY=[dev-service-role-key]
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=[dev-anon-key]
+SUPABASE_SECRET_KEY=[dev-service-role-key]
 
 # OAuth Credentials (can reuse or separate)
 GOOGLE_CLIENT_ID=[same or dev-specific]
@@ -85,8 +85,8 @@ NEXT_PUBLIC_BASE_URL=https://chainreact-dev.vercel.app
 **Production Environment:**
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://[prod-project].supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=[prod-anon-key]
-SUPABASE_SERVICE_ROLE_KEY=[prod-service-role-key]
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=[prod-anon-key]
+SUPABASE_SECRET_KEY=[prod-service-role-key]
 
 # OAuth Credentials (production apps)
 GOOGLE_CLIENT_ID=[prod-client-id]
@@ -456,7 +456,7 @@ Deploy code that only uses new column.
 
 **Solution**:
 1. Verify env vars in Vercel production environment
-2. Check `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`
+2. Check `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SECRET_KEY`
 3. Ensure they match production Supabase project
 
 ### Issue: OAuth redirects failing

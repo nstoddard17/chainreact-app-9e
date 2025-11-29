@@ -70,7 +70,7 @@ export interface SubWorkflow {
 }
 
 export class AdvancedExecutionEngine {
-  private supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+  private supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!)
   private progressTracker: ExecutionProgressTracker
 
   async createExecutionSession(
@@ -103,6 +103,7 @@ export class AdvancedExecutionEngine {
       maxConcurrency?: number
       enableSubWorkflows?: boolean
       startNodeId?: string
+      workflow?: any // Optional workflow object to use instead of fetching from DB (for test mode with unsaved workflows)
     } = {},
   ): Promise<any> {
     const session = await this.getExecutionSession(sessionId)
@@ -138,11 +139,19 @@ export class AdvancedExecutionEngine {
 
     // Initialize progress tracker for this execution
     this.progressTracker = new ExecutionProgressTracker()
-    const totalNodes = (await this.supabase
-      .from("workflows")
-      .select("nodes")
-      .eq("id", session.workflow_id)
-      .single()).data?.nodes?.length || 0
+
+    // Use provided workflow if available, otherwise fetch from database
+    let workflow = options.workflow
+    if (!workflow) {
+      const { data: dbWorkflow } = await this.supabase
+        .from("workflows")
+        .select("*")
+        .eq("id", session.workflow_id)
+        .single()
+      workflow = dbWorkflow
+    }
+
+    const totalNodes = workflow?.nodes?.length || 0
 
     await this.progressTracker.initialize(
       sessionId,
@@ -152,14 +161,14 @@ export class AdvancedExecutionEngine {
     )
 
     try {
-      // Get workflow definition
-      const { data: workflow } = await this.supabase
-        .from("workflows")
-        .select("*")
-        .eq("id", session.workflow_id)
-        .single()
-
       if (!workflow) throw new Error("Workflow not found")
+
+      logger.debug('📋 executeWorkflowAdvanced using workflow', {
+        sessionId,
+        workflowId: workflow.id,
+        nodeCount: workflow.nodes?.length || 0,
+        fromOptions: !!options.workflow
+      })
 
       // Analyze workflow for parallel execution opportunities
       const executionPlan = await this.analyzeWorkflowForParallelExecution(workflow)

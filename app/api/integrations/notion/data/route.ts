@@ -12,7 +12,7 @@ import { NotionIntegration } from './types'
 import { logger } from '@/lib/utils/logger'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+const supabaseKey = process.env.SUPABASE_SECRET_KEY || ""
 const supabase = createClient(supabaseUrl, supabaseKey)
 
 export async function POST(req: NextRequest) {

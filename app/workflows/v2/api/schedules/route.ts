@@ -30,7 +30,7 @@ export async function GET(request: Request) {
   }
 
   const definition = await supabase
-    .from("flow_v2_definitions")
+    .from("workflows")
     .select("workspace_id")
     .eq("id", flowId)
     .maybeSingle()
@@ -75,7 +75,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: parsed.error.format() }, { status: 400 })
   }
   const definition = await supabase
-    .from("flow_v2_definitions")
+    .from("workflows")
     .select("workspace_id")
     .eq("id", parsed.data.flowId)
     .maybeSingle()

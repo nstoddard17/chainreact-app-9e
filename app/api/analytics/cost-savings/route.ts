@@ -8,13 +8,13 @@ import { createClient } from '@supabase/supabase-js'
 import { getDailyCostSavings, getCostSavingsSummary } from '@/lib/workflows/ai-agent/promptAnalytics'
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
 export async function GET(request: NextRequest) {
   try {
+    // Create client inside handler to avoid build-time initialization
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SECRET_KEY!
+    )
 
     // Check authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser()

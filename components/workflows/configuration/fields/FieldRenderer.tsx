@@ -1772,9 +1772,9 @@ export function FieldRenderer({
           const compatibleTypes = getCompatibleTypes(field.type)
 
           // Convert upstream variables to options format for GenericSelectField
-          // Use 'trigger' as the reference prefix for trigger nodes
+          // Use friendly node type for variable references
           const variableOptions = upstreamNodes.flatMap((node: any) => {
-            const referencePrefix = node.isTrigger ? 'trigger' : node.id
+            const referencePrefix = node.isTrigger ? 'trigger' : (node.type || node.id)
             return node.outputSchema
               .filter((outputField: any) => {
                 // If no type filtering needed, show all
@@ -1953,9 +1953,9 @@ export function FieldRenderer({
           const compatibleTypes = getCompatibleTypes(field.type)
 
           // Convert upstream variables to options format for GenericSelectField
-          // Use 'trigger' as the reference prefix for trigger nodes
+          // Use friendly node type for variable references
           const variableOptions = upstreamNodes.flatMap((node: any) => {
-            const referencePrefix = node.isTrigger ? 'trigger' : node.id
+            const referencePrefix = node.isTrigger ? 'trigger' : (node.type || node.id)
             return node.outputSchema
               .filter((outputField: any) => {
                 // If no type filtering needed, show all
@@ -2094,9 +2094,9 @@ export function FieldRenderer({
           const compatibleTypes = getCompatibleTypes(field.type)
 
           // Convert upstream variables to options format for GenericSelectField
-          // Use 'trigger' as the reference prefix for trigger nodes
+          // Use friendly node type for variable references
           const variableOptions = upstreamNodes.flatMap((node: any) => {
-            const referencePrefix = node.isTrigger ? 'trigger' : node.id
+            const referencePrefix = node.isTrigger ? 'trigger' : (node.type || node.id)
             return node.outputSchema
               .filter((outputField: any) => {
                 // If no type filtering needed, show all

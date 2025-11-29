@@ -75,6 +75,10 @@ import { BuildChoreographer } from "@/lib/workflows/ai-agent/build-choreography"
 import { ChatService, type ChatMessage } from "@/lib/workflows/ai-agent/chat-service"
 import { CostTracker, estimateWorkflowCost } from "@/lib/workflows/ai-agent/cost-tracker"
 import { CostDisplay } from "@/components/workflows/ai-agent/CostDisplay"
+import { WorkflowStatusBar } from "./WorkflowStatusBar"
+import { TestModeDialog } from "@/components/workflows/TestModeDialog"
+import { useWorkflowTestStore } from "@/stores/workflowTestStore"
+import { TestModeConfig, TriggerTestMode, ActionTestMode } from "@/lib/services/testMode/types"
 import { useAuthStore } from "@/stores/authStore"
 import { useIntegrationSelection } from "@/hooks/workflows/useIntegrationSelection"
 import { swapProviderInPlan, canSwapProviders } from "@/lib/workflows/ai-agent/providerSwapping"
@@ -342,6 +346,13 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   const [workflowName, setWorkflowName] = useState(adapter.state.flowName)
   const [nameDirty, setNameDirty] = useState(false)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const [addingAfterNodeId, setAddingAfterNodeId] = useState<string | null>(null) // Persists while integrations panel is open
+  const [isFlowTesting, setIsFlowTesting] = useState(false) // True while testing flow from a node
+  const [flowTestStatus, setFlowTestStatus] = useState<{ total: number; currentIndex: number; currentNodeLabel?: string } | null>(null)
+  const [isFlowTestPaused, setIsFlowTestPaused] = useState(false) // True when flow test is paused
+  const [isNodeTesting, setIsNodeTesting] = useState(false) // True while testing a single node
+  const [nodeTestingName, setNodeTestingName] = useState<string | null>(null) // Name of node being tested
+  const [isTestModeDialogOpen, setIsTestModeDialogOpen] = useState(false) // Test/Live mode dialog
   const [isIntegrationsPanelOpen, setIsIntegrationsPanelOpen] = useState(false)
   const [integrationsPanelMode, setIntegrationsPanelMode] = useState<'trigger' | 'action'>('action')
   const [configuringNode, setConfiguringNode] = useState<any>(null)
@@ -3153,6 +3164,189 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     })
   }, [hasPlaceholders, toast])
 
+  // Get test store actions
+  const {
+    testFlowStatus,
+    listeningTimeRemaining,
+    interceptedActions,
+    startListening,
+    updateListeningTime,
+    startExecution,
+    setNodeCompleted,
+    setNodeFailed,
+    addInterceptedAction,
+    finishTestFlow,
+    cancelTestFlow,
+    resetTestFlow
+  } = useWorkflowTestStore()
+
+  // Get trigger type for the TestModeDialog
+  const triggerNode = builder?.nodes?.find((n: any) => n.data?.isTrigger && !n.data?.isPlaceholder)
+  const triggerType = triggerNode?.data?.type
+
+  // Handler to open the Test Mode Dialog
+  const handleOpenTestDialog = useCallback(() => {
+    if (!builder?.nodes || hasPlaceholders()) {
+      toast({
+        title: "Cannot test",
+        description: "Please configure all nodes before testing.",
+        variant: "destructive",
+      })
+      return
+    }
+    setIsTestModeDialogOpen(true)
+  }, [builder?.nodes, hasPlaceholders, toast])
+
+  // Check if workflow has a published revision (required for API key generation)
+  const hasPublishedRevision = Boolean(flowState?.revisionId)
+
+  // Handler to generate API key for published workflow
+  const handleGenerateApiKey = useCallback(() => {
+    toast({
+      title: "API Key",
+      description: "API key generation coming soon!",
+    })
+  }, [toast])
+
+  // Handler for when user starts a test from the dialog
+  const handleRunTestFromDialog = useCallback(async (config: TestModeConfig, mockVariation?: string) => {
+    setIsTestModeDialogOpen(false)
+
+    if (!builder?.nodes) {
+      return
+    }
+
+    const nodes = builder.nodes
+    const edges = builder.edges || []
+    const triggerNode = nodes.find((n: any) => n.data?.isTrigger && !n.data?.isPlaceholder)
+
+    const isLiveMode = config.actionMode === ActionTestMode.EXECUTE_ALL
+    const waitForTrigger = config.triggerMode === TriggerTestMode.WAIT_FOR_REAL
+
+    try {
+      // If waiting for real trigger, start listening
+      if (waitForTrigger && triggerNode) {
+        startListening(config)
+
+        toast({
+          title: isLiveMode ? "Live Mode" : "Test Mode",
+          description: "Listening for trigger event... Perform the action to trigger your workflow.",
+        })
+
+        // Start countdown timer
+        const startTime = Date.now()
+        const timeout = config.triggerTimeout || 60000
+
+        const timerInterval = setInterval(() => {
+          const elapsed = Date.now() - startTime
+          const remaining = Math.max(0, Math.ceil((timeout - elapsed) / 1000))
+          updateListeningTime(remaining)
+
+          if (remaining <= 0) {
+            clearInterval(timerInterval)
+          }
+        }, 1000)
+
+        // Call the test-trigger API
+        const triggerResponse = await fetch('/api/workflows/test-trigger', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            workflowId: flowId,
+            nodeId: triggerNode.id,
+            nodes: builder?.nodes, // Pass nodes for unsaved workflows
+            connections: builder?.edges, // Pass edges/connections for unsaved workflows
+          }),
+        })
+
+        clearInterval(timerInterval)
+
+        if (!triggerResponse.ok) {
+          throw new Error('Failed to activate trigger')
+        }
+
+        const triggerResult = await triggerResponse.json()
+
+        if (!triggerResult.eventReceived) {
+          finishTestFlow('cancelled', 'No event received within timeout')
+          toast({
+            title: "Timeout",
+            description: "No trigger event received. Try again or use mock data.",
+            variant: "destructive",
+          })
+          return
+        }
+
+        // Event received! Continue with execution
+        toast({
+          title: "Trigger received!",
+          description: "Executing workflow...",
+        })
+      }
+
+      // Execute the workflow
+      setIsFlowTesting(true)
+
+      const response = await fetch('/api/workflows/execute-advanced', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workflowId: flowId,
+          inputData: {},
+          options: {
+            mode: isLiveMode ? 'live' : 'test',
+            skipTrigger: !waitForTrigger,
+            mockVariation,
+          }
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Workflow execution failed')
+      }
+
+      const result = await response.json()
+
+      // Update node states based on results
+      const nodeResults = result.result?.mainResult || {}
+
+      for (const [nodeId, output] of Object.entries(nodeResults)) {
+        const hasError = (output as any)?.error || (output as any)?.success === false
+        if (hasError) {
+          setNodeFailed(nodeId, (output as any)?.error || 'Unknown error')
+        } else {
+          setNodeCompleted(nodeId, output)
+        }
+      }
+
+      // Handle intercepted actions for test mode
+      if (!isLiveMode && result.interceptedActions) {
+        for (const action of result.interceptedActions) {
+          addInterceptedAction(action)
+        }
+      }
+
+      finishTestFlow('completed')
+
+      toast({
+        title: isLiveMode ? "Workflow executed" : "Test completed",
+        description: isLiveMode
+          ? "Workflow executed successfully with real actions."
+          : `Test completed. ${(result.interceptedActions?.length || 0)} actions were captured.`,
+      })
+
+    } catch (error: any) {
+      finishTestFlow('error', error.message)
+      toast({
+        title: "Execution failed",
+        description: error.message || "Failed to execute workflow",
+        variant: "destructive",
+      })
+    } finally {
+      setIsFlowTesting(false)
+    }
+  }, [builder?.nodes, builder?.edges, flowId, toast, startListening, updateListeningTime, finishTestFlow, setNodeCompleted, setNodeFailed, addInterceptedAction])
+
   // Handle test workflow - run from start to finish
   const handleTestWorkflow = useCallback(async () => {
     if (!builder?.nodes || hasPlaceholders()) {
@@ -3225,6 +3419,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
             body: JSON.stringify({
               workflowId: flowId,
               nodeId: triggerNode.id,
+              nodes: builder?.nodes, // Pass nodes for unsaved workflows
+              connections: builder?.edges, // Pass edges/connections for unsaved workflows
             }),
           })
 
@@ -3379,6 +3575,49 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       })
     }
   }, [builder, flowId, hasPlaceholders, toast])
+
+  // Handler to stop flow testing
+  const handleStopFlowTest = useCallback(() => {
+    setIsFlowTesting(false)
+    setFlowTestStatus(null)
+    setIsFlowTestPaused(false)
+    cancelTestFlow()
+    toast({
+      title: "Test stopped",
+      description: "Flow test has been stopped.",
+    })
+  }, [cancelTestFlow, toast])
+
+  // Handler to stop single node testing
+  const handleStopNodeTest = useCallback(() => {
+    setIsNodeTesting(false)
+    setNodeTestingName(null)
+    toast({
+      title: "Test stopped",
+      description: "Node test has been stopped.",
+    })
+  }, [toast])
+
+  // Handler to pause flow testing
+  const handlePauseFlowTest = useCallback(() => {
+    setIsFlowTestPaused(true)
+    toast({
+      title: "Test paused",
+      description: "Flow test has been paused.",
+    })
+  }, [toast])
+
+  // Handler to resume flow testing
+  const handleResumeFlowTest = useCallback(() => {
+    setIsFlowTestPaused(false)
+    toast({
+      title: "Test resumed",
+      description: "Flow test has been resumed.",
+    })
+  }, [toast])
+
+  // Handler to stop live execution (placeholder - falls back to cancelTestFlow)
+  const stopLiveExecutionHandler = undefined
 
   // Placeholder handlers (to be implemented)
   const comingSoon = useCallback(
@@ -4756,8 +4995,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     isTemplateEditing: false,
     onOpenTemplateSettings: undefined,
     templateSettingsLabel: undefined,
-    handleTestSandbox: comingSoon,
-    handleExecuteLive: handleTestWorkflow,
+    handleTestSandbox: handleOpenTestDialog,
+    handleExecuteLive: handleOpenTestDialog,
     handleExecuteLiveSequential: comingSoon,
     handleRunPreflight: comingSoon,
     isRunningPreflight: false,
@@ -4772,7 +5011,12 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       ? (runId: string) => actions.refreshRun(runId)
       : undefined,
     activeRunId: flowState?.lastRunId,
-  }), [actions, builder, comingSoon, flowId, flowState?.hasUnsavedChanges, flowState?.isSaving, flowState?.lastRunId, handleNameChange, handleTestWorkflow, handleToggleLiveWithValidation, hasPlaceholders, nameDirty, persistName, workflowName])
+    onGenerateApiKey: hasPublishedRevision ? handleGenerateApiKey : undefined,
+    canGenerateApiKey: hasPublishedRevision,
+  }), [actions, builder, comingSoon, flowId, flowState?.hasUnsavedChanges, flowState?.isSaving, flowState?.lastRunId, flowState?.revisionId, handleGenerateApiKey, handleNameChange, handleOpenTestDialog, handleToggleLiveWithValidation, hasPlaceholders, hasPublishedRevision, nameDirty, persistName, workflowName])
+
+  // Derive active execution node name from flow test status
+  const activeExecutionNodeName = flowTestStatus?.currentNodeLabel ?? null
 
   if (!builder || !actions || flowState?.isLoading) {
     return <WorkflowLoadingScreen />
@@ -4893,6 +5137,24 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
             />
           </FlowV2BuilderContent>
 
+          <WorkflowStatusBar
+            isFlowTesting={isFlowTesting}
+            flowTestStatus={flowTestStatus}
+            onStopFlowTest={handleStopFlowTest}
+            isExecuting={Boolean(builder?.isExecuting)}
+            isPaused={Boolean(builder?.isPaused)}
+            isListeningForWebhook={Boolean(builder?.isListeningForWebhook) || testFlowStatus === 'listening'}
+            listeningTimeRemaining={listeningTimeRemaining}
+            activeExecutionNodeName={activeExecutionNodeName}
+            onStopExecution={stopLiveExecutionHandler || cancelTestFlow}
+            isNodeTesting={isNodeTesting}
+            nodeTestingName={nodeTestingName}
+            onStopNodeTest={handleStopNodeTest}
+            isFlowTestPaused={isFlowTestPaused}
+            onPauseFlowTest={handlePauseFlowTest}
+            onResumeFlowTest={handleResumeFlowTest}
+          />
+
           <FlowV2AgentPanel
             layout={{
               isOpen: agentOpen,
@@ -4941,7 +5203,18 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         </div>
       </BuilderLayout>
 
-      {/* Configuration Modal - Renders outside layout for proper z-index */}
+      {/* Test Mode Dialog */}
+      <TestModeDialog
+        open={isTestModeDialogOpen}
+        onOpenChange={setIsTestModeDialogOpen}
+        workflowId={flowId}
+        triggerType={triggerType}
+        onRunTest={handleRunTestFromDialog}
+        isExecuting={isFlowTesting}
+        isListening={testFlowStatus === 'listening'}
+        listeningTimeRemaining={listeningTimeRemaining ?? undefined}
+      />
+
       {configuringNode && (() => {
         const nodeType = configuringNode?.data?.type || configuringNode?.type
         const nodeInfo = nodeType ? getNodeByType(nodeType) : null

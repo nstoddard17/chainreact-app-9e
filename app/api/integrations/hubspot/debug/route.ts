@@ -6,10 +6,10 @@ import { logger } from '@/lib/utils/logger'
 
 // Use direct Supabase client with service role for reliable database operations
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+const supabaseKey = process.env.SUPABASE_SECRET_KEY
 
 if (!supabaseUrl || !supabaseKey) {
-  throw new Error("NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be defined")
+  throw new Error("NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SECRET_KEY must be defined")
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey, {

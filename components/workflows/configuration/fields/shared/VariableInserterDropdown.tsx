@@ -119,9 +119,9 @@ export function VariableInserterDropdown({
     return nodes.sort((a, b) => (a.position?.y || 0) - (b.position?.y || 0))
   }, [workflowData, currentNodeId])
 
-  // Handle variable selection - use 'trigger' prefix for trigger nodes
-  const handleSelect = (nodeId: string, outputName: string, outputLabel: string, isTrigger?: boolean) => {
-    const referencePrefix = isTrigger ? 'trigger' : nodeId
+  // Handle variable selection - use node type for friendly references
+  const handleSelect = (nodeId: string, nodeType: string | undefined, outputName: string, outputLabel: string, isTrigger?: boolean) => {
+    const referencePrefix = isTrigger ? 'trigger' : (nodeType || nodeId)
     const variableRef = `{{${referencePrefix}.${outputName}}}`
     onSelect(variableRef, outputLabel)
     setOpen(false)
@@ -173,34 +173,31 @@ export function VariableInserterDropdown({
                     }
                   >
                     {node.outputs.map((output: any) => {
-                      // Use 'trigger' as the reference prefix for trigger nodes
-                      const referencePrefix = node.isTrigger ? 'trigger' : node.id
+                      // Use friendly node type for variable reference (engine resolves by type)
+                      const referencePrefix = node.isTrigger ? 'trigger' : (node.type || node.id)
+                      const displayRef = `${referencePrefix}.${output.name}`
                       return (
                         <CommandItem
                           key={`${node.id}-${output.name}`}
-                          value={`${node.title} ${output.label || output.name}`}
-                          onSelect={() => handleSelect(node.id, output.name, output.label || output.name, node.isTrigger)}
+                          value={`${node.title} ${output.name} ${displayRef} ${output.label || ''}`}
+                          onSelect={() => handleSelect(node.id, node.type, output.name, output.label || output.name, node.isTrigger)}
                           className="flex items-start gap-3 px-4 py-2"
                         >
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-0.5">
-                              <span className="font-medium text-sm">
-                                {output.label || output.name}
-                              </span>
+                              <code className="font-medium text-sm font-mono">
+                                {displayRef}
+                              </code>
                               {output.type && (
                                 <Badge variant="outline" className="text-xs font-mono">
                                   {output.type}
                                 </Badge>
                               )}
                             </div>
-                            {output.description && (
-                              <p className="text-xs text-muted-foreground line-clamp-1">
-                                {output.description}
-                              </p>
-                            )}
-                            <code className="text-xs text-muted-foreground/70 font-mono">
-                              {`{{${referencePrefix}.${output.name}}}`}
-                            </code>
+                            <p className="text-xs text-muted-foreground line-clamp-1">
+                              {output.label || output.name}
+                              {output.description && ` — ${output.description}`}
+                            </p>
                           </div>
                         </CommandItem>
                       )

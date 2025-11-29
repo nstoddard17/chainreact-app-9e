@@ -200,8 +200,8 @@ You should create a separate Supabase project for production. Here's how:
 
    Update for Production:
    NEXT_PUBLIC_SUPABASE_URL = [new-project-url]
-   NEXT_PUBLIC_SUPABASE_ANON_KEY = [new-project-anon-key]
-   SUPABASE_SERVICE_ROLE_KEY = [new-project-service-key]
+   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = [new-project-anon-key]
+   SUPABASE_SECRET_KEY = [new-project-service-key]
    ```
 
 4. **Redeploy Production**

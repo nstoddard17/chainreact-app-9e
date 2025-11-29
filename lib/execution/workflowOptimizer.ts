@@ -23,7 +23,7 @@ export interface PerformanceMetrics {
 }
 
 export class WorkflowOptimizer {
-  private supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+  private supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!)
 
   async analyzeWorkflow(workflowId: string): Promise<{
     metrics: PerformanceMetrics

@@ -12,7 +12,7 @@ import { HubSpotIntegration } from './types'
 import { logger } from '@/lib/utils/logger'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+const supabaseKey = process.env.SUPABASE_SECRET_KEY || ""
 
 if (!supabaseUrl || !supabaseKey) {
   logger.error('❌ [HubSpot API] Missing Supabase environment variables')

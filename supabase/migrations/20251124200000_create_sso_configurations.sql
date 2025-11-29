@@ -31,8 +31,8 @@ CREATE TABLE IF NOT EXISTS sso_configurations (
 );
 
 -- Create index for quick lookups
-CREATE INDEX idx_sso_configurations_org_id ON sso_configurations(organization_id);
-CREATE INDEX idx_sso_configurations_active ON sso_configurations(organization_id, is_active) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_sso_configurations_org_id ON sso_configurations(organization_id);
+CREATE INDEX IF NOT EXISTS idx_sso_configurations_active ON sso_configurations(organization_id, is_active) WHERE is_active = true;
 
 -- SSO login attempts tracking for security
 CREATE TABLE IF NOT EXISTS sso_login_attempts (

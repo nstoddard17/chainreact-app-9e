@@ -1,17 +1,19 @@
-import { createSupabaseServiceClient } from "@/utils/supabase/server"
 import { NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
+import { requireAdmin } from '@/lib/utils/admin-auth'
 import { sendBetaInvitationEmail } from '@/lib/services/resend'
-
 import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: Request) {
+  const authResult = await requireAdmin()
+  if (!authResult.isAdmin) {
+    return authResult.response
+  }
+  const { serviceClient: supabase } = authResult
+
   try {
     const body = await request.json()
     const { testerIds, sendToAll } = body
-
-    // Get the current user to verify admin access
-    const supabase = await createSupabaseServiceClient()
 
     // Fetch beta testers to send offers to
     let query = supabase.from("beta_testers").select("*")
@@ -25,14 +27,14 @@ export async function POST(request: Request) {
       // Send to specific testers
       query = query.in("id", testerIds)
     } else {
-      return errorResponse("No testers specified" , 400)
+      return errorResponse("No testers specified", 400)
     }
 
     const { data: testers, error: fetchError } = await query
 
     if (fetchError) {
       logger.error("Error fetching beta testers:", fetchError)
-      return errorResponse("Failed to fetch beta testers" , 500)
+      return errorResponse("Failed to fetch beta testers", 500)
     }
 
     if (!testers || testers.length === 0) {
@@ -101,6 +103,6 @@ export async function POST(request: Request) {
 
   } catch (error: any) {
     logger.error("Error sending beta offers:", error)
-    return errorResponse(error.message , 500)
+    return errorResponse(error.message, 500)
   }
 }

@@ -24,7 +24,7 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
   }
 
   const definition = await supabase
-    .from("flow_v2_definitions")
+    .from("workflows")
     .select("id")
     .eq("id", flowId)
     .maybeSingle()

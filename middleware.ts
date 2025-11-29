@@ -53,7 +53,7 @@ export async function middleware(req: NextRequest) {
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
       cookieEncoding: 'raw',
       cookies: {
@@ -70,10 +70,10 @@ export async function middleware(req: NextRequest) {
     }
   )
 
-  // Create a service role client for reading user profiles (bypasses RLS)
+  // Create a secret key client for reading user profiles (bypasses RLS)
   const supabaseAdmin = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    process.env.SUPABASE_SECRET_KEY!,
     {
       cookieEncoding: 'raw',
       cookies: {
