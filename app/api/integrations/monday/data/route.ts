@@ -88,7 +88,11 @@ export async function POST(req: NextRequest) {
     })
 
   } catch (error: any) {
-    logger.error('❌ [Monday Data API] Error:', error)
+    logger.error('❌ [Monday Data API] Error:', {
+      message: error.message,
+      status: error.status,
+      stack: error.stack
+    })
 
     // Handle specific Monday.com API errors
     if (error.status === 401) {

@@ -44,7 +44,11 @@ export const getMondayBoards: MondayDataHandler<MondayBoard> = async (integratio
     return boards
 
   } catch (error: any) {
-    logger.error('❌ [Monday Boards] Error fetching boards:', error)
+    logger.error('❌ [Monday Boards] Error fetching boards:', {
+      message: error.message,
+      status: error.status,
+      stack: error.stack
+    })
     throw new Error(`Failed to fetch Monday.com boards: ${error.message}`)
   }
 }
