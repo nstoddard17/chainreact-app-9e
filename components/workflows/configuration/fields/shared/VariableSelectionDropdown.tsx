@@ -296,15 +296,16 @@ export function VariableSelectionDropdown({
                 }
               >
                 {node.outputs.map((field: any) => {
-                  // Use 'trigger' as the reference prefix for trigger nodes
-                  const referencePrefix = node.isTrigger ? 'trigger' : node.id
+                  // Use friendly node type for variable reference (engine resolves by type)
+                  const referencePrefix = node.isTrigger ? 'trigger' : (node.type || node.id)
                   const variableRef = `{{${referencePrefix}.${field.name}}}`
+                  const displayRef = `${referencePrefix}.${field.name}`
                   const isSelected = value === variableRef
 
                   return (
                     <CommandItem
                       key={`${node.id}.${field.name}`}
-                      value={`${node.title} ${field.label || field.name} ${field.type || ''}`}
+                      value={`${node.title} ${field.name} ${displayRef} ${field.label || ''} ${field.type || ''}`}
                       onSelect={() => {
                         onChange(variableRef)
                         setOpen(false)
@@ -313,9 +314,9 @@ export function VariableSelectionDropdown({
                     >
                       <div className="flex w-full items-center gap-3">
                         <div className="flex-1">
-                          <p className="text-sm font-medium leading-tight">
-                            {field.label || field.name}
-                          </p>
+                          <code className="text-sm font-medium font-mono leading-tight">
+                            {displayRef}
+                          </code>
                           <p className="text-xs text-muted-foreground">
                             {field.description ? field.description : `From ${node.title}`}
                           </p>

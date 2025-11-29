@@ -33,7 +33,7 @@ export default async function FlowBuilderV2Page({ params }: BuilderPageProps) {
   // Check both workflows table (v1) and flow_v2_definitions table (v2)
   const { data: workflowRow } = await serviceClient
     .from("workflows")
-    .select("id, owner_id, workspace_id")
+    .select("id, user_id, workspace_id")
     .eq("id", flowId)
     .maybeSingle()
 
@@ -43,14 +43,18 @@ export default async function FlowBuilderV2Page({ params }: BuilderPageProps) {
     .eq("id", flowId)
     .maybeSingle()
 
-  // Use whichever row exists (v1 or v2)
-  const flowRow = workflowRow || flowV2Row
+  // Use whichever row exists (v1 or v2), normalize user_id/owner_id
+  const flowRow = workflowRow
+    ? workflowRow
+    : flowV2Row
+      ? { ...flowV2Row, user_id: flowV2Row.owner_id }
+      : null
 
   if (!flowRow) {
     notFound()
   }
 
-  let hasAccess = flowRow.owner_id === user.id
+  let hasAccess = flowRow.user_id === user.id
 
   if (!hasAccess && flowRow.workspace_id) {
     try {
@@ -76,7 +80,6 @@ export default async function FlowBuilderV2Page({ params }: BuilderPageProps) {
   }
 
   // Use service client directly for loading revisions to bypass RLS
-  // RLS on workflows_revisions may not allow access for flow_v2_definitions workflows
   const repository = await getFlowRepository(serviceClient)
 
   let revision

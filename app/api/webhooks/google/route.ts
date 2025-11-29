@@ -8,11 +8,14 @@ import { logWebhookEvent } from '@/lib/webhooks/event-logger'
 import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
+  console.log('📥 [Google Webhook] Received POST request')
+
   try {
     const startTime = Date.now()
     const requestId = crypto.randomUUID()
-    
+
     const headersObject = Object.fromEntries(request.headers.entries())
+    console.log('📥 [Google Webhook] Headers:', JSON.stringify(headersObject, null, 2))
 
     // Log incoming webhook
     await logWebhookEvent({

@@ -20,7 +20,7 @@ export interface ComplianceLogEntry {
 }
 
 export class ComplianceLogger {
-  private supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+  private supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!)
 
   async logAction(entry: ComplianceLogEntry) {
     // Calculate retention period based on compliance requirements

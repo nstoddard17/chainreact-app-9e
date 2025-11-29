@@ -123,11 +123,11 @@ Key: NEXT_PUBLIC_SUPABASE_URL
 Value: https://xzwsdwllmrnrgbltibxt.supabase.co
 Environments: ✅ Production
 
-Key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+Key: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 Value: [production-anon-key]
 Environments: ✅ Production
 
-Key: SUPABASE_SERVICE_ROLE_KEY
+Key: SUPABASE_SECRET_KEY
 Value: [production-service-role-key]
 Environments: ✅ Production
 ```
@@ -226,11 +226,11 @@ Key: NEXT_PUBLIC_SUPABASE_URL
 Value: https://[dev-project-ref].supabase.co
 Environments: ✅ Preview
 
-Key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+Key: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 Value: [development-anon-key]
 Environments: ✅ Preview
 
-Key: SUPABASE_SERVICE_ROLE_KEY
+Key: SUPABASE_SECRET_KEY
 Value: [development-service-role-key]
 Environments: ✅ Preview
 ```
@@ -268,8 +268,8 @@ Use this to ensure all variables are set:
 
 **Production Environment:**
 - [ ] `NEXT_PUBLIC_SUPABASE_URL` (production project)
-- [ ] `NEXT_PUBLIC_SUPABASE_ANON_KEY` (production)
-- [ ] `SUPABASE_SERVICE_ROLE_KEY` (production)
+- [ ] `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (production)
+- [ ] `SUPABASE_SECRET_KEY` (production)
 - [ ] `NEXT_PUBLIC_BASE_URL` (production domain)
 - [ ] `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET`
 - [ ] `MICROSOFT_CLIENT_ID` + `MICROSOFT_CLIENT_SECRET`
@@ -282,8 +282,8 @@ Use this to ensure all variables are set:
 
 **Preview/Development Environment:**
 - [ ] `NEXT_PUBLIC_SUPABASE_URL` (development project)
-- [ ] `NEXT_PUBLIC_SUPABASE_ANON_KEY` (development)
-- [ ] `SUPABASE_SERVICE_ROLE_KEY` (development)
+- [ ] `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (development)
+- [ ] `SUPABASE_SECRET_KEY` (development)
 - [ ] `NEXT_PUBLIC_BASE_URL` (development domain)
 - [ ] All OAuth credentials (same or separate)
 - [ ] AI/LLM API keys
@@ -862,8 +862,8 @@ vercel          # preview
 ```bash
 # Must be different for each environment
 NEXT_PUBLIC_SUPABASE_URL
-NEXT_PUBLIC_SUPABASE_ANON_KEY
-SUPABASE_SERVICE_ROLE_KEY
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+SUPABASE_SECRET_KEY
 NEXT_PUBLIC_BASE_URL
 
 # Can be same or different

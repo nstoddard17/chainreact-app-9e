@@ -136,13 +136,6 @@ export const useAuthStore = create<AuthState>()(
           }
         }
 
-        // Temporary bypass for debugging
-        if (typeof window !== 'undefined' && window.location.search.includes('bypass_auth=true')) {
-          logger.warn('Auth bypass enabled - skipping auth initialization')
-          set({ loading: false, initialized: true, error: null, user: null })
-          return
-        }
-
         // Check if we're in production and experiencing a cold start
         const isProduction = process.env.NODE_ENV === 'production'
         const timeoutDuration = isProduction ? 12000 : 12000 // 12 seconds for both

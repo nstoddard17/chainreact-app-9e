@@ -34,3 +34,6 @@ next-env.d.ts
 .test-credentials
 .test-credentials.json
 nul
+
+# Workflow execution logs (may contain sensitive data)
+/logs/

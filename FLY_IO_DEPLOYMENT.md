@@ -74,8 +74,8 @@ This creates `fly.toml` (already provided in repo).
 # Required secrets
 fly secrets set \
   NEXT_PUBLIC_SUPABASE_URL="your_supabase_url" \
-  NEXT_PUBLIC_SUPABASE_ANON_KEY="your_anon_key" \
-  SUPABASE_SERVICE_ROLE_KEY="your_service_role_key" \
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="your_anon_key" \
+  SUPABASE_SECRET_KEY="your_service_role_key" \
   OPENAI_API_KEY="sk-..." \
   TAVILY_API_KEY="tvly-..." \
   STRIPE_SECRET_KEY="sk_..." \

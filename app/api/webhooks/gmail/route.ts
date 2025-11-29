@@ -14,9 +14,11 @@ export async function POST(request: NextRequest) {
   const headers = Object.fromEntries(request.headers.entries())
   logger.debug('📋 Request headers:', headers)
 
+  // Define requestId before try block so it's accessible in catch
+  const requestId = crypto.randomUUID()
+  const startTime = Date.now()
+
   try {
-    const startTime = Date.now()
-    const requestId = crypto.randomUUID()
 
     logger.debug(`📨 [${requestId}] Gmail webhook request received at ${new Date().toISOString()}`)
 

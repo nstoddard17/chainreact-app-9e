@@ -126,7 +126,7 @@ The Gmail send email action now supports file attachments. Users can upload file
 
 Required environment variables:
 - `NEXT_PUBLIC_SUPABASE_URL`: Supabase project URL
-- `SUPABASE_SERVICE_ROLE_KEY`: Service role key for storage access
+- `SUPABASE_SECRET_KEY`: Service role key for storage access
 - `CRON_SECRET`: Optional secret for cron job authentication
 
 ## Security

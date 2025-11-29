@@ -16,7 +16,7 @@ export async function GET() {
       hasBillingWebhookSecret: !!process.env.STRIPE_BILLING_WEBHOOK_SECRET,
       hasLegacyWebhookSecret: !!process.env.STRIPE_WEBHOOK_SECRET,
       hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-      hasSupabaseKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      hasSupabaseKey: !!process.env.SUPABASE_SECRET_KEY,
     },
     supabaseTest: null as any,
     error: null as any

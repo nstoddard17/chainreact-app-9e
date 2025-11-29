@@ -39,7 +39,7 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
   }
 
   const definition = await supabase
-    .from("flow_v2_definitions")
+    .from("workflows")
     .select("workspace_id")
     .eq("id", flowId)
     .maybeSingle()
@@ -61,7 +61,7 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
   }
 
   const revision = await supabase
-    .from("flow_v2_revisions")
+    .from("workflows_revisions")
     .select("id")
     .eq("flow_id", flowId)
     .order("created_at", { ascending: false })
@@ -77,13 +77,13 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
   const runId = uuid()
   const now = new Date().toISOString()
 
-  const runInsert = await supabase.from("flow_v2_runs").insert({
+  const runInsert = await supabase.from("workflow_executions").insert({
     id: runId,
-    flow_id: flowId,
-    revision_id: revisionId,
+    workflow_id: flowId,
+    user_id: user.id,
     status: parsed.data.status === "success" ? "success" : "error",
-    inputs: {},
-    metadata: {
+    input_data: {},
+    output_data: {
       source: "node_test",
       nodeId,
       nodeType: parsed.data.nodeType,
@@ -92,7 +92,7 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
       message: parsed.data.message,
     },
     started_at: now,
-    finished_at: now,
+    completed_at: now,
   })
 
   if (runInsert.error) {
@@ -108,16 +108,17 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
     ;(combinedOutput as any).__message = parsed.data.message
   }
 
-  const nodeInsert = await supabase.from("flow_v2_run_nodes").insert({
+  const nodeInsert = await supabase.from("workflow_node_executions").insert({
     id: uuid(),
-    run_id: runId,
+    execution_id: runId,
     node_id: nodeId,
+    node_type: parsed.data.nodeType ?? null,
     status: parsed.data.status === "success" ? "success" : "error",
-    input: parsed.data.input ?? {},
-    output: combinedOutput,
-    error: parsed.data.error ?? null,
-    duration_ms: parsed.data.executionTime ?? null,
-    created_at: now,
+    input_data: parsed.data.input ?? {},
+    output_data: combinedOutput,
+    error_message: parsed.data.error ? JSON.stringify(parsed.data.error) : null,
+    started_at: now,
+    completed_at: now,
   })
 
   if (nodeInsert.error) {

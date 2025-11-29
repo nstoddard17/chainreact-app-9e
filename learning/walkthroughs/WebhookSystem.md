@@ -336,7 +336,7 @@ const testExecutions = async (webhookId: string) => {
 ```bash
 # Required for webhook functionality
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-SUPABASE_SERVICE_ROLE_KEY=your_service_key
+SUPABASE_SECRET_KEY=your_service_key
 NEXT_PUBLIC_APP_URL=your_app_url
 ```
 

@@ -8,11 +8,17 @@ export async function GET() {
   const repository = await getFlowRepository(serviceClient)
 
   const flowId = uuid()
-  const definitionName = "Blank Flow v2"
+  const definitionName = "Blank Flow"
 
   const { error } = await serviceClient
-    .from("flow_v2_definitions")
-    .insert({ id: flowId, name: definitionName })
+    .from("workflows")
+    .insert({
+      id: flowId,
+      name: definitionName,
+      status: 'draft',
+      nodes: [],
+      connections: [],
+    })
 
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 })

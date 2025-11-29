@@ -197,6 +197,8 @@ export function FlowEdge({
     const sourceBase = getStoredPosition(sourceNode)
     const targetBase = getStoredPosition(targetNode)
     const width = getNodeWidth(sourceNode ?? targetNode, sourceRect ?? targetRect)
+    const { nodeGapY } = getCanvasDimensions()
+    const fallbackGap = Number.isFinite(nodeGapY) && nodeGapY > 0 ? nodeGapY : LAYOUT.nodeGapY
     const fallbackCenter =
       Number.isFinite(sourceX)
         ? sourceX
@@ -220,49 +222,51 @@ export function FlowEdge({
     // This ensures edges stay connected even during position updates
     const sourceAnchor =
       sourceBase && typeof sourceBase.y === 'number'
-        ? sourceBase.y + sourceHeight - HANDLE_OFFSET / 2
-        : sourceY + HANDLE_OFFSET / 2
+        ? sourceBase.y + sourceHeight
+        : Number.isFinite(sourceY)
+          ? sourceY + HANDLE_OFFSET
+          : null
 
     const targetAnchor =
       targetBase && typeof targetBase.y === 'number'
-        ? targetBase.y + HANDLE_OFFSET / 2
-        : targetY - HANDLE_OFFSET / 2
+        ? targetBase.y
+        : Number.isFinite(targetY)
+          ? targetY - HANDLE_OFFSET
+          : null
 
-    const fallbackSourceY = sourceY + HANDLE_OFFSET / 2
-    const fallbackTargetY = targetY - HANDLE_OFFSET / 2
+    const fallbackSourceY = Number.isFinite(sourceY) ? sourceY + HANDLE_OFFSET : null
+    const fallbackTargetY = Number.isFinite(targetY) ? targetY - HANDLE_OFFSET : null
 
-    const { nodeGapY } = getCanvasDimensions()
-    const visibleGap = Math.max((Number.isFinite(nodeGapY) ? nodeGapY : LAYOUT.nodeGapY) - HANDLE_OFFSET * 2, 0)
+    let anchorSourceY = Number.isFinite(sourceAnchor) ? Number(sourceAnchor) : null
+    let anchorTargetY = Number.isFinite(targetAnchor) ? Number(targetAnchor) : null
 
-    const actualGap = targetAnchor - sourceAnchor
-
-    // Only use fallback if actualGap is invalid AND we don't have stored positions
-    if (!Number.isFinite(actualGap) || actualGap <= 0) {
-      // If we have at least one stored position, calculate from there
-      if (sourceBase && typeof sourceBase.y === 'number') {
-        correctedSource.y = sourceBase.y + sourceHeight - HANDLE_OFFSET / 2
-        correctedTarget.y = correctedSource.y + visibleGap
-      } else if (targetBase && typeof targetBase.y === 'number') {
-        correctedTarget.y = targetBase.y + HANDLE_OFFSET / 2
-        correctedSource.y = correctedTarget.y - visibleGap
-      } else {
-        // No stored positions available, use React Flow's coordinates
-        correctedSource.y = fallbackSourceY
-        correctedTarget.y = Math.max(fallbackTargetY, fallbackSourceY)
-      }
-      desiredVerticalLength = Math.max(correctedTarget.y - correctedSource.y, 0)
-      availableVerticalGap = desiredVerticalLength
-    } else if (actualGap >= visibleGap) {
-      correctedTarget.y = targetAnchor
-      correctedSource.y = targetAnchor - visibleGap
-      desiredVerticalLength = visibleGap
-      availableVerticalGap = actualGap
-    } else {
-      correctedSource.y = sourceAnchor
-      correctedTarget.y = sourceAnchor + actualGap
-      desiredVerticalLength = actualGap
-      availableVerticalGap = actualGap
+    // If we only have one anchor, project the other using the standard gap so the line still renders
+    if (!Number.isFinite(anchorSourceY) && Number.isFinite(anchorTargetY)) {
+      anchorSourceY = anchorTargetY! - fallbackGap
+    } else if (!Number.isFinite(anchorTargetY) && Number.isFinite(anchorSourceY)) {
+      anchorTargetY = anchorSourceY! + fallbackGap
     }
+
+    if (!Number.isFinite(anchorSourceY)) {
+      anchorSourceY = Number.isFinite(fallbackSourceY) ? Number(fallbackSourceY) : Number.isFinite(sourceY) ? sourceY : 0
+    }
+    if (!Number.isFinite(anchorTargetY)) {
+      anchorTargetY = Number.isFinite(fallbackTargetY)
+        ? Number(fallbackTargetY)
+        : (Number.isFinite(anchorSourceY) ? anchorSourceY! + fallbackGap : fallbackGap)
+    }
+
+    let actualGap = (anchorTargetY ?? 0) - (anchorSourceY ?? 0)
+
+    if (!Number.isFinite(actualGap) || actualGap <= 0) {
+      anchorTargetY = (anchorSourceY ?? 0) + fallbackGap
+      actualGap = fallbackGap
+    }
+
+    correctedSource.y = anchorSourceY ?? correctedSource.y
+    correctedTarget.y = anchorTargetY ?? correctedTarget.y
+    desiredVerticalLength = actualGap
+    availableVerticalGap = actualGap
   }
 
   const explicitColor = data?.edgeColor || style?.stroke

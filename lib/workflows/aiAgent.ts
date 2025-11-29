@@ -6,8 +6,120 @@
 
 import { getIntegrationCredentials } from "@/lib/integrations/getDecryptedAccessToken"
 import { resolveValue } from "@/lib/workflows/actions/core/resolveValue"
+import { createClient } from '@supabase/supabase-js'
 
 import { logger } from '@/lib/utils/logger'
+
+// Supabase client for fetching user profile
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SECRET_KEY!
+)
+
+/**
+ * User profile context for AI agent
+ */
+export interface UserProfileContext {
+  fullName?: string
+  firstName?: string
+  lastName?: string
+  company?: string
+  jobTitle?: string
+  email?: string
+  username?: string
+}
+
+/**
+ * Build signature based on config and user profile
+ */
+function buildSignature(
+  config: {
+    includeSignature?: string
+    customSignature?: string
+    signaturePrefix?: string
+  },
+  userProfile: UserProfileContext
+): string {
+  const signatureType = config.includeSignature || 'none'
+
+  if (signatureType === 'none') {
+    return ''
+  }
+
+  // Get sign-off prefix
+  const prefixMap: Record<string, string> = {
+    'best': 'Best regards,',
+    'thanks': 'Thanks,',
+    'sincerely': 'Sincerely,',
+    'cheers': 'Cheers,',
+    'regards': 'Regards,',
+    'none': ''
+  }
+  const signOff = prefixMap[config.signaturePrefix || 'best'] || 'Best regards,'
+
+  if (signatureType === 'custom' && config.customSignature) {
+    // Custom signature - use as-is (may already include sign-off)
+    return `\n\n${config.customSignature}`
+  }
+
+  // Build from user profile
+  const userName = userProfile.fullName || userProfile.firstName || userProfile.username || ''
+
+  if (!userName) {
+    return '' // No name available, skip signature
+  }
+
+  if (signatureType === 'name_only') {
+    return signOff ? `\n\n${signOff}\n${userName}` : `\n\n${userName}`
+  }
+
+  if (signatureType === 'full') {
+    const parts = [userName]
+    if (userProfile.jobTitle) parts.push(userProfile.jobTitle)
+    if (userProfile.company) parts.push(userProfile.company)
+    if (userProfile.email) parts.push(userProfile.email)
+
+    return signOff
+      ? `\n\n${signOff}\n${parts.join('\n')}`
+      : `\n\n${parts.join('\n')}`
+  }
+
+  return ''
+}
+
+/**
+ * Fetches user profile for AI context
+ */
+async function fetchUserProfile(userId: string): Promise<UserProfileContext> {
+  try {
+    const { data: profile, error } = await supabase
+      .from('user_profiles')
+      .select('full_name, first_name, last_name, company, job_title, username')
+      .eq('user_id', userId)
+      .single()
+
+    if (error || !profile) {
+      logger.debug(`⚠️ Could not fetch user profile for AI context: ${error?.message || 'not found'}`)
+      return {}
+    }
+
+    // Also get email from auth.users
+    const { data: authUser } = await supabase.auth.admin.getUserById(userId)
+
+    return {
+      fullName: profile.full_name || undefined,
+      firstName: profile.first_name || undefined,
+      lastName: profile.last_name || undefined,
+      company: profile.company || undefined,
+      jobTitle: profile.job_title || undefined,
+      username: profile.username || undefined,
+      email: authUser?.user?.email || undefined
+    }
+  } catch (error) {
+    logger.error('Error fetching user profile for AI:', error)
+    return {}
+  }
+}
 
 /**
  * AI Agent metadata
@@ -423,12 +535,17 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
 
     // 4. Fetch memory based on memory configuration
     const memoryContext = await fetchMemory(
-      { memory, memoryIntegration, customMemoryIntegrations }, 
+      { memory, memoryIntegration, customMemoryIntegrations },
       userId
     )
 
-    // 5. Build the AI prompt
-    const prompt = buildAIPrompt(context.goal, context, memoryContext, systemPrompt, workflowContext)
+    // 4.5 Fetch user profile for personalization
+    const userProfile = await fetchUserProfile(userId)
+    logger.debug("👤 User profile for AI context:", userProfile)
+
+    // 5. Build the AI prompt (including tone setting)
+    const tone = resolvedConfig.tone || 'professional'
+    const prompt = buildAIPrompt(context.goal, context, memoryContext, systemPrompt, workflowContext, userProfile, tone)
 
     // 6. Execute single step AI processing
     const steps: AIAgentStep[] = []
@@ -538,10 +655,42 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
       }
     }
     
+    // Clean all text outputs to remove placeholders and sign-offs
+    const cleanedOutput = cleanAIOutput(finalOutput)
+    const cleanedDynamicOutputs: Record<string, any> = {}
+    for (const [key, value] of Object.entries(dynamicOutputs)) {
+      if (typeof value === 'string') {
+        cleanedDynamicOutputs[key] = cleanAIOutput(value)
+      } else {
+        cleanedDynamicOutputs[key] = value
+      }
+    }
+
+    logger.debug("🧹 Cleaned AI outputs - removed placeholders and sign-offs")
+
+    // Build and append signature if configured
+    const signature = buildSignature(resolvedConfig, userProfile)
+    const messageFields = ['discord_message', 'slack_message', 'email_body', 'notion_content']
+
+    // Append signature to message fields
+    if (signature) {
+      logger.debug("✍️ Appending signature to message outputs")
+      for (const field of messageFields) {
+        if (cleanedDynamicOutputs[field] && typeof cleanedDynamicOutputs[field] === 'string') {
+          cleanedDynamicOutputs[field] = cleanedDynamicOutputs[field] + signature
+        }
+      }
+    }
+
+    // Also append signature to main output if it looks like a message (not JSON)
+    const outputWithSignature = signature && cleanedOutput && !cleanedOutput.trim().startsWith('{')
+      ? cleanedOutput + signature
+      : cleanedOutput
+
     const result = {
       success: true,
-      output: finalOutput, // Complete AI response for "AI Agent Output" variable
-      ...dynamicOutputs, // Dynamic outputs from JSON (email_subject, email_body, etc.)
+      output: outputWithSignature, // Complete AI response for "AI Agent Output" variable
+      ...cleanedDynamicOutputs, // Dynamic outputs from JSON (email_subject, email_body, etc.)
       message: `AI Agent completed ${steps.length} steps to accomplish the goal`,
       steps
     }
@@ -567,6 +716,41 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
       error: error.message || "AI Agent execution failed"
     }
   }
+}
+
+/**
+ * Clean up AI-generated text by removing placeholders and unnecessary sign-offs
+ */
+function cleanAIOutput(text: string): string {
+  if (!text) return text
+
+  return text
+    // Remove common placeholder patterns
+    .replace(/\[Your Name\]/gi, '')
+    .replace(/\[Your Title\]/gi, '')
+    .replace(/\[Your Position\]/gi, '')
+    .replace(/\[Your Company\]/gi, '')
+    .replace(/\[Company Name\]/gi, '')
+    .replace(/\[Your Email\]/gi, '')
+    .replace(/\[Your Phone\]/gi, '')
+    .replace(/\[Date\]/gi, '')
+    .replace(/\[Time\]/gi, '')
+    .replace(/\[Your Organization\]/gi, '')
+    .replace(/\[Organization Name\]/gi, '')
+    .replace(/\[Your Signature\]/gi, '')
+    .replace(/\[Insert .*?\]/gi, '')
+    .replace(/\[Add .*?\]/gi, '')
+    .replace(/\[.*? Name\]/gi, '')
+    .replace(/\[.*? Title\]/gi, '')
+    .replace(/\[.*? Information\]/gi, '')
+
+    // Remove sign-off patterns at the end of messages
+    .replace(/\n\n?(Best regards|Sincerely|Kind regards|Regards|Best|Thank you|Thanks|Cheers|Warm regards|With regards|Respectfully),?\s*\n?$/i, '')
+    .replace(/\n\n?(Best regards|Sincerely|Kind regards|Regards|Best|Thank you|Thanks|Cheers|Warm regards|With regards|Respectfully),?\s*$/i, '')
+
+    // Remove trailing empty lines and spaces
+    .replace(/\n+$/, '')
+    .trim()
 }
 
 /**
@@ -666,13 +850,35 @@ function generateSubjectFromBody(body: string): string {
  * Builds the AI prompt with context and memory
  */
 function buildAIPrompt(
-  goal: string, 
-  context: any, 
-  memory: MemoryContext, 
+  goal: string,
+  context: any,
+  memory: MemoryContext,
   systemPrompt?: string,
-  workflowContext?: any
+  workflowContext?: any,
+  userProfile?: UserProfileContext,
+  tone?: string
 ): string {
+  // Build user identity string for the AI
+  const userName = userProfile?.fullName || userProfile?.firstName || userProfile?.username || 'the user'
+  const userCompany = userProfile?.company ? ` from ${userProfile.company}` : ''
+  const userTitle = userProfile?.jobTitle ? ` (${userProfile.jobTitle})` : ''
+
+  // Build tone instruction
+  const toneInstructions: Record<string, string> = {
+    'professional': 'Use a professional, clear, and business-appropriate tone.',
+    'friendly': 'Use a warm, friendly, and approachable tone. Be personable.',
+    'casual': 'Use a relaxed, conversational tone. Be natural and informal.',
+    'formal': 'Use a formal, polished, and traditional tone. Be respectful and proper.',
+    'concise': 'Be brief and to the point. Minimize unnecessary words.'
+  }
+  const toneInstruction = toneInstructions[tone || 'professional'] || toneInstructions['professional']
+
   const basePrompt = systemPrompt || `You are an AI Agent in a workflow automation platform. Generate context-specific outputs based on the target action type.
+
+YOU ARE RESPONDING ON BEHALF OF: ${userName}${userTitle}${userCompany}
+${userProfile?.email ? `Email: ${userProfile.email}` : ''}
+
+COMMUNICATION STYLE: ${toneInstruction}
 
 CRITICAL: You MUST return ONLY valid JSON with NO additional text, explanations, or formatting.
 
@@ -681,7 +887,7 @@ RESPONSE FORMAT - Choose based on context:
 For EMAIL actions, return:
 {
   "email_subject": "Re: Your Message",
-  "email_body": "Hi there,\n\nThank you for reaching out. I understand your concern and I'm here to help.\n\nBest regards"
+  "email_body": "Hi there,\n\nThank you for reaching out. I understand your concern and I'm here to help."
 }
 
 For SLACK actions, return:
@@ -703,10 +909,14 @@ For NOTION actions, return:
 STRICT REQUIREMENTS:
 - Return ONLY valid JSON object, nothing else
 - No "Subject:" prefixes or email headers
-- No signatures like "Best regards" or "[Your Name]"
+- NEVER use placeholders like [Your Name], [Your Title], [Company Name], [Date], etc.
+- NEVER include signatures, sign-offs, or closing statements (no "Best regards", "Sincerely", etc.)
+- End your message with the actual content - do NOT add a sign-off (signature is added automatically if configured)
 - No explanatory text outside the JSON
 - Content should be direct and actionable
-- Professional but conversational tone`
+- ${toneInstruction}
+- You are responding on behalf of ${userName}, so write as if you are them
+- Do NOT sign off with any name - just end with the content`
 
   // Determine what type of action this is based on the goal/context and workflow context
   let actionType = 'general'
@@ -741,25 +951,37 @@ STRICT REQUIREMENTS:
     if (hasSlackNodes && actionType === 'general') actionType = 'slack'
   }
 
+  // Build user profile section for context
+  const userProfileSection = userProfile && (userProfile.fullName || userProfile.firstName || userProfile.username)
+    ? `## Sender Identity (YOU are responding as this person)
+Name: ${userName}${userTitle}${userCompany}
+${userProfile.email ? `Email: ${userProfile.email}` : ''}
+
+IMPORTANT: Write your response as if YOU are ${userName}. Do not use placeholders or sign-offs.`
+    : ''
+
   const contextSection = `
 ## Current Context
 Goal: ${goal}
 Action Type: ${actionType}
 
+${userProfileSection}
+
 ## Available Input Data
 ${JSON.stringify(context.input, null, 2)}
 
 ## Memory Context
-${memory.external.length > 0 ? 
-  `External memory available from: ${memory.external.map(m => m.source).join(', ')}` : 
+${memory.external.length > 0 ?
+  `External memory available from: ${memory.external.map(m => m.source).join(', ')}` :
   'No external memory available'
 }
 
 ## Instructions
-Based on the action type "${actionType}", generate the appropriate JSON response format. 
+Based on the action type "${actionType}", generate the appropriate JSON response format.
 If this is for an EMAIL action, return email_subject and email_body fields.
 If this is for DISCORD, return discord_message.
 Process the input data and return ONLY the JSON object with no additional text.
+Remember: You are ${userName}. Write naturally without any signature or sign-off.
 `
 
   return basePrompt + contextSection

@@ -16,9 +16,9 @@ export async function GET(_: Request, context: { params: Promise<{ runId: string
   }
 
   const { data, error } = await supabase
-    .from("flow_v2_run_nodes")
-    .select("node_id, status, input, output, error, attempts, duration_ms, cost, created_at")
-    .eq("run_id", runId)
+    .from("workflow_node_executions")
+    .select("node_id, status, input_data, output_data, error_message, started_at, completed_at")
+    .eq("execution_id", runId)
     .eq("node_id", nodeId)
     .maybeSingle()
 
@@ -31,7 +31,7 @@ export async function GET(_: Request, context: { params: Promise<{ runId: string
   }
 
   const { data: lineage } = await supabase
-    .from("flow_v2_lineage")
+    .from("workflows_lineage")
     .select("edge_id, from_node_id, target_path, expr")
     .eq("run_id", runId)
     .eq("to_node_id", nodeId)

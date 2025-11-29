@@ -25,7 +25,7 @@ import { logger } from '@/lib/utils/logger'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_SECRET_KEY!
 )
 
 export class GumroadTriggerLifecycle implements TriggerLifecycle {
@@ -60,13 +60,15 @@ export class GumroadTriggerLifecycle implements TriggerLifecycle {
     const webhookUrl = this.getWebhookUrl()
 
     // Store in trigger_resources table for routing and tracking
-    await supabase.from('trigger_resources').insert({
+    const { error: insertError } = await supabase.from('trigger_resources').insert({
       workflow_id: workflowId,
       user_id: userId,
+      provider: 'gumroad',
       provider_id: 'gumroad',
       trigger_type: triggerType,
       node_id: nodeId,
       resource_type: 'webhook',
+      resource_id: `${workflowId}-${nodeId}`, // Generated ID for manual webhooks
       config: {
         ...config,
         webhookUrl: `${webhookUrl}?workflowId=${workflowId}`,
@@ -76,6 +78,17 @@ export class GumroadTriggerLifecycle implements TriggerLifecycle {
       },
       status: 'active'
     })
+
+    if (insertError) {
+      // Check if this is a FK constraint violation (code 23503) - happens for unsaved workflows in test mode
+      if (insertError.code === '23503') {
+        logger.warn(`⚠️ Could not store trigger resource (workflow may be unsaved): ${insertError.message}`)
+        logger.debug(`✅ Gumroad trigger registered (without local record) for workflow ${workflowId}`)
+        return
+      }
+      logger.error(`❌ Failed to store trigger resource:`, insertError)
+      throw new Error(`Failed to store trigger resource: ${insertError.message}`)
+    }
 
     logger.debug(`✅ Gumroad trigger registered for workflow ${workflowId}`)
     logger.info(`📝 Gumroad webhook must be manually configured at: https://app.gumroad.com/settings/advanced#ping-settings`)

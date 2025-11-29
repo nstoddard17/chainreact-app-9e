@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { createAdminClient } from "@/lib/supabase/admin"
-
+import { requireAdmin } from '@/lib/utils/admin-auth'
 import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
+  const authResult = await requireAdmin()
+  if (!authResult.isAdmin) {
+    return authResult.response
+  }
+  const { serviceClient: supabase } = authResult
+
   try {
     const { searchParams } = new URL(request.url)
     const days = parseInt(searchParams.get("days") || "30", 10)
     const tierFilter = searchParams.get("tier") || "all"
-
-    const supabase = createAdminClient()
 
     // Calculate date range
     const endDate = new Date()
@@ -19,7 +22,7 @@ export async function GET(request: NextRequest) {
 
     // Build query based on tier filter
     let userQuery = supabase
-      .from("users")
+      .from("user_profiles")
       .select("id, email, role")
 
     if (tierFilter !== "all") {
@@ -29,118 +32,58 @@ export async function GET(request: NextRequest) {
     const { data: users, error: usersError } = await userQuery
 
     if (usersError) {
-      throw usersError
+      logger.error("Error fetching users:", usersError)
+      return errorResponse("Failed to fetch users", 500)
     }
 
-    const userIds = users.map(user => user.id)
+    // Get usage stats for each user
+    const usagePromises = users?.map(async (user) => {
+      const { data: logs, error: logsError } = await supabase
+        .from("ai_cost_logs")
+        .select("cost, input_tokens, output_tokens, created_at")
+        .eq("user_id", user.id)
+        .gte("created_at", startDate.toISOString())
+        .lte("created_at", endDate.toISOString())
 
-    // Get usage data for the date range
-    const { data: usageData, error: usageError } = await supabase
-      .from("monthly_usage")
-      .select("*")
-      .in("user_id", userIds)
-      .gte("created_at", startDate.toISOString())
-      .lte("created_at", endDate.toISOString())
-
-    if (usageError) {
-      throw usageError
-    }
-
-    // Calculate statistics
-    const totalUsers = users.length
-    const activeUsers = usageData.filter(u => 
-      (u.ai_assistant_calls || 0) + (u.ai_compose_uses || 0) + (u.ai_agent_executions || 0) > 0
-    ).length
-
-    const totalUsage = {
-      ai_assistant_calls: usageData.reduce((sum, u) => sum + (u.ai_assistant_calls || 0), 0),
-      ai_compose_uses: usageData.reduce((sum, u) => sum + (u.ai_compose_uses || 0), 0),
-      ai_agent_executions: usageData.reduce((sum, u) => sum + (u.ai_agent_executions || 0), 0)
-    }
-
-    // Estimate cost (rough calculation based on OpenAI pricing)
-    const estimatedCost = (
-      totalUsage.ai_assistant_calls * 0.03 + // ~$0.03 per assistant call
-      totalUsage.ai_compose_uses * 0.02 + // ~$0.02 per compose use
-      totalUsage.ai_agent_executions * 0.05 // ~$0.05 per agent execution
-    )
-
-    // Group usage by tier
-    const usageByTier = users.reduce((acc, user) => {
-      const userUsage = usageData.find(u => u.user_id === user.id)
-      const totalUserUsage = (userUsage?.ai_assistant_calls || 0) + 
-                           (userUsage?.ai_compose_uses || 0) + 
-                           (userUsage?.ai_agent_executions || 0)
-
-      const tier = user.role || "free"
-      if (!acc[tier]) {
-        acc[tier] = { users: 0, totalUsage: 0, avgUsage: 0 }
+      if (logsError) {
+        return { ...user, usage: null, error: logsError.message }
       }
-      acc[tier].users++
-      acc[tier].totalUsage += totalUserUsage
-      acc[tier].avgUsage = acc[tier].totalUsage / acc[tier].users
 
-      return acc
-    }, {} as Record<string, { users: number; totalUsage: number; avgUsage: number }>)
-
-    // Get daily usage data
-    const dailyUsage = []
-    for (let i = 0; i < days; i++) {
-      const date = new Date(startDate)
-      date.setDate(date.getDate() + i)
-      
-      const dayUsage = usageData.filter(u => {
-        const usageDate = new Date(u.created_at)
-        return usageDate.toDateString() === date.toDateString()
-      })
-
-      dailyUsage.push({
-        date: date.toISOString(),
-        ai_assistant_calls: dayUsage.reduce((sum, u) => sum + (u.ai_assistant_calls || 0), 0),
-        ai_compose_uses: dayUsage.reduce((sum, u) => sum + (u.ai_compose_uses || 0), 0),
-        ai_agent_executions: dayUsage.reduce((sum, u) => sum + (u.ai_agent_executions || 0), 0)
-      })
-    }
-
-    // Get top users by usage
-    const topUsers = users.map(user => {
-      const userUsage = usageData.find(u => u.user_id === user.id)
-      const totalUserUsage = (userUsage?.ai_assistant_calls || 0) + 
-                           (userUsage?.ai_compose_uses || 0) + 
-                           (userUsage?.ai_agent_executions || 0)
-      const userCost = (
-        (userUsage?.ai_assistant_calls || 0) * 0.03 +
-        (userUsage?.ai_compose_uses || 0) * 0.02 +
-        (userUsage?.ai_agent_executions || 0) * 0.05
-      )
+      const totalCost = logs?.reduce((sum, log) => sum + (parseFloat(log.cost) || 0), 0) || 0
+      const totalTokens = logs?.reduce((sum, log) => sum + ((log.input_tokens || 0) + (log.output_tokens || 0)), 0) || 0
 
       return {
-        userId: user.id,
-        email: user.email,
-        tier: user.role || "free",
-        totalUsage,
-        cost: userCost
+        ...user,
+        usage: {
+          totalCost,
+          totalTokens,
+          requestCount: logs?.length || 0
+        }
       }
-    })
-    .filter(user => user.totalUsage > 0)
-    .sort((a, b) => b.totalUsage - a.totalUsage)
-    .slice(0, 10)
+    }) || []
+
+    const usersWithUsage = await Promise.all(usagePromises)
+
+    // Calculate aggregate stats
+    const aggregateStats = {
+      totalUsers: usersWithUsage.length,
+      totalCost: usersWithUsage.reduce((sum, u) => sum + (u.usage?.totalCost || 0), 0),
+      totalTokens: usersWithUsage.reduce((sum, u) => sum + (u.usage?.totalTokens || 0), 0),
+      totalRequests: usersWithUsage.reduce((sum, u) => sum + (u.usage?.requestCount || 0), 0),
+      activeUsers: usersWithUsage.filter(u => (u.usage?.requestCount || 0) > 0).length
+    }
 
     return jsonResponse({
-      totalUsers,
-      activeUsers,
-      totalUsage,
-      estimatedCost,
-      usageByTier: Object.entries(usageByTier).map(([tier, data]) => ({
-        tier,
-        ...data
-      })),
-      dailyUsage,
-      topUsers
+      users: usersWithUsage,
+      stats: aggregateStats,
+      dateRange: {
+        start: startDate.toISOString(),
+        end: endDate.toISOString()
+      }
     })
 
-  } catch (error) {
+  } catch (error: any) {
     logger.error("Error fetching AI usage stats:", error)
-    return errorResponse("Failed to fetch AI usage statistics" , 500)
+    return errorResponse("Internal server error", 500)
   }
-} 
+}

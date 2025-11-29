@@ -6,7 +6,7 @@ import { FileStorageService } from '@/lib/storage/fileStorage';
 import { logger } from '@/lib/utils/logger'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabaseServiceKey = process.env.SUPABASE_SECRET_KEY!;
 
 export async function POST(request: NextRequest) {
   try {

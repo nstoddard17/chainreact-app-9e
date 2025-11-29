@@ -20,7 +20,7 @@ export interface SSOConfiguration {
 }
 
 export class SSOProvider {
-  private supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+  private supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!)
 
   async configureSAML(orgId: string, config: SSOConfiguration["configuration"]) {
     const { data, error } = await this.supabase

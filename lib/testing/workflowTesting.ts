@@ -47,7 +47,7 @@ export interface TestSuite {
 }
 
 export class WorkflowTestingFramework {
-  private supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+  private supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!)
   private executionEngine = new AdvancedExecutionEngine()
 
   async createTestSuite(workflowId: string, userId: string, name: string, description: string): Promise<TestSuite> {

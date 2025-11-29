@@ -75,7 +75,7 @@ export async function setupGoogleCalendarWatch(config: GoogleCalendarWatchConfig
   try {
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      process.env.SUPABASE_SECRET_KEY!
     )
 
     // Get the integration to fetch access token
@@ -219,7 +219,7 @@ export async function stopGoogleCalendarWatch(userId: string, integrationId: str
   try {
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      process.env.SUPABASE_SECRET_KEY!
     )
 
     // Get the integration to fetch access token
@@ -289,7 +289,7 @@ export async function getGoogleCalendarChanges(
   try {
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      process.env.SUPABASE_SECRET_KEY!
     )
 
     // Get the integration to fetch access token

@@ -42,7 +42,7 @@ export class TriggerListeningManager {
   private eventQueue: TriggerEvent[] = []
   private supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    process.env.SUPABASE_SECRET_KEY!
   )
   private onTriggerCallback?: (event: TriggerEvent) => void
   private onStatusChangeCallback?: (nodeId: string, status: ListenerStatus) => void

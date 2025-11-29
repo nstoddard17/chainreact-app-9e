@@ -17,7 +17,7 @@ import { logger } from '@/lib/utils/logger'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_SECRET_KEY!
 )
 
 export class DiscordTriggerLifecycle implements TriggerLifecycle {
@@ -40,16 +40,29 @@ export class DiscordTriggerLifecycle implements TriggerLifecycle {
     } else {
       // Other Discord triggers (message_sent, member_join) just listen to events
       // Store metadata but no external registration needed
-      await supabase.from('trigger_resources').insert({
+      const { error: insertError } = await supabase.from('trigger_resources').insert({
         workflow_id: workflowId,
         user_id: userId,
+        provider: 'discord',
         provider_id: 'discord',
         trigger_type: triggerType,
         node_id: nodeId,
         resource_type: 'other',
+        resource_id: `${workflowId}-${nodeId}`,
         config,
         status: 'active'
       })
+
+      if (insertError) {
+        // Check if this is a FK constraint violation (code 23503) - happens for unsaved workflows in test mode
+        if (insertError.code === '23503') {
+          logger.warn(`⚠️ Could not store trigger resource (workflow may be unsaved): ${insertError.message}`)
+          logger.debug(`✅ Discord ${triggerType} trigger activated (passive listener, without local record)`)
+          return
+        }
+        logger.error(`❌ Failed to store trigger resource:`, insertError)
+        throw new Error(`Failed to store trigger resource: ${insertError.message}`)
+      }
       logger.debug(`✅ Discord ${triggerType} trigger activated (passive listener)`)
     }
   }
@@ -144,13 +157,15 @@ export class DiscordTriggerLifecycle implements TriggerLifecycle {
     }
 
     // Store in trigger_resources table
-    await supabase.from('trigger_resources').insert({
+    const { error: insertError } = await supabase.from('trigger_resources').insert({
       workflow_id: workflowId,
       user_id: userId,
+      provider: 'discord',
       provider_id: 'discord',
       trigger_type: 'discord_trigger_slash_command',
       node_id: nodeId,
       resource_type: 'other',
+      resource_id: commandId,
       external_id: commandId,
       config: {
         guildId,
@@ -160,6 +175,18 @@ export class DiscordTriggerLifecycle implements TriggerLifecycle {
       },
       status: 'active'
     })
+
+    if (insertError) {
+      // Check if this is a FK constraint violation (code 23503) - happens for unsaved workflows in test mode
+      // The slash command was already created successfully with Discord, so we can continue
+      if (insertError.code === '23503') {
+        logger.warn(`⚠️ Could not store trigger resource (workflow may be unsaved): ${insertError.message}`)
+        logger.debug(`✅ Discord slash command created (without local record): ${commandId}`)
+        return
+      }
+      logger.error(`❌ Failed to store trigger resource:`, insertError)
+      throw new Error(`Failed to store trigger resource: ${insertError.message}`)
+    }
   }
 
   /**

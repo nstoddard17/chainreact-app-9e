@@ -263,7 +263,7 @@ async function updateIntegrationTokens(integrationId: string, tokenData: any): P
     // Import Supabase client
     const { createClient } = await import('@supabase/supabase-js')
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+    const supabaseKey = process.env.SUPABASE_SECRET_KEY || ''
     const supabase = createClient(supabaseUrl, supabaseKey)
 
     // Calculate expiration time

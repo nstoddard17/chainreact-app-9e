@@ -210,6 +210,58 @@ export function resolveValue(
             return outputFieldValue
           }
         }
+
+        // Also check inside output.output for double-nested structures
+        // This handles cases where nodeData = { success, output: { output: { field } } }
+        if (nodeData.output?.output) {
+          const doubleNestedValue = outputField.split(".").reduce((acc: any, part: any) => {
+            return acc && acc[part]
+          }, nodeData.output.output)
+
+          if (doubleNestedValue !== undefined) {
+            logger.debug(`🔍 Resolved ${key} from double-nested output:`, doubleNestedValue)
+            return doubleNestedValue
+          }
+        }
+
+        logger.debug(`❌ [RESOLVE_VALUE] Could not resolve "${key}" - field "${outputField}" not found in node data, output, or nested output`)
+      } else {
+        logger.debug(`❌ [RESOLVE_VALUE] Node ID "${nodeIdOrTitle}" NOT FOUND in input keys:`, Object.keys(input || {}))
+
+        // PREFIX MATCHING: Try to find node by prefix (e.g., {{ai_agent.output}} -> ai_agent-xxxxx.output)
+        if (input) {
+          const inputKeys = Object.keys(input)
+          const prefixMatchKey = inputKeys.find(k => k.startsWith(nodeIdOrTitle + '-'))
+          if (prefixMatchKey) {
+            logger.debug(`🔍 [RESOLVE_VALUE] PREFIX MATCH for dotted path: "${nodeIdOrTitle}" -> "${prefixMatchKey}"`)
+            const nodeData = input[prefixMatchKey]
+
+            if (nodeData && typeof nodeData === 'object') {
+              // Navigate to the field
+              const fieldValue = outputField.split(".").reduce((acc: any, part: any) => {
+                return acc && acc[part]
+              }, nodeData)
+
+              if (fieldValue !== undefined) {
+                logger.debug(`✅ [RESOLVE_VALUE] Resolved "${key}" via prefix match`)
+                return fieldValue
+              }
+
+              // Try nodeData.output
+              if (nodeData.output) {
+                const outputFieldValue = outputField.split(".").reduce((acc: any, part: any) => {
+                  return acc && acc[part]
+                }, nodeData.output)
+                if (outputFieldValue !== undefined) {
+                  logger.debug(`✅ [RESOLVE_VALUE] Resolved "${key}" via prefix match from output`)
+                  return outputFieldValue
+                }
+              }
+            }
+          }
+        }
+
+        logger.debug(`❌ [RESOLVE_VALUE] This is likely a data flow issue - the previous node output is not keyed correctly`)
       }
 
       const nodeTitle = nodeIdOrTitle
@@ -233,15 +285,16 @@ export function resolveValue(
         for (const [nodeId, nodeResult] of Object.entries(input.nodeOutputs)) {
           // Check if this node matches our title (simple heuristic)
           const couldMatch = nodeTitle === "AI Agent" || nodeTitle.includes("AI") || nodeTitle.includes("Agent")
-          
-          if (nodeResult && nodeResult.output && couldMatch) {
+          const typedNodeResult = nodeResult as any
+
+          if (typedNodeResult && typedNodeResult.output && couldMatch) {
             // Handle AI agent nested output structure: { output: { output: "actual value" } }
-            if (nodeResult.output.output !== undefined && (outputField === "output" || outputField === "AI Agent Output")) {
-              return nodeResult.output.output
+            if (typedNodeResult.output.output !== undefined && (outputField === "output" || outputField === "AI Agent Output")) {
+              return typedNodeResult.output.output
             }
             // Handle regular output structure: { output: { fieldName: "value" } }
-            if (nodeResult.output[outputField] !== undefined) {
-              return nodeResult.output[outputField]
+            if (typedNodeResult.output[outputField] !== undefined) {
+              return typedNodeResult.output[outputField]
             }
           }
         }
@@ -306,17 +359,47 @@ export function resolveValue(
     // This is especially important for AI agent variable resolution
     if (parts.length === 1) {
       const variableName = parts[0]
-      
+
       // First check if the variable exists directly in input
       if (input && input[variableName] !== undefined) {
         return input[variableName]
       }
-      
+
+      // PREFIX MATCHING: Try to find node by prefix (e.g., {{ai_agent}} -> ai_agent-xxxxx)
+      // This handles cases where the node ID has a UUID suffix but user uses short name
+      if (input) {
+        const inputKeys = Object.keys(input)
+        const prefixMatchKey = inputKeys.find(k => k.startsWith(variableName + '-'))
+        if (prefixMatchKey) {
+          logger.debug(`🔍 [RESOLVE_VALUE] PREFIX MATCH: "${variableName}" -> "${prefixMatchKey}"`)
+          const nodeData = input[prefixMatchKey]
+
+          // For AI agent and similar nodes, extract the actual output value
+          // The structure is typically { success: true, data: { output: "actual value" }, output: "...", message: "..." }
+          // NOTE: safeClone() may replace output with "[Circular Reference]" so check data.output first
+          if (nodeData && typeof nodeData === 'object') {
+            // First check data.output (AI agent stores actual text here)
+            if (nodeData.data?.output !== undefined && nodeData.data.output !== '[Circular Reference]') {
+              logger.debug(`✅ [RESOLVE_VALUE] Found output from data.output via prefix match: "${prefixMatchKey}"`)
+              return nodeData.data.output
+            }
+            // Fall back to top-level output if it's not a circular reference marker
+            if (nodeData.output !== undefined && nodeData.output !== '[Circular Reference]') {
+              logger.debug(`✅ [RESOLVE_VALUE] Found output from prefix match: "${prefixMatchKey}"`)
+              return nodeData.output
+            }
+            // Otherwise return the whole node data
+            return nodeData
+          }
+          return nodeData
+        }
+      }
+
       // Check in input.input for nested structure
       if (input && input.input && input.input[variableName] !== undefined) {
         return input.input[variableName]
       }
-      
+
       // Check in mockTriggerOutputs if available
       if (mockTriggerOutputs && mockTriggerOutputs[variableName]) {
         return mockTriggerOutputs[variableName].value ?? mockTriggerOutputs[variableName].example ?? mockTriggerOutputs[variableName]
@@ -446,6 +529,51 @@ export function resolveValue(
               return outputFieldValue
             }
           }
+
+          // Also check inside output.output for double-nested structures
+          if (nodeData.output?.output) {
+            const doubleNestedValue = outputField.split(".").reduce((acc: any, part: any) => {
+              return acc && acc[part]
+            }, nodeData.output.output)
+
+            if (doubleNestedValue !== undefined) {
+              return doubleNestedValue
+            }
+          }
+        } else {
+          // Node not found by exact ID - try prefix matching for dotted paths
+          // e.g., {{ai_agent.output}} -> find ai_agent-xxxxx in keys
+          if (input) {
+            const inputKeys = Object.keys(input)
+            const prefixMatchKey = inputKeys.find(k => k.startsWith(nodeIdOrTitle + '-'))
+            if (prefixMatchKey) {
+              logger.debug(`🔍 [EMBEDDED] PREFIX MATCH for dotted path: "${nodeIdOrTitle}" -> "${prefixMatchKey}"`)
+              const nodeData = input[prefixMatchKey]
+
+              if (nodeData && typeof nodeData === 'object') {
+                // Navigate to the field
+                const fieldValue = outputField.split(".").reduce((acc: any, part: any) => {
+                  return acc && acc[part]
+                }, nodeData)
+
+                if (fieldValue !== undefined) {
+                  logger.debug(`✅ [EMBEDDED] Resolved "${nodeIdOrTitle}.${outputField}" via prefix match`)
+                  return fieldValue
+                }
+
+                // Try nodeData.output
+                if (nodeData.output) {
+                  const outputFieldValue = outputField.split(".").reduce((acc: any, part: any) => {
+                    return acc && acc[part]
+                  }, nodeData.output)
+                  if (outputFieldValue !== undefined) {
+                    logger.debug(`✅ [EMBEDDED] Resolved "${nodeIdOrTitle}.${outputField}" via prefix match from output`)
+                    return outputFieldValue
+                  }
+                }
+              }
+            }
+          }
         }
       }
 
@@ -453,6 +581,36 @@ export function resolveValue(
       const directValue = parts.reduce((acc: any, part: any) => acc && acc[part], input)
       if (directValue !== undefined) {
         return directValue
+      }
+
+      // PREFIX MATCHING for single-part keys (e.g., {{ai_agent}} -> ai_agent-xxxxx)
+      // This handles cases where the node ID has a UUID suffix but user uses short name
+      if (parts.length === 1 && input) {
+        const variableName = parts[0]
+        const inputKeys = Object.keys(input)
+        const prefixMatchKey = inputKeys.find(k => k.startsWith(variableName + '-'))
+        if (prefixMatchKey) {
+          logger.debug(`🔍 [EMBEDDED] PREFIX MATCH: "${variableName}" -> "${prefixMatchKey}"`)
+          const nodeData = input[prefixMatchKey]
+
+          // For AI agent and similar nodes, extract the actual output value
+          // The structure is typically { success: true, data: { output: "actual value" }, output: "...", message: "..." }
+          // NOTE: safeClone() may replace output with "[Circular Reference]" so check data.output first
+          if (nodeData && typeof nodeData === 'object') {
+            // First check data.output (AI agent stores actual text here)
+            if (nodeData.data?.output !== undefined && nodeData.data.output !== '[Circular Reference]') {
+              logger.debug(`✅ [EMBEDDED] Found output from data.output via prefix match: "${prefixMatchKey}"`)
+              return nodeData.data.output
+            }
+            // Fall back to top-level output if it's not a circular reference marker
+            if (nodeData.output !== undefined && nodeData.output !== '[Circular Reference]') {
+              logger.debug(`✅ [EMBEDDED] Found output from prefix match: "${prefixMatchKey}"`)
+              return nodeData.output
+            }
+            return nodeData
+          }
+          return nodeData
+        }
       }
 
       // If we can't resolve it, return the original template
