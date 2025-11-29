@@ -72,7 +72,11 @@ export async function makeMondayApiRequest(
 
     return data.data
   } catch (error: any) {
-    logger.error('❌ [Monday Utils] API request failed:', error)
+    logger.error('❌ [Monday Utils] API request failed:', {
+      message: error.message,
+      status: error.status,
+      stack: error.stack
+    })
     throw error
   }
 }

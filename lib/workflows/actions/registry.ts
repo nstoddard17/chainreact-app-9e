@@ -142,6 +142,23 @@ import {
   unbanDiscordMember,
 } from './discord'
 
+// ManyChat actions
+import {
+  sendManyChatMessage,
+  sendManyChatFlow,
+  sendManyChatContent,
+  sendManyChatDynamicMessage,
+  setManyChatCustomField,
+  getManyChatSubscriber,
+  addManyChatTag,
+  removeManyChatTag,
+  subscribeManyChatSequence,
+  unsubscribeManyChatSequence,
+  findManyChatUser,
+  findByManyChatCustomField,
+  createManyChatSubscriber,
+} from './manychat'
+
 // Notion actions - existing (only keeping search for backward compatibility)
 import {
   searchNotionPages,
@@ -744,7 +761,35 @@ export const actionHandlerRegistry: Record<string, Function> = {
     banDiscordMember(params.config, params.userId, params.input),
   "discord_action_unban_member": (params: { config: any; userId: string; input: Record<string, any> }) =>
     unbanDiscordMember(params.config, params.userId, params.input),
-  
+
+  // ManyChat actions - wrapped to handle new calling convention
+  "manychat_action_send_message": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    sendManyChatMessage(params.config, params.userId, params.input),
+  "manychat_action_send_flow": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    sendManyChatFlow(params.config, params.userId, params.input),
+  "manychat_action_set_custom_field": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    setManyChatCustomField(params.config, params.userId, params.input),
+  "manychat_action_get_subscriber": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    getManyChatSubscriber(params.config, params.userId, params.input),
+  "manychat_action_tag_subscriber": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    addManyChatTag(params.config, params.userId, params.input),
+  "manychat_action_remove_tag": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    removeManyChatTag(params.config, params.userId, params.input),
+  "manychat_action_subscribe_sequence": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    subscribeManyChatSequence(params.config, params.userId, params.input),
+  "manychat_action_unsubscribe_sequence": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    unsubscribeManyChatSequence(params.config, params.userId, params.input),
+  "manychat_action_find_user": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    findManyChatUser(params.config, params.userId, params.input),
+  "manychat_action_find_by_custom_field": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    findByManyChatCustomField(params.config, params.userId, params.input),
+  "manychat_action_create_subscriber": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createManyChatSubscriber(params.config, params.userId, params.input),
+  "manychat_action_send_content": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    sendManyChatContent(params.config, params.userId, params.input),
+  "manychat_action_send_dynamic_message": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    sendManyChatDynamicMessage(params.config, params.userId, params.input),
+
   // Notion actions - search kept for backward compatibility
   "notion_action_search_pages": (params: { config: any; userId: string; input: Record<string, any> }) =>
     searchNotionPages(params.config, params.userId, params.input),
