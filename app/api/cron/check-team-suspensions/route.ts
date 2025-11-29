@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     // Use service role to bypass RLS
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      process.env.SUPABASE_SECRET_KEY!
     )
 
     logger.info("[Cron] Starting team suspension check...")

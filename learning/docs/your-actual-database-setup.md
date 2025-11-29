@@ -21,7 +21,7 @@
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL="https://xzwsdwllmrnrgbltibxt.supabase.co"
-NEXT_PUBLIC_SUPABASE_ANON_KEY="eyJhbGci..."
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="eyJhbGci..."
 ```
 
 **Where data goes:**
@@ -75,8 +75,8 @@ Database: Different Supabase Project
 4. Click **Environment Variables**
 5. Look for:
    - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+   - `SUPABASE_SECRET_KEY`
 
 **This tells you which Supabase project production uses!**
 
@@ -91,7 +91,7 @@ Vercel Dashboard → Settings → Environment Variables
 │ NEXT_PUBLIC_SUPABASE_URL                                │
 │ Production: https://XXXXXXXXX.supabase.co    ← Different!
 │                                                          │
-│ NEXT_PUBLIC_SUPABASE_ANON_KEY                           │
+│ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY                           │
 │ Production: eyJhbGci...                      ← Different!
 └─────────────────────────────────────────────────────────┘
 ```

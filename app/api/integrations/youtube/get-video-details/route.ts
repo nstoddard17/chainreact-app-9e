@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     // Get the integration to access the access token
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      process.env.SUPABASE_SECRET_KEY!
     );
     const { data: integration, error: integrationError } = await supabase
       .from("integrations")

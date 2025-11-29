@@ -122,7 +122,7 @@ export async function POST(
   { params }: { params: Promise<{ workflowId: string }> }
 ) {
   const { workflowId } = await params;
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!);
 
   try {
     const { data: workflow, error: workflowError } = await supabase
@@ -271,7 +271,7 @@ export async function GET(
   const { workflowId } = await params;
   
   try {
-    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!);
     
     // Get workflow info
     const { data: workflow, error: workflowError } = await supabase

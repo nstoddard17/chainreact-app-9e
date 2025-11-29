@@ -6,11 +6,17 @@
  */
 
 import { type NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/utils/admin-auth'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/availableNodes'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
+  const authResult = await requireAdmin()
+  if (!authResult.isAdmin) {
+    return authResult.response
+  }
+
   try {
     const searchParams = request.nextUrl.searchParams
     const nodeType = searchParams.get('nodeType')

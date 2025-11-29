@@ -5,8 +5,6 @@ import { Plus } from "lucide-react"
 import { EdgeLabelRenderer } from "@xyflow/react"
 import { getCanvasDimensions, LAYOUT } from "./layout"
 
-const HANDLE_OFFSET = 9
-
 const DEFAULT_NODE_HEIGHT = 120
 const DEFAULT_NODE_WIDTH = 360 // Match placeholder node width (w-[360px])
 
@@ -73,10 +71,8 @@ export function PhantomEdgeOverlay({ nodes, onAddNode }: PhantomEdgeOverlayProps
 
   const { nodeGapY } = getCanvasDimensions()
   const verticalSpacing = Number.isFinite(nodeGapY) && nodeGapY > 0 ? nodeGapY : LAYOUT.nodeGapY
-  const visibleGap = Math.max(verticalSpacing - HANDLE_OFFSET * 2, 0)
-
-  const lineStartY = lastNodeInfo.y + lastNodeInfo.height - (HANDLE_OFFSET / 2)
-  const lineLength = visibleGap
+  const lineStartY = lastNodeInfo.y + lastNodeInfo.height
+  const lineLength = Math.max(verticalSpacing, 0)
   const buttonY = lineStartY + lineLength
   const centerX = lastNodeInfo.x + lastNodeInfo.width / 2
 

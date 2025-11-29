@@ -1,18 +1,18 @@
 import { NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { getAdminSupabaseClient } from "@/lib/supabase/admin"
-
+import { requireAdmin } from '@/lib/utils/admin-auth'
 import { logger } from '@/lib/utils/logger'
 
 export const dynamic = "force-dynamic"
 
 export async function GET() {
-  try {
-    const supabase = getAdminSupabaseClient()
-    if (!supabase) {
-      return errorResponse("Failed to create database client" , 500)
-    }
+  const authResult = await requireAdmin()
+  if (!authResult.isAdmin) {
+    return authResult.response
+  }
+  const { serviceClient: supabase } = authResult
 
+  try {
     // Get overall integration health stats
     const { data: integrations, error: integrationsError } = await supabase
       .from("integrations")

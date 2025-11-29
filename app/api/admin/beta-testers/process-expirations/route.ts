@@ -1,17 +1,16 @@
 import { NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { createClient } from "@supabase/supabase-js"
-
+import { requireAdmin } from '@/lib/utils/admin-auth'
 import { logger } from '@/lib/utils/logger'
 
 export async function POST() {
-  try {
-    // Create Supabase client at request time (not build time)
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
+  const authResult = await requireAdmin()
+  if (!authResult.isAdmin) {
+    return authResult.response
+  }
+  const { serviceClient: supabase } = authResult
 
+  try {
     // Process expired beta testers
     const { data: expiredTesters, error: fetchError } = await supabase
       .from("beta_testers")
@@ -31,68 +30,38 @@ export async function POST() {
     }
 
     for (const tester of expiredTesters || []) {
-      // Update beta tester status
-      await supabase
+      // Update beta tester status to expired
+      const { error: updateError } = await supabase
         .from("beta_testers")
-        .update({
-          status: "expired",
-          updated_at: new Date().toISOString()
-        })
+        .update({ status: "expired" })
         .eq("id", tester.id)
 
+      if (updateError) {
+        logger.error("Failed to update beta tester status:", updateError)
+        continue
+      }
       processed.expired++
 
-      // Find user and downgrade role
-      const { data: user } = await supabase
-        .from("auth.users")
-        .select("id")
-        .eq("email", tester.email)
-        .single()
+      // Downgrade user role from beta-pro to free
+      const { error: roleError } = await supabase
+        .from("user_profiles")
+        .update({ role: "free" })
+        .eq("id", tester.user_id)
 
-      if (user) {
-        await supabase
-          .from("profiles")
-          .update({
-            role: "free",
-            updated_at: new Date().toISOString()
-          })
-          .eq("id", user.id)
-
-        processed.downgraded++
-
-        // Log activity
-        await supabase
-          .from("beta_tester_activity")
-          .insert({
-            beta_tester_id: tester.id,
-            user_id: user.id,
-            activity_type: "expired",
-            activity_data: { automatic: true }
-          })
+      if (roleError) {
+        logger.error("Failed to downgrade user role:", roleError)
+        continue
       }
-
-      // Send conversion offer email (integrate with your email service)
-      if (!tester.conversion_offer_sent_at) {
-        // This would integrate with your email service (SendGrid, etc.)
-        // await sendConversionEmail(tester.email)
-
-        await supabase
-          .from("beta_testers")
-          .update({
-            conversion_offer_sent_at: new Date().toISOString()
-          })
-          .eq("id", tester.id)
-
-        processed.offersSent++
-      }
+      processed.downgraded++
     }
 
     return jsonResponse({
       success: true,
-      processed
+      processed,
+      timestamp: new Date().toISOString()
     })
   } catch (error: any) {
-    logger.error("Error processing beta expirations:", error)
-    return errorResponse("Failed to process expirations", 500, { details: error.message })
+    logger.error("Error processing beta tester expirations:", error)
+    return errorResponse(error.message || "Internal server error", 500)
   }
 }

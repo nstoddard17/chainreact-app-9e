@@ -1,17 +1,16 @@
 import { NextResponse } from 'next/server'
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { createClient } from '@supabase/supabase-js'
-
+import { requireAdmin } from '@/lib/utils/admin-auth'
 import { logger } from '@/lib/utils/logger'
 
 export async function GET() {
-  try {
-    // Use service role client for admin operations
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
+  const authResult = await requireAdmin()
+  if (!authResult.isAdmin) {
+    return authResult.response
+  }
+  const { serviceClient: supabase } = authResult
 
+  try {
     logger.debug('Checking execution_progress table...')
 
     // First check if the table exists
@@ -121,12 +120,6 @@ export async function GET() {
         sql: createTableSQL
       }).catch((rpcError) => {
         logger.error('RPC exec failed:', rpcError)
-
-        // If RPC doesn't work, try a different approach
-        // This might require the database to have the necessary extensions
-        logger.debug('Trying alternative approach...')
-
-        // Return error to indicate manual creation is needed
         return {
           error: {
             message: 'Cannot create table programmatically. Please use the SQL script manually in Supabase dashboard.',
@@ -187,13 +180,13 @@ export async function GET() {
 }
 
 export async function POST() {
-  // Alternative method: Just check if table exists and provide instructions
-  try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
+  const authResult = await requireAdmin()
+  if (!authResult.isAdmin) {
+    return authResult.response
+  }
+  const { serviceClient: supabase } = authResult
 
+  try {
     const { error } = await supabase
       .from('execution_progress')
       .select('id')
@@ -225,7 +218,6 @@ export async function POST() {
     })
 
   } catch (error: any) {
-    return errorResponse(error.message || 'Failed to check table status'
-    , 500)
+    return errorResponse(error.message || 'Failed to check table status', 500)
   }
 }

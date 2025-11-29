@@ -40,8 +40,8 @@ Flow v2 is the Kadabra-style workflow builder that ships under `/workflows/v2`. 
 | --- | ----------- |
 | `FLOW_V2_ENABLED` | Gate for all `/workflows/v2` routes (UI + APIs). Defaults to `true` when unset. |
 | `FLOW_V2_SECRET_KEY` | 32-byte key used by the secrets module (AES-256-GCM). Falls back to `SECRET_ENCRYPTION_KEY` if present. |
-| `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Required for client + server Supabase access. |
-| `SUPABASE_SERVICE_ROLE_KEY` | Required for service clients invoked inside middleware/route handlers. |
+| `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Required for client + server Supabase access. |
+| `SUPABASE_SECRET_KEY` | Required for service clients invoked inside middleware/route handlers. |
 
 ---
 

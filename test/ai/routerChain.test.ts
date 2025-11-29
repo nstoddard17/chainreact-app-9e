@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 process.env.NEXT_PUBLIC_SUPABASE_URL ||= 'https://example.supabase.co'
-process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'test-service-role'
+process.env.SUPABASE_SECRET_KEY ||= 'test-service-role'
 process.env.OPENAI_API_KEY ||= 'test-openai-key'
 
 console.log = () => {}

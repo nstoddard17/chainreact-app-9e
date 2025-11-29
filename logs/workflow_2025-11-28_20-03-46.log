@@ -1610,3 +1610,913 @@ Tts: No
 [2025-11-29T02:16:20.656Z] [INFO   ] 🧪 [test-trigger] No event received, returning timeout response
 [2025-11-29T02:16:33.049Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
 [2025-11-29T02:16:33.231Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1050ms (7747 modules)
+[2025-11-29T02:21:43.536Z] [INFO   ] 2025-11-29T02:21:43.536Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816216137}
+[2025-11-29T02:21:48.750Z] [ERROR  ]  [31m[1m⨯[22m[39m ./lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts
+Error:   [31m×[0m Merge conflict marker encountered.
+    ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts[0m:93:1]
+ [2m90[0m │         $deps: ["aiContentFilter"],
+ [2m91[0m │         $condition: { aiContentFilter: { $exists: false } }
+ [2m92[0m │       }
+ [2m93[0m │ <<<<<<< HEAD
+    · [35;1m───────[0m
+ [2m94[0m │     },
+ [2m95[0m │     {
+ [2m96[0m │       name: "aiFailClosed",
+    ╰────
+  [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts[0m:120:1]
+ [2m117[0m │         $deps: ["aiContentFilter"],
+ [2m118[0m │         $condition: { aiContentFilter: { $exists: false } }
+ [2m119[0m │       }
+ [2m120[0m │ =======
+     · [35;1m───────[0m
+ [2m121[0m │ >>>>>>> 9141298f80cce0daa73dfce6529451a0df18c9f0
+ [2m122[0m │     }
+ [2m123[0m │   ],
+     ╰────
+  [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts[0m:121:1]
+ [2m118[0m │         $condition: { aiContentFilter: { $exists: false } }
+ [2m119[0m │       }
+ [2m120[0m │ =======
+ [2m121[0m │ >>>>>>> 9141298f80cce0daa73dfce6529451a0df18c9f0
+     · [35;1m───────[0m
+ [2m122[0m │     }
+ [2m123[0m │   ],
+ [2m124[0m │   outputSchema: [
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts
+./lib/workflows/nodes/providers/gmail/index.ts
+./lib/workflows/nodes/index.ts
+./stores/workflowStore.ts
+./lib/contexts/AppContext.tsx
+[2025-11-29T02:21:48.854Z] [ERROR  ]  [31m[1m⨯[22m[39m ./lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts
+Error:   [31m×[0m Merge conflict marker encountered.
+    ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts[0m:93:1]
+ [2m90[0m │         $deps: ["aiContentFilter"],
+ [2m91[0m │         $condition: { aiContentFilter: { $exists: false } }
+ [2m92[0m │       }
+ [2m93[0m │ <<<<<<< HEAD
+    · [35;1m───────[0m
+ [2m94[0m │     },
+ [2m95[0m │     {
+ [2m96[0m │       name: "aiFailClosed",
+    ╰────
+  [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts[0m:120:1]
+ [2m117[0m │         $deps: ["aiContentFilter"],
+ [2m118[0m │         $condition: { aiContentFilter: { $exists: false } }
+ [2m119[0m │       }
+ [2m120[0m │ =======
+     · [35;1m───────[0m
+ [2m121[0m │ >>>>>>> 9141298f80cce0daa73dfce6529451a0df18c9f0
+ [2m122[0m │     }
+ [2m123[0m │   ],
+     ╰────
+  [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts[0m:121:1]
+ [2m118[0m │         $condition: { aiContentFilter: { $exists: false } }
+ [2m119[0m │       }
+ [2m120[0m │ =======
+ [2m121[0m │ >>>>>>> 9141298f80cce0daa73dfce6529451a0df18c9f0
+     · [35;1m───────[0m
+ [2m122[0m │     }
+ [2m123[0m │   ],
+ [2m124[0m │   outputSchema: [
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts
+./lib/workflows/nodes/providers/gmail/index.ts
+./lib/workflows/nodes/index.ts
+./stores/workflowStore.ts
+./lib/contexts/AppContext.tsx
+[2025-11-29T02:21:50.650Z] [INFO   ]  [37m[1m○[22m[39m Compiling /_error ...
+[2025-11-29T02:21:52.106Z] [ERROR  ]  [31m[1m⨯[22m[39m ./lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts
+Error:   [31m×[0m Merge conflict marker encountered.
+    ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts[0m:93:1]
+ [2m90[0m │         $deps: ["aiContentFilter"],
+ [2m91[0m │         $condition: { aiContentFilter: { $exists: false } }
+ [2m92[0m │       }
+ [2m93[0m │ <<<<<<< HEAD
+    · [35;1m───────[0m
+ [2m94[0m │     },
+ [2m95[0m │     {
+ [2m96[0m │       name: "aiFailClosed",
+    ╰────
+  [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts[0m:120:1]
+ [2m117[0m │         $deps: ["aiContentFilter"],
+ [2m118[0m │         $condition: { aiContentFilter: { $exists: false } }
+ [2m119[0m │       }
+ [2m120[0m │ =======
+     · [35;1m───────[0m
+ [2m121[0m │ >>>>>>> 9141298f80cce0daa73dfce6529451a0df18c9f0
+ [2m122[0m │     }
+ [2m123[0m │   ],
+     ╰────
+  [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts[0m:121:1]
+ [2m118[0m │         $condition: { aiContentFilter: { $exists: false } }
+ [2m119[0m │       }
+ [2m120[0m │ =======
+ [2m121[0m │ >>>>>>> 9141298f80cce0daa73dfce6529451a0df18c9f0
+     · [35;1m───────[0m
+ [2m122[0m │     }
+ [2m123[0m │   ],
+ [2m124[0m │   outputSchema: [
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts
+./lib/workflows/nodes/providers/gmail/index.ts
+./lib/workflows/nodes/index.ts
+./stores/workflowStore.ts
+./lib/contexts/AppContext.tsx
+[2025-11-29T02:21:52.258Z] [INFO   ] [1m[34mTime 2.8055[39m[22m
+[2025-11-29T02:21:52.539Z] [INFO   ] 2025-11-29T02:21:52.539Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816225140}
+[2025-11-29T02:21:52.603Z] [INFO   ] [1m[34mTime 0.572167[39m[22m
+[2025-11-29T02:21:52.786Z] [INFO   ] 2025-11-29T02:21:52.786Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816225387}
+[2025-11-29T02:21:52.836Z] [INFO   ] [1m[34mTime 0.452958[39m[22m
+[2025-11-29T02:21:53.006Z] [INFO   ] 2025-11-29T02:21:53.006Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816225607}
+[2025-11-29T02:21:53.071Z] [INFO   ] [1m[34mTime 0.321917[39m[22m
+[2025-11-29T02:21:53.212Z] [INFO   ] [1m[34mTime 0.458709[39m[22m
+[2025-11-29T02:21:53.245Z] [INFO   ] 2025-11-29T02:21:53.245Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816225846}
+[2025-11-29T02:21:53.305Z] [INFO   ] [1m[34mTime 0.270167[39m[22m
+[2025-11-29T02:21:53.471Z] [INFO   ] 2025-11-29T02:21:53.471Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816226072}
+[2025-11-29T02:21:53.531Z] [INFO   ] [1m[34mTime 0.299[39m[22m
+[2025-11-29T02:21:53.702Z] [INFO   ] 2025-11-29T02:21:53.702Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816226303}
+[2025-11-29T02:21:53.777Z] [INFO   ] [1m[34mTime 0.267583[39m[22m
+[2025-11-29T02:21:53.985Z] [INFO   ] 2025-11-29T02:21:53.985Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816226586}
+[2025-11-29T02:21:54.048Z] [INFO   ] [1m[34mTime 0.42275[39m[22m
+[2025-11-29T02:21:54.229Z] [INFO   ] 2025-11-29T02:21:54.229Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816226830}
+[2025-11-29T02:21:54.284Z] [INFO   ] [1m[34mTime 0.256125[39m[22m
+[2025-11-29T02:21:54.461Z] [INFO   ] 2025-11-29T02:21:54.461Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816227062}
+[2025-11-29T02:21:54.520Z] [INFO   ] [1m[34mTime 0.239125[39m[22m
+[2025-11-29T02:21:54.696Z] [INFO   ] 2025-11-29T02:21:54.696Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816227297}
+[2025-11-29T02:21:54.829Z] [INFO   ] [1m[34mTime 0.2305[39m[22m
+[2025-11-29T02:21:54.994Z] [INFO   ] 2025-11-29T02:21:54.994Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816227595}
+[2025-11-29T02:21:55.066Z] [INFO   ] [1m[34mTime 0.238584[39m[22m
+[2025-11-29T02:21:55.349Z] [INFO   ] 2025-11-29T02:21:55.349Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816227950}
+[2025-11-29T02:21:55.439Z] [INFO   ] [1m[34mTime 0.317042[39m[22m
+[2025-11-29T02:21:55.621Z] [INFO   ] 2025-11-29T02:21:55.620Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816228221}
+[2025-11-29T02:21:55.703Z] [INFO   ] [1m[34mTime 0.299333[39m[22m
+[2025-11-29T02:21:55.878Z] [INFO   ] 2025-11-29T02:21:55.878Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816228479}
+[2025-11-29T02:21:55.948Z] [INFO   ] [1m[34mTime 0.237958[39m[22m
+[2025-11-29T02:21:56.110Z] [INFO   ] 2025-11-29T02:21:56.110Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816228711}
+[2025-11-29T02:21:56.174Z] [INFO   ] [1m[34mTime 0.212334[39m[22m
+[2025-11-29T02:21:56.348Z] [INFO   ] 2025-11-29T02:21:56.348Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816228949}
+[2025-11-29T02:21:56.421Z] [INFO   ] [1m[34mTime 0.998208[39m[22m
+[2025-11-29T02:21:56.586Z] [INFO   ] 2025-11-29T02:21:56.586Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816229187}
+[2025-11-29T02:21:56.641Z] [INFO   ] [1m[34mTime 0.240542[39m[22m
+[2025-11-29T02:21:56.814Z] [INFO   ] 2025-11-29T02:21:56.814Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816229415}
+[2025-11-29T02:21:56.873Z] [INFO   ] [1m[34mTime 0.262333[39m[22m
+[2025-11-29T02:21:57.041Z] [INFO   ] 2025-11-29T02:21:57.041Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816229642}
+[2025-11-29T02:21:57.099Z] [INFO   ] [1m[34mTime 0.352208[39m[22m
+[2025-11-29T02:21:57.288Z] [INFO   ] 2025-11-29T02:21:57.287Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816229888}
+[2025-11-29T02:21:57.363Z] [INFO   ] [1m[34mTime 0.322375[39m[22m
+[2025-11-29T02:21:57.543Z] [INFO   ] 2025-11-29T02:21:57.543Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816230144}
+[2025-11-29T02:21:57.609Z] [INFO   ] [1m[34mTime 0.192167[39m[22m
+[2025-11-29T02:21:57.772Z] [INFO   ] 2025-11-29T02:21:57.772Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816230373}
+[2025-11-29T02:21:57.840Z] [INFO   ] [1m[34mTime 0.204958[39m[22m
+[2025-11-29T02:21:57.994Z] [INFO   ] 2025-11-29T02:21:57.994Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816230595}
+[2025-11-29T02:21:58.059Z] [INFO   ] [1m[34mTime 0.358292[39m[22m
+[2025-11-29T02:21:58.217Z] [INFO   ] 2025-11-29T02:21:58.217Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816230818}
+[2025-11-29T02:21:58.286Z] [INFO   ] [1m[34mTime 0.477208[39m[22m
+[2025-11-29T02:21:58.471Z] [INFO   ] 2025-11-29T02:21:58.471Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816231072}
+[2025-11-29T02:21:58.533Z] [INFO   ] [1m[34mTime 0.171125[39m[22m
+[2025-11-29T02:21:58.699Z] [INFO   ] 2025-11-29T02:21:58.699Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816231300}
+[2025-11-29T02:21:58.771Z] [INFO   ] [1m[34mTime 0.202917[39m[22m
+[2025-11-29T02:21:58.930Z] [INFO   ] 2025-11-29T02:21:58.930Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816231531}
+[2025-11-29T02:21:59.038Z] [INFO   ] [1m[34mTime 0.244459[39m[22m
+[2025-11-29T02:21:59.213Z] [INFO   ] 2025-11-29T02:21:59.213Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816231813}
+[2025-11-29T02:21:59.277Z] [INFO   ] [1m[34mTime 0.175833[39m[22m
+[2025-11-29T02:21:59.445Z] [INFO   ] 2025-11-29T02:21:59.445Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816232046}
+[2025-11-29T02:21:59.517Z] [INFO   ] [1m[34mTime 0.278334[39m[22m
+[2025-11-29T02:21:59.701Z] [INFO   ] 2025-11-29T02:21:59.701Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816232302}
+[2025-11-29T02:21:59.776Z] [INFO   ] [1m[34mTime 0.207125[39m[22m
+[2025-11-29T02:21:59.952Z] [INFO   ] 2025-11-29T02:21:59.952Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816232553}
+[2025-11-29T02:22:00.018Z] [INFO   ] [1m[34mTime 0.186375[39m[22m
+[2025-11-29T02:22:00.221Z] [INFO   ] 2025-11-29T02:22:00.221Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816232822}
+[2025-11-29T02:22:00.278Z] [INFO   ] [1m[34mTime 0.164209[39m[22m
+[2025-11-29T02:23:26.676Z] [ERROR  ]  [31m[1m⨯[22m[39m ./lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts
+Error:   [31m×[0m Merge conflict marker encountered.
+    ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts[0m:93:1]
+ [2m90[0m │         $deps: ["aiContentFilter"],
+ [2m91[0m │         $condition: { aiContentFilter: { $exists: false } }
+ [2m92[0m │       }
+ [2m93[0m │ <<<<<<< HEAD
+    · [35;1m───────[0m
+ [2m94[0m │     },
+ [2m95[0m │     {
+ [2m96[0m │       name: "aiFailClosed",
+    ╰────
+  [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts[0m:120:1]
+ [2m117[0m │         $deps: ["aiContentFilter"],
+ [2m118[0m │         $condition: { aiContentFilter: { $exists: false } }
+ [2m119[0m │       }
+ [2m120[0m │ =======
+     · [35;1m───────[0m
+ [2m121[0m │ >>>>>>> 9141298f80cce0daa73dfce6529451a0df18c9f0
+ [2m122[0m │     }
+ [2m123[0m │   ],
+     ╰────
+  [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts[0m:121:1]
+ [2m118[0m │         $condition: { aiContentFilter: { $exists: false } }
+ [2m119[0m │       }
+ [2m120[0m │ =======
+ [2m121[0m │ >>>>>>> 9141298f80cce0daa73dfce6529451a0df18c9f0
+     · [35;1m───────[0m
+ [2m122[0m │     }
+ [2m123[0m │   ],
+ [2m124[0m │   outputSchema: [
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts
+./lib/workflows/nodes/providers/gmail/index.ts
+./lib/workflows/nodes/index.ts
+./stores/workflowStore.ts
+./lib/contexts/AppContext.tsx
+[2025-11-29T02:23:49.728Z] [ERROR  ]  [31m[1m⨯[22m[39m ./lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts
+Error:   [31m×[0m Merge conflict marker encountered.
+    ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts[0m:93:1]
+ [2m90[0m │         $deps: ["aiContentFilter"],
+ [2m91[0m │         $condition: { aiContentFilter: { $exists: false } }
+ [2m92[0m │       }
+ [2m93[0m │ <<<<<<< HEAD
+    · [35;1m───────[0m
+ [2m94[0m │     },
+ [2m95[0m │     {
+ [2m96[0m │       name: "aiFailClosed",
+    ╰────
+  [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts[0m:120:1]
+ [2m117[0m │         $deps: ["aiContentFilter"],
+ [2m118[0m │         $condition: { aiContentFilter: { $exists: false } }
+ [2m119[0m │       }
+ [2m120[0m │ =======
+     · [35;1m───────[0m
+ [2m121[0m │ >>>>>>> 9141298f80cce0daa73dfce6529451a0df18c9f0
+ [2m122[0m │     }
+ [2m123[0m │   ],
+     ╰────
+  [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts[0m:121:1]
+ [2m118[0m │         $condition: { aiContentFilter: { $exists: false } }
+ [2m119[0m │       }
+ [2m120[0m │ =======
+ [2m121[0m │ >>>>>>> 9141298f80cce0daa73dfce6529451a0df18c9f0
+     · [35;1m───────[0m
+ [2m122[0m │     }
+ [2m123[0m │   ],
+ [2m124[0m │   outputSchema: [
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts
+./lib/workflows/nodes/providers/gmail/index.ts
+./lib/workflows/nodes/index.ts
+./stores/workflowStore.ts
+./lib/contexts/AppContext.tsx
+[2025-11-29T02:24:03.924Z] [ERROR  ]  [31m[1m⨯[22m[39m ./lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts
+Error:   [31m×[0m Merge conflict marker encountered.
+    ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts[0m:93:1]
+ [2m90[0m │         $deps: ["aiContentFilter"],
+ [2m91[0m │         $condition: { aiContentFilter: { $exists: false } }
+ [2m92[0m │       }
+ [2m93[0m │ <<<<<<< HEAD
+    · [35;1m───────[0m
+ [2m94[0m │     },
+ [2m95[0m │     {
+ [2m96[0m │       name: "aiFailClosed",
+    ╰────
+  [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts[0m:120:1]
+ [2m117[0m │         $deps: ["aiContentFilter"],
+ [2m118[0m │         $condition: { aiContentFilter: { $exists: false } }
+ [2m119[0m │       }
+ [2m120[0m │ =======
+     · [35;1m───────[0m
+ [2m121[0m │ >>>>>>> 9141298f80cce0daa73dfce6529451a0df18c9f0
+ [2m122[0m │     }
+ [2m123[0m │   ],
+     ╰────
+  [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts[0m:121:1]
+ [2m118[0m │         $condition: { aiContentFilter: { $exists: false } }
+ [2m119[0m │       }
+ [2m120[0m │ =======
+ [2m121[0m │ >>>>>>> 9141298f80cce0daa73dfce6529451a0df18c9f0
+     · [35;1m───────[0m
+ [2m122[0m │     }
+ [2m123[0m │   ],
+ [2m124[0m │   outputSchema: [
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts
+./lib/workflows/nodes/providers/gmail/index.ts
+./lib/workflows/nodes/index.ts
+./stores/workflowStore.ts
+./lib/contexts/AppContext.tsx
+[2025-11-29T02:24:16.056Z] [ERROR  ]  [31m[1m⨯[22m[39m ./lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts
+Error:   [31m×[0m Merge conflict marker encountered.
+    ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts[0m:93:1]
+ [2m90[0m │         $deps: ["aiContentFilter"],
+ [2m91[0m │         $condition: { aiContentFilter: { $exists: false } }
+ [2m92[0m │       }
+ [2m93[0m │ <<<<<<< HEAD
+    · [35;1m───────[0m
+ [2m94[0m │     },
+ [2m95[0m │     {
+ [2m96[0m │       name: "aiFailClosed",
+    ╰────
+  [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts[0m:120:1]
+ [2m117[0m │         $deps: ["aiContentFilter"],
+ [2m118[0m │         $condition: { aiContentFilter: { $exists: false } }
+ [2m119[0m │       }
+ [2m120[0m │ =======
+     · [35;1m───────[0m
+ [2m121[0m │ >>>>>>> 9141298f80cce0daa73dfce6529451a0df18c9f0
+ [2m122[0m │     }
+ [2m123[0m │   ],
+     ╰────
+  [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts[0m:121:1]
+ [2m118[0m │         $condition: { aiContentFilter: { $exists: false } }
+ [2m119[0m │       }
+ [2m120[0m │ =======
+ [2m121[0m │ >>>>>>> 9141298f80cce0daa73dfce6529451a0df18c9f0
+     · [35;1m───────[0m
+ [2m122[0m │     }
+ [2m123[0m │   ],
+ [2m124[0m │   outputSchema: [
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts
+./lib/workflows/nodes/providers/gmail/index.ts
+./lib/workflows/nodes/index.ts
+./stores/workflowStore.ts
+./lib/contexts/AppContext.tsx
+[2025-11-29T02:24:30.509Z] [ERROR  ]  [31m[1m⨯[22m[39m ./lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts
+Error:   [31m×[0m Merge conflict marker encountered.
+    ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts[0m:93:1]
+ [2m90[0m │         $deps: ["aiContentFilter"],
+ [2m91[0m │         $condition: { aiContentFilter: { $exists: false } }
+ [2m92[0m │       }
+ [2m93[0m │ <<<<<<< HEAD
+    · [35;1m───────[0m
+ [2m94[0m │     },
+ [2m95[0m │     {
+ [2m96[0m │       name: "aiFailClosed",
+    ╰────
+  [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts[0m:120:1]
+ [2m117[0m │         $deps: ["aiContentFilter"],
+ [2m118[0m │         $condition: { aiContentFilter: { $exists: false } }
+ [2m119[0m │       }
+ [2m120[0m │ =======
+     · [35;1m───────[0m
+ [2m121[0m │ >>>>>>> 9141298f80cce0daa73dfce6529451a0df18c9f0
+ [2m122[0m │     }
+ [2m123[0m │   ],
+     ╰────
+  [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts[0m:121:1]
+ [2m118[0m │         $condition: { aiContentFilter: { $exists: false } }
+ [2m119[0m │       }
+ [2m120[0m │ =======
+ [2m121[0m │ >>>>>>> 9141298f80cce0daa73dfce6529451a0df18c9f0
+     · [35;1m───────[0m
+ [2m122[0m │     }
+ [2m123[0m │   ],
+ [2m124[0m │   outputSchema: [
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts
+./lib/workflows/nodes/providers/gmail/index.ts
+./lib/workflows/nodes/index.ts
+./stores/workflowStore.ts
+./lib/contexts/AppContext.tsx
+[2025-11-29T02:24:54.975Z] [ERROR  ]  [31m[1m⨯[22m[39m ./lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts
+Error:   [31m×[0m Merge conflict marker encountered.
+    ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts[0m:93:1]
+ [2m90[0m │         $deps: ["aiContentFilter"],
+ [2m91[0m │         $condition: { aiContentFilter: { $exists: false } }
+ [2m92[0m │       }
+ [2m93[0m │ <<<<<<< HEAD
+    · [35;1m───────[0m
+ [2m94[0m │     },
+ [2m95[0m │     {
+ [2m96[0m │       name: "aiFailClosed",
+    ╰────
+  [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts[0m:120:1]
+ [2m117[0m │         $deps: ["aiContentFilter"],
+ [2m118[0m │         $condition: { aiContentFilter: { $exists: false } }
+ [2m119[0m │       }
+ [2m120[0m │ =======
+     · [35;1m───────[0m
+ [2m121[0m │ >>>>>>> 9141298f80cce0daa73dfce6529451a0df18c9f0
+ [2m122[0m │     }
+ [2m123[0m │   ],
+     ╰────
+  [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts[0m:121:1]
+ [2m118[0m │         $condition: { aiContentFilter: { $exists: false } }
+ [2m119[0m │       }
+ [2m120[0m │ =======
+ [2m121[0m │ >>>>>>> 9141298f80cce0daa73dfce6529451a0df18c9f0
+     · [35;1m───────[0m
+ [2m122[0m │     }
+ [2m123[0m │   ],
+ [2m124[0m │   outputSchema: [
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts
+./lib/workflows/nodes/providers/gmail/index.ts
+./lib/workflows/nodes/index.ts
+./stores/workflowStore.ts
+./lib/contexts/AppContext.tsx
+[2025-11-29T02:25:09.416Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/builder/styles/node-states.css:292:9
+[31m[1mSyntax error[22m[39m: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/builder/styles/node-states.css Unknown word
+
+ [90m 290 | [39m  [33m.badge-passed[39m[33m:[39mhover,
+ [90m 291 | [39m  [33m.badge-failed[39m[33m:[39mhover [33m{[39m
+[1m[31m>[39m[22m[90m 292 | [39m>>>>>>> 9141298f80cce0daa73dfce6529451a0df18c9f0
+ [90m     | [39m        [1m[31m^[39m[22m
+ [90m 293 | [39m    transform[33m:[39m none[33m;[39m
+ [90m 294 | [39m  [33m}[39m
+[2025-11-29T02:25:59.430Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/builder/styles/node-states.css:289:9
+[31m[1mSyntax error[22m[39m: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/builder/styles/node-states.css Unknown word
+
+ [90m 287 | [39m  [33m.badge-passed[39m[33m:[39mhover,
+ [90m 288 | [39m  [33m.badge-failed[39m[33m:[39mhover [33m{[39m
+[1m[31m>[39m[22m[90m 289 | [39m>>>>>>> 9141298f80cce0daa73dfce6529451a0df18c9f0
+ [90m     | [39m        [1m[31m^[39m[22m
+ [90m 290 | [39m    transform[33m:[39m none[33m;[39m
+ [90m 291 | [39m  [33m}[39m
+[2025-11-29T02:26:11.325Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/configuration/fields/shared/VariableSelectionDropdown.tsx
+Error:   [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/configuration/fields/shared/VariableSelectionDropdown.tsx[0m:304:1]
+ [2m301[0m │                   const variableRef = `{{${referencePrefix}.${field.name}}}`
+ [2m302[0m │                   const displayRef = `${referencePrefix}.${field.name}`
+ [2m303[0m │                   const isSelected = value === variableRef
+ [2m304[0m │ <<<<<<< HEAD
+     · [35;1m───────[0m
+ [2m305[0m │                   const descriptionText = field.label && field.label !== field.name
+ [2m306[0m │                     ? `${field.label}${field.description ? ` — ${field.description}` : ''}`
+ [2m307[0m │                     : (field.description || `From ${node.title}`)
+     ╰────
+  [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/configuration/fields/shared/VariableSelectionDropdown.tsx[0m:308:1]
+ [2m305[0m │                   const descriptionText = field.label && field.label !== field.name
+ [2m306[0m │                     ? `${field.label}${field.description ? ` — ${field.description}` : ''}`
+ [2m307[0m │                     : (field.description || `From ${node.title}`)
+ [2m308[0m │ =======
+     · [35;1m───────[0m
+ [2m309[0m │ >>>>>>> 9141298f80cce0daa73dfce6529451a0df18c9f0
+ [2m310[0m │ 
+ [2m311[0m │                   return (
+     ╰────
+  [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/configuration/fields/shared/VariableSelectionDropdown.tsx[0m:309:1]
+ [2m306[0m │                     ? `${field.label}${field.description ? ` — ${field.description}` : ''}`
+ [2m307[0m │                     : (field.description || `From ${node.title}`)
+ [2m308[0m │ =======
+ [2m309[0m │ >>>>>>> 9141298f80cce0daa73dfce6529451a0df18c9f0
+     · [35;1m───────[0m
+ [2m310[0m │ 
+ [2m311[0m │                   return (
+ [2m312[0m │                     <CommandItem
+     ╰────
+  [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/configuration/fields/shared/VariableSelectionDropdown.tsx[0m:314:1]
+ [2m311[0m │                   return (
+ [2m312[0m │                     <CommandItem
+ [2m313[0m │                       key={`${node.id}.${field.name}`}
+ [2m314[0m │ <<<<<<< HEAD
+     · [35;1m───────[0m
+ [2m315[0m │                       value={`${node.title} ${field.name} ${displayRef} ${field.label || ''} ${field.type || ''}`}
+ [2m316[0m │ =======
+ [2m317[0m │                       value={`${node.title} ${field.label || field.name} ${field.type || ''}`}
+     ╰────
+  [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/configuration/fields/shared/VariableSelectionDropdown.tsx[0m:316:1]
+ [2m313[0m │                       key={`${node.id}.${field.name}`}
+ [2m314[0m │ <<<<<<< HEAD
+ [2m315[0m │                       value={`${node.title} ${field.name} ${displayRef} ${field.label || ''} ${field.type || ''}`}
+ [2m316[0m │ =======
+     · [35;1m───────[0m
+ [2m317[0m │                       value={`${node.title} ${field.label || field.name} ${field.type || ''}`}
+ [2m318[0m │ >>>>>>> 9141298f80cce0daa73dfce6529451a0df18c9f0
+ [2m319[0m │                       onSelect={() => {
+     ╰────
+  [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/configuration/fields/shared/VariableSelectionDropdown.tsx[0m:318:1]
+ [2m315[0m │                       value={`${node.title} ${field.name} ${displayRef} ${field.label || ''} ${field.type || ''}`}
+ [2m316[0m │ =======
+ [2m317[0m │                       value={`${node.title} ${field.label || field.name} ${field.type || ''}`}
+ [2m318[0m │ >>>>>>> 9141298f80cce0daa73dfce6529451a0df18c9f0
+     · [35;1m───────[0m
+ [2m319[0m │                       onSelect={() => {
+ [2m320[0m │                         onChange(variableRef)
+ [2m321[0m │                         setOpen(false)
+     ╰────
+  [31m×[0m Expression expected
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/configuration/fields/shared/VariableSelectionDropdown.tsx[0m:327:1]
+ [2m324[0m │                     >
+ [2m325[0m │                       <div className="flex w-full items-center gap-3">
+ [2m326[0m │                         <div className="flex-1">
+ [2m327[0m │ <<<<<<< HEAD
+     · [35;1m ──[0m
+ [2m328[0m │                           <code className="text-sm font-medium font-mono leading-tight">
+ [2m329[0m │                             {displayRef}
+ [2m330[0m │                           </code>
+     ╰────
+  [31m×[0m Expression expected
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/configuration/fields/shared/VariableSelectionDropdown.tsx[0m:327:1]
+ [2m324[0m │                     >
+ [2m325[0m │                       <div className="flex w-full items-center gap-3">
+ [2m326[0m │                         <div className="flex-1">
+ [2m327[0m │ <<<<<<< HEAD
+     · [35;1m   ──[0m
+ [2m328[0m │                           <code className="text-sm font-medium font-mono leading-tight">
+ [2m329[0m │                             {displayRef}
+ [2m330[0m │                           </code>
+     ╰────
+  [31m×[0m Expression expected
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/configuration/fields/shared/VariableSelectionDropdown.tsx[0m:327:1]
+ [2m324[0m │                     >
+ [2m325[0m │                       <div className="flex w-full items-center gap-3">
+ [2m326[0m │                         <div className="flex-1">
+ [2m327[0m │ <<<<<<< HEAD
+     · [35;1m     ──[0m
+ [2m328[0m │                           <code className="text-sm font-medium font-mono leading-tight">
+ [2m329[0m │                             {displayRef}
+ [2m330[0m │                           </code>
+     ╰────
+  [31m×[0m Expected '</', got 'className'
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/configuration/fields/shared/VariableSelectionDropdown.tsx[0m:328:1]
+ [2m325[0m │                       <div className="flex w-full items-center gap-3">
+ [2m326[0m │                         <div className="flex-1">
+ [2m327[0m │ <<<<<<< HEAD
+ [2m328[0m │                           <code className="text-sm font-medium font-mono leading-tight">
+     · [35;1m                                ─────────[0m
+ [2m329[0m │                             {displayRef}
+ [2m330[0m │                           </code>
+ [2m331[0m │ =======
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/configuration/fields/shared/VariableSelectionDropdown.tsx
+./components/workflows/configuration/fields/FieldRenderer.tsx
+./components/workflows/configuration/index.ts
+./components/workflows/builder/WorkflowBuilderV2.tsx
+[2025-11-29T02:26:27.432Z] [ERROR  ]  [31m[1m⨯[22m[39m ./lib/workflows/actions/core/resolveValue.ts
+Error:   [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/actions/core/resolveValue.ts[0m:213:1]
+ [2m210[0m │             return outputFieldValue
+ [2m211[0m │           }
+ [2m212[0m │         }
+ [2m213[0m │ <<<<<<< HEAD
+     · [35;1m───────[0m
+ [2m214[0m │ 
+ [2m215[0m │         // Also check inside output.output for double-nested structures
+ [2m216[0m │         // This handles cases where nodeData = { success, output: { output: { field } } }
+     ╰────
+  [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/actions/core/resolveValue.ts[0m:283:1]
+ [2m280[0m │         }
+ [2m281[0m │ 
+ [2m282[0m │         logger.debug(`❌ [RESOLVE_VALUE] This is likely a data flow issue - the previous node output is not keyed correctly`)
+ [2m283[0m │ =======
+     · [35;1m───────[0m
+ [2m284[0m │ >>>>>>> 9141298f80cce0daa73dfce6529451a0df18c9f0
+ [2m285[0m │       }
+     ╰────
+  [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/actions/core/resolveValue.ts[0m:284:1]
+ [2m281[0m │ 
+ [2m282[0m │         logger.debug(`❌ [RESOLVE_VALUE] This is likely a data flow issue - the previous node output is not keyed correctly`)
+ [2m283[0m │ =======
+ [2m284[0m │ >>>>>>> 9141298f80cce0daa73dfce6529451a0df18c9f0
+     · [35;1m───────[0m
+ [2m285[0m │       }
+ [2m286[0m │ 
+ [2m287[0m │       const nodeTitle = nodeIdOrTitle
+     ╰────
+  [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/actions/core/resolveValue.ts[0m:552:1]
+ [2m549[0m │               return outputFieldValue
+ [2m550[0m │             }
+ [2m551[0m │           }
+ [2m552[0m │ <<<<<<< HEAD
+     · [35;1m───────[0m
+ [2m553[0m │ 
+ [2m554[0m │           // Also check inside output.output for double-nested structures
+ [2m555[0m │           if (nodeData.output?.output) {
+     ╰────
+  [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/actions/core/resolveValue.ts[0m:613:1]
+ [2m610[0m │               }
+ [2m611[0m │             }
+ [2m612[0m │           }
+ [2m613[0m │ =======
+     · [35;1m───────[0m
+ [2m614[0m │ >>>>>>> 9141298f80cce0daa73dfce6529451a0df18c9f0
+ [2m615[0m │         }
+ [2m616[0m │       }
+     ╰────
+  [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/actions/core/resolveValue.ts[0m:614:1]
+ [2m611[0m │             }
+ [2m612[0m │           }
+ [2m613[0m │ =======
+ [2m614[0m │ >>>>>>> 9141298f80cce0daa73dfce6529451a0df18c9f0
+     · [35;1m───────[0m
+ [2m615[0m │         }
+ [2m616[0m │       }
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./lib/workflows/actions/core/resolveValue.ts
+./components/workflows/configuration/utils/variable-validation.ts
+./components/workflows/configuration/utils/validation.ts
+./components/workflows/configuration/index.ts
+./components/workflows/builder/WorkflowBuilderV2.tsx
+[2025-11-29T02:26:56.622Z] [ERROR  ]  [31m[1m⨯[22m[39m ./lib/workflows/actions/core/resolveValue.ts
+Error:   [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/actions/core/resolveValue.ts[0m:532:1]
+ [2m529[0m │               return outputFieldValue
+ [2m530[0m │             }
+ [2m531[0m │           }
+ [2m532[0m │ <<<<<<< HEAD
+     · [35;1m───────[0m
+ [2m533[0m │ 
+ [2m534[0m │           // Also check inside output.output for double-nested structures
+ [2m535[0m │           if (nodeData.output?.output) {
+     ╰────
+  [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/actions/core/resolveValue.ts[0m:593:1]
+ [2m590[0m │               }
+ [2m591[0m │             }
+ [2m592[0m │           }
+ [2m593[0m │ =======
+     · [35;1m───────[0m
+ [2m594[0m │ >>>>>>> 9141298f80cce0daa73dfce6529451a0df18c9f0
+ [2m595[0m │         }
+ [2m596[0m │       }
+     ╰────
+  [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/actions/core/resolveValue.ts[0m:594:1]
+ [2m591[0m │             }
+ [2m592[0m │           }
+ [2m593[0m │ =======
+ [2m594[0m │ >>>>>>> 9141298f80cce0daa73dfce6529451a0df18c9f0
+     · [35;1m───────[0m
+ [2m595[0m │         }
+ [2m596[0m │       }
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./lib/workflows/actions/core/resolveValue.ts
+./components/workflows/configuration/utils/variable-validation.ts
+./components/workflows/configuration/utils/validation.ts
+./components/workflows/configuration/index.ts
+./components/workflows/builder/WorkflowBuilderV2.tsx
+[2025-11-29T02:27:26.143Z] [ERROR  ]  [31m[1m⨯[22m[39m ./lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts
+Error:   [31m×[0m Merge conflict marker encountered.
+    ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts[0m:93:1]
+ [2m90[0m │         $deps: ["aiContentFilter"],
+ [2m91[0m │         $condition: { aiContentFilter: { $exists: false } }
+ [2m92[0m │       }
+ [2m93[0m │ <<<<<<< HEAD
+    · [35;1m───────[0m
+ [2m94[0m │     },
+ [2m95[0m │     {
+ [2m96[0m │       name: "aiFailClosed",
+    ╰────
+  [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts[0m:120:1]
+ [2m117[0m │         $deps: ["aiContentFilter"],
+ [2m118[0m │         $condition: { aiContentFilter: { $exists: false } }
+ [2m119[0m │       }
+ [2m120[0m │ =======
+     · [35;1m───────[0m
+ [2m121[0m │ >>>>>>> 9141298f80cce0daa73dfce6529451a0df18c9f0
+ [2m122[0m │     }
+ [2m123[0m │   ],
+     ╰────
+  [31m×[0m Merge conflict marker encountered.
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts[0m:121:1]
+ [2m118[0m │         $condition: { aiContentFilter: { $exists: false } }
+ [2m119[0m │       }
+ [2m120[0m │ =======
+ [2m121[0m │ >>>>>>> 9141298f80cce0daa73dfce6529451a0df18c9f0
+     · [35;1m───────[0m
+ [2m122[0m │     }
+ [2m123[0m │   ],
+ [2m124[0m │   outputSchema: [
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./lib/workflows/nodes/providers/gmail/triggers/newEmail.schema.ts
+./lib/workflows/nodes/providers/gmail/index.ts
+./lib/workflows/nodes/index.ts
+./components/workflows/builder/WorkflowBuilderV2.tsx
+[2025-11-29T02:27:46.615Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_error in 1902ms (7156 modules)
+[2025-11-29T02:27:46.693Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-11-29T02:27:47.313Z] [INFO   ] 2025-11-29T02:27:47.313Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816579914}
+[2025-11-29T02:27:47.341Z] [INFO   ] 2025-11-29T02:27:47.341Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816579942}
+[2025-11-29T02:27:48.034Z] [INFO   ] 2025-11-29T02:27:48.034Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-29T02:27:48.034Z"}
+[2025-11-29T02:27:48.050Z] [INFO   ] 2025-11-29T02:27:48.050Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-29T02:27:48.050Z"}
+[2025-11-29T02:27:48.050Z] [INFO   ] 2025-11-29T02:27:48.050Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-29T02:27:48.050Z"}
+[2025-11-29T02:27:48.532Z] [INFO   ] 2025-11-29T02:27:48.532Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-29T02:27:49.432Z] [ERROR  ]  [31m[1m⨯[22m[39m handleGenerateApiKey is not defined
+ReferenceError: handleGenerateApiKey is not defined
+    at WorkflowBuilderV2 (webpack-internal:///(ssr)/./components/workflows/builder/WorkflowBuilderV2.tsx:5283:9)
+    at Object.react_stack_bottom_frame (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:292649)
+    at renderWithHooks (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:114080)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:128752)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194969)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:215436)
+    at Immediate._onImmediate (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:98974)
+    at process.processImmediate (node:internal/timers:511:21)
+    at process.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-11-29T02:27:51.992Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-11-29T02:27:52.386Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1131ms (5177 modules)
+[2025-11-29T02:27:52.791Z] [INFO   ] 2025-11-29T02:27:52.791Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816585392}
+[2025-11-29T02:27:58.187Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 4.3s (7165 modules)
+[2025-11-29T02:27:59.172Z] [INFO   ] 2025-11-29T02:27:59.171Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-29T02:27:59.809Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /icon.png in 470ms (5181 modules)
+[2025-11-29T02:27:59.998Z] [INFO   ] 2025-11-29T02:27:59.997Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816592598}
+[2025-11-29T02:28:00.310Z] [INFO   ] 2025-11-29T02:28:00.310Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-29T02:28:00.932Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-11-29T02:28:01.366Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 1000ms (5184 modules)
+[2025-11-29T02:28:02.364Z] [INFO   ] 2025-11-29T02:28:02.364Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-29T02:28:02.364Z","url":"http://localhost:3000/api/integrations?workspace_type=personal&workspace_id=ed18bcb3-6a08-4422-a1a3-9e4b7b3337ab"}
+[2025-11-29T02:28:02.459Z] [INFO   ] 2025-11-29T02:28:02.459Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-29T02:28:02.459Z] [INFO   ] 2025-11-29T02:28:02.459Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":"ed18bcb3-6a08-4422-a1a3-9e4b7b3337ab"}
+[2025-11-29T02:28:02.571Z] [INFO   ] 2025-11-29T02:28:02.571Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/faf37bd5-393a-41d6-94bc-bf997d0a75b7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":15816595172}
+[2025-11-29T02:28:02.605Z] [INFO   ] 2025-11-29T02:28:02.605Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":"ed18bcb3-6a08-4422-a1a3-9e4b7b3337ab","integrationsCount":15,"permissionsCount":4,"integrationsError":null,"permissionsError":null}
+[2025-11-29T02:28:02.605Z] [INFO   ] 2025-11-29T02:28:02.605Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","permission":"admin"}
+[2025-11-29T02:28:02.605Z] [INFO   ] 2025-11-29T02:28:02.605Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"c61c89e4-4f78-4069-8bfe-d36dd81cf6fc","provider":"dropbox","permission":"admin","reason":"connected_by"}
+[2025-11-29T02:28:02.605Z] [INFO   ] 2025-11-29T02:28:02.605Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","permission":"admin","reason":"connected_by"}
+[2025-11-29T02:28:02.605Z] [INFO   ] 2025-11-29T02:28:02.605Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","permission":"admin","reason":"connected_by"}
+[2025-11-29T02:28:02.605Z] [INFO   ] 2025-11-29T02:28:02.605Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f172e387-ab0c-4c6a-975e-1767b2fd37be","provider":"notion","permission":"admin","reason":"default"}
+[2025-11-29T02:28:02.605Z] [INFO   ] 2025-11-29T02:28:02.605Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f367c75b-b4ea-4d0e-96ba-76368f0525a6","provider":"slack","permission":"admin","reason":"connected_by"}
+[2025-11-29T02:28:02.605Z] [INFO   ] 2025-11-29T02:28:02.605Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f0476067-a30a-4ab4-b9fb-1f5a647a7be7","provider":"facebook","permission":"admin","reason":"connected_by"}
+[2025-11-29T02:28:02.605Z] [INFO   ] 2025-11-29T02:28:02.605Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","permission":"admin","reason":"connected_by"}
+[2025-11-29T02:28:02.605Z] [INFO   ] 2025-11-29T02:28:02.605Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","permission":"admin"}
+[2025-11-29T02:28:02.605Z] [INFO   ] 2025-11-29T02:28:02.605Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","permission":"admin","reason":"connected_by"}
+[2025-11-29T02:28:02.605Z] [INFO   ] 2025-11-29T02:28:02.605Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-29T02:28:02.605Z] [INFO   ] 2025-11-29T02:28:02.605Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"dd542556-581b-4711-ae40-304c81619938","provider":"airtable","permission":"admin","reason":"connected_by"}
+[2025-11-29T02:28:02.605Z] [INFO   ] 2025-11-29T02:28:02.605Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-29T02:28:02.606Z] [INFO   ] 2025-11-29T02:28:02.605Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","permission":"admin","reason":"connected_by"}
+[2025-11-29T02:28:02.606Z] [INFO   ] 2025-11-29T02:28:02.606Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","permission":"admin","reason":"connected_by"}
+[2025-11-29T02:28:02.606Z] [INFO   ] 2025-11-29T02:28:02.606Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":15,"workspaceType":"personal"}
+[2025-11-29T02:28:02.879Z] [INFO   ] 2025-11-29T02:28:02.879Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-29T02:28:02.879Z"}
+[2025-11-29T02:28:02.894Z] [INFO   ] 2025-11-29T02:28:02.894Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-29T02:28:02.894Z"}
+[2025-11-29T02:28:02.894Z] [INFO   ] 2025-11-29T02:28:02.894Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-29T02:28:02.894Z"}
+[2025-11-29T02:28:03.225Z] [INFO   ] 2025-11-29T02:28:03.224Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-11-29T02:28:03.935Z] [ERROR  ]  [31m[1m⨯[22m[39m handleGenerateApiKey is not defined
+ReferenceError: handleGenerateApiKey is not defined
+    at WorkflowBuilderV2 (webpack-internal:///(ssr)/./components/workflows/builder/WorkflowBuilderV2.tsx:5283:9)
+    at Object.react_stack_bottom_frame (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:292649)
+    at renderWithHooks (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:114080)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:128752)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194969)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:215436)
+    at Immediate._onImmediate (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:98974)
+    at process.processImmediate (node:internal/timers:511:21)
+    at process.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-11-29T02:28:08.240Z] [INFO   ] 2025-11-29T02:28:08.240Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-11-29T02:28:08.240Z","url":"http://localhost:3000/api/integrations?workspace_type=personal&workspace_id=ed18bcb3-6a08-4422-a1a3-9e4b7b3337ab"}
+[2025-11-29T02:28:08.375Z] [INFO   ] 2025-11-29T02:28:08.375Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-11-29T02:28:08.375Z] [INFO   ] 2025-11-29T02:28:08.375Z [DEBUG] 🏠 [API /api/integrations] Workspace context {"workspaceType":"personal","workspaceId":"ed18bcb3-6a08-4422-a1a3-9e4b7b3337ab"}
+[2025-11-29T02:28:08.506Z] [INFO   ] 2025-11-29T02:28:08.506Z [DEBUG] 📊 [API /api/integrations] Parallel query results {"workspaceType":"personal","workspaceId":"ed18bcb3-6a08-4422-a1a3-9e4b7b3337ab","integrationsCount":15,"permissionsCount":4,"integrationsError":null,"permissionsError":null}
+[2025-11-29T02:28:08.508Z] [INFO   ] 2025-11-29T02:28:08.508Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"580105eb-df9a-4b0a-a934-43e5a99f9bb8","provider":"discord","permission":"admin"}
+[2025-11-29T02:28:08.508Z] [INFO   ] 2025-11-29T02:28:08.508Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"c61c89e4-4f78-4069-8bfe-d36dd81cf6fc","provider":"dropbox","permission":"admin","reason":"connected_by"}
+[2025-11-29T02:28:08.508Z] [INFO   ] 2025-11-29T02:28:08.508Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"0e7c83e0-6c16-48f6-b7d8-77d3592dca01","provider":"github","permission":"admin","reason":"connected_by"}
+[2025-11-29T02:28:08.508Z] [INFO   ] 2025-11-29T02:28:08.508Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"cb175247-1caa-430b-85c0-dd7ca5ca370b","provider":"google-drive","permission":"admin","reason":"connected_by"}
+[2025-11-29T02:28:08.508Z] [INFO   ] 2025-11-29T02:28:08.508Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f172e387-ab0c-4c6a-975e-1767b2fd37be","provider":"notion","permission":"admin","reason":"default"}
+[2025-11-29T02:28:08.509Z] [INFO   ] 2025-11-29T02:28:08.509Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f367c75b-b4ea-4d0e-96ba-76368f0525a6","provider":"slack","permission":"admin","reason":"connected_by"}
+[2025-11-29T02:28:08.509Z] [INFO   ] 2025-11-29T02:28:08.509Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"f0476067-a30a-4ab4-b9fb-1f5a647a7be7","provider":"facebook","permission":"admin","reason":"connected_by"}
+[2025-11-29T02:28:08.509Z] [INFO   ] 2025-11-29T02:28:08.509Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"a6595fc9-22fe-43dc-82a9-a3301cb3b373","provider":"google-docs","permission":"admin","reason":"connected_by"}
+[2025-11-29T02:28:08.509Z] [INFO   ] 2025-11-29T02:28:08.509Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"15a626c1-ecf2-4635-a287-1ddc3967a6ce","provider":"gmail","permission":"admin"}
+[2025-11-29T02:28:08.509Z] [INFO   ] 2025-11-29T02:28:08.509Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"6f959e59-18c3-47f0-a20f-cc8a268ceb21","provider":"hubspot","permission":"admin","reason":"connected_by"}
+[2025-11-29T02:28:08.509Z] [INFO   ] 2025-11-29T02:28:08.509Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"dc6cd712-ac50-45b5-86b6-4ff9963c7aa8","provider":"google-sheets","permission":"admin"}
+[2025-11-29T02:28:08.509Z] [INFO   ] 2025-11-29T02:28:08.509Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"dd542556-581b-4711-ae40-304c81619938","provider":"airtable","permission":"admin","reason":"connected_by"}
+[2025-11-29T02:28:08.509Z] [INFO   ] 2025-11-29T02:28:08.509Z [DEBUG] 📋 [API /api/integrations] Using explicit permission {"integrationId":"8ef5c519-18a9-4a81-829e-b7a48b58f668","provider":"gumroad","permission":"admin"}
+[2025-11-29T02:28:08.509Z] [INFO   ] 2025-11-29T02:28:08.509Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"3d77fbe9-de84-47a8-ba84-a80981ffd516","provider":"google-calendar","permission":"admin","reason":"connected_by"}
+[2025-11-29T02:28:08.509Z] [INFO   ] 2025-11-29T02:28:08.509Z [DEBUG] 📋 [API /api/integrations] Using implicit permission {"integrationId":"91c85768-928a-445d-89ae-28521f5ee7f2","provider":"google-analytics","permission":"admin","reason":"connected_by"}
+[2025-11-29T02:28:08.509Z] [INFO   ] 2025-11-29T02:28:08.509Z [DEBUG] ✅ [API /api/integrations] Returning integrations {"count":15,"workspaceType":"personal"}
+
+=== Log Session Ended: 2025-11-29T02:47:13.682Z ===
