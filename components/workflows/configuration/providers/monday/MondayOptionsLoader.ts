@@ -82,6 +82,12 @@ export class MondayOptionsLoader implements ProviderOptionsLoader {
       debounceTimers.delete(fieldName);
     }
 
+    const dataType = this.fieldToDataType[fieldName];
+    if (!dataType) {
+      logger.warn(`❌ [Monday] Unknown field: ${fieldName}`);
+      return [];
+    }
+
     // Create a new promise for this request
     const loadPromise = new Promise<FormattedOption[]>((resolve) => {
       // Add a small debounce delay to batch rapid consecutive calls
@@ -90,15 +96,6 @@ export class MondayOptionsLoader implements ProviderOptionsLoader {
 
         try {
           let result: FormattedOption[] = [];
-
-          // Get the data type for this field
-          const dataType = this.fieldToDataType[fieldName];
-
-          if (!dataType) {
-            logger.warn(`❌ [Monday] Unknown field: ${fieldName}`);
-            resolve([]);
-            return;
-          }
 
           // Build options object for API request
           const apiOptions: Record<string, any> = {};
@@ -124,7 +121,15 @@ export class MondayOptionsLoader implements ProviderOptionsLoader {
           });
 
           if (!response.ok) {
-            throw new Error(`Failed to load ${fieldName}: ${response.statusText}`);
+            // Try to get error details from response body
+            let errorMessage = response.statusText;
+            try {
+              const errorData = await response.json();
+              errorMessage = errorData.error || errorData.message || errorMessage;
+            } catch {
+              // If we can't parse JSON, use statusText
+            }
+            throw new Error(`Failed to load ${fieldName}: ${errorMessage}`);
           }
 
           const responseData = await response.json();
@@ -142,7 +147,13 @@ export class MondayOptionsLoader implements ProviderOptionsLoader {
 
           resolve(result);
         } catch (error: any) {
-          logger.error(`❌ [Monday] Error loading ${fieldName}:`, error);
+          logger.error(`❌ [Monday] Error loading ${fieldName}:`, {
+            message: error.message,
+            fieldName,
+            dataType,
+            integrationId,
+            dependsOnValue
+          });
 
           // Clean up pending promise
           pendingPromises.delete(requestKey);

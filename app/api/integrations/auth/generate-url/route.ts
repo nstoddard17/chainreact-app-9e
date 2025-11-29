@@ -1277,6 +1277,14 @@ async function generateMondayAuthUrl(stateObject: any, supabase: any): Promise<s
     state,
   })
 
+  // Add scopes - ONLY AFTER configuring them in Monday.com app settings
+  // Required scopes: me:read, boards:read, boards:write, users:read
+  // Configure at: https://auth.monday.com/developers
+  const scopes = ['me:read', 'boards:read', 'boards:write', 'users:read']
+  if (scopes.length > 0) {
+    params.append('scope', scopes.join(' '))
+  }
+
   const authUrl = `https://auth.monday.com/oauth2/authorize?${params.toString()}`
   logger.debug('🔍 Monday.com OAuth URL Generation:')
   logger.debug('  - Client ID:', clientId ? `${clientId.substring(0, 10)}...` : 'NOT SET')
