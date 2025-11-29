@@ -22,7 +22,7 @@ export const getMondayColumns: MondayDataHandler<MondayColumn> = async (
       throw new Error('boardId is required to fetch columns')
     }
 
-    const accessToken = getMondayAccessToken(integration)
+    const accessToken = await getMondayAccessToken(integration)
 
     const query = `
       query($boardId: [ID!]) {

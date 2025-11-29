@@ -13,7 +13,7 @@ export const getMondayBoards: MondayDataHandler<MondayBoard> = async (integratio
   try {
     validateMondayIntegration(integration)
 
-    const accessToken = getMondayAccessToken(integration)
+    const accessToken = await getMondayAccessToken(integration)
 
     const query = `
       query {
