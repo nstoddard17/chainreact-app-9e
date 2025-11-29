@@ -13,7 +13,7 @@ import { logger } from '@/lib/utils/logger'
 // Supabase client for fetching user profile
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_SECRET_KEY!
 )
 
 /**

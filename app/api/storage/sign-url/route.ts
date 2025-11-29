@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js'
 import { logger } from '@/lib/utils/logger'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const supabaseServiceKey = process.env.SUPABASE_SECRET_KEY!
 
 const ALLOWED_BUCKETS = new Set(['workflow-files', 'trello-attachments', 'user-avatars'])
 
@@ -51,7 +51,7 @@ const getObjectOwnerId = (bucket: string, objectPath: string, userId: string) =>
 
 export async function POST(request: NextRequest) {
   if (!supabaseServiceKey) {
-    logger.error('Missing SUPABASE_SERVICE_ROLE_KEY environment variable')
+    logger.error('Missing SUPABASE_SECRET_KEY environment variable')
     return errorResponse('Server configuration error', 500)
   }
 

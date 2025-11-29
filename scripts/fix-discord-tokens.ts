@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js"
 import { encrypt } from "@/lib/security/encryption"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+const supabaseServiceRoleKey = process.env.SUPABASE_SECRET_KEY
 const encryptionKey = process.env.ENCRYPTION_KEY
 
 if (!supabaseUrl || !supabaseServiceRoleKey) {

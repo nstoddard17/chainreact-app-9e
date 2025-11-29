@@ -11,7 +11,7 @@ const oauth2Client = new google.auth.OAuth2(
 );
 
 export class GmailService {
-  private supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  private supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!);
   private gmail;
 
   constructor(accessToken: string) {
@@ -20,7 +20,7 @@ export class GmailService {
   }
 
   static async refreshToken(userId: string, integrationId: string): Promise<string | null> {
-    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!);
     
     const { data: integration, error } = await supabase
       .from('integrations')

@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { createSupabaseServiceClient } from '@/utils/supabase/server'
-
+import { requireAdmin } from '@/lib/utils/admin-auth'
 import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
+  const authResult = await requireAdmin()
+  if (!authResult.isAdmin) {
+    return authResult.response
+  }
+  const { serviceClient: supabase } = authResult
+
   try {
-    // Initialize Supabase with service role for admin access
-    const supabase = await createSupabaseServiceClient()
-
-    // TODO: Add proper admin authentication check here
-    // For now, this is a placeholder - you should verify the user is an admin
-
     // Get current month dates
     const now = new Date()
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
@@ -25,7 +24,7 @@ export async function GET(request: NextRequest) {
 
     if (usersError) {
       logger.error('Error fetching users:', usersError)
-      return errorResponse('Failed to fetch users' , 500)
+      return errorResponse('Failed to fetch users', 500)
     }
 
     // Fetch usage data for all users
@@ -107,9 +106,9 @@ export async function GET(request: NextRequest) {
       users: userUsageData,
       stats
     })
-    
+
   } catch (error) {
     logger.error("Error fetching admin AI usage:", error)
-    return errorResponse("Internal server error" , 500)
+    return errorResponse("Internal server error", 500)
   }
 }

@@ -324,7 +324,7 @@ export async function sendGmailEmail(
             try {
               const { createClient } = await import('@supabase/supabase-js');
               const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-              const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+              const supabaseServiceKey = process.env.SUPABASE_SECRET_KEY!;
               const supabase = createClient(supabaseUrl, supabaseServiceKey);
               
               const { data: storageFile, error } = await supabase.storage

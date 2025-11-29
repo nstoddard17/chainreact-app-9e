@@ -36,7 +36,7 @@ export interface WorkflowLock {
 }
 
 export class RealTimeCollaboration {
-  private supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+  private supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!)
 
   private collaborationSessions = new Map<string, CollaborationSession>()
   private changeBuffer = new Map<string, WorkflowChange[]>()

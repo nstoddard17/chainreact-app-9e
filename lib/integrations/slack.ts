@@ -151,7 +151,7 @@ export class SlackService {
   private slackClient: WebClient
   private supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    process.env.SUPABASE_SECRET_KEY!,
   )
 
   constructor(accessToken: string) {
@@ -199,7 +199,7 @@ export class SlackService {
     // Slack's standard OAuth tokens (xoxp) do not expire, so a refresh flow is not typically needed.
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      process.env.SUPABASE_SECRET_KEY!,
     )
 
     const { data: integration, error } = await supabase

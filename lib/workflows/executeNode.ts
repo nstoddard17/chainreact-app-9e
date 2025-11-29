@@ -400,7 +400,7 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
   })
 
   // Check if environment is properly configured
-  const hasSupabaseConfig = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const hasSupabaseConfig = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
   const hasEncryptionKey = process.env.ENCRYPTION_KEY
 
   if (!hasSupabaseConfig) {

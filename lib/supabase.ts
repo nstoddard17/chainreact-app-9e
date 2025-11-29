@@ -6,12 +6,12 @@ import type { Database } from "@/types/supabase"
 // Check if Supabase is configured with exact environment variables
 export const isSupabaseConfigured = () => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 
   if (!supabaseUrl || !supabaseAnonKey) {
     const missingVars = []
     if (!supabaseUrl) missingVars.push("NEXT_PUBLIC_SUPABASE_URL")
-    if (!supabaseAnonKey) missingVars.push("NEXT_PUBLIC_SUPABASE_ANON_KEY")
+    if (!supabaseAnonKey) missingVars.push("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY")
 
     const errorMessage = `Missing required Supabase environment variables: ${missingVars.join(", ")}`
 
@@ -37,7 +37,7 @@ export const getSupabaseClient = () => {
   if (isSupabaseConfigured()) {
     supabase = createBrowserClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
     )
     return supabase
   }

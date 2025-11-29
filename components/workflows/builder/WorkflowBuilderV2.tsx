@@ -3197,6 +3197,17 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     setIsTestModeDialogOpen(true)
   }, [builder?.nodes, hasPlaceholders, toast])
 
+  // Check if workflow has a published revision (required for API key generation)
+  const hasPublishedRevision = Boolean(flowState?.revisionId)
+
+  // Handler to generate API key for published workflow
+  const handleGenerateApiKey = useCallback(() => {
+    toast({
+      title: "API Key",
+      description: "API key generation coming soon!",
+    })
+  }, [toast])
+
   // Handler for when user starts a test from the dialog
   const handleRunTestFromDialog = useCallback(async (config: TestModeConfig, mockVariation?: string) => {
     setIsTestModeDialogOpen(false)
@@ -3564,6 +3575,49 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       })
     }
   }, [builder, flowId, hasPlaceholders, toast])
+
+  // Handler to stop flow testing
+  const handleStopFlowTest = useCallback(() => {
+    setIsFlowTesting(false)
+    setFlowTestStatus(null)
+    setIsFlowTestPaused(false)
+    cancelTestFlow()
+    toast({
+      title: "Test stopped",
+      description: "Flow test has been stopped.",
+    })
+  }, [cancelTestFlow, toast])
+
+  // Handler to stop single node testing
+  const handleStopNodeTest = useCallback(() => {
+    setIsNodeTesting(false)
+    setNodeTestingName(null)
+    toast({
+      title: "Test stopped",
+      description: "Node test has been stopped.",
+    })
+  }, [toast])
+
+  // Handler to pause flow testing
+  const handlePauseFlowTest = useCallback(() => {
+    setIsFlowTestPaused(true)
+    toast({
+      title: "Test paused",
+      description: "Flow test has been paused.",
+    })
+  }, [toast])
+
+  // Handler to resume flow testing
+  const handleResumeFlowTest = useCallback(() => {
+    setIsFlowTestPaused(false)
+    toast({
+      title: "Test resumed",
+      description: "Flow test has been resumed.",
+    })
+  }, [toast])
+
+  // Handler to stop live execution (placeholder - falls back to cancelTestFlow)
+  const stopLiveExecutionHandler = undefined
 
   // Placeholder handlers (to be implemented)
   const comingSoon = useCallback(
@@ -4961,6 +5015,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     canGenerateApiKey: hasPublishedRevision,
   }), [actions, builder, comingSoon, flowId, flowState?.hasUnsavedChanges, flowState?.isSaving, flowState?.lastRunId, flowState?.revisionId, handleGenerateApiKey, handleNameChange, handleOpenTestDialog, handleToggleLiveWithValidation, hasPlaceholders, hasPublishedRevision, nameDirty, persistName, workflowName])
 
+  // Derive active execution node name from flow test status
+  const activeExecutionNodeName = flowTestStatus?.currentNodeLabel ?? null
+
   if (!builder || !actions || flowState?.isLoading) {
     return <WorkflowLoadingScreen />
   }
@@ -5145,16 +5202,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           {/* <NodeStateTestPanel /> */}
         </div>
       </BuilderLayout>
-
-      {/* Configuration Modal - Renders outside layout for proper z-index */}
-      <PublishFlowModal
-        open={isPublishModalOpen}
-        onOpenChange={setIsPublishModalOpen}
-        initialContract={apiContract}
-        nodes={apiNodes}
-        isPublishing={isPublishing}
-        onPublish={handlePublishFlow}
-      />
 
       {/* Test Mode Dialog */}
       <TestModeDialog

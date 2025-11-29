@@ -10,8 +10,8 @@ export async function GET() {
   try {
     // Create two clients - one with anon key (simulates user), one with service role
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
+    const supabaseServiceKey = process.env.SUPABASE_SECRET_KEY!;
     
     const anonClient = createClient(supabaseUrl, supabaseAnonKey);
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);

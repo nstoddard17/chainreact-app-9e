@@ -1,13 +1,16 @@
 import { NextResponse } from 'next/server'
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { createSupabaseServiceClient } from '@/utils/supabase/server'
-
+import { requireAdmin } from '@/lib/utils/admin-auth'
 import { logger } from '@/lib/utils/logger'
 
 export async function GET() {
-  try {
-    const supabase = await createSupabaseServiceClient()
+  const authResult = await requireAdmin()
+  if (!authResult.isAdmin) {
+    return authResult.response
+  }
+  const { serviceClient: supabase } = authResult
 
+  try {
     // Create execution_progress table if it doesn't exist
     const { error: createError } = await supabase.rpc('exec', {
       sql: `
@@ -61,7 +64,6 @@ export async function GET() {
 
   } catch (error: any) {
     logger.error('Error ensuring tables:', error)
-    return errorResponse(error.message || 'Failed to ensure tables'
-    , 500)
+    return errorResponse(error.message || 'Failed to ensure tables', 500)
   }
 }

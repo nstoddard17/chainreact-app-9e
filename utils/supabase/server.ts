@@ -12,7 +12,7 @@ export async function createSupabaseServerClient() {
   const cookieStore = await getCookieStore()
   return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
       cookieEncoding: 'raw', // Use raw encoding to avoid base64- prefix that causes JSON parsing errors
       cookies: {
@@ -40,7 +40,7 @@ export async function createSupabaseServerActionClient() {
   const cookieStore = await getCookieStore()
   return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
       cookieEncoding: 'raw', // Use raw encoding to avoid base64- prefix that causes JSON parsing errors
       cookies: {
@@ -68,7 +68,7 @@ export async function createSupabaseRouteHandlerClient() {
   const cookieStore = await getCookieStore()
   return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
       cookieEncoding: 'raw', // Use raw encoding to avoid base64- prefix that causes JSON parsing errors
       cookies: {
@@ -95,7 +95,7 @@ export async function createSupabaseRouteHandlerClient() {
 export async function createSupabaseServiceClient() {
   return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    process.env.SUPABASE_SECRET_KEY!,
     {
       cookies: {
         getAll() {

@@ -5,11 +5,17 @@
  */
 
 import { type NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/utils/admin-auth'
 import { autoDiscoverTests } from '@/lib/workflows/test-utils/auto-discover-tests'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
+  const authResult = await requireAdmin()
+  if (!authResult.isAdmin) {
+    return authResult.response
+  }
+
   try {
     // Auto-discover all testable integrations
     const providers = autoDiscoverTests()

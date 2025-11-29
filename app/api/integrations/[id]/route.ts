@@ -5,7 +5,7 @@ import { logger } from '@/lib/utils/logger'
 import { canUserAdminIntegration, canUserUseIntegration, getIntegrationAdmins } from '@/lib/services/integration-permissions'
 import { revokeOAuthTokenAsync } from '@/lib/integrations/oauth-revocation'
 
-const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!)
 
 /**
  * DELETE /api/integrations/[id]

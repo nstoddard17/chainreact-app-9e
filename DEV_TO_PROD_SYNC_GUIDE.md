@@ -147,7 +147,9 @@ Based on the analysis, here's what you should do:
 **1. Mark baseline as applied (don't run it):**
 ```bash
 # Connect to your dev database
-psql "postgresql://postgres.xzwsdwllmrnrgbltibxt:***REDACTED_PASSWORD***@aws-0-us-east-1.pooler.supabase.com:6543/postgres" << 'EOF'
+psql "$DATABASE_URL" << 'EOF'
+# Set DATABASE_URL from your .env.local or Supabase dashboard:
+# postgresql://postgres.[PROJECT-REF]:[PASSWORD]@aws-0-[region].pooler.supabase.com:6543/postgres
 INSERT INTO supabase_migrations.schema_migrations (version)
 VALUES ('20240101000000')
 ON CONFLICT DO NOTHING;

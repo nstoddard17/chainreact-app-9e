@@ -12,7 +12,7 @@ import { logger } from '@/lib/utils/logger'
 import { decryptToken } from '@/lib/integrations/tokenUtils'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+const supabaseKey = process.env.SUPABASE_SECRET_KEY || ""
 
 if (!supabaseUrl || !supabaseKey) {
   logger.error('[Stripe API] Missing Supabase environment variables')

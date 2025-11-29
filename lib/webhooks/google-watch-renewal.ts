@@ -14,7 +14,7 @@ import { logger } from '@/lib/utils/logger'
 export async function renewExpiringGoogleWatches(): Promise<void> {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    process.env.SUPABASE_SECRET_KEY!
   )
 
   try {
@@ -111,7 +111,7 @@ async function renewGmailWatch(subscription: any): Promise<void> {
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    process.env.SUPABASE_SECRET_KEY!
   )
 
   await supabase
@@ -228,7 +228,7 @@ async function renewGoogleSheetsWatch(subscription: any): Promise<void> {
 export async function cleanupExpiredSubscriptions(): Promise<void> {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    process.env.SUPABASE_SECRET_KEY!
   )
 
   try {

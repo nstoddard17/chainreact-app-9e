@@ -179,8 +179,8 @@ npm run build  # Must succeed before proceeding
 
 ### Required Variables Checklist
 - [ ] `NEXT_PUBLIC_SUPABASE_URL` (production project)
-- [ ] `NEXT_PUBLIC_SUPABASE_ANON_KEY` (production project)
-- [ ] `SUPABASE_SERVICE_ROLE_KEY` (production project)
+- [ ] `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (production project)
+- [ ] `SUPABASE_SECRET_KEY` (production project)
 - [ ] `GOOGLE_CLIENT_ID` (production)
 - [ ] `GOOGLE_CLIENT_SECRET` (production)
 - [ ] All other OAuth provider credentials

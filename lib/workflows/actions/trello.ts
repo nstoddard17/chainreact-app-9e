@@ -536,7 +536,7 @@ export async function createTrelloCard(
               // Upload to Supabase storage as fallback
               const { createClient } = require('@supabase/supabase-js');
               const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-              const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+              const supabaseKey = process.env.SUPABASE_SECRET_KEY;
               const supabase = createClient(supabaseUrl!, supabaseKey!);
 
               // Ensure the trello-attachments bucket exists and is public

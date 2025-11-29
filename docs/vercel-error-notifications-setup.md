@@ -204,8 +204,8 @@ DISCORD_CLIENT_SECRET=xxxxx
 
 # Supabase (already working)
 NEXT_PUBLIC_SUPABASE_URL=xxxxx
-NEXT_PUBLIC_SUPABASE_ANON_KEY=xxxxx
-SUPABASE_SERVICE_ROLE_KEY=xxxxx
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=xxxxx
+SUPABASE_SECRET_KEY=xxxxx
 ```
 
 ### 🆕 New for Error Notifications
