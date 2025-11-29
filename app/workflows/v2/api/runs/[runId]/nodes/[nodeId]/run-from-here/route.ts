@@ -3,70 +3,63 @@ import { NextResponse } from "next/server"
 import { createRunStore } from "@/src/lib/workflows/builder/api/helpers"
 import { getRouteClient, getServiceClient, getFlowRepository, uuid } from "@/src/lib/workflows/builder/api/helpers"
 import { runFromHere } from "@/src/lib/workflows/builder/runner/execute"
-import { logger } from "@/lib/utils/logger"
+import { ensureWorkspaceRole } from "@/src/lib/workflows/builder/workspace"
 
 export async function POST(_: Request, context: { params: Promise<{ runId: string; nodeId: string }> }) {
+  const { runId, nodeId } = await context.params
+
+  const supabase = await getRouteClient()
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
+
+  if (userError || !user) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })
+  }
+
+  const run = await supabase
+    .from("flow_v2_runs")
+    .select("flow_id")
+    .eq("id", runId)
+    .maybeSingle()
+
+  if (run.error) {
+    return NextResponse.json({ ok: false, error: run.error.message }, { status: 500 })
+  }
+
+  if (!run.data) {
+    return NextResponse.json({ ok: false, error: "Run not found" }, { status: 404 })
+  }
+
+  const definition = await supabase
+    .from("flow_v2_definitions")
+    .select("workspace_id")
+    .eq("id", run.data.flow_id)
+    .maybeSingle()
+
+  if (definition.error) {
+    return NextResponse.json({ ok: false, error: definition.error.message }, { status: 500 })
+  }
+
+  if (!definition.data) {
+    return NextResponse.json({ ok: false, error: "Flow not found" }, { status: 404 })
+  }
+
   try {
-    const { runId, nodeId } = await context.params
+    await ensureWorkspaceRole(supabase, definition.data.workspace_id, user.id, "editor")
+  } catch (error: any) {
+    const status = error?.status === 403 ? 403 : 500
+    const message = status === 403 ? "Forbidden" : error?.message ?? "Unable to resume run"
+    return NextResponse.json({ ok: false, error: message }, { status })
+  }
 
-    const supabase = await getRouteClient()
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser()
+  // Use service client to bypass RLS on workflows_revisions table
+  const serviceClient = await getServiceClient()
+  const repository = await getFlowRepository(serviceClient)
+  const store = createRunStore(serviceClient)
 
-    if (userError || !user) {
-      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })
-    }
-
-    // Get run from workflow_executions
-    const { data: run, error: runError } = await supabase
-      .from("workflow_executions")
-      .select("workflow_id")
-      .eq("id", runId)
-      .maybeSingle()
-
-    if (runError) {
-      logger.error("[run-from-here] Run query error", { runId, error: runError.message })
-      return NextResponse.json({ ok: false, error: runError.message }, { status: 500 })
-    }
-
-    if (!run) {
-      return NextResponse.json({ ok: false, error: "Run not found" }, { status: 404 })
-    }
-
-    const workflowId = run.workflow_id
-
-    if (!workflowId) {
-      return NextResponse.json({ ok: false, error: "Flow not found" }, { status: 404 })
-    }
-
-    // Get workflow to check ownership
-    const { data: workflow, error: workflowError } = await supabase
-      .from("workflows")
-      .select("id, user_id")
-      .eq("id", workflowId)
-      .maybeSingle()
-
-    if (workflowError) {
-      logger.error("[run-from-here] Workflow query error", { workflowId, error: workflowError.message })
-      return NextResponse.json({ ok: false, error: workflowError.message }, { status: 500 })
-    }
-
-    if (!workflow) {
-      return NextResponse.json({ ok: false, error: "Flow not found" }, { status: 404 })
-    }
-
-    // Check if user owns the workflow
-    if (workflow.user_id !== user.id) {
-      return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 })
-    }
-
-    // Use service client to bypass RLS on workflows_revisions table
-    const serviceClient = await getServiceClient()
-    const repository = await getFlowRepository(serviceClient)
-    const store = createRunStore(serviceClient)
-
+  try {
     const newRunId = await runFromHere({
       runId,
       startNodeId: nodeId,
@@ -76,8 +69,7 @@ export async function POST(_: Request, context: { params: Promise<{ runId: strin
     })
 
     return NextResponse.json({ ok: true, runId: newRunId })
-  } catch (error: any) {
-    logger.error("[run-from-here] Unexpected error", { error: error?.message })
+  } catch (error) {
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : String(error) }, { status: 500 })
   }
 }

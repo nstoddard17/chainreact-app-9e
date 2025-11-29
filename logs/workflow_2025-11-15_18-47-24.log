@@ -1,0 +1,128 @@
+=== Log Session Started: 2025-11-16T00:47:24.624Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-11-16T00:47:24.626Z] [INFO   ] File logging initialized
+[2025-11-16T00:47:24.626Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-15_18-47-24.log
+[2025-11-16T00:47:24.638Z] [INFO   ] Deleted old log file: workflow_2025-11-08_18-40-27.log
+[2025-11-16T00:47:24.641Z] [INFO   ] Deleted old log file: workflow_2025-11-08_18-32-43.log
+[2025-11-16T00:47:24.644Z] [INFO   ] Deleted old log file: workflow_2025-11-08_18-28-21.log
+[2025-11-16T00:47:24.646Z] [INFO   ] Deleted old log file: workflow_2025-11-08_18-24-55.log
+[2025-11-16T00:47:24.649Z] [INFO   ] Deleted old log file: workflow_2025-11-08_18-18-48.log
+[2025-11-16T00:47:24.654Z] [INFO   ] Deleted old log file: workflow_2025-11-08_18-04-59.log
+[2025-11-16T00:47:24.655Z] [INFO   ] Deleted old log file: workflow_2025-11-08_15-40-18.log
+[2025-11-16T00:47:24.655Z] [INFO   ] 📁 File logging enabled
+[2025-11-16T00:47:24.655Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-15_18-47-24.log
+[2025-11-16T00:47:24.655Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-15_18-47-24.log
+[2025-11-16T00:47:24.655Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-15_18-47-24.log
+[2025-11-16T00:47:24.655Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-11-15_18-47-24.log
+[2025-11-16T00:47:24.655Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-11-16T00:47:24.655Z] [DEBUG  ] 📁 File logging system initialized
+[2025-11-16T00:47:24.667Z] [INFO   ]  ✓ Ready in 4.1s
+[2025-11-16T00:47:25.890Z] [INFO   ] 2025-11-16T00:47:25.890Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-11-16T00:47:29.881Z] [INFO   ] 2025-11-16T00:47:29.881Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-11-16T00:47:29.882Z] [INFO   ] 2025-11-16T00:47:29.882Z [DEBUG] 🔑 Discord bot token loaded
+[2025-11-16T00:47:31.180Z] [INFO   ] 2025-11-16T00:47:31.180Z [DEBUG] Discord Gateway initialization complete
+[2025-11-16T00:47:31.189Z] [INFO   ] 2025-11-16T00:47:31.189Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-11-16T00:47:31.361Z] [INFO   ]  ✓ Compiled /middleware in 442ms (233 modules)
+[2025-11-16T00:47:31.384Z] [INFO   ] 2025-11-16T00:47:31.384Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-11-16T00:47:31.384Z] [INFO   ] 2025-11-16T00:47:31.384Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-11-16T00:47:32.071Z] [INFO   ]  ○ Compiling /auth/login ...
+[2025-11-16T00:47:41.379Z] [INFO   ]  ✓ Compiled /auth/login in 9.8s (4524 modules)
+[2025-11-16T00:47:42.301Z] [INFO   ] 2025-11-16T00:47:42.300Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-16T00:47:42.300Z"}
+[2025-11-16T00:47:42.311Z] [INFO   ] 2025-11-16T00:47:42.311Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-16T00:47:42.311Z"}
+[2025-11-16T00:47:42.311Z] [INFO   ] 2025-11-16T00:47:42.311Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-16T00:47:42.311Z"}
+[2025-11-16T00:47:43.279Z] [INFO   ]  ✓ Compiled in 1855ms (749 modules)
+[2025-11-16T00:47:45.846Z] [INFO   ]  ○ Compiling /icon.png ...
+[2025-11-16T00:47:46.008Z] [INFO   ]  ✓ Compiled /icon.png in 841ms (3791 modules)
+[2025-11-16T00:47:46.346Z] [ERROR  ]  ⨯ Cannot read properties of undefined (reading 'call')
+TypeError: Cannot read properties of undefined (reading 'call')
+    at __webpack_require__ (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:25:43)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Ficon.png%2Froute&page=%2Ficon.png%2Froute&appPaths=&pagePath=private-next-app-dir%2Ficon.png&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:10:114)
+    at (rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Ficon.png%2Froute&page=%2Ficon.png%2Froute&appPaths=&pagePath=private-next-app-dir%2Ficon.png&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=! (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/icon.png/route.js:22:1)
+    at __webpack_require__ (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:25:43)
+    at __webpack_exec__ (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/icon.png/route.js:122:39)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/icon.png/route.js:123:114
+    at __webpack_require__.X (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:160:21)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/icon.png/route.js:123:47
+    at Object.<anonymous> (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/icon.png/route.js:126:3)
+    at Module._compile (node:internal/modules/cjs/loader:1723:14)
+    at Object..js (node:internal/modules/cjs/loader:1888:10)
+    at Module.load (node:internal/modules/cjs/loader:1458:32)
+    at Function._load (node:internal/modules/cjs/loader:1275:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:234:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1480:12)
+    at mod.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:68:28)
+    at require (node:internal/modules/helpers:135:16)
+    at requirePage (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js:99:80)
+    at loadComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js:132:57)
+    at async DevServer.findPageComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:899:36)
+    at async DevServer.findPageComponents (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:705:16)
+    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1460:24)
+    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-11-16T00:47:46.871Z] [INFO   ]  ○ Compiling /_error ...
+[2025-11-16T00:47:50.989Z] [WARN   ]  ⚠ Fast Refresh had to perform a full reload when ?608e changed. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-11-16T00:47:51.222Z] [INFO   ]  ✓ Compiled /_error in 4.9s (4867 modules)
+[2025-11-16T00:47:52.659Z] [INFO   ] 2025-11-16T00:47:52.659Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-11-16T00:47:52.659Z"}
+[2025-11-16T00:47:52.669Z] [INFO   ] 2025-11-16T00:47:52.669Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-11-16T00:47:52.669Z"}
+[2025-11-16T00:47:52.669Z] [INFO   ] 2025-11-16T00:47:52.669Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-11-16T00:47:52.669Z"}
+[2025-11-16T00:48:01.479Z] [INFO   ]  ✓ Compiled in 752ms (901 modules)
+[2025-11-16T00:48:14.422Z] [INFO   ]  ✓ Compiled in 792ms (901 modules)
+[2025-11-16T00:48:33.012Z] [INFO   ]  ✓ Compiled in 424ms (901 modules)
+[2025-11-16T00:48:39.060Z] [INFO   ]  ✓ Compiled in 340ms (901 modules)
+[2025-11-16T00:48:45.429Z] [INFO   ]  ✓ Compiled in 655ms (901 modules)
+[2025-11-16T00:48:54.559Z] [INFO   ]  ✓ Compiled in 380ms (900 modules)
+[2025-11-16T00:49:01.363Z] [INFO   ]  ✓ Compiled in 365ms (900 modules)
+[2025-11-16T00:49:10.835Z] [INFO   ]  ✓ Compiled in 553ms (900 modules)
+[2025-11-16T00:49:16.084Z] [INFO   ]  ✓ Compiled in 802ms (900 modules)
+[2025-11-16T00:49:52.504Z] [INFO   ]  ✓ Compiled in 1905ms (4991 modules)
+[2025-11-16T00:50:01.153Z] [INFO   ]  ✓ Compiled in 479ms (900 modules)
+[2025-11-16T00:50:30.275Z] [INFO   ]  ✓ Compiled in 569ms (900 modules)
+[2025-11-16T00:50:42.908Z] [INFO   ]  ✓ Compiled in 396ms (900 modules)
+[2025-11-16T00:50:43.787Z] [INFO   ]  ✓ Compiled in 352ms (900 modules)
+[2025-11-16T00:50:46.026Z] [INFO   ]  ✓ Compiled in 302ms (900 modules)
+[2025-11-16T00:50:47.975Z] [INFO   ]  ✓ Compiled in 250ms (900 modules)
+[2025-11-16T00:53:46.161Z] [INFO   ]  ✓ Compiled in 794ms (900 modules)
+[2025-11-16T00:53:52.651Z] [INFO   ]  ✓ Compiled in 373ms (900 modules)
+[2025-11-16T00:54:02.215Z] [INFO   ]  ✓ Compiled in 421ms (900 modules)
+[2025-11-16T00:54:07.547Z] [INFO   ]  ✓ Compiled in 340ms (900 modules)
+[2025-11-16T00:54:16.057Z] [INFO   ]  ✓ Compiled in 357ms (900 modules)
+[2025-11-16T00:54:23.447Z] [INFO   ]  ✓ Compiled in 385ms (900 modules)
+[2025-11-16T00:54:55.762Z] [INFO   ]  ✓ Compiled in 578ms (900 modules)
+[2025-11-16T00:56:00.443Z] [INFO   ]  ✓ Compiled in 630ms (900 modules)
+[2025-11-16T00:56:05.542Z] [INFO   ]  ✓ Compiled in 342ms (900 modules)
+[2025-11-16T01:00:05.544Z] [INFO   ]  ✓ Compiled in 874ms (900 modules)
+[2025-11-16T01:00:09.038Z] [INFO   ]  ✓ Compiled in 454ms (900 modules)
+[2025-11-16T01:00:11.990Z] [INFO   ]  ✓ Compiled in 340ms (900 modules)
+[2025-11-16T01:00:16.878Z] [INFO   ]  ✓ Compiled in 478ms (900 modules)
+[2025-11-16T01:00:20.331Z] [INFO   ]  ✓ Compiled in 433ms (900 modules)
+[2025-11-16T01:00:23.369Z] [INFO   ]  ✓ Compiled in 315ms (900 modules)
+[2025-11-16T01:00:39.545Z] [INFO   ]  ✓ Compiled in 467ms (900 modules)
+[2025-11-16T01:00:49.103Z] [INFO   ]  ✓ Compiled in 381ms (900 modules)
+[2025-11-16T01:00:58.041Z] [INFO   ]  ✓ Compiled in 370ms (900 modules)
+[2025-11-16T01:01:10.942Z] [INFO   ]  ✓ Compiled in 349ms (900 modules)
+[2025-11-16T01:01:32.382Z] [INFO   ]  ✓ Compiled in 317ms (900 modules)
+[2025-11-16T01:01:43.662Z] [INFO   ]  ✓ Compiled in 1864ms (4772 modules)
+[2025-11-16T01:02:11.319Z] [INFO   ]  ✓ Compiled in 513ms (900 modules)
+[2025-11-16T01:02:16.937Z] [INFO   ]  ✓ Compiled in 485ms (900 modules)
+[2025-11-16T01:02:22.621Z] [INFO   ]  ✓ Compiled in 450ms (900 modules)
+[2025-11-16T01:02:28.436Z] [INFO   ]  ✓ Compiled in 447ms (900 modules)
+[2025-11-16T01:02:34.007Z] [INFO   ]  ✓ Compiled in 283ms (900 modules)
+[2025-11-16T01:02:39.883Z] [INFO   ]  ✓ Compiled in 406ms (900 modules)
+[2025-11-16T01:02:44.114Z] [INFO   ]  ✓ Compiled in 339ms (900 modules)
+[2025-11-16T01:02:59.654Z] [INFO   ]  ✓ Compiled in 285ms (900 modules)
+[2025-11-16T01:03:11.982Z] [INFO   ]  ✓ Compiled in 278ms (900 modules)
+[2025-11-16T01:05:35.979Z] [WARN   ]  ⚠ Found a change in next.config.mjs. Restarting the server to apply the changes...

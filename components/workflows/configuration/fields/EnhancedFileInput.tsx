@@ -118,10 +118,9 @@ export default function EnhancedFileInput({
               onVariableSelect={(variable) => onValueChange(variable)}
               fieldType="file"
               trigger={
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="flex-shrink-0 h-8 w-8 text-muted-foreground hover:text-foreground"
+                <Button 
+                  size="sm" 
+                  className="flex-shrink-0 h-10 w-10 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 rounded-md" 
                   title="Insert variable"
                 >
                   <span className="text-sm font-mono font-semibold">{`{}`}</span>

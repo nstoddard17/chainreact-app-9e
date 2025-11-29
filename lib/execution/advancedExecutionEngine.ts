@@ -2,7 +2,6 @@ import { createClient } from "@supabase/supabase-js"
 import { executeAction } from "@/lib/workflows/executeNode"
 import { mapWorkflowData, evaluateExpression, evaluateCondition } from "./variableResolver"
 import { ExecutionProgressTracker } from "./executionProgressTracker"
-import { nodeOutputCache } from "./nodeOutputCache"
 import { logInfo, logError, logSuccess, logWarning } from "@/lib/logging/backendLogger"
 
 import { logger } from '@/lib/utils/logger'
@@ -772,21 +771,6 @@ export class AdvancedExecutionEngine {
 
       const nodeResult = await this.executeNode(currentNode, workflow, nodeContext);
 
-      // Check if workflow was paused (HITL)
-      if (nodeResult.__paused) {
-        logger.info(`⏸️ Workflow paused at node ${nodeResult.__pausedNodeId} - stopping execution loop`)
-        logInfo(sessionId, `Workflow paused at node ${nodeResult.__pausedNodeName}`)
-
-        // Return with pause information
-        return {
-          ...currentData,
-          [currentNode.id]: nodeResult[currentNode.id],
-          __paused: true,
-          __pausedNodeId: nodeResult.__pausedNodeId,
-          __pausedNodeName: nodeResult.__pausedNodeName
-        }
-      }
-
       // Extract just the new result for this node
       const newNodeResult = nodeResult[currentNode.id];
 
@@ -952,39 +936,6 @@ export class AdvancedExecutionEngine {
         throw new Error(errorMessage)
       }
 
-      // Check if this action is requesting a workflow pause (HITL)
-      if (actionResult.pauseExecution) {
-        logger.info(`⏸️ Node ${node.id} requesting workflow pause (HITL)`)
-        logInfo(context.session.id, `Workflow paused at node: ${node.data?.title || node.data?.type}`, {
-          nodeId: node.id,
-          reason: 'HITL conversation initiated'
-        })
-
-        // Update the execution session to paused status
-        await this.supabase
-          .from('workflow_execution_sessions')
-          .update({
-            status: 'paused',
-            current_step: node.id,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', context.session.id)
-
-        // Update progress tracker
-        if (this.progressTracker) {
-          await this.progressTracker.pause(node.id, node.data?.title || 'Human input required')
-        }
-
-        // Return with pause flag so the caller knows to stop
-        return {
-          ...context.data,
-          [node.id]: actionResult,
-          __paused: true,
-          __pausedNodeId: node.id,
-          __pausedNodeName: node.data?.title || node.data?.type
-        }
-      }
-
       // Build the result in the expected format for the execution engine
       // Keep it simple - just return the current data with the new result
       const result = {
@@ -1015,21 +966,6 @@ export class AdvancedExecutionEngine {
       if (this.progressTracker) {
         await this.progressTracker.updateNodeCompleted(node.id, actionResult)
       }
-
-      // Cache the node output for future use (non-blocking)
-      // This enables running individual nodes with cached upstream data
-      nodeOutputCache.saveNodeOutput({
-        workflowId: workflow.id,
-        userId: context.session.user_id,
-        nodeId: node.id,
-        nodeType: node.data.type,
-        output: actionResult,
-        input: safeInput,
-        executionId: context.session.id
-      }).catch(cacheError => {
-        // Don't fail the execution if caching fails
-        logger.warn(`[NodeOutputCache] Failed to cache output for node ${node.id}:`, cacheError)
-      })
 
       return result
     } catch (error) {

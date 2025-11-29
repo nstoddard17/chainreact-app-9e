@@ -89,31 +89,10 @@ export async function updateGoogleCalendarEvent(
       eventId: eventId
     })
 
-    // Helper to format date as YYYY-MM-DD in LOCAL timezone (not UTC)
-    // Using toISOString() causes date to shift when in timezones behind UTC
-    const formatLocalDate = (date: Date): string => {
-      const year = date.getFullYear()
-      const month = String(date.getMonth() + 1).padStart(2, '0')
-      const day = String(date.getDate()).padStart(2, '0')
-      return `${year}-${month}-${day}`
-    }
-
     // Parse dates and times with proper validation
     const parseDateTime = (date: string, time: string) => {
       if (!date || date === 'today') {
-        // Use local date, not UTC
-        date = formatLocalDate(new Date())
-      }
-
-      // Handle full ISO timestamps (e.g., from {{NOW}}) - extract just the date part
-      // If it's a UTC ISO string (contains 'Z'), convert to local date
-      if (date.includes('T')) {
-        if (date.includes('Z')) {
-          const dateObj = new Date(date)
-          date = formatLocalDate(dateObj)
-        } else {
-          date = date.split('T')[0]
-        }
+        date = new Date().toISOString().split('T')[0]
       }
 
       if (!time || time === 'current') {
@@ -129,26 +108,7 @@ export async function updateGoogleCalendarEvent(
 
     const parseDate = (date: string) => {
       if (!date || date === 'today') {
-        // Use local date, not UTC
-        return formatLocalDate(new Date())
-      }
-      // Handle full ISO timestamps (e.g., from {{NOW}}) - extract just the date part
-      // If it's a UTC ISO string (contains 'Z'), convert to local date
-      if (date.includes('T')) {
-        if (date.includes('Z')) {
-          const dateObj = new Date(date)
-          return formatLocalDate(dateObj)
-        }
-        return date.split('T')[0]
-      }
-      // Handle other date formats - try to parse and format as YYYY-MM-DD in local timezone
-      try {
-        const parsed = new Date(date)
-        if (!isNaN(parsed.getTime())) {
-          return formatLocalDate(parsed)
-        }
-      } catch {
-        // Fall through to return original
+        return new Date().toISOString().split('T')[0]
       }
       return date
     }
@@ -171,36 +131,25 @@ export async function updateGoogleCalendarEvent(
     // Handle date/time updates
     if (allDay !== undefined || startDate !== undefined || startTime !== undefined || endDate !== undefined || endTime !== undefined) {
       if (allDay) {
-        // All-day events use 'date' property without timeZone (Google API requirement)
-        const startDateStr = parseDate(startDate || existingEvent.data.start?.date || formatLocalDate(new Date()))
-        const endDateStr = parseDate(endDate || startDate || existingEvent.data.end?.date || formatLocalDate(new Date()))
-
-        // For all-day events, Google requires end date to be the day AFTER the last day of the event
-        // If start and end are the same, add one day to end
-        let adjustedEndDate = endDateStr
-        if (startDateStr === endDateStr) {
-          const endDateObj = new Date(endDateStr)
-          endDateObj.setDate(endDateObj.getDate() + 1)
-          adjustedEndDate = formatLocalDate(endDateObj)
-        }
-
         eventData.start = {
-          date: startDateStr
+          date: parseDate(startDate || existingEvent.data.start?.date),
+          timeZone: eventStartTimeZone
         }
         eventData.end = {
-          date: adjustedEndDate
+          date: parseDate(endDate || startDate || existingEvent.data.end?.date),
+          timeZone: eventEndTimeZone
         }
       } else {
         eventData.start = {
           dateTime: parseDateTime(
-            startDate || existingEvent.data.start?.dateTime?.split('T')[0] || formatLocalDate(new Date()),
+            startDate || existingEvent.data.start?.dateTime?.split('T')[0] || new Date().toISOString().split('T')[0],
             startTime || existingEvent.data.start?.dateTime?.split('T')[1]?.substring(0, 5) || '09:00'
           ),
           timeZone: eventStartTimeZone
         }
         eventData.end = {
           dateTime: parseDateTime(
-            endDate || startDate || existingEvent.data.end?.dateTime?.split('T')[0] || formatLocalDate(new Date()),
+            endDate || startDate || existingEvent.data.end?.dateTime?.split('T')[0] || new Date().toISOString().split('T')[0],
             endTime || existingEvent.data.end?.dateTime?.split('T')[1]?.substring(0, 5) || '10:00'
           ),
           timeZone: eventEndTimeZone

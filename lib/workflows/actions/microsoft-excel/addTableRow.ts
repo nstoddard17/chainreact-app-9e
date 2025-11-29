@@ -30,8 +30,22 @@ export async function addMicrosoftExcelTableRow(
   config: AddTableRowConfig,
   context: { userId: string }
 ): Promise<AddTableRowOutput> {
-  const { workbookId, tableName, columnMapping } = config
+  let { workbookId, tableName, columnMapping } = config
   const { userId } = context
+
+  // Transform columnMapping from array format to object format if needed
+  // The UI component (MicrosoftExcelColumnMapper) outputs: [{ column: "Name", value: "John" }]
+  // But we need: { "Name": "John" }
+  if (Array.isArray(columnMapping)) {
+    logger.debug('[Microsoft Excel] Converting array format to object format');
+    const mappingObject: Record<string, any> = {};
+    for (const item of columnMapping) {
+      if (item && item.column && item.value !== undefined) {
+        mappingObject[item.column] = item.value;
+      }
+    }
+    columnMapping = mappingObject;
+  }
 
   logger.debug('[Microsoft Excel] Adding row to table:', { workbookId, tableName })
 

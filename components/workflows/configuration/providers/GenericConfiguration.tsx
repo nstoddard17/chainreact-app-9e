@@ -67,8 +67,6 @@ interface GenericConfigurationProps {
   selectedIntegrationId?: string;
   connectedIntegrations?: Integration[];
   onSelectAccount?: (integrationId: string) => void;
-  // Label storage for instant display on reopen
-  onLabelStore?: (fieldName: string, value: string, label: string) => void;
 }
 
 export function GenericConfiguration({
@@ -98,8 +96,6 @@ export function GenericConfiguration({
   selectedIntegrationId,
   connectedIntegrations = [],
   onSelectAccount,
-  // Label storage for instant display on reopen
-  onLabelStore,
 }: GenericConfigurationProps) {
 
   // Debug: Log dynamicOptions for HubSpot
@@ -146,15 +142,13 @@ export function GenericConfiguration({
     fieldName: string,
     dependsOn?: string,
     dependsOnValue?: any,
-    forceReload?: boolean,
-    silent?: boolean
+    forceReload?: boolean
   ) => {
     logger.debug('🔍 [GenericConfig] handleDynamicLoad called:', {
       fieldName,
       dependsOn,
       dependsOnValue,
-      forceReload,
-      silent
+      forceReload
     });
 
     const field = nodeInfo?.configSchema?.find((f: any) => f.name === fieldName);
@@ -174,14 +168,14 @@ export function GenericConfiguration({
       // If explicit dependencies are provided, use them
       if (dependsOn && dependsOnValue !== undefined) {
         logger.debug('🔄 [GenericConfig] Calling loadOptions with dependencies:', { fieldName, dependsOn, dependsOnValue, forceReload });
-        await loadOptions(fieldName, dependsOn, dependsOnValue, forceReload, silent);
+        await loadOptions(fieldName, dependsOn, dependsOnValue, forceReload);
       }
       // Otherwise check field's defined dependencies - get values from ref (avoids dependency on values prop)
       else if (field.dependsOn) {
         const parentValue = valuesRef.current[field.dependsOn];
         if (parentValue) {
           logger.debug('🔄 [GenericConfig] Calling loadOptions with field dependencies:', { fieldName, dependsOn: field.dependsOn, dependsOnValue: parentValue, forceReload });
-          await loadOptions(fieldName, field.dependsOn, parentValue, forceReload, silent);
+          await loadOptions(fieldName, field.dependsOn, parentValue, forceReload);
         } else {
           // Field has dependency but no value yet - don't try to load
           logger.debug('⏸️ [GenericConfig] Skipping load - field has dependency but no parent value:', { fieldName, dependsOn: field.dependsOn });
@@ -197,7 +191,7 @@ export function GenericConfiguration({
       // No dependencies, just load the field
       else {
         logger.debug('🔄 [GenericConfig] Calling loadOptions without dependencies:', { fieldName, forceReload });
-        await loadOptions(fieldName, undefined, undefined, forceReload, silent);
+        await loadOptions(fieldName, undefined, undefined, forceReload);
       }
     } catch (error) {
       logger.error('❌ [GenericConfig] Error loading dynamic options:', error);
@@ -592,8 +586,6 @@ export function GenericConfiguration({
             // Props specific to AIFieldWrapper
             isAIEnabled={isAIEnabled}
             onAIToggle={isConnectedToAIAgent ? handleAIToggle : undefined}
-            // Label storage for instant display on reopen
-            onLabelStore={onLabelStore}
           />
         </div>
       );

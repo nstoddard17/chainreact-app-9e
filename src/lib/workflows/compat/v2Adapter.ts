@@ -6,14 +6,12 @@ import type { Workflow, WorkflowConnection, WorkflowNode } from "@/stores/workfl
 import type { Flow, Node as FlowNode, Edge as FlowEdge, FlowInterface } from "@/src/lib/workflows/builder/schema"
 import { FlowSchema } from "@/src/lib/workflows/builder/schema"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
-import { flowApiUrl } from "../builder/api/paths"
 
 type PlannerEdit =
   | { op: "addNode"; node: FlowNode }
   | { op: "connect"; edge: FlowEdge }
   | { op: "setConfig"; nodeId: string; patch: Record<string, any> }
   | { op: "setInterface"; inputs: FlowInterface["inputs"]; outputs: FlowInterface["outputs"] }
-  | { op: "moveNode"; nodeId: string; position: { x: number; y: number } }
 
 export type OldFlow = Workflow
 export type OldNode = WorkflowNode
@@ -189,16 +187,8 @@ export function oldConnectToEdge(
   }
 }
 
-export function moveNodeEdit(nodeId: string, position: { x: number; y: number }): { op: "moveNode"; nodeId: string; position: { x: number; y: number } } {
-  return {
-    op: "moveNode",
-    nodeId,
-    position,
-  }
-}
-
-export function addNodeEdit(type: string, position?: { x: number; y: number }, nodeId?: string): { op: "addNode"; node: FlowNode } {
-  const id = nodeId ?? generateId(type.replace(/\W+/g, "-") || "node")
+export function addNodeEdit(type: string, position?: { x: number; y: number }): { op: "addNode"; node: FlowNode } {
+  const nodeId = generateId(type.replace(/\W+/g, "-") || "node")
 
   // Look up node definition from ALL_NODE_COMPONENTS
   const nodeDefinition = ALL_NODE_COMPONENTS.find(n => n.type === type)
@@ -210,12 +200,12 @@ export function addNodeEdit(type: string, position?: { x: number; y: number }, n
   const category = nodeDefinition?.category
 
   const finalPosition = position ?? { x: 160, y: 120 }
-  console.log(`📍 [addNodeEdit] Creating node ${id} with position:`, finalPosition)
+  console.log(`📍 [addNodeEdit] Creating node ${nodeId} with position:`, finalPosition)
 
   return {
     op: "addNode",
     node: {
-      id,
+      id: nodeId,
       type,
       label: title,
       description: description,
@@ -281,15 +271,6 @@ function applyEdits(current: Flow, edits: PlannerEdit[]): Flow {
         }
         break
       }
-      case "moveNode": {
-        const target = next.nodes.find((node) => node.id === edit.nodeId)
-        if (target) {
-          const metadata = (target.metadata ?? {}) as any
-          metadata.position = edit.position
-          target.metadata = metadata
-        }
-        break
-      }
       default: {
         const exhaustive: never = edit
         throw new Error(`Unsupported edit operation: ${(exhaustive as any)?.op}`)
@@ -303,7 +284,7 @@ function applyEdits(current: Flow, edits: PlannerEdit[]): Flow {
 
 async function getFlow(flowId: string): Promise<FlowFetchResult> {
   const revisionsPayload = await fetchJson<{ revisions?: RevisionSummary[] }>(
-    flowApiUrl(flowId, '/revisions')
+    `/workflows/v2/api/flows/${flowId}/revisions`
   )
 
   const revisions = (revisionsPayload.revisions ?? []).slice().sort((a, b) => b.version - a.version)
@@ -314,7 +295,7 @@ async function getFlow(flowId: string): Promise<FlowFetchResult> {
   const latest = revisions[0]
 
   const revisionPayload = await fetchJson<{ revision: { id: string; flowId: string; graph: Flow } }>(
-    flowApiUrl(flowId, `/revisions/${latest.id}`)
+    `/workflows/v2/api/flows/${flowId}/revisions/${latest.id}`
   )
 
   const parsedFlow = FlowSchema.parse(revisionPayload.revision.graph)
@@ -329,7 +310,7 @@ async function postEdits(flowId: string, baseFlow: Flow, edits: PlannerEdit[]): 
   const nextFlow = applyEdits(baseFlow, edits)
 
   const payload = await fetchJson<{ flow: Flow; revisionId?: string }>(
-    flowApiUrl(flowId, '/apply-edits'),
+    `/workflows/v2/api/flows/${flowId}/apply-edits`,
     {
       method: "POST",
       headers: JSON_HEADERS,
@@ -345,7 +326,7 @@ async function postEdits(flowId: string, baseFlow: Flow, edits: PlannerEdit[]): 
 
 export async function getRevisions(flowId: string): Promise<RevisionSummary[]> {
   const payload = await fetchJson<{ revisions?: RevisionSummary[] }>(
-    flowApiUrl(flowId, '/revisions')
+    `/workflows/v2/api/flows/${flowId}/revisions`
   )
   return payload.revisions ?? []
 }
@@ -353,7 +334,7 @@ export async function getRevisions(flowId: string): Promise<RevisionSummary[]> {
 export async function applyAgentPrompt(flowId: string, promptText: string): Promise<FlowFetchResult> {
   const { flow } = await getFlow(flowId)
   const plannerResult = await fetchJson<{ edits?: PlannerEdit[]; flow?: Flow; errors?: any }>(
-    flowApiUrl(flowId, '/edits'),
+    `/workflows/v2/api/flows/${flowId}/edits`,
     {
       method: "POST",
       headers: JSON_HEADERS,
@@ -373,7 +354,7 @@ export async function applyAgentPrompt(flowId: string, promptText: string): Prom
 }
 
 export async function startRun(flowId: string, inputs: any): Promise<{ runId: string }> {
-  const payload = await fetchJson<{ runId: string }>(flowApiUrl(flowId, '/runs'), {
+  const payload = await fetchJson<{ runId: string }>(`/workflows/v2/api/flows/${flowId}/runs`, {
     method: "POST",
     headers: JSON_HEADERS,
     body: JSON.stringify({ inputs }),
@@ -410,7 +391,7 @@ export async function runFromHere(runId: string, nodeId: string): Promise<{ runI
 
 export async function getEstimate(flowId: string): Promise<any | null> {
   try {
-    return await fetchJson<any>(flowApiUrl(flowId, '/estimate'))
+    return await fetchJson<any>(`/workflows/v2/api/flows/${flowId}/estimate`)
   } catch (error: any) {
     console.warn("[FlowV2Adapter] Estimate unavailable", error)
     return null
@@ -419,7 +400,7 @@ export async function getEstimate(flowId: string): Promise<any | null> {
 
 export async function publish(flowId: string): Promise<{ revisionId: string }> {
   const payload = await fetchJson<{ revisionId: string }>(
-    flowApiUrl(flowId, '/publish'),
+    `/workflows/v2/api/flows/${flowId}/publish`,
     {
       method: "POST",
       headers: JSON_HEADERS,
@@ -706,3 +687,4 @@ export function useFlowV2(flowId: string): UseFlowV2Result {
 
   return { state, flow, actions }
 }
+

@@ -62,11 +62,9 @@ export const sendEmailActionSchema: NodeComponent = {
       dynamic: "gmail_from_addresses",
       loadOnMount: true,
       required: false,
-      placeholder: "Select or type sender email address...",
-      description: "Choose from your email addresses, send-as aliases, or type a custom email. Start typing to search.",
-      tooltip: "If not specified, Gmail will use your primary email address",
-      searchable: true,
-      creatable: true,
+      placeholder: "Select sender email address (default: your primary email)...",
+      description: "Choose which email address to send from. Includes your primary email, send-as aliases, and recent sender addresses.",
+      tooltip: "If not specified, Gmail will use your primary email address"
     },
     {
       name: "to",

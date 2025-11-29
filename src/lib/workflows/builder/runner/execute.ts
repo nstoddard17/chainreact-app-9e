@@ -552,59 +552,40 @@ export function createSupabaseRunStore(client: SupabaseClient<any>): RunStore {
 
   return {
     async beginRun({ runId, flow, revisionId, inputs, globals, startedAt, isResume }) {
-      await client.from("workflow_executions").upsert({
+      await client.from("flow_v2_runs").upsert({
         id: runId,
-        workflow_id: flow.id,
-        user_id: flow.metadata?.userId ?? flow.metadata?.createdBy ?? "system",
+        flow_id: flow.id,
+        revision_id: revisionId,
         status: "running",
-        input_data: inputs,
-        output_data: null,
+        inputs,
+        metadata: { globals, isResume: Boolean(isResume) },
         started_at: startedAt,
-        completed_at: null,
-        error_message: null,
-        execution_time_ms: null,
+        estimated_cost: 0,
+        actual_cost: 0,
       })
     },
 
     async completeRun({ runId, finishedAt, costSummary }) {
-      const { data: run } = await client
-        .from("workflow_executions")
-        .select("started_at")
-        .eq("id", runId)
-        .single()
-
-      const executionTimeMs = run?.started_at
-        ? new Date(finishedAt).getTime() - new Date(run.started_at).getTime()
-        : null
-
       await client
-        .from("workflow_executions")
+        .from("flow_v2_runs")
         .update({
           status: "success",
-          completed_at: finishedAt,
-          execution_time_ms: executionTimeMs,
+          finished_at: finishedAt,
+          estimated_cost: costSummary.estimated,
+          actual_cost: costSummary.actual,
         })
         .eq("id", runId)
     },
 
     async failRun({ runId, finishedAt, error, costSummary }) {
-      const { data: run } = await client
-        .from("workflow_executions")
-        .select("started_at")
-        .eq("id", runId)
-        .single()
-
-      const executionTimeMs = run?.started_at
-        ? new Date(finishedAt).getTime() - new Date(run.started_at).getTime()
-        : null
-
       await client
-        .from("workflow_executions")
+        .from("flow_v2_runs")
         .update({
           status: "error",
-          completed_at: finishedAt,
-          error_message: JSON.stringify(error),
-          execution_time_ms: executionTimeMs,
+          finished_at: finishedAt,
+          metadata: { error },
+          estimated_cost: costSummary.estimated,
+          actual_cost: costSummary.actual,
         })
         .eq("id", runId)
     },
@@ -612,17 +593,21 @@ export function createSupabaseRunStore(client: SupabaseClient<any>): RunStore {
     async recordNodeSnapshot({ runId, nodeId, snapshot }) {
       const payload = {
         id: `${runId}:${nodeId}`,
-        execution_id: runId,
+        run_id: runId,
         node_id: nodeId,
-        node_type: snapshot.nodeId ?? "unknown",
         status: snapshot.status,
-        input_data: snapshot.input,
-        output_data: snapshot.output,
-        error_message: snapshot.error ? JSON.stringify(snapshot.error) : null,
-        started_at: snapshot.startedAt ?? new Date().toISOString(),
-        completed_at: snapshot.finishedAt ?? new Date().toISOString(),
+        input: snapshot.input,
+        output: snapshot.output,
+        error: snapshot.error,
+        attempts: snapshot.attempts ?? 0,
+        duration_ms: snapshot.durationMs,
+        cost: snapshot.cost,
+        estimated_cost: snapshot.estimatedCost,
+        token_count: snapshot.tokenCount,
+        error_type: snapshot.error?.type ?? snapshot.errorType,
+        created_at: snapshot.startedAt ?? new Date().toISOString(),
       }
-      await client.from("workflow_node_executions").upsert(payload)
+      await client.from("flow_v2_run_nodes").upsert(payload)
 
       try {
         await logNodeEvent({
@@ -634,20 +619,30 @@ export function createSupabaseRunStore(client: SupabaseClient<any>): RunStore {
           retries: snapshot.attempts ?? null,
         })
       } catch (error) {
-        console.error("[Workflow] Failed to record node log", { runId, nodeId, error })
+        console.error("[Flow v2] Failed to record node log", { runId, nodeId, error })
       }
     },
 
     async recordLineage(records) {
-      // Lineage tracking is not supported in current schema
-      // Could be added to workflow_node_executions as metadata if needed
-      return
+      if (!records || records.length === 0) {
+        return
+      }
+      const payload = records.map((record) => ({
+        id: `${record.runId}:${record.edgeId}:${record.targetPath}:${record.toNodeId}`,
+        run_id: record.runId,
+        to_node_id: record.toNodeId,
+        edge_id: record.edgeId,
+        target_path: record.targetPath,
+        from_node_id: record.fromNodeId,
+        expr: record.expr,
+      }))
+      await client.from("flow_v2_lineage").upsert(payload)
     },
 
     async loadRun(runId) {
       const { data: run } = await client
-        .from("workflow_executions")
-        .select("id, workflow_id, user_id, input_data")
+        .from("flow_v2_runs")
+        .select("id, flow_id, revision_id, inputs, metadata")
         .eq("id", runId)
         .maybeSingle()
 
@@ -656,28 +651,26 @@ export function createSupabaseRunStore(client: SupabaseClient<any>): RunStore {
       }
 
       const { data: nodes } = await client
-        .from("workflow_node_executions")
-        .select("node_id, status, input_data, output_data, error_message, started_at, completed_at")
-        .eq("execution_id", runId)
+        .from("flow_v2_run_nodes")
+        .select("node_id, status, input, output, error, attempts, duration_ms")
+        .eq("run_id", runId)
 
       return {
         runId,
-        flowId: run.workflow_id,
-        revisionId: "unknown", // Not stored in workflow_executions table
-        inputs: run.input_data,
-        globals: {},
+        flowId: run.flow_id,
+        revisionId: run.revision_id,
+        inputs: run.inputs,
+        globals: run.metadata?.globals ?? {},
         nodeSnapshots:
           nodes?.map((row) =>
             NodeRunSnapshotSchema.parse({
               nodeId: row.node_id,
               status: row.status,
-              input: row.input_data,
-              output: row.output_data,
-              error: row.error_message ? JSON.parse(row.error_message) : undefined,
-              attempts: 0,
-              durationMs: row.started_at && row.completed_at
-                ? new Date(row.completed_at).getTime() - new Date(row.started_at).getTime()
-                : 0,
+              input: row.input,
+              output: row.output,
+              error: row.error,
+              attempts: row.attempts,
+              durationMs: row.duration_ms,
             })
           ) ?? [],
       }

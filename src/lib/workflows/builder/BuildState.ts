@@ -38,29 +38,6 @@ export interface PlanNode {
     secretNames?: string[]
     params?: string[]
   }
-  /**
-   * Schema snapshot for the node so the agent/UI know exactly which fields exist.
-   * Populated from the node's configSchema/outputSchema when available.
-   */
-  configFields?: Array<{
-    name: string
-    label?: string
-    type?: string
-    required?: boolean
-    dynamic?: boolean
-    options?: any[]
-    placeholder?: string
-    defaultValue?: any
-    dependsOn?: string
-    description?: string
-    supportsAI?: boolean
-  }>
-  outputFields?: Array<{
-    name: string
-    label?: string
-    type?: string
-    description?: string
-  }>
 }
 
 export interface StagedText {

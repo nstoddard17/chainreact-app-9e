@@ -14,29 +14,13 @@ export async function removeGoogleCalendarAttendees(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    // Debug logging for variable resolution
-    logger.debug('[removeAttendees] Config received:', {
-      configEventId: config?.eventId,
-      configKeys: Object.keys(config || {}),
-      inputKeys: Object.keys(input || {}),
-      hasVariableInEventId: typeof config?.eventId === 'string' && config?.eventId?.includes('{{')
-    })
-
     // Resolve config values if they contain template variables
     const needsResolution = typeof config === 'object' &&
       Object.values(config).some(v =>
         typeof v === 'string' && v.includes('{{') && v.includes('}}')
       )
 
-    logger.debug('[removeAttendees] needsResolution:', needsResolution)
-
     const resolvedConfig = needsResolution ? resolveValue(config, input) : config
-
-    logger.debug('[removeAttendees] Resolved config:', {
-      resolvedEventId: resolvedConfig?.eventId,
-      resolvedEventIdType: typeof resolvedConfig?.eventId,
-      wasResolved: resolvedConfig?.eventId !== config?.eventId
-    })
 
     const {
       calendarId = 'primary',
@@ -47,7 +31,6 @@ export async function removeGoogleCalendarAttendees(
     } = resolvedConfig
 
     if (!eventId) {
-      logger.error('[removeAttendees] eventId is empty/undefined after resolution. Original:', config?.eventId)
       throw new Error('Event ID is required to remove attendees')
     }
 

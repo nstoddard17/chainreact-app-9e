@@ -47,15 +47,6 @@ function reportMetric(metric: any, pathname: string | null) {
     const rating = getRating(metric.name, metric.value)
     const emoji = rating === 'good' ? '✅' : rating === 'needs-improvement' ? '⚠️' : '❌'
 
-    console.log(
-      `${emoji} [WebVitals] ${metric.name}:`,
-      {
-        value: formatValue(metric.name, metric.value),
-        rating,
-        page: pathname,
-        delta: formatValue(metric.name, metric.delta),
-      }
-    )
   }
 
   // Send to analytics in production

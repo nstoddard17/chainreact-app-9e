@@ -16,7 +16,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { History, Loader2, CheckCircle2, XCircle, AlertCircle, Play, Download } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
-import { flowApiUrl } from "@/src/lib/workflows/builder/api/paths"
 
 type FlowRunSummary = {
   id: string
@@ -68,56 +67,26 @@ export function WorkflowHistoryDialog({
   const loadRuns = async () => {
     try {
       setLoading(true)
-
-      // Try v2 API first
-      let response = await fetch(flowApiUrl(workflowId, '/runs/history'))
-      let data = null
-
-      if (response.ok) {
-        data = await response.json()
-      } else {
-        // Try regular workflows API
-        response = await fetch(`/api/workflows/${workflowId}/history`)
-        if (response.ok) {
-          data = await response.json()
-        }
+      const response = await fetch(`/workflows/v2/api/flows/${workflowId}/runs/history`)
+      if (!response.ok) {
+        throw new Error("Failed to load runs")
       }
-
-      // Handle different response formats
-      let runsList: FlowRunSummary[] = []
-
-      if (data?.runs) {
-        // v2 API format
-        runsList = data.runs
-      } else if (data?.history) {
-        // Regular API format - transform to match expected format
-        runsList = data.history.map((entry: any) => ({
-          id: entry.id,
-          status: entry.status,
-          startedAt: entry.started_at,
-          finishedAt: entry.finished_at,
-          revisionId: null,
-          metadata: {
-            source: entry.trigger_type || 'manual',
-            nodeCount: entry.nodes_executed,
-          },
-        }))
-      }
-
-      setRuns(runsList)
-      if (runsList.length) {
-        setSelectedRun((previous) => previous ?? runsList[0])
-        void loadRunNodes(runsList[0])
+      const data = await response.json()
+      setRuns(data.runs || [])
+      if (data.runs?.length) {
+        setSelectedRun((previous) => previous ?? data.runs[0])
+        void loadRunNodes(data.runs[0])
       } else {
         setSelectedRun(null)
         setNodes([])
       }
     } catch (error) {
       console.error("[WorkflowHistoryDialog] loadRuns error:", error)
-      // Don't show error toast, just show empty state
-      setRuns([])
-      setSelectedRun(null)
-      setNodes([])
+      toast({
+        title: "Unable to load history",
+        description: "We couldn't fetch workflow runs. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
@@ -126,41 +95,12 @@ export function WorkflowHistoryDialog({
   const loadRunNodes = async (run: FlowRunSummary) => {
     try {
       setNodesLoading(true)
-
-      // Try new workflows API first, then fall back to legacy history endpoint
-      let response = await fetch(`/workflows/api/runs/${run.id}/nodes`)
-
-      if (!response.ok) {
-        // Try regular workflows API for steps
-        response = await fetch(`/api/workflows/history/${run.id}/steps`)
-      }
-
+      const response = await fetch(`/workflows/v2/api/runs/${run.id}/nodes`)
       if (!response.ok) {
         throw new Error("Failed to load run details")
       }
-
       const data = await response.json()
-
-      // Handle different response formats
-      let nodesList: RunNodeDetails[] = []
-
-      if (data.nodes) {
-        // v2 API format
-        nodesList = data.nodes
-      } else if (data.steps) {
-        // Regular API format - transform to match expected format
-        nodesList = data.steps.map((step: any) => ({
-          id: step.id,
-          node_id: step.node_id || step.node_name || 'Unknown',
-          status: step.status,
-          duration_ms: step.execution_time_ms,
-          created_at: step.started_at,
-          output: step.output_data,
-          error: step.error_message ? { message: step.error_message } : null,
-        }))
-      }
-
-      setNodes(nodesList)
+      setNodes(data.nodes || [])
       setSelectedRun(run)
     } catch (error) {
       console.error("[WorkflowHistoryDialog] loadRunNodes error:", error)
@@ -260,7 +200,7 @@ export function WorkflowHistoryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] max-w-5xl">
+      <DialogContent className="max-w-5xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <History className="w-5 h-5" />

@@ -31,7 +31,7 @@ const AIAgentIcon = ({ className }: { className?: string }) =>
 export const aiAgentNode: NodeComponent = {
   type: "ai_agent",
   title: "AI Agent",
-  description: "Get Custom AI Responses Using OpenAI (GPT-4, GPT-3.5) or Claude (Anthropic)",
+  description: "Get Custom AI Responses Using ChatGPT or Gemini",
   icon: AIAgentIcon,
   category: "AI & Automation",
   providerId: "ai",
@@ -185,7 +185,8 @@ john@acme.com`,
         { value: "gpt-3.5-turbo", label: "GPT-3.5 Turbo (Budget friendly)" },
         { value: "claude-3-opus", label: "Claude 3 Opus (Best reasoning)" },
         { value: "claude-3-sonnet", label: "Claude 3 Sonnet (Balanced)" },
-        { value: "claude-3-haiku", label: "Claude 3 Haiku (Fastest, cheapest)" }
+        { value: "claude-3-haiku", label: "Claude 3 Haiku (Fastest, cheapest)" },
+        { value: "gemini-pro", label: "Gemini Pro (Google)" }
       ],
       description: "Which AI model to use"
     },
@@ -222,7 +223,8 @@ john@acme.com`,
       required: true,
       options: [
         { value: "openai", label: "OpenAI" },
-        { value: "anthropic", label: "Anthropic (Claude)" }
+        { value: "anthropic", label: "Anthropic (Claude)" },
+        { value: "google", label: "Google (Gemini)" }
       ],
       description: "Select your API provider"
     },

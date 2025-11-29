@@ -11,8 +11,8 @@ export const hitlAction: NodeComponent = {
   title: "Ask Human via Chat",
   description: "Pause workflow and have an AI-powered conversation with a human before continuing",
   icon: MessageCircle,
-  category: "AI & Intelligence",
-  providerId: "ai",
+  category: "Automation",
+  providerId: "ask-human",
   isTrigger: false,
   producesOutput: true,
   configSchema: [
@@ -37,6 +37,7 @@ export const hitlAction: NodeComponent = {
       description: "The Discord server to send messages to",
       placeholder: "Select a Discord server",
       dynamic: "discord_guilds",
+      dynamicProvider: "discord",
       required: true,
       showWhen: { channel: "discord" },
       loadOnMount: true,
@@ -49,6 +50,7 @@ export const hitlAction: NodeComponent = {
       description: "The channel where the conversation will happen",
       placeholder: "Select a channel",
       dynamic: "discord_channels",
+      dynamicProvider: "discord",
       required: true,
       dependsOn: "discordGuildId",
       showWhen: { channel: "discord" },
@@ -113,20 +115,6 @@ export const hitlAction: NodeComponent = {
       uiTab: "basic"
     },
     {
-      name: "autoDetectContext",
-      label: "Message Mode",
-      type: "select",
-      description: "How to format the initial message sent to the conversation",
-      required: false,
-      options: [
-        { value: "true", label: "Smart (AI auto-formats based on workflow data)" },
-        { value: "false", label: "Manual (Use custom message template)" }
-      ],
-      defaultValue: "true",
-      uiTab: "basic",
-      help: "Smart mode intelligently formats emails, chat messages, and other data. Manual mode lets you write your own message."
-    },
-    {
       name: "initialMessage",
       label: "Initial Message",
       type: "discord-rich-text",
@@ -135,8 +123,7 @@ export const hitlAction: NodeComponent = {
       placeholder: "**Workflow Paused for Review**\n\nHere's the data from the previous step:\n{{*}}\n\nLet me know when you're ready to continue!",
       required: false,
       defaultValue: "**Workflow Paused for Review**\n\nHere's the data from the previous step:\n{{*}}\n\nLet me know when you're ready to continue!",
-      showWhen: { autoDetectContext: "false" },
-      uiTab: "basic"
+      uiTab: "advanced"
     },
     {
       name: "contextData",
@@ -146,8 +133,7 @@ export const hitlAction: NodeComponent = {
       placeholder: '{{*}}',
       required: false,
       defaultValue: '{{*}}',
-      showWhen: { autoDetectContext: "false" },
-      uiTab: "basic"
+      uiTab: "advanced"
     },
     {
       name: "systemPrompt",

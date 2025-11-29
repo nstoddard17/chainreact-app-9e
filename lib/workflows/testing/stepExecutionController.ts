@@ -393,12 +393,6 @@ export class StepExecutionController {
     for (const edge of incomingEdges) {
       const sourceData = this.context.dataFlow.get(edge.source)
       if (sourceData) {
-        // Key data by source node ID for proper variable resolution
-        // This allows variables like {{node-id.field}} to work
-        inputData[edge.source] = sourceData
-
-        // Also merge data flat for backward compatibility
-        // Some workflows might reference fields directly without node ID
         Object.assign(inputData, sourceData)
       }
     }

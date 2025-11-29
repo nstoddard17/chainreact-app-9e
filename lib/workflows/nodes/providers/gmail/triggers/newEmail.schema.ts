@@ -13,12 +13,8 @@ export const newEmailTriggerSchema: NodeComponent = {
     {
       name: "from",
       label: "From",
-      type: "email-autocomplete",
+      type: "select",
       dynamic: "gmail_recent_senders",
-      // Allow searching and custom entry so users can add senders not in the initial list
-      searchable: true,
-      creatable: true,
-      multiple: true,
       required: false,
       loadOnMount: true, // Load senders immediately when modal opens
       placeholder: "Leave blank for any sender",

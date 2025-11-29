@@ -81,14 +81,11 @@ import { useWorkflowTestStore } from "@/stores/workflowTestStore"
 import { TestModeConfig, TriggerTestMode, ActionTestMode } from "@/lib/services/testMode/types"
 import { useAuthStore } from "@/stores/authStore"
 import { useIntegrationSelection } from "@/hooks/workflows/useIntegrationSelection"
-import { PublishFlowModal } from "./PublishFlowModal"
 import { swapProviderInPlan, canSwapProviders } from "@/lib/workflows/ai-agent/providerSwapping"
 import { matchTemplate, logTemplateMatch, logTemplateMiss } from "@/lib/workflows/ai-agent/templateMatching"
 import { logPrompt, updatePrompt } from "@/lib/workflows/ai-agent/promptAnalytics"
 import { logger } from '@/lib/utils/logger'
 import { useAppContext } from "@/lib/contexts/AppContext"
-import { generateId, addNodeEdit, oldConnectToEdge } from "@/src/lib/workflows/compat/v2Adapter"
-import { flowApiUrl } from "@/src/lib/workflows/builder/api/paths"
 
 type PendingChatMessage = {
   localId: string
@@ -122,11 +119,6 @@ const AGENT_PANEL_MAX_WIDTH = 600 // Large desktop maximum
 const ENABLE_AUTO_STACK = false
 const LINEAR_STACK_X = 400
 const LINEAR_NODE_VERTICAL_GAP = 180
-
-// Node schema lookup for fast access to config/output fields
-const NODE_COMPONENT_MAP = new Map<string, NodeComponent>(
-  ALL_NODE_COMPONENTS.map((node) => [node.type, node])
-)
 
 type MoveNodeResult = { newOrder: string[]; changed: boolean } | null
 
@@ -228,92 +220,6 @@ function computeReactAgentPanelWidth(win?: { innerWidth: number }) {
   // Large Desktop: Scale to 25% of viewport, max 600px
   const scaledWidth = Math.floor(viewportWidth * 0.25)
   return Math.min(scaledWidth, 600)
-}
-
-/**
- * Build a PlanNode enriched with the node's schema so the agent/UI
- * know exactly which fields exist for configuration.
- */
-function buildPlanNodeFromType(nodeType: string, index: number): {
-  planNode: PlanNode
-  initialConfig: Record<string, any>
-} {
-  const nodeComponent = NODE_COMPONENT_MAP.get(nodeType)
-
-  const configFields =
-    nodeComponent?.configSchema?.map((field) => ({
-      name: field.name,
-      label: field.label,
-      type: field.type,
-      required: field.required,
-      dynamic: field.dynamic,
-      options: field.options,
-      placeholder: field.placeholder,
-      defaultValue: field.defaultValue,
-      dependsOn: field.dependsOn,
-      description: field.description,
-      supportsAI: field.supportsAI,
-    })) ?? []
-
-  const outputFields =
-    nodeComponent?.outputSchema?.map((field) => ({
-      name: field.name,
-      label: field.label,
-      type: field.type,
-      description: field.description,
-    })) ?? []
-
-  const planNode: PlanNode = {
-    id: `node-${index}`,
-    title: nodeComponent?.title || nodeType,
-    description: nodeComponent?.description || `${nodeComponent?.title || nodeType} node`,
-    nodeType,
-    providerId: nodeComponent?.providerId,
-    icon: nodeComponent?.icon,
-    requires: {
-      secretNames: [],
-      params: [],
-    },
-    configFields,
-    outputFields,
-  }
-
-  const initialConfig = buildInitialConfigFromFields(configFields)
-
-  return { planNode, initialConfig }
-}
-
-/**
- * Produce a default config object that includes every required field
- * (and any defaults) so the agent knows which keys to populate later.
- */
-function buildInitialConfigFromFields(
-  fields: NonNullable<PlanNode['configFields']>
-): Record<string, any> {
-  const defaults: Record<string, any> = {}
-
-  fields.forEach((field) => {
-    if (field.defaultValue !== undefined) {
-      defaults[field.name] = field.defaultValue
-      return
-    }
-
-    // Always track connection even if empty so the UI knows it's needed
-    if (field.name === 'connection') {
-      defaults[field.name] = ''
-      return
-    }
-
-    if (field.required) {
-      if (field.type === 'boolean') {
-        defaults[field.name] = false
-      } else {
-        defaults[field.name] = ''
-      }
-    }
-  })
-
-  return defaults
 }
 
 /**
@@ -448,234 +354,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   const [nodeTestingName, setNodeTestingName] = useState<string | null>(null) // Name of node being tested
   const [isTestModeDialogOpen, setIsTestModeDialogOpen] = useState(false) // Test/Live mode dialog
   const [isIntegrationsPanelOpen, setIsIntegrationsPanelOpen] = useState(false)
-  const pendingInsertionRef = useRef<{
-    sourceId: string | null
-    targetId: string | null
-    sourceHandle: string | null
-    targetHandle: string | null
-  } | null>(null)
-  const [isStructureTransitioning, setIsStructureTransitioning] = useState(false)
-  const [isPublishModalOpen, setIsPublishModalOpen] = useState(false)
-  const [isPublishing, setIsPublishing] = useState(false)
-  const [hasPublishedRevision, setHasPublishedRevision] = useState(false)
-  const endStructureTransitionRef = useRef<number | null>(null)
-  const flowTestAbortRef = useRef(false)
-  const flowTestPausedRef = useRef(false) // Ref for checking pause state in async loop
-  const flowTestResumeResolverRef = useRef<(() => void) | null>(null) // Resolver to resume paused test
-  const nodeTestAbortControllerRef = useRef<AbortController | null>(null) // For stopping single node tests
-  const flowTestPendingNodesRef = useRef<Set<string>>(new Set())
-
-  useEffect(() => {
-    let cancelled = false
-    const loadPublished = async () => {
-      try {
-        const res = await fetch(flowApiUrl(flowId, '/revisions'), { credentials: "include" })
-        if (!res.ok) return
-        const data = await res.json()
-        const published = Boolean(data?.revisions?.some((rev: any) => rev.published))
-        if (!cancelled) {
-          setHasPublishedRevision(published)
-        }
-      } catch {
-        // Ignore publish status fetch errors; UI will prompt publish anyway
-      }
-    }
-    loadPublished()
-    return () => {
-      cancelled = true
-    }
-  }, [flowId])
-
-  const endStructureTransition = useCallback(() => {
-    if (typeof window === 'undefined') {
-      setIsStructureTransitioning(false)
-      return
-    }
-    if (endStructureTransitionRef.current) {
-      cancelAnimationFrame(endStructureTransitionRef.current)
-      endStructureTransitionRef.current = null
-    }
-    const schedule = () => requestAnimationFrame(() => {
-      endStructureTransitionRef.current = null
-      setIsStructureTransitioning(false)
-    })
-    endStructureTransitionRef.current = requestAnimationFrame(() => {
-      endStructureTransitionRef.current = schedule()
-    })
-  }, [])
-
-  useEffect(() => {
-    return () => {
-      if (endStructureTransitionRef.current) {
-        cancelAnimationFrame(endStructureTransitionRef.current)
-      }
-    }
-  }, [])
-
-  const resetPendingFlowNodes = useCallback(() => {
-    const pendingIds = Array.from(flowTestPendingNodesRef.current)
-    if (pendingIds.length === 0) return
-    const pendingSet = new Set(pendingIds)
-
-    if (reactFlowInstanceRef.current) {
-      pendingIds.forEach(nodeId => {
-        setNodeState(reactFlowInstanceRef.current, nodeId, 'ready')
-      })
-    }
-
-    builder?.setNodes?.((nodes: any[]) =>
-      nodes.map((node: any) => {
-        if (!pendingSet.has(node.id)) {
-          return node
-        }
-
-        if (node.data?.executionStatus !== 'running' && !node.data?.isActiveExecution) {
-          return node
-        }
-
-        return {
-          ...node,
-          data: {
-            ...node.data,
-            executionStatus: null,
-            isActiveExecution: false,
-          },
-        }
-      })
-    )
-
-    flowTestPendingNodesRef.current.clear()
-    setFlowTestStatus(null)
-  }, [builder?.setNodes])
-
-  const handleStopFlowTest = useCallback((nodeId?: string) => {
-    if (!isFlowTesting && flowTestPendingNodesRef.current.size === 0) {
-      return
-    }
-    console.log('[WorkflowBuilder] Stop requested', { nodeId })
-    flowTestAbortRef.current = true
-    flowTestPausedRef.current = false
-    // Resume if paused so the loop can exit
-    if (flowTestResumeResolverRef.current) {
-      flowTestResumeResolverRef.current()
-      flowTestResumeResolverRef.current = null
-    }
-    resetPendingFlowNodes()
-    setIsFlowTesting(false)
-    setIsFlowTestPaused(false)
-    setFlowTestStatus(null)
-    toast({
-      title: "Testing stopped",
-      description: "Flow test cancelled.",
-    })
-  }, [isFlowTesting, resetPendingFlowNodes, toast])
-
-  const handlePauseFlowTest = useCallback(() => {
-    if (!isFlowTesting || isFlowTestPaused) return
-    console.log('[WorkflowBuilder] Pausing flow test')
-    flowTestPausedRef.current = true
-    setIsFlowTestPaused(true)
-    toast({
-      title: "Test paused",
-      description: "Click play to resume testing.",
-    })
-  }, [isFlowTesting, isFlowTestPaused, toast])
-
-  const handleResumeFlowTest = useCallback(() => {
-    if (!isFlowTesting || !isFlowTestPaused) return
-    console.log('[WorkflowBuilder] Resuming flow test')
-    flowTestPausedRef.current = false
-    setIsFlowTestPaused(false)
-    // Resolve the pause promise to continue the loop
-    if (flowTestResumeResolverRef.current) {
-      flowTestResumeResolverRef.current()
-      flowTestResumeResolverRef.current = null
-    }
-    toast({
-      title: "Test resumed",
-      description: "Continuing workflow test.",
-    })
-  }, [isFlowTesting, isFlowTestPaused, toast])
-
-  const handleStopNodeTest = useCallback(() => {
-    if (!isNodeTesting) return
-    console.log('[WorkflowBuilder] Stopping single node test')
-    if (nodeTestAbortControllerRef.current) {
-      nodeTestAbortControllerRef.current.abort()
-      nodeTestAbortControllerRef.current = null
-    }
-    setIsNodeTesting(false)
-    setNodeTestingName(null)
-    toast({
-      title: "Test stopped",
-      description: "Node test cancelled.",
-    })
-  }, [isNodeTesting, toast])
-
-  const setInsertionContext = useCallback((
-    sourceId: string | null,
-    targetId: string | null,
-    options?: { sourceHandle?: string | null; targetHandle?: string | null }
-  ) => {
-    pendingInsertionRef.current = {
-      sourceId,
-      targetId,
-      sourceHandle: options?.sourceHandle ?? null,
-      targetHandle: options?.targetHandle ?? null,
-    }
-  }, [])
-
-  const clearInsertionContext = useCallback(() => {
-    pendingInsertionRef.current = null
-    setAddingAfterNodeId(null)
-  }, [])
-
-  const prepareInsertionContext = useCallback((afterNodeId: string | null) => {
-    if (!afterNodeId || !builder) {
-      setInsertionContext(afterNodeId, null)
-      return
-    }
-
-    const nodes = Array.isArray(builder.nodes) ? builder.nodes : []
-    const edges = Array.isArray(builder.edges) ? builder.edges : []
-
-    let nextNodeId: string | null = null
-    if (nodes.length > 0) {
-      const sortedNodes = [...nodes].sort(
-        (a: any, b: any) => (a.position?.y ?? 0) - (b.position?.y ?? 0)
-      )
-      const currentIndex = sortedNodes.findIndex((node: any) => node.id === afterNodeId)
-      if (currentIndex >= 0) {
-        const candidate = sortedNodes
-          .slice(currentIndex + 1)
-          .find(node => !node.data?.isPlaceholder)
-        if (candidate) {
-          nextNodeId = candidate.id
-        }
-      }
-    }
-
-    let matchingEdge: any = null
-    if (edges.length > 0) {
-      if (nextNodeId) {
-        matchingEdge = edges.find(
-          (edge: any) => edge.source === afterNodeId && edge.target === nextNodeId
-        )
-      }
-      if (!matchingEdge) {
-        matchingEdge = edges.find((edge: any) => edge.source === afterNodeId) ?? null
-      }
-    }
-
-    if (matchingEdge) {
-      setInsertionContext(afterNodeId, matchingEdge.target ?? nextNodeId ?? null, {
-        sourceHandle: matchingEdge.sourceHandle || 'source',
-        targetHandle: matchingEdge.targetHandle || 'target',
-      })
-    } else {
-      setInsertionContext(afterNodeId, nextNodeId)
-    }
-  }, [builder, setInsertionContext])
   const [integrationsPanelMode, setIntegrationsPanelMode] = useState<'trigger' | 'action'>('action')
   const [configuringNode, setConfiguringNode] = useState<any>(null)
 
@@ -696,368 +374,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
-
-  // Keyboard paste handler for importing workflow JSON
-  useEffect(() => {
-    // Helper function to sanitize JSON text from various sources
-    const sanitizeJsonText = (text: string): string => {
-      let cleaned = text
-
-      // Remove BOM (Byte Order Mark)
-      cleaned = cleaned.replace(/^\uFEFF/, '')
-
-      // Remove zero-width characters and other invisible Unicode
-      cleaned = cleaned.replace(/[\u200B-\u200D\u200E\u200F\uFEFF\u00A0]/g, ' ')
-
-      // Replace smart quotes with regular quotes
-      cleaned = cleaned.replace(/[\u2018\u2019\u0060\u00B4]/g, "'")
-      cleaned = cleaned.replace(/[\u201C\u201D\u00AB\u00BB]/g, '"')
-
-      // Replace en-dash and em-dash with regular dash
-      cleaned = cleaned.replace(/[\u2013\u2014]/g, '-')
-
-      // Normalize line endings to \n
-      cleaned = cleaned.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
-
-      // Remove ALL control characters (0x00-0x1F and 0x7F-0x9F) except newline (0x0A) and tab (0x09)
-      cleaned = cleaned.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '')
-
-      // Try to extract JSON if it's wrapped in markdown code blocks
-      const codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/)
-      if (codeBlockMatch) {
-        cleaned = codeBlockMatch[1]
-      }
-
-      // Trim whitespace
-      cleaned = cleaned.trim()
-
-      // Try to find JSON object/array boundaries and extract just that
-      const jsonStartIndex = cleaned.search(/[{\[]/)
-      const jsonEndIndex = Math.max(cleaned.lastIndexOf('}'), cleaned.lastIndexOf(']'))
-      if (jsonStartIndex !== -1 && jsonEndIndex > jsonStartIndex) {
-        cleaned = cleaned.substring(jsonStartIndex, jsonEndIndex + 1)
-      }
-
-      // Handle newlines inside string values
-      // This handles cases where JSON was wrapped/formatted with line breaks
-      // e.g., "HTTP Reque\n  st" -> "HTTP Request" (mid-word, lowercase follows)
-      // e.g., "Webhook\n  Trigger" -> "Webhook Trigger" (new word, uppercase follows)
-      cleaned = cleaned.replace(/"([^"\\]|\\.)*"/g, (match) => {
-        let result = match
-        // Step 1: Mid-word continuation - if lowercase letter follows newline/whitespace,
-        // it's a continuation of the same word, so remove newline and whitespace entirely
-        result = result.replace(/\n\s*([a-z])/g, '$1')
-        // Step 2: New word or other content - uppercase letter or non-letter follows
-        // Replace newline and whitespace with single space
-        result = result.replace(/\n\s*/g, ' ')
-        // Step 3: Replace tabs with spaces
-        result = result.replace(/\t/g, ' ')
-        // Step 4: Collapse multiple spaces into single space
-        result = result.replace(/ {2,}/g, ' ')
-        return result
-      })
-
-      return cleaned
-    }
-
-    const handlePaste = async (e: ClipboardEvent) => {
-      console.log('[WorkflowBuilder] Paste event detected')
-
-      // Don't intercept paste if user is typing in an input/textarea
-      const activeElement = document.activeElement
-      const tagName = activeElement?.tagName?.toLowerCase()
-      console.log('[WorkflowBuilder] Active element:', tagName, activeElement?.getAttribute('contenteditable'))
-
-      if (
-        activeElement instanceof HTMLInputElement ||
-        activeElement instanceof HTMLTextAreaElement ||
-        activeElement?.getAttribute('contenteditable') === 'true'
-      ) {
-        console.log('[WorkflowBuilder] Skipping - user is in input field')
-        return
-      }
-
-      const pastedText = e.clipboardData?.getData('text')
-      console.log('[WorkflowBuilder] Pasted text length:', pastedText?.length)
-      if (!pastedText) return
-
-      // Sanitize the pasted text to handle various formats
-      const cleanedText = sanitizeJsonText(pastedText)
-      console.log('[WorkflowBuilder] Cleaned text length:', cleanedText.length)
-
-      // Try to parse as JSON
-      try {
-        const data = JSON.parse(cleanedText)
-        console.log('[WorkflowBuilder] Parsed JSON:', { hasNodes: !!data.nodes, nodeCount: data.nodes?.length })
-
-        // Check if it looks like workflow JSON (has nodes array)
-        if (!data.nodes || !Array.isArray(data.nodes)) {
-          console.log('[WorkflowBuilder] Not workflow JSON - no nodes array')
-          return // Not workflow JSON, let default paste behavior happen
-        }
-
-        e.preventDefault() // Prevent default paste behavior
-        console.log('[WorkflowBuilder] Valid workflow JSON detected, importing...')
-
-        // Build set of valid node types for validation
-        const validNodeTypes = new Set(ALL_NODE_COMPONENTS.map(n => n.type))
-
-        // Find existing placeholder nodes to use their positions
-        const currentNodes = Array.isArray(builder.nodes) ? builder.nodes : []
-
-        // DEBUG: Log all current nodes with full details
-        console.log('[WorkflowBuilder] DEBUG - All current nodes:', currentNodes.map((n: any) => ({
-          id: n.id,
-          type: n.type,
-          dataType: n.data?.type,
-          dataIsPlaceholder: n.data?.isPlaceholder,
-          position: n.position,
-          positionAbsolute: n.positionAbsolute
-        })))
-
-        // Check for placeholder nodes by type or data.type or isPlaceholder flag
-        const triggerPlaceholder = currentNodes.find((n: any) =>
-          n.type === 'trigger_placeholder' ||
-          n.data?.type === 'trigger_placeholder' ||
-          n.id === 'trigger-placeholder' ||
-          (n.data?.isPlaceholder && n.data?.type?.includes('trigger'))
-        )
-        const actionPlaceholder = currentNodes.find((n: any) =>
-          n.type === 'action_placeholder' ||
-          n.data?.type === 'action_placeholder' ||
-          n.id === 'action-placeholder' ||
-          (n.data?.isPlaceholder && n.data?.type?.includes('action'))
-        )
-
-        console.log('[WorkflowBuilder] DEBUG - Placeholder search results:', {
-          triggerPlaceholder: triggerPlaceholder ? { id: triggerPlaceholder.id, type: triggerPlaceholder.type, position: triggerPlaceholder.position } : null,
-          actionPlaceholder: actionPlaceholder ? { id: actionPlaceholder.id, type: actionPlaceholder.type, position: actionPlaceholder.position } : null
-        })
-
-        // Sort nodes by Y position to get consistent ordering
-        const sortedNodes = [...currentNodes].sort((a: any, b: any) =>
-          (a.position?.y || 0) - (b.position?.y || 0)
-        )
-
-        // Calculate positions - use placeholder positions (which are screen-responsive)
-        // Fallback to defaults if no placeholders exist
-        const DEFAULT_VERTICAL_SPACING = 180
-        const DEFAULT_START_Y = 120
-        const DEFAULT_X = 400
-
-        // Get X and Y positions from placeholders, or use defaults
-        let nodeX: number
-        let triggerY: number
-        let actionY: number
-        let positionSource = 'default'
-
-        // Get X position from placeholder (placeholders use dynamic centerX based on viewport)
-        if (triggerPlaceholder?.position?.x) {
-          nodeX = triggerPlaceholder.position.x
-          positionSource = 'triggerPlaceholder'
-        } else if (actionPlaceholder?.position?.x) {
-          nodeX = actionPlaceholder.position.x
-          positionSource = 'actionPlaceholder'
-        } else if (sortedNodes[0]?.position?.x) {
-          nodeX = sortedNodes[0].position.x
-          positionSource = 'firstExistingNode'
-        } else {
-          nodeX = DEFAULT_X
-          positionSource = 'default'
-        }
-
-        // Get Y positions
-        if (triggerPlaceholder?.position) {
-          triggerY = triggerPlaceholder.position.y
-        } else if (sortedNodes[0]?.position) {
-          triggerY = sortedNodes[0].position.y
-        } else {
-          triggerY = DEFAULT_START_Y
-        }
-
-        if (actionPlaceholder?.position) {
-          actionY = actionPlaceholder.position.y
-        } else if (sortedNodes[1]?.position) {
-          actionY = sortedNodes[1].position.y
-        } else {
-          actionY = triggerY + DEFAULT_VERTICAL_SPACING
-        }
-
-        console.log('[WorkflowBuilder] DEBUG - Final positions:', {
-          positionSource,
-          nodeX,
-          triggerY,
-          actionY,
-          hasTriggerPlaceholder: !!triggerPlaceholder,
-          hasActionPlaceholder: !!actionPlaceholder,
-          triggerPlaceholderPos: triggerPlaceholder?.position,
-          actionPlaceholderPos: actionPlaceholder?.position
-        })
-
-        // Convert nodes to edit operations
-        const edits: any[] = []
-        const invalidNodes: string[] = []
-        const validNodes: any[] = []
-        const placeholdersToDelete: string[] = []
-
-        // Collect placeholders to delete
-        if (triggerPlaceholder) placeholdersToDelete.push(triggerPlaceholder.id)
-        if (actionPlaceholder) placeholdersToDelete.push(actionPlaceholder.id)
-
-        // Validate and add nodes - include required label and io fields for FlowNode schema
-        for (let i = 0; i < data.nodes.length; i++) {
-          const node = data.nodes[i]
-          const nodeType = node.type || node.data?.type
-
-          // Check if node type exists
-          if (!validNodeTypes.has(nodeType)) {
-            invalidNodes.push(nodeType)
-            console.warn(`[WorkflowBuilder] Invalid node type: ${nodeType}`)
-            continue // Skip invalid nodes
-          }
-
-          const nodeComponent = ALL_NODE_COMPONENTS.find(n => n.type === nodeType)
-          const nodeLabel = node.data?.title || node.data?.label || node.label || nodeComponent?.title || nodeType || 'Node'
-          const providerId = node.data?.providerId || nodeComponent?.providerId
-
-          // Determine position: Use nodeX (from placeholder) for X, calculated Y from placeholders
-          let position: { x: number; y: number }
-          if (i === 0) {
-            // First node uses trigger Y position
-            position = { x: nodeX, y: triggerY }
-          } else if (i === 1) {
-            // Second node uses action Y position
-            position = { x: nodeX, y: actionY }
-          } else {
-            // Subsequent nodes stack below with vertical spacing
-            position = { x: nodeX, y: actionY + (DEFAULT_VERTICAL_SPACING * (i - 1)) }
-          }
-
-          console.log(`[WorkflowBuilder] DEBUG - Node ${i} (${node.id}) position:`, {
-            assignedPosition: position,
-            originalPosition: node.position,
-            index: i
-          })
-
-          validNodes.push(node)
-          edits.push({
-            op: 'addNode',
-            node: {
-              id: node.id,
-              type: nodeType,
-              label: nodeLabel, // Required by FlowNode schema
-              io: node.io || {}, // Required by FlowNode schema (can be empty object)
-              config: node.data?.config || node.config || {},
-              inPorts: node.inPorts || [],
-              outPorts: node.outPorts || [],
-              // Position must be stored in metadata.position (FlowNode schema doesn't have position field)
-              metadata: {
-                position: position,
-                isTrigger: i === 0, // First node is typically the trigger
-                providerId: providerId,
-              },
-              data: {
-                ...node.data,
-                title: nodeLabel,
-                type: nodeType,
-                providerId: providerId,
-                config: node.data?.config || node.config || {},
-              },
-            },
-          })
-        }
-
-        // Delete placeholder nodes after adding real nodes
-        for (const placeholderId of placeholdersToDelete) {
-          edits.push({
-            op: 'deleteNode',
-            nodeId: placeholderId,
-          })
-        }
-
-        // Show error for invalid node types
-        if (invalidNodes.length > 0) {
-          toast({
-            title: "Invalid node types",
-            description: `The following node types don't exist: ${invalidNodes.join(', ')}`,
-            variant: "destructive",
-          })
-        }
-
-        // If no valid nodes, don't proceed
-        if (validNodes.length === 0) {
-          toast({
-            title: "Import failed",
-            description: "No valid nodes found in the JSON",
-            variant: "destructive",
-          })
-          return
-        }
-
-        // Add edges/connections - only for valid nodes
-        const validNodeIds = new Set(validNodes.map((n: any) => n.id))
-        const connections = data.edges || data.connections || []
-        for (const edge of connections) {
-          // Only add edge if both source and target are valid nodes
-          if (!validNodeIds.has(edge.source) || !validNodeIds.has(edge.target)) {
-            console.warn(`[WorkflowBuilder] Skipping edge ${edge.id} - connects to invalid node`)
-            continue
-          }
-          edits.push({
-            op: 'connect',
-            edge: {
-              id: edge.id || `edge-${edge.source}-${edge.target}`,
-              from: {
-                nodeId: edge.source,
-                portId: edge.sourceHandle || undefined, // Optional portId per EdgeEndpointSchema
-              },
-              to: {
-                nodeId: edge.target,
-                portId: edge.targetHandle || undefined, // Optional portId per EdgeEndpointSchema
-              },
-            },
-          })
-        }
-
-        console.log('[WorkflowBuilder] Created edits:', edits.length, 'actions available:', !!actions?.applyEdits)
-
-        if (edits.length > 0 && actions?.applyEdits) {
-          toast({
-            title: "Importing workflow...",
-            description: `Adding ${validNodes.length} nodes`,
-          })
-
-          try {
-            await actions.applyEdits(edits)
-            toast({
-              title: "Workflow imported",
-              description: `Successfully added ${validNodes.length} nodes${invalidNodes.length > 0 ? ` (${invalidNodes.length} skipped)` : ''}`,
-            })
-          } catch (error: any) {
-            console.error('[WorkflowBuilder] Import failed:', error)
-            toast({
-              title: "Import failed",
-              description: error?.message || "Failed to import workflow",
-              variant: "destructive",
-            })
-          }
-        } else if (edits.length > 0 && !actions?.applyEdits) {
-          console.warn('[WorkflowBuilder] Cannot import - actions.applyEdits not available')
-          toast({
-            title: "Cannot import",
-            description: "Workflow builder not ready. Please try again.",
-            variant: "destructive",
-          })
-        }
-      } catch (parseError) {
-        // Not valid JSON, ignore and let default paste happen
-        console.log('[WorkflowBuilder] Not valid JSON:', parseError)
-      }
-    }
-
-    window.addEventListener('paste', handlePaste)
-    return () => window.removeEventListener('paste', handlePaste)
-  }, [actions, toast, builder.nodes])
 
   const [agentOpen, setAgentOpen] = useState(true)
   const [agentInput, setAgentInput] = useState("")
@@ -1336,78 +652,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     loadChatHistory()
   }, [flowId, flowState?.flow, flowState?.revisionId, authInitialized])
 
-  // Load cached node outputs from Supabase on page refresh
-  // This enables variable resolution from previously tested upstream nodes
-  const hasFetchedCachedOutputsRef = useRef(false)
-
-  useEffect(() => {
-    if (!flowId || !authInitialized || hasFetchedCachedOutputsRef.current) {
-      return
-    }
-
-    const loadCachedOutputs = async () => {
-      try {
-        logger.info('[WorkflowBuilder] Loading cached node outputs for workflow:', flowId)
-        hasFetchedCachedOutputsRef.current = true
-
-        const response = await fetch(`/api/workflows/cached-outputs?workflowId=${flowId}`)
-
-        if (!response.ok) {
-          logger.debug('[WorkflowBuilder] No cached outputs found or error fetching')
-          return
-        }
-
-        const data = await response.json()
-
-        if (!data.success || !data.cachedOutputs) {
-          logger.debug('[WorkflowBuilder] No cached outputs in response')
-          return
-        }
-
-        const cachedOutputs = data.cachedOutputs as Record<string, any>
-        const nodeCount = Object.keys(cachedOutputs).length
-
-        if (nodeCount === 0) {
-          logger.debug('[WorkflowBuilder] No cached outputs to load')
-          return
-        }
-
-        logger.info(`[WorkflowBuilder] Loaded ${nodeCount} cached node outputs:`, {
-          nodeIds: Object.keys(cachedOutputs)
-        })
-
-        // Populate nodeTestCache with cached outputs
-        const newCacheEntries: Record<string, NodeTestCacheEntry> = {}
-
-        for (const [nodeId, cachedData] of Object.entries(cachedOutputs)) {
-          // cachedData structure from API: { nodeId, nodeType, output: { field1, field2, __success, __message }, executedAt }
-          const outputData = cachedData.output || cachedData
-          newCacheEntries[nodeId] = {
-            data: outputData,
-            result: {
-              success: outputData?.__success !== false,
-              timestamp: cachedData.executedAt,
-              message: outputData?.__message || 'Loaded from cache',
-              rawResponse: cachedData
-            }
-          }
-        }
-
-        setNodeTestCache(prev => ({
-          ...prev,
-          ...newCacheEntries
-        }))
-
-        logger.info(`[WorkflowBuilder] Populated nodeTestCache with ${nodeCount} cached entries`)
-
-      } catch (error: any) {
-        logger.error('[WorkflowBuilder] Error loading cached outputs:', error.message)
-      }
-    }
-
-    loadCachedOutputs()
-  }, [flowId, authInitialized])
-
   // Determine when chat persistence should be enabled
   useEffect(() => {
     if (!flowState) {
@@ -1612,37 +856,32 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     originalPrompt: string,
     providerMeta?: { category: any; provider: any; allProviders: any[] }
   ) => {
-    // Generate plan from edits with full schema context for each node
-    const initialNodeConfigs: Record<string, Record<string, any>> = {}
-
+    // Generate plan from edits
     const plan: PlanNode[] = (result.edits || [])
       .filter((edit: any) => edit.op === 'addNode')
       .map((edit: any, index: number) => {
         const nodeType = edit.node?.type || 'unknown'
-        const { planNode, initialConfig } = buildPlanNodeFromType(nodeType, index)
+        const nodeComponent = ALL_NODE_COMPONENTS.find(n => n.type === nodeType)
 
-        if (Object.keys(initialConfig).length > 0) {
-          initialNodeConfigs[planNode.id] = initialConfig
+        // Use actual node title instead of Kadabra-style names
+        const displayTitle = nodeComponent?.title || nodeType
+
+        return {
+          id: `node-${index}`,
+          title: displayTitle,
+          description: nodeComponent?.description || `${nodeComponent?.title || nodeType} node`,
+          nodeType,
+          providerId: nodeComponent?.providerId,
+          icon: nodeComponent?.icon,
+          requires: {
+            secretNames: [],
+            params: [],
+          },
         }
-
-        return planNode
       })
 
-    // Seed node configs so every required field is tracked from the start
-    setNodeConfigs(initialNodeConfigs)
-
-    // Lightweight assistant summary with field awareness
-    const fieldTotals = plan.reduce(
-      (acc, node) => {
-        const fields = node.configFields || []
-        acc.total += fields.length
-        acc.required += fields.filter(f => f.required).length
-        return acc
-      },
-      { total: 0, required: 0 }
-    )
-
-    const assistantText = `Plan ready: ${plan.length} steps with ${fieldTotals.required}/${fieldTotals.total} required fields tracked. I’ll surface the right inputs when you continue.`
+    // Silent plan - no assistant message (workflow speaks for itself)
+    const assistantText = ''
     const assistantMeta: Record<string, any> = {
       plan: { edits: result.edits, nodeCount: plan.length }
     }
@@ -2139,8 +1378,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     // Position will be auto-corrected by the vertical stacking effect
     // Just use a placeholder position for now
     const position = {
-      x: afterNode.position?.x ?? LINEAR_STACK_X,
-      y: afterNode.position.y + LINEAR_NODE_VERTICAL_GAP
+      x: 400,
+      y: afterNode.position.y + 180
     }
 
     try {
@@ -2615,18 +1854,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   }, [activeReorderDrag])
 
   const handleTestNode = useCallback(async (nodeId: string) => {
-    // Close config modal and suppress it from opening when testing
-    setConfiguringNode(null)
-    suppressNodeClickRef.current = nodeId
-    if (suppressNodeClickTimeoutRef.current) {
-      clearTimeout(suppressNodeClickTimeoutRef.current)
-    }
-    suppressNodeClickTimeoutRef.current = setTimeout(() => {
-      if (suppressNodeClickRef.current === nodeId) {
-        suppressNodeClickRef.current = null
-      }
-    }, 500)
-
     const node = builder?.nodes?.find((n: any) => n.id === nodeId)
     if (!node || !reactFlowInstanceRef.current) {
       logger.error('[WorkflowBuilder] Cannot test node - node or ReactFlow instance not found')
@@ -2640,15 +1867,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     }
 
     const config = node.data?.config || {}
-
-    // Get the node name for the status bar
-    const nodeName = node.data?.title || node.data?.label || node.data?.type || 'Node'
-    setIsNodeTesting(true)
-    setNodeTestingName(nodeName)
-
-    // Set up AbortController for stopping the test
-    const abortController = new AbortController()
-    nodeTestAbortControllerRef.current = abortController
 
     try {
       logger.debug('[WorkflowBuilder] Testing node:', { nodeId, nodeType: node.data?.type })
@@ -2704,16 +1922,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       })
 
       // Call test-node API
-      console.log('🔍 [WorkflowBuilder] Sending test request:', {
-        nodeType: node.data?.type,
-        workflowId: flowId,
-        workflowIdType: typeof flowId,
-        workflowIdIsUUID: flowId ? /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(flowId) : false,
-        nodeId: nodeId,
-        configKeys: Object.keys(cleanConfig),
-        testDataKeys: Object.keys(testData)
-      })
-
       const response = await fetch('/api/workflows/test-node', {
         method: 'POST',
         headers: {
@@ -2722,33 +1930,14 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         body: JSON.stringify({
           nodeType: node.data?.type,
           config: cleanConfig,
-          testData: testData,
-          workflowId: flowId, // Pass workflow ID for caching
-          nodeId: nodeId, // Pass node ID for caching
-          useCachedData: true, // Enable cached data from previous runs
-          workflowNodes: builder?.nodes // Pass nodes for friendly name lookup
-        }),
-        signal: abortController.signal, // Allow aborting the request
+          testData: testData
+        })
       })
 
-      console.log('🔍 [WorkflowBuilder] Response status:', response.status, response.statusText)
-
       const result = await response.json()
-      console.log('🔍 [WorkflowBuilder] Parsed result:', result)
 
       if (!response.ok) {
-        // Check if this is a "missing upstream node data" error
-        if (result.debug?.missingNodeNames?.length > 0) {
-          const missingNodes = result.debug.missingNodeNames.join(', ')
-          throw new Error(`Missing data from upstream nodes. Please test these nodes first: ${missingNodes}`)
-        } else if (result.debug?.missingNodes?.length > 0) {
-          const missingNodes = result.debug.missingNodes.join(', ')
-          throw new Error(`Missing data from upstream nodes. Please test these nodes first: ${missingNodes}`)
-        }
-
-        // Use the message from testResult if available
-        const errorMessage = result.testResult?.message || result.error || 'Failed to test node'
-        throw new Error(errorMessage)
+        throw new Error(result.error || 'Failed to test node')
       }
 
       logger.debug('[WorkflowBuilder] Test completed:', result)
@@ -2817,19 +2006,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       )
 
     } catch (error: any) {
-      // Check if the request was aborted (user clicked stop)
-      if (error.name === 'AbortError') {
-        logger.debug('[WorkflowBuilder] Node test was aborted by user')
-        setNodeState(reactFlowInstanceRef.current, nodeId, 'idle')
-        return
-      }
-
-      // Better error logging
-      console.error('🔴 [WorkflowBuilder] Test failed - Full error:', error)
-      console.error('🔴 [WorkflowBuilder] Error message:', error?.message)
-      console.error('🔴 [WorkflowBuilder] Error stringified:', JSON.stringify(error, Object.getOwnPropertyNames(error || {})))
-
-      logger.error('[WorkflowBuilder] Test failed:', error?.message || error)
+      logger.error('[WorkflowBuilder] Test failed:', error)
       setNodeState(reactFlowInstanceRef.current, nodeId, 'failed')
       const errorMetadata = {
         __testData: {},
@@ -2878,11 +2055,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         description: error.message || "Failed to execute test",
         variant: "destructive"
       })
-    } finally {
-      // Clear single node testing state and abort controller ref
-      nodeTestAbortControllerRef.current = null
-      setIsNodeTesting(false)
-      setNodeTestingName(null)
     }
     async function persistNodeTestResult(
       status: 'success' | 'error',
@@ -2890,11 +2062,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       nodeData: any,
       errorMessage?: string
     ) {
-      // Note: This function tries to persist to a legacy API endpoint.
-      // Main test result caching is now handled by nodeOutputCache in the test-node API.
-      // This is kept for backwards compatibility but failures are logged at debug level only.
       try {
-        const response = await fetch(flowApiUrl(flowId, `/nodes/${nodeId}/tests`), {
+        const response = await fetch(`/workflows/v2/api/flows/${flowId}/nodes/${nodeId}/tests`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -2912,8 +2081,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         })
 
         if (!response.ok) {
-          // Legacy endpoint may not exist - this is expected, log at debug level only
-          logger.debug('[WorkflowBuilder] Legacy persist endpoint not available (this is OK)')
+          const errorPayload = await response.json().catch(() => ({}))
+          logger.error('[WorkflowBuilder] Failed to persist node test:', errorPayload)
           return
         }
 
@@ -2922,48 +2091,20 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           await actions.refreshRun(responseBody.runId)
         }
       } catch (persistError) {
-        // Legacy endpoint may not exist - this is expected, log at debug level only
-        logger.debug('[WorkflowBuilder] Legacy persist endpoint error (this is OK)')
+        logger.error('[WorkflowBuilder] Persist node test error:', persistError)
       }
     }
   }, [builder?.nodes, builder?.setNodes, actions, flowId, toast])
 
   const handleTestFlowFromHere = useCallback(async (nodeId: string) => {
-    // Close config modal and integrations panel, disable interactions during testing
-    setConfiguringNode(null)
-    setIsIntegrationsPanelOpen(false)
-    setAddingAfterNodeId(null)
-    setIsFlowTesting(true)
-    setIsFlowTestPaused(false)
-    setFlowTestStatus(null)
-    flowTestAbortRef.current = false
-    flowTestPausedRef.current = false
-    flowTestResumeResolverRef.current = null
-    flowTestPendingNodesRef.current = new Set()
-
-    // Suppress config modal from opening when this is triggered
-    suppressNodeClickRef.current = nodeId
-    if (suppressNodeClickTimeoutRef.current) {
-      clearTimeout(suppressNodeClickTimeoutRef.current)
-    }
-    suppressNodeClickTimeoutRef.current = setTimeout(() => {
-      if (suppressNodeClickRef.current === nodeId) {
-        suppressNodeClickRef.current = null
-      }
-    }, 500)
-
     if (!builder?.nodes || !builder?.edges || !reactFlowInstanceRef.current) {
       logger.error('[WorkflowBuilder] Cannot test flow - builder not ready')
-      setIsFlowTesting(false)
-      setFlowTestStatus(null)
       return
     }
 
     const startNode = builder.nodes.find((n: any) => n.id === nodeId)
     if (!startNode) {
       logger.error('[WorkflowBuilder] Start node not found:', nodeId)
-      setIsFlowTesting(false)
-      setFlowTestStatus(null)
       return
     }
 
@@ -2984,13 +2125,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     }
 
     const nodesToTest = getDownstreamNodes(nodeId)
-    flowTestPendingNodesRef.current = new Set(nodesToTest)
     logger.debug('[WorkflowBuilder] Testing flow from node:', nodeId, 'Total nodes:', nodesToTest.length)
-    setFlowTestStatus({
-      total: nodesToTest.length,
-      currentIndex: 0,
-      currentNodeLabel: undefined
-    })
 
     // Sort nodes in execution order (topological sort)
     const sortedNodeIds: string[] = []
@@ -3017,41 +2152,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     // Test nodes sequentially, passing output from one to the next
     let currentTestData: Record<string, any> = {}
 
-    for (let index = 0; index < sortedNodeIds.length; index++) {
-      // Check for abort
-      if (flowTestAbortRef.current) {
-        resetPendingFlowNodes()
-        flowTestAbortRef.current = false
-        setFlowTestStatus(null)
-        return
-      }
-
-      // Check for pause - wait until resumed or aborted
-      if (flowTestPausedRef.current) {
-        await new Promise<void>((resolve) => {
-          flowTestResumeResolverRef.current = resolve
-        })
-        // After resume, check if we should abort
-        if (flowTestAbortRef.current) {
-          resetPendingFlowNodes()
-          flowTestAbortRef.current = false
-          setFlowTestStatus(null)
-          return
-        }
-      }
-
-      const nId = sortedNodeIds[index]
+    for (const nId of sortedNodeIds) {
       const node = builder.nodes.find((n: any) => n.id === nId)
       if (!node) continue
 
-      const nodeLabel = node.data?.title || node.data?.label || node.data?.type || `Node ${index + 1}`
-      logger.debug('[WorkflowBuilder] Testing node in flow:', nodeLabel)
-
-      setFlowTestStatus(prev => prev ? {
-        ...prev,
-        currentIndex: Math.min(index + 1, prev.total),
-        currentNodeLabel: nodeLabel
-      } : prev)
+      logger.debug('[WorkflowBuilder] Testing node in flow:', node.data?.title || node.data?.type)
 
       // Set node to running state
       setNodeState(reactFlowInstanceRef.current, nId, 'running')
@@ -3085,13 +2190,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           throw new Error(result.error || result.testResult?.error || 'Test failed')
         }
 
-        if (flowTestAbortRef.current) {
-          resetPendingFlowNodes()
-          flowTestAbortRef.current = false
-          setFlowTestStatus(null)
-          return
-        }
-
         // Merge the output into currentTestData for the next node
         currentTestData = {
           ...currentTestData,
@@ -3118,14 +2216,12 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         // This ensures the database update and graph refresh complete before setting state
         await new Promise(resolve => setTimeout(resolve, 700))
         setNodeState(reactFlowInstanceRef.current, nId, 'passed')
-        flowTestPendingNodesRef.current.delete(nId)
 
       } catch (error: any) {
         logger.error('[WorkflowBuilder] Flow test failed at node:', node.data?.title, error)
 
         // Set node to failed state
         setNodeState(reactFlowInstanceRef.current, nId, 'failed')
-        flowTestPendingNodesRef.current.delete(nId)
 
         // Update node with error
         if (actions?.updateConfig) {
@@ -3148,25 +2244,15 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         })
 
         // Stop testing on error
-        setIsFlowTesting(false)
-        setFlowTestStatus(null)
-        flowTestPendingNodesRef.current.clear()
         return
       }
     }
 
-    if (flowTestAbortRef.current) {
-      flowTestAbortRef.current = false
-      return
-    }
-
-    setIsFlowTesting(false)
     toast({
       title: "Flow test completed",
       description: `Successfully tested ${sortedNodeIds.length} node(s)`,
     })
-    flowTestPendingNodesRef.current.clear()
-  }, [builder?.nodes, builder?.edges, actions, toast, resetPendingFlowNodes])
+  }, [builder?.nodes, builder?.edges, actions, toast])
 
   const reactFlowProps = useMemo(() => {
     if (!builder) {
@@ -3238,10 +2324,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           onAddNodeAfter: handleAddNodeAfter,
           onTestNode: handleTestNode,
           onTestFlowFromHere: handleTestFlowFromHere,
-          onStop: handleStopFlowTest,
           isBeingConfigured: configuringNode?.id === node.id,
           isBeingReordered: activeReorderDrag?.nodeId === node.id,
-          isFlowTesting, // Disable interactions during flow testing
           reorderDragOffset:
             activeReorderDrag?.nodeId === node.id ? reorderDragOffset : 0,
           previewOffset: previewOffsets.get(node.id) ?? 0,
@@ -3269,14 +2353,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       const edge = builder.edges.find((e: any) => e.id === edgeId)
       if (!edge) return
 
-      // Store insertion context for precise edge splitting
-      setInsertionContext(edge.source, edge.target ?? null, {
-        sourceHandle: edge.sourceHandle || 'source',
-        targetHandle: edge.targetHandle || 'target'
-      })
-
       // Store the source node ID and open integrations panel
-      setAddingAfterNodeId(edge.source)
       setSelectedNodeId(edge.source)
       openIntegrationsPanel('action')
     }
@@ -3299,38 +2376,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       nodeTypes: builder.nodeTypes,
       edgeTypes: builder.edgeTypes,
     }
-  }, [builder, handleAddNodeAfter, handleTestNode, handleTestFlowFromHere, handleStopFlowTest, handleReorderPointerDown, configuringNode, activeReorderDrag, getReorderableData, reorderDragOffset, reorderPreviewIndex, isFlowTesting])
-
-  const activeExecutionNodeName = useMemo(() => {
-    if (!builder?.activeExecutionNodeId) return null
-    const nodes = reactFlowProps?.nodes
-    if (!nodes) return null
-    const match = nodes.find((node: any) => node.id === builder.activeExecutionNodeId)
-    return match?.data?.title || match?.data?.label || match?.data?.type || null
-  }, [builder?.activeExecutionNodeId, reactFlowProps?.nodes])
-
-  const stopLiveExecutionHandler = useMemo(() => {
-    if (typeof builder?.stopLiveExecution === 'function') {
-      return builder.stopLiveExecution
-    }
-    if (builder?.isListeningForWebhook && typeof builder?.stopWebhookListening === 'function') {
-      return builder.stopWebhookListening
-    }
-    if (builder?.isStepMode && typeof builder?.stopStepExecution === 'function') {
-      return builder.stopStepExecution
-    }
-    return undefined
-  }, [builder?.stopLiveExecution, builder?.isListeningForWebhook, builder?.stopWebhookListening, builder?.isStepMode, builder?.stopStepExecution])
-
-  // Compute the name of the node we're adding after (for integrations panel context)
-  // Uses addingAfterNodeId which persists while panel is open (not selectedNodeId which changes with React Flow selection)
-  const addingAfterNodeName = useMemo(() => {
-    if (!addingAfterNodeId || !reactFlowProps?.nodes) return null
-    const targetNode = reactFlowProps.nodes.find((n: any) => n.id === addingAfterNodeId)
-    if (!targetNode) return null
-    // Get the title from node data, falling back to type if no title
-    return targetNode.data?.title || targetNode.data?.label || targetNode.data?.type || null
-  }, [addingAfterNodeId, reactFlowProps?.nodes])
+  }, [builder, handleAddNodeAfter, handleTestNode, handleTestFlowFromHere, handleReorderPointerDown, configuringNode, activeReorderDrag, getReorderableData, reorderDragOffset, reorderPreviewIndex])
 
   // Name update handler
   const persistName = useCallback(
@@ -3372,6 +2418,12 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     }
   }, [])
 
+  // Selection handler
+  const handleSelectionChange = useCallback((params: any) => {
+    const first = params?.nodes?.[0]
+    setSelectedNodeId(first?.id ?? null)
+  }, [])
+
   // Helper to open integrations panel with the correct mode (trigger vs action)
   const openIntegrationsPanel = useCallback((forceMode?: 'trigger' | 'action') => {
     let mode: 'trigger' | 'action'
@@ -3404,131 +2456,68 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     setIsIntegrationsPanelOpen(true)
   }, [builder.nodes, integrations.length, fetchIntegrations, workspaceContext])
 
-  // Handler for when integrations panel closes (clears related state)
-  const handleIntegrationsPanelClose = useCallback(() => {
-    clearInsertionContext()
-  }, [clearInsertionContext])
-
-  // Selection handler
-  const handleSelectionChange = useCallback((params: any) => {
-    const first = params?.nodes?.[0]
-    const selectedId = first?.id ?? null
-
-    console.log('🔄 [WorkflowBuilder] Selection changed:', { selectedId, nodeType: first?.type, isPlaceholder: first?.data?.isPlaceholder })
-
-    setSelectedNodeId(selectedId)
-
-    // Only open integrations panel for action_placeholder if we're not already configuring a node
-    // This prevents the panel from re-opening after selecting a node and closing the config modal
-    if (first?.type === 'action_placeholder') {
-      // Check if config modal is open or integrations panel is already open
-      // If so, don't interrupt the user's flow
-      if (!configuringNode && !isIntegrationsPanelOpen) {
-        console.log('🔄 [WorkflowBuilder] action_placeholder selected, opening integrations panel')
-        openIntegrationsPanel('action')
-      }
-    }
-  }, [openIntegrationsPanel, configuringNode, isIntegrationsPanelOpen])
-
   // Handler for adding node after another (from plus button)
   const handleAddNodeAfterClick = useCallback((afterNodeId: string | null) => {
     // Close config modal if open
     if (configuringNode) {
       setConfiguringNode(null)
     }
-
-    prepareInsertionContext(afterNodeId)
-
-    // If panel is already open and user clicked a different plus button,
-    // briefly close and reopen to show a visual cue that the target changed
-    if (isIntegrationsPanelOpen && addingAfterNodeId !== afterNodeId) {
-      setIsIntegrationsPanelOpen(false)
-      // Update the target node (use addingAfterNodeId which persists while panel is open)
-      setAddingAfterNodeId(afterNodeId)
-      if (afterNodeId) {
-        setSelectedNodeId(afterNodeId)
-      }
-      // Reopen after a brief delay for visual feedback
-      setTimeout(() => {
-        openIntegrationsPanel('action')
-      }, 150) // Short delay for visual "flash" effect
-      return
-    }
-
-    // Store the node to add after (use addingAfterNodeId which persists while panel is open)
-    setAddingAfterNodeId(afterNodeId)
+    // Store the node to add after
     if (afterNodeId) {
       setSelectedNodeId(afterNodeId)
     }
     // Open integrations panel in action mode
     openIntegrationsPanel('action')
-  }, [configuringNode, openIntegrationsPanel, isIntegrationsPanelOpen, addingAfterNodeId, prepareInsertionContext])
+  }, [configuringNode, openIntegrationsPanel])
 
   // Node selection from panel
   const handleNodeSelectFromPanel = useCallback(async (nodeData: any) => {
     console.log('🎯 [WorkflowBuilder] handleNodeSelectFromPanel called:', {
       nodeData: nodeData?.type || nodeData,
       selectedNodeId,
-      addingAfterNodeId,
       hasActions: !!actions,
       hasBuilder: !!builder
     })
 
     if (!actions || !builder) return
 
-    setIsStructureTransitioning(true)
-
     const currentNodes = builder.nodes ?? []
-    const insertionContext = pendingInsertionRef.current
-    const anchorNodeId = insertionContext?.sourceId ?? addingAfterNodeId ?? selectedNodeId
 
     // Check if we're replacing a placeholder node
-    const replacingPlaceholder = anchorNodeId
-      ? currentNodes.find((n: any) => n.id === anchorNodeId && n.data?.isPlaceholder)
-      : null
-
-    // Check if we're replacing the trigger placeholder and action placeholder exists
-    const isReplacingTriggerPlaceholder = replacingPlaceholder?.id === 'trigger-placeholder'
-    const actionPlaceholder = currentNodes.find((n: any) =>
-      n.id === 'action-placeholder' ||
-      n.type === 'action_placeholder' ||
-      n.data?.type === 'action_placeholder'
+    const replacingPlaceholder = currentNodes.find((n: any) =>
+      n.id === selectedNodeId && n.data?.isPlaceholder
     )
-    const shouldPreserveActionPlaceholder = isReplacingTriggerPlaceholder && actionPlaceholder
 
     let position = nodeData.position || { x: 400, y: 300 }
 
     // If replacing placeholder, use its position
     if (replacingPlaceholder) {
       position = replacingPlaceholder.position
-      console.log('📌 [WorkflowBuilder] Replacing placeholder:', anchorNodeId, 'with:', nodeData.type)
+      console.log('📌 [WorkflowBuilder] Replacing placeholder:', selectedNodeId, 'with:', nodeData.type)
     }
     // If adding after a specific node (from plus button), calculate position after that node
-    else if (anchorNodeId) {
-      const afterNode = currentNodes.find((n: any) => n.id === anchorNodeId)
+    else if (selectedNodeId) {
+      const afterNode = currentNodes.find((n: any) => n.id === selectedNodeId)
       if (afterNode) {
-        const anchorX = afterNode.position?.x ?? LINEAR_STACK_X
         position = {
-          x: anchorX,
-          y: afterNode.position.y + LINEAR_NODE_VERTICAL_GAP // stack directly under anchor
+          x: 400,
+          y: afterNode.position.y + 180 // Add 180px vertical spacing after the node
         }
-        console.log('📌 [WorkflowBuilder] Adding node after:', anchorNodeId, 'at position:', position)
+        console.log('📌 [WorkflowBuilder] Adding node after:', selectedNodeId, 'at position:', position)
       }
     }
 
     const nodeComponent = nodeComponentMap.get(nodeData.type)
     const providerId = nodeComponent?.providerId ?? nodeData.providerId
 
-    // Generate the REAL node ID upfront so we can use it for both optimistic updates
-    // and the backend call. This ensures edges and positions are consistent.
-    const newNodeId = generateId(nodeData.type.replace(/\W+/g, "-") || "node")
+    // Generate a temporary ID for the config modal
+    const tempId = `temp-${Date.now()}`
 
-    // Create optimistic node for config modal and canvas
+    // Create optimistic node for config modal only
     const optimisticNode = {
-      id: newNodeId,
+      id: tempId,
       type: "custom",
       position,
-      positionAbsolute: { ...position },
       data: {
         label: nodeComponent?.title ?? nodeData.title ?? nodeData.type,
         title: nodeComponent?.title ?? nodeData.title ?? nodeData.type,
@@ -3542,129 +2531,16 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       },
     }
 
-    // Prepare reordered node ID list for persisting backend edge order
-    const reorderableIds = currentNodes
-      .filter((node: any) => isReorderableNode(node))
-      .sort((a: any, b: any) => (a.position?.y ?? 0) - (b.position?.y ?? 0))
-      .map((node: any) => node.id)
-
-    // Remove placeholder anchor if present
-    const linearNodeIds = reorderableIds.filter(id => id !== newNodeId)
-    let orderedNodeIds: string[] = linearNodeIds
-    if (anchorNodeId && orderedNodeIds.includes(anchorNodeId)) {
-      const anchorIndex = orderedNodeIds.indexOf(anchorNodeId)
-      orderedNodeIds = [
-        ...orderedNodeIds.slice(0, anchorIndex + 1),
-        newNodeId,
-        ...orderedNodeIds.slice(anchorIndex + 1)
-      ]
-    } else {
-      orderedNodeIds = [...orderedNodeIds, newNodeId]
-    }
-    orderedNodeIds = Array.from(new Set(orderedNodeIds))
-
     // Close panel immediately for better UX
     setIsIntegrationsPanelOpen(false)
-    clearInsertionContext()
-
-    const nodesById = new Map(currentNodes.map((node: any) => [node.id, node]))
-    const outgoingEdges =
-      anchorNodeId && !replacingPlaceholder && Array.isArray(builder.edges)
-        ? builder.edges.filter((e: any) => e.source === anchorNodeId)
-        : []
-
-    let originalEdge: any = null
-    let originalTargetNodeId = insertionContext?.targetId ?? null
-    let originalSourceHandle = insertionContext?.sourceHandle || 'source'
-    let originalTargetHandle = insertionContext?.targetHandle || 'target'
-
-    if (anchorNodeId && outgoingEdges.length > 0) {
-      if (originalTargetNodeId) {
-        originalEdge = outgoingEdges.find(edge => edge.target === originalTargetNodeId) ?? null
-      }
-      if (!originalEdge) {
-        const anchorY = nodesById.get(anchorNodeId)?.position?.y ?? Number.NEGATIVE_INFINITY
-        const sortedEdges = outgoingEdges
-          .map(edge => ({
-            edge,
-            targetY: nodesById.get(edge.target)?.position?.y ?? Number.POSITIVE_INFINITY
-          }))
-          .sort((a, b) => a.targetY - b.targetY)
-        originalEdge = sortedEdges.find(item => item.targetY > anchorY)?.edge ?? sortedEdges[0]?.edge ?? null
-      }
-
-      if (originalEdge) {
-        originalTargetNodeId = originalEdge.target
-        originalSourceHandle = originalEdge.sourceHandle || originalSourceHandle || 'source'
-        originalTargetHandle = originalEdge.targetHandle || originalTargetHandle || 'target'
-      }
-    }
-
-    const isInsertingBetween = Boolean(originalTargetNodeId && !replacingPlaceholder)
-
-    // Calculate which nodes need to be shifted BEFORE optimistic update
-    // so we can persist them to the backend after addNode
-    const nodesToShift: Array<{ nodeId: string; position: { x: number; y: number } }> = []
-
-    if (isInsertingBetween && anchorNodeId) {
-      const verticalShift = LINEAR_NODE_VERTICAL_GAP // 180px
-      const selectedNode = currentNodes.find((n: any) => n.id === anchorNodeId)
-      const thresholdY = selectedNode?.position?.y ?? position.y
-
-      currentNodes.forEach((node: any) => {
-        // Shift nodes that are AFTER the selected node (Y position greater than selected node)
-        // Don't shift the selected node itself, and don't shift placeholders
-        if (node.position && node.position.y > thresholdY && node.id !== anchorNodeId && !node.data?.isPlaceholder) {
-          const newY = node.position.y + verticalShift
-          nodesToShift.push({
-            nodeId: node.id,
-            position: {
-              x: node.position.x,
-              y: newY
-            }
-          })
-        }
-      })
-    }
 
     // Add optimistic node to canvas immediately for instant feedback
     builder.setNodes((nodes: any[]) => {
       let newNodes = [...nodes]
 
       // If replacing a placeholder, remove it first
-      if (replacingPlaceholder && anchorNodeId) {
-        newNodes = newNodes.filter(n => n.id !== anchorNodeId)
-      }
-
-      // If inserting between nodes, shift all downstream nodes down
-      if (isInsertingBetween && anchorNodeId) {
-        const verticalShift = LINEAR_NODE_VERTICAL_GAP // 180px
-
-        // Find all nodes that are below the insertion point and shift them down
-        // Use the anchorNode's Y position as the threshold since we're inserting AFTER it
-        const selectedNode = newNodes.find(n => n.id === anchorNodeId)
-        const thresholdY = selectedNode?.position?.y ?? position.y
-
-        newNodes = newNodes.map(node => {
-          // Shift nodes that are AFTER the selected node (Y position greater than selected node)
-          // Don't shift the selected node itself
-          if (node.position && node.position.y > thresholdY && node.id !== anchorNodeId) {
-            const newY = node.position.y + verticalShift
-            const nextPosition = {
-              ...node.position,
-              y: newY
-            }
-            const nextAbsolute = node.positionAbsolute
-              ? { ...node.positionAbsolute, y: newY }
-              : nextPosition
-            return {
-              ...node,
-              position: nextPosition,
-              positionAbsolute: nextAbsolute
-            }
-          }
-          return node
-        })
+      if (replacingPlaceholder) {
+        newNodes = newNodes.filter(n => n.id !== selectedNodeId)
       }
 
       const insertIndex = newNodes.findIndex(n => n.position.y > position.y)
@@ -3677,58 +2553,42 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     })
 
     // Add optimistic edges immediately
-    if (replacingPlaceholder && anchorNodeId) {
+    if (replacingPlaceholder) {
       // When replacing a placeholder, update edges that reference the placeholder
-      // and normalize styling so they become solid FlowEdge connectors with plus buttons
       builder.setEdges((edges: any[]) => {
         return edges.map(edge => {
-          let updated = edge
-
-          if (edge.target === anchorNodeId) {
-            updated = { ...updated, target: newNodeId }
+          // Update edges pointing TO the placeholder
+          if (edge.target === selectedNodeId) {
+            return { ...edge, target: tempId }
           }
-          if (edge.source === anchorNodeId) {
-            updated = { ...updated, source: newNodeId }
+          // Update edges FROM the placeholder
+          if (edge.source === selectedNodeId) {
+            return { ...edge, source: tempId }
           }
-
-          if (updated !== edge) {
-            const nextStyle = { ...(updated.style ?? {}) }
-            // Remove placeholder dash styling so the edge matches real nodes
-            delete nextStyle.strokeDasharray
-
-            updated = {
-              ...updated,
-              type: 'custom',
-              style: {
-                stroke: '#d0d6e0',
-                strokeWidth: 1.5,
-                ...nextStyle,
-              },
-            }
-          }
-
-          return updated
+          return edge
         })
       })
-    } else if (anchorNodeId) {
+    } else if (selectedNodeId) {
       builder.setEdges((edges: any[]) => {
-        if (isInsertingBetween && originalTargetNodeId) {
-          // Inserting between two nodes - use captured edge info
+        const oldEdge = edges.find((e: any) => e.source === selectedNodeId)
+        if (oldEdge) {
+          // Inserting between two nodes
+          const nextNodeId = oldEdge.target
           return [
-            ...edges.filter(e => !(e.source === anchorNodeId && e.target === originalTargetNodeId)),
+            ...edges.filter(e => e.id !== oldEdge.id),
             {
-              id: `${anchorNodeId}-${newNodeId}`,
-              source: anchorNodeId,
-              target: newNodeId,
-              sourceHandle: originalSourceHandle,
+              id: `${selectedNodeId}-${tempId}`,
+              source: selectedNodeId,
+              target: tempId,
+              sourceHandle: oldEdge.sourceHandle || 'source',
               type: 'custom'
             },
             {
-              id: `${newNodeId}-${originalTargetNodeId}`,
-              source: newNodeId,
-              target: originalTargetNodeId,
+              id: `${tempId}-${nextNodeId}`,
+              source: tempId,
+              target: nextNodeId,
               sourceHandle: 'source',
-              targetHandle: originalTargetHandle,
+              targetHandle: oldEdge.targetHandle,
               type: 'custom'
             }
           ]
@@ -3737,9 +2597,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           return [
             ...edges,
             {
-              id: `${anchorNodeId}-${newNodeId}`,
-              source: anchorNodeId,
-              target: newNodeId,
+              id: `${selectedNodeId}-${tempId}`,
+              source: selectedNodeId,
+              target: tempId,
               sourceHandle: 'source',
               type: 'custom'
             }
@@ -3748,104 +2608,67 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       })
     }
 
-    endStructureTransition()
-
-    // Open config modal immediately after panel closes
-    console.log('🚀 [WorkflowBuilder] Opening config modal for new node:', optimisticNode.id, optimisticNode.data?.type)
+    // Open config modal immediately
     setConfiguringNode(optimisticNode)
 
     // Clear selected node ID
     setSelectedNodeId(null)
 
     try {
-      // Batch all backend operations into a single applyEdits call with skipGraphUpdate
-      // This prevents multiple updateReactFlowGraph calls that would overwrite our optimistic update
-      const edits: any[] = []
+      // Save node to database - updateReactFlowGraph will handle UI updates including action placeholder
+      console.log('📌 [WorkflowBuilder] Saving node:', nodeData.type, 'at position:', position)
+      const newNode = await actions.addNode(nodeData.type, position)
 
-      // 1. Add the new node
-      edits.push(addNodeEdit(nodeData.type, position, newNodeId))
+      console.log('📌 [WorkflowBuilder] Node saved successfully, updateReactFlowGraph will handle placeholder')
 
-      // 2. Create edges
-      if (anchorNodeId && !replacingPlaceholder) {
-        if (isInsertingBetween && originalTargetNodeId) {
-          // Inserting between two nodes - create both edges
-          edits.push(oldConnectToEdge(anchorNodeId, newNodeId, originalSourceHandle, 'target'))
-          edits.push(oldConnectToEdge(newNodeId, originalTargetNodeId, 'source', originalTargetHandle))
-        } else {
-          // Adding at the end - create single edge
-          edits.push(oldConnectToEdge(anchorNodeId, newNodeId, 'source', 'target'))
+      // Update the configuring node with the real node ID from DB
+      if (newNode) {
+        setConfiguringNode((current: any) => {
+          if (current && current.id === tempId) {
+            return { ...current, id: newNode.id, data: { ...current.data, _optimistic: false } }
+          }
+          return current
+        })
+
+        // If adding after a node (not replacing placeholder), create edge and handle insertion
+        if (selectedNodeId && !replacingPlaceholder) {
+          console.log('🔗 [WorkflowBuilder] Inserting node after:', selectedNodeId)
+
+          // Find what was connected after the selected node
+          const afterNode = currentNodes.find((n: any) => n.id === selectedNodeId)
+          const oldEdge = builder.edges.find((e: any) => e.source === selectedNodeId)
+
+          if (oldEdge) {
+            // We're inserting between two nodes
+            const nextNodeId = oldEdge.target
+
+            // Create edge from previous node to new node
+            await actions.connectEdge({
+              sourceId: selectedNodeId,
+              targetId: newNode.id,
+              sourceHandle: oldEdge.sourceHandle || 'source'
+            })
+
+            // Create edge from new node to next node
+            await actions.connectEdge({
+              sourceId: newNode.id,
+              targetId: nextNodeId,
+              sourceHandle: 'source',
+              targetHandle: oldEdge.targetHandle
+            })
+
+            console.log('🔗 [WorkflowBuilder] Inserted between', selectedNodeId, 'and', nextNodeId)
+          } else {
+            // We're adding at the end
+            await actions.connectEdge({
+              sourceId: selectedNodeId,
+              targetId: newNode.id,
+              sourceHandle: 'source'
+            })
+            console.log('🔗 [WorkflowBuilder] Added at end after', selectedNodeId)
+          }
         }
       }
-
-      // 3. Move shifted nodes
-      nodesToShift.forEach(({ nodeId, position: pos }) => {
-        edits.push({ op: "moveNode", nodeId, position: pos })
-      })
-
-      // 4. Reorder nodes if needed
-      if (orderedNodeIds.length >= 2) {
-        edits.push({ op: "reorderNodes", nodeIds: orderedNodeIds })
-      }
-
-      // Execute all edits in one batch with skipGraphUpdate to preserve optimistic update
-      console.log('📌 [WorkflowBuilder] Batching', edits.length, 'edits with skipGraphUpdate')
-      await actions.applyEdits(edits, { skipGraphUpdate: true })
-      console.log('📌 [WorkflowBuilder] All edits persisted successfully')
-
-      // If we replaced a trigger placeholder and action placeholder should be preserved,
-      // ensure it's still in the graph (updateReactFlowGraph might have removed it)
-      if (shouldPreserveActionPlaceholder && actionPlaceholder) {
-        builder.setNodes((nodes: any[]) => {
-          // Check if action placeholder already exists
-          const hasActionPlaceholder = nodes.some((n: any) =>
-            n.id === 'action-placeholder' ||
-            n.type === 'action_placeholder' ||
-            n.data?.type === 'action_placeholder'
-          )
-          if (hasActionPlaceholder) {
-            return nodes
-          }
-          // Add action placeholder with position below the new trigger
-          const triggerNode = nodes.find((n: any) => n.id === newNodeId)
-          const placeholderPosition = triggerNode
-            ? { x: triggerNode.position.x, y: triggerNode.position.y + 180 }
-            : actionPlaceholder.position
-          return [
-            ...nodes,
-            {
-              id: 'action-placeholder',
-              type: 'action_placeholder',
-              position: placeholderPosition,
-              data: {
-                type: 'action_placeholder',
-                isPlaceholder: true,
-                title: 'Action',
-              },
-            }
-          ]
-        })
-        // Also ensure edge from trigger to action placeholder exists
-        builder.setEdges((edges: any[]) => {
-          const hasEdgeToPlaceholder = edges.some((e: any) =>
-            e.target === 'action-placeholder' && e.source === newNodeId
-          )
-          if (hasEdgeToPlaceholder) {
-            return edges
-          }
-          return [
-            ...edges,
-            {
-              id: `${newNodeId}-action-placeholder`,
-              source: newNodeId,
-              target: 'action-placeholder',
-              sourceHandle: 'source',
-              targetHandle: 'target',
-              type: 'custom',
-            }
-          ]
-        })
-      }
-
     } catch (error: any) {
       setConfiguringNode(null)
       toast({
@@ -3855,13 +2678,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       })
       openIntegrationsPanel()
     }
-  }, [actions, builder, nodeComponentMap, toast, selectedNodeId, addingAfterNodeId, openIntegrationsPanel, clearInsertionContext])
+  }, [actions, builder, nodeComponentMap, toast, selectedNodeId, openIntegrationsPanel])
 
   // Node deletion with optimistic update for instant feedback
   const handleDeleteNodes = useCallback(async (nodeIds: string[]) => {
     if (!actions || !builder || nodeIds.length === 0) return
-
-    setIsStructureTransitioning(true)
 
     const nodeIdSet = new Set(nodeIds)
 
@@ -3885,26 +2706,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
     // Optimistically remove nodes from UI immediately
     let updatedNodes = currentNodes.filter((node: any) => !nodeIdSet.has(node.id))
-    // Check if a trigger node is being deleted EARLY so we can skip shifting
-    // (when replacing a trigger with a placeholder, we don't want to shift the action nodes)
-    const deletedTriggerNodeEarly = nodeIds
-      .map(id => currentNodes.find((n: any) => n.id === id))
-      .find((n: any) => {
-        if (!n) return false
-        const nodeType = n.data?.type || n.type
-        const nodeDefinition = nodeComponentMap.get(nodeType)
-        return n.data?.isTrigger || nodeDefinition?.isTrigger || false
-      })
-
-    // Check if trigger is being deleted but action nodes will remain
-    const realNodesAfterDelete = updatedNodes.filter((n: any) => !n.data?.isPlaceholder)
-    const willReplaceTriggerWithPlaceholder = deletedTriggerNodeEarly && realNodesAfterDelete.length > 0
-
-    const nodesToShift: Array<{ nodeId: string; position: { x: number; y: number } }> = []
 
     // Shift nodes up if we have a deleted position
-    // BUT skip shifting if we're replacing a trigger with a placeholder (positions should stay the same)
-    if (deletedNodeY !== null && !willReplaceTriggerWithPlaceholder) {
+    if (deletedNodeY !== null) {
       // Calculate the vertical gap (node height + spacing)
       // Typical node height is ~100-200px, gap between nodes is ~180px
       const verticalShift = LINEAR_NODE_VERTICAL_GAP
@@ -3912,23 +2716,12 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       // Shift all nodes that were below the deleted node(s)
       updatedNodes = updatedNodes.map((node: any) => {
         if (node.position && node.position.y > deletedNodeY!) {
-          const newY = node.position.y - verticalShift
-          nodesToShift.push({
-            nodeId: node.id,
-            position: {
-              x: node.position.x ?? LINEAR_STACK_X,
-              y: newY,
-            }
-          })
           return {
             ...node,
             position: {
               ...node.position,
-              y: newY
-            },
-            positionAbsolute: node.positionAbsolute
-              ? { ...node.positionAbsolute, y: newY }
-              : { ...(node.position ?? { x: LINEAR_STACK_X, y: newY }), y: newY }
+              y: node.position.y - verticalShift
+            }
           }
         }
         return node
@@ -3962,56 +2755,13 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       ...newEdges
     ]
 
-    // Use the early-computed values for trigger deletion check
-    // (deletedTriggerNodeEarly and willReplaceTriggerWithPlaceholder computed above)
-    const deletedTriggerNode = deletedTriggerNodeEarly
-    const realNodes = realNodesAfterDelete
+    // Check if all real (non-placeholder) nodes are being deleted
+    const realNodes = updatedNodes.filter((n: any) => !n.data?.isPlaceholder)
     const shouldResetToPlaceholders = realNodes.length === 0 && updatedNodes.length === 0
-    const triggerDeletedButActionsRemain = willReplaceTriggerWithPlaceholder
 
-    if (triggerDeletedButActionsRemain) {
+    if (shouldResetToPlaceholders) {
+      console.log('🔄 [WorkflowBuilder] All nodes deleted, resetting to placeholder state')
 
-      // Get the deleted trigger's position
-      const triggerPosition = deletedTriggerNode!.position || { x: LINEAR_STACK_X, y: 100 }
-
-      // Create trigger placeholder at the same position
-      const triggerPlaceholder = {
-        id: 'trigger-placeholder',
-        type: 'trigger_placeholder',
-        position: { x: triggerPosition.x, y: triggerPosition.y },
-        data: {
-          type: 'trigger_placeholder',
-          isPlaceholder: true,
-          title: 'Trigger',
-        },
-      }
-
-      // Find the first action node (the one that was connected to the trigger)
-      const outgoingEdge = currentEdges.find((e: any) => e.source === deletedTriggerNode!.id)
-      const firstActionNodeId = outgoingEdge?.target
-
-      // Add the trigger placeholder to the updated nodes
-      updatedNodes = [triggerPlaceholder as any, ...updatedNodes]
-
-      // If there was a connected action node, create an edge from placeholder to it
-      if (firstActionNodeId) {
-        const placeholderEdge = {
-          id: `trigger-placeholder-${firstActionNodeId}`,
-          source: 'trigger-placeholder',
-          target: firstActionNodeId,
-          type: 'custom',
-          sourceHandle: 'source',
-          targetHandle: 'target',
-        }
-        // Add the new edge (updatedEdges already has edges without the deleted node's connections)
-        updatedEdges.push(placeholderEdge)
-      }
-
-      builder.setNodes(updatedNodes)
-      builder.setEdges(updatedEdges)
-      // Note: Don't call moveNodes here - it causes a race condition.
-      // The backend's applyPlannerEdits already handles position recompaction on delete.
-    } else if (shouldResetToPlaceholders) {
       // Calculate center position based on viewport and agent panel
       const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920
       const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 1080
@@ -4071,8 +2821,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     } else {
       builder.setNodes(updatedNodes)
       builder.setEdges(updatedEdges)
-      // Note: Don't call moveNodes here - it causes a race condition.
-      // The backend's applyPlannerEdits already handles position recompaction on delete.
     }
 
     // Clear selection when deleting current node(s)
@@ -4086,11 +2834,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     // Persist to backend without waiting for response
     // The UI is already updated optimistically above - don't let backend response overwrite it
     const deleteEdits = nodeIds.map(nodeId => ({ op: "deleteNode", nodeId }))
-    // Re-enable overlays immediately so the phantom edge reflects new layout
-    endStructureTransition()
-
-    // Use skipGraphUpdate to prevent the backend response from overwriting our optimistic update
-    actions.applyEdits(deleteEdits, { skipGraphUpdate: true }).catch((error: any) => {
+    actions.applyEdits(deleteEdits).catch((error: any) => {
       // Rollback on error
       builder.setNodes(currentNodes)
       builder.setEdges(currentEdges)
@@ -4101,7 +2845,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         variant: "destructive",
       })
     })
-  }, [actions, builder, toast, agentOpen, agentPanelWidth, configuringNode, nodeComponentMap])
+  }, [actions, builder, toast, agentOpen, agentPanelWidth, configuringNode])
 
   const handleNodeDelete = useCallback(async (nodeId: string) => {
     await handleDeleteNodes([nodeId])
@@ -4297,12 +3041,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
   // Handle node configuration (click or manual trigger)
   const handleNodeConfigure = useCallback(async (nodeId: string) => {
-    // Don't allow opening config modal during flow testing
-    if (isFlowTesting) {
-      console.log('🔧 [WorkflowBuilder] Ignoring configure request during flow testing')
-      return
-    }
-
     const node = reactFlowProps?.nodes?.find((n: any) => n.id === nodeId)
     if (node) {
       console.log('🔧 [WorkflowBuilder] Opening configuration for node:', nodeId, node)
@@ -4310,7 +3048,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       // Check if this is a placeholder node
       if (node.data?.isPlaceholder) {
         console.log('📌 [WorkflowBuilder] Placeholder node clicked, opening integrations panel')
-        setConfiguringNode(null)
 
         // Check if this is the first node in the workflow (trigger position)
         // First node has no incoming edges
@@ -4343,48 +3080,12 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
       // Close integrations panel when opening configuration modal
       setIsIntegrationsPanelOpen(false)
-      clearInsertionContext() // Clear the "adding after" context
 
       setConfiguringNode(node)
     } else {
       console.warn('🔧 [WorkflowBuilder] Node not found for configuration:', nodeId)
     }
-  }, [reactFlowProps?.nodes, reactFlowProps?.edges, prefetchNodeConfig, openIntegrationsPanel, setSelectedNodeId, clearInsertionContext, isFlowTesting])
-
-  // Auto-open configuration modal whenever a non-placeholder node becomes selected
-  // BUT NOT when the integrations panel is open (user is adding a new node, not configuring existing)
-  // AND NOT when flow testing is in progress
-  useEffect(() => {
-    if (!selectedNodeId) return
-    if (configuringNode?.id === selectedNodeId) return
-
-    // Don't auto-open config modal when integrations panel is open
-    // This happens when user clicks the plus button to add a new node
-    if (isIntegrationsPanelOpen) return
-
-    // Don't auto-open config modal during flow testing
-    if (isFlowTesting) return
-
-    const selectedNode = reactFlowProps?.nodes?.find((n: any) => n.id === selectedNodeId)
-    if (!selectedNode) return
-
-    const type = selectedNode.type
-    const isPlaceholder =
-      selectedNode.data?.isPlaceholder ||
-      type === 'trigger_placeholder' ||
-      type === 'action_placeholder' ||
-      type === 'addAction' ||
-      type === 'insertAction' ||
-      type === 'chainPlaceholder'
-
-    if (isPlaceholder) return
-
-    // Ensure integrations panel is closed so it doesn't overlap the config modal
-    setIsIntegrationsPanelOpen(false)
-    clearInsertionContext() // Clear the "adding after" context
-
-    handleNodeConfigure(selectedNodeId)
-  }, [selectedNodeId, configuringNode?.id, reactFlowProps?.nodes, handleNodeConfigure, isIntegrationsPanelOpen, clearInsertionContext, isFlowTesting])
+  }, [reactFlowProps?.nodes, reactFlowProps?.edges, prefetchNodeConfig, openIntegrationsPanel, setSelectedNodeId])
 
   // Handle saving node configuration
   const handleSaveNodeConfig = useCallback(async (nodeId: string, config: Record<string, any>) => {
@@ -4453,98 +3154,15 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   const handleToggleLiveWithValidation = useCallback(() => {
     // Check for placeholders - button should be disabled, but just in case
     if (hasPlaceholders()) {
-      toast({
-        title: "Finish setup before publishing",
-        description: "Remove placeholder nodes to publish and enable API runs.",
-        variant: "destructive",
-      })
       return
     }
 
-    setIsPublishModalOpen(true)
-  }, [hasPlaceholders, toast])
-
-  const handlePublishFlow = useCallback(
-    async (contract: { inputs: any[]; outputs: any[] }) => {
-      if (!actions?.applyEdits || !actions.publish) {
-        return
-      }
-
-      setIsPublishing(true)
-      try {
-        await actions.applyEdits([
-          {
-            op: "setInterface",
-            inputs: contract.inputs ?? [],
-            outputs: contract.outputs ?? [],
-          } as any,
-        ])
-
-        await actions.publish()
-        setHasPublishedRevision(true)
-        toast({
-          title: "Published",
-          description: "Workflow published and API contract saved.",
-        })
-        setIsPublishModalOpen(false)
-      } catch (error: any) {
-        toast({
-          title: "Publish failed",
-          description: error?.message || "Could not publish the workflow.",
-          variant: "destructive",
-        })
-      } finally {
-        setIsPublishing(false)
-      }
-    },
-    [actions, toast]
-  )
-
-  const handleGenerateApiKey = useCallback(async () => {
-    if (!hasPublishedRevision) {
-      throw new Error("Publish the workflow before creating an API key.")
-    }
-    const response = await fetch('/api/developer/api-keys', {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        name: `${workflowName || "Workflow"} API Key`,
-        scopes: ["workflows:execute"],
-      }),
+    // If no placeholders, show coming soon (activation not implemented yet for Flow V2)
+    toast({
+      title: "Coming soon",
+      description: "This action is not yet wired to the Flow v2 backend.",
     })
-
-    if (!response.ok) {
-      const text = await response.text().catch(() => "")
-      throw new Error(text || "Failed to create API key")
-    }
-
-    const payload = await response.json()
-    if (!payload?.api_key) {
-      throw new Error("API key not returned.")
-    }
-    return payload.api_key as string
-  }, [hasPublishedRevision, workflowName])
-
-  const apiContract = useMemo(
-    () => ({
-      inputs: flowState?.flow?.interface?.inputs ?? [],
-      outputs: flowState?.flow?.interface?.outputs ?? [],
-    }),
-    [flowState?.flow?.interface]
-  )
-
-  const apiNodes = useMemo(
-    () =>
-      (flowState?.flow?.nodes ?? []).map((node: any) => ({
-        id: node.id,
-        label: node.label || node.data?.title || node.data?.label || node.id,
-        type: node.type,
-      })),
-    [flowState?.flow?.nodes]
-  )
+  }, [hasPlaceholders, toast])
 
   // Get test store actions
   const {
@@ -4877,28 +3495,13 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
       const result = await response.json()
 
-      // Result structure: { success: true, sessionId, result: { mainResult: { nodeId: data, ... } }, paused?, pausedNodeId?, pausedNodeName? }
+      // Result structure: { success: true, sessionId, result: { mainResult: { nodeId: data, ... } } }
       const nodeResults = result.result?.mainResult || {}
-      const isPaused = result.paused
-      const pausedNodeId = result.pausedNodeId
-      const pausedNodeName = result.pausedNodeName
 
       // Update nodes based on test results
       const finalNodes = nodes.map((n: any) => {
         // Find result for this node in the mainResult
         const nodeOutput = nodeResults[n.id]
-
-        // Check if this is the paused node
-        if (isPaused && n.id === pausedNodeId) {
-          return {
-            ...n,
-            data: {
-              ...n.data,
-              state: 'paused',
-              testResult: nodeOutput,
-            }
-          }
-        }
 
         if (!nodeOutput) {
           return {
@@ -4924,14 +3527,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       })
 
       builder.setNodes(finalNodes)
-
-      // Check if workflow was paused (HITL)
-      if (isPaused) {
-        setIsFlowTestPaused(true)
-        flowTestPausedRef.current = true
-        // Note: Status bar already shows paused state, no toast needed
-        return
-      }
 
       // Check if any nodes failed
       const failedNodes = finalNodes.filter((n: any) => n.data?.state === 'failed')
@@ -5243,42 +3838,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
       console.log('[handleBuild] Cached nodes count:', nodesCache.length)
 
-      // STEP 1.5: Read placeholder positions to anchor trigger/action placement
-      const currentNodes = Array.isArray(builder?.nodes) ? builder!.nodes : []
-      const triggerPlaceholder = currentNodes.find((n: any) =>
-        n.type === 'trigger_placeholder' ||
-        n.data?.type === 'trigger_placeholder' ||
-        n.id === 'trigger-placeholder' ||
-        (n.data?.isPlaceholder && n.data?.type?.includes('trigger'))
-      )
-      const actionPlaceholder = currentNodes.find((n: any) =>
-        n.type === 'action_placeholder' ||
-        n.data?.type === 'action_placeholder' ||
-        n.id === 'action-placeholder' ||
-        (n.data?.isPlaceholder && n.data?.type?.includes('action'))
-      )
-      const firstTriggerNode = currentNodes.find((n: any) => n.data?.isTrigger)
-
-      const DEFAULT_VERTICAL_SPACING = 180
-      const DEFAULT_TRIGGER_Y = 200
-      const DEFAULT_X = agentPanelWidth + 400
-
-      const baseX =
-        triggerPlaceholder?.position?.x ??
-        actionPlaceholder?.position?.x ??
-        firstTriggerNode?.position?.x ??
-        DEFAULT_X
-
-      const triggerY =
-        triggerPlaceholder?.position?.y ??
-        firstTriggerNode?.position?.y ??
-        DEFAULT_TRIGGER_Y
-
-      const placeholderSpacing = actionPlaceholder?.position?.y && triggerPlaceholder?.position?.y
-        ? Math.max(140, Math.abs(actionPlaceholder.position.y - triggerPlaceholder.position.y))
-        : undefined
-      const verticalSpacing = placeholderSpacing ?? DEFAULT_VERTICAL_SPACING
-
       // STEP 2: Add nodes ONE AT A TIME with animation
       // Extract node edits (connect edges will be created sequentially)
       const nodeEdits = buildMachine.edits.filter((e: any) => e.op === 'addNode')
@@ -5296,18 +3855,18 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         builder.setNodes([])
         builder.setEdges([])
 
-        // Positioning - stack vertically under trigger placeholder
-        const BASE_X = baseX
-        const BASE_Y = triggerY
-        const VERTICAL_SPACING = verticalSpacing
+        // Positioning - nodes in horizontal row
+        // Place nodes AFTER the agent panel with generous offset and centered vertically
+        const BASE_X = agentPanelWidth + 400 // Agent panel width + 400px margin (more right, better centered)
+        const BASE_Y = 350 // Vertical center - more in middle of viewport
+        const H_SPACING = 500 // Wide spacing between nodes
 
-        console.log('[handleBuild] Node positioning (placeholder-aware):', {
+        console.log('[handleBuild] Node positioning:', {
           agentPanelWidth,
           BASE_X,
           BASE_Y,
-          VERTICAL_SPACING,
-          triggerPlaceholder: triggerPlaceholder?.position,
-          actionPlaceholder: actionPlaceholder?.position
+          firstNodeX: BASE_X,
+          secondNodeX: BASE_X + H_SPACING
         })
 
         // Create all nodes at once (simpler, more reliable)
@@ -5317,8 +3876,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           const catalogNode = ALL_NODE_COMPONENTS.find(c => c.type === plannerNode.type)
 
           const nodePosition = {
-            x: BASE_X,
-            y: BASE_Y + (i * VERTICAL_SPACING),
+            x: BASE_X + (i * H_SPACING),
+            y: BASE_Y,
           }
 
           return {
@@ -5408,11 +3967,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
         // Force positions to stay fixed - check multiple times
         // React Flow sometimes repositions nodes after initial render
-        const intendedPositions: Record<string, { x: number; y: number }> = {}
-        allNodes.forEach((n) => {
-          intendedPositions[n.id] = { ...n.position }
-        })
-
         const fixPositions = () => {
           const currentNodes = reactFlowInstanceRef.current?.getNodes()
           if (!currentNodes) return false
@@ -5423,21 +3977,21 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
           // Check if any Y positions changed
           const needsFixing = currentNodes.some(node => {
-            const intended = intendedPositions[node.id]
-            return intended && (
-              Math.abs(node.position.y - intended.y) > 5 ||
-              Math.abs(node.position.x - intended.x) > 5
-            )
+            const originalNode = allNodes.find(n => n.id === node.id)
+            return originalNode && Math.abs(node.position.y - originalNode.position.y) > 5
           })
 
           if (needsFixing) {
-            console.log('[handleBuild] ⚠️ Positions changed! Forcing back to placeholder-aligned stack')
+            console.log('[handleBuild] ⚠️ Positions changed! Forcing back to Y=' + BASE_Y)
             const fixedNodes = currentNodes.map(node => {
-              const intended = intendedPositions[node.id]
-              if (intended) {
+              const originalNode = allNodes.find(n => n.id === node.id)
+              if (originalNode) {
                 return {
                   ...node,
-                  position: intended,
+                  position: {
+                    ...node.position,
+                    y: BASE_Y, // Force all nodes to same Y
+                  }
                 }
               }
               return node
@@ -6394,12 +4948,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     isRunningPreflight: false,
     isStepMode: false,
     listeningMode: false,
-    activeRevisionId: flowState?.revisionId ?? null,
-    onRestoreVersion: actions?.loadRevision
-      ? async (revisionId: string) => {
-          await actions.loadRevision(revisionId)
-        }
-      : undefined,
     handleUndo: builder?.handleUndo ?? comingSoon,
     handleRedo: builder?.handleRedo ?? comingSoon,
     canUndo: builder?.canUndo ?? false,
@@ -6511,15 +5059,13 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
             badge={buildMachine.badge}
             isIntegrationsPanelOpen={isIntegrationsPanelOpen}
             setIsIntegrationsPanelOpen={setIsIntegrationsPanelOpen}
-            onIntegrationsPanelClose={handleIntegrationsPanelClose}
             integrationsPanelMode={integrationsPanelMode}
             onNodeSelect={handleNodeSelectFromPanel}
-            addingAfterNodeName={addingAfterNodeName}
             onNodeConfigure={handleNodeConfigure}
             onUndoToPreviousStage={handleUndoToPreviousStage}
             onCancelBuild={handleCancelBuild}
             onAddNodeAfter={handleAddNodeAfterClick}
-            disablePhantomOverlay={Boolean(isStructureTransitioning || isFlowTesting)}
+            disablePhantomOverlay={Boolean(activeReorderDrag)}
           >
             {/* Path Labels Overlay - Zapier-style floating pills */}
             <PathLabelsOverlay
@@ -6638,7 +5184,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         // NOTE: We rely on ConfigurationModal's internal effectiveInitialData useMemo
         // to maintain stable reference, not on this calculation
         let initialData: Record<string, any> = { ...(configuringNode?.data?.config || {}) }
-        const savedDynamicOptions = configuringNode?.data?.savedDynamicOptions
 
         // If we don't have config from the node, try localStorage cache
         if (Object.keys(initialData).length === 0) {
@@ -6669,13 +5214,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           }
         }
 
-        if (savedDynamicOptions && Object.keys(savedDynamicOptions).length > 0) {
-          initialData = {
-            ...initialData,
-            __dynamicOptions: savedDynamicOptions
-          }
-        }
-
         return (
           <ConfigurationModal
             isOpen={!!configuringNode}
@@ -6687,7 +5225,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
             nodeInfo={nodeInfo}
             integrationName={configuringNode?.data?.providerId || nodeType || 'Unknown'}
             initialData={initialData}
-            initialDynamicOptions={savedDynamicOptions}
             workflowData={{
               nodes: reactFlowProps?.nodes ?? [],
               edges: reactFlowProps?.edges ?? [],

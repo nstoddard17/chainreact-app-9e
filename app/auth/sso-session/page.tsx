@@ -1,12 +1,12 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { createClient } from "@/utils/supabase/client"
 import { Loader2 } from "lucide-react"
 import * as crypto from "crypto"
 
-export default function SSOSessionPage() {
+function SSOSessionContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
@@ -80,6 +80,21 @@ export default function SSOSessionPage() {
         <p className="text-gray-600 dark:text-gray-400">Completing SSO authentication...</p>
       </div>
     </div>
+  )
+}
+
+export default function SSOSessionPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+        </div>
+      </div>
+    }>
+      <SSOSessionContent />
+    </Suspense>
   )
 }
 

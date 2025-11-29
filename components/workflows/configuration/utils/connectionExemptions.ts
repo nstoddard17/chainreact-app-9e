@@ -36,6 +36,7 @@ const CONNECTION_EXEMPT_PROVIDERS = new Set<string>([
 
   // System nodes that never prompt for OAuth
   'webhook',
+  'ask-human',
 ])
 
 const CONNECTION_EXEMPT_NODE_TYPES = new Set<string>([

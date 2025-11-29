@@ -28,11 +28,6 @@ export function collectFieldLabelsFromCache(
 ): Record<string, string> {
   if (typeof window === 'undefined') return {}
 
-  // Guard against null/undefined currentValues
-  if (!currentValues || typeof currentValues !== 'object') {
-    return {}
-  }
-
   const labels: Record<string, string> = {}
 
   try {
@@ -63,8 +58,8 @@ export function collectFieldLabelsFromCache(
             labelKey
           })
         }
-      } catch (err: any) {
-        logger.warn('[collectFieldLabels] Failed to parse cache for field:', fieldName, err?.message || err)
+      } catch (err) {
+        logger.warn('[collectFieldLabels] Failed to parse cache for field:', fieldName, err)
       }
     }
 
@@ -76,11 +71,8 @@ export function collectFieldLabelsFromCache(
     })
 
     return labels
-  } catch (error: any) {
-    // Only log if there's an actual error message
-    if (error?.message) {
-      logger.error('[collectFieldLabels] Error collecting labels:', error.message)
-    }
+  } catch (error) {
+    logger.error('[collectFieldLabels] Error collecting labels:', error)
     return {}
   }
 }
@@ -93,54 +85,12 @@ export function collectFieldLabelsFromCache(
  * @param nodeType - Node type
  * @param savedConfig - Saved configuration with label keys
  */
-/**
- * Try to save to localStorage, handling quota errors gracefully
- */
-function safeLocalStorageSet(key: string, value: string): boolean {
-  try {
-    window.localStorage.setItem(key, value)
-    return true
-  } catch (error: any) {
-    // Handle quota exceeded error
-    if (error?.name === 'QuotaExceededError' ||
-        error?.message?.includes('quota') ||
-        error?.code === 22) {
-      // Try to clear old label caches to make room
-      try {
-        const keysToRemove: string[] = []
-        for (let i = 0; i < window.localStorage.length; i++) {
-          const storageKey = window.localStorage.key(i)
-          if (storageKey?.startsWith('workflow-field-label:') && storageKey !== key) {
-            keysToRemove.push(storageKey)
-          }
-        }
-        // Remove oldest entries (first 10) to make room
-        keysToRemove.slice(0, 10).forEach(k => window.localStorage.removeItem(k))
-
-        // Try again
-        window.localStorage.setItem(key, value)
-        return true
-      } catch {
-        // Still failed, give up silently - labels will still work via form values
-        logger.debug('[loadLabelsIntoCache] localStorage quota exceeded, using form values instead')
-        return false
-      }
-    }
-    return false
-  }
-}
-
 export function loadLabelsIntoCache(
   providerId: string,
   nodeType: string,
   savedConfig: Record<string, any>
 ): void {
   if (typeof window === 'undefined') return
-
-  // Guard against null/undefined config
-  if (!savedConfig || typeof savedConfig !== 'object') {
-    return
-  }
 
   try {
     // Find all label keys in config
@@ -165,16 +115,16 @@ export function loadLabelsIntoCache(
       if (existing) {
         try {
           cache = JSON.parse(existing)
-        } catch (err: any) {
-          logger.warn('[loadLabelsIntoCache] Failed to parse existing cache:', err?.message || err)
+        } catch (err) {
+          logger.warn('[loadLabelsIntoCache] Failed to parse existing cache:', err)
         }
       }
 
       // Add/update the label
       cache[String(fieldValue)] = String(labelValue)
 
-      // Save back to localStorage (handles quota errors gracefully)
-      safeLocalStorageSet(cacheKey, JSON.stringify(cache))
+      // Save back to localStorage
+      window.localStorage.setItem(cacheKey, JSON.stringify(cache))
 
       logger.debug('[loadLabelsIntoCache] Loaded label into cache:', {
         fieldName,
@@ -182,8 +132,7 @@ export function loadLabelsIntoCache(
         label: labelValue
       })
     }
-  } catch (error: any) {
-    // Silently handle errors - labels will still work via form values (_label_fieldName)
-    logger.debug('[loadLabelsIntoCache] Cache operation failed, using form values:', error?.message)
+  } catch (error) {
+    logger.error('[loadLabelsIntoCache] Error loading labels:', error)
   }
 }

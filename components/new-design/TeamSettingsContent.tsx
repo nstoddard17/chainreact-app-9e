@@ -42,37 +42,10 @@ import {
   Settings,
   CreditCard,
   ChevronRight,
-  ArrowLeft,
-  Plug,
-  Share2,
-  MoreVertical,
-  RefreshCw,
-  Unplug,
-  Plus,
-  CheckCircle2,
-  ExternalLink
+  ArrowLeft
 } from "lucide-react"
 import { toast } from "sonner"
 import { CreateTeamDialog } from "./CreateTeamDialog"
-import { useIntegrationStore } from "@/stores/integrationStore"
-import { ShareConnectionDialog } from "@/components/workflows/configuration/ShareConnectionDialog"
-import { getIntegrationLogoClasses, getIntegrationLogoPath } from "@/lib/integrations/logoStyles"
-import { useTheme } from "next-themes"
-import { Badge } from "@/components/ui/badge"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
-import { IntegrationService } from "@/services/integration-service"
 
 interface Team {
   id: string
@@ -89,14 +62,12 @@ interface Team {
   }
 }
 
-type SettingsSection = 'general' | 'integrations' | 'billing'
+type SettingsSection = 'general' | 'billing'
 
 export function TeamSettingsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user } = useAuthStore()
-  const { theme } = useTheme()
-  const { providers, integrations, fetchAllIntegrations, connectIntegration } = useIntegrationStore()
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
   const [teams, setTeams] = useState<Team[]>([])
   const [currentTeam, setCurrentTeam] = useState<Team | null>(null)
@@ -112,11 +83,6 @@ export function TeamSettingsContent() {
   const [teamDescription, setTeamDescription] = useState("")
   const [openingPortal, setOpeningPortal] = useState(false)
 
-  // Integration sharing state
-  const [shareDialogOpen, setShareDialogOpen] = useState(false)
-  const [integrationToShare, setIntegrationToShare] = useState<{ id: string; provider: string; email?: string; displayName?: string } | null>(null)
-  const [integrationLoading, setIntegrationLoading] = useState<Record<string, boolean>>({})
-
   useEffect(() => {
     if (user) {
       fetchTeams()
@@ -125,17 +91,10 @@ export function TeamSettingsContent() {
 
   // Update active section when URL parameter changes
   useEffect(() => {
-    if (sectionParam && ['general', 'integrations', 'billing'].includes(sectionParam)) {
+    if (sectionParam && ['general', 'billing'].includes(sectionParam)) {
       setActiveSection(sectionParam)
     }
   }, [sectionParam])
-
-  // Fetch integrations when viewing integrations section
-  useEffect(() => {
-    if (activeSection === 'integrations' && user) {
-      fetchAllIntegrations()
-    }
-  }, [activeSection, user, fetchAllIntegrations])
 
   // Handle team parameter from URL
   useEffect(() => {
@@ -377,51 +336,8 @@ export function TeamSettingsContent() {
   // Navigation items - include billing only for standalone teams
   const navigationItems = [
     { id: 'general' as const, label: 'General', icon: Settings, description: 'Team details and settings' },
-    { id: 'integrations' as const, label: 'Integrations', icon: Plug, description: 'Connected apps and sharing' },
     ...(isStandaloneTeam ? [{ id: 'billing' as const, label: 'Billing', icon: CreditCard, description: 'Manage team subscription' }] : []),
   ]
-
-  // Filter integrations for this team
-  const teamIntegrations = integrations.filter(i =>
-    i.workspace_type === 'team' && i.workspace_id === currentTeam?.id && i.status === 'connected'
-  )
-
-  // Get integrations shared with this team (from members)
-  const sharedWithTeam = integrations.filter(i =>
-    i.workspace_type === 'personal' &&
-    (i as any).is_shared &&
-    ((i as any).access_type === 'shared_team') &&
-    i.status === 'connected' &&
-    i.user_id !== user?.id // Not owned by current user
-  )
-
-  // Integration handlers
-  const handleConnectToTeam = async (providerId: string) => {
-    if (!currentTeam) return
-    setIntegrationLoading(prev => ({ ...prev, [providerId]: true }))
-    try {
-      await connectIntegration(providerId, 'team', currentTeam.id)
-    } catch (error: any) {
-      if (!error?.message?.toLowerCase().includes('cancel')) {
-        toast.error(error?.message || 'Failed to connect integration')
-      }
-    } finally {
-      setIntegrationLoading(prev => ({ ...prev, [providerId]: false }))
-    }
-  }
-
-  const handleDisconnectIntegration = async (integrationId: string, providerName: string) => {
-    setIntegrationLoading(prev => ({ ...prev, [integrationId]: true }))
-    try {
-      await IntegrationService.disconnectIntegration(integrationId)
-      toast.success(`${providerName} has been disconnected.`)
-      fetchAllIntegrations()
-    } catch (error: any) {
-      toast.error(error?.message || 'Failed to disconnect integration')
-    } finally {
-      setIntegrationLoading(prev => ({ ...prev, [integrationId]: false }))
-    }
-  }
 
   return (
     <div className="flex gap-8 max-w-7xl mx-auto">
@@ -609,240 +525,6 @@ export function TeamSettingsContent() {
           </div>
         )}
 
-        {/* Integrations Section */}
-        {activeSection === 'integrations' && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-3xl font-bold tracking-tight">Integrations</h2>
-              <p className="text-muted-foreground mt-2">Manage connected apps for {currentTeam.name}</p>
-            </div>
-
-            {/* Team Connected Apps */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Team Connections</CardTitle>
-                    <CardDescription>Apps connected directly to this team</CardDescription>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button>
-                        <Plus className="w-4 h-4 mr-2" />
-                        Connect App
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-64 max-h-80 overflow-y-auto">
-                      {providers
-                        .filter(p => !["ai", "logic", "control"].includes(p.id))
-                        .sort((a, b) => a.name.localeCompare(b.name))
-                        .map(provider => (
-                          <DropdownMenuItem
-                            key={provider.id}
-                            onClick={() => handleConnectToTeam(provider.id)}
-                            disabled={integrationLoading[provider.id]}
-                          >
-                            <div className="flex items-center gap-2 w-full">
-                              <img
-                                src={getIntegrationLogoPath(provider.id, theme)}
-                                alt={provider.name}
-                                className={getIntegrationLogoClasses(provider.id, "w-5 h-5 object-contain")}
-                                onError={(e) => { e.currentTarget.style.display = 'none' }}
-                              />
-                              <span>{provider.name}</span>
-                              {integrationLoading[provider.id] && (
-                                <Loader2 className="w-4 h-4 animate-spin ml-auto" />
-                              )}
-                            </div>
-                          </DropdownMenuItem>
-                        ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {teamIntegrations.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Plug className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                    <p>No apps connected to this team yet</p>
-                    <p className="text-sm mt-1">Connect an app to make it available to all team members</p>
-                  </div>
-                ) : (
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {teamIntegrations.map(integration => {
-                      const provider = providers.find(p => p.id === integration.provider)
-                      if (!provider) return null
-
-                      return (
-                        <div
-                          key={integration.id}
-                          className="group flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-10 h-10 rounded-lg border flex items-center justify-center flex-shrink-0 bg-white dark:bg-slate-900">
-                              <img
-                                src={getIntegrationLogoPath(provider.id, theme)}
-                                alt={provider.name}
-                                className={getIntegrationLogoClasses(provider.id)}
-                                onError={(e) => { e.currentTarget.style.display = 'none' }}
-                              />
-                            </div>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium truncate">{provider.name}</span>
-                                <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
-                              </div>
-                              {integration.email && (
-                                <p className="text-xs text-muted-foreground truncate">{integration.email}</p>
-                              )}
-                            </div>
-                          </div>
-
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                              >
-                                <MoreVertical className="w-4 h-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  setIntegrationToShare({
-                                    id: integration.id,
-                                    provider: provider.id,
-                                    email: integration.email,
-                                    displayName: integration.account_name || integration.email || provider.name
-                                  })
-                                  setShareDialogOpen(true)
-                                }}
-                              >
-                                <Share2 className="w-4 h-4 mr-2" />
-                                Share
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleConnectToTeam(provider.id)}
-                                disabled={integrationLoading[provider.id]}
-                              >
-                                <RefreshCw className="w-4 h-4 mr-2" />
-                                Reconnect
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="text-destructive"
-                                onClick={() => handleDisconnectIntegration(integration.id, provider.name)}
-                                disabled={integrationLoading[integration.id]}
-                              >
-                                <Unplug className="w-4 h-4 mr-2" />
-                                Disconnect
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Shared with Team */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Share2 className="w-5 h-5" />
-                  Shared with Team
-                </CardTitle>
-                <CardDescription>
-                  Personal connections that members have shared with this team
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {sharedWithTeam.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Share2 className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                    <p>No shared connections yet</p>
-                    <p className="text-sm mt-1">Members can share their personal connections with this team</p>
-                  </div>
-                ) : (
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {sharedWithTeam.map(integration => {
-                      const provider = providers.find(p => p.id === integration.provider)
-                      if (!provider) return null
-
-                      return (
-                        <div
-                          key={integration.id}
-                          className="flex items-center justify-between p-4 border rounded-lg bg-muted/30"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-10 h-10 rounded-lg border flex items-center justify-center flex-shrink-0 bg-white dark:bg-slate-900">
-                              <img
-                                src={getIntegrationLogoPath(provider.id, theme)}
-                                alt={provider.name}
-                                className={getIntegrationLogoClasses(provider.id)}
-                                onError={(e) => { e.currentTarget.style.display = 'none' }}
-                              />
-                            </div>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium truncate">{provider.name}</span>
-                                <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-400 dark:border-blue-800/50">
-                                  Shared
-                                </Badge>
-                              </div>
-                              {integration.email && (
-                                <p className="text-xs text-muted-foreground truncate">{integration.email}</p>
-                              )}
-                            </div>
-                          </div>
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Badge variant="secondary" className="text-xs">
-                                  Use Only
-                                </Badge>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>You can use this connection in workflows but cannot manage it</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Help Section */}
-            <Card className="border-dashed">
-              <CardContent className="py-6">
-                <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <ExternalLink className="w-5 h-5 text-primary" />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold">How sharing works</h4>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Team connections are available to all team members. Members can also share their
-                      personal connections with the team - shared connections can be used in workflows
-                      but credentials remain private to the owner.
-                    </p>
-                    <Button variant="link" className="px-0 h-auto mt-2" onClick={() => router.push('/apps')}>
-                      Manage all your connections →
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
         {/* Billing Section */}
         {activeSection === 'billing' && isStandaloneTeam && (
           <div className="space-y-6">
@@ -1000,30 +682,6 @@ export function TeamSettingsContent() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Share Connection Dialog */}
-      {integrationToShare && (
-        <ShareConnectionDialog
-          open={shareDialogOpen}
-          onOpenChange={(open) => {
-            setShareDialogOpen(open)
-            if (!open) {
-              setIntegrationToShare(null)
-            }
-          }}
-          integrationId={integrationToShare.id}
-          providerId={integrationToShare.provider}
-          providerName={providers.find(p => p.id === integrationToShare.provider)?.name || integrationToShare.provider}
-          email={integrationToShare.email}
-          displayName={integrationToShare.displayName}
-          onShareUpdated={() => {
-            toast.success('Sharing settings updated')
-            setShareDialogOpen(false)
-            setIntegrationToShare(null)
-            fetchAllIntegrations()
-          }}
-        />
-      )}
     </div>
   )
 }

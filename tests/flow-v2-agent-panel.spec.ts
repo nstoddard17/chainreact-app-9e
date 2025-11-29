@@ -8,7 +8,7 @@ describe("Flow v2 builder agent panel", () => {
   test("agent applies edits and highlights", async ({ page }) => {
     let applyCount = 0
 
-    await page.route("**/workflows/api/flows/**/edits", async (route) => {
+    await page.route("**/workflows/v2/api/flows/**/edits", async (route) => {
       const body = await route.request().postDataJSON()
       await route.fulfill({
         status: 200,
@@ -24,7 +24,7 @@ describe("Flow v2 builder agent panel", () => {
       })
     })
 
-    await page.route("**/workflows/api/flows/**/apply-edits", async (route) => {
+    await page.route("**/workflows/v2/api/flows/**/apply-edits", async (route) => {
       applyCount += 1
       const payload = route.request().postDataJSON()
       await route.fulfill({

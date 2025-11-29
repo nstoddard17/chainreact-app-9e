@@ -364,7 +364,15 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
     
     // Track the current request ID for this cache key
     activeRequestIds.current.set(requestKey, requestId);
-    
+
+    // Throttle: Skip if same field was loaded recently (within 2 seconds)
+    const THROTTLE_MS = 2000;
+    const lastLoaded = lastLoadedAt.current.get(requestKey);
+    if (!forceRefresh && lastLoaded && Date.now() - lastLoaded < THROTTLE_MS) {
+      logger.debug(`⏱️ [useDynamicOptions] Throttling ${fieldName} - loaded ${Date.now() - lastLoaded}ms ago`);
+      return;
+    }
+
     // Check if field is currently loading
     if (!forceRefresh && loadingFields.current.has(requestKey)) {
       const loadStartTime = loadingStartTimes.current.get(requestKey);
@@ -469,28 +477,10 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
     // Debug logging for searchField specifically
     if (fieldName === 'searchField') {
-      console.log(`🔍🔍🔍 [useDynamicOptions] LOADING SEARCHFIELD:`, {
-        fieldName,
-        resourceType,
-        nodeType,
-        dependsOn,
-        dependsOnValue,
-        extraOptions,
-        hasExtraOptionsBaseId: !!extraOptions?.baseId,
-        hasExtraOptionsTableName: !!extraOptions?.tableName,
-      });
     }
 
     // Debug logging for watchedTables / airtable_tables
     if (fieldName === 'watchedTables' || resourceType === 'airtable_tables') {
-      console.log(`🎯 [useDynamicOptions] PROCEEDING TO LOAD: ${fieldName}`, {
-        fieldName,
-        resourceType,
-        requestKey,
-        forceRefresh,
-        silent,
-        baseId: extraOptions?.baseId
-      });
     }
 
     // Debug logging for Gmail fields
@@ -561,9 +551,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       try {
       // Special handling for Discord guilds
       // Support both 'guildId' (standard Discord actions) and 'discordGuildId' (HITL)
-      // HITL nodes have providerId: "ai" but need Discord guild access
-      const isHitlNodeType = nodeType === 'hitl_conversation'
-      if ((fieldName === 'guildId' || fieldName === 'discordGuildId') && (providerId === 'discord' || isHitlNodeType)) {
+      if ((fieldName === 'guildId' || fieldName === 'discordGuildId') && providerId === 'discord') {
         const isHitlNode = nodeType === 'hitl_conversation'
         const hasAdminPrivileges = (guild: any) => {
           if (!guild) return false
@@ -746,8 +734,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
       // Special handling for Discord channels using cache store
       // Support both 'channelId' (standard Discord actions) and 'discordChannelId' (HITL)
-      // HITL nodes have providerId: "ai" but need Discord channel access
-      if ((fieldName === 'channelId' || fieldName === 'discordChannelId') && (providerId === 'discord' || isHitlNodeType)) {
+      if ((fieldName === 'channelId' || fieldName === 'discordChannelId') && providerId === 'discord') {
         if (!dependsOnValue) {
           setDynamicOptions(prev => ({
             ...prev,
@@ -1308,19 +1295,15 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
 
       // Check for provider-specific loader first (for all providers that have custom loaders)
-      console.log('🟢 [useDynamicOptions] Reached provider loader section for:', { providerId, fieldName });
 
       try {
         // Import provider registry
         const { providerRegistry } = await import('../providers/registry');
         const loader = providerRegistry.getLoader(providerId, fieldName);
 
-        console.log('🟢 [useDynamicOptions] Loader result:', { hasLoader: !!loader, providerId, fieldName });
 
         if (loader) {
-          console.log('🟢 [useDynamicOptions] About to call loader.loadOptions for:', fieldName);
           // NOTE: Removed early return caching check - always fetch fresh data from provider loaders
-          console.log('✅ [useDynamicOptions] Proceeding to call loader for:', fieldName);
 
           logger.debug(`🔧 [useDynamicOptions] Using custom loader for ${providerId}/${fieldName}`);
 
@@ -1347,23 +1330,23 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
             }
           }
 
+          // For Microsoft Excel fields that depend on worksheetName, ensure workbookId is in extraOptions
+          if (providerId === 'microsoft-excel') {
+            const formValues = getFormValues?.() || {};
+            if (!enhancedExtraOptions.workbookId && formValues.workbookId) {
+              enhancedExtraOptions.workbookId = formValues.workbookId;
+            }
+            if (!enhancedExtraOptions.worksheetName && formValues.worksheetName) {
+              enhancedExtraOptions.worksheetName = formValues.worksheetName;
+            }
+          }
+
           // CRITICAL FIX: When field depends on workspace selection, use workspace ID as integration ID
           // This ensures we fetch data from the correct workspace/integration instance
           const actualIntegrationId = dependsOn === 'workspace' && dependsOnValue
             ? dependsOnValue
             : integration.id;
 
-          console.log('🚀 [useDynamicOptions] CALLING loader.loadOptions with params:', {
-            fieldName,
-            nodeType,
-            providerId,
-            integrationId: actualIntegrationId,
-            dependsOn,
-            dependsOnValue,
-            forceRefresh,
-            loaderType: typeof loader,
-            hasLoadOptionsMethod: typeof loader.loadOptions === 'function'
-          });
 
           let formattedOptions;
 
@@ -1383,10 +1366,6 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
               }
             });
 
-            console.log('✨ [useDynamicOptions] loader.loadOptions COMPLETED successfully for:', fieldName, {
-              resultLength: formattedOptions?.length,
-              firstResult: formattedOptions?.[0]
-            });
           } catch (loaderError) {
             logger.error('❌ [useDynamicOptions] ERROR calling loader.loadOptions:', {
               error: loaderError,
@@ -1474,12 +1453,10 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
           // Log how long setState took for searchField
           if (fieldName === 'searchField') {
             const setOptionsDuration = performance.now() - setOptionsStartTime;
-            console.log(`⏱️ [useDynamicOptions] searchField setState took ${setOptionsDuration.toFixed(2)}ms`);
 
             // Use requestAnimationFrame to check when React has painted
             requestAnimationFrame(() => {
               const totalDuration = performance.now() - setOptionsStartTime;
-              console.log(`🎨 [useDynamicOptions] searchField RAF after setState: ${totalDuration.toFixed(2)}ms total`);
             });
           }
 
@@ -1588,6 +1565,29 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       // For Google Sheets sheets, don't call API without spreadsheetId
       if (fieldName === 'sheetName' && resourceType === 'google-sheets_sheets' && !dependsOnValue) {
         return;
+      }
+
+      // Special handling for Microsoft Excel columns - requires both workbookId and worksheetName
+      if (resourceType === 'microsoft-excel_columns' || resourceType?.startsWith('microsoft-excel_column')) {
+        const formValues = getFormValues?.() || {};
+        const workbookId = extraOptions?.workbookId || formValues.workbookId;
+        const worksheetName = dependsOnValue || extraOptions?.worksheetName || formValues.worksheetName;
+
+        if (!workbookId || !worksheetName) {
+          logger.debug(`⚠️ [useDynamicOptions] Skipping Microsoft Excel columns - missing workbookId or worksheetName:`, {
+            workbookId,
+            worksheetName,
+            fieldName
+          });
+          return;
+        }
+
+        options = {
+          ...options,
+          workbookId,
+          worksheetName
+        };
+        logger.debug(`🔧 [useDynamicOptions] Microsoft Excel columns options:`, options);
       }
       
       // For Airtable fields used by filterField, use records approach to infer fields quickly
@@ -2080,13 +2080,6 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
           // Log for watchedTables / airtable_tables
           if (fieldName === 'watchedTables' || resourceType === 'airtable_tables') {
-            console.log(`📦 [useDynamicOptions] Formatted options for ${fieldName}:`, {
-              fieldName,
-              resourceType,
-              rawDataCount: dataArray.length,
-              formattedCount: formattedOptions.length,
-              sampleFormatted: formattedOptions.slice(0, 3)
-            });
           }
         } catch (apiError: any) {
           logger.error(`❌ [useDynamicOptions] Failed to load ${resourceType}:`, apiError);
@@ -2147,14 +2140,6 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
         // Log state update for ALL fields including watchedTables
         if (fieldName === 'watchedTables' || fieldName === 'channel' || resourceType === 'slack_channels' || resourceType === 'airtable_tables') {
-          console.log(`✅ [useDynamicOptions] Updated state for ${fieldName}:`, {
-            fieldName,
-            resourceType,
-            hadPrevious: !!prev[fieldName],
-            previousCount: prev[fieldName]?.length || 0,
-            newCount: formattedOptions.length,
-            sampleOptions: formattedOptions.slice(0, 3)
-          });
         }
 
         return syncLinkedOptions(updated);
@@ -2208,7 +2193,6 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       if (error.name === 'AbortError') {
         // Don't update state or clear loading for aborted requests
         // The loading state should persist until the new request completes
-        console.log(`⚠️ [useDynamicOptions] Request aborted for ${fieldName}`);
         return;
       }
 
@@ -2492,10 +2476,9 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
     // Load all fields in parallel using Promise.allSettled
     // Force refresh to ensure fresh data on every modal open
-    // Use silent: false to show loading placeholders for each field
     const results = await Promise.allSettled(
       fields.map(({ fieldName, dependsOn, dependsOnValue }) =>
-        loadOptions(fieldName, dependsOn, dependsOnValue, true, false)
+        loadOptions(fieldName, dependsOn, dependsOnValue, true, true)
       )
     )
 

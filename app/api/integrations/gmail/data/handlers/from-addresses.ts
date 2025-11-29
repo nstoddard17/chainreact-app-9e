@@ -20,29 +20,22 @@ interface FromAddress {
 const modalCache = new Map<string, { data: FromAddress[], timestamp: number }>()
 const MODAL_CACHE_DURATION = 10 * 1000 // 10 seconds
 
-interface FromAddressOptions {
-  searchQuery?: string
-}
-
 /**
  * Fetch Gmail from addresses including send-as aliases and recent senders
- * Supports optional search query to filter/find addresses in sent emails
  */
-export const getGmailFromAddresses: GmailDataHandler<FromAddress> = async (integration: GmailIntegration, options?: FromAddressOptions) => {
+export const getGmailFromAddresses: GmailDataHandler<FromAddress> = async (integration: GmailIntegration) => {
   try {
     validateGmailIntegration(integration)
 
-    const searchQuery = options?.searchQuery?.trim().toLowerCase()
-
-    // Check short-term cache (skip if search query provided)
+    // Check short-term cache
     const cacheKey = integration.id
     const cached = modalCache.get(cacheKey)
-    if (!searchQuery && cached && (Date.now() - cached.timestamp) < MODAL_CACHE_DURATION) {
+    if (cached && (Date.now() - cached.timestamp) < MODAL_CACHE_DURATION) {
       logger.debug("📦 [Gmail From Addresses] Using cached from addresses")
       return cached.data
     }
 
-    logger.debug("🚀 [Gmail From Addresses] Fetching fresh from addresses", { searchQuery })
+    logger.debug("🚀 [Gmail From Addresses] Fetching fresh from addresses")
 
     const accessToken = getGmailAccessToken(integration)
     const fromAddresses: FromAddress[] = []
@@ -121,24 +114,12 @@ export const getGmailFromAddresses: GmailDataHandler<FromAddress> = async (integ
       logger.warn("⚠️ [Gmail From Addresses] Could not fetch send-as aliases:", sendAsError.message)
     }
 
-    // 3. Fetch recent "From" addresses from sent emails
-    // If search query provided, search for it; otherwise get recent 50 messages
+    // 3. Fetch recent "From" addresses from sent emails (last 20 messages)
     try {
-      const maxResults = searchQuery ? 100 : 50 // More results when searching
-      let apiUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=SENT&maxResults=${maxResults}`
-
-      // If search query provided, add it to search for specific emails
-      if (searchQuery) {
-        // Search in sent folder for emails containing the query
-        const encodedQuery = encodeURIComponent(`from:${searchQuery} OR to:${searchQuery}`)
-        apiUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodedQuery}&maxResults=${maxResults}`
-        logger.debug("📨 [Gmail From Addresses] Searching sent emails with query:", searchQuery)
-      } else {
-        logger.debug("📨 [Gmail From Addresses] Fetching recent sent emails...")
-      }
+      logger.debug("📨 [Gmail From Addresses] Fetching recent sent emails...")
 
       const sentResponse = await makeGmailApiRequest(
-        apiUrl,
+        'https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=SENT&maxResults=20',
         accessToken
       )
 
@@ -147,16 +128,15 @@ export const getGmailFromAddresses: GmailDataHandler<FromAddress> = async (integ
         const sentMessages = sentData.messages || []
 
         if (sentMessages.length > 0) {
-          const processLimit = searchQuery ? 50 : 50 // Process up to 50 messages
-          logger.debug(`📨 [Gmail From Addresses] Processing ${Math.min(processLimit, sentMessages.length)} sent messages...`)
+          logger.debug(`📨 [Gmail From Addresses] Processing ${sentMessages.length} sent messages...`)
 
           // Track frequency of from addresses
           const fromFrequency = new Map<string, { email: string; name?: string; count: number }>()
 
           // Process messages in batches
-          const batchSize = 10 // Increased batch size for efficiency
-          for (let i = 0; i < Math.min(processLimit, sentMessages.length); i += batchSize) {
-            const batch = sentMessages.slice(i, Math.min(i + batchSize, processLimit))
+          const batchSize = 5
+          for (let i = 0; i < Math.min(20, sentMessages.length); i += batchSize) {
+            const batch = sentMessages.slice(i, Math.min(i + batchSize, 20))
 
             const batchResults = await Promise.all(
               batch.map(async (message: { id: string }) => {
@@ -202,15 +182,15 @@ export const getGmailFromAddresses: GmailDataHandler<FromAddress> = async (integ
             )
 
             // Small delay between batches
-            if (i + batchSize < Math.min(processLimit, sentMessages.length)) {
-              await new Promise(resolve => setTimeout(resolve, 50)) // Reduced delay
+            if (i + batchSize < Math.min(20, sentMessages.length)) {
+              await new Promise(resolve => setTimeout(resolve, 100))
             }
           }
 
           // Add recent from addresses that aren't already in the list
           const recentFroms = Array.from(fromFrequency.entries())
             .sort((a, b) => b[1].count - a[1].count) // Sort by frequency
-            .slice(0, 25) // Top 25 most frequent (increased from 10)
+            .slice(0, 10) // Top 10 most frequent
 
           recentFroms.forEach(([email, data]) => {
             if (!seenEmails.has(email)) {
@@ -232,15 +212,13 @@ export const getGmailFromAddresses: GmailDataHandler<FromAddress> = async (integ
       logger.warn("⚠️ [Gmail From Addresses] Could not fetch recent senders:", recentError.message)
     }
 
-    logger.debug(`✅ [Gmail From Addresses] Total: ${fromAddresses.length} from addresses`, { searchQuery })
+    logger.debug(`✅ [Gmail From Addresses] Total: ${fromAddresses.length} from addresses`)
 
-    // Cache for modal session (only cache non-search results)
-    if (!searchQuery) {
-      modalCache.set(cacheKey, {
-        data: fromAddresses,
-        timestamp: Date.now()
-      })
-    }
+    // Cache for modal session
+    modalCache.set(cacheKey, {
+      data: fromAddresses,
+      timestamp: Date.now()
+    })
 
     return fromAddresses
 

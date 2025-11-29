@@ -327,27 +327,6 @@ const googleCalendarMappings: Record<string, FieldMapping> = {
     // Note: attendees is a simple email list, doesn't need dynamic loading
     // Removed mapping to avoid dependency on Gmail integration
   },
-  google_calendar_action_update_event: {
-    calendarId: "google-calendars",
-  },
-  google_calendar_action_delete_event: {
-    calendarId: "google-calendars",
-  },
-  google_calendar_action_get_event: {
-    calendarId: "google-calendars",
-  },
-  google_calendar_action_list_events: {
-    calendarId: "google-calendars",
-  },
-  google_calendar_action_quick_add: {
-    calendarId: "google-calendars",
-  },
-  google_calendar_action_add_attendees: {
-    calendarId: "google-calendars",
-  },
-  google_calendar_action_remove_attendees: {
-    calendarId: "google-calendars",
-  },
   google_calendar_action_move_event: {
     sourceCalendarId: "google-calendars",
     destinationCalendarId: "google-calendars",
@@ -822,12 +801,6 @@ const microsoftExcelMappings: Record<string, FieldMapping> = {
   "microsoft_excel_action_add_table_row": {
     workbookId: "microsoft-excel_workbooks",
     tableName: "microsoft-excel_tables",
-    columnMapping: "microsoft_excel_column_mapper",
-  },
-  "microsoft_excel_action_find_or_create_row": {
-    workbookId: "microsoft-excel_workbooks",
-    worksheetName: "microsoft-excel_worksheets",
-    searchColumn: "microsoft-excel_columns",
     columnMapping: "microsoft_excel_column_mapper",
   },
   "microsoft_excel_action_create_worksheet": {

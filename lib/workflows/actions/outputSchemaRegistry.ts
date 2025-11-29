@@ -5,7 +5,6 @@
  */
 
 import { OutputField, getNotionManagePageSchema, getNotionManageDatabaseSchema, getNotionManageUsersSchema } from './notion/schemas'
-import { ALL_NODE_COMPONENTS } from '../nodes'
 
 export type { OutputField }
 
@@ -25,12 +24,6 @@ export function getActionOutputSchema(actionType: string, config?: any): OutputF
 
   if (actionType === 'notion_action_manage_users') {
     return getNotionManageUsersSchema(config?.operation)
-  }
-
-  // Prefer canonical node definitions so the variable picker matches the results tab
-  const nodeComponent = ALL_NODE_COMPONENTS.find(component => component.type === actionType)
-  if (nodeComponent?.outputSchema && nodeComponent.outputSchema.length > 0) {
-    return nodeComponent.outputSchema
   }
 
   // Fallback to static registry for other actions
@@ -626,12 +619,6 @@ const OUTPUT_SCHEMA_REGISTRY: Record<string, OutputField[]> = {
 export function hasOutputSchema(actionType: string): boolean {
   // Check dynamic schemas first
   if (actionType.startsWith('notion_action_manage_')) {
-    return true
-  }
-
-  // Canonical node definitions take precedence
-  const nodeComponent = ALL_NODE_COMPONENTS.find(component => component.type === actionType)
-  if (nodeComponent?.outputSchema && nodeComponent.outputSchema.length > 0) {
     return true
   }
 
