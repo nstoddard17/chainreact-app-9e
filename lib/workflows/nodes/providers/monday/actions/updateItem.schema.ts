@@ -59,21 +59,18 @@ export const updateItemActionSchema: NodeComponent = {
     },
     {
       name: "itemId",
-      label: "Item ID",
-      type: "text",
+      label: "Item",
+      type: "select",
+      dynamic: "monday_items",
+      dynamicParent: "boardId",
+      dependsOn: "boardId",
       required: true,
-      placeholder: "Enter item ID or use a variable...",
-      description: "The ID of the item to update",
-      supportsAI: false
-    },
-    {
-      name: "columnValues",
-      label: "Column Values",
-      type: "json",
-      required: true,
-      placeholder: '{"status": "Done", "date": "2024-01-15"}',
-      description: "The column values to update (JSON format)",
-      supportsAI: true
+      placeholder: "Select an item...",
+      description: "The item to update",
+      hidden: {
+        $deps: ["boardId"],
+        $condition: { boardId: { $exists: false } }
+      }
     }
   ],
 }

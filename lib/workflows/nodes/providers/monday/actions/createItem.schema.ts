@@ -79,16 +79,11 @@ export const createItemActionSchema: NodeComponent = {
       required: true,
       placeholder: "Enter item name...",
       description: "The name/title of the new item",
-      supportsAI: true
-    },
-    {
-      name: "columnValues",
-      label: "Column Values",
-      type: "json",
-      required: false,
-      placeholder: '{"status": "Working on it", "date": "2024-01-15"}',
-      description: "Optional: Set initial values for specific columns (JSON format)",
-      supportsAI: true
+      supportsAI: true,
+      hidden: {
+        $deps: ["groupId"],
+        $condition: { groupId: { $exists: false } }
+      }
     }
   ],
 }
