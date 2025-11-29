@@ -221,6 +221,11 @@ export function AIAgentConfigContent({
     customInstructions: '',
     outputFormat: '',
     timeout: 30,
+    // Tone & Signature settings
+    tone: 'professional',
+    includeSignature: 'none',
+    customSignature: '',
+    signaturePrefix: 'best',
     ...initialData
   })
 
@@ -684,6 +689,37 @@ Example:
                 <span className="text-[10px] text-muted-foreground">🎨</span>
               </div>
             </div>
+
+            <Separator />
+
+            {/* Response Tone */}
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">Response Tone</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { value: 'professional', label: 'Professional', desc: 'Clear & business-appropriate', emoji: '💼' },
+                  { value: 'friendly', label: 'Friendly', desc: 'Warm & approachable', emoji: '😊' },
+                  { value: 'casual', label: 'Casual', desc: 'Relaxed & conversational', emoji: '👋' },
+                  { value: 'formal', label: 'Formal', desc: 'Polished & traditional', emoji: '🎩' },
+                  { value: 'concise', label: 'Concise', desc: 'Brief & to the point', emoji: '⚡' },
+                ].map((tone) => (
+                  <button
+                    key={tone.value}
+                    onClick={() => handleFieldChange('tone', tone.value)}
+                    className={cn(
+                      "p-2 rounded-lg border text-left transition-all",
+                      config.tone === tone.value ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "hover:border-primary/30"
+                    )}
+                  >
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span className="text-sm">{tone.emoji}</span>
+                      <span className="text-xs font-medium">{tone.label}</span>
+                    </div>
+                    <p className="text-[9px] text-muted-foreground">{tone.desc}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
           </TabsContent>
 
           {/* ADVANCED TAB - API, Output, Guardrails */}
@@ -758,10 +794,84 @@ Example:
 • approved: boolean, feedback: string`}
                 className="text-xs resize-none overflow-hidden font-mono"
                 style={{
-                  height: config.outputFormat ? 'auto' : '80px',
-                  minHeight: '80px'
+                  height: config.outputFormat ? 'auto' : '100px',
+                  minHeight: '100px'
                 }}
               />
+            </div>
+
+            <Separator />
+
+            {/* Signature Settings */}
+            <div className="space-y-3">
+              <Label className="text-xs font-medium">Signature Settings</Label>
+              <p className="text-[10px] text-muted-foreground mb-2">
+                Automatically append a signature to AI-generated messages (emails, Discord, Slack, etc.)
+              </p>
+
+              {/* Signature Type */}
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { value: 'none', label: 'No Signature', desc: 'Don\'t add signature' },
+                  { value: 'name_only', label: 'Name Only', desc: 'From your profile' },
+                  { value: 'full', label: 'Full Signature', desc: 'Name, title, company' },
+                  { value: 'custom', label: 'Custom', desc: 'Your own signature' },
+                ].map((sig) => (
+                  <button
+                    key={sig.value}
+                    onClick={() => handleFieldChange('includeSignature', sig.value)}
+                    className={cn(
+                      "p-2 rounded-lg border text-left transition-all",
+                      config.includeSignature === sig.value ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "hover:border-primary/30"
+                    )}
+                  >
+                    <span className="text-xs font-medium">{sig.label}</span>
+                    <p className="text-[9px] text-muted-foreground">{sig.desc}</p>
+                  </button>
+                ))}
+              </div>
+
+              {/* Sign-off Style - show when signature is enabled */}
+              {config.includeSignature !== 'none' && (
+                <div className="space-y-2 pt-2">
+                  <Label className="text-[10px]">Sign-off Style</Label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      { value: 'best', label: 'Best regards,' },
+                      { value: 'thanks', label: 'Thanks,' },
+                      { value: 'sincerely', label: 'Sincerely,' },
+                      { value: 'cheers', label: 'Cheers,' },
+                      { value: 'regards', label: 'Regards,' },
+                      { value: 'none', label: 'No sign-off' },
+                    ].map((prefix) => (
+                      <button
+                        key={prefix.value}
+                        onClick={() => handleFieldChange('signaturePrefix', prefix.value)}
+                        className={cn(
+                          "px-2 py-1 rounded text-[10px] border transition-all",
+                          config.signaturePrefix === prefix.value ? "border-primary bg-primary/5" : "hover:border-primary/30"
+                        )}
+                      >
+                        {prefix.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Custom Signature - show when custom is selected */}
+              {config.includeSignature === 'custom' && (
+                <div className="space-y-2 pt-2">
+                  <Label className="text-[10px]">Custom Signature</Label>
+                  <Textarea
+                    value={config.customSignature}
+                    onChange={(e) => handleFieldChange('customSignature', e.target.value)}
+                    placeholder={`Best regards,\nJohn Doe\nCEO, Acme Corp\njohn@acme.com`}
+                    className="text-xs resize-none font-mono"
+                    rows={4}
+                  />
+                </div>
+              )}
             </div>
           </TabsContent>
 

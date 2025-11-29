@@ -102,6 +102,74 @@ Examples:
     },
 
     // ========================================
+    // TONE & PERSONALITY
+    // ========================================
+    {
+      name: "tone",
+      label: "Response Tone",
+      type: "select",
+      defaultValue: "professional",
+      options: [
+        { value: "professional", label: "Professional - Clear and business-appropriate" },
+        { value: "friendly", label: "Friendly - Warm and approachable" },
+        { value: "casual", label: "Casual - Relaxed and conversational" },
+        { value: "formal", label: "Formal - Polished and traditional" },
+        { value: "concise", label: "Concise - Brief and to the point" }
+      ],
+      description: "How should the AI communicate?"
+    },
+
+    // ========================================
+    // SIGNATURE SETTINGS
+    // ========================================
+    {
+      name: "includeSignature",
+      label: "Include Signature",
+      type: "select",
+      defaultValue: "none",
+      options: [
+        { value: "none", label: "No signature" },
+        { value: "name_only", label: "Name only (from your profile)" },
+        { value: "full", label: "Full signature (name, title, company)" },
+        { value: "custom", label: "Custom signature" }
+      ],
+      description: "Automatically add a signature to AI responses"
+    },
+
+    {
+      name: "customSignature",
+      label: "Custom Signature",
+      type: "textarea",
+      multiline: true,
+      rows: 4,
+      dependsOn: "includeSignature",
+      visibilityCondition: { field: "includeSignature", operator: "equals", value: "custom" },
+      placeholder: `Best regards,
+John Doe
+CEO, Acme Corp
+john@acme.com`,
+      description: "Your custom signature (supports line breaks)"
+    },
+
+    {
+      name: "signaturePrefix",
+      label: "Sign-off Style",
+      type: "select",
+      defaultValue: "best",
+      dependsOn: "includeSignature",
+      visibilityCondition: { field: "includeSignature", operator: "notEquals", value: "none" },
+      options: [
+        { value: "best", label: "Best regards," },
+        { value: "thanks", label: "Thanks," },
+        { value: "sincerely", label: "Sincerely," },
+        { value: "cheers", label: "Cheers," },
+        { value: "regards", label: "Regards," },
+        { value: "none", label: "No sign-off (name only)" }
+      ],
+      description: "The closing phrase before your name"
+    },
+
+    // ========================================
     // MODEL CONFIGURATION
     // ========================================
     {

@@ -602,10 +602,16 @@ export function resolveValue(
           const nodeData = input[prefixMatchKey]
 
           // For AI agent and similar nodes, extract the actual output value
-          // The structure is typically { success: true, output: "actual value", message: "..." }
+          // The structure is typically { success: true, data: { output: "actual value" }, output: "...", message: "..." }
+          // NOTE: safeClone() may replace output with "[Circular Reference]" so check data.output first
           if (nodeData && typeof nodeData === 'object') {
-            // If it has an 'output' field that's the actual result, return that
-            if (nodeData.output !== undefined) {
+            // First check data.output (AI agent stores actual text here)
+            if (nodeData.data?.output !== undefined && nodeData.data.output !== '[Circular Reference]') {
+              logger.debug(`✅ [RESOLVE_VALUE] Found output from data.output via prefix match: "${prefixMatchKey}"`)
+              return nodeData.data.output
+            }
+            // Fall back to top-level output if it's not a circular reference marker
+            if (nodeData.output !== undefined && nodeData.output !== '[Circular Reference]') {
               logger.debug(`✅ [RESOLVE_VALUE] Found output from prefix match: "${prefixMatchKey}"`)
               return nodeData.output
             }
@@ -862,9 +868,16 @@ export function resolveValue(
           const nodeData = input[prefixMatchKey]
 
           // For AI agent and similar nodes, extract the actual output value
-          // The structure is typically { success: true, output: "actual value", message: "..." }
+          // The structure is typically { success: true, data: { output: "actual value" }, output: "...", message: "..." }
+          // NOTE: safeClone() may replace output with "[Circular Reference]" so check data.output first
           if (nodeData && typeof nodeData === 'object') {
-            if (nodeData.output !== undefined) {
+            // First check data.output (AI agent stores actual text here)
+            if (nodeData.data?.output !== undefined && nodeData.data.output !== '[Circular Reference]') {
+              logger.debug(`✅ [EMBEDDED] Found output from data.output via prefix match: "${prefixMatchKey}"`)
+              return nodeData.data.output
+            }
+            // Fall back to top-level output if it's not a circular reference marker
+            if (nodeData.output !== undefined && nodeData.output !== '[Circular Reference]') {
               logger.debug(`✅ [EMBEDDED] Found output from prefix match: "${prefixMatchKey}"`)
               return nodeData.output
             }
