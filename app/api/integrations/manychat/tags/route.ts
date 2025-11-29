@@ -1,0 +1,57 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createSupabaseServerClient } from '@/utils/supabase/server'
+import { logger } from '@/lib/utils/logger'
+import { decrypt } from '@/lib/security/encryption'
+import { createManyChatClient } from '@/lib/integrations/providers/manychat/client'
+
+export async function GET(request: NextRequest) {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Get integration ID from query params
+    const searchParams = request.nextUrl.searchParams
+    const integrationId = searchParams.get('integrationId')
+
+    if (!integrationId) {
+      return NextResponse.json({ error: 'Integration ID required' }, { status: 400 })
+    }
+
+    // Get ManyChat integration
+    const { data: integration, error: integrationError } = await supabase
+      .from('integrations')
+      .select('*')
+      .eq('id', integrationId)
+      .eq('user_id', user.id)
+      .eq('provider', 'manychat')
+      .eq('status', 'connected')
+      .single()
+
+    if (integrationError || !integration) {
+      logger.error('[MANYCHAT TAGS] No ManyChat integration found:', integrationError)
+      return NextResponse.json({ error: 'ManyChat not connected' }, { status: 404 })
+    }
+
+    // Decrypt API key
+    const apiKey = decrypt(integration.access_token)
+
+    // Create ManyChat client and fetch tags
+    const client = createManyChatClient(apiKey)
+    const tags = await client.getTags()
+
+    logger.debug(`[MANYCHAT TAGS] Fetched ${tags.length} tags`)
+
+    return NextResponse.json({ tags })
+
+  } catch (error: any) {
+    logger.error('[MANYCHAT TAGS] Error:', error)
+    return NextResponse.json(
+      { error: error.message || 'Failed to fetch tags' },
+      { status: 500 }
+    )
+  }
+}

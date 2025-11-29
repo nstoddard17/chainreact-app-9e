@@ -28,6 +28,7 @@ import { GmailOptionsLoader } from './gmail/GmailOptionsLoader';
 import { SlackOptionsLoader } from './slack/slackOptionsLoader';
 import { GumroadOptionsLoader } from './gumroad/gumroadOptionsLoader';
 import { StorageOptionsLoader } from './storage/StorageOptionsLoader';
+import { ManyChatOptionsLoader } from './manychat/ManyChatOptionsLoader';
 
 import { logger } from '@/lib/utils/logger'
 
@@ -113,6 +114,9 @@ class ProviderRegistryImpl implements IProviderRegistry {
 
     // Register Gumroad loader
     this.register('gumroad', new GumroadOptionsLoader());
+
+    // Register ManyChat loader
+    this.register('manychat', new ManyChatOptionsLoader());
 
     // Additional providers can be registered here as they're implemented
     // this.register('trello', new TrelloOptionsLoader());

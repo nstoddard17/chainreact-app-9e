@@ -34,12 +34,11 @@ const manychatTriggerNewSubscriber: NodeComponent = {
   type: "manychat_trigger_new_subscriber",
   title: "New Subscriber",
   description: "Triggers when a new subscriber is added",
-  icon: Users,
+  icon: UserPlus,
   providerId: "manychat",
   category: "Communication",
   isTrigger: true,
   producesOutput: true,
-  comingSoon: true,
   outputSchema: [
     {
       name: "subscriberId",
@@ -92,81 +91,54 @@ const manychatTriggerNewSubscriber: NodeComponent = {
   ]
 }
 
-const manychatActionSendMessage: NodeComponent = {
-  type: "manychat_action_send_message",
-  title: "Send Message",
-  description: "Send a message to a subscriber",
-  icon: Send,
+const manychatTriggerNewTaggedUser: NodeComponent = {
+  type: "manychat_trigger_new_tagged_user",
+  title: "New Tagged User",
+  description: "Triggers when a tag is added to a user",
+  icon: Tag,
   providerId: "manychat",
   category: "Communication",
-  isTrigger: false,
+  isTrigger: true,
+  producesOutput: true,
   configSchema: [
-    { name: "subscriberId", label: "Subscriber ID", type: "text", required: true, placeholder: "Enter subscriber ID", description: "The ID of the subscriber to send the message to" },
-    { name: "message", label: "Message", type: "textarea", required: true, placeholder: "Enter your message", description: "The message text to send" },
-    { name: "messageType", label: "Message Type", type: "select", required: false, defaultValue: "text", options: [
-      { value: "text", label: "Text Message" },
-      { value: "card", label: "Card" },
-      { value: "gallery", label: "Gallery" }
-    ]}
+    { name: "tagId", label: "Tag", type: "combobox", required: true, placeholder: "Select a tag", description: "The tag to watch for" }
   ],
   outputSchema: [
-    {
-      name: "messageId",
-      label: "Message ID",
-      type: "string",
-      description: "Unique identifier for the sent message"
-    },
     {
       name: "subscriberId",
       label: "Subscriber ID",
       type: "string",
-      description: "ID of the subscriber who received the message"
+      description: "Unique identifier for the subscriber"
     },
     {
-      name: "sentAt",
-      label: "Sent At",
+      name: "firstName",
+      label: "First Name",
       type: "string",
-      description: "Timestamp when the message was sent (ISO 8601 format)"
+      description: "Subscriber's first name"
     },
     {
-      name: "status",
-      label: "Status",
+      name: "lastName",
+      label: "Last Name",
       type: "string",
-      description: "Delivery status (sent, delivered, read, failed)"
-    }
-  ]
-}
-
-const manychatActionTagSubscriber: NodeComponent = {
-  type: "manychat_action_tag_subscriber",
-  title: "Tag Subscriber",
-  description: "Add a tag to a subscriber",
-  icon: Edit,
-  providerId: "manychat",
-  category: "Communication",
-  isTrigger: false,
-  configSchema: [
-    { name: "subscriberId", label: "Subscriber ID", type: "text", required: true, placeholder: "Enter subscriber ID", description: "The ID of the subscriber to tag" },
-    { name: "tag", label: "Tag", type: "text", required: true, placeholder: "Enter tag name", description: "The tag to add to the subscriber" }
-  ],
-  outputSchema: [
-    {
-      name: "success",
-      label: "Success",
-      type: "boolean",
-      description: "Whether the tag was successfully added"
+      description: "Subscriber's last name"
     },
     {
-      name: "subscriberId",
-      label: "Subscriber ID",
+      name: "email",
+      label: "Email",
       type: "string",
-      description: "ID of the tagged subscriber"
+      description: "Subscriber's email address"
     },
     {
-      name: "tag",
-      label: "Tag",
+      name: "tagId",
+      label: "Tag ID",
       type: "string",
-      description: "The tag that was added"
+      description: "ID of the tag that was added"
+    },
+    {
+      name: "tagName",
+      label: "Tag Name",
+      type: "string",
+      description: "Name of the tag that was added"
     },
     {
       name: "taggedAt",
@@ -174,6 +146,514 @@ const manychatActionTagSubscriber: NodeComponent = {
       type: "string",
       description: "Timestamp when the tag was added (ISO 8601 format)"
     }
+  ]
+}
+
+const manychatTriggerCustomFieldUpdated: NodeComponent = {
+  type: "manychat_trigger_custom_field_updated",
+  title: "Custom Field Updated",
+  description: "Triggers when a custom field value is updated",
+  icon: Edit,
+  providerId: "manychat",
+  category: "Communication",
+  isTrigger: true,
+  producesOutput: true,
+  configSchema: [
+    { name: "fieldId", label: "Custom Field", type: "combobox", required: true, placeholder: "Select a custom field", description: "The custom field to watch for changes" }
+  ],
+  outputSchema: [
+    {
+      name: "subscriberId",
+      label: "Subscriber ID",
+      type: "string",
+      description: "Unique identifier for the subscriber"
+    },
+    {
+      name: "firstName",
+      label: "First Name",
+      type: "string",
+      description: "Subscriber's first name"
+    },
+    {
+      name: "lastName",
+      label: "Last Name",
+      type: "string",
+      description: "Subscriber's last name"
+    },
+    {
+      name: "email",
+      label: "Email",
+      type: "string",
+      description: "Subscriber's email address"
+    },
+    {
+      name: "fieldId",
+      label: "Field ID",
+      type: "string",
+      description: "ID of the custom field that was updated"
+    },
+    {
+      name: "fieldName",
+      label: "Field Name",
+      type: "string",
+      description: "Name of the custom field"
+    },
+    {
+      name: "oldValue",
+      label: "Old Value",
+      type: "string",
+      description: "Previous value of the field"
+    },
+    {
+      name: "newValue",
+      label: "New Value",
+      type: "string",
+      description: "New value of the field"
+    },
+    {
+      name: "updatedAt",
+      label: "Updated At",
+      type: "string",
+      description: "Timestamp when the field was updated (ISO 8601 format)"
+    }
+  ]
+}
+
+const manychatTriggerChatOpened: NodeComponent = {
+  type: "manychat_trigger_chat_opened",
+  title: "Chat Opened",
+  description: "Triggers when a user opens a chat conversation",
+  icon: Send,
+  providerId: "manychat",
+  category: "Communication",
+  isTrigger: true,
+  producesOutput: true,
+  outputSchema: [
+    {
+      name: "subscriberId",
+      label: "Subscriber ID",
+      type: "string",
+      description: "Unique identifier for the subscriber"
+    },
+    {
+      name: "firstName",
+      label: "First Name",
+      type: "string",
+      description: "Subscriber's first name"
+    },
+    {
+      name: "lastName",
+      label: "Last Name",
+      type: "string",
+      description: "Subscriber's last name"
+    },
+    {
+      name: "email",
+      label: "Email",
+      type: "string",
+      description: "Subscriber's email address"
+    },
+    {
+      name: "platform",
+      label: "Platform",
+      type: "string",
+      description: "Platform where chat was opened (messenger, whatsapp)"
+    },
+    {
+      name: "openedAt",
+      label: "Opened At",
+      type: "string",
+      description: "Timestamp when the chat was opened (ISO 8601 format)"
+    }
+  ]
+}
+
+const manychatActionSendMessage: NodeComponent = {
+  type: "manychat_action_send_message",
+  title: "Send Message",
+  description: "Send a text message to a subscriber",
+  icon: Send,
+  providerId: "manychat",
+  category: "Communication",
+  isTrigger: false,
+  configSchema: [
+    { name: "subscriberId", label: "Subscriber ID", type: "text", required: true, placeholder: "Enter subscriber ID", description: "The ID of the subscriber to send the message to" },
+    { name: "message", label: "Message", type: "textarea", required: true, placeholder: "Enter your message", description: "The message text to send" },
+    { name: "messageTag", label: "Message Tag", type: "select", required: false, defaultValue: "ACCOUNT_UPDATE", options: [
+      { value: "ACCOUNT_UPDATE", label: "Account Update" },
+      { value: "CONFIRMED_EVENT_UPDATE", label: "Confirmed Event Update" },
+      { value: "POST_PURCHASE_UPDATE", label: "Post Purchase Update" }
+    ], description: "Message tag for Facebook Messenger policy compliance" }
+  ],
+  outputSchema: [
+    {
+      name: "subscriberId",
+      label: "Subscriber ID",
+      type: "string",
+      description: "ID of the subscriber who received the message"
+    },
+    {
+      name: "message",
+      label: "Message",
+      type: "string",
+      description: "The message that was sent"
+    },
+    {
+      name: "sentAt",
+      label: "Sent At",
+      type: "string",
+      description: "Timestamp when the message was sent (ISO 8601 format)"
+    }
+  ]
+}
+
+const manychatActionTagSubscriber: NodeComponent = {
+  type: "manychat_action_tag_subscriber",
+  title: "Add Tag",
+  description: "Add a tag to a subscriber",
+  icon: Tag,
+  providerId: "manychat",
+  category: "Communication",
+  isTrigger: false,
+  configSchema: [
+    { name: "subscriberId", label: "Subscriber ID", type: "text", required: true, placeholder: "Enter subscriber ID", description: "The ID of the subscriber to tag" },
+    { name: "tagId", label: "Tag", type: "combobox", required: true, placeholder: "Select a tag", description: "The tag to add to the subscriber" }
+  ],
+  outputSchema: [
+    {
+      name: "subscriberId",
+      label: "Subscriber ID",
+      type: "string",
+      description: "ID of the tagged subscriber"
+    },
+    {
+      name: "tagId",
+      label: "Tag ID",
+      type: "string",
+      description: "ID of the tag that was added"
+    },
+    {
+      name: "addedAt",
+      label: "Added At",
+      type: "string",
+      description: "Timestamp when the tag was added (ISO 8601 format)"
+    }
+  ]
+}
+
+const manychatActionSendFlow: NodeComponent = {
+  type: "manychat_action_send_flow",
+  title: "Send Flow",
+  description: "Send a pre-built flow to a subscriber",
+  icon: Layers,
+  providerId: "manychat",
+  category: "Communication",
+  isTrigger: false,
+  configSchema: [
+    { name: "subscriberId", label: "Subscriber ID", type: "text", required: true, placeholder: "Enter subscriber ID", description: "The ID of the subscriber to send the flow to" },
+    { name: "flowNs", label: "Flow", type: "combobox", required: true, placeholder: "Select a flow or enter flow namespace", description: "The flow namespace (e.g., content20220101000000_123456)" }
+  ],
+  outputSchema: [
+    {
+      name: "subscriberId",
+      label: "Subscriber ID",
+      type: "string",
+      description: "ID of the subscriber who received the flow"
+    },
+    {
+      name: "flowNs",
+      label: "Flow Namespace",
+      type: "string",
+      description: "The flow namespace that was sent"
+    },
+    {
+      name: "sentAt",
+      label: "Sent At",
+      type: "string",
+      description: "Timestamp when the flow was sent (ISO 8601 format)"
+    }
+  ]
+}
+
+const manychatActionSetCustomField: NodeComponent = {
+  type: "manychat_action_set_custom_field",
+  title: "Set Custom Field",
+  description: "Set a custom field value for a subscriber",
+  icon: Edit,
+  providerId: "manychat",
+  category: "Communication",
+  isTrigger: false,
+  configSchema: [
+    { name: "subscriberId", label: "Subscriber ID", type: "text", required: true, placeholder: "Enter subscriber ID", description: "The ID of the subscriber" },
+    { name: "fieldId", label: "Custom Field", type: "combobox", required: true, placeholder: "Select a custom field", description: "The custom field to set" },
+    { name: "fieldValue", label: "Field Value", type: "text", required: true, placeholder: "Enter field value", description: "The value to set for the custom field" }
+  ],
+  outputSchema: [
+    {
+      name: "subscriberId",
+      label: "Subscriber ID",
+      type: "string",
+      description: "ID of the subscriber"
+    },
+    {
+      name: "fieldId",
+      label: "Field ID",
+      type: "string",
+      description: "ID of the custom field that was set"
+    },
+    {
+      name: "fieldValue",
+      label: "Field Value",
+      type: "string",
+      description: "The value that was set"
+    },
+    {
+      name: "updatedAt",
+      label: "Updated At",
+      type: "string",
+      description: "Timestamp when the field was updated (ISO 8601 format)"
+    }
+  ]
+}
+
+const manychatActionGetSubscriber: NodeComponent = {
+  type: "manychat_action_get_subscriber",
+  title: "Get Subscriber Info",
+  description: "Retrieve detailed information about a subscriber",
+  icon: Users,
+  providerId: "manychat",
+  category: "Communication",
+  isTrigger: false,
+  producesOutput: true,
+  configSchema: [
+    { name: "subscriberId", label: "Subscriber ID", type: "text", required: true, placeholder: "Enter subscriber ID", description: "The ID of the subscriber to retrieve" }
+  ],
+  outputSchema: [
+    { name: "id", label: "Subscriber ID", type: "string", description: "Unique subscriber ID" },
+    { name: "firstName", label: "First Name", type: "string", description: "Subscriber's first name" },
+    { name: "lastName", label: "Last Name", type: "string", description: "Subscriber's last name" },
+    { name: "name", label: "Full Name", type: "string", description: "Subscriber's full name" },
+    { name: "email", label: "Email", type: "string", description: "Subscriber's email address" },
+    { name: "phone", label: "Phone", type: "string", description: "Subscriber's phone number" },
+    { name: "status", label: "Status", type: "string", description: "Subscriber status" },
+    { name: "subscribedAt", label: "Subscribed At", type: "string", description: "When the subscriber joined" },
+    { name: "lastInteraction", label: "Last Interaction", type: "string", description: "Last interaction timestamp" },
+    { name: "lastSeen", label: "Last Seen", type: "string", description: "Last seen timestamp" },
+    { name: "customFields", label: "Custom Fields", type: "object", description: "Custom field values" },
+    { name: "tags", label: "Tags", type: "array", description: "Subscriber tags" }
+  ]
+}
+
+const manychatActionRemoveTag: NodeComponent = {
+  type: "manychat_action_remove_tag",
+  title: "Remove Tag",
+  description: "Remove a tag from a subscriber",
+  icon: Tag,
+  providerId: "manychat",
+  category: "Communication",
+  isTrigger: false,
+  configSchema: [
+    { name: "subscriberId", label: "Subscriber ID", type: "text", required: true, placeholder: "Enter subscriber ID", description: "The ID of the subscriber" },
+    { name: "tagId", label: "Tag", type: "combobox", required: true, placeholder: "Select a tag", description: "The tag to remove from the subscriber" }
+  ],
+  outputSchema: [
+    {
+      name: "subscriberId",
+      label: "Subscriber ID",
+      type: "string",
+      description: "ID of the subscriber"
+    },
+    {
+      name: "tagId",
+      label: "Tag ID",
+      type: "string",
+      description: "ID of the tag that was removed"
+    },
+    {
+      name: "removedAt",
+      label: "Removed At",
+      type: "string",
+      description: "Timestamp when the tag was removed (ISO 8601 format)"
+    }
+  ]
+}
+
+const manychatActionSubscribeSequence: NodeComponent = {
+  type: "manychat_action_subscribe_sequence",
+  title: "Subscribe to Sequence",
+  description: "Subscribe a user to an automated sequence",
+  icon: Plus,
+  providerId: "manychat",
+  category: "Communication",
+  isTrigger: false,
+  configSchema: [
+    { name: "subscriberId", label: "Subscriber ID", type: "text", required: true, placeholder: "Enter subscriber ID", description: "The ID of the subscriber" },
+    { name: "sequenceId", label: "Sequence", type: "combobox", required: true, placeholder: "Select a sequence or enter sequence ID", description: "The sequence to subscribe the user to" }
+  ],
+  outputSchema: [
+    {
+      name: "subscriberId",
+      label: "Subscriber ID",
+      type: "string",
+      description: "ID of the subscriber"
+    },
+    {
+      name: "sequenceId",
+      label: "Sequence ID",
+      type: "string",
+      description: "ID of the sequence"
+    },
+    {
+      name: "subscribedAt",
+      label: "Subscribed At",
+      type: "string",
+      description: "Timestamp when subscribed (ISO 8601 format)"
+    }
+  ]
+}
+
+const manychatActionUnsubscribeSequence: NodeComponent = {
+  type: "manychat_action_unsubscribe_sequence",
+  title: "Unsubscribe from Sequence",
+  description: "Unsubscribe a user from an automated sequence",
+  icon: UserX,
+  providerId: "manychat",
+  category: "Communication",
+  isTrigger: false,
+  configSchema: [
+    { name: "subscriberId", label: "Subscriber ID", type: "text", required: true, placeholder: "Enter subscriber ID", description: "The ID of the subscriber" },
+    { name: "sequenceId", label: "Sequence", type: "combobox", required: true, placeholder: "Select a sequence or enter sequence ID", description: "The sequence to unsubscribe the user from" }
+  ],
+  outputSchema: [
+    {
+      name: "subscriberId",
+      label: "Subscriber ID",
+      type: "string",
+      description: "ID of the subscriber"
+    },
+    {
+      name: "sequenceId",
+      label: "Sequence ID",
+      type: "string",
+      description: "ID of the sequence"
+    },
+    {
+      name: "unsubscribedAt",
+      label: "Unsubscribed At",
+      type: "string",
+      description: "Timestamp when unsubscribed (ISO 8601 format)"
+    }
+  ]
+}
+
+const manychatActionFindUser: NodeComponent = {
+  type: "manychat_action_find_user",
+  title: "Find User by ID",
+  description: "Find a subscriber by their ID and return their information",
+  icon: Users,
+  providerId: "manychat",
+  category: "Communication",
+  isTrigger: false,
+  producesOutput: true,
+  configSchema: [
+    { name: "subscriberId", label: "Subscriber ID", type: "text", required: true, placeholder: "Enter subscriber ID", description: "The ID of the subscriber to find" }
+  ],
+  outputSchema: [
+    { name: "found", label: "Found", type: "boolean", description: "Whether the subscriber was found" },
+    { name: "subscriber", label: "Subscriber", type: "object", description: "Subscriber information (if found)" }
+  ]
+}
+
+const manychatActionCreateSubscriber: NodeComponent = {
+  type: "manychat_action_create_subscriber",
+  title: "Create Subscriber",
+  description: "Create a new subscriber in ManyChat",
+  icon: UserPlus,
+  providerId: "manychat",
+  category: "Communication",
+  isTrigger: false,
+  producesOutput: true,
+  configSchema: [
+    { name: "firstName", label: "First Name", type: "text", required: false, placeholder: "Enter first name", description: "Subscriber's first name" },
+    { name: "lastName", label: "Last Name", type: "text", required: false, placeholder: "Enter last name", description: "Subscriber's last name" },
+    { name: "email", label: "Email", type: "text", required: false, placeholder: "Enter email address", description: "Subscriber's email address" },
+    { name: "phone", label: "Phone", type: "text", required: false, placeholder: "Enter phone number", description: "Subscriber's phone number" },
+    { name: "whatsapp", label: "WhatsApp Number", type: "text", required: false, placeholder: "Enter WhatsApp number", description: "WhatsApp number for WhatsApp subscribers" }
+  ],
+  outputSchema: [
+    { name: "subscriberId", label: "Subscriber ID", type: "string", description: "Unique ID of the created subscriber" },
+    { name: "firstName", label: "First Name", type: "string", description: "Subscriber's first name" },
+    { name: "lastName", label: "Last Name", type: "string", description: "Subscriber's last name" },
+    { name: "email", label: "Email", type: "string", description: "Subscriber's email" },
+    { name: "createdAt", label: "Created At", type: "string", description: "When the subscriber was created" }
+  ]
+}
+
+const manychatActionFindByCustomField: NodeComponent = {
+  type: "manychat_action_find_by_custom_field",
+  title: "Find by Custom Field",
+  description: "Find subscribers by custom field value",
+  icon: Users,
+  providerId: "manychat",
+  category: "Communication",
+  isTrigger: false,
+  producesOutput: true,
+  configSchema: [
+    { name: "fieldId", label: "Custom Field", type: "combobox", required: true, placeholder: "Select a custom field", description: "The custom field to search by" },
+    { name: "fieldValue", label: "Field Value", type: "text", required: true, placeholder: "Enter value to search for", description: "The value to search for" }
+  ],
+  outputSchema: [
+    { name: "found", label: "Found", type: "boolean", description: "Whether any subscribers were found" },
+    { name: "count", label: "Count", type: "number", description: "Number of subscribers found" },
+    { name: "subscribers", label: "Subscribers", type: "array", description: "Array of matching subscribers" }
+  ]
+}
+
+const manychatActionSendContent: NodeComponent = {
+  type: "manychat_action_send_content",
+  title: "Send Content",
+  description: "Send rich content (cards, galleries) to a subscriber",
+  icon: Layers,
+  providerId: "manychat",
+  category: "Communication",
+  isTrigger: false,
+  configSchema: [
+    { name: "subscriberId", label: "Subscriber ID", type: "text", required: true, placeholder: "Enter subscriber ID", description: "The ID of the subscriber" },
+    { name: "contentType", label: "Content Type", type: "select", required: true, defaultValue: "card", options: [
+      { value: "card", label: "Card" },
+      { value: "gallery", label: "Gallery" },
+      { value: "list", label: "List" }
+    ], description: "Type of content to send" },
+    { name: "title", label: "Title", type: "text", required: true, placeholder: "Enter title", description: "Content title" },
+    { name: "subtitle", label: "Subtitle", type: "text", required: false, placeholder: "Enter subtitle", description: "Content subtitle" },
+    { name: "imageUrl", label: "Image URL", type: "text", required: false, placeholder: "Enter image URL", description: "URL of the image to display" },
+    { name: "buttonText", label: "Button Text", type: "text", required: false, placeholder: "Enter button text", description: "Text for the action button" },
+    { name: "buttonUrl", label: "Button URL", type: "text", required: false, placeholder: "Enter button URL", description: "URL for the action button" }
+  ],
+  outputSchema: [
+    { name: "subscriberId", label: "Subscriber ID", type: "string", description: "ID of the subscriber" },
+    { name: "contentType", label: "Content Type", type: "string", description: "Type of content sent" },
+    { name: "sentAt", label: "Sent At", type: "string", description: "When the content was sent" }
+  ]
+}
+
+const manychatActionSendDynamicMessage: NodeComponent = {
+  type: "manychat_action_send_dynamic_message",
+  title: "Send Dynamic Message",
+  description: "Send a template-based dynamic message with variables",
+  icon: Mail,
+  providerId: "manychat",
+  category: "Communication",
+  isTrigger: false,
+  configSchema: [
+    { name: "subscriberId", label: "Subscriber ID", type: "text", required: true, placeholder: "Enter subscriber ID", description: "The ID of the subscriber" },
+    { name: "templateText", label: "Template Text", type: "textarea", required: true, placeholder: "Enter message template with {{variables}}", description: "Message template with variable placeholders" },
+    { name: "variables", label: "Variables (JSON)", type: "textarea", required: false, placeholder: '{"name": "John", "amount": "100"}', description: "JSON object with variable values" }
+  ],
+  outputSchema: [
+    { name: "subscriberId", label: "Subscriber ID", type: "string", description: "ID of the subscriber" },
+    { name: "message", label: "Rendered Message", type: "string", description: "The final rendered message" },
+    { name: "sentAt", label: "Sent At", type: "string", description: "When the message was sent" }
   ]
 }
 
@@ -3252,10 +3732,27 @@ const gumroadTriggerSubscriptionRestarted: NodeComponent = {
 
 // Export all miscellaneous nodes
 export const miscNodes: NodeComponent[] = [
-  // ManyChat (3)
+  // ManyChat (18 nodes) - 4 triggers, 14 actions
+  // Triggers (4)
   manychatTriggerNewSubscriber,
+  manychatTriggerNewTaggedUser,
+  manychatTriggerCustomFieldUpdated,
+  manychatTriggerChatOpened,
+
+  // Actions (14)
   manychatActionSendMessage,
+  manychatActionSendFlow,
+  manychatActionSendContent,
+  manychatActionSendDynamicMessage,
   manychatActionTagSubscriber,
+  manychatActionRemoveTag,
+  manychatActionSetCustomField,
+  manychatActionGetSubscriber,
+  manychatActionFindUser,
+  manychatActionFindByCustomField,
+  manychatActionCreateSubscriber,
+  manychatActionSubscribeSequence,
+  manychatActionUnsubscribeSequence,
 
   // Gumroad (27 nodes) - 10 triggers, 17 actions
   // Triggers (10)

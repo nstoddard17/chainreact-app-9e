@@ -290,6 +290,10 @@ export async function POST(request: NextRequest) {
         authUrl = await generateGumroadAuthUrl(stateObject)
         break
 
+      case "monday":
+        authUrl = await generateMondayAuthUrl(stateObject, supabaseAdmin)
+        break
+
       default:
         return jsonResponse({ error: `Provider ${provider} not supported` }, { status: 400 })
     }
@@ -1217,18 +1221,18 @@ async function generateGumroadAuthUrl(stateObject: any): Promise<string> {
 
   // Generate PKCE challenge
   const codeVerifier = crypto.randomBytes(32).toString("hex")
-  
+
   // Convert state object to string
   const state = btoa(JSON.stringify(stateObject))
-  
+
   // Store state in database for verification in callback
   const supabase = createAdminClient()
   const { error } = await supabase
     .from("pkce_flow")
-    .insert({ 
+    .insert({
       state,
       code_verifier: codeVerifier,
-      provider: "gumroad" 
+      provider: "gumroad"
     })
 
   if (error) {
@@ -1244,4 +1248,48 @@ async function generateGumroadAuthUrl(stateObject: any): Promise<string> {
   })
 
   return `https://gumroad.com/oauth/authorize?${params.toString()}`
+}
+
+async function generateMondayAuthUrl(stateObject: any, supabase: any): Promise<string> {
+  const clientId = process.env.MONDAY_CLIENT_ID
+  if (!clientId) throw new Error("Monday.com client ID not configured")
+  const baseUrl = getBaseUrl()
+
+  // Convert state object to string
+  const state = btoa(JSON.stringify(stateObject))
+
+  // Store state in database for verification in callback
+  const { error } = await supabase
+    .from("pkce_flow")
+    .insert({
+      state,
+      code_verifier: crypto.randomBytes(32).toString("hex"), // Add code_verifier for consistency
+      provider: "monday"
+    })
+
+  if (error) {
+    throw new Error(`Failed to store Monday.com OAuth state: ${error.message}`)
+  }
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: `${baseUrl}/api/integrations/monday/callback`,
+    state,
+  })
+
+  // Add scopes - ONLY AFTER configuring them in Monday.com app settings
+  // Required scopes: me:read, boards:read, boards:write, users:read
+  // Configure at: https://auth.monday.com/developers
+  const scopes = ['me:read', 'boards:read', 'boards:write', 'users:read']
+  if (scopes.length > 0) {
+    params.append('scope', scopes.join(' '))
+  }
+
+  const authUrl = `https://auth.monday.com/oauth2/authorize?${params.toString()}`
+  logger.debug('🔍 Monday.com OAuth URL Generation:')
+  logger.debug('  - Client ID:', clientId ? `${clientId.substring(0, 10)}...` : 'NOT SET')
+  logger.debug('  - Redirect URI:', `${baseUrl}/api/integrations/monday/callback`)
+  logger.debug('  - Final OAuth URL (first 200 chars):', `${authUrl.substring(0, 200)}...`)
+
+  return authUrl
 }
